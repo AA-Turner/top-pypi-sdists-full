@@ -52,6 +52,12 @@ def matches_pattern(pattern: str) -> Callable[[str], bool]:
 def _is_valid_uuid(value: object) -> bool:
     if not isinstance(value, str):
         return True
+    return _is_uuid_string(value)
+
+
+# Generated bodies repeat the same identifiers in every case, each checked again.
+@lru_cache(maxsize=1024)
+def _is_uuid_string(value: str) -> bool:
     try:
         uuid.UUID(value)
         return True
@@ -79,6 +85,10 @@ DRAFT4_SUPPLEMENTAL_FORMATS: dict[str, Callable[[Any], bool]] = {
     "duration": _is_valid_duration,
     "uuid": _is_valid_uuid,
 }
+
+
+def supplemental_formats(validator_cls: type) -> dict[str, Callable[[Any], bool]] | None:
+    return DRAFT4_SUPPLEMENTAL_FORMATS if validator_cls is jsonschema_rs.Draft4Validator else None
 
 
 # Format names that each `jsonschema_rs` validator class actually validates (after
@@ -245,23 +255,36 @@ def _split_bundle(schema: JsonSchema, validator_cls: type) -> tuple[JsonSchema, 
     Spliced in, every validator compiles the entire bundle whether or not it references it -
     a shared registry compiles it once for all of them.
     """
+    schema, uri, registry = _detach_bundle(schema, validator_cls)
+    if uri is None:
+        return schema, registry
+    return cast("JsonSchema", _absolute_bundle_refs(schema, uri)), registry
+
+
+def _detach_bundle(
+    schema: JsonSchema, validator_cls: type
+) -> tuple[JsonSchema, str | None, jsonschema_rs.Registry | None]:
+    """The schema without its bundle, with the URI its references into the bundle resolve against."""
     if not isinstance(schema, dict):
-        return schema, None
+        return schema, None, None
     bundled = schema.get(BUNDLE_STORAGE_KEY)
     if not isinstance(bundled, dict) or validator_cls not in CANONICALIZE_DRAFT_BY_VALIDATOR:
-        return schema, None
+        return schema, None, None
     uri, registry = _bundle_registry(bundled, validator_cls)
     without_bundle = {key: value for key, value in schema.items() if key != BUNDLE_STORAGE_KEY}
-    return cast("JsonSchema", _absolute_bundle_refs(without_bundle, uri)), registry
+    return without_bundle, uri, registry
 
 
 def _build_validator(
     schema: JsonSchema, validator_cls: type, registry: jsonschema_rs.Registry | None = None
 ) -> jsonschema_rs.Validator:
     # References arrive bundled, so a build never needs the network; a `$schema` URL would otherwise be fetched.
-    kwargs: dict[str, Any] = {"validate_formats": True, "pattern_options": FANCY_REGEX_OPTIONS, "offline": True}
-    if validator_cls is jsonschema_rs.Draft4Validator:
-        kwargs["formats"] = DRAFT4_SUPPLEMENTAL_FORMATS
+    kwargs: dict[str, Any] = {
+        "validate_formats": True,
+        "pattern_options": FANCY_REGEX_OPTIONS,
+        "offline": True,
+        "formats": supplemental_formats(validator_cls),
+    }
     if registry is not None:
         kwargs["registry"] = registry
     return validator_cls(schema, **kwargs)
@@ -269,9 +292,14 @@ def _build_validator(
 
 def make_validator(schema: JsonSchema, validator_cls: type) -> jsonschema_rs.Validator:
     """Build a validator with project-wide kwargs: format/pattern checks and Draft 4 supplements."""
-    schema, registry = _split_bundle(schema, validator_cls)
+    schema, uri, registry = _detach_bundle(schema, validator_cls)
+    # The URI names one bundle, so the schema can be keyed before its references are rewritten to point there.
     try:
-        cache_key: tuple[str, type] | None = (jsonschema_rs.canonical.json.to_string(schema), validator_cls)
+        cache_key: tuple[str, str | None, type] | None = (
+            jsonschema_rs.canonical.json.to_string(schema),
+            uri,
+            validator_cls,
+        )
     except (TypeError, ValueError):
         cache_key = None
     if cache_key is not None:
@@ -281,6 +309,8 @@ def make_validator(schema: JsonSchema, validator_cls: type) -> jsonschema_rs.Val
         failure = _validator_failure_cache.get(cache_key)
         if failure is not MISSING:
             raise failure.with_traceback(None)
+    if uri is not None:
+        schema = cast("JsonSchema", _absolute_bundle_refs(schema, uri))
     try:
         validator = _build_validator(schema, validator_cls, registry)
     except jsonschema_rs.ValidationError as exc:
@@ -378,6 +408,7 @@ __all__ = [
     "BundleError",
     "CANONICALIZE_DRAFT_BY_VALIDATOR",
     "DRAFT4_SUPPLEMENTAL_FORMATS",
+    "supplemental_formats",
     "DRAFT_03_DIALECT",
     "VALIDATED_FORMATS_BY_DRAFT",
     "FANCY_REGEX_OPTIONS",

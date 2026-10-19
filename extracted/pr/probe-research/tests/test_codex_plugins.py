@@ -87,6 +87,11 @@ def test_tracking_skills_are_one_shared_tree() -> None:
         "plan-research-review",
         "write-summary",
         "overview-visuals",
+        "overview-page",
+        "overview-contract",
+        "overview-charts",
+        "artifact-diagramming",
+        "artifact-design",
     }
     assert not (ROOT / "plugins/prbe-codex-tap-plugin").exists()
 

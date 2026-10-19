@@ -145,9 +145,6 @@ PYDANTIC_V2_DATACLASS_DEFINITION_RESOLUTION_EXCLUDED_CASES: Final[dict[str, str]
     "jsonschema/collapse_root_models_name_strategy_nested_wrappers.json": (
         "pydantic 2.7 dataclass schema construction cannot resolve generated collapsed-root definitions"
     ),
-    "jsonschema/collapse_root_models_name_strategy_parent.json": (
-        "pydantic 2.7 dataclass schema construction cannot resolve generated collapsed-root definitions"
-    ),
     "jsonschema/collapse_root_models_name_strategy_with_inheritance.json": (
         "pydantic 2.7 dataclass schema construction cannot resolve generated collapsed-root definitions"
     ),
@@ -206,6 +203,16 @@ MSGSPEC_VALIDATION_EXCLUDED_CASES: Final[dict[str, str]] = {
     ),
     "jsonschema/enum_names_beside_null.json": (
         "msgspec conversion only supports Enum classes with homogeneous str or int values"
+    ),
+    **dict.fromkeys(
+        (
+            "jsonschema/msgspec_enum_diagnostics/nullable.json",
+            "jsonschema/nullable_enum_literal_typed_dict.json",
+            "jsonschema/preset_enum_shapes.json",
+        ),
+        "default msgspec output keeps the 0.83.0 None member of enums that list null, which msgspec cannot decode "
+        "and generation warns about; test_msgspec_enum_diagnostics_preserve_supported_representations decodes the "
+        "--use-msgspec-nullable-enum-alias form",
     ),
     **dict.fromkeys(
         (
@@ -366,6 +373,14 @@ MSGSPEC_VALIDATION_EXCLUDED_CASES: Final[dict[str, str]] = {
     "jsonschema/anyof_const_with_constraints.json": (
         "msgspec generation warns that it leaves the constraints of union members of one type out of Meta; "
         "test_main_msgspec_union_member_constraints decodes such models"
+    ),
+    **dict.fromkeys(
+        (
+            "jsonschema/msgspec_nested_unions.json",
+            "jsonschema/type_alias_forward_ref.json",
+        ),
+        "msgspec generation warns that msgspec cannot decode their unions of untagged Struct types; "
+        "test_main_msgspec_nested_unions pins the warning",
     ),
     "jsonschema/invalid_model_name.json": (
         "msgspec conversion does not accept nullable alias shapes generated for this schema"

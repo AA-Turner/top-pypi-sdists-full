@@ -87,13 +87,26 @@ class CloudSDK:
         doc_py_example=_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
         arg_docstrings=_TERMINATE_SYSTEM_CLUSTER_ARG_DOCSTRINGS,
     )
-    def terminate_system_cluster(self, cloud_id: str, wait: bool = False) -> str:
+    def terminate_system_cluster(
+        self,
+        cloud_id: str,
+        wait: bool = False,
+        *,
+        cloud_resource: Optional[str] = None,
+        cloud_resource_id: Optional[str] = None,
+    ) -> List[str]:
         """
-        Terminate the system cluster for a given cloud.
+        Terminate the system clusters of a given cloud: of every cloud resource of the
+        cloud, or only of the given cloud resource.
 
-        :return: ID of the terminated system cluster.
+        :return: IDs of the terminated system clusters.
         """
-        return self._private_sdk.terminate_system_cluster(cloud_id, wait)
+        return self._private_sdk.terminate_system_cluster(
+            cloud_id,
+            wait,
+            cloud_resource=cloud_resource,
+            cloud_resource_id=cloud_resource_id,
+        )
 
 
 # Note: indentation here matches that of connect.py::ClientBuilder.

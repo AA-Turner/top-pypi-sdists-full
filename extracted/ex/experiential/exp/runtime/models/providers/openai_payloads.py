@@ -310,6 +310,9 @@ def openai_compatible_stream_payload(
     forwards_service_tier: bool = False,
     forwards_prompt_cache_key: bool = False,
     forwards_cache_control: bool = False,
+    reasoning_off_via_chat_template: bool = False,
+    reasoning_via_thinking_toggle: bool = False,
+    reasoning_off_via_thinking_disabled: bool = False,
 ) -> JsonObject:
     """Translate one canonical request to streaming Chat Completions JSON.
 
@@ -323,6 +326,18 @@ def openai_compatible_stream_payload(
         supports_reasoning: Whether this exact model accepts a reasoning control.
         reasoning_wire_format: Provider field used for normalized reasoning effort.
         reasoning_effort: Optional catalog-pinned reasoning effort.
+        reasoning_off_via_chat_template: Whether this origin turns thinking off only
+            through ``chat_template_kwargs`` (Vertex MaaS GLM rejects
+            ``reasoning_effort: "none"``), so effort ``none`` is sent as
+            ``{"enable_thinking": false}`` and no ``reasoning_effort`` field.
+        reasoning_via_thinking_toggle: Whether this origin controls reasoning with
+            Z.ai's ``thinking: {"type": "enabled" | "disabled"}`` and no effort
+            levels, so effort ``none`` is sent as ``disabled``, any other effort as
+            ``enabled``, and no ``reasoning_effort`` field.
+        reasoning_off_via_thinking_disabled: Whether this origin turns thinking
+            off with ``thinking: {"type": "disabled"}`` while its other efforts
+            stay ``reasoning_effort`` (Huawei MaaS DeepSeek-V4), so effort
+            ``none`` is sent as that switch and no ``reasoning_effort`` field.
         reasoning_output_exposed: Whether this rung replays the caller's plaintext
             ``reasoning_content`` history verbatim (exposure-gated Tencent/DeepSeek rung).
         deepseek_reasoning_history: Whether this rung is DeepSeek's own origin,
@@ -430,7 +445,19 @@ def openai_compatible_stream_payload(
         # Cache-affinity key, matching the native Responses lane.
         payload["prompt_cache_key"] = request.provider_prompt_cache_key
     if supports_reasoning and effective_reasoning_effort is not None:
-        if reasoning_wire_format == "reasoning":
+        if reasoning_via_thinking_toggle:
+            payload["thinking"] = {
+                "type": "disabled" if effective_reasoning_effort == "none" else "enabled"
+            }
+        elif effective_reasoning_effort == "none" and reasoning_off_via_thinking_disabled:
+            payload["thinking"] = {"type": "disabled"}
+        elif effective_reasoning_effort == "none" and reasoning_off_via_chat_template:
+            template_kwargs = payload.get("chat_template_kwargs")
+            payload["chat_template_kwargs"] = {
+                **(template_kwargs if isinstance(template_kwargs, dict) else {}),
+                "enable_thinking": False,
+            }
+        elif reasoning_wire_format == "reasoning":
             payload["reasoning"] = {"effort": effective_reasoning_effort}
         elif reasoning_wire_format == "reasoning_effort":
             payload["reasoning_effort"] = openai_reasoning_effort(

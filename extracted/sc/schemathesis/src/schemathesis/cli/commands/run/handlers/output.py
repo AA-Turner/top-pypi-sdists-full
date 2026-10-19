@@ -36,10 +36,12 @@ from schemathesis.cli.output import (
 from schemathesis.config import ProjectConfig
 from schemathesis.core import SpecificationFeature
 from schemathesis.core.output import format_response_payload
+from schemathesis.core.output.sanitization import sanitized
 from schemathesis.core.result import Ok
 from schemathesis.core.timing import Instant
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine import Status, StopReason, events
+from schemathesis.engine.errors import never_reached_server
 from schemathesis.engine.run import ELASTIC_PHASES, PhaseName
 from schemathesis.engine.run.auth_bootstrap import AuthBootstrapPayload
 from schemathesis.engine.run.probes import ProbeOutcome, ProbeRun
@@ -87,15 +89,7 @@ def _auth_bootstrap_line(payload: AuthBootstrapPayload, spec: AuthFlowSteps) -> 
 
 def _server_unreachable(probes: list[ProbeRun]) -> bool:
     """Whether no probe could connect, because the connection was refused or timed out, so none reached a server."""
-    import requests
-
-    from schemathesis.engine.errors import is_connection_refused
-
-    return bool(probes) and all(
-        isinstance(probe.error, requests.ConnectTimeout)
-        or (isinstance(probe.error, requests.ConnectionError) and is_connection_refused(probe.error))
-        for probe in probes
-    )
+    return bool(probes) and all(never_reached_server(probe.error) for probe in probes)
 
 
 def _format_cache_row(report: CacheReport | None) -> Text | None:
@@ -615,9 +609,6 @@ def extraction_failure_steps(failure: ExtractionFailure) -> list[tuple[int, str]
         (response.status_code, case.as_curl_command(headers=dict(response.request.headers), verify=response.verify))
         for case, response in reversed(failure.history)
     ]
-
-
-TRUNCATION_PLACEHOLDER = "[...]"
 
 
 @dataclass(slots=True)
@@ -1167,7 +1158,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         elif isinstance(event, events.NonFatalError):
             self._on_non_fatal_error(event)
         elif isinstance(event, LoadingStarted):
-            self._on_loading_started(event)
+            self._on_loading_started(ctx, event)
         elif isinstance(event, LoadingFinished):
             self._on_loading_finished(ctx, event)
 
@@ -1220,7 +1211,8 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         table.add_column("Field", style=Style(color="bright_white", bold=True))
         table.add_column("Value", style="cyan", overflow="fold")
 
-        table.add_row("Base URL:", event.base_url)
+        sanitization = ctx.config.output.sanitization
+        table.add_row("Base URL:", sanitized(event.base_url, sanitization if sanitization.enabled else None))
         table.add_row("Specification:", event.specification.name)
         statistic = event.statistic.operations
         table.add_row("Operations:", f"{statistic.selected} selected / {statistic.total} total")

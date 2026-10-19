@@ -100,6 +100,9 @@ from ._sommerfeld import (
     _evict_fifo,
     _somm_r1_bucket_wl,
     SommerfeldGrid,
+    check_read,
+    lazy_check,
+    lazy_grids,
 )
 
 # Head-contour Gauss rule and adaptive depth (the phase-0 prototype's fine
@@ -164,6 +167,48 @@ _DETOUR_COARSE = 1.2
 # (`_tail_below` stops on convergence), so every node at or above 0.05 deg
 # keeps its value.
 _MAX_TAIL_PANELS = 24000
+
+# The below/below tail's extrapolation (momwire#1441): Mosig–Michalski
+# weighted averages, run as Sidi's W-algorithm on the tail's partial sums at
+# the J₀ zero lattice ξ_n = (n − ¼)π/ρ, with the analytic remainder estimate
+#
+#     S − S_n ≈ ω_n Σ_i c_i ξ_n^{−i},   ω_n = (−1)^n ξ_n^{p} e^{−ξ_n h},
+#
+# p the large-λ power of each integrand's amplitude (`_WA_POW`: D₂ ~ λ^{−3},
+# D₁ ~ λ^{−1}, |J₀|, |J₁| ~ (λρ)^{−½}, J₁/x one power lower). The W-algorithm
+# eliminates the c_i exactly, so a grazing node — whose tail used to walk to
+# λ ≈ ln(1/rtol)/h, ~6.4/tan θ panels, 7,000 at 0.05° — stops in ~20 panels.
+#
+# What it changes and what it does not. The quiet test runs first on every
+# panel, unchanged, so a node whose tail goes quiet by itself (every steep
+# node: the 1.5/h decay cap makes its panels shorter than the lattice) stops
+# exactly as before, bit for bit. WA stops a walk only when two successive
+# estimates in a row agree to rtol × the same scale the quiet test uses, and
+# never before `_WA_MIN_SUMS` lattice sums. The Wynn fallback at the panel
+# budget is untouched. Measured against an mpmath reference
+# (scratch/wa-tail/): see the PR.
+#
+# `_TAIL_WA` is the A/B switch (tests flip it; nothing else should). It and
+# the constants below are part of every table key (`_tail_rule`), so a table
+# filled under one rule is never served under the other.
+_TAIL_WA = True
+_WA_ORDER = 10
+_WA_MIN_SUMS = 4
+_WA_AGREE = 2
+_WA_POW = (-0.5, -0.5, -0.5, -1.5, -2.5, -0.5)
+
+
+def _tail_rule():
+    """The tail rule as a cache-key component, read at call time."""
+    if not _TAIL_WA:
+        return ("tail", "wynn")
+    return ("tail", "wa-1441", _WA_ORDER, _WA_MIN_SUMS, _WA_AGREE, _WA_POW)
+
+
+def _wa_pow():
+    """The below/below integrands' remainder powers, or None when WA is off."""
+    return _WA_POW if _TAIL_WA else None
+
 
 # Cap on the R₁ a below/below grid will tabulate, in IN-MEDIUM wavelengths
 # λ_m = 2π/|k_m|. See `SommerfeldGridBelow` for why this is a product-regime
@@ -334,6 +379,57 @@ _SOMM_BELOW_DR_NEAR_LAMBDA_M = 0.01
 _SOMM_BELOW_R_BREAK_LAMBDA_M = 0.2
 _SOMM_BELOW_DTH_GRAZE_DEG = 1.0
 _SOMM_BELOW_DTH_STEEP_DEG = 2.5
+
+# The lattice SPACING, as (dr, dth, band) multipliers on the constants above
+# (the buried-table study after momwire#1471). `dr` scales both radial steps,
+# `dth` the grazing and steep angle steps (and divides the far annulus's cell
+# counts), `band` the 0.1-1 deg band's step; the sub-0.1 deg floor bands keep
+# theirs. Every constant above is a PER-POINT calibration against a 2e-4 bar,
+# and that bar is what a point reader needs.
+#
+# The matrix fill is not a point reader: every Z entry integrates the table
+# over a segment pair, and Z measures far less sensitive than a point. Over
+# a Dan-like 16-radial deck, the `dan_end1` fixtures and Ward's
+# above-and-below deck, (2, 8, 1) moved the feed Z by at most 2.5e-5
+# relative while per-point error reached ~1e-2 -- against a mesh-doubling
+# step of 1e-3 or more and a razor-2p/bspline spread of ~1e-2 on the same
+# decks -- and cut the table from 5,954 to 754 nodes (Dan-like) and 7,462 to
+# 644 (Ward). The band's step is the one axis Z reads: doubling it costs
+# 1.4e-4 on 25 mm-deep radials, so it stays.
+#
+# So there are two spacings, chosen by the CALLER: the matrix fills pass
+# `_SOMM_BELOW_SPACING_FILL`; anything that reads the table at a point keeps
+# `_SOMM_BELOW_SPACING_POINT` (today's lattice, and the default of both
+# `SommerfeldGridBelow` and `get_grid_below`). The spacing is part of every
+# cache key that holds one of these grids -- in process, on disk and for the
+# sweep anchors -- so the two never serve each other.
+_SOMM_BELOW_SPACING_POINT = (1.0, 1.0, 1.0)
+_SOMM_BELOW_SPACING_FILL = (2.0, 8.0, 1.0)
+
+
+def _scaled_dth(base_deg, scale, width_deg):
+    """The angle step for a band `width_deg` wide: the calibrated `base_deg`
+    itself at scale 1, else the step of the whole number of cells nearest
+    `base_deg * scale`, so the band's nodes still end on its edge (the
+    divide-exactly rule the far annulus spells as a cell count)."""
+    if scale == 1.0:
+        return base_deg
+    return width_deg / max(1, round(width_deg / (base_deg * scale)))
+
+
+def _far_cells(cells, scale):
+    """The far annulus's cell count at angle-step `scale` (at least 2)."""
+    if scale == 1.0:
+        return cells
+    return max(2, round(cells / scale))
+
+
+def _spacing(spacing):
+    """A spacing as the float triple every key and grid carries; None is the
+    point spacing."""
+    v = _SOMM_BELOW_SPACING_POINT if spacing is None else spacing
+    return tuple(float(x) for x in v)
+
 
 # The grazing floor, in degrees, below which the grid REFUSES.
 #
@@ -529,8 +625,13 @@ _GXC, _GWC = (np.array(a) for a in leggauss(_GAUSS_N_COARSE))
 # ITS OWN capability flag, deliberately NOT `contour_engine_568`: a .so built
 # at U1 exports the engine's test entry points but none of these symbols, and
 # a shared flag would have it claim a contract it cannot serve.
-_HAVE_BELOW_FILLS_ACCEL = _acc is not None and bool(
-    getattr(_acc, "below_fills_568", False)
+_HAVE_BELOW_FILLS_ACCEL = (
+    _acc is not None
+    and bool(getattr(_acc, "below_fills_568", False))
+    # momwire#1441: the batch takes the weighted-averages tail rule. A binary
+    # built before it would fill a table with the OLD tail under the new
+    # key, so it is not used at all (the numpy engine serves instead).
+    and bool(getattr(_acc, "below_tail_wa_1441", False))
 )
 
 # momwire#1290: the AVX2 build runs the replay kernel's blocked stages four
@@ -540,6 +641,11 @@ _HAVE_BELOW_FILLS_ACCEL = _acc is not None and bool(
 # binding takes `lanes`; its value, whether this build has the lanes.
 _HAVE_BELOW_LANES = _acc is not None and hasattr(_acc, "below_lanes_1290")
 _BELOW_LANES = True
+
+# momwire#1441 step 3: the six integrals' contour integrand runs four nodes at
+# a time, the same floats as its scalar walk (tests/test_somm_lanes_1441.py).
+# False passes `lanes=False`, the reference; tests flip it, nothing else should.
+_SIX_LANES = True
 
 # The tests' handle on the dispatch — the parity gates have to drive BOTH
 # machines inside one process, and a cross-process env var cannot do that.
@@ -553,6 +659,19 @@ _FORCE_NUMPY = bool(os.environ.get("MOMWIRE_BELOW_FORCE_NUMPY"))
 def _use_below_accel():
     """True when the below/below fills should ride the C++ contour engine."""
     return _HAVE_BELOW_FILLS_ACCEL and not _FORCE_NUMPY
+
+
+def _wa_accel_kw():
+    """The tail rule for `below_six_integrals_batch`. An empty array is the
+    plain walk; a build without the keyword predates #1441 and is refused
+    rather than silently serving the old rule (`_HAVE_BELOW_TAIL_WA`)."""
+    pw = _wa_pow()
+    return {
+        "wa_pow": np.zeros(0) if pw is None else np.asarray(pw, dtype=float),
+        "wa_order": _WA_ORDER,
+        "wa_min_sums": _WA_MIN_SUMS,
+        "wa_agree": _WA_AGREE,
+    }
 
 
 def _six_below_accel(k_p, k_m, rho, h, rtol, selfconv):
@@ -584,6 +703,12 @@ def _six_below_accel(k_p, k_m, rho, h, rtol, selfconv):
         _GWC,
         _MAX_TAIL_PANELS,
         cancel_flag=_cancel.ptr(),
+        **_wa_accel_kw(),
+        **(
+            {}
+            if _SIX_LANES or not hasattr(_acc, "below_six_lanes_1441")
+            else {"lanes": False}
+        ),
     )
 
 
@@ -869,7 +994,43 @@ def _head(f, a, rho, marks, rtol, depth, detour, gx, gw):
     return total, len(e) - 1
 
 
-def _tail_below(f, a, rho, h, ref, rtol, gx, gw, max_panels=_MAX_TAIL_PANELS):
+def _wa_estimate(xs, sums, odd, wa_pow, h):
+    """Sidi's W-algorithm over the lattice sums `sums` (k, NC) at ξ = `xs`,
+    remainder estimate ω_n = (−1)^n ξ_n^p e^{−ξ_n h} per component; None when
+    the window spans too many e-folds for ω to be represented.
+
+    ω is normalised to the window's first point — a constant factor in ω
+    cancels from M/N — so e^{−ξh} cannot underflow on a far lattice point.
+    The divided differences run in t = 1/ξ, the variable the c_i are a
+    series in.
+    """
+    xi = np.asarray(xs, dtype=float)
+    span = (xi[-1] - xi[0]) * h
+    if span > 600.0:
+        return None
+    sign = np.where(np.asarray(odd), -1.0, 1.0)
+    om = (
+        sign[:, None]
+        * (xi / xi[0])[:, None] ** np.asarray(wa_pow, dtype=float)[None, :]
+        * np.exp(-(xi - xi[0]) * h)[:, None]
+    )
+    t = 1.0 / xi
+    m = np.asarray(sums) / om
+    nn = 1.0 / om
+    k = len(xi)
+    for j in range(1, k):
+        dt = (t[j:] - t[: k - j])[:, None]
+        m = (m[1:] - m[:-1]) / dt
+        nn = (nn[1:] - nn[:-1]) / dt
+    est = m[0] / nn[0]
+    if not np.all(np.isfinite(est)):
+        return None
+    return est
+
+
+def _tail_below(
+    f, a, rho, h, ref, rtol, gx, gw, max_panels=_MAX_TAIL_PANELS, wa_pow=None
+):
     """∫ from a to ∞ along the real axis, panelled at the J₀(λρ) zeros.
 
     Three guards, each one a measured phase-0 trap:
@@ -887,6 +1048,10 @@ def _tail_below(f, a, rho, h, ref, rtol, gx, gw, max_panels=_MAX_TAIL_PANELS):
       the relative test is floored by `ref` (the head's scale), so a
       remainder sitting decades below the divided-out factor still
       terminates on an absolute bar rather than chasing its own ulps.
+
+    `wa_pow` (momwire#1441) turns on the weighted-averages stop: one
+    remainder power per component (`_WA_POW`), None for the plain walk —
+    which is what the transmitted family, sharing this function, gets.
     """
     dl_decay = (1.5 / h) if h > 0 else np.inf
     if not np.isfinite(dl_decay):
@@ -907,8 +1072,13 @@ def _tail_below(f, a, rho, h, ref, rtol, gx, gw, max_panels=_MAX_TAIL_PANELS):
     quiet = 0
     converged = False
     ref_scale = float(np.max(np.abs(ref))) if ref is not None else 0.0
+    use_wa = wa_pow is not None and np.isfinite(lat)
+    wa_x, wa_s, wa_odd = [], [], []
+    wa_prev = None
+    agree = 0
     while parts < max_panels:
-        znext = min(next_zero(z), z + dl_decay)
+        zl = next_zero(z)
+        znext = min(zl, z + dl_decay)
         contrib = _adaptive_segment(f, z, znext, rtol, 6, gx, gw, ref=ref_scale)
         acc = contrib if acc is None else acc + contrib
         sums.append(acc.copy())
@@ -923,6 +1093,28 @@ def _tail_below(f, a, rho, h, ref, rtol, gx, gw, max_panels=_MAX_TAIL_PANELS):
                 break
         else:
             quiet = 0
+        if use_wa and znext == zl:
+            # A lattice-aligned sum: the walk landed on J₀'s n-th zero.
+            wa_x.append(z)
+            wa_s.append(acc.copy())
+            wa_odd.append(round((z - off) / lat) % 2 == 1)
+            if len(wa_x) > _WA_ORDER + 1:
+                del wa_x[0], wa_s[0], wa_odd[0]
+            est = None
+            if len(wa_x) >= 3:
+                est = _wa_estimate(wa_x, wa_s, wa_odd, wa_pow, h)
+            if est is not None and wa_prev is not None and len(wa_x) >= _WA_MIN_SUMS:
+                if float(np.max(np.abs(est - wa_prev))) < rtol * smax:
+                    agree += 1
+                    if agree >= _WA_AGREE:
+                        acc = est
+                        converged = True
+                        break
+                else:
+                    agree = 0
+            elif est is None:
+                agree = 0
+            wa_prev = est
     accel = False
     if not converged and len(sums) >= 8:
         acc = _wynn_epsilon(np.array(sums[-min(len(sums), 41) :]))
@@ -931,7 +1123,18 @@ def _tail_below(f, a, rho, h, ref, rtol, gx, gw, max_panels=_MAX_TAIL_PANELS):
 
 
 def _run_contour(
-    f, k_p, k_m, rho, h, rtol, depth, detour, gx, gw, max_panels=_MAX_TAIL_PANELS
+    f,
+    k_p,
+    k_m,
+    rho,
+    h,
+    rtol,
+    depth,
+    detour,
+    gx,
+    gw,
+    max_panels=_MAX_TAIL_PANELS,
+    wa_pow=None,
 ):
     """Head + tail for ONE contour. `h` is the TAIL'S DECAY LENGTH, not a
     coordinate: the below/below integrand decays as e^{−γ_m h} with
@@ -940,12 +1143,13 @@ def _run_contour(
     as surely. `max_panels` is the transmitted family's other handle: its
     grazing rows need a bigger budget than any below/below geometry does,
     and the default keeps this family's numbers bit-for-bit unchanged.
+    `wa_pow` is `_tail_below`'s; the below/below callers pass `_wa_pow()`.
     """
     a = 1.1 * max(abs(k_p), abs(k_m))
     marks = (k_p, abs(k_m.real))
     head, hp = _head(f, a, rho, marks, rtol, depth, detour, gx, gw)
     tail, tp, conv, accel = _tail_below(
-        f, a, rho, h, head, rtol, gx, gw, max_panels=max_panels
+        f, a, rho, h, head, rtol, gx, gw, max_panels=max_panels, wa_pow=wa_pow
     )
     return head + tail, hp, tp, conv, accel
 
@@ -975,6 +1179,12 @@ def _refuse_if_capped(conv, panels, rho, h, where=None):
     momwire#838's floor). This fires for a query
     BELOW the floor, or for a soil whose panel demand is worse than any
     measured — which is the case that used to return a confident number.
+
+    Under the weighted-averages tail (momwire#1441, `_TAIL_WA`) a below/below
+    node converges in tens of panels at any angle, down to h = 0, so this is
+    a safety net under the WA stop rather than a limit anything reaches; the
+    floor and the cap stay, unchanged, because they are what the plain walk
+    (and the grid bands built around it) were measured against.
     """
     if conv:
         return
@@ -1043,7 +1253,17 @@ def _six_integrals_below(
         return _integrand_six_below(lam, rho, h, k_p, k_m)
 
     fine, hp, tp, conv, accel = _run_contour(
-        f, k_p, k_m, rho, h, min(rtol, 1e-11), _ADAPT_DEPTH, _DETOUR, _GX, _GW
+        f,
+        k_p,
+        k_m,
+        rho,
+        h,
+        min(rtol, 1e-11),
+        _ADAPT_DEPTH,
+        _DETOUR,
+        _GX,
+        _GW,
+        wa_pow=_wa_pow(),
     )
     if health is not None:
         health.note(where, tp, hp, conv, accel)
@@ -1060,6 +1280,7 @@ def _six_integrals_below(
             _DETOUR_COARSE,
             _GXC,
             _GWC,
+            wa_pow=_wa_pow(),
         )
         scale = np.maximum(np.abs(fine), 1e-300)
         rel = float(np.max(np.abs(fine - coarse) / scale))
@@ -1424,8 +1645,14 @@ class SommerfeldGridBelow(SommerfeldGrid):
         mu=_MU0,
         health=None,
         seed=None,
+        spacing=None,
+        lazy=False,
     ):
+        if lazy and seed is not None:
+            raise ValueError("a lazy below grid takes no seed")
         self.eps_t = complex(eps_t)
+        self.spacing = _spacing(spacing)
+        s_dr, s_th, s_band = self.spacing
         self.k2 = float(k2)
         from ._sommerfeld import _C_LIGHT
 
@@ -1448,20 +1675,20 @@ class SommerfeldGridBelow(SommerfeldGrid):
         self.r_near = min(_SOMM_BELOW_R1_NEAR_CAP_LAMBDA_M * lam_m, self.r1_max)
         self.th_min = math.radians(_SOMM_BELOW_TH_MIN_DEG)
         split = _SOMM_TH_SPLIT_DEG
-        dr_in = _SOMM_BELOW_DR_NEAR_LAMBDA_M * lam_m
-        dr_out = min(_SOMM_BELOW_DR_LAMBDA_M * lam_m, beat / 6.0)
-        self.beat_binds = beat / 6.0 < _SOMM_BELOW_DR_LAMBDA_M * lam_m
+        dr_in = _SOMM_BELOW_DR_NEAR_LAMBDA_M * s_dr * lam_m
+        dr_out = min(_SOMM_BELOW_DR_LAMBDA_M * s_dr * lam_m, beat / 6.0)
+        self.beat_binds = beat / 6.0 < _SOMM_BELOW_DR_LAMBDA_M * s_dr * lam_m
         th0 = _SOMM_BELOW_TH_MIN_DEG
         band_hi = _SOMM_BELOW_TH_BAND_HI_DEG
-        dthb = _SOMM_BELOW_DTH_BAND_DEG
         band_lo_hi = _SOMM_BELOW_TH_BAND_LO_HI_DEG
+        dthb = _scaled_dth(_SOMM_BELOW_DTH_BAND_DEG, s_band, band_hi - band_lo_hi)
         band_floor_hi = _SOMM_BELOW_TH_BAND_FLOOR_HI_DEG
         dthb_lo = _SOMM_BELOW_DTH_BAND_LO_DEG
         # The floor band's lattice runs one node past its routing edge (see
         # `_SOMM_BELOW_TH_BAND_FLOOR_HI_DEG`), so it is spelled by node count.
         floor_top = th0 + dthb_lo * (_SOMM_BELOW_BAND_FLOOR_NODES - 1)
-        dthg = _SOMM_BELOW_DTH_GRAZE_DEG
-        dths = _SOMM_BELOW_DTH_STEEP_DEG
+        dthg = _scaled_dth(_SOMM_BELOW_DTH_GRAZE_DEG, s_th, split - band_hi)
+        dths = _scaled_dth(_SOMM_BELOW_DTH_STEEP_DEG, s_th, 90.0 - split)
         self.th_band_hi = math.radians(band_hi)
         self.th_band_lo_hi = math.radians(band_lo_hi)
         self.th_band_floor_hi = math.radians(band_floor_hi)
@@ -1478,8 +1705,8 @@ class SommerfeldGridBelow(SommerfeldGrid):
         # a shared node — the same seam the grid already has at `split`.
         #
         # Far-annulus Δθ, from cell counts so it divides its band exactly.
-        dthg_far = (split - band_hi) / _SOMM_BELOW_FAR_GRAZE_CELLS
-        dths_far = (90.0 - split) / _SOMM_BELOW_FAR_STEEP_CELLS
+        dthg_far = (split - band_hi) / _far_cells(_SOMM_BELOW_FAR_GRAZE_CELLS, s_th)
+        dths_far = (90.0 - split) / _far_cells(_SOMM_BELOW_FAR_STEEP_CELLS, s_th)
         # Region order is (R₁ zone) × (θ band), θ fastest — `region_index`
         # owns the stride: 0-4 inner, 5-9 near, 10-14 far. `_interp` here and
         # `proj_one_below` in `_accel_mw568.cpp` are two copies of this one
@@ -1529,6 +1756,12 @@ class SommerfeldGridBelow(SommerfeldGrid):
             # side and gets the CENTRED leg of the cubic. The low end only
             # pads where there is room — R₁ < 0 is not a geometry.
             pad_lo = pad if r0 > 0.0 else 0
+            # A coarse radial step can put a low pad row at or under R1 = 0,
+            # which is not a geometry (the study's dr = 3x refused at
+            # construction). Drop pad rows until the first is strictly
+            # positive; a query in [r0, r1] still has a row below it.
+            while pad_lo > 0 and r0 - pad_lo * dr <= 1e-9 * dr:
+                pad_lo -= 1
             r_start = r0 - pad_lo * dr
             n_r = max(int(np.ceil((r1 - r0) / dr)) + 1 + pad_lo + pad, 4)
             n_th = int(round((th1 - th0) / dth)) + 1
@@ -1539,6 +1772,30 @@ class SommerfeldGridBelow(SommerfeldGrid):
             # has are taken and only the rows past them are evaluated -- in
             # every region it has filled, deferred ones included.
             kept = _seed_rows(seed, ridx, r_start, dr, n_r, th0, dth, n_th)
+            if lazy:
+                # momwire#1512: in the table where the eager fill would fill it
+                # now (`active`), no node filled (`have`); `filled` keeps its
+                # meaning -- every node in -- for every reader that is not the
+                # census path, which completes a region before reading it.
+                self._regions.append(
+                    {
+                        "r0": r_start,
+                        "dr": dr,
+                        "n_r": n_r,
+                        "th0": np.radians(th0),
+                        "dth": np.radians(dth),
+                        "n_th": n_th,
+                        "vals": np.full(
+                            (len(_SURF_KEYS), n_r, n_th), np.nan, dtype=np.complex128
+                        ),
+                        "filled": False,
+                        "active": self._eager and ridx not in _DEFERRED_REGIONS,
+                        "have": np.zeros((n_r, n_th), dtype=bool),
+                        "r_nodes": r_nodes,
+                        "th_nodes": th_nodes,
+                    }
+                )
+                continue
             if kept is not None:
                 _cancel.poll()
                 surf = {
@@ -1687,6 +1944,24 @@ class SommerfeldGridBelow(SommerfeldGrid):
         reg = self._regions[idx]
         if reg["filled"]:
             return
+        if "have" in reg:
+            # A lazy grid (momwire#1512): the region's nodes not yet in --
+            # and, for the floor band, its low band's, which the eager fill
+            # fills with it -- the same values node by node.
+            self._activate(idx)
+            regs = [idx]
+            if idx in self._band_floor_idx:
+                regs.insert(0, region_index(idx // _N_BANDS, _BAND_LO))
+            need = [None] * len(self._regions)
+            for r in regs:
+                need[r] = np.ones(
+                    (self._regions[r]["n_r"], self._regions[r]["n_th"]), bool
+                )
+            self.fill_nodes(need)
+            for r in regs:
+                self._regions[r]["filled"] = True
+            _somm_disk_cache.note_mutated(self)
+            return
         _cancel.poll()
         th_nodes = reg["th_nodes"]
         shared, own, lo, joint = (), None, None, False
@@ -1782,7 +2057,7 @@ class SommerfeldGridBelow(SommerfeldGrid):
     def _band_floor_filled(self):
         return all(self._regions[i]["filled"] for i in self._band_floor_idx)
 
-    def _ensure_for(self, mx_r1, mn_th, mx_th):
+    def _ensure_for(self, mx_r1, mn_th, mx_th, lazy=False):
         """Fill every region a batch bounded by these extremes could touch.
 
         The C++ kernel takes all fifteen tables up front and reports only the
@@ -1814,7 +2089,146 @@ class SommerfeldGridBelow(SommerfeldGrid):
             bands.append(_BAND_STEEP)
         for z in zones:
             for b in bands:
-                self._fill_region(region_index(z, b))
+                if lazy and "have" in self._regions[region_index(z, b)]:
+                    # In the table only: the census names the nodes.
+                    self._activate(region_index(z, b))
+                else:
+                    self._fill_region(region_index(z, b))
+
+    # --- the lazy grid's regions and nodes (momwire#1512) ----------------
+
+    def _in_table(self):
+        """Which regions are in the table: filled whole, or (a lazy grid)
+        named by `_ensure_for` with their nodes still to come."""
+        return tuple(bool(r["filled"] or r.get("active")) for r in self._regions)
+
+    def _activate(self, idx):
+        """`_fill_region`'s table membership without its fill: the floor
+        band brings its low band in, as `_fill_region` fills it first."""
+        reg = self._regions[idx]
+        if reg["filled"] or reg.get("active"):
+            return
+        if idx in self._band_floor_idx:
+            self._activate(region_index(idx // _N_BANDS, _BAND_LO))
+        reg["active"] = True
+
+    def fill_nodes(self, need):
+        """The nodes of `need` (a bool (n_r, n_th) mask per region, None for
+        none) in the table's regions and not yet in, filled through one
+        `iv_surfaces_direct_below` call (a node's value does not depend on its
+        batch); the floor band's shared columns are the low band's nodes,
+        filled there and copied, as `_fill_region` does. Nodes of regions not
+        in the table stay NaN, as an eager table's whole region does. Returns
+        how many nodes were filled."""
+        at, rr, tt, copies = [], [], [], []
+        queued = {}
+
+        def queue(r, i, j):
+            reg = self._regions[r]
+            q = queued.setdefault(r, np.zeros(reg["have"].shape, bool))
+            if reg["have"][i, j] or q[i, j]:
+                return
+            q[i, j] = True
+            at.append((r, i, j))
+            rr.append(reg["r_nodes"][i])
+            tt.append(reg["th_nodes"][j])
+
+        shared = dict(_SOMM_BELOW_BAND_FLOOR_SHARED)
+        for r, (reg, nd) in enumerate(zip(self._regions, need, strict=True)):
+            if (
+                nd is None
+                or "have" not in reg
+                or not (reg["filled"] or reg.get("active"))
+            ):
+                continue
+            floor = r in self._band_floor_idx
+            lo_idx = region_index(r // _N_BANDS, _BAND_LO)
+            for i, j in zip(
+                *np.nonzero(np.asarray(nd, bool) & ~reg["have"]), strict=True
+            ):
+                j = int(j)
+                if floor and j in shared:
+                    queue(lo_idx, int(i), shared[j])
+                    copies.append((r, int(i), j, lo_idx, shared[j]))
+                else:
+                    queue(r, int(i), j)
+        if at:
+            _cancel.poll()
+            surf = iv_surfaces_direct_below(
+                self.eps_t,
+                self.k2,
+                np.asarray(rr),
+                np.asarray(tt),
+                rtol=self._rtol,
+                omega=self.omega,
+                mu=self.mu,
+                health=self._health,
+            )
+            for p, (r, i, j) in enumerate(at):
+                reg = self._regions[r]
+                for s_i, key in enumerate(_SURF_KEYS):
+                    reg["vals"][s_i, i, j] = surf[key][p]
+                reg["have"][i, j] = True
+        for r, i, j, lo_idx, jl in copies:
+            reg, lo = self._regions[r], self._regions[lo_idx]
+            reg["vals"][:, i, j] = lo["vals"][:, i, jl]
+            reg["have"][i, j] = True
+        return len(at) + len(copies)
+
+    def missing_in_table(self, need):
+        """Whether any node of `need` in a region in the table is not in."""
+        for reg, nd in zip(self._regions, need, strict=True):
+            if (
+                nd is None
+                or "have" not in reg
+                or not (reg["filled"] or reg.get("active"))
+            ):
+                continue
+            if np.any(np.asarray(nd, bool) & ~reg["have"]):
+                return True
+        return False
+
+    def take_nodes(self, other):
+        """The nodes `other` (this grid as another process stored it) holds
+        in regions this grid has in its table, copied in. Returns how many."""
+        if other is None or len(other._regions) != len(self._regions):
+            return 0
+        n = 0
+        for a, b in zip(self._regions, other._regions, strict=True):
+            if a["vals"].shape != b["vals"].shape or "have" not in a:
+                return n
+            if not (a["filled"] or a.get("active")):
+                continue
+            hb = b.get("have")
+            if hb is None:
+                hb = np.full(a["have"].shape, bool(b["filled"]))
+            m = hb & ~a["have"]
+            if m.any():
+                a["vals"][:, m] = b["vals"][:, m]
+                a["have"] |= m
+                n += int(m.sum())
+        return n
+
+    def merge_stored(self, other):
+        """What `note_mutated` writes for this lazy grid: a copy with the
+        stored grid's regions and nodes added (both runs' union)."""
+        if other is None or "have" not in self._regions[0]:
+            return self
+        out = object.__new__(type(self))
+        out.__dict__.update(self.__dict__)
+        out._regions = [
+            dict(r, vals=r["vals"].copy(), have=r["have"].copy()) for r in self._regions
+        ]
+        for a, b in zip(out._regions, other._regions, strict=True):
+            if a["vals"].shape != b["vals"].shape:
+                return self
+            if b["filled"] or b.get("active"):
+                a["active"] = a.get("active") or not a["filled"]
+        out.take_nodes(other)
+        for a in out._regions:
+            if not a["filled"] and a.get("active") and a["have"].all():
+                a["filled"] = True
+        return out
 
     def _interp(self, R1, theta):
         """The parent's bicubic, over THIS family's five-θ-band layout.
@@ -2031,15 +2445,23 @@ SWEEP_STATS = {
 
 
 def anchor_mode():
-    """`MOMWIRE_BELOW_ANCHORS`: "auto" (default; see
-    `_SOMM_BELOW_ANCHOR_TRIGGER`), "off" (every grid is the exact fill, as
-    before momwire#1471) or "on" (every lossy grid is blended from anchors)."""
-    v = os.environ.get(ENV_ANCHORS, "auto").strip().lower()
-    if v in ("0", "off", "false", "no", "exact"):
-        return "off"
+    """`MOMWIRE_BELOW_ANCHORS`: "off" (the default since momwire#1535: every
+    grid is the exact fill), "auto" (the rent-or-buy rule, see
+    `_SOMM_BELOW_ANCHOR_TRIGGER`) or "on" (every lossy grid is blended from
+    anchors). Unset, empty or unrecognised reads as "off".
+
+    Off by default because a blended grid makes a deck's printout depend on
+    what ran before it (the seen list, shared through the disk cache, decides
+    exact vs blended), and since lazy grids (momwire#1512) an exact table per
+    frequency no longer costs enough for the anchors to win it back. "auto"
+    and "on" stay as an opt-in for one release; phase 2 of #1535 removes
+    them."""
+    v = os.environ.get(ENV_ANCHORS, "off").strip().lower()
+    if v in ("auto",):
+        return "auto"
     if v in ("1", "on", "true", "yes", "always"):
         return "on"
-    return "auto"
+    return "off"
 
 
 def reset_sweep_state():
@@ -2075,22 +2497,36 @@ class _AnchorPlan:
     rungs: tuple  # the anchors' eps_t
     weights: np.ndarray
     n0: int = 0  # the first rung's index on the global ladder
+    spacing: tuple = _SOMM_BELOW_SPACING_POINT
 
     def key(self, j):
         """Anchor j's cache key. The slot an exact grid's key gives to its
         size says "anchor" instead: an anchor GROWS (`_ensure_anchors`), so
-        its size is a property of the file and not of its name."""
+        its size is a property of the file and not of its name. The spacing
+        and the tail rule close it: a fill anchor and a point anchor are
+        different lattices, and a table integrated under the weighted-averages
+        tail (momwire#1441) is different bytes from one under the old walk."""
         from ._sommerfeld import _C_LIGHT
 
         k2 = _anchor_k2()
-        return ("below", self.rungs[j], k2, "anchor-1471", k2 * _C_LIGHT, _MU0)
+        return (
+            "below",
+            self.rungs[j],
+            k2,
+            "anchor-1471",
+            k2 * _C_LIGHT,
+            _MU0,
+            self.spacing,
+            _tail_rule(),
+        )
 
     @property
     def family(self):
-        return f"below-sweep:{float(self.eps_r).hex()}"
+        sp = ",".join(float(v).hex() for v in self.spacing)
+        return f"below-sweep:{float(self.eps_r).hex()}:{sp}"
 
 
-def _anchor_plan(eps_t):
+def _anchor_plan(eps_t, spacing=None):
     """The anchors and weights that reconstruct a grid at `eps_t`, or None
     where the scheme does not apply: a lossless or gain medium has no
     Im(eps_t) ladder to walk (and no frequency dependence in eps_t to need
@@ -2107,7 +2543,7 @@ def _anchor_plan(eps_t):
         complex(eps_t.real, -math.exp((n0 + j) * _SOMM_BELOW_ANCHOR_STEP))
         for j in range(n)
     )
-    return _AnchorPlan(s, eps_t.real, rungs, w, n0)
+    return _AnchorPlan(s, eps_t.real, rungs, w, n0, _spacing(spacing))
 
 
 def _is_sweep(plan, r1_wl):
@@ -2208,6 +2644,7 @@ def _ensure_anchors(plan, r1_wl, idx=None):
                     omega=key[4],
                     mu=key[5],
                     seed=grid,
+                    spacing=plan.spacing,
                 )
                 changed = True
             if idx is not None and not grid._regions[idx]["filled"]:
@@ -2261,7 +2698,7 @@ class SommerfeldGridBelowBlended(SommerfeldGridBelow):
 
     def __init__(self, eps_t, k2, r1_max, omega, mu, plan):
         self._plan = plan
-        super().__init__(eps_t, k2, r1_max, omega=omega, mu=mu)
+        super().__init__(eps_t, k2, r1_max, omega=omega, mu=mu, spacing=plan.spacing)
         self._r1_wl = self.r1_max / self.lam_m
         for ridx in range(len(self._regions)):
             if ridx not in _DEFERRED_REGIONS:
@@ -2322,7 +2759,17 @@ class SommerfeldGridBelowBlended(SommerfeldGridBelow):
         SWEEP_STATS["blended_regions"] += 1
 
 
-def get_grid_below(eps_t, k2, r1_max, omega, mu=_MU0, health=None, cancel_flag=0):
+def get_grid_below(
+    eps_t,
+    k2,
+    r1_max,
+    omega,
+    mu=_MU0,
+    health=None,
+    cancel_flag=0,
+    spacing=None,
+    lazy=False,
+):
     """Cached `SommerfeldGridBelow`, sharing `_sommerfeld`'s grid cache.
 
     `cancel_flag` is the solve's raw flag address (`_Cancelable._cancel_flag`,
@@ -2341,13 +2788,14 @@ def get_grid_below(eps_t, k2, r1_max, omega, mu=_MU0, health=None, cancel_flag=0
     to get the FIFO bound wrong.
 
     A lone frequency gets the physical grid, filled at the caller's exact
-    eps_t, and that grid is what gets cached. A SWEEP is served from anchors
-    (momwire#1471, the section above): once the same soil and table size
+    eps_t, and that grid is what gets cached. With anchors opted in, a SWEEP
+    is served from them (momwire#1471, the section above): once the same soil and table size
     have been asked for at `_SOMM_BELOW_ANCHOR_TRIGGER` nearby frequencies,
     the grid is a `SommerfeldGridBelowBlended`, the same lattice with values
     interpolated at high order across exact grids on a ladder in Im(eps_t).
-    `MOMWIRE_BELOW_ANCHORS=off` keeps every grid exact; a caller passing
-    `health` always watches an exact fill.
+    Anchors are opt-in since momwire#1535 (`MOMWIRE_BELOW_ANCHORS=auto` or
+    `on`); by default every grid is exact. A caller passing `health` always
+    watches an exact fill.
 
     **The ε̃ ladder does NOT apply below, and this is the third appearance
     of one inversion.** `_somm_eps_bucket` quantizes Im(ε̃) onto a 1 %
@@ -2381,13 +2829,31 @@ def get_grid_below(eps_t, k2, r1_max, omega, mu=_MU0, health=None, cancel_flag=0
     `r1_max` is still bucketed up: the lattice spacing is fixed, so a grid
     tabulated further out has node positions that coincide exactly with the
     smaller one's and interpolates identically inside it.
+
+    `lazy` (momwire#1512): an exact grid whose regions join the table without
+    their nodes, which `remainder_field_proj_below` fills as its census names
+    them. Only that reader asks for one; it is its own cache entry (memory
+    and disk), so every other reader keeps a grid whose filled regions are
+    whole. A sweep's blended grid is served as before.
     """
     k2 = float(k2)
     eps_t = complex(eps_t)
     lam_m = _lambda_m(eps_t, k2)
     r1b_wl = _r1_bucket_below_wl(r1_max, lam_m)
-    key = ("below", eps_t, k2, r1b_wl, float(omega), float(mu))
-    grid = _GRID_CACHE.get(key)
+    spacing = _spacing(spacing)
+    key = (
+        "below",
+        eps_t,
+        k2,
+        r1b_wl,
+        float(omega),
+        float(mu),
+        spacing,
+        _tail_rule(),
+    )
+    lazy = bool(lazy) and health is None and lazy_grids()
+    exact_key = key + ("lazy",) if lazy else key
+    grid = _GRID_CACHE.get(exact_key)
     if grid is None and health is None:
         grid = _GRID_CACHE.get(key + _BLENDED_KEY)
     if grid is None:
@@ -2402,8 +2868,11 @@ def get_grid_below(eps_t, k2, r1_max, omega, mu=_MU0, health=None, cancel_flag=0
                 omega=float(omega),
                 mu=float(mu),
                 health=health,
+                spacing=spacing,
+                lazy=lazy,
             )
 
+        base_key, key = key, exact_key
         # The disk level (momwire#1224). A caller asking for `health` wants
         # the tally of a fill it watched, so it gets a fresh one. `track`:
         # the band regions fill lazily, and each one re-writes the file.
@@ -2415,7 +2884,7 @@ def get_grid_below(eps_t, k2, r1_max, omega, mu=_MU0, health=None, cancel_flag=0
                 # already on disk is still the first choice, and a lone
                 # frequency still takes the exact fill.
                 mode = anchor_mode()
-                plan = None if mode == "off" else _anchor_plan(eps_t)
+                plan = None if mode == "off" else _anchor_plan(eps_t, spacing)
                 # The size the grid will have: the ctor's own clamp.
                 r1_wl = min(max(r1b_wl, 0.35), _SOMM_BELOW_R1_CAP_LAMBDA_M)
                 if plan is not None and mode == "auto":
@@ -2428,7 +2897,7 @@ def get_grid_below(eps_t, k2, r1_max, omega, mu=_MU0, health=None, cancel_flag=0
                         eps_t, k2, r1b_wl * lam_m, float(omega), float(mu), plan
                     )
                     SWEEP_STATS["blended_grids"] += 1
-                    key = key + _BLENDED_KEY
+                    key = base_key + _BLENDED_KEY
                 elif grid is None:
                     grid = _somm_disk_cache.fetch_or_fill(key, fill, track=True)
         _GRID_CACHE[key] = grid
@@ -2613,6 +3082,52 @@ def _remainder_field_proj_below(obs, t_obs, src, t_src, ground_z, k_p, k_m, grid
         # actually reaching gets the regions it touches filled and the kernel
         # re-run. A refused geometry fills nothing.
         filled_before = tuple(r["filled"] for r in grid._regions)
+        # A lazy table (momwire#1512): `_ensure_for` puts regions in the table
+        # without their nodes. The run reads first, as on an eager table, and
+        # its extremes decide the regions exactly as there. A node not filled
+        # reads NaN and NaN survives every operation of a read, so when no
+        # region joined and every output that is kept (all of them, or with
+        # the pairs past the cap zeroed, the rest) is finite, every node the
+        # run read was in. Otherwise the census of this batch's reads names
+        # the nodes, they are filled in the table's regions, and it runs again.
+        lazy = (
+            bool(grid._regions)
+            and "have" in grid._regions[0]
+            and hasattr(_acc, "remainder_field_proj_nodes_below")
+        )
+        if lazy:
+            filled_before = grid._in_table()
+
+        def _census_fill_run(past_cap):
+            from ._sommerfeld import grid_cpp_args
+
+            kept, past, *_ = _acc.remainder_field_proj_nodes_below(
+                np.ascontiguousarray(obs),
+                np.ascontiguousarray(src),
+                float(ground_z),
+                float(grid.r1_cap),
+                float(grid.th_min),
+                float(grid.th_band_floor_hi),
+                float(grid.th_band_lo_hi),
+                float(grid.th_band_hi),
+                *grid_cpp_args(grid),
+            )
+            need = [
+                np.asarray(k, bool)
+                if past_cap
+                else np.asarray(k, bool) | np.asarray(p, bool)
+                for k, p in zip(kept, past, strict=True)
+            ]
+            if grid.missing_in_table(need):
+                # Another process may have filled them since this one read
+                # the file; then the rest are filled and the file re-written.
+                grid.take_nodes(_somm_disk_cache.stored_copy(grid))
+                if grid.fill_nodes(need):
+                    _somm_disk_cache.note_mutated(grid)
+            res = _run()
+            if past_cap:
+                _zero_past_cap(res[0], obs, src, d_obs, d_src, grid.r1_cap)
+            return res
 
         def _run():
             kw = {} if _BELOW_LANES or not _HAVE_BELOW_LANES else {"lanes": False}
@@ -2673,6 +3188,25 @@ def _remainder_field_proj_below(obs, t_obs, src, t_src, ground_z, k_p, k_m, grid
                 if fill is None:
                     _SERVED_FILL_ROUTES["zero"] += 1
                     return np.zeros_like(out)
+            if lazy:
+                grid._ensure_for(*fill, lazy=True)
+                if past_cap:
+                    _zero_past_cap(out, obs, src, d_obs, d_src, grid.r1_cap)
+                # The check mode always takes the census's way, so that it is
+                # the census whose completeness the finite check proves.
+                if (
+                    grid._in_table() != filled_before
+                    or not np.all(np.isfinite(out))
+                    or lazy_check()
+                ):
+                    out, mx_r1, mn_th, mx_th = _census_fill_run(past_cap)
+                if past_cap and not np.all(np.isfinite(out)):
+                    _SERVED_FILL_ROUTES["fallback"] += 1
+                    grid._ensure_for(*kernel_fill, lazy=True)
+                    out, mx_r1, mn_th, mx_th = _census_fill_run(past_cap)
+                if lazy_check():
+                    check_read(out, "the below remainder projection")
+                return out
             grid._ensure_for(*fill)
             if tuple(r["filled"] for r in grid._regions) != filled_before:
                 out, mx_r1, mn_th, mx_th = _run()

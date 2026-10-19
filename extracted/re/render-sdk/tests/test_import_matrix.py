@@ -23,6 +23,7 @@ TOP_LEVEL_ALL: tuple[str, ...] = (
     "RenderAsync",
     "Workflows",
     "TaskContext",
+    "TaskRunMetadata",
     "Options",
     "Retry",
     "start",
@@ -31,12 +32,12 @@ TOP_LEVEL_ALL: tuple[str, ...] = (
 
 
 def test_top_level_names_import_and_version_matches() -> None:
-    """Every name in render_sdk.__all__ is importable; __version__ is 1.1.0."""
+    """All names in render_sdk.__all__ can be imported; __version__ is 1.3.0."""
     names = ", ".join(TOP_LEVEL_ALL)
     code = (
         f"from render_sdk import {names}\nimport json\nprint(json.dumps(__version__))\n"
     )
-    assert run_py_json(code) == "1.1.0"
+    assert run_py_json(code) == "1.3.0"
 
 
 def test_lazy_render_clients_resolve_and_materialize_real_modules() -> None:
@@ -116,9 +117,8 @@ def test_client_attribute_access_delegates_to_real_module() -> None:
 
 
 def test_star_import_top_level_binds_exactly_all() -> None:
-    """`from render_sdk import *` binds exactly the __all__ names — the eight
-    public names plus __version__ (star import honors __all__ even for the
-    dunder listed there)."""
+    """`from render_sdk import *` binds exactly the __all__ names,
+    including __version__ (star import honors __all__ even for the dunder)."""
     code = (
         "ns = {}\n"
         "exec('from render_sdk import *', ns)\n"
@@ -133,7 +133,7 @@ def test_star_import_top_level_binds_exactly_all() -> None:
     payload = run_py_json(code)
     assert payload["bound"] == sorted(n for n in TOP_LEVEL_ALL if n != "__version__")
     assert payload["has_version"] is True
-    assert payload["version"] == "1.1.0"
+    assert payload["version"] == "1.3.0"
 
 
 @pytest.mark.parametrize("subpackage", ["workflows", "client"])

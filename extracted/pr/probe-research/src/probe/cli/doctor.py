@@ -15,6 +15,7 @@ are already broken, so it must never be the thing that breaks.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import shutil
@@ -30,9 +31,17 @@ from probe.cli.capabilities import (
     Capabilities,
     DeviceState,
     DeviceStateOutcome,
+    McpCredential,
+    PluginState,
     TokenSource,
     tap_token_env,
     tracking_plugin_name,
+)
+
+#: Why a Codex MCP reads unknown in a files-only read (`collect(local=True)`).
+CODEX_MCP_NOT_CHECKED = (
+    "not checked: Codex keeps an OAuth login where only `codex mcp list` reads it "
+    "(`probe status --refresh` asks it)"
 )
 
 _OK = "ok"
@@ -937,6 +946,25 @@ def _login_from_state(state: DeviceState, *, has_token: bool, base_url: str | No
     )
 
 
+def with_server_state(
+    caps: Capabilities, state: DeviceState, *, has_token: bool, base_url: str | None
+) -> Capabilities:
+    """`caps` with the server's half read from `state`: the half `collect`
+    reads through `device_state_scope`, for a caller that asked the server ONCE
+    for every agent after their own checks (`probe status --refresh`). Nothing
+    is asked here, so `state` carries a verdict for every agent with a capture
+    credential, or says nothing is known (UNREACHABLE)."""
+    login = _login_from_state(state, has_token=has_token, base_url=base_url)
+    return dataclasses.replace(
+        caps,
+        logged_in_as=login.logged_in_as or None,
+        api_credential_valid=login.api_credential_valid,
+        capture_credential_valid=(
+            state.capture.get(caps.agent_source) if caps.capture_token_sources else None
+        ),
+    )
+
+
 #: The wizard's ONE server call for the `collect()` running in this context
 #: (`capabilities.fetch_device_state`), as a zero-argument resolver -- usually
 #: a pending future's bounded `result`. Scoped like the wizard scopes the agent
@@ -956,15 +984,27 @@ def device_state_scope(remote: Callable[[], DeviceState]) -> Iterator[None]:
         _remote_state.reset(token)
 
 
-def collect() -> Capabilities:
+def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capabilities:
     """Snapshot this device. Every probe is individually fail-soft.
 
     Inside `device_state_scope` (the wizard) the server's half comes from its
     one call, resolved only AFTER the local checks so they run while the
     request is in flight: an answer means no network call here at all, and an
     older server without the route (`UNSUPPORTED`) means asking the old way.
-    Outside it (`probe doctor`) this asks the old way, offline-first."""
-    remote = _remote_state.get()
+    Outside it (`probe doctor`) this asks the old way, offline-first.
+
+    `local` (`probe status` without --refresh) reads files only: no agent CLI
+    runs and nothing is sent. The plugin lists come from the records the
+    agents' own `plugin list` reads (`installed_plugins(local=True)`), Codex's
+    MCP login from the header in its config.toml (what `codex mcp list` reports
+    as `bearer_token`), and the server's half is unknown: no confirmed account
+    (`logged_in_as` None), no verdict on any credential, no agent version. An
+    OAuth Codex login is not in that file, so its MCP reads unknown, "not
+    checked" (`CODEX_MCP_NOT_CHECKED`).
+
+    `plugins`: this agent's plugin list, already read (`probe status --refresh`
+    asks every agent's CLI at once), in place of asking here."""
+    remote = None if local else _remote_state.get()
     from probe.cli import updater
     from probe.cli.capabilities import (
         TRACKING_PLUGIN_NAME,
@@ -1008,12 +1048,16 @@ def collect() -> Capabilities:
     # The profile's plugin: `probe-research-daemon` where the daemon records.
     TRACK = tracking_plugin_name(selected_agent)
     selected_tap = capture_plugin_name(selected_agent)
-    plugins = installed_plugins(source=selected_agent)
+    if plugins is None:
+        plugins = installed_plugins(source=selected_agent, local=local)
     sources = capture_token_sources(selected_agent)
     # Resolved HERE, after the slowest local check above (the agent's own
     # plugin CLI), so that check ran while the request was in flight.
     state = remote() if remote is not None else None
-    if state is None or state.outcome is DeviceStateOutcome.UNSUPPORTED:
+    if local:
+        login = _LoginCheck()
+        credential_valid = None
+    elif state is None or state.outcome is DeviceStateOutcome.UNSUPPORTED:
         # `probe doctor`, or a server that predates the one call: the old way.
         login = _check_login(settings) if settings is not None else _LoginCheck()
         credential_valid = verify_capture_credential(selected_agent) if sources else None
@@ -1034,7 +1078,9 @@ def collect() -> Capabilities:
     unfiled = login.unfiled
     settings_autoupdate = autoupdate.load()
 
-    if credential_valid is False:
+    if local:
+        pass  # nothing was asked: "could not verify" would read as a failure
+    elif credential_valid is False:
         warnings.append(
             "the capture credential was rejected by the ingest service; "
             "re-run `probe wizard` to pair this device again"
@@ -1048,9 +1094,18 @@ def collect() -> Capabilities:
         )
 
     mcp_authenticated: bool | None = None
+    codex_login_unread = False
     # The daemon profile installs no MCP, so there is no MCP login to check.
     if selected_agent == "codex" and TRACK == TRACKING_PLUGIN_NAME and TRACK in plugins:
-        status = plugin_cli.codex_mcp_auth_status(CODEX_MCP_NAME)
+        if local:
+            from probe.cli import codex_config
+
+            # `codex mcp list` answers `bearer_token` for any header there; an
+            # OAuth login lives where only Codex can read it, so it is unknown.
+            status = codex_config.BEARER_STATUS if codex_config.configured_bearer(CODEX_MCP_NAME) else None
+            codex_login_unread = status is None
+        else:
+            status = plugin_cli.codex_mcp_auth_status(CODEX_MCP_NAME)
         if status is not None:
             mcp_authenticated = status in {"o_auth", "bearer_token"}
         if mcp_authenticated is False:
@@ -1086,6 +1141,9 @@ def collect() -> Capabilities:
     # The per-agent MCP answer (Capabilities.mcp_state): Codex's reuses the
     # `codex mcp list` read above instead of asking again.
     mcp_kind, mcp_check = check_mcp(selected_agent, codex_auth=mcp_authenticated)
+    if codex_login_unread and mcp_check is not None and mcp_check.credential == McpCredential.UNKNOWN:
+        # Nothing ran: "`codex mcp list` did not answer" would be untrue.
+        mcp_check = dataclasses.replace(mcp_check, what=CODEX_MCP_NOT_CHECKED)
 
     from probe.cli import versions as versions_mod
 
@@ -1109,7 +1167,7 @@ def collect() -> Capabilities:
         version_manifest_age_s=manifest_age,
         install_method=install_method,
         claude_available=shutil.which("claude") is not None,
-        agent_version=_agent_version(selected_agent),
+        agent_version=None if local else _agent_version(selected_agent),
         codex_available=shutil.which("codex") is not None,
         agent_source=selected_agent,
         logged_in_as=logged_in_as or None,
@@ -1120,6 +1178,7 @@ def collect() -> Capabilities:
         capture_plugin_installed=selected_tap in plugins,
         legacy_capture_plugin_installed=LEGACY_CODEX_TAP_PLUGIN_ID in plugins,
         plugins_verified=plugins.verified,
+        plugins_error=plugins.error,
         capture_token_sources=sources,
         capture_credential_valid=credential_valid,
         capture_killswitched=(tap_plugin_dir(selected_agent) / ".disabled").exists(),

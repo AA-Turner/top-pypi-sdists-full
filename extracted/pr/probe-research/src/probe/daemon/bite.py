@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
+from probe.daemon import toolset
 from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Kind
 from probe.daemon.store import BEFORE_DAEMON_BITE, StoredEvent, Store
 
@@ -81,13 +82,20 @@ _RESULTS_HINT = re.compile(r"(\|[^\n]*\|[^\n]*\n\|[-: |]+\|)|(\b(acc|accuracy|f1
                            r"precision|recall|reward|score|val_|test_)\w*\s*[=:]\s*-?\d)", re.I)
 
 
+#: The job text's one line that names a tool the `bash` tool set does not have,
+#: and its line there (NEW wording, fixtures/daemon_prompts/job/record-session-bash.NEW.md).
+OPEN_WITH_SESSION = "Open it with `session`."
+OPEN_WITH_BASH = "Open it with `probe daemon session open <id>`."
+
+
 def record_session_text() -> str:
     text = resources.files("probe.daemon").joinpath("record_session.md").read_text(encoding="utf-8")
     if text.startswith("---"):
         end = text.find("\n---", 3)
         if end >= 0:
             text = text[end + 4:]
-    return text.strip()
+    text = text.strip()
+    return text.replace(OPEN_WITH_SESSION, OPEN_WITH_BASH) if toolset.bash_only() else text
 
 
 def _size(chars: int) -> str:
@@ -150,10 +158,25 @@ def render(ev: StoredEvent, *, calls: dict[str, StoredEvent] | None = None) -> s
     return f"[{k.value} · {ev.event_id}] {ev.text[:300]}"
 
 
+#: The markers that name the way to the rest of an event, a turn or the session
+#: (`toolset`: the classic tool set's `session` tool, or the `bash` set's
+#: command; the `bash` wording NEW, fixtures/daemon_prompts/bite/bash-markers.NEW.md).
+MORE_CHARS = ("[... {n:,} more characters: session op=open event_id={id}]",
+              "[... {n:,} more characters: probe daemon session open {id}]")
+MORE_LINES = ("{head} · {n:,} more lines: session op=open event_id={id}",
+              "{head} · {n:,} more lines: probe daemon session open {id}")
+NOT_SHOWN = ("not shown. `session` reaches them.", "not shown. `probe daemon session` reaches them.")
+LAST_WRITES = ("# Your last writes (older: `session` op=logbook)",
+               "# Your last writes (older: `probe daemon session logbook \"<words>\"`)")
+TURN_CUT = ("session op=open turn={turn} pages through them; op=search finds words in them ...]",
+            "probe daemon session open --turn {turn} pages through them; probe daemon session search finds words "
+            "in them ...]")
+
+
 def _cap(text: str, limit: int, ev: StoredEvent) -> str:
     if len(text) <= limit:
         return text
-    return f"{text[:limit]}\n[... {len(text) - limit:,} more characters: session op=open event_id={ev.event_id}]"
+    return f"{text[:limit]}\n" + toolset.pick(*MORE_CHARS).format(n=len(text) - limit, id=ev.event_id)
 
 
 def shown_chars(ev: StoredEvent) -> int:
@@ -187,7 +210,7 @@ def render_for_reader(ev: StoredEvent) -> str:
     if not body:
         return f"[file changed · {ev.event_id}] {head}"
     lines = body.count("\n") + 1
-    return f"[file changed · {ev.event_id}] {head} · {lines:,} more lines: session op=open event_id={ev.event_id}"
+    return f"[file changed · {ev.event_id}] " + toolset.pick(*MORE_LINES).format(head=head, n=lines, id=ev.event_id)
 
 
 def reader_shown_chars(ev: StoredEvent) -> int:
@@ -291,14 +314,14 @@ def build(store: Store, *, trigger: str, context_line: str, pending_lines: list[
         parts.append(
             f"Earlier: turns 1–{before['last_turn']} of {totals['turns']} ({before['events']:,} events, "
             f"~{before['chars'] // CHARS_PER_TOKEN // 1000}K tokens, {before['prompts']} researcher prompts) are "
-            "not shown. `session` reaches them."
+            + toolset.pick(*NOT_SHOWN)
         )
     else:
         parts.append("The whole session so far is below.")
     parts.append("# The chat\n\n" + "\n\n".join(chat))
     pend = "\n".join(f"- {line}" for line in pending_lines) or "- nothing"
     recent = "\n".join(f"- {line}" for line in recent_writes) or "- nothing yet"
-    parts.append(f"# Not recorded yet\n{pend}\n\n# Your last writes (older: `session` op=logbook)\n{recent}")
+    parts.append(f"# Not recorded yet\n{pend}\n\n{toolset.pick(*LAST_WRITES)}\n{recent}")
     if memory:
         parts.append(memory)
     return Bite(first_seq=first_seq, last_seq=last_seq, trigger=trigger, instructions=instructions_for(context_line),
@@ -324,9 +347,26 @@ SHARED_SKILLS = ("track-work", "write-summary", "edit-notes")
 AUDIT_SKILLS = ("audit-team-note", "edit-notes")
 
 
+#: The writer's `bash` commands (track-work's `versions/commands.writer.md`, a
+#: `skill_versions` extra), shown only with the `bash` tool set, and its
+#: `probe daemon task` (`versions/task.writer.md`) only while tasks are on too.
+WRITER_COMMANDS = "commands"
+WRITER_TASK = "task"
+
+
+def writer_skill(skill_dir: Path) -> str:
+    """The writer's version of the skill in `skill_dir` as the running tool set shows it."""
+    from probe import skill_versions
+
+    extras: tuple[str, ...] = ()
+    if toolset.bash_only():
+        extras = (WRITER_COMMANDS, WRITER_TASK) if toolset.tasks() else (WRITER_COMMANDS,)
+    return skill_versions.render(skill_dir, skill_versions.WRITER, extras)
+
+
 def skills_text(names: tuple[str, ...] = SHARED_SKILLS) -> str:
     """The researcher's skills, verbatim as the writer's version of each (front
-    matter dropped; `skill_versions.render`): the daemon's whole judgment of what
+    matter dropped; `writer_skill`): the daemon's whole judgment of what
     and how to record -- or, for the audit, how to audit -- comes from them."""
     root = skills_root()
     if root is None:
@@ -340,9 +380,9 @@ def skills_text(names: tuple[str, ...] = SHARED_SKILLS) -> str:
         path = root / name / "SKILL.md" if root is not None else None
         if path is None or not path.is_file():
             continue
-        # The writer's version (track-work: its header + the base + its footer),
-        # never the main agent's.
-        text = skill_versions.split_front_matter(skill_versions.render(path.parent, skill_versions.WRITER))[1]
+        # The writer's version (track-work: its header, its commands with the
+        # `bash` tool set, the base, its footer), never the main agent's.
+        text = skill_versions.split_front_matter(writer_skill(path.parent))[1]
         out.append(f"# Skill: {name}\n\n{text.strip()}")
     return "\n\n".join(out)
 
@@ -416,6 +456,6 @@ def _cap_turn(items: list[tuple[StoredEvent, str]], first_seq: int,
         return list(items)
     chars = sum(len(text) for _, text in cut)
     note = (f"[... {len(cut):,} earlier events of turn {turn} not shown ({cut[0][0].event_id} to "
-            f"{cut[-1][0].event_id}, ~{chars // CHARS_PER_TOKEN // 1000}K tokens): session op=open turn={turn} "
-            "pages through them; op=search finds words in them ...]")
+            f"{cut[-1][0].event_id}, ~{chars // CHARS_PER_TOKEN // 1000}K tokens): "
+            + toolset.pick(*TURN_CUT).format(turn=turn))
     return [*items[:at], *head, (None, note), *tail, *new]

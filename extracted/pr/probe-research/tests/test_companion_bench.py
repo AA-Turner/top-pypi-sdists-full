@@ -10,6 +10,7 @@ and penalty rules.
 from __future__ import annotations
 
 import asyncio
+import copy
 import importlib.util
 import json
 import os
@@ -850,6 +851,205 @@ def test_an_experiments_own_lineage_is_served_in_the_servers_shape():
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Data uses: the agent sets a run's data links (POST /runs/{id}/uses), and the
+# server derives none from what the run read.
+# ---------------------------------------------------------------------------
+
+CKPT_400 = "c4000000-0000-4000-8000-000000000400"
+CKPT_800 = "c8000000-0000-4000-8000-000000000800"
+VERSION_3 = "d3000000-0000-4000-8000-000000000003"
+
+
+def _use_reads() -> dict:
+    reads = _edge_reads()
+    reads[f"/v1/runs/{PCA_RUN}/artifacts"] = [
+        {"id": CKPT_400, "run_id": PCA_RUN, "kind": "checkpoint", "name": "checkpoint-400", "meta": {"step": 400},
+         "uri": "file:///ck/400", "content_hash": "a" * 64, "created_at": "2026-09-23T08:05:10Z"},
+        {"id": CKPT_800, "run_id": PCA_RUN, "kind": "checkpoint", "name": "checkpoint-800", "meta": {"step": 800},
+         "uri": "file:///ck/800", "content_hash": "b" * 64, "created_at": "2026-09-23T08:05:20Z"}]
+    reads[f"/v1/runs/{CHOSEN}/edges"] = reads[f"/v1/runs/{CHOSEN}/edges"] + [
+        # What the run's own code recorded (`run.use_checkpoint`): a stored use.
+        {"id": "e0000000-0000-4000-8000-000000000002", "customer_id": "probe", "source_type": "run",
+         "source_id": CHOSEN, "relation": "consumes", "target_type": "artifact", "target_id": CKPT_400,
+         "meta": {"roles": ["init"], "pinned": {"step": 400, "uri": "file:///ck/400", "content_hash": "a" * 64}},
+         "provenance": "observed_call", "reason": None, "created_at": "2026-09-23T08:02:05Z", "derived": False},
+        # The retired byte match: a read matched to the other save's look-alike file.
+        {"id": None, "customer_id": "probe", "source_type": "run", "source_id": CHOSEN, "relation": "consumes",
+         "target_type": "artifact", "target_id": CKPT_800, "meta": {"source": "run_inputs", "basis": "same_bytes"},
+         "provenance": "observed_call", "reason": None, "created_at": "2026-09-23T08:02:06Z", "derived": True}]
+    reads[f"/v1/runs/{CHOSEN}/inputs"] = {"run_id": CHOSEN, "coverage": None, "inputs": [
+        {"path": "ck/config.json", "content_hash": "c" * 64, "size_bytes": 700, "stable": True,
+         "first_seen_at": "2026-09-23T08:02:10Z", "match_dismissed": False, "matches": [],
+         "stored_as": [
+             {"ref": f"checkpoint:{CKPT_400}", "type": "artifact", "id": CKPT_400, "basis": "same_bytes",
+              "run_id": PCA_RUN, "created_at": "2026-09-23T08:05:10Z"},
+             {"ref": f"checkpoint:{CKPT_800}", "type": "artifact", "id": CKPT_800, "basis": "same_bytes",
+              "run_id": PCA_RUN, "created_at": "2026-09-23T08:05:20Z"}],
+         "stored_as_truncated": False},
+        {"path": "late.txt", "content_hash": "d" * 64, "size_bytes": 90, "stable": True,
+         "first_seen_at": "2026-09-23T09:59:00Z", "match_dismissed": False, "matches": [], "stored_as": []}]}
+    reads["/v1/catalog/datasets/ag-news"] = {
+        "ref": "dataset:ag-news", "name": "ag-news", "created_at": "2026-09-23T08:00:10Z",
+        "versions": [{"id": VERSION_3, "n": 3, "created_at": "2026-09-23T08:00:20Z"},
+                     {"id": "d4000000-0000-4000-8000-000000000004", "n": 4, "created_at": "2026-09-23T09:59:00Z"}]}
+    return reads
+
+
+def _use_fake(now: str = "2026-09-23T08:06:00Z") -> "fp.FakeProbe":
+    return fp.FakeProbe(_use_reads(), clock=fp.ManualClock(fp.parse_ts(now)), token="bench-fake-t")
+
+
+def _use(fake, target, roles, **extra):
+    return _call(fake, "POST", f"/v1/runs/{PCA_RUN}/uses", {"target": target, "roles": roles, **extra})
+
+
+@pytest.mark.parametrize("target, status, ttype, tid", [
+    (f"checkpoint:{PCA_RUN}@step400", 200, "artifact", CKPT_400),
+    (f"checkpoint:{CKPT_800}", 200, "artifact", CKPT_800),
+    (f"checkpoint:{PCA_RUN}@latest", 200, "artifact", CKPT_800),  # the server resolves it; the CLI refuses it
+    (f"checkpoint:{PCA_RUN}@step999", 404, None, None),
+    ("dataset:ag-news@3", 200, "artifact_version", VERSION_3),
+    ("dataset:ag-news", 200, "artifact_version", VERSION_3),  # v4 is not stored yet at 08:06
+    ("dataset:ag-news@4", 404, None, None),
+    (f"artifact_version:{VERSION_3}", 200, "artifact_version", VERSION_3),
+    ("nonsense:x", 422, None, None),
+])
+def test_a_use_resolves_like_the_servers_refs(target, status, ttype, tid):
+    answer = _use(_use_fake(), target, ["eval"])
+    assert answer.status == status, answer.body
+    if status == 200:
+        assert (answer.body["target"]["type"], answer.body["target"]["id"]) == (ttype, tid)
+        assert answer.body["provenance"] == "inferred", "the daemon key's links are stored `inferred`"
+
+
+def test_a_repeat_use_merges_roles_and_evidence_and_refuses_another_save():
+    fake = _use_fake()
+    s400 = {"session": "sess-1", "event": "s:10:0"}
+    first = _use(fake, f"checkpoint:{PCA_RUN}@step400", ["init"], evidence=[s400, s400])
+    again = _use(fake, f"checkpoint:{CKPT_400}", ["eval"], evidence=[s400, {"session": "sess-1"}],
+                 reason="the eval loads it")
+    assert (first.status, first.body["created"], again.status, again.body["created"]) == (200, True, 200, False)
+    edge = next(e for e in fake.live_edges() if e["target_id"] == CKPT_400)
+    assert edge["meta"]["roles"] == ["eval", "init"]
+    # uses.py: one entry per (session, event), with the roles of the call that brought it.
+    assert edge["meta"]["evidence"] == [{"session": "sess-1", "event": "s:10:0", "roles": ["init"]},
+                                        {"session": "sess-1", "roles": ["eval"]}]
+    assert (edge["meta"]["via"], edge["provenance"], edge["reason"]) == ("daemon", "inferred", "the eval loads it")
+    # The same row refreshed in place to another save: one link holds one pin (D18).
+    fake.rows[CKPT_400]["meta"] = {"step": 900}
+    refused = _use(fake, f"checkpoint:{CKPT_400}", ["eval"])
+    assert refused.status == 409 and refused.body["detail"]["pinned"]["step"] == 400
+
+
+@pytest.mark.parametrize("body, needle", [
+    ({"target": f"checkpoint:{CKPT_400}", "roles": ["eval"], "evidence": "a sentence"}, "evidence"),
+    ({"target": f"checkpoint:{CKPT_400}", "roles": ["eval"], "evidence": [{"session": "s"}] * 6}, "evidence"),
+    ({"target": f"checkpoint:{CKPT_400}", "roles": ["eval"], "evidence": [{"event": "e"}]}, "session"),
+    ({"target": f"checkpoint:{CKPT_400}", "roles": ["eval"], "share": 0}, "share"),
+    ({"target": f"checkpoint:{CKPT_400}", "roles": ["eval"], "share": 1.5}, "share"),
+    ({"target": f"checkpoint:{CKPT_400}", "roles": []}, "roles"),
+    ({"target": "nonsense:x", "roles": ["pretrain"]}, "unknown role"),  # roles before the ref
+    ({"target": f"checkpoint:{CKPT_400}", "roles": ["eval"], "role": "eval"}, "mixture"),
+    ({"mixture": [], "role": "train"}, "at least one part"),
+    ({"mixture": [{"target": "dataset:ag-news@3", "share": 0.6}], "role": "train"}, "sum to"),
+    ({"mixture": [{"target": "dataset:ag-news@3", "share": 0.5}, {"target": "dataset:ag-news@3", "share": 0.5}],
+      "role": "train"}, "each target once"),
+    ({"mixture": [{"target": "dataset:ag-news@3", "share": 1.0}]}, "names the role"),
+    ({"mixture": [{"target": "dataset:ag-news@3", "share": 1.0}], "role": "train", "target": "x"}, "not both"),
+])
+def test_a_use_is_refused_where_the_servers_usein_refuses_it(body, needle):
+    answer = _call(_use_fake(), "POST", f"/v1/runs/{PCA_RUN}/uses", body)
+    assert answer.status == 422 and needle in json.dumps(answer.body), answer.body
+
+
+def test_a_mixture_records_each_part_with_its_share_and_the_evidence():
+    fake = _use_fake()
+    answer = _call(fake, "POST", f"/v1/runs/{PCA_RUN}/uses", {
+        "mixture": [{"target": "dataset:ag-news@3", "share": 0.7}, {"target": f"artifact_version:{CKPT_800}",
+                                                                      "share": 0.3}],
+        "role": "train", "evidence": [{"session": "sess-2"}]})
+    assert answer.status == 200 and [i["share"] for i in answer.body["items"]] == [0.7, 0.3]
+    assert all(e["meta"]["evidence"] == [{"session": "sess-2", "roles": ["train"]}] for e in fake.live_edges())
+
+
+def test_a_hashless_checkpoint_is_pinned_by_its_fingerprint():
+    fake = _use_fake()
+    fake.rows[CKPT_800].update(content_hash=None, meta={"step": 800, "fingerprint": "fp-800"})
+    answer = _use(fake, f"checkpoint:{CKPT_800}", ["init"])
+    assert answer.body["pinned"] == {"step": 800, "uri": "file:///ck/800", "fingerprint": "fp-800"}
+
+
+def test_a_use_the_runs_code_already_recorded_is_merged_not_duplicated():
+    fake = _use_fake()
+    answer = _call(fake, "POST", f"/v1/runs/{CHOSEN}/uses", {"target": f"checkpoint:{CKPT_400}", "roles": ["eval"]})
+    assert answer.status == 200 and answer.body["created"] is False
+    edges = _call(fake, "GET", f"/v1/runs/{CHOSEN}/edges").body
+    uses = [e for e in edges if e["relation"] == "consumes"]
+    assert len(uses) == 1 and uses[0]["meta"]["roles"] == ["eval", "init"]
+    # Scored as the replay's contribution, once.
+    assert [e["target_id"] for e in fake.final_state()["edges"]] == [CKPT_400]
+
+
+def test_the_retired_byte_match_is_never_served():
+    edges = _call(_use_fake(), "GET", f"/v1/runs/{CHOSEN}/edges").body
+    assert CKPT_800 not in {e["target_id"] for e in edges}
+
+
+def test_reads_and_their_stored_copies_appear_when_the_clock_passes_them():
+    early = _call(_use_fake("2026-09-23T08:05:15Z"), "GET", f"/v1/runs/{CHOSEN}/inputs").body
+    assert [i["path"] for i in early["inputs"]] == ["ck/config.json"]
+    assert [c["id"] for c in early["inputs"][0]["stored_as"]] == [CKPT_400]
+    later = _call(_use_fake("2026-09-23T10:00:00Z"), "GET", f"/v1/runs/{CHOSEN}/inputs").body
+    assert [i["path"] for i in later["inputs"]] == ["ck/config.json", "late.txt"]
+    assert len(later["inputs"][0]["stored_as"]) == 2
+    assert _call(_use_fake(), "GET", f"/v1/runs/{PCA_RUN}/inputs").body["inputs"] == []
+
+
+def test_a_runs_checkpoints_are_listed_by_step():
+    body = _call(_use_fake(), "GET", "/v1/catalog/checkpoints", query=f"run={PCA_RUN}").body
+    assert [(i["id"], i["step"]) for i in body["items"]] == [(CKPT_800, 800), (CKPT_400, 400)]
+
+
+@pytest.mark.parametrize("st, relation, tt, extra, status", [
+    ("run", "consumes", "source", {}, 201),
+    ("artifact_version", "derived_from", "source", {}, 201),
+    ("source", "consumes", "run", {}, 422),  # a source is always the target
+    ("run", "derived_from", "source", {}, 422),
+    ("paper", "relates_to", "paper", {"reason": "same method", "provenance": "inferred"}, 201),
+    ("paper", "relates_to", "paper", {"provenance": "inferred"}, 422),  # relates_to needs a reason
+    ("run", "relates_to", "run", {"reason": "x"}, 422),
+])
+def test_the_fake_takes_source_ends_and_relates_to_like_the_server(st, relation, tt, extra, status):
+    fake = _use_fake()
+    other = "f0000000-0000-4000-8000-0000000000aa"
+    ids = {"run": PCA_RUN, "source": other, "artifact_version": VERSION_3, "paper": PAPER}
+    if st == tt == "paper":
+        fake._add("paper", {"id": other, "title": "B", "project_id": PROJECT, "created_at": "2026-09-23T08:00:40Z"},
+                  frozen=True)
+        sid, tid = other, PAPER
+    else:
+        sid, tid = ids[st], ids[tt] if tt != "run" else CHOSEN
+    answer = _post_edge(fake, st, sid, relation, tt, tid, **extra)
+    assert answer.status == status, answer.body
+
+
+def test_data_links_are_reported_found_wrong_and_by_role():
+    state = score.final_state(_final(edges=[
+        {"source_id": PCA_RUN, "relation": "consumes", "target_type": "artifact", "target_id": CKPT_400,
+         "meta": {"roles": ["init"]}},
+        {"source_id": PCA_RUN, "relation": "consumes", "target_type": "artifact", "target_id": CKPT_800,
+         "meta": {"roles": ["init"]}},
+        {"source_id": PCA_RUN, "relation": "resumed_from", "target_type": "run", "target_id": CHOSEN, "meta": {}}]))
+    key = {"data_links": [{"name": "D1 eval checkpoint", "run": PCA_RUN, "target": CKPT_400, "roles": ["eval"]},
+                          {"name": "D2 sdk use", "run": CHOSEN, "target": CKPT_400}]}
+    metrics, detail = score.data_link_checks(state, key, _use_reads())
+    assert metrics == {"D1 eval checkpoint": True, "D2 sdk use": True}, "a frozen use is the right answer too"
+    assert [w["target"] for w in detail["wrong"]] == [CKPT_800]
+    assert detail["role_mismatch"] == [{"name": "D1 eval checkpoint", "want": ["eval"], "got": ["init"]}]
+    assert score.link_words(state) == {"consumes:init": 2, "resumed_from": 1}
+
+
 def _v2_store(state: Path, session: str, writes: list[tuple[float, list[str], str, str, str]]) -> None:
     """The live daemon's store, written by the daemon's own `Store`."""
     from probe.daemon.store import Store
@@ -915,6 +1115,149 @@ def test_the_live_daemons_edges_are_scrubbed_from_every_frozen_listing(tmp_path)
     assert fixtures.daemon_edge_writes("no-such-session", state=tmp_path) == []
 
 
+class _FrozenClient:
+    """A Probe client for `fixtures.freeze`: canned GET answers by path (and
+    query), recording what was asked."""
+
+    def __init__(self, answers: dict):
+        self.answers = answers
+        self.asked: list[str] = []
+        self.transport = self
+
+    def get(self, path, params=None):
+        key = path + ("?" + "&".join(f"{k}={v}" for k, v in sorted(params.items())) if params else "")
+        self.asked.append(key)
+        if key in self.answers:
+            return copy.deepcopy(self.answers[key])
+        if path in self.answers:
+            return copy.deepcopy(self.answers[path])
+        raise KeyError(key)
+
+
+def _live_answers() -> dict:
+    """The live server, as freeze reads it: one run that read a checkpoint's
+    config (byte-matched on an old server) and used a team dataset."""
+    reads = _use_reads()
+    team_entry = "e7000000-0000-4000-8000-000000000007"
+    answers = {
+        f"/v1/runs/{CHOSEN}": reads[f"/v1/runs/{CHOSEN}"],
+        f"/v1/runs/{CHOSEN}/artifacts": [],
+        f"/v1/runs/{CHOSEN}/edges": reads[f"/v1/runs/{CHOSEN}/edges"],
+        f"/v1/runs/{PCA_RUN}": reads[f"/v1/runs/{PCA_RUN}"],
+        f"/v1/runs/{PCA_RUN}/artifacts": reads[f"/v1/runs/{PCA_RUN}/artifacts"],
+        f"/v1/runs/{PCA_RUN}/edges": [],
+        # An OLD server: the byte match's `matches`, no `stored_as`.
+        f"/v1/runs/{CHOSEN}/inputs": {"run_id": CHOSEN, "coverage": None, "inputs": [
+            {"path": "ck/config.json", "content_hash": "c" * 64, "size_bytes": 700,
+             "first_seen_at": "2026-09-23T08:02:10Z", "matches": [{"target_id": CKPT_800}]},
+            {"path": "tiny.json", "content_hash": "e" * 64, "size_bytes": 2,
+             "first_seen_at": "2026-09-23T08:02:11Z", "matches": []},
+            {"path": "train.jsonl", "content_hash": "f" * 64, "size_bytes": 900,
+             "first_seen_at": "2026-09-23T08:02:12Z", "matches": []}]},
+        f"/v1/runs/{PCA_RUN}/inputs": {"run_id": PCA_RUN, "coverage": None, "inputs": []},
+        f"/v1/artifacts/by-hash/{'c' * 64}": {"versions": [
+            {"artifact_id": CKPT_800, "version_id": None, "name": "checkpoint-800", "kind": "checkpoint",
+             "writer": {"id": PCA_RUN, "slug": "masterful-wildebeest-029"}},
+            {"artifact_id": CKPT_400, "version_id": None, "name": "checkpoint-400", "kind": "checkpoint",
+             "writer": {"id": PCA_RUN, "slug": "masterful-wildebeest-029"}},
+            # A copy no frozen file holds: it cannot be dated, and is left out.
+            {"artifact_id": "0dd00000-0000-4000-8000-000000000000", "version_id": None, "name": "x",
+             "kind": "file", "writer": None}]},
+        f"/v1/artifacts/by-hash/{'f' * 64}": {"versions": [
+            {"artifact_id": team_entry, "version_id": VERSION_3, "version": 3, "name": "ag-news",
+             "kind": "dataset", "writer": None}]},
+        f"/v1/projects/{PROJECT}": reads[f"/v1/projects/{PROJECT}"],
+        f"/v1/projects/{PROJECT}/artifacts": [],
+        f"/v1/projects/{PROJECT}/papers": {"items": []},
+        f"/v1/projects/{PROJECT}/lineage": {"edges": [
+            {"id": None, "source_type": "project", "source_id": PROJECT, "relation": "derived_from",
+             "target_type": "project", "target_id": SVM, "derived": True,
+             "meta": {"source": "lineage_edges", "basis": "runs_read"}}]},
+        f"/v1/catalog/datasets?limit=100&project={PROJECT}&registered=yes": {"items": [
+            {"name": "ag-news", "registered": True}, {"name": "run-file", "registered": False}],
+            "next_cursor": None},
+        "/v1/catalog/datasets/dataset:ag-news": {
+            "ref": "dataset:ag-news", "id": team_entry, "name": "ag-news", "created_at": "2026-09-23T08:00:10Z",
+            "versions": [{"id": VERSION_3, "n": 3, "created_at": "2026-09-23T08:00:20Z",
+                          "users": {"stored": [{"run": {"id": CHOSEN}}], "stored_count": 1, "derived": [],
+                                    "truncated": False}}]},
+    }
+    return answers
+
+
+def test_freeze_drops_derived_rows_and_freezes_the_catalog_and_stored_as():
+    fixtures = _load("fixtures")
+    client = _FrozenClient(_live_answers())
+    reads = fixtures.freeze(client, {"runs": [CHOSEN, PCA_RUN], "projects": [PROJECT], "project": PROJECT})
+    # The byte match's row and the project's runs_read roll-up are gone; the SDK's use stays.
+    assert [e["target_id"] for e in reads[f"/v1/runs/{CHOSEN}/edges"] if e["relation"] == "consumes"] == [CKPT_400]
+    assert reads[f"/v1/projects/{PROJECT}/lineage"]["edges"] == []
+    # The team dataset is frozen, its users blanked; a run-logged file is no catalog entry.
+    entry = reads["/v1/catalog/datasets/ag-news"]
+    assert entry["versions"][0]["users"]["stored"] == [] and "/v1/catalog/datasets/run-file" not in reads
+    # stored_as rebuilt from /by-hash, named like the server's _stored_ref, dated by the frozen rows.
+    inputs = {i["path"]: i for i in reads[f"/v1/runs/{CHOSEN}/inputs"]["inputs"]}
+    assert [(c["ref"], c["step"], c["created_at"]) for c in inputs["ck/config.json"]["stored_as"]] == [
+        (f"checkpoint:{CKPT_400}", 400, "2026-09-23T08:05:10Z"),
+        (f"checkpoint:{CKPT_800}", 800, "2026-09-23T08:05:20Z")]
+    assert [c["ref"] for c in inputs["train.jsonl"]["stored_as"]] == ["dataset:ag-news@3"]
+    assert inputs["tiny.json"]["stored_as"] == [], "under 64 bytes: no lookup"
+    assert f"/v1/artifacts/by-hash/{'e' * 64}" not in client.asked
+    assert all(i["matches"] == [] for i in inputs.values())
+
+
+def test_a_served_stored_as_keeps_only_copies_the_fixture_froze():
+    fixtures = _load("fixtures")
+    answers = _live_answers()
+    answers[f"/v1/runs/{CHOSEN}/inputs"] = {"run_id": CHOSEN, "coverage": None, "inputs": [
+        {"path": "ck/config.json", "content_hash": "c" * 64, "size_bytes": 700,
+         "first_seen_at": "2026-09-23T08:02:10Z", "stored_as": [
+             {"ref": f"checkpoint:{CKPT_400}", "type": "artifact", "id": CKPT_400},
+             # a file the recording scrub dropped (or never froze), and a version registered later
+             {"ref": "artifact:0dd00000-0000-4000-8000-000000000000", "type": "artifact",
+              "id": "0dd00000-0000-4000-8000-000000000000"},
+             {"ref": "artifact_version:0ee00000-0000-4000-8000-000000000000", "type": "artifact_version",
+              "id": "0ee00000-0000-4000-8000-000000000000"}]}]}
+    reads = fixtures.freeze(_FrozenClient(answers), {"runs": [CHOSEN, PCA_RUN], "projects": [PROJECT],
+                                                     "project": PROJECT})
+    assert [c["id"] for c in reads[f"/v1/runs/{CHOSEN}/inputs"]["inputs"][0]["stored_as"]] == [CKPT_400]
+
+
+def test_the_live_daemons_data_uses_are_scrubbed(tmp_path):
+    fixtures = _load("fixtures")
+    reads = _use_reads()
+    sdk = next(e for e in reads[f"/v1/runs/{CHOSEN}/edges"] if e["relation"] == "consumes")
+    # Its repeat use merged `eval` and its evidence into the SDK's edge...
+    sdk["meta"] = dict(sdk["meta"], roles=["eval", "init"],
+                       evidence=[{"session": "live-sess", "event": "s:1:0", "roles": ["eval"]}])
+    # ...and its own use carries `via: daemon`.
+    own = {"id": "e0000000-0000-4000-8000-0000000000dd", "source_type": "run", "source_id": CHOSEN,
+           "relation": "consumes", "target_type": "artifact_version", "target_id": VERSION_3, "derived": False,
+           "provenance": "inferred", "meta": {"roles": ["train"], "via": "daemon"},
+           "created_at": "2026-09-23T08:04:00Z"}
+    reads[f"/v1/runs/{CHOSEN}/edges"].append(own)
+    assert fixtures.scrub_daemon_edges(reads, []) == 1
+    _v2_store(tmp_path, "live-sess", [
+        (fp.parse_ts("2026-09-23T08:04:00Z"),
+         ["probe", "checkpoint", "use", f"checkpoint:{PCA_RUN}@step400", "--run", "fortunate-quail-346",
+          "--role", "eval"], "checkpoint use", "ran", "{}")])
+    writes = fixtures.daemon_use_writes("live-sess", tmp_path)
+    assert writes == [{"run": "fortunate-quail-346", "ref": f"checkpoint:{PCA_RUN}@step400", "roles": ["eval"],
+                       "at": fp.parse_ts("2026-09-23T08:04:00Z")}]
+    assert fixtures.scrub_daemon_uses(reads, writes, "live-sess") == 1
+    left = next(e for e in reads[f"/v1/runs/{CHOSEN}/edges"] if e["relation"] == "consumes")
+    assert (left["meta"]["roles"], "evidence" in left["meta"]) == (["init"], False)
+    assert VERSION_3 not in {e["target_id"] for e in reads[f"/v1/runs/{CHOSEN}/edges"]}
+
+
+def test_a_data_use_is_a_recording_write_to_mask():
+    fixtures = _load("fixtures")
+    for cmd in ("probe dataset use dataset:x@1 --run r", "probe checkpoint use checkpoint:r@step1 --run r",
+                "probe dataset add out --name n --run r"):
+        assert fixtures.RECORDING_WRITE.search(cmd), cmd
+    assert not fixtures.RECORDING_WRITE.search("probe dataset show dataset:x")
+
+
 def test_a_slug_two_rows_share_is_not_guessed(tmp_path):
     fixtures = _load("fixtures")
     reads = _edge_reads()
@@ -951,6 +1294,19 @@ def test_an_arm_whose_skills_differ_from_the_venvs_installed_copy_is_named(tmp_p
 
     shutil.rmtree(venv / "share")  # nothing installed: the daemon falls back to the arm's own
     assert py.stale_skills() == []
+
+
+def test_the_skills_hash_is_of_the_text_the_arms_worker_reads(tmp_path):
+    """Review 10-19: the writer's track-work changes with PROBE_DAEMON_TOOLS and
+    PROBE_DAEMON_TASKS, so the recorded hash is asked under the arm's settings."""
+    if not (Path(sys.prefix) / "pyvenv.cfg").exists():
+        pytest.skip("needs to run from a venv")
+    py = sb.Python.find(Path(sys.prefix), SRC)
+    arms = {"bash": {}, "classic": {"PROBE_DAEMON_TOOLS": "classic"}, "no-tasks": {"PROBE_DAEMON_TASKS": "0"}}
+    seen = {name: py.loaded_skills(tmp_path / name, settings) for name, settings in arms.items()}
+    assert all(s["own"] for s in seen.values()), seen
+    assert len({s["sha256"] for s in seen.values()}) == 3, seen
+    assert seen["classic"]["chars"] < seen["no-tasks"]["chars"] < seen["bash"]["chars"]
 
 
 def test_the_mlp_keys_paper_why_reads_the_rule_however_it_is_conjugated():

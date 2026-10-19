@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.progress import track
 
 from anyscale.api_utils.job_util import _get_job_run_id
+from anyscale.api_utils.logs_util import decode_log_bytes
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
     LogDownloadConfig,
@@ -369,22 +370,19 @@ class LogsController(BaseController):
             is_tail = tail > 0
             chunks = log_file.get_chunks(reverse=is_tail)
             for chunk in chunks:
-                with open(
-                    os.path.join(tmp_dir, chunk.chunk_name),
-                    encoding="utf-8",
-                    errors="replace",
-                ) as source:
+                with open(os.path.join(tmp_dir, chunk.chunk_name), "rb") as source:
+                    text = decode_log_bytes(source.read())
                     if tail > 0:
                         # Tail is enabled, so read log lines in reverse.
                         # TODO (shomilj): Make this more efficient (don't read everything into memory before reversing it)
                         # For now, this is fine (the chunks are <10 MB, so this isn't that inefficient).
-                        for line in reversed(source.readlines()):
+                        for line in reversed(text.splitlines()):
                             print(line.strip())
                             lines_read += 1
                             if lines_read >= tail:
                                 return True
                     else:
-                        print(source.read())
+                        print(text)
         return False
 
     def _write_logs_to_files(
@@ -408,9 +406,8 @@ class LogsController(BaseController):
                             chunk.chunk_name,
                         )
                         continue
-                    with open(downloaded_chunk_path, encoding="utf-8", errors="replace") as source:
-                        for line in source:
-                            dest.write(line)
+                    with open(downloaded_chunk_path, "rb") as source:
+                        dest.write(decode_log_bytes(source.read()))
                         dest.write("\n")
                     chunks_written += 1
 

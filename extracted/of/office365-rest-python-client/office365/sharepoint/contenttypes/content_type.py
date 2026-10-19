@@ -1,16 +1,50 @@
-from typing import Any, List, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from typing_extensions import Self
 
+from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
-from office365.runtime.types.collections import StringCollection
 from office365.runtime.types.odata_property import odata
 from office365.sharepoint.contenttypes.content_type_id import ContentTypeId
 from office365.sharepoint.contenttypes.fieldlinks.collection import FieldLinkCollection
 from office365.sharepoint.entity import Entity
+from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.fields.collection import FieldCollection
 from office365.sharepoint.translation.user_resource import UserResource
+
+if TYPE_CHECKING:
+    from office365.sharepoint.workflow.associations.association import (
+        WorkflowAssociation,
+    )
+
+
+def _content_type_order_ids(order: Any) -> List[str]:
+    """Extract the content-type id strings from a list folder's order value.
+
+    The server returns an order as ``Collection(SP.ContentTypeId)``. Depending
+    on how the folder property is typed it reaches us either as a
+    ``ClientValueCollection`` of ``ContentTypeId`` or as a single
+    ``ContentTypeId`` that flattened the array under numeric keys.
+    """
+    if order is None:
+        return []
+    source = vars(order) if not isinstance(order, dict) else order
+    indexed = sorted((k for k in source if str(k).isdigit()), key=int)
+    if indexed:
+        items: List[Any] = [source[k] for k in indexed]
+    elif isinstance(order, dict):
+        items = [order]
+    else:
+        items = list(order) if hasattr(order, "__iter__") else [order]
+    result: List[str] = []
+    for item in items:
+        value = item.get("StringValue") if isinstance(item, dict) else getattr(item, "StringValue", None)
+        if value:
+            result.append(value)
+    return result
 
 
 class ContentType(Entity):
@@ -35,13 +69,56 @@ class ContentType(Entity):
             field_names (list[str]): Rearranges the collection of fields in the order in which field internal names are
                 specified.
         """
-        payload = {"fieldNames": StringCollection(field_names)}
+        payload = {"fieldNames": list(field_names)}
         qry = ServiceOperationQuery(self, "ReorderFields", None, payload)
         self.context.add_query(qry)
         return self
 
-    def set_default(self, value: bool) -> Self:
-        self.set_property("Default", value)
+    def set_default(self, value: bool = True) -> Self:
+        """Set whether this content type is the default for its parent list.
+
+        A list designates its default content type as the first entry of the
+        list root folder's ``UniqueContentTypeOrder``. This rewrites that order
+        so this (list-scoped) content type comes first; the change is submitted
+        with the next ``execute_query()``.
+
+        Args:
+            value (bool): ``True`` (default) moves this content type to the
+                front of the list's content type order (making it the default),
+                ``False`` moves it to the end.
+
+        Example:
+            >>> list_ct = target_list.content_types.get_by_id(ct_id)
+            >>> list_ct.set_default().execute_query()
+        """
+        from office365.sharepoint.lists.list import List
+
+        parent = self.parent_collection.parent if self.parent_collection is not None else None
+        if not isinstance(parent, List):
+            raise ValueError(
+                "set_default() is supported only for a list-scoped content type "
+                "(for example, one obtained from list.content_types)"
+            )
+        target_id = self.string_id or self.id.StringValue
+        if not target_id:
+            raise ValueError("set_default() requires a loaded content type (missing StringId)")
+        root_folder = parent.root_folder
+
+        def _reorder(_folder: Any) -> None:
+            explicit = _content_type_order_ids(root_folder.properties.get("UniqueContentTypeOrder"))
+            order = explicit or _content_type_order_ids(root_folder.properties.get("ContentTypeOrder"))
+            order = [content_type_id for content_type_id in order if content_type_id != target_id]
+            if value:
+                order.insert(0, target_id)
+            else:
+                order.append(target_id)
+            collection = ClientValueCollection(ContentTypeId)
+            for content_type_id in order:
+                collection.add(ContentTypeId(StringValue=content_type_id))
+            root_folder.set_property("UniqueContentTypeOrder", collection)
+            root_folder.update()
+
+        root_folder.ensure_properties(["ContentTypeOrder", "UniqueContentTypeOrder"]).after_execute(_reorder)
         return self
 
     def update(self, *args: Any, update_children: bool = False) -> Self:
@@ -254,3 +331,67 @@ class ContentType(Entity):
     @property
     def property_ref_name(self):
         return "StringId"
+
+    @property
+    def display_form_target(self) -> Optional[int]:
+        """Gets the DisplayFormTarget property"""
+        return self.properties.get("DisplayFormTarget", None)
+
+    @property
+    def edit_form_target(self) -> Optional[int]:
+        """Gets the EditFormTarget property"""
+        return self.properties.get("EditFormTarget", None)
+
+    @property
+    def edit_form_template_name(self) -> Optional[str]:
+        """Gets the EditFormTemplateName property"""
+        return self.properties.get("EditFormTemplateName", None)
+
+    @property
+    def mobile_display_form_url(self) -> Optional[str]:
+        """Gets the MobileDisplayFormUrl property"""
+        return self.properties.get("MobileDisplayFormUrl", None)
+
+    @property
+    def mobile_edit_form_url(self) -> Optional[str]:
+        """Gets the MobileEditFormUrl property"""
+        return self.properties.get("MobileEditFormUrl", None)
+
+    @property
+    def mobile_new_form_url(self) -> Optional[str]:
+        """Gets the MobileNewFormUrl property"""
+        return self.properties.get("MobileNewFormUrl", None)
+
+    @property
+    def new_form_client_side_component_id(self) -> Optional[str]:
+        """Gets the NewFormClientSideComponentId property"""
+        return self.properties.get("NewFormClientSideComponentId", None)
+
+    @property
+    def new_form_target(self) -> Optional[int]:
+        """Gets the NewFormTarget property"""
+        return self.properties.get("NewFormTarget", None)
+
+    @property
+    def new_form_template_name(self) -> Optional[str]:
+        """Gets the NewFormTemplateName property"""
+        return self.properties.get("NewFormTemplateName", None)
+
+    @property
+    def schema_xml_with_resource_tokens(self) -> Optional[str]:
+        """Gets the SchemaXmlWithResourceTokens property"""
+        return self.properties.get("SchemaXmlWithResourceTokens", None)
+
+    @property
+    def workflow_associations(self) -> EntityCollection[WorkflowAssociation]:
+        """Gets the WorkflowAssociations property"""
+        from office365.sharepoint.workflow.associations.association import (
+            WorkflowAssociation,
+        )
+
+        return self.properties.get(
+            "WorkflowAssociations",
+            EntityCollection[WorkflowAssociation](
+                self.context, WorkflowAssociation, ResourcePath("WorkflowAssociations", self.resource_path)
+            ),
+        )

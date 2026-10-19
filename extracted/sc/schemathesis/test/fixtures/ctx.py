@@ -30,9 +30,23 @@ from test.apps.catalog.openapi import users as openapi_users
 from test.apps.catalog.openapi import wfc as openapi_wfc
 from test.apps.runtime import GraphQLApp, GraphQLServer, Modifier, OpenAPIApp, OpenAPIServer
 
+STARTED_SERVERS = pytest.StashKey[list[OpenAPIServer]]()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    report = yield
+    servers = item.stash.get(STARTED_SERVERS, None)
+    if report.failed and servers:
+        text = "\n\n".join("\n".join([server.base_url, *map(repr, server.requests)]) for server in servers)
+        report.sections.append(("Captured requests", text))
+    return report
+
+
 if TYPE_CHECKING:
     from schemathesis.config import SchemathesisConfig
     from schemathesis.openapi.loaders import OpenApiSchema
+    from schemathesis.schemas import APIOperation
     from schemathesis.specs.graphql.schemas import GraphQLSchema
 
 
@@ -47,7 +61,10 @@ def _start(parent: Context, app: GraphQLApp) -> GraphQLServer: ...
 def _start(parent: Context, app: OpenAPIApp | GraphQLApp) -> OpenAPIServer | GraphQLServer:
     app_runner = parent.request.getfixturevalue("app_runner")
     runner = app_runner.run_flask_app if app.kind == "flask" else app_runner.run_asgi_app
-    return app.make_server(port=runner(app.server))
+    server = app.make_server(port=runner(app.server))
+    if isinstance(server, OpenAPIServer):
+        parent.request.node.stash.setdefault(STARTED_SERVERS, []).append(server)
+    return server
 
 
 @dataclass(slots=True)
@@ -415,9 +432,6 @@ class OpenAPIApps:
     def swagger_v2_examples(self) -> OpenAPIServer:
         return _start(self.parent, openapi_swagger_v2.examples())
 
-    def swagger_v2_response_headers(self) -> OpenAPIServer:
-        return _start(self.parent, openapi_swagger_v2.response_headers())
-
     def swagger_v2_default_response(self) -> OpenAPIServer:
         return _start(self.parent, openapi_swagger_v2.default_response())
 
@@ -556,10 +570,29 @@ class OpenApiContext:
         return builders.build_schema(paths, version=version, **kwargs)
 
     def load_schema(
-        self, paths: dict[str, Any] | None, *, version: str = "3.0.2", **kwargs: dict[str, Any]
+        self,
+        paths: dict[str, Any] | None,
+        *,
+        version: str = "3.0.2",
+        config: SchemathesisConfig | None = None,
+        **kwargs: dict[str, Any],
     ) -> OpenApiSchema:
         schema = self.build_schema(paths, version=version, **kwargs)
-        return schemathesis.openapi.from_dict(schema)
+        return schemathesis.openapi.from_dict(schema, config=config)
+
+    def load_operation(
+        self,
+        label: str,
+        definition: dict[str, Any],
+        *,
+        version: str = "3.0.2",
+        config: SchemathesisConfig | None = None,
+        **kwargs: dict[str, Any],
+    ) -> APIOperation:
+        # `label` is "METHOD /path", e.g. "POST /users".
+        method, path = label.split(" ", 1)
+        schema = self.load_schema({path: {method.lower(): definition}}, version=version, config=config, **kwargs)
+        return schema[path][method]
 
     def from_full_schema(self, raw_schema: dict[str, Any]) -> OpenApiSchema:
         version = raw_schema.get("openapi") or raw_schema["swagger"]

@@ -119,6 +119,7 @@ class QueryCapabilitiesCookie(xcffib.Cookie):
 
 class GenericEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -158,6 +159,7 @@ _events[0] = GenericEvent
 
 class ConfigureNotifyEvent(xcffib.Event):
     xge = True
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -238,6 +240,7 @@ _events[0] = ConfigureNotifyEvent
 
 class IdleNotifyEvent(xcffib.Event):
     xge = True
+    event_number = 2
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

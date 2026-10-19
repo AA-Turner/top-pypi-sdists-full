@@ -36,6 +36,95 @@ def _daemon_bites_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _daemon_tool_set(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The daemon's default tool set is `bash` (2026-10-18, `probe.daemon.toolset`);
+    the suite's daemon tests were written for today's set (`shell`, `read`, `edit`,
+    `session`, the native MCP), which stays as the kill switch, and pin it. A
+    module that sets `DAEMON_TOOLS = "bash"` (test_daemon_bash_tools.py) runs on
+    the default. `PROBE_TEST_DAEMON_TOOLS=bash` runs every suite on it (a check
+    that what the suites test holds with the bash tool set too)."""
+    monkeypatch.setenv("PROBE_DAEMON_TOOLS", os.environ.get("PROBE_TEST_DAEMON_TOOLS")
+                       or getattr(request.module, "DAEMON_TOOLS", "classic"))
+
+
+def _as_bash(part):
+    """A scripted call to one of today's daemon tools, as the `bash` call that does
+    the same with the bash tool set (`PROBE_TEST_DAEMON_TOOLS=bash` only)."""
+    import shlex
+
+    from pydantic_ai.messages import ToolCallPart
+
+    if not isinstance(part, ToolCallPart) or part.tool_name not in ("shell", "read", "session", "edit", "feedback"):
+        return part
+    name = part.tool_name
+    args = part.args_as_dict()
+    if name == "shell":
+        command = args.get("command", "")
+    elif name == "read":
+        path, offset, limit = shlex.quote(str(args.get("path", ""))), args.get("offset"), args.get("limit")
+        if offset or limit:
+            first = int(offset or 1)
+            command = f"sed -n {first},{first + int(limit or 2000) - 1}p {path}"
+        elif str(args.get("path", "")).lower().endswith((".csv", ".tsv", ".json", ".parquet", ".npy", ".npz")):
+            command = f"probe file preview {path}"
+        else:
+            command = f"cat {path}"
+    elif name == "session":
+        words = ["probe", "daemon", "session", str(args.get("op", ""))]
+        for key in ("event_id", "query"):
+            if args.get(key) not in (None, ""):
+                words.append(str(args[key]))
+        for key in ("turn", "page", "kind", "turn_from", "turn_to"):
+            if args.get(key) not in (None, ""):
+                words += [f"--{key.replace('_', '-')}", str(args[key])]
+        command = shlex.join(words)
+    elif name == "edit":
+        command = (f"probe draft edit {shlex.quote(str(args.get('path', '')))} <<'EOF'\n<<<<<<< OLD\n"
+                   f"{args.get('old', '')}\n======= NEW\n{args.get('new', '')}\n>>>>>>> END\nEOF")
+    else:
+        command = f"probe feedback send {shlex.quote(str(args.get('text', '')))}"
+    return ToolCallPart("bash", {"command": command, "why": args.get("why", "")}, tool_call_id=part.tool_call_id)
+
+
+@pytest.fixture(autouse=True)
+def _scripted_calls_as_bash(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`PROBE_TEST_DAEMON_TOOLS=bash`: a test's scripted model calls today's tools
+    (`shell`, `read`, `session`, `edit`, `feedback`); each call is sent as the
+    `bash` command that does the same, so the suite checks the behaviour, not the
+    tool names, on the bash tool set."""
+    if os.environ.get("PROBE_TEST_DAEMON_TOOLS") != "bash":
+        return
+    try:
+        from pydantic_ai.messages import ModelResponse
+        from pydantic_ai.models import function as function_mod
+    except ImportError:
+        return
+    original = function_mod.FunctionModel.__init__
+
+    def _translated(out, info):
+        # Only for an agent built with the bash tool set (a test's own agent keeps its tools).
+        offered = {t.name for t in getattr(info, "function_tools", None) or []}
+        if not isinstance(out, ModelResponse) or offered != {"bash"}:
+            return out
+        return ModelResponse(**{**out.__dict__, "parts": [_as_bash(p) for p in out.parts]})
+
+    def init(self, function=None, *args, **kwargs):
+        if function is not None:
+            import inspect
+
+            if inspect.iscoroutinefunction(function):
+                async def wrapped(messages, info, _f=function):
+                    return _translated(await _f(messages, info), info)
+            else:
+                def wrapped(messages, info, _f=function):
+                    return _translated(_f(messages, info), info)
+            function = wrapped
+        original(self, function, *args, **kwargs)
+
+    monkeypatch.setattr(function_mod.FunctionModel, "__init__", init)
+
+
+@pytest.fixture(autouse=True)
 def _no_command_check(monkeypatch: pytest.MonkeyPatch) -> None:
     """The daemon asks Probe about a shell command before it asks the
     researcher (`probe.daemon.command_check.ask_probe`, a network call). In the
@@ -3496,6 +3585,16 @@ class FakeApp:
             pid = m.group(1)
             if pid not in self.projects:
                 return httpx.Response(404, json={"detail": "not found"})
+            if request.url.params.get("dry_run") == "true":
+                # What the trash would take (0261), changing nothing.
+                runs = sum(1 for r in self.runs.values() if r.get("project_id") == pid)
+                return httpx.Response(200, json={
+                    "dry_run": True, "type": "project", "id": pid,
+                    "name": self.projects[pid].get("name"),
+                    "count": {"projects": 1, "runs": runs, "groups": 0},
+                    "created_by": {"unknown": {"projects": 1, "runs": runs, "groups": 0}},
+                    "updated_at": "2026-10-17T14:03:00+00:00",
+                    "restorable_until": "2026-11-07T00:00:00Z"})
             # Mirrors the engine cascade (0080): the tree goes with the project.
             doomed = {eid for eid, e in self.experiments.items() if e.get("project_id") == pid}
             for rid in [
@@ -3789,6 +3888,11 @@ class FakeApp:
             wanted_tags = request.url.params.get_list("tags")
             if wanted_tags:
                 rows = [row for row in rows if set(wanted_tags) <= set(row.get("tags") or [])]
+            if excluded := params.get("exclude_origin_session"):
+                # 0291: the runs that session CREATED leave the page before it
+                # is cut. The column is filtered on, never served (RunDetailOut).
+                rows = [row for row in rows if row.get("origin_session_id") != excluded]
+            rows = [{k: v for k, v in row.items() if k != "origin_session_id"} for row in rows]
             if self.supports_project_direct:
                 # project_id (0054): ALL of a project's runs — direct AND attached.
                 project_id = request.url.params.get("project_id")
@@ -5196,6 +5300,15 @@ class FakeApp:
         m = _RUN_ITEM.match(path)
         if m and method == "DELETE":
             rid = m.group(1)
+            if request.url.params.get("dry_run") == "true":
+                if rid not in self.runs:
+                    return httpx.Response(404, json={"detail": "run not found"})
+                return httpx.Response(200, json={
+                    "dry_run": True, "type": "run", "id": rid, "name": self.runs[rid].get("name"),
+                    "count": {"projects": 0, "runs": 1, "groups": 0},
+                    "created_by": {"unknown": {"projects": 0, "runs": 1, "groups": 0}},
+                    "updated_at": "2026-10-17T14:03:00+00:00",
+                    "restorable_until": "2026-11-07T00:00:00Z"})
             if self.runs.pop(rid, None) is None:
                 return httpx.Response(404, json={"detail": "run not found"})
             return httpx.Response(204)

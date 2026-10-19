@@ -24,6 +24,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from probe.daemon import toolset
 from probe.daemon.bite import NOTICE_STREAM, render
 from probe.daemon.events import READER_SOURCE, REQUEST_SOURCE, Kind
 from probe.daemon.store import StoredEvent
@@ -43,6 +44,10 @@ Reply with the index only."""
 HEADER = ("(An index of these events, made by a smaller model: one line per step with its event ids. It leaves "
           "numbers, paths and commands out. Open the events for anything you record: `session` op=open "
           "event_id=<id>, or op=search query=<words>.)")
+#: The same with the `bash` tool set (NEW wording, fixtures/daemon_prompts/bite/bash-markers.NEW.md).
+HEADER_BASH = ("(An index of these events by a smaller model: one line per step with its event ids, no numbers, "
+               "paths or commands. Open the events for anything you record: `probe daemon session open <id>` or "
+               "`probe daemon session search \"<words>\"`.)")
 NO_SOURCE = " (no source: search before recording it)"
 _ID = re.compile(r"\b[A-Za-z][\w.-]*:\d+:\d+\b")
 
@@ -151,6 +156,6 @@ async def index_events(model: Any, events: list[StoredEvent], *, timeout_s: floa
             out.failed += 1
             blocks.extend(render(ev) for ev in evs)
         else:
-            blocks.append(f"{HEADER}\n{text}")
+            blocks.append(f"{toolset.pick(HEADER, HEADER_BASH)}\n{text}")
     out.text = "\n\n".join(blocks)
     return out

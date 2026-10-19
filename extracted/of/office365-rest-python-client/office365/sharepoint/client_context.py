@@ -9,6 +9,7 @@ from typing_extensions import Self
 
 from office365.azure_env import AzureEnvironment
 from office365.runtime.auth.authentication_context import AuthenticationContext
+from office365.runtime.auth.certificate import CertificateData
 from office365.runtime.auth.client_credential import ClientCredential
 from office365.runtime.auth.token_response import TokenResponse
 from office365.runtime.auth.user_credential import UserCredential
@@ -19,6 +20,9 @@ from office365.runtime.http.url import get_absolute_url
 from office365.runtime.odata.v3.batch_request import DEFAULT_MAX_BATCH_BYTES, ODataBatchV3Request
 from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.queries.deferred import DeferredOperationQuery
+from office365.runtime.transport.base import NoTimeoutType
+from office365.runtime.transport.requests_transport import DEFAULT_POOL_CONNECTIONS, DEFAULT_POOL_MAXSIZE
 from office365.runtime.types.collections import StringCollection
 from office365.sharepoint.exceptions import SecurityValidationException
 from office365.sharepoint.portal.groups.creation_params import GroupCreationParams
@@ -46,6 +50,7 @@ from office365.sharepoint.webs.web import Web
 
 if TYPE_CHECKING:
     from office365.runtime.queries.batch import BatchQuery
+    from office365.runtime.queries.client_query import ClientQuery
     from office365.sharepoint.brandcenter.brand_center import BrandCenter
     from office365.sharepoint.portal.theme_manager import ThemeManager
     from office365.sharepoint.search.service import SearchService
@@ -92,7 +97,7 @@ class ClientContext(ClientRuntimeContext):
         ctx = ClientContext(root_site_url)
 
         def _init_context(return_type):
-            ctx.pending_request().authentication_context.url = return_type.value
+            ctx.pending_request().set_base_url(return_type.value)
 
         Web.get_web_url_from_page_url(ctx, full_url).after_execute(_init_context)
         return ctx
@@ -119,11 +124,14 @@ class ClientContext(ClientRuntimeContext):
         self,
         tenant: str,
         client_id: str,
-        thumbprint: str,
+        thumbprint: Optional[str] = None,
         cert_path: Optional[str] = None,
         private_key: Optional[str] = None,
         scopes: Optional[List[str]] = None,
         passphrase: Optional[str] = None,
+        *,
+        public_certificate: Optional[CertificateData] = None,
+        use_sni: bool = False,
     ) -> Self:
         """Creates authenticated SharePoint context via certificate credentials
 
@@ -131,13 +139,27 @@ class ClientContext(ClientRuntimeContext):
             tenant (str): Tenant name
             cert_path (str or None): Path to A PEM encoded certificate private key.
             private_key (str or None): A PEM encoded certificate private key.
-            thumbprint (str): Hex encoded thumbprint of the certificate.
+            thumbprint (str): Hex encoded thumbprint of the certificate (optional
+                when ``public_certificate`` is given).
             client_id (str): The OAuth client id of the calling application.
             scopes (list[str] or None): Scopes requested to access a protected API (a resource)
             passphrase (str): Passphrase if the private_key is encrypted
+            public_certificate: Certificate (DER/PEM bytes, inline PEM text, or a
+                path) used to derive the thumbprint or, with ``use_sni``, for
+                subject name/issuer authentication
+            use_sni (bool): Use subject name/issuer authentication (requires the
+                optional ``cryptography`` package)
         """
         self.authentication_context.with_client_certificate(
-            tenant, client_id, thumbprint, cert_path, private_key, scopes, passphrase
+            tenant,
+            client_id,
+            thumbprint,
+            cert_path,
+            private_key,
+            scopes,
+            passphrase,
+            public_certificate=public_certificate,
+            use_sni=use_sni,
         )
         return self
 
@@ -181,9 +203,13 @@ class ClientContext(ClientRuntimeContext):
     def with_transport(
         self,
         proxies: dict[str, str] | None = None,
-        verify: bool | str = True,
-        timeout: int | tuple[int, int] | None = None,
+        verify: bool | str | None = None,
+        timeout: float | tuple[float, float | None] | NoTimeoutType | None = None,
         session: requests.Session | None = None,
+        *,
+        pool_connections: int = DEFAULT_POOL_CONNECTIONS,
+        pool_maxsize: int = DEFAULT_POOL_MAXSIZE,
+        pool_block: bool = False,
     ) -> Self:
         """Configure the HTTP transport (proxy, SSL, timeout, custom session).
 
@@ -194,10 +220,20 @@ class ClientContext(ClientRuntimeContext):
 
         Args:
             proxies: Proxy URLs (e.g. ``{"https": "http://proxy:8080"}``)
-            verify: SSL verification — ``True``, ``False``, or a CA bundle path
-            timeout: Request timeout in seconds
+            verify: SSL verification — ``True``, ``False``, or a CA bundle path.
+                ``None`` (default) defers to the session/environment default.
+            timeout: Request timeout — a number or a ``(connect, read)`` tuple.
+                When ``None`` the bundled default (10 s connect, unbounded read)
+                applies; pass
+                :data:`~office365.runtime.transport.base.NO_TIMEOUT` to disable.
             session: Custom ``requests.Session`` with pre-configured adapters
                    (e.g. for NTLM/SSPI auth, custom TLS, connection pooling)
+            pool_connections: Host connection pools kept per session (ignored
+                when ``session`` is supplied)
+            pool_maxsize: Maximum connections per host pool (ignored when
+                ``session`` is supplied)
+            pool_block: Block when a pool is full instead of discarding the
+                connection (ignored when ``session`` is supplied)
 
         Returns:
             Self: Supports method chaining
@@ -207,6 +243,9 @@ class ClientContext(ClientRuntimeContext):
             verify=verify,
             timeout=timeout,
             session=session,
+            pool_connections=pool_connections,
+            pool_maxsize=pool_maxsize,
+            pool_block=pool_block,
         )
         return self
 
@@ -295,21 +334,210 @@ class ClientContext(ClientRuntimeContext):
         max_bytes = DEFAULT_MAX_BATCH_BYTES if max_batch_bytes is None else max_batch_bytes
         request = self.pending_request()
         request.warm_up()  # fetch the form digest once before dispatching any batch
-        batches = self._split_batches(items_per_batch, max_bytes)
         if concurrency <= 1:
             batch_request = ODataBatchV3Request(
                 self._base_url, JsonLightFormat(), transport=self.pending_request().transport
             )
             batch_request.beforeExecute += request._authenticate_request
             batch_request.beforeExecute += request.ensure_form_digest
-            for qry in batches:
-                self._run_batch(batch_request, qry)
-                if callable(success_callback):
-                    success_callback(qry.return_types)
+            while self.has_pending_request:
+                queries, barrier = self._take_batch_round()
+                self._run_batch_round(batch_request, queries, items_per_batch, max_bytes, concurrency, success_callback)
+                if barrier is not None:
+                    self._resolve_deferred(barrier)
             return self
 
-        self._execute_batches_in_parallel(batches, concurrency, success_callback)
+        while self.has_pending_request:
+            queries, barrier = self._take_batch_round()
+            self._run_batch_round(None, queries, items_per_batch, max_bytes, concurrency, success_callback)
+            if barrier is not None:
+                self._resolve_deferred(barrier)
         return self
+
+    @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
+    async def execute_batch_async(
+        self,
+        items_per_batch: int = Limits.BATCH_ITEMS.value,
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]] = None,
+        concurrency: int = 1,
+        max_batch_bytes: Optional[int] = None,
+    ) -> Self:
+        """Async counterpart of :meth:`execute_batch`.
+
+        Pending queries are split exactly like the synchronous method, but each
+        batch's HTTP round-trip runs off the event loop, so the loop is never
+        blocked and independent batches overlap when ``concurrency`` > 1. Retry,
+        form-digest handling and per-sub-request throttling behave as in the
+        synchronous path.
+
+        Args:
+            items_per_batch (int): Maximum to be selected for bulk operation
+            success_callback ((List[ClientObject|ClientResult])-> None): A success callback
+            concurrency (int): Maximum number of concurrent batch requests (default 1)
+            max_batch_bytes (int or None): Maximum estimated batch payload size (default ~1 MB)
+        """
+        max_bytes = DEFAULT_MAX_BATCH_BYTES if max_batch_bytes is None else max_batch_bytes
+        request = self.pending_request()
+        # fetch the form digest once before dispatching any batch (off the loop)
+        await request.warm_up_async()
+        while self.has_pending_request:
+            queries, barrier = self._take_batch_round()
+            await self._run_batch_round_async(
+                request, queries, items_per_batch, max_bytes, concurrency, success_callback
+            )
+            if barrier is not None:
+                with self.current_query_scope(barrier):
+                    await barrier.execute_query_async(request)
+        return self
+
+    def _take_batch_round(self) -> "tuple[list[ClientQuery], Optional[DeferredOperationQuery]]":
+        """Pop the next run of batchable queries, stopping at a deferred barrier.
+
+        Consecutive real queries are collected for one HTTP round. The first
+        :class:`~office365.runtime.queries.deferred.DeferredOperationQuery`
+        encountered terminates the run and is returned to the caller, so the
+        collected requests are dispatched *before* the barrier resolves. This
+        mirrors ``execute_query`` ordering, where a barrier's handlers only run
+        once the preceding request has completed, and lets the caller loop until
+        the queue -- including follow-up queries enqueued by response handlers --
+        is drained.
+
+        Returns:
+            Tuple of (batchable queries, terminating barrier or ``None``).
+        """
+        queries: list[ClientQuery] = []
+        while self.has_pending_request:
+            qry = self._queries.popleft()
+            if isinstance(qry, DeferredOperationQuery):
+                return queries, qry
+            queries.append(qry)
+        return queries, None
+
+    def _partition_batches(
+        self, queries: "list[ClientQuery]", items_per_batch: int, max_batch_bytes: int
+    ) -> "list[BatchQuery]":
+        """Split batchable queries into independent batch units."""
+        from office365.runtime.odata.batch_util import partition_by_limits
+        from office365.runtime.queries.batch import BatchQuery
+
+        return [BatchQuery(self, chunk) for chunk in partition_by_limits(queries, items_per_batch, max_batch_bytes)]
+
+    def _resolve_deferred(self, barrier: DeferredOperationQuery) -> None:
+        """Resolve a deferred barrier in place, firing its handlers.
+
+        Exposes the placeholder as the current query so its ``after_execute``
+        handlers resolve to it, then runs it as a no-op (or the deferred op).
+        Any queries those handlers enqueue are picked up by the next round.
+        """
+        with self.current_query_scope(barrier):
+            barrier.execute_query(self.pending_request())
+
+    def _run_batch_round(
+        self,
+        batch_request: Optional[ODataBatchV3Request],
+        queries: "list[ClientQuery]",
+        items_per_batch: int,
+        max_batch_bytes: int,
+        concurrency: int,
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]],
+    ) -> None:
+        """Dispatch one round's queries in submission order.
+
+        Consecutive batchable queries are grouped into ``/_api/$batch`` requests;
+        a query flagged ``batchable = False`` (an endpoint the batch service
+        rejects, such as ``listdata.svc``) is executed on its own. Preceding
+        batchable queries are flushed first, so mixed rounds stay ordered.
+
+        Args:
+            batch_request: Shared v3 batch request for sequential execution, or
+                ``None`` when ``concurrency`` > 1 (each batch builds its own).
+            queries: Queries collected for this round.
+            items_per_batch: Maximum queries per batch.
+            max_batch_bytes: Maximum estimated batch payload size.
+            concurrency: Maximum number of concurrent batch requests.
+            success_callback: Called with each completed unit's return types.
+        """
+        pending: list[ClientQuery] = []
+        for qry in queries:
+            if getattr(qry, "batchable", True):
+                pending.append(qry)
+                continue
+            self._flush_batch_group(
+                batch_request, pending, items_per_batch, max_batch_bytes, concurrency, success_callback
+            )
+            pending = []
+            self._execute_single(qry, success_callback)
+        self._flush_batch_group(batch_request, pending, items_per_batch, max_batch_bytes, concurrency, success_callback)
+
+    def _flush_batch_group(
+        self,
+        batch_request: Optional[ODataBatchV3Request],
+        queries: "list[ClientQuery]",
+        items_per_batch: int,
+        max_batch_bytes: int,
+        concurrency: int,
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]],
+    ) -> None:
+        """Partition and dispatch a run of consecutive batchable queries."""
+        if not queries:
+            return
+        batches = self._partition_batches(queries, items_per_batch, max_batch_bytes)
+        if concurrency <= 1:
+            assert batch_request is not None
+            for batch_qry in batches:
+                self._run_batch(batch_request, batch_qry)
+                if callable(success_callback):
+                    success_callback(batch_qry.return_types)
+        else:
+            self._execute_batches_in_parallel(batches, concurrency, success_callback)
+
+    def _execute_single(
+        self,
+        query: "ClientQuery",
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]] = None,
+    ) -> None:
+        """Execute a non-batchable query through the pending request, in order."""
+        with self.current_query_scope(query):
+            self.pending_request().execute_query(query)
+        if callable(success_callback) and query.return_type is not None:
+            success_callback([query.return_type])
+
+    async def _run_batch_round_async(
+        self,
+        request: SharePointRequest,
+        queries: "list[ClientQuery]",
+        items_per_batch: int,
+        max_batch_bytes: int,
+        concurrency: int,
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]],
+    ) -> None:
+        """Async twin of :meth:`_run_batch_round`."""
+        pending: list[ClientQuery] = []
+        for qry in queries:
+            if getattr(qry, "batchable", True):
+                pending.append(qry)
+                continue
+            await self._flush_batch_group_async(pending, items_per_batch, max_batch_bytes, concurrency, success_callback)
+            pending = []
+            with self.current_query_scope(qry):
+                await request.execute_query_async(qry)
+            if callable(success_callback) and qry.return_type is not None:
+                success_callback([qry.return_type])
+        await self._flush_batch_group_async(pending, items_per_batch, max_batch_bytes, concurrency, success_callback)
+
+    async def _flush_batch_group_async(
+        self,
+        queries: "list[ClientQuery]",
+        items_per_batch: int,
+        max_batch_bytes: int,
+        concurrency: int,
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]],
+    ) -> None:
+        """Async twin of :meth:`_flush_batch_group`."""
+        if not queries:
+            return
+        batches = self._partition_batches(queries, items_per_batch, max_batch_bytes)
+        await self._run_batches_async(batches, concurrency, success_callback)
 
     def _run_batch(self, batch_request: ODataBatchV3Request, batch_qry: "BatchQuery") -> None:
         """Execute one batch, refreshing an expired form digest once and retrying."""
@@ -328,6 +556,32 @@ class ClientContext(ClientRuntimeContext):
         batch_request.beforeExecute += self.pending_request()._authenticate_request
         batch_request.beforeExecute += self.pending_request().ensure_form_digest
         self._run_batch(batch_request, batch_qry)
+        return batch_qry.return_types
+
+    async def _run_batch_async(self, batch_request: ODataBatchV3Request, batch_qry: "BatchQuery") -> None:
+        """Execute one batch, refreshing an expired form digest once and retrying."""
+        try:
+            await batch_request.execute_query_with_retry_async(batch_qry)
+        except SecurityValidationException:
+            self.pending_request().invalidate_digest()
+            await self.pending_request().warm_up_async()
+            await batch_request.execute_query_with_retry_async(batch_qry)
+
+    async def _execute_batch_async(self, batch_qry: "BatchQuery") -> list[Any]:
+        """Execute a single batch unit through the async transport.
+
+        Unlike the base implementation (which offloads the whole synchronous
+        batch to a worker thread), this awaits the v3 batch's own async retry
+        loop, so a native async transport configured on the context is used.
+        """
+        request = self.pending_request()
+        batch_request = ODataBatchV3Request(self._base_url, JsonLightFormat(), transport=request.transport)
+        batch_request.beforeExecute += request._authenticate_request
+        batch_request.beforeExecute += request.ensure_form_digest
+        batch_request._async_authenticate = request._async_authenticate
+        if request.has_async_transport:
+            batch_request.with_async_transport(request.async_transport)
+        await self._run_batch_async(batch_request, batch_qry)
         return batch_qry.return_types
 
     def pending_request(self) -> SharePointRequest:
@@ -353,6 +607,29 @@ class ClientContext(ClientRuntimeContext):
         from office365.runtime.retry import retry_after_delay
 
         self.execute_query_retry(
+            max_retry=max_retry,
+            max_delay=max_delay,
+            jitter=jitter,
+            failure_callback=lambda _retry, ex: retry_after_delay(ex),
+        )
+
+    async def execute_query_with_incremental_retry_async(
+        self, max_retry: int = 5, max_delay=None, jitter: bool = True
+    ) -> None:
+        """Async counterpart of :meth:`execute_query_with_incremental_retry`.
+
+        Retries throttled requests (HTTP 429/503) after the server's
+        ``Retry-After`` delay, awaiting ``asyncio.sleep`` so the event loop stays
+        free while it waits.
+
+        Args:
+            max_retry: Maximum number of retry attempts
+            max_delay: Optional cap on the exponential delay (seconds)
+            jitter: Whether to randomize the delay (default True)
+        """
+        from office365.runtime.retry import retry_after_delay
+
+        await self.execute_query_async_retry(
             max_retry=max_retry,
             max_delay=max_delay,
             jitter=jitter,

@@ -71,25 +71,39 @@ def test_no_per_scope_servers_uses_global(ctx):
 
 
 def test_variable_substitution_from_defaults(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "servers": [
-                        {
-                            "url": "https://{host}.example.com/{version}",
-                            "variables": {
-                                "host": {"default": "api"},
-                                "version": {"default": "v3"},
-                            },
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "servers": [
+                {
+                    "url": "https://{host}.example.com/{version}",
+                    "variables": {
+                        "host": {"default": "api"},
+                        "version": {"default": "v3"},
+                    },
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    assert schema["/items"]["GET"].base_url == "https://api.example.com/v3"
+    assert operation.base_url == "https://api.example.com/v3"
+
+
+@pytest.mark.parametrize(
+    ("url", "variables", "expected"),
+    [
+        ("http://h/{v}/{v.x}", {"v": {"default": "a"}, "v.x": {"default": "b"}}, "/a/b/"),
+        ("http://h/{api.version}", {"api.version": {"default": "v2"}}, "/v2/"),
+        ("http://h/{v[0]}", {"v[0]": {"default": "first"}}, "/first/"),
+    ],
+    ids=["dotted-and-plain", "dotted", "brackets"],
+)
+def test_variable_names_with_format_syntax(ctx, url, variables, expected):
+    schema = ctx.openapi.load_schema(
+        {"/items": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        servers=[{"url": url, "variables": variables}],
+    )
+    assert schema.base_path == expected
 
 
 def test_absolute_url_passes_through(ctx):
@@ -154,7 +168,7 @@ def test_invalid_servers_raises(ctx, operation_definition, match):
 
 def test_config_base_url_short_circuits(ctx):
     config = SchemathesisConfig.from_dict({"base-url": "https://override.example.com/api"})
-    schema_dict = ctx.openapi.build_schema(
+    schema = ctx.openapi.load_schema(
         {
             "/admin": {
                 "servers": [{"url": "https://path.example.com/p"}],
@@ -165,8 +179,8 @@ def test_config_base_url_short_circuits(ctx):
             }
         },
         servers=[{"url": "https://global.example.com/g"}],
+        config=config,
     )
-    schema = schemathesis.openapi.from_dict(schema_dict, config=config)
     assert schema["/admin"]["GET"].base_url == "https://override.example.com/api"
 
 
@@ -245,24 +259,21 @@ def test_unknown_variable_name_silently_ignored(ctx):
 
 
 def test_config_variable_fills_missing_default(ctx):
-    schema_dict = ctx.openapi.build_schema(
-        {
-            "/items": {
-                "get": {
-                    "servers": [
-                        {
-                            "url": "https://{host}.example.com",
-                            "variables": {"host": {}},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )
     config = SchemathesisConfig.from_dict({"servers": {"variables": {"host": "provided"}}})
-    schema = schemathesis.openapi.from_dict(schema_dict, config=config)
-    assert schema["/items"]["GET"].base_url == "https://provided.example.com"
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "servers": [
+                {
+                    "url": "https://{host}.example.com",
+                    "variables": {"host": {}},
+                }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+        config=config,
+    )
+    assert operation.base_url == "https://provided.example.com"
 
 
 def test_base_url_override_ignores_variables(ctx):

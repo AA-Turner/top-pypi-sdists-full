@@ -5,16 +5,17 @@ import re
 
 import graphql
 import pytest
-from hypothesis import HealthCheck, given, settings
 
 from schemathesis.config import ConfigError, SchemathesisConfig
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.dictionaries import DictionaryDraw
 from schemathesis.generation.feedback import FeedbackSources
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.meta import TestPhase
 from schemathesis.python._constants.pool import ConstantEntry, ConstantsPool, Origin
 from schemathesis.specs.graphql.dictionaries import resolve_bindings, substitute_dictionaries
 from schemathesis.specs.graphql.schemas import graphql_cases
+from test.utils import run_given
 
 SDL = """
 interface Media {
@@ -73,14 +74,7 @@ def load(ctx, config: dict):
 
 
 def collect_bodies(operation, *, mode=GenerationMode.POSITIVE, max_examples=10, containing=""):
-    bodies = []
-
-    @given(case=operation.as_strategy(generation_mode=mode))
-    @settings(max_examples=max_examples, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
-    def run(case):
-        bodies.append(case.body)
-
-    run()
+    bodies = [case.body for case in generate_many(operation.as_strategy(generation_mode=mode), max_examples)]
     return [body for body in bodies if containing in body]
 
 
@@ -312,12 +306,10 @@ def test_draw_provenance_attached(ctx):
     schema = load(ctx, TITLE_BINDING)
     draws = []
 
-    @given(case=schema["Query"]["bookByTitle"].as_strategy())
-    @settings(max_examples=5, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=schema["Query"]["bookByTitle"].as_strategy(), max_examples=5, derandomize=True)
     def run(case):
         draws.extend(case._meta.dictionary_draws)
 
-    run()
     assert draws and set(draws) == {
         DictionaryDraw(
             dictionary="titles",
@@ -339,12 +331,10 @@ def test_no_dictionaries_configured_is_a_no_op(ctx):
     schema = load(ctx, {})
     draws = []
 
-    @given(case=schema["Query"]["bookByTitle"].as_strategy())
-    @settings(max_examples=5, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=schema["Query"]["bookByTitle"].as_strategy(), max_examples=5, derandomize=True)
     def run(case):
         draws.extend(case._meta.dictionary_draws)
 
-    run()
     assert draws == []
 
 
@@ -365,14 +355,10 @@ def test_probability_below_one_leaves_some_values_alone(ctx):
 @pytest.mark.hypothesis_nested
 def test_binding_applies_in_stateful_phase(ctx):
     schema = load(ctx, TITLE_BINDING)
-    bodies = []
-
-    @given(case=graphql_cases(operation=schema["Query"]["bookByTitle"], phase=TestPhase.STATEFUL))
-    @settings(max_examples=5, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
-    def run(case):
-        bodies.append(case.body)
-
-    run()
+    bodies = [
+        case.body
+        for case in generate_many(graphql_cases(operation=schema["Query"]["bookByTitle"], phase=TestPhase.STATEFUL), 5)
+    ]
     assert bodies and all('title: "Dune"' in body for body in bodies)
 
 
@@ -381,18 +367,15 @@ def test_dictionary_entry_survives_the_constants_pool(ctx):
     schema = load(ctx, TITLE_BINDING)
     pool = ConstantsPool()
     pool.add(ConstantEntry(value="HARVESTED", type="string", origins=(Origin(source="s", module="m", adapter=None),)))
-    bodies = []
-
-    @given(
-        case=graphql_cases(
-            operation=schema["Query"]["bookByTitle"], feedback=FeedbackSources(constants_value_source=pool)
+    bodies = [
+        case.body
+        for case in generate_many(
+            graphql_cases(
+                operation=schema["Query"]["bookByTitle"], feedback=FeedbackSources(constants_value_source=pool)
+            ),
+            20,
         )
-    )
-    @settings(max_examples=20, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
-    def run(case):
-        bodies.append(case.body)
-
-    run()
+    ]
     assert bodies and all('title: "Dune"' in body for body in bodies)
 
 

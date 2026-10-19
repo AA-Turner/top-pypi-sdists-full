@@ -17,6 +17,8 @@
 //   wynn_epsilon     best even column, elementwise, finite-guarded
 //   head_contour     first-quadrant half-sine detour lam(t) = t + jH sin(pi t/a)
 //   tail_below       real-axis tail panelled at the J0(lam rho) zeros
+//   wa_estimate      its optional weighted-averages stop (momwire#1441;
+//                    `_wa_estimate`, the below/below family only)
 //   run_contour      a = 1.1 max(|k_p|, |k_m|), marks = (k_p, |Re k_m|)
 //
 // THE THREE MEASURED GUARDS in `tail_below` are transcribed verbatim, because
@@ -51,7 +53,9 @@
 #include <complex>
 #include <limits>
 
+#include "_cdiv_inline.h"
 #include "_fma_inline.h"
+#include "_somm_lanes_inline.h"
 
 namespace mw_contour {
 
@@ -183,7 +187,7 @@ static inline void mw_bessel_series(const T &z, T &j0, T &j1) {
 template <class T>
 static inline void mw_bessel_miller(const T &z, double az, T &j0, T &j1) {
     const int M = 2 * static_cast<int>(0.75 * az + 16.0);
-    const T inv2z = T(2.0) / z;
+    const T inv2z = mw_cdiv::div(T(2.0), z);
     T fp1(0.0), fn(1e-280);
     T s(0.0), j0v(0.0), j1v(0.0);
     for (int n = M; n >= 1; --n) {
@@ -203,7 +207,7 @@ static inline void mw_bessel_miller(const T &z, double az, T &j0, T &j1) {
         }
     }
     s += j0v;
-    const T inv_s = T(1.0) / s;
+    const T inv_s = mw_cdiv::div(T(1.0), s);
     j0 = mw_fma::mul(j0v, inv_s);
     j1 = mw_fma::mul(j1v, inv_s);
 }
@@ -217,7 +221,7 @@ static inline void mw_bessel_pq(const T &z, double mu, T &P, T &Q) {
     P = T(1.0);
     Q = T(0.0);
     T c(1.0);
-    const T iz = T(1.0) / z;
+    const T iz = mw_cdiv::div(T(1.0), z);
     double prev = std::numeric_limits<double>::infinity();
     for (int k = 1; k <= 40; ++k) {
         const double kk = 2.0 * k - 1.0;
@@ -243,7 +247,7 @@ static inline void mw_bessel_asymptotic(const T &z, T &j0, T &j1) {
     mw_bessel_pq(z, 4.0, P1, Q1);
     const T cz = std::cos(z);
     const T sz = std::sin(z);
-    const T pref = std::sqrt(T(1.0) / (MW_PI * z));
+    const T pref = std::sqrt(mw_cdiv::div(T(1.0), MW_PI * z));
     // J0 = sqrt(2/(pi z)) [P0 cos(z - pi/4) - Q0 sin(z - pi/4)] with
     // cos(z - pi/4) = (cos z + sin z)/sqrt2, sin(z - pi/4) = (sin z - cos z)/sqrt2.
     j0 = mw_fma::mul(pref, mw_fma::mul_add(P0 + Q0, cz, mw_fma::mul(P0 - Q0, sz)));
@@ -282,7 +286,7 @@ static inline void bessel_j0_j1x(const cd &x, cd &j0, cd &j1x) {
     cd b0, b1;
     mw_bessel_j0_j1(z, nx, b0, b1);
     j0 = b0;
-    j1x = b1 / z;
+    j1x = mw_cdiv::div(b1, z);
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +302,54 @@ struct ContourHealth {
     bool accel;
 };
 
+// Lanes (momwire#1441 step 3). An integrand that can evaluate W nodes at
+// once says so with `static const bool kLanes = true` and two members:
+//   bool lanes_on() const                  -- the run-time switch, so the
+//                                             scalar walk stays callable;
+//   void lanes(const double *t, cd *fv) const -- the integrand at the W real
+//                                             abscissae t[0..W), fv[l*NC + c]
+//                                             the scalar call's out[c] at t[l],
+//                                             bit for bit.
+// gauss_segment then forms the same abscissae and sums the same products in
+// the same node order; only who computes the values changes. Every other
+// integrand compiles to the scalar loop alone.
+template <class G, class = void>
+struct mw_has_lanes {
+    static const bool value = false;
+};
+template <class G>
+struct mw_has_lanes<G, decltype(void(G::kLanes))> {
+    static const bool value = G::kLanes;
+};
+
+template <int NC, class G, bool L = mw_has_lanes<G>::value>
+struct mw_gauss_lanes {
+    static inline bool run(const G &, double, double, const double *,
+                           const double *, int, cd *) {
+        return false;
+    }
+};
+template <int NC, class G>
+struct mw_gauss_lanes<NC, G, true> {
+    static inline bool run(const G &g, double mid, double half, const double *gx,
+                           const double *gw, int ng, cd *out) {
+        const int W = mw_sl::W;
+        if (!g.lanes_on() || ng % W != 0) return false;
+        double t[mw_sl::W];
+        cd fv[mw_sl::W * NC];
+        for (int i = 0; i < ng; i += W) {
+            for (int l = 0; l < W; ++l) t[l] = mw_fma::fma(half, gx[i + l], mid);
+            g.lanes(t, fv);
+            for (int l = 0; l < W; ++l) {
+                const double w = gw[i + l] * half;
+                for (int c = 0; c < NC; ++c)
+                    out[c] = mw_fma::mul_add(fv[l * NC + c], w, out[c]);
+            }
+        }
+        return true;
+    }
+};
+
 // `_gauss_segment`: f(mid + half*gx) @ (gw * half), vector-valued.
 // `G` is a real-abscissa integrand: void operator()(double t, cd *out) const.
 template <int NC, class G>
@@ -307,6 +359,7 @@ static inline void gauss_segment(const G &g, double z0, double z1,
     const double mid = 0.5 * (z0 + z1);
     const double half = 0.5 * (z1 - z0);
     for (int c = 0; c < NC; ++c) out[c] = cd(0.0, 0.0);
+    if (mw_gauss_lanes<NC, G>::run(g, mid, half, gx, gw, ng, out)) return;
     cd fv[NC];
     for (int i = 0; i < ng; ++i) {
         g(mw_fma::fma(half, gx[i], mid), fv);
@@ -372,7 +425,7 @@ static inline void wynn_epsilon(const cd *s, int n, cd *best) {
             for (int c = 0; c < NC; ++c) {
                 cd d = cur[(i + 1) * NC + c] - cur[i * NC + c];
                 if (std::abs(d) < 1e-300) d = cd(1e-300, 0.0);
-                nxt[i * NC + c] = prev[i * NC + c] + cd(1.0, 0.0) / d;
+                nxt[i * NC + c] = prev[i * NC + c] + mw_cdiv::div(1.0, d);
             }
         }
         const int mm = m - 1;
@@ -388,6 +441,24 @@ static inline void wynn_epsilon(const cd *s, int n, cd *best) {
         }
         if (m <= 1) break;
     }
+}
+
+// HeadWrap's and TailWrap's forwarding to an integrand with lanes
+// (F::head_lanes(lr, li, fv) at the detour's lam, F::tail_lanes(t, fv) at W
+// real abscissae). Free templates, so a wrapper over an integrand without
+// them never instantiates the calls.
+template <class F>
+static inline bool mw_tail_lanes_on(const F &f) {
+    return f.lanes_on();
+}
+template <class F>
+static inline void mw_tail_lanes(const F &f, const double *t, cd *fv) {
+    f.tail_lanes(t, fv);
+}
+template <class F>
+static inline void mw_head_lanes(const F &f, const double *lr, const double *li,
+                                 cd *fv) {
+    f.head_lanes(lr, li, fv);
 }
 
 // The head's parametrized integrand: lam(t) = t + jH sin(pi t / a), carrying
@@ -407,6 +478,26 @@ struct HeadWrap {
         f(lam, out);
         for (int i = 0; i < NC; ++i) out[i] = mw_fma::mul(out[i], dl);
     }
+    // The integrand's own head lanes, when it has them (see mw_has_lanes):
+    // the detour's lam and dlam/dt per node exactly as above, the W integrand
+    // values from F::head_lanes, then the same products by dlam/dt.
+    static const bool kLanes = mw_has_lanes<F>::value;
+    bool lanes_on() const { return mw_tail_lanes_on(f); }
+    void lanes(const double *t, cd *fv) const {
+        double lr[mw_sl::W], li[mw_sl::W];
+        cd dl[mw_sl::W];
+        for (int l = 0; l < mw_sl::W; ++l) {
+            const double s = mw_fma::opaque(std::sin(mw_fma::opaque(MW_PI * t[l] / a)));
+            const double c = mw_fma::opaque(std::cos(mw_fma::opaque(MW_PI * t[l] / a)));
+            lr[l] = t[l];
+            li[l] = H * s;
+            dl[l] = cd(1.0, H * (MW_PI / a) * c);
+        }
+        mw_head_lanes(f, lr, li, fv);
+        for (int l = 0; l < mw_sl::W; ++l)
+            for (int i = 0; i < NC; ++i)
+                fv[l * NC + i] = mw_fma::mul(fv[l * NC + i], dl[l]);
+    }
 };
 
 // The tail runs along the real axis; the caller's integrand still takes a
@@ -416,6 +507,10 @@ struct TailWrap {
     const F &f;
     explicit TailWrap(const F &f_) : f(f_) {}
     void operator()(double z, cd *out) const { f(cd(z, 0.0), out); }
+    // The integrand's own tail lanes, when it has them (see mw_has_lanes).
+    static const bool kLanes = mw_has_lanes<F>::value;
+    bool lanes_on() const { return mw_tail_lanes_on(f); }
+    void lanes(const double *t, cd *fv) const { mw_tail_lanes(f, t, fv); }
 };
 
 // `_head`: the integral over [0, a], deformed into the FIRST quadrant.
@@ -460,6 +555,59 @@ static inline int head_contour(const F &f, double a, double rho,
     return ne - 1;
 }
 
+// `_sommerfeld_below._tail_below`'s weighted-averages stop (momwire#1441):
+// Mosig-Michalski weighted averages as Sidi's W-algorithm, on the tail's
+// partial sums at the J0 zero lattice. `pow` is one remainder power per
+// component (null = the plain walk, which every caller but the below/below
+// family gets); the rest are `_WA_ORDER`, `_WA_MIN_SUMS`, `_WA_AGREE`.
+struct WaRule {
+    const double *pow;
+    int order;
+    int min_sums;
+    int agree;
+};
+
+// At most this many lattice sums in the W table (`_WA_ORDER` + 1 <= this).
+const int MW_WA_KEEP = 16;
+
+// `_wa_estimate`: omega_n = (-1)^n (xi_n/xi_0)^p e^{-(xi_n - xi_0) h} (the
+// window-normalised remainder estimate; a constant factor in omega cancels
+// from M/N), divided differences in t = 1/xi. `xs`, `odd` and `s` (k, NC) are
+// the window oldest first. Returns false where numpy returns None.
+template <int NC>
+static inline bool wa_estimate(const double *xs, const bool *odd, const cd *s,
+                               int k, const double *pw, double h, cd *est) {
+    const double span = (xs[k - 1] - xs[0]) * h;
+    if (span > 600.0) return false;
+    double t[MW_WA_KEEP];
+    cd m[MW_WA_KEEP * NC];
+    cd nn[MW_WA_KEEP * NC];
+    for (int i = 0; i < k; ++i) {
+        t[i] = 1.0 / xs[i];
+        const double ex = std::exp(-(xs[i] - xs[0]) * h);
+        const double sg = odd[i] ? -1.0 : 1.0;
+        for (int c = 0; c < NC; ++c) {
+            const double om = sg * std::pow(xs[i] / xs[0], pw[c]) * ex;
+            m[i * NC + c] = s[i * NC + c] / om;
+            nn[i * NC + c] = cd(1.0 / om, 0.0);
+        }
+    }
+    for (int j = 1; j < k; ++j) {
+        for (int i = 0; i + j < k; ++i) {
+            const double dt = t[i + j] - t[i];
+            for (int c = 0; c < NC; ++c) {
+                m[i * NC + c] = (m[(i + 1) * NC + c] - m[i * NC + c]) / dt;
+                nn[i * NC + c] = (nn[(i + 1) * NC + c] - nn[i * NC + c]) / dt;
+            }
+        }
+    }
+    for (int c = 0; c < NC; ++c) {
+        est[c] = m[c] / nn[c];
+        if (!mw_finite(est[c])) return false;
+    }
+    return true;
+}
+
 // `_tail_below`: the integral from a to infinity along the real axis,
 // panelled at the J0(lam rho) zeros. See the header comment for the three
 // guards; each one is load-bearing.
@@ -468,7 +616,7 @@ static inline void tail_below(const F &f, double a, double rho, double h,
                               const cd *ref, double rtol, const double *gx,
                               const double *gw, int ng, int max_panels,
                               cd *out, int *parts_out, bool *converged_out,
-                              bool *accel_out) {
+                              bool *accel_out, const WaRule *wa = 0) {
     const double INF = std::numeric_limits<double>::infinity();
     double dl_decay = (h > 0.0) ? (1.5 / h) : INF;
     if (!std::isfinite(dl_decay)) dl_decay = std::max(1.0, 10.0 * a);
@@ -486,15 +634,26 @@ static inline void tail_below(const F &f, double a, double rho, double h,
     cd contrib[NC];
     cd ring[MW_TAIL_KEEP * NC];
 
+    // The weighted-averages window: the last `wa->order + 1` lattice sums.
+    const bool use_wa = (wa != 0) && (wa->pow != 0) && std::isfinite(lat);
+    double wa_x[MW_WA_KEEP];
+    bool wa_odd[MW_WA_KEEP];
+    cd wa_s[MW_WA_KEEP * NC];
+    cd wa_prev[NC], wa_est[NC];
+    int wa_n = 0, agree = 0;
+    bool have_prev = false;
+    const int wa_keep = use_wa ? std::min(wa->order + 1, MW_WA_KEEP) : 0;
+
     double z = a;
     int parts = 0, quiet = 0;
     bool converged = false;
     while (parts < max_panels) {
         double nz = INF;
+        double n = 0.0;
         if (std::isfinite(lat)) {
             // The `+ 1e-9` is the zero-length-panel guard: without it a z
             // sitting exactly on the lattice floors back onto itself.
-            const double n = std::floor((z - off) / lat + 1e-9) + 1.0;
+            n = std::floor((z - off) / lat + 1e-9) + 1.0;
             nz = off + n * lat;
         }
         const double znext = std::min(nz, z + dl_decay);
@@ -521,6 +680,45 @@ static inline void tail_below(const F &f, double a, double rho, double h,
             }
         } else {
             quiet = 0;
+        }
+        if (use_wa && znext == nz) {
+            // A lattice-aligned sum: the walk landed on J0's n-th zero.
+            if (wa_n == wa_keep) {
+                for (int i = 1; i < wa_n; ++i) {
+                    wa_x[i - 1] = wa_x[i];
+                    wa_odd[i - 1] = wa_odd[i];
+                    for (int c = 0; c < NC; ++c)
+                        wa_s[(i - 1) * NC + c] = wa_s[i * NC + c];
+                }
+                --wa_n;
+            }
+            wa_x[wa_n] = z;
+            wa_odd[wa_n] = std::fmod(n, 2.0) != 0.0;
+            for (int c = 0; c < NC; ++c) wa_s[wa_n * NC + c] = acc[c];
+            ++wa_n;
+            bool have = false;
+            if (wa_n >= 3)
+                have = wa_estimate<NC>(wa_x, wa_odd, wa_s, wa_n, wa->pow, h,
+                                       wa_est);
+            if (have && have_prev && wa_n >= wa->min_sums) {
+                double d = 0.0;
+                for (int c = 0; c < NC; ++c)
+                    d = std::max(d, std::abs(wa_est[c] - wa_prev[c]));
+                if (d < rtol * smax) {
+                    if (++agree >= wa->agree) {
+                        for (int c = 0; c < NC; ++c) acc[c] = wa_est[c];
+                        converged = true;
+                        break;
+                    }
+                } else {
+                    agree = 0;
+                }
+            } else if (!have) {
+                agree = 0;
+            }
+            have_prev = have;
+            if (have)
+                for (int c = 0; c < NC; ++c) wa_prev[c] = wa_est[c];
         }
     }
 
@@ -553,7 +751,8 @@ static inline ContourHealth run_contour(const F &f, double k_p, const cd &k_m,
                                         double rho, double h, double rtol,
                                         int depth, double detour,
                                         const double *gx, const double *gw,
-                                        int ng, int max_panels, cd *out) {
+                                        int ng, int max_panels, cd *out,
+                                        const WaRule *wa = 0) {
     const double a = 1.1 * std::max(std::abs(k_p), std::abs(k_m));
     const double marks[2] = {k_p, std::abs(k_m.real())};
     cd head[NC], tail[NC];
@@ -561,7 +760,7 @@ static inline ContourHealth run_contour(const F &f, double k_p, const cd &k_m,
     hh.head_panels = head_contour<NC>(f, a, rho, marks, 2, rtol, depth, detour,
                                       gx, gw, ng, head);
     tail_below<NC>(f, a, rho, h, head, rtol, gx, gw, ng, max_panels, tail,
-                   &hh.tail_panels, &hh.converged, &hh.accel);
+                   &hh.tail_panels, &hh.converged, &hh.accel, wa);
     for (int c = 0; c < NC; ++c) out[c] = head[c] + tail[c];
     return hh;
 }

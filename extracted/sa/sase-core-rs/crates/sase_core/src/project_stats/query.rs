@@ -9,12 +9,14 @@ use super::git::{self, ResolvedRepo};
 use super::history::{self, HistoryOutcome};
 use super::output;
 use super::wire::{
-    validate_project_stats_request, ProjectStatsCoverageWire,
-    ProjectStatsError, ProjectStatsFacetWire, ProjectStatsIssueWire,
-    ProjectStatsPortfolioWire, ProjectStatsProjectSpecWire,
-    ProjectStatsProjectWire, ProjectStatsRangeWire, ProjectStatsRepoSpecWire,
-    ProjectStatsRepoTierWire, ProjectStatsRequestWire,
-    ProjectStatsResponseWire, PROJECT_STATS_CLASSIFIER_VERSION,
+    validate_project_stats_request, ProjectStatsCodeCounterWire,
+    ProjectStatsCodeWire, ProjectStatsCoverageWire, ProjectStatsError,
+    ProjectStatsFacetWire, ProjectStatsIssueWire, ProjectStatsPortfolioWire,
+    ProjectStatsProjectSpecWire, ProjectStatsProjectWire,
+    ProjectStatsRangeWire, ProjectStatsRepoSpecWire,
+    ProjectStatsRepoStatusWire, ProjectStatsRepoTierWire, ProjectStatsRepoWire,
+    ProjectStatsRequestWire, ProjectStatsResponseWire,
+    ProjectStatsSnapshotWire, PROJECT_STATS_CLASSIFIER_VERSION,
     PROJECT_STATS_ENGINE_VERSION, PROJECT_STATS_METRIC_POLICY_VERSION,
     PROJECT_STATS_WIRE_SCHEMA_VERSION,
 };
@@ -28,17 +30,28 @@ struct WalkedSource {
 }
 
 type SpecInstanceKey = (String, Vec<String>, String, String);
+type RecordKey = (String, String, String);
 
-/// Validate the request, walk unique repositories once, and fill Output
-/// plus the Runs facet when requested.
-///
-/// Code and plan seams stay unimplemented until sibling phases land.
+/// Validate the request, resolve unique repositories, and fill requested
+/// facets. History walks, directory loads, and blob reads run only for the
+/// facets that need them.
 pub fn query_project_stats(
     request: &ProjectStatsRequestWire,
 ) -> Result<ProjectStatsResponseWire, ProjectStatsError> {
     validate_project_stats_request(request)?;
 
-    let directory = directory::load_directory();
+    let wants_output = wants_facet(request, ProjectStatsFacetWire::Output);
+    let wants_code = wants_facet(request, ProjectStatsFacetWire::Code);
+    let wants_runs = wants_facet(request, ProjectStatsFacetWire::Runs);
+    let need_git = wants_output || wants_code;
+    let counter = ProjectStatsCodeCounterWire::Sloc;
+
+    let directory_snapshot = if wants_output {
+        directory::load(request)
+    } else {
+        directory::DirectorySnapshot::default()
+    };
+    let directory = directory_snapshot.directory;
     let runs_snapshot = if runs::needs_snapshot(request) {
         Some(runs::load(request))
     } else {
@@ -51,67 +64,138 @@ pub fn query_project_stats(
             runs::include_project(project, runs_snapshot.as_ref())
         })
         .collect();
-    let walks = load_unique_sources(request, &selected);
+    let walks = if need_git {
+        load_unique_sources(request, &selected, wants_output)
+    } else {
+        BTreeMap::new()
+    };
+
+    let project_repos: Vec<(
+        &ProjectStatsProjectSpecWire,
+        Vec<MeasuredRepo<'_>>,
+    )> = selected
+        .iter()
+        .map(|project| (*project, project_repos(project, &walks)))
+        .collect();
+    let all_repos: Vec<&MeasuredRepo<'_>> = project_repos
+        .iter()
+        .flat_map(|(_, repos)| repos.iter())
+        .collect();
+    let (code_by_identity, code_issues) = if wants_code {
+        code::measure_identities(
+            &all_repos,
+            &request.budget,
+            &request.cache_dir,
+            counter,
+        )
+    } else {
+        (BTreeMap::new(), Vec::new())
+    };
+
     let mut projects = Vec::with_capacity(selected.len());
     let mut all_issues = Vec::new();
     let mut all_tokens = BTreeSet::new();
     let mut facet_tokens = BTreeSet::new();
     let mut portfolio_code_rows = Vec::new();
     let mut portfolio_keys = BTreeMap::new();
-    let wants_output = wants_facet(request, ProjectStatsFacetWire::Output);
-    let wants_code = wants_facet(request, ProjectStatsFacetWire::Code);
-    let wants_runs = wants_facet(request, ProjectStatsFacetWire::Runs);
+    let mut portfolio_plans = Vec::new();
+    let mut records_cache: BTreeMap<RecordKey, code::RecordMeasure> =
+        BTreeMap::new();
+    all_tokens.extend(directory_snapshot.source_tokens.iter().cloned());
+    all_issues.extend(directory_snapshot.issues.iter().cloned());
 
-    for project in selected {
-        let measured = project_repos(project, &walks);
+    for (project, measured) in &project_repos {
         let context = FacetContext {
             request,
             project,
             directory: &directory,
-            repos: &measured,
+            repos: measured,
         };
-        let output_measured = output::measure(&context);
-        let code_result = code::query(&context);
-        let _plans = plans::query(&context);
+        let (mut repos, output_measured) = if wants_output {
+            let output_measured = output::measure(&context);
+            (output_measured.repos.clone(), Some(output_measured))
+        } else {
+            (
+                measured
+                    .iter()
+                    .map(|repo| output::repo_wire_from_resolve(repo, need_git))
+                    .collect(),
+                None,
+            )
+        };
+        let plan_measured = if wants_output {
+            Some(plans::measure(&context))
+        } else {
+            None
+        };
         let mapped_runs = runs_snapshot
             .as_ref()
             .map(|snapshot| runs::map_project(snapshot, project, wants_runs));
-        facet_tokens.extend(code_result.source_tokens);
 
-        all_tokens.extend(output_measured.source_tokens.iter().cloned());
-        all_issues.extend(output_measured.issues.iter().cloned());
-        all_issues.extend(code_result.issues.iter().cloned());
-
+        if let Some(output_measured) = &output_measured {
+            all_tokens.extend(output_measured.source_tokens.iter().cloned());
+            all_issues.extend(output_measured.issues.iter().cloned());
+        }
+        if let Some(plans) = &plan_measured {
+            facet_tokens.extend(plans.source_tokens.iter().cloned());
+            all_issues.extend(plans.issues.iter().cloned());
+            if plans.measured {
+                portfolio_plans.push(plans.clone());
+            }
+        }
         if wants_output {
             collect_portfolio_code(
-                &measured,
+                measured,
                 &mut portfolio_code_rows,
                 &mut portfolio_keys,
             );
         }
 
-        let mut repos = output_measured.repos;
-        let (output, lifetime, models, coverage) = if wants_output {
-            (
-                Some(output_measured.output),
-                Some(output_measured.lifetime),
-                output_measured.models,
-                output_measured.coverage,
-            )
+        let project_code = if wants_code {
+            Some(attach_code(
+                project,
+                measured,
+                &mut repos,
+                &code_by_identity,
+                &mut CodeAttachState {
+                    records_cache: &mut records_cache,
+                    facet_tokens: &mut facet_tokens,
+                    all_issues: &mut all_issues,
+                    budget: &request.budget,
+                    cache_dir: &request.cache_dir,
+                    counter,
+                },
+            ))
         } else {
-            for repo in &mut repos {
-                repo.output = None;
-                repo.lifetime = None;
+            None
+        };
+
+        let (output, lifetime, models, coverage) = if let Some(measured) =
+            output_measured
+        {
+            let mut output = measured.output;
+            if let Some(plans) = &plan_measured {
+                super::aggregate::apply_plan_measurement(&mut output, plans);
             }
-            (
-                None,
-                None,
-                Vec::new(),
-                ProjectStatsCoverageWire {
+            let models = output.models.clone();
+            let coverage = output.commit_coverage.clone();
+            (Some(output), Some(measured.lifetime), models, coverage)
+        } else {
+            let coverage = project_code
+                .as_ref()
+                .map(|code| ProjectStatsCoverageWire {
+                    configured_repos: code.repos_configured,
+                    measured_repos: code.repos_measured,
+                    unavailable_repos: code
+                        .repos_configured
+                        .saturating_sub(code.repos_measured),
+                    ..ProjectStatsCoverageWire::default()
+                })
+                .unwrap_or_else(|| ProjectStatsCoverageWire {
                     configured_repos: project.code_repos.len() as u64,
                     ..ProjectStatsCoverageWire::default()
-                },
-            )
+                });
+            (None, None, Vec::new(), coverage)
         };
 
         let (runs_value, patches, truncated_patch_rows) = match mapped_runs {
@@ -127,7 +211,7 @@ pub fn query_project_stats(
             state: project.state,
             output,
             lifetime,
-            code: if wants_code { code_result.value } else { None },
+            code: project_code,
             runs: runs_value,
             repos,
             not_counted: project.not_counted.clone(),
@@ -155,17 +239,42 @@ pub fn query_project_stats(
     }
 
     let mut portfolio = if wants_output {
-        portfolio_from_rows(
+        let mut portfolio = portfolio_from_rows(
             request,
             &directory,
             &portfolio_code_rows,
             output::health_from_statuses(portfolio_keys.values().copied()),
-        )
+        );
+        if let Some(plans) = plans::combine(&portfolio_plans) {
+            if let Some(output) = &mut portfolio.output {
+                super::aggregate::apply_plan_measurement(output, &plans);
+                portfolio.models = output.models.clone();
+            }
+        }
+        portfolio
     } else {
         ProjectStatsPortfolioWire::default()
     };
     if wants_runs {
         portfolio.runs = runs::portfolio_runs(&projects);
+    }
+    if wants_code {
+        portfolio.code = Some(portfolio_code(&code_by_identity, counter));
+        for outcome in code_by_identity.values() {
+            facet_tokens.insert(outcome.token.clone());
+        }
+        for outcome in records_cache.values() {
+            facet_tokens.insert(outcome.token.clone());
+        }
+    }
+
+    for issue in code_issues {
+        if !all_issues
+            .iter()
+            .any(|existing| issue_payload_matches(existing, &issue))
+        {
+            all_issues.push(issue);
+        }
     }
 
     let fingerprint = fingerprint(
@@ -187,6 +296,139 @@ pub fn query_project_stats(
         portfolio,
         issues: all_issues,
     })
+}
+
+struct CodeAttachState<'a> {
+    records_cache: &'a mut BTreeMap<RecordKey, code::RecordMeasure>,
+    facet_tokens: &'a mut BTreeSet<String>,
+    all_issues: &'a mut Vec<ProjectStatsIssueWire>,
+    budget: &'a super::wire::ProjectStatsBudgetWire,
+    cache_dir: &'a str,
+    counter: ProjectStatsCodeCounterWire,
+}
+
+fn attach_code(
+    project: &ProjectStatsProjectSpecWire,
+    measured: &[MeasuredRepo<'_>],
+    repos: &mut [ProjectStatsRepoWire],
+    code_by_identity: &BTreeMap<String, code::IdentityCode>,
+    state: &mut CodeAttachState<'_>,
+) -> ProjectStatsCodeWire {
+    let mut snapshots = Vec::new();
+    let mut seen_identities = BTreeSet::new();
+    for (repo, wire) in measured.iter().zip(repos.iter_mut()) {
+        if repo.tier == ProjectStatsRepoTierWire::Records {
+            let key = record_key(repo);
+            let outcome = state
+                .records_cache
+                .entry(key)
+                .or_insert_with(|| {
+                    code::measure_records_repo(
+                        repo.resolved,
+                        repo.spec,
+                        repo.issue,
+                        state.budget,
+                        state.cache_dir,
+                    )
+                })
+                .clone();
+            apply_snapshot(
+                wire,
+                project,
+                outcome.snapshot,
+                outcome.status,
+                outcome.issue,
+                None,
+                state.all_issues,
+            );
+            state.facet_tokens.insert(outcome.token);
+            continue;
+        }
+        let identity = code::semantic_identity(repo);
+        let Some(outcome) = code_by_identity.get(&identity) else {
+            continue;
+        };
+        apply_snapshot(
+            wire,
+            project,
+            outcome.snapshot.clone(),
+            outcome.status,
+            outcome.issue.clone(),
+            outcome.disagreement_issue.clone(),
+            state.all_issues,
+        );
+        if seen_identities.insert(identity) {
+            if let Some(snapshot) = &outcome.snapshot {
+                snapshots.push(snapshot.clone());
+            }
+            state.facet_tokens.insert(outcome.token.clone());
+        }
+    }
+    let configured = seen_identities.len() as u64;
+    let measured_count = snapshots.len() as u64;
+    let refs: Vec<&ProjectStatsSnapshotWire> = snapshots.iter().collect();
+    code::aggregate(&refs, configured, measured_count, state.counter)
+}
+
+fn apply_snapshot(
+    wire: &mut ProjectStatsRepoWire,
+    project: &ProjectStatsProjectSpecWire,
+    snapshot: Option<ProjectStatsSnapshotWire>,
+    status: ProjectStatsRepoStatusWire,
+    issue: Option<ProjectStatsIssueWire>,
+    disagreement_issue: Option<ProjectStatsIssueWire>,
+    all_issues: &mut Vec<ProjectStatsIssueWire>,
+) {
+    wire.status = code::merge_status(wire.status, status);
+    wire.snapshot = snapshot;
+    for issue in [issue, disagreement_issue].into_iter().flatten() {
+        let issue = output::with_project(issue, &project.key);
+        if !all_issues.iter().any(|existing| existing == &issue) {
+            all_issues.push(issue.clone());
+        }
+        if wire.issue.is_none() {
+            wire.issue = Some(issue);
+        }
+    }
+}
+
+fn issue_payload_matches(
+    left: &ProjectStatsIssueWire,
+    right: &ProjectStatsIssueWire,
+) -> bool {
+    let mut left = left.clone();
+    let mut right = right.clone();
+    left.project = None;
+    right.project = None;
+    left == right
+}
+
+fn record_key(repo: &MeasuredRepo<'_>) -> RecordKey {
+    match repo.resolved {
+        Some(resolved) => (
+            resolved.identity.clone(),
+            resolved.common_dir.clone(),
+            resolved.tip.clone(),
+        ),
+        None => (
+            format!("path:{}", repo.spec.path),
+            String::new(),
+            String::new(),
+        ),
+    }
+}
+
+fn portfolio_code(
+    code_by_identity: &BTreeMap<String, code::IdentityCode>,
+    counter: ProjectStatsCodeCounterWire,
+) -> ProjectStatsCodeWire {
+    let configured = code_by_identity.len() as u64;
+    let snapshots: Vec<&ProjectStatsSnapshotWire> = code_by_identity
+        .values()
+        .filter_map(|outcome| outcome.snapshot.as_ref())
+        .collect();
+    let measured = snapshots.len() as u64;
+    code::aggregate(&snapshots, configured, measured, counter)
 }
 
 fn wants_facet(
@@ -212,6 +454,7 @@ fn spec_instance_key(spec: &ProjectStatsRepoSpecWire) -> SpecInstanceKey {
 fn load_unique_sources(
     request: &ProjectStatsRequestWire,
     projects: &[&ProjectStatsProjectSpecWire],
+    walk_history: bool,
 ) -> BTreeMap<SpecInstanceKey, WalkedSource> {
     let mut resolve_cache: BTreeMap<
         (String, Vec<String>),
@@ -254,27 +497,33 @@ fn load_unique_sources(
             }
             Ok(resolved) => resolved.clone(),
         };
-        let walk_key = (
-            resolved.identity.clone(),
-            resolved.common_dir.clone(),
-            resolved.tip.clone(),
-        );
-        let history = history_cache
-            .entry(walk_key)
-            .or_insert_with(|| {
-                history::history_for_resolved(
-                    &resolved,
-                    spec,
-                    &request.budget,
-                    &request.cache_dir,
-                )
-            })
-            .clone();
+        let history = if walk_history {
+            let walk_key = (
+                resolved.identity.clone(),
+                resolved.common_dir.clone(),
+                resolved.tip.clone(),
+            );
+            Some(
+                history_cache
+                    .entry(walk_key)
+                    .or_insert_with(|| {
+                        history::history_for_resolved(
+                            &resolved,
+                            spec,
+                            &request.budget,
+                            &request.cache_dir,
+                        )
+                    })
+                    .clone(),
+            )
+        } else {
+            None
+        };
         by_spec.insert(
             instance,
             WalkedSource {
                 resolved: Some(resolved),
-                history: Some(history),
+                history,
                 issue: None,
             },
         );
@@ -401,6 +650,7 @@ fn fingerprint(
         "engine": PROJECT_STATS_ENGINE_VERSION,
         "metric_policy": PROJECT_STATS_METRIC_POLICY_VERSION,
         "classifier": PROJECT_STATS_CLASSIFIER_VERSION,
+        "counter_version": super::counter::COUNTER_VERSION,
         "sources": source_tokens,
         "facet_tokens": facet_tokens,
     }))

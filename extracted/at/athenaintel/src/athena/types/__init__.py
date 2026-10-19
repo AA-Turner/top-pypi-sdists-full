@@ -142,6 +142,9 @@ if typing.TYPE_CHECKING:
     from .prompt_message import PromptMessage
     from .prompt_message_type import PromptMessageType
     from .public_asset_out import PublicAssetOut
+    from .public_collab_agent_config_in import PublicCollabAgentConfigIn
+    from .public_skill_config_in import PublicSkillConfigIn
+    from .publish_asset_response_out import PublishAssetResponseOut
     from .read_capabilities_out import ReadCapabilitiesOut
     from .redacted_thinking_content import RedactedThinkingContent
     from .rename_asset_response_out import RenameAssetResponseOut
@@ -335,6 +338,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PromptMessage": ".prompt_message",
     "PromptMessageType": ".prompt_message_type",
     "PublicAssetOut": ".public_asset_out",
+    "PublicCollabAgentConfigIn": ".public_collab_agent_config_in",
+    "PublicSkillConfigIn": ".public_skill_config_in",
+    "PublishAssetResponseOut": ".publish_asset_response_out",
     "ReadCapabilitiesOut": ".read_capabilities_out",
     "RedactedThinkingContent": ".redacted_thinking_content",
     "RenameAssetResponseOut": ".rename_asset_response_out",
@@ -552,6 +558,9 @@ __all__ = [
     "PromptMessage",
     "PromptMessageType",
     "PublicAssetOut",
+    "PublicCollabAgentConfigIn",
+    "PublicSkillConfigIn",
+    "PublishAssetResponseOut",
     "ReadCapabilitiesOut",
     "RedactedThinkingContent",
     "RenameAssetResponseOut",

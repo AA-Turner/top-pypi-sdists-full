@@ -93,6 +93,18 @@ class EnumDef : public ReflectionDefBase {
     return *this;
   }
 
+  /*! \brief Set an enum attribute using its key's declared value type. */
+  template <typename T, typename Value>
+  EnumDef& set_attr(AttrKey<T> key, Value&& value) {
+    return set_attr(key.name, T(std::forward<Value>(value)));
+  }
+
+  /*! \brief Set a named native callback using its key's declared adapter. */
+  template <auto Fn, typename T>
+  EnumDef& set_native_fn_attr(AttrKey<T> key) {
+    return set_attr(key, T::template FromNative<Fn>());
+  }
+
  private:
   void Register(const EnumState& state, int64_t int_index, String str_index) {
     List<ObjectRef> entries = state->entries;
@@ -107,7 +119,7 @@ class EnumDef : public ReflectionDefBase {
     ::tvm::ffi::details::ObjectUnsafe::GetHeader(obj.get())->type_index = type_index_;
     obj->_int_index = int_index;
     obj->_str_index = std::move(str_index);
-    instance_ = Enum(ObjectPtr<EnumObj>(std::move(obj)));
+    instance_ = ::tvm::ffi::details::ObjectUnsafe::ObjectRefFromObjectPtr<Enum>(std::move(obj));
     entries.push_back(instance_);
     indexes.Set(int_key, instance_);
     indexes.Set(str_key, instance_);
@@ -131,15 +143,16 @@ class EnumDef : public ReflectionDefBase {
     // GCC runs attribute constructors before dynamic initialization of inline type indices.
     // Set the header explicitly so the state is not packed as `None` during static init.
     ::tvm::ffi::details::ObjectUnsafe::GetHeader(state_obj.get())->type_index = state_type_index;
-    EnumState state(std::move(state_obj));
-    constexpr TVMFFIByteArray name = AsByteArray(type_attr::kEnumState);
+    EnumState state =
+        ::tvm::ffi::details::ObjectUnsafe::ObjectRefFromObjectPtr<EnumState>(std::move(state_obj));
+    constexpr TVMFFIByteArray name = AsByteArray(type_attr::kEnumState.name);
     TVMFFIAny value_any = AnyView(state).CopyToTVMFFIAny();
     TVM_FFI_CHECK_SAFE_CALL(TVMFFITypeRegisterAttr(type_index_, &name, &value_any));
     return state;
   }
 
   int32_t type_index_;
-  Enum instance_;
+  Enum instance_{UnsafeInit{}};
 };
 
 }  // namespace reflection

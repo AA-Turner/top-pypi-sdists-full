@@ -91,6 +91,7 @@ class EventMask:
 
 class InfoNotifyEvent(xcffib.Event):
     xge = True
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

@@ -33,11 +33,42 @@ fn defaults_with_only_paths() {
     assert!(!config.report_ignored);
     assert!(!config.plain);
     assert!(!config.suggest_refactors);
+    assert!(!config.fix);
+    assert!(!config.dry_run);
     assert_eq!(config.top, None);
     assert_eq!(config.cache_dir, None);
     assert_eq!(config.diff, None);
     assert_eq!(config.diff_only, None);
     assert!(!config.staged);
+}
+
+#[test]
+fn select_and_ignore_default_to_empty() {
+    let config = resolve(&["src"], None).expect("resolve should succeed");
+
+    assert_eq!(config.select, Vec::<String>::new());
+    assert_eq!(config.ignore, Vec::<String>::new());
+}
+
+#[test]
+fn toml_select_and_ignore_used_when_cli_absent() {
+    let config = resolve(&["src"], Some("select = [\"C001\"]\nignore = [\"C007\"]"))
+        .expect("resolve should succeed");
+
+    assert_eq!(config.select, vec!["C001"]);
+    assert_eq!(config.ignore, vec!["C007"]);
+}
+
+#[test]
+fn cli_select_and_ignore_replace_toml_per_key() {
+    let config = resolve(
+        &["src", "--select", "C002"],
+        Some("select = [\"C001\"]\nignore = [\"C007\"]"),
+    )
+    .expect("resolve should succeed");
+
+    assert_eq!(config.select, vec!["C002"]);
+    assert_eq!(config.ignore, vec!["C007"]);
 }
 
 #[test]
@@ -323,4 +354,15 @@ fn comma_separated_values_parse() {
         parsed.output_format,
         Some(vec![OutputFormat::Csv, OutputFormat::Json])
     );
+}
+
+#[test]
+fn fix_and_dry_run_imply_suggest_refactors() {
+    let fix = resolve(&["src", "--fix"], None).expect("resolve should succeed");
+    assert!(fix.fix);
+    assert!(fix.suggest_refactors);
+
+    let dry_run = resolve(&["src", "--dry-run"], None).expect("resolve should succeed");
+    assert!(dry_run.dry_run);
+    assert!(dry_run.suggest_refactors);
 }

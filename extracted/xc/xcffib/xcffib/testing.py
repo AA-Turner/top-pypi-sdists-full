@@ -25,14 +25,14 @@ from . import Connection, ConnectionException
 
 
 def lock_path(display):
-    return "/tmp/.X%d-lock" % display
+    return f"/tmp/.X{display}-lock"
 
 
 def find_display():
     display = 10
     while True:
         try:
-            f = open(lock_path(display), "w+")
+            f = open(lock_path(display), "w+")  # noqa: SIM115
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
@@ -71,7 +71,7 @@ class XvfbTest:
     def setUp(self):
         self._old_display = os.environ.get("DISPLAY")
         self._display, self._display_lock = find_display()
-        os.environ["DISPLAY"] = ":%d" % self._display
+        os.environ["DISPLAY"] = f":{self._display}"
         self._xvfb = self.spawn(self._xvfb_command())
 
         if self.xtrace:
@@ -82,8 +82,22 @@ class XvfbTest:
         try:
             self.conn = self._connect_to_xvfb()
         except AssertionError:
-            self._restore_display()
+            self.release_display()
             raise
+
+    def release_display(self):
+        # Delete our X lock file too, since we .kill() the process so it won't
+        # clean up after itself.
+        try:
+            os.remove(lock_path(self._display))
+        except OSError as e:
+            # we don't care if it doesn't exist, maybe something crashed and
+            # cleaned it up during a test.
+            if e.errno != errno.ENOENT:
+                raise
+        finally:
+            self._display_lock.close()
+            self._restore_display()
 
     def tearDown(self):
         try:
@@ -99,18 +113,7 @@ class XvfbTest:
         self._xvfb.wait()
         self._xvfb = None
 
-        # Delete our X lock file too, since we .kill() the process so it won't
-        # clean up after itself.
-        try:
-            os.remove(lock_path(self._display))
-            self._display_lock.close()
-        except OSError as e:
-            # we don't care if it doesn't exist, maybe something crashed and
-            # cleaned it up during a test.
-            if e.errno != errno.ENOENT:
-                raise
-        finally:
-            self._restore_display()
+        self.release_display()
 
     def __enter__(self):
         self.setUp()
@@ -123,7 +126,7 @@ class XvfbTest:
         """You can override this if you have some extra args for Xvfb or
         whatever. At this point, os.environ['DISPLAY'] is set to something Xvfb
         can use."""
-        screen = "%sx%sx%s" % (self.width, self.height, self.depth)
+        screen = f"{self.width}x{self.height}x{self.depth}"
         return ["Xvfb", os.environ["DISPLAY"], "-screen", "0", screen]
 
     def _connect_to_xvfb(self):

@@ -8,6 +8,7 @@ import jsonschema_rs
 import pytest
 from flask import Flask, Response, jsonify, request
 from hypothesis import strategies as st
+from hypothesis.statistics import collector
 from requests import Request
 
 import schemathesis
@@ -24,7 +25,6 @@ from schemathesis.core.error_feedback.store import (
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, ContentTypeServerError, FailureGroup
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
-from schemathesis.core.result import Ok
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, REQUEST_SHAPE_PROBES, CoverageScenario, TestPhase
 from schemathesis.specs.openapi.checks import negative_data_rejection
 from schemathesis.specs.openapi.coverage._wire import quote_path_parameter
@@ -853,6 +853,27 @@ def test_binary_array_near_max_items_does_not_break_coverage(ctx, app_runner, bo
 def test_positive_arrays_honor_contains(ctx, body):
     # A positive array must keep its `contains` match count within `minContains`/`maxContains`.
     collect_coverage_cases(ctx, body, positive=True, version="3.1.0")
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "^(?!aws:)[a-z]*$",
+        "^[\\p{L}_.:]*$",
+        "^(?!aws:)[\\p{L}\\p{Z}\\p{N}_.:\\/=+\\-@%]*$",
+    ],
+    ids=["lookahead", "property-escape", "both"],
+)
+def test_positive_arrays_reach_max_items_for_patterned_strings_with_min_length(ctx, pattern):
+    # Strings the pattern lets be empty must still fill every slot of a 50-item array.
+    body = {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 50,
+        "items": {"type": "string", "pattern": pattern, "minLength": 1, "maxLength": 128},
+    }
+
+    assert {len(case.body) for case in collect_coverage_cases(ctx, body, positive=True)} >= {49, 50}
 
 
 @pytest.mark.parametrize(
@@ -2090,6 +2111,31 @@ def test_format_value_built_for_a_length_floor_above_it(ctx, fmt, min_length, ma
         assert validator.is_valid(value), value
 
 
+def test_bounded_email_pattern_avoids_rejection_sampling(ctx):
+    body = {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+            "email": {"type": "string", "format": "email", "pattern": r"^[^@]+@[^@]+\.[^@]+$", "maxLength": 254}
+        },
+    }
+    operation = body_operation(ctx, body)
+    statistics = []
+    with collector.with_value(statistics.append):
+        bodies = assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases)
+
+    assert {253, 254} <= {len(body["email"]) for body in bodies}
+    assert statistics
+    # Count rejected draws instead of wall time: regex-first sampling exhausts hundreds
+    # before a format-based fallback reaches these satisfiable boundary lengths.
+    rejected = sum(
+        sample["status"] in ("invalid", "overrun")
+        for stats in statistics
+        for sample in stats.get("generate-phase", {}).get("test-cases", [])
+    )
+    assert rejected == 0
+
+
 def test_string_with_format(ctx):
     operation = load_schema(
         ctx,
@@ -2108,6 +2154,32 @@ def test_string_with_format(ctx):
         uuid.UUID(case.path_parameters["foo_id"], version=4)
 
     run_positive_test(operation, test)
+
+
+@pytest.mark.parametrize(
+    ("pattern", "violates_format"),
+    [
+        ("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", False),
+        ("^[a-fA-F\\d]{8}(?:-[a-fA-F\\d]{4}){3}-[a-fA-F\\d]{12}$", False),
+        ("^[0-9a-f-]{36}$", True),
+        ("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", True),
+        ("^[0-9a-z]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", True),
+    ],
+    ids=["uuid", "uuid-grouped", "dashes-anywhere", "unanchored", "non-hex"],
+)
+def test_negative_uuid_format_under_pattern(ctx, pattern, violates_format):
+    # Only a pattern admitting non-UUIDs leaves room for a value that breaks the format alone.
+    body = {"type": "object", "properties": {"id": {"type": "string", "format": "uuid", "pattern": pattern}}}
+    uuid_validator = jsonschema_rs.validator_for({"format": "uuid"}, validate_formats=True)
+    values = [
+        case.body["id"]
+        for case in collect_coverage_cases(ctx, body, version="3.1.0")
+        if "not matching the 'uuid' format" in case.meta.phase.data.description
+    ]
+    assert bool(values) is violates_format
+    for value in values:
+        assert re.search(pattern, value)
+        assert not uuid_validator.is_valid(value)
 
 
 def test_query_parameters_with_nested_enum(ctx):
@@ -2793,7 +2865,7 @@ def test_content_type_probe_does_not_hide_plain_server_error(ctx, cli):
         app, "--phases=coverage,fuzzing", "--max-examples=1", "--checks=not_a_server_error", "--mode=all"
     )
 
-    findings = dict(re.findall(r"\n- (Server error[^\n]*)\n.*?\n\s+(curl [^\n]+)", result.stdout, re.DOTALL))
+    findings = dict(re.findall(r"\n- ST101 (Server error[^\n]*)\n.*?\n\s+(curl [^\n]+)", result.stdout, re.DOTALL))
     assert list(findings) == ["Server error"], result.stdout
     assert "Content-Type" not in findings["Server error"]
 
@@ -3249,11 +3321,9 @@ def test_nested_parameters(ctx):
 )
 def test_references(ctx, operation, components):
     schema = ctx.openapi.load_schema({"/test": {"post": operation}}, components=components)
-    for operation in schema.get_all_operations():
-        if isinstance(operation, Ok):
-            iter_cases(operation.ok(), *GenerationMode)
-        else:
-            assert "Unresolvable reference in the schema" in str(operation.err())
+    [loaded] = schema.get_all_operations()
+    # Unresolvable references surface when the operation is tested; generating coverage cases must not crash.
+    iter_cases(loaded.ok(), *GenerationMode)
 
 
 def test_urlencoded_array_body_is_serializable(ctx):
@@ -3847,6 +3917,31 @@ def test_duplicate_items_case_leaves_the_declared_example_alone(ctx):
     ]
     assert all(body_mode(case) == GenerationMode.POSITIVE for case in parameter_cases)
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True, cases=parameter_cases)
+
+
+@pytest.mark.parametrize(
+    "generation_modes",
+    [[GenerationMode.NEGATIVE], [GenerationMode.POSITIVE, GenerationMode.NEGATIVE]],
+    ids=["negative", "all"],
+)
+def test_unique_items_on_string_path_parameter_yields_no_negatives(ctx, generation_modes):
+    # Arrays travel comma-joined in a path, so any array reads back as a valid string.
+    operation = ctx.openapi.load_operation(
+        "POST /items/{name}",
+        {
+            "parameters": [
+                {"in": "path", "name": "name", "required": True, "type": "string", "uniqueItems": True},
+                {"in": "query", "name": "q", "type": "integer"},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="2.0",
+    )
+    assert [
+        (case.meta.phase.data.description, case.path_parameters)
+        for case in iter_cases(operation, *generation_modes)
+        if case.meta.components[ParameterLocation.PATH].mode == GenerationMode.NEGATIVE
+    ] == []
 
 
 def test_positive_number_multiple_above_large_minimum(ctx):
@@ -4858,6 +4953,34 @@ def test_query_method_excluded_from_unexpected_when_defined(ctx):
     assert "QUERY" not in {case.method for case in _unspecified_method_cases(operation)}
 
 
+@pytest.mark.parametrize(
+    ("fmt", "pattern", "violates_format"),
+    [
+        ("uuid", "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", False),
+        (
+            "date",
+            "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            False,
+        ),
+        ("date", "^\\d{4}-\\d{2}-\\d{2}$", True),
+    ],
+    ids=["uuid-v7", "date-calendar", "date-digits"],
+)
+def test_negative_format_under_a_pattern_tailored_to_it(ctx, fmt, pattern, violates_format):
+    # A pattern admitting only valid values leaves no room for a value that breaks the format alone.
+    body = {"type": "object", "properties": {"value": {"type": "string", "format": fmt, "pattern": pattern}}}
+    format_validator = jsonschema_rs.validator_for({"format": fmt}, validate_formats=True)
+    values = [
+        case.body["value"]
+        for case in collect_coverage_cases(ctx, body, version="3.1.0")
+        if f"not matching the '{fmt}' format" in case.meta.phase.data.description
+    ]
+    assert bool(values) is violates_format
+    for value in values:
+        assert re.search(pattern, value)
+        assert not format_validator.is_valid(value)
+
+
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
 def test_hostname_format_generation_and_validation_consistent(ctx, version):
     # See GH-3567: generated values should be validated with the same draft semantics.
@@ -5352,32 +5475,28 @@ def test_missing_required_body_case_sends_no_content_type(ctx):
 
 def test_missing_body_case_clears_the_content_type_negation_it_drops(ctx):
     # The body-less request never sends the mutated `Content-Type`, so its headers carry no negation.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "parameters": [
-                        {
-                            "name": "Content-Type",
-                            "in": "header",
-                            "required": False,
-                            "schema": {"type": "string", "enum": ["application/zip"]},
-                        },
-                        {"name": "X-Token", "in": "header", "required": True, "schema": {"type": "string"}},
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": BODY_WITH_REQUIRED_PROPERTY}},
-                    },
-                    "responses": DEFAULT_RESPONSES,
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "name": "Content-Type",
+                    "in": "header",
+                    "required": False,
+                    "schema": {"type": "string", "enum": ["application/zip"]},
+                },
+                {"name": "X-Token", "in": "header", "required": True, "schema": {"type": "string"}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": BODY_WITH_REQUIRED_PROPERTY}},
+            },
+            "responses": DEFAULT_RESPONSES,
+        },
     )
 
     assert [
-        (dict(case.headers), _component_mode(case, ParameterLocation.HEADER))
-        for case in _missing_body_cases(schema["/items"]["POST"])
+        (dict(case.headers), _component_mode(case, ParameterLocation.HEADER)) for case in _missing_body_cases(operation)
     ] == [({"X-Token": ""}, GenerationMode.POSITIVE)]
 
 
@@ -6754,29 +6873,25 @@ def test_negative_coverage_emits_invalid_format_for_uuid_body_property(ctx):
     ids=["plain-ref", "ref-with-sibling"],
 )
 def test_negative_coverage_emits_invalid_format_for_referenced_body_property(ctx, property_schema):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"a": property_schema},
-                                }
-                            }
-                        },
-                    },
-                    "responses": DEFAULT_RESPONSES,
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"a": property_schema},
+                        }
+                    }
+                },
+            },
+            "responses": DEFAULT_RESPONSES,
         },
         version="3.1.0",
         components={"schemas": {"Item": {"properties": {"url": {"format": "uri"}}}}},
     )
-    operation = schema["/items"]["POST"]
 
     assert [
         (case.body, case.meta.phase.data.description)
@@ -6993,26 +7108,22 @@ def test_undeclared_method_probes_dedup_across_operations(ctx):
 )
 def test_wildcard_consumes_picks_concrete_media_type(ctx, consumes):
     # Real clients never send Content-Type: */*; coverage must pick a concrete media type.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /foo",
         {
-            "/foo": {
-                "post": {
-                    "consumes": consumes,
-                    "parameters": [
-                        {
-                            "in": "body",
-                            "name": "body",
-                            "required": True,
-                            "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
-                        }
-                    ],
-                    "responses": {"default": {"description": "OK"}},
+            "consumes": consumes,
+            "parameters": [
+                {
+                    "in": "body",
+                    "name": "body",
+                    "required": True,
+                    "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
                 }
-            }
+            ],
+            "responses": {"default": {"description": "OK"}},
         },
         version="2.0",
     )
-    operation = schema["/foo"]["POST"]
     media_types = {
         case.media_type for case in iter_cases(operation, GenerationMode.POSITIVE) if case.body is not NOT_SET
     }
@@ -8029,36 +8140,32 @@ def test_multipart_body_with_custom_encoding_yields_positive_case(ctx, is_requir
 
 def test_combination_cases_deduplicate_repeated_requests(ctx):
     # 'X-Token' is the same header as 'x-token', so the all-headers combination repeats the default request.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "x-token",
-                            "in": "header",
-                            "required": True,
-                            "schema": {"type": "string", "enum": ["secret"]},
-                        },
-                        {
-                            "name": "X-Token",
-                            "in": "header",
-                            "required": False,
-                            "schema": {"type": "string", "enum": ["secret"]},
-                        },
-                        {
-                            "name": "X-Other",
-                            "in": "header",
-                            "required": False,
-                            "schema": {"type": "string", "enum": ["other"]},
-                        },
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "name": "x-token",
+                    "in": "header",
+                    "required": True,
+                    "schema": {"type": "string", "enum": ["secret"]},
+                },
+                {
+                    "name": "X-Token",
+                    "in": "header",
+                    "required": False,
+                    "schema": {"type": "string", "enum": ["secret"]},
+                },
+                {
+                    "name": "X-Other",
+                    "in": "header",
+                    "required": False,
+                    "schema": {"type": "string", "enum": ["other"]},
+                },
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/items"]["GET"]
     stream = [
         (
             case.meta.phase.data.scenario.value,
@@ -8509,17 +8616,14 @@ def test_negative_bodies_violate_one_of_with_ref_sibling_keywords(ctx, version, 
 
 
 def test_negative_bodies_survive_invalid_keyword_behind_ref_in_any_of(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /test",
         {
-            "/test": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Filters"}}},
-                    },
-                    "responses": DEFAULT_RESPONSES,
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Filters"}}},
+            },
+            "responses": DEFAULT_RESPONSES,
         },
         version="3.1.0",
         components={
@@ -8534,7 +8638,7 @@ def test_negative_bodies_survive_invalid_keyword_behind_ref_in_any_of(ctx):
             }
         },
     )
-    assert coverage_bodies(schema["/test"]["POST"], GenerationMode.NEGATIVE) == [
+    assert coverage_bodies(operation, GenerationMode.NEGATIVE) == [
         {},
         [None, None],
         None,
@@ -9456,26 +9560,22 @@ def test_no_positive_case_when_the_required_body_admits_nothing(ctx):
 
 
 def test_positive_body_for_repeated_consumes_entry_is_not_sent_twice(ctx):
-    raw_schema = ctx.openapi.build_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /foo",
         {
-            "/foo": {
-                "post": {
-                    "parameters": [
-                        {
-                            "in": "body",
-                            "name": "body",
-                            "required": True,
-                            "schema": {"type": "object", "properties": {"a": {"type": "integer"}}},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "in": "body",
+                    "name": "body",
+                    "required": True,
+                    "schema": {"type": "object", "properties": {"a": {"type": "integer"}}},
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="2.0",
         consumes=["application/json", "application/json"],
     )
-    operation = schemathesis.openapi.from_dict(raw_schema)["/foo"]["POST"]
     assert [(case.media_type, case.body) for case in collect_cases(operation, GenerationMode.POSITIVE)] == [
         ("application/json", {}),
         ("application/json", {"a": 0}),

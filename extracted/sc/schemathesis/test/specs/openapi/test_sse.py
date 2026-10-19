@@ -6,7 +6,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from flask import Flask, Response, jsonify, stream_with_context
-from hypothesis import HealthCheck, given, settings
 from requests import Request
 from requests.exceptions import ChunkedEncodingError, ContentDecodingError
 
@@ -17,6 +16,7 @@ from schemathesis.core.failures import FailureGroup
 from schemathesis.core.transport import Response as TransportResponse
 from schemathesis.openapi.checks import JsonSchemaError
 from schemathesis.specs.openapi.checks import response_schema_conformance
+from test.utils import run_given
 
 SSE_ITEM_SCHEMA = {
     "type": "object",
@@ -1189,13 +1189,10 @@ def test_sse_pytest_plugin(ctx):
     schema = ctx.openapi.load_schema(raw_schema["paths"], version="3.2.0")
     strategy = schema["/sse"]["GET"].as_strategy()
 
-    @given(case=strategy)
-    @settings(max_examples=10, suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
+    @run_given(case=strategy, max_examples=10)
     def test(case):
         response = case.call(app=app)
         case.validate_response(response)
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -1541,3 +1538,12 @@ def test_sse_stream_limit_with_back_to_back_asgi_events():
     response = case.call(app=_back_to_back_events_app)
 
     assert response.content == _heartbeat_and_event(0) + _heartbeat_and_event(1)
+
+
+@pytest.mark.parametrize("format", ["uuid", "duration"])
+def test_sse_draft4_event_rejects_invalid_supplemental_format(format):
+    item_schema = {"type": "object", "properties": {"data": {"type": "string", "format": format}}, "required": ["data"]}
+    case, response = _call_sse(_sse_schema(item_schema, version="3.0.3", content_key="schema"), "data: nope\n\n")
+
+    with pytest.raises(FailureGroup, match=f'is not a "{format}"'):
+        case.validate_response(response, checks=[response_schema_conformance])

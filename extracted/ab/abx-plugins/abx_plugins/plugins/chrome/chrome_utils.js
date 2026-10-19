@@ -29,6 +29,9 @@ const {
   parseArgs,
   writeFileAtomic,
   loadConfig,
+  isAutomaticUserAgent,
+  parseChromiumUserAgentVersion,
+  replaceChromeUserAgentVersion,
 } = require("../base/utils.js");
 
 ensureNodeModuleResolution(module);
@@ -182,23 +185,9 @@ function parseChromiumVersion(output) {
   return match.slice(1, 5).map((part) => parseInt(part || "0", 10));
 }
 
-function parseChromiumUserAgentVersion(output) {
-  const version = parseChromiumVersion(output);
-  return version ? `${version[0]}.0.0.0` : "";
-}
-
-function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
-  const version = parseChromiumUserAgentVersion(browserVersionOutput);
-  if (!version) return userAgent || "";
-  return String(userAgent || "").replace(
-    /(Chrome|HeadlessChrome)\/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?/g,
-    `$1/${version}`
-  );
-}
-
 function configuredChromeUserAgent(userAgent, version = "") {
   // Generic HTTP identities are not browser fingerprints.
-  if (["Mozilla/5.0 (compatible; ArchiveBox/1.0)", "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)"].includes(userAgent)) return "";
+  if (isAutomaticUserAgent(userAgent)) return "";
   return replaceChromeUserAgentVersion(userAgent, version);
 }
 
@@ -3787,21 +3776,23 @@ function installExportPageShutdown() {
       // Close published targets immediately. Waiting for page attachment here
       // delays SIGTERM by the creation timeout. The existing nonce lease lets
       // the snapshot daemon reap a createTarget response that arrives after exit.
-      for (const owner of exportPageOwners.values()) {
-        try {
-          await sweepExportPages({
-            ...owner,
-            puppeteer: resolvePuppeteerModule(),
-            closeAll: true,
-            ownerPid: process.pid,
-          });
-        } catch (error) {
-          console.error(
-            `[*] Could not close export targets on ${signal}: ${error.message}`
-          );
-        }
+      try {
+        await withTimeout(async () => {
+          for (const owner of exportPageOwners.values()) {
+            await sweepExportPages({
+              ...owner,
+              puppeteer: resolvePuppeteerModule(),
+              closeAll: true,
+              ownerPid: process.pid,
+            });
+          }
+        }, 2000, "Chrome did not respond to export shutdown");
+      } catch (error) {
+        // Keep the lease for the snapshot daemon to reap after Chrome recovers.
+        console.error(`[*] Could not close export targets on ${signal}: ${error.message}`);
+      } finally {
+        process.exit(exitCode);
       }
-      process.exit(exitCode);
     })();
     return exportShutdownPromise;
   });
@@ -4971,6 +4962,11 @@ async function startPersonaHydration(puppeteer, cdpUrl, config, { importStorage 
   if (!browserTarget) throw new Error("Chrome connection's browser target is unavailable");
   const root = await browserTarget.createCDPSession();
   const version = await root.send("Browser.getVersion");
+  const nativeUserAgent = version.userAgent.replace("HeadlessChrome/", "Chrome/");
+  if (config.ABXPKG_LIB_DIR) {
+    // Never persist a persona/custom identity as the global HTTP default.
+    writeFileAtomic(path.join(config.ABXPKG_LIB_DIR, "chrome-user-agent.json"), JSON.stringify({ userAgent: nativeUserAgent }));
+  }
   // Headless Chromium announces itself in its default UA (not in its hints).
   const userAgent = configuredChromeUserAgent(config.CHROME_USER_AGENT || config.USER_AGENT, version.product)
     || version.userAgent.replace("HeadlessChrome/", "Chrome/");

@@ -1,7 +1,8 @@
 """The daemon's side of recorder summaries (plan writer-owns-summary §3.4, §3.5):
 `probe summary` and `probe visuals` through the pre-checks, the documents they
 send though their argv never names them, the drafts folder the shell may write,
-the status line's scope, the pin's facts, and the gates the main agent meets.
+the status line's scope, the drafts' facts (ARTIFACT-PAGES P3), and the gates
+the main agent meets.
 """
 
 from __future__ import annotations
@@ -119,9 +120,14 @@ def test_the_summary_and_visuals_commands_are_the_daemons():
         assert parsed.owner == precheck.DAEMON, parsed.path
 
 
-def test_steal_is_refused_as_for_notes_and_push_has_no_force(tmp_path):
-    block = precheck.check(precheck.parse(["summary", "checkout", "--project", "p", "--steal"]), cwd=tmp_path)
+def test_steal_is_the_daemons_own_draft_and_push_has_no_force(tmp_path):
+    """A notes checkout's `--steal` can discard another writer's edits (one
+    shared file); a summary draft is the daemon's own, one per session, and a
+    checkout refuses to replace its unpushed edits without `--steal` (review
+    of #3034, finding 3): after an erasure refused a push it is the way back."""
+    block = precheck.check(precheck.parse(["notes", "checkout", "--project", "p", "--steal"]), cwd=tmp_path)
     assert block is not None and block.check == "option"
+    assert precheck.check(precheck.parse(["summary", "checkout", "--project", "p", "--steal"]), cwd=tmp_path) is None
     # No `--force` at all: it would carry erased text past the server's check.
     import typer.main
 
@@ -279,7 +285,7 @@ def test_a_summary_that_mentions_a_lock_file_is_still_written(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Scope (the status line) and the pin's facts
+# Scope (the status line) and the drafts' facts
 # ---------------------------------------------------------------------------
 
 
@@ -292,7 +298,9 @@ def test_a_summary_push_names_its_entity_for_the_status_line():
     assert {"summary checkout", "visuals options"} <= scope.NO_SCOPE
 
 
-def test_a_checkout_pins_the_loaded_summary_and_a_landed_push_updates_it(tmp_path):
+def test_a_checkout_records_the_draft_and_a_landed_push_moves_its_version(tmp_path):
+    """ARTIFACT-PAGES P3: what each checkout said is kept per entity for its
+    outline (`tools.SUMMARY_DRAFTS`), never the page's text."""
     draft = _draft(tmp_path)
     draft.write_text("Willow SFT.\n")
     replay = Replay(
@@ -300,52 +308,32 @@ def test_a_checkout_pins_the_loaded_summary_and_a_landed_push_updates_it(tmp_pat
     )
     deps = _deps(tmp_path, replay)
     _run(tools.run_probe_command(deps, ["summary", "checkout", "--project", "willow"]))
-    pin = deps.store.fact(tools.SUMMARY_PIN)
-    assert (pin["label"], pin["version"], pin["loaded"], pin["text"], pin["path"]) == (
-        "willow",
-        3,
-        3,
-        "Willow SFT.\n",
-        str(draft),
-    )
+    entry = deps.store.fact(tools.SUMMARY_DRAFTS)["project=willow"]
+    assert (entry["label"], entry["version"], entry["path"], entry["kind"]) == ("willow", 3, str(draft), "project")
+    assert "text" not in entry and "markdown" not in entry, "an outline, never the text"
     draft.write_text("Willow SFT.\n\n**Where it stands (Oct 15):** B2decay leads.\n")
     replay.answers["summary push"] = json.dumps(
-        {
-            "target": "project",
-            "label": "willow",
-            "pushed": False,
-            "merged": True,
-            "conflicted": False,
-            "version": 4,
-            "detail": "",
-        }
+        {"target": "project", "label": "willow", "pushed": False, "merged": True, "conflicted": False,
+         "version": 4, "detail": ""}
     )
     _run(tools.run_probe_command(deps, ["summary", "push", "--project", "willow"]))
-    assert deps.store.fact(tools.SUMMARY_PIN)["version"] == 3, "a merge is not a landed push"
+    assert deps.store.fact(tools.SUMMARY_DRAFTS)["project=willow"]["version"] == 3, "a merge is not a landed push"
     replay.answers["summary push"] = json.dumps(
-        {
-            "target": "project",
-            "label": "willow",
-            "pushed": True,
-            "merged": False,
-            "conflicted": False,
-            "version": 5,
-            "detail": "",
-        }
+        {"target": "project", "label": "willow", "pushed": True, "merged": False, "conflicted": False,
+         "version": 5, "detail": ""}
     )
     _run(tools.run_probe_command(deps, ["summary", "push", "--project", "willow"]))
-    pin = deps.store.fact(tools.SUMMARY_PIN)
-    assert pin["version"] == 5 and "B2decay leads" in pin["text"] and pin["loaded"] == 3
-    # A push to another entity leaves the pin alone.
+    entry = deps.store.fact(tools.SUMMARY_DRAFTS)["project=willow"]
+    assert entry["version"] == 5 and entry["edited_by"] == "Richard" and entry["edited_at"]
+    # A push to another entity leaves this one alone.
     other = _draft(tmp_path, kind="experiment")
     other.write_text("x\n")
-    replay.answers["summary checkout"] = _checkout_json(other, target="experiment", label="b2")
     deps.store.set_fact(
         "checkouts", {**deps.store.fact("checkouts"), "summary checkout|experiment=b2": str(other)}
     )
     replay.answers["summary push"] = json.dumps({"pushed": True, "version": 9})
     _run(tools.run_probe_command(deps, ["summary", "push", "--experiment", "b2"]))
-    assert deps.store.fact(tools.SUMMARY_PIN)["version"] == 5
+    assert deps.store.fact(tools.SUMMARY_DRAFTS)["project=willow"]["version"] == 5
 
 
 # ---------------------------------------------------------------------------

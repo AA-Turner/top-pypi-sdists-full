@@ -10,10 +10,10 @@ call sites stay free of side effects.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Tuple
+from typing import TYPE_CHECKING, Any
 
-from office365.runtime.http.throttling import paced
-from office365.runtime.transport.base import BaseTransport
+from office365.runtime.http.throttling import paced, paced_async
+from office365.runtime.transport.base import BaseTransport, TimeoutValue
 
 if TYPE_CHECKING:
     from requests import Response
@@ -45,23 +45,46 @@ class ThrottledTransport(BaseTransport):
         return self._limiter
 
     def execute(self, request: "RequestOptions") -> "Response":
-        return paced(lambda: self._inner.execute(request), self._limiter)
+        return paced(
+            lambda: self._inner.execute(request),
+            self._limiter,
+            scope=getattr(request, "throttle_scope", None),
+        )
+
+    async def execute_async(self, request: "RequestOptions") -> "Response":
+        """Async twin of :meth:`execute` that paces without blocking the loop.
+
+        The gate is awaited on the event loop and the wrapped transport's own
+        async path (native or thread-offloaded) performs the I/O, so async
+        callers get the same fleet pacing as the synchronous path.
+        """
+        return await paced_async(
+            lambda: self._inner.execute_async(request),
+            self._limiter,
+            scope=getattr(request, "throttle_scope", None),
+        )
 
     @property
     def proxies(self) -> dict[str, str] | None:
         return self._inner.proxies
 
     @property
-    def verify(self) -> bool | str:
+    def verify(self) -> bool | str | None:
         return self._inner.verify
 
     @property
-    def timeout(self) -> int | Tuple[int, int] | None:
+    def timeout(self) -> TimeoutValue | None:
         return self._inner.timeout
 
     @property
     def auth(self) -> Any | None:
         return self._inner.auth
 
+    def reset_connections(self) -> None:
+        self._inner.reset_connections()
+
     def close(self) -> None:
         self._inner.close()
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()

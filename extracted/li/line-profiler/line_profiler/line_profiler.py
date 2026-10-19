@@ -70,7 +70,7 @@ ColumnLiterals = Literal['line', 'hits', 'time', 'perhit', 'percent']
 
 
 # NOTE: This needs to be in sync with ../kernprof.py and __init__.py
-__version__ = '5.0.2'
+__version__ = '5.1.0'
 
 
 @functools.lru_cache()
@@ -78,9 +78,10 @@ def get_column_widths(
     config: bool | str | None = False,
 ) -> Mapping[ColumnLiterals, int]:
     """
-    Arguments
-        config (bool | str | None)
+    Args:
+        config (bool | str | None):
             Passed to :py:meth:`.ConfigSource.from_config`.
+
     Note:
         * Results are cached.
         * The default value (:py:data:`False`) loads the config from the
@@ -600,15 +601,9 @@ class LineProfiler(CLineProfiler, ByCountProfilerMixin):
         namespace: type | types.ModuleType,
         *,
         seen: set[int] | None = None,
-        func_scoping_policy: ScopingPolicy = cast(
-            ScopingPolicy, ScopingPolicy.NONE
-        ),
-        class_scoping_policy: ScopingPolicy = cast(
-            ScopingPolicy, ScopingPolicy.NONE
-        ),
-        module_scoping_policy: ScopingPolicy = cast(
-            ScopingPolicy, ScopingPolicy.NONE
-        ),
+        func_scoping_policy: ScopingPolicy = ScopingPolicy.NONE,
+        class_scoping_policy: ScopingPolicy = ScopingPolicy.NONE,
+        module_scoping_policy: ScopingPolicy = ScopingPolicy.NONE,
         wrap: bool = False,
         name: str | None = None,
     ) -> int:
@@ -1075,9 +1070,14 @@ def show_func(
             try:
                 stream.write(txt)
             except UnicodeEncodeError:
-                # todo: better handling of windows encoding issue
-                # for now just work around it
-                line_ = 'UnicodeEncodeError - help wanted for a fix'
+                # If the stream cannot encode the line's contents (e.g.
+                # an ascii stream and source with non-ascii characters),
+                # replace the offending characters with escape sequences
+                # instead of dropping the entire line.
+                encoding = getattr(stream, 'encoding', None) or 'ascii'
+                line_ = line_.encode(
+                    encoding, errors='backslashreplace'
+                ).decode(encoding)
                 txt = template % (
                     lineno,
                     nhits_s,

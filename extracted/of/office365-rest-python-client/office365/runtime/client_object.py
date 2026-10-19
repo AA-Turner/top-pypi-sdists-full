@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,12 +16,20 @@ from typing_extensions import Self
 
 from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_runtime_context import ClientRuntimeContext
-from office365.runtime.converters.value import _add_type_metadata, declared_type, deserialize_value, serialize_value
+from office365.runtime.converters.value import (
+    _add_type_metadata,
+    declared_type,
+    deserialize_value,
+    serialize_value,
+    to_snake_case,
+)
+from office365.runtime.exceptions import ObjectNotFoundException
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.limits import Limit, LimitDecl, collect_class_limits, collect_limit_meta
 from office365.runtime.odata.json_format import ODataJsonFormat
 from office365.runtime.odata.query_options import QueryOptions
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.retry import DEFAULT_RETRY_EXCEPTIONS
 from office365.runtime.types.odata_property import _ODATA_MARKER, ODataPropertyMeta
 
 if TYPE_CHECKING:
@@ -28,6 +37,15 @@ if TYPE_CHECKING:
 
 
 ClientObjectT = TypeVar("ClientObjectT", bound="ClientObject")
+
+
+def _swallow_object_not_found(error: ClientRequestException) -> None:
+    """Error handler that suppresses a 404 (:class:`ObjectNotFoundException`).
+
+    Any other failure is re-raised so it still propagates to the caller.
+    """
+    if not isinstance(error, ObjectNotFoundException):
+        raise error
 
 
 class ClientObject:
@@ -137,6 +155,16 @@ class ClientObject:
         self.context.execute_query()
         return self
 
+    async def execute_query_async(self) -> Self:
+        """
+        Submits all pending requests to the server without blocking the loop.
+
+        Returns:
+            The current instance for method chaining
+        """
+        await self.context.execute_query_async()
+        return self
+
     def execute_query_retry(
         self,
         max_retry: int = 5,
@@ -145,7 +173,7 @@ class ClientObject:
         jitter: bool = True,
         success_callback=None,
         failure_callback=None,
-        exceptions=(ClientRequestException,),
+        exceptions=DEFAULT_RETRY_EXCEPTIONS,
         is_retriable=None,
     ) -> Self:
         """Executes the current set of data retrieval queries and method invocations and retries it if needed.
@@ -163,6 +191,42 @@ class ClientObject:
                 ``retry_on(...)`` to also retry otherwise-permanent errors.
         """
         self.context.execute_query_retry(
+            max_retry=max_retry,
+            timeout_secs=timeout_secs,
+            max_delay=max_delay,
+            jitter=jitter,
+            success_callback=success_callback,
+            failure_callback=failure_callback,
+            exceptions=exceptions,
+            is_retriable=is_retriable,
+        )
+        return self
+
+    async def execute_query_async_retry(
+        self,
+        max_retry: int = 5,
+        timeout_secs: int = 5,
+        max_delay=None,
+        jitter: bool = True,
+        success_callback=None,
+        failure_callback=None,
+        exceptions=DEFAULT_RETRY_EXCEPTIONS,
+        is_retriable=None,
+    ) -> Self:
+        """Async counterpart of :meth:`execute_query_retry`.
+
+        Args:
+            max_retry (int): Number of times to retry the request
+            timeout_secs (int): Base delay for exponential backoff (seconds)
+            max_delay (int): Optional cap on the exponential delay (seconds)
+            jitter (bool): Whether to randomize the delay
+            success_callback (callable): Called if the request executes successfully.
+            failure_callback (callable): Called if a retry attempt fails.
+            exceptions (tuple): Tuple of exceptions that we retry.
+            is_retriable (callable): Optional predicate deciding whether a caught
+                exception is retried. Defaults to transient errors.
+        """
+        await self.context.execute_query_async_retry(
             max_retry=max_retry,
             timeout_secs=timeout_secs,
             max_delay=max_delay,
@@ -231,6 +295,75 @@ class ClientObject:
         self.context.load(self)
         return self
 
+    def get_or_none(self) -> Self:
+        """Queue a read that tolerates a missing entity.
+
+        Deferred exactly like :meth:`get`: nothing is sent until the caller runs
+        ``execute_query()``. When the entity exists the object is populated; when
+        the server reports it missing (HTTP 404, classified as
+        :class:`~office365.runtime.exceptions.ObjectNotFoundException`) the error
+        is swallowed and the object is left uninitialized — detect that with
+        :attr:`is_loaded` (or a typed property being ``None``):
+
+            user = client.users["missing@contoso.com"].get_or_none().execute_query()
+            if not user.is_loaded:
+                ...
+
+        Any other failure (authentication, throttling, ...) still propagates.
+
+        Returns:
+            The current instance for method chaining
+        """
+        self.get().on_error(_swallow_object_not_found)
+        return self
+
+    def _tolerate_missing(self, enabled: bool = True) -> Self:
+        """Mark the most recently queued query as tolerating a 404 (one-shot).
+
+        Shared by the ``ignore_missing`` write helpers (``delete_object`` /
+        ``recycle``): the error is swallowed only when it is an
+        :class:`ObjectNotFoundException`; any other failure propagates.
+
+        Args:
+            enabled: When ``False`` this is a no-op, so callers can forward the
+                flag unconditionally.
+        """
+        if enabled:
+            self.on_error(_swallow_object_not_found)
+        return self
+
+    @property
+    def is_loaded(self) -> bool:
+        """Whether the object carries data (from a read or a local property set).
+
+        An object that was never initialized — e.g. a lookup that tolerated a 404
+        via :meth:`get_or_none` or an empty :meth:`ClientObjectCollection.first_or_none`
+        — has no properties and reports ``False``.
+        """
+        return len(self._properties) > 0
+
+    def __str__(self) -> str:
+        """Return the object's natural label (``displayName``/``name``/``title``).
+
+        Falls back to :meth:`__repr__` when no obvious label is loaded, so
+        ``print(obj)`` is always meaningful without reaching for a property.
+        """
+        for name in ("displayName", "name", "title"):
+            value = self._properties.get(name)
+            if isinstance(value, str) and value:
+                return value
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        """Return a bounded ``ClassName(prop=value, …)`` rendering.
+
+        Only already-loaded properties are projected; this never triggers a
+        request. Used by ``print``/``repr`` and logging.
+        """
+        from office365.runtime.display import describe
+
+        return describe(self)
+
     def is_property_available(self, name: str) -> bool:
         """
         Checks if a property has been retrieved or set.
@@ -292,6 +425,9 @@ class ClientObject:
                 return getattr(self, meta.attr)
             normalized_name = name[0].lower() + name[1:]
             default_value = getattr(self, normalized_name, None)
+            if default_value is None:
+                # Multi-word names (``onlineMeeting``) map to a snake_case getter.
+                default_value = getattr(self, to_snake_case(name), None)
         return self._properties.get(name, default_value)
 
     def set_property(self, name: str, value: Any, persist_changes: bool = True) -> Self:
@@ -312,9 +448,13 @@ class ClientObject:
             return self
         if persist_changes:
             self._changes.add(name)
-        self._properties[name] = deserialize_value(
-            declared_type(type(self), name), value, self.get_property(name), persist_changes
-        )
+        current = self.get_property(name)
+        # A getter can return a default enum when nothing is stored yet; that
+        # fallback must not drive enum coercion (an unrecognized server value
+        # would otherwise be discarded).
+        if isinstance(current, Enum) and name not in self._properties:
+            current = None
+        self._properties[name] = deserialize_value(declared_type(type(self), name), value, current, persist_changes)
         return self
 
     def ensure_property(self, name: str) -> Self:

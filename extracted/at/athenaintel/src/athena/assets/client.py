@@ -17,6 +17,9 @@ from ..types.duplicate_asset_response_out import DuplicateAssetResponseOut
 from ..types.move_asset_response_out import MoveAssetResponseOut
 from ..types.paginated_assets_out import PaginatedAssetsOut
 from ..types.public_asset_out import PublicAssetOut
+from ..types.public_collab_agent_config_in import PublicCollabAgentConfigIn
+from ..types.public_skill_config_in import PublicSkillConfigIn
+from ..types.publish_asset_response_out import PublishAssetResponseOut
 from ..types.rename_asset_response_out import RenameAssetResponseOut
 from ..types.share_asset_response_out import ShareAssetResponseOut
 from ..types.share_recipient import ShareRecipient
@@ -109,18 +112,22 @@ class AssetsClient:
         self,
         *,
         excel_asset_id: str,
+        in_place: typing.Optional[bool] = OMIT,
         password: typing.Optional[str] = OMIT,
         run_async: typing.Optional[bool] = OMIT,
         spreadsheet_engine: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConvertExcelToSheetResponseOut:
         """
-        Convert an uploaded Excel (.xlsx) asset into a new, editable Athena sheet asset — the same conversion the Athena UI performs. The new sheet is created alongside the source Excel asset. Pass run_async for large workbooks to get the sheet immediately and poll athena_metadata.conversionStatus for completion.
+        Convert an uploaded Excel (.xlsx) asset into an editable Athena sheet — the same conversion the Athena UI performs. By default a new sheet asset is created alongside the source Excel asset; pass run_async for large workbooks to get the sheet immediately and poll its athena_metadata.conversionStatus for completion. With in_place the uploaded file itself becomes the sheet and keeps its asset id (sheet_asset_id is excel_asset_id, and no second asset is created); poll that asset until its media_type is 'athena/spreadsheet', or until athena_metadata.sheet_upload_conversion.status is 'failed' or 'skipped'.
 
         Parameters
         ----------
         excel_asset_id : str
             ID of the Excel (.xlsx) asset to convert into an Athena sheet
+
+        in_place : typing.Optional[bool]
+            Make the uploaded file itself the Athena sheet, keeping its asset id: sheet_asset_id is excel_asset_id and no second asset is created. Needs edit access to the upload, and takes an .xlsx/.xlsm/.xlsb workbook or a .csv/.tsv file. A password-protected workbook is refused (convert it into a new sheet with `password` instead), and the sheet is always on the rnc engine. Without run_async the request waits up to about 50 seconds for the conversion; conversion_status 'converting' means it is still running. Poll the asset until its media_type is 'athena/spreadsheet', or until athena_metadata.sheet_upload_conversion.status is 'failed' or 'skipped' (with its reason).
 
         password : typing.Optional[str]
             Optional password used to decrypt a password-protected workbook. Password-protected workbooks convert on either engine (they are decrypted server-side before an rnc import).
@@ -149,11 +156,13 @@ class AssetsClient:
         )
         client.assets.convert_excel_to_sheet(
             excel_asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            in_place=False,
             run_async=False,
         )
         """
         _response = self._raw_client.convert_excel_to_sheet(
             excel_asset_id=excel_asset_id,
+            in_place=in_place,
             password=password,
             run_async=run_async,
             spreadsheet_engine=spreadsheet_engine,
@@ -165,24 +174,30 @@ class AssetsClient:
         self,
         *,
         asset_type: CreatableAssetType,
+        agent_config: typing.Optional[PublicCollabAgentConfigIn] = OMIT,
         cpu: typing.Optional[int] = OMIT,
         disk: typing.Optional[int] = OMIT,
         env_vars: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        html_content: typing.Optional[str] = OMIT,
         memory: typing.Optional[int] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
         provider: typing.Optional[str] = OMIT,
+        skill_config: typing.Optional[PublicSkillConfigIn] = OMIT,
         template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
 
         Parameters
         ----------
         asset_type : CreatableAssetType
-            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer'
+            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer', 'generic_doc', 'user_interface' (or 'ui'), 'skill', 'collab_agent' (or 'agent')
+
+        agent_config : typing.Optional[PublicCollabAgentConfigIn]
+            collab_agent only. Initial agent configuration. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
 
         cpu : typing.Optional[int]
             Computer only. vCPU count. Defaults to the template's default. Must be a size the environment's computer resource policy offers; sizes other than the template default require an admin.
@@ -193,6 +208,9 @@ class AssetsClient:
         env_vars : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
 
+        html_content : typing.Optional[str]
+            user_interface only. HTML used as the interface's initial index.html; styles.css and script.js start empty.
+
         memory : typing.Optional[int]
             Computer only. Memory in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
 
@@ -201,6 +219,9 @@ class AssetsClient:
 
         provider : typing.Optional[str]
             Computer only. Runtime provider for the computer (e.g. 'talos_v2'). Defaults to the environment's configured computer provider.
+
+        skill_config : typing.Optional[PublicSkillConfigIn]
+            skill only. The skill's SKILL.md content. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
 
         template : typing.Optional[str]
             Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
@@ -235,12 +256,15 @@ class AssetsClient:
         """
         _response = self._raw_client.create(
             asset_type=asset_type,
+            agent_config=agent_config,
             cpu=cpu,
             disk=disk,
             env_vars=env_vars,
+            html_content=html_content,
             memory=memory,
             parent_folder_id=parent_folder_id,
             provider=provider,
+            skill_config=skill_config,
             template=template,
             title=title,
             workspace_id=workspace_id,
@@ -770,6 +794,54 @@ class AssetsClient:
         )
         return _response.data
 
+    def publish(
+        self,
+        asset_id: str,
+        *,
+        note: typing.Optional[str] = OMIT,
+        version_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PublishAssetResponseOut:
+        """
+        Publish a skill or collab agent so it is live for everyone who uses it. Omit version_id to snapshot and publish the current draft, or pass an existing version to promote it. Requires edit access to the asset.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the skill or collab agent to publish
+
+        note : typing.Optional[str]
+            Optional release note shown in the publish history
+
+        version_id : typing.Optional[str]
+            Existing version to promote to published. Omit to snapshot and publish the current draft.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PublishAssetResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.publish(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            note="First release",
+        )
+        """
+        _response = self._raw_client.publish(
+            asset_id, note=note, version_id=version_id, request_options=request_options
+        )
+        return _response.data
+
     def share(
         self,
         asset_id: str,
@@ -975,18 +1047,22 @@ class AsyncAssetsClient:
         self,
         *,
         excel_asset_id: str,
+        in_place: typing.Optional[bool] = OMIT,
         password: typing.Optional[str] = OMIT,
         run_async: typing.Optional[bool] = OMIT,
         spreadsheet_engine: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ConvertExcelToSheetResponseOut:
         """
-        Convert an uploaded Excel (.xlsx) asset into a new, editable Athena sheet asset — the same conversion the Athena UI performs. The new sheet is created alongside the source Excel asset. Pass run_async for large workbooks to get the sheet immediately and poll athena_metadata.conversionStatus for completion.
+        Convert an uploaded Excel (.xlsx) asset into an editable Athena sheet — the same conversion the Athena UI performs. By default a new sheet asset is created alongside the source Excel asset; pass run_async for large workbooks to get the sheet immediately and poll its athena_metadata.conversionStatus for completion. With in_place the uploaded file itself becomes the sheet and keeps its asset id (sheet_asset_id is excel_asset_id, and no second asset is created); poll that asset until its media_type is 'athena/spreadsheet', or until athena_metadata.sheet_upload_conversion.status is 'failed' or 'skipped'.
 
         Parameters
         ----------
         excel_asset_id : str
             ID of the Excel (.xlsx) asset to convert into an Athena sheet
+
+        in_place : typing.Optional[bool]
+            Make the uploaded file itself the Athena sheet, keeping its asset id: sheet_asset_id is excel_asset_id and no second asset is created. Needs edit access to the upload, and takes an .xlsx/.xlsm/.xlsb workbook or a .csv/.tsv file. A password-protected workbook is refused (convert it into a new sheet with `password` instead), and the sheet is always on the rnc engine. Without run_async the request waits up to about 50 seconds for the conversion; conversion_status 'converting' means it is still running. Poll the asset until its media_type is 'athena/spreadsheet', or until athena_metadata.sheet_upload_conversion.status is 'failed' or 'skipped' (with its reason).
 
         password : typing.Optional[str]
             Optional password used to decrypt a password-protected workbook. Password-protected workbooks convert on either engine (they are decrypted server-side before an rnc import).
@@ -1020,6 +1096,7 @@ class AsyncAssetsClient:
         async def main() -> None:
             await client.assets.convert_excel_to_sheet(
                 excel_asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+                in_place=False,
                 run_async=False,
             )
 
@@ -1028,6 +1105,7 @@ class AsyncAssetsClient:
         """
         _response = await self._raw_client.convert_excel_to_sheet(
             excel_asset_id=excel_asset_id,
+            in_place=in_place,
             password=password,
             run_async=run_async,
             spreadsheet_engine=spreadsheet_engine,
@@ -1039,24 +1117,30 @@ class AsyncAssetsClient:
         self,
         *,
         asset_type: CreatableAssetType,
+        agent_config: typing.Optional[PublicCollabAgentConfigIn] = OMIT,
         cpu: typing.Optional[int] = OMIT,
         disk: typing.Optional[int] = OMIT,
         env_vars: typing.Optional[typing.Dict[str, typing.Optional[str]]] = OMIT,
+        html_content: typing.Optional[str] = OMIT,
         memory: typing.Optional[int] = OMIT,
         parent_folder_id: typing.Optional[str] = OMIT,
         provider: typing.Optional[str] = OMIT,
+        skill_config: typing.Optional[PublicSkillConfigIn] = OMIT,
         template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
 
         Parameters
         ----------
         asset_type : CreatableAssetType
-            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer'
+            Type of asset to create. Supported types: 'spreadsheet' (or 'sheet'), 'document' (or 'doc'), 'folder', 'database' (or 'db'), 'computer', 'generic_doc', 'user_interface' (or 'ui'), 'skill', 'collab_agent' (or 'agent')
+
+        agent_config : typing.Optional[PublicCollabAgentConfigIn]
+            collab_agent only. Initial agent configuration. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
 
         cpu : typing.Optional[int]
             Computer only. vCPU count. Defaults to the template's default. Must be a size the environment's computer resource policy offers; sizes other than the template default require an admin.
@@ -1067,6 +1151,9 @@ class AsyncAssetsClient:
         env_vars : typing.Optional[typing.Dict[str, typing.Optional[str]]]
             Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
 
+        html_content : typing.Optional[str]
+            user_interface only. HTML used as the interface's initial index.html; styles.css and script.js start empty.
+
         memory : typing.Optional[int]
             Computer only. Memory in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
 
@@ -1075,6 +1162,9 @@ class AsyncAssetsClient:
 
         provider : typing.Optional[str]
             Computer only. Runtime provider for the computer (e.g. 'talos_v2'). Defaults to the environment's configured computer provider.
+
+        skill_config : typing.Optional[PublicSkillConfigIn]
+            skill only. The skill's SKILL.md content. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
 
         template : typing.Optional[str]
             Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
@@ -1117,12 +1207,15 @@ class AsyncAssetsClient:
         """
         _response = await self._raw_client.create(
             asset_type=asset_type,
+            agent_config=agent_config,
             cpu=cpu,
             disk=disk,
             env_vars=env_vars,
+            html_content=html_content,
             memory=memory,
             parent_folder_id=parent_folder_id,
             provider=provider,
+            skill_config=skill_config,
             template=template,
             title=title,
             workspace_id=workspace_id,
@@ -1740,6 +1833,62 @@ class AsyncAssetsClient:
             parent_folder_id=parent_folder_id,
             target_drive_id=target_drive_id,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def publish(
+        self,
+        asset_id: str,
+        *,
+        note: typing.Optional[str] = OMIT,
+        version_id: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> PublishAssetResponseOut:
+        """
+        Publish a skill or collab agent so it is live for everyone who uses it. Omit version_id to snapshot and publish the current draft, or pass an existing version to promote it. Requires edit access to the asset.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the skill or collab agent to publish
+
+        note : typing.Optional[str]
+            Optional release note shown in the publish history
+
+        version_id : typing.Optional[str]
+            Existing version to promote to published. Omit to snapshot and publish the current draft.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PublishAssetResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.publish(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+                note="First release",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.publish(
+            asset_id, note=note, version_id=version_id, request_options=request_options
         )
         return _response.data
 

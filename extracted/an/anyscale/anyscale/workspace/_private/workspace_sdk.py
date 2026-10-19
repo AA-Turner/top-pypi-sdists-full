@@ -6,8 +6,9 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import time
 from types import SimpleNamespace
-from typing import cast, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import cast, ClassVar, Dict, List, NamedTuple, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 import click
@@ -22,6 +23,14 @@ from anyscale.client.openapi_client.models.resource_tag_resource_type import (
     ResourceTagResourceType,
 )
 from anyscale.client.openapi_client.models.session_state import SessionState
+from anyscale.client.openapi_client.models.workspace_ssh_details import (
+    WorkspaceSshDetails,
+)
+
+# From `rest`, not `exceptions`: anyscale/__init__.py puts `client/` on sys.path, so
+# that file is imported under two module names and the qualified `exceptions` path
+# yields a class rest.py never raises. errors.py carries the same note.
+from anyscale.client.openapi_client.rest import ApiException
 from anyscale.utils.name_utils import validate_resource_name
 from anyscale.utils.runtime_env import parse_requirements_file
 from anyscale.workspace.models import (
@@ -56,6 +65,25 @@ Host {name}
   LogLevel ERROR
 """
 
+# No jump host: a KubeRay workspace has no node to hop through. The tunnel is written into
+# the config rather than passed only as `ssh -o`, because the config is documented as
+# usable on its own (`ssh -F`, and Remote-SSH reads nothing else) -- without it ssh dials
+# port 22 on the edge hostname, which answers nothing. Host key checking stays off to match
+# the VM template, though here the key does persist across a resume.
+SSH_TEMPLATE_KUBERAY = """
+Host {name}
+  HostName {name}
+  Port {port}
+  User ray
+  IdentityFile {key_path}
+  ProxyCommand {proxy_command}
+  PreferredAuthentications publickey
+  StrictHostKeyChecking false
+  UserKnownHostsFile /dev/null
+  IdentitiesOnly yes
+  LogLevel ERROR
+"""
+
 # TODO(bryce): These options are already stated in the SSH_TEMPLATE, but we
 # still pass them in the ssh command. It should be safe to remove them.
 ANYSCALE_WORKSPACES_SSH_OPTIONS = [
@@ -67,6 +95,26 @@ ANYSCALE_WORKSPACES_SSH_OPTIONS = [
     "IdentitiesOnly=yes",
 ]
 
+
+class _SshTarget(NamedTuple):
+    """One workspace's SSH coordinates, however they were resolved."""
+
+    hostname: Optional[str]
+    key_name: str
+    private_key: str
+    token: Optional[str]
+    # VM only: the jump host. A KubeRay workspace has none.
+    head_node_ip: Optional[str]
+    # KubeRay only: admission fixes it, so it is not the project-derived one the VM path
+    # looks up. None means "ask the project", which is the VM answer.
+    working_dir: Optional[str]
+
+
+# Far below the cluster access token's own TTL. The cache only has to survive one
+# invocation; the SDK singleton it hangs off outlives that, because `anyscale.workspace.*`
+# is held for the life of the calling process.
+KUBERAY_SSH_DETAILS_TTL_S = 300.0
+
 # HTTPS SSH constants for rsync
 HTTPS_PORT = "443"
 WSS_PATH = "/sshws"
@@ -76,6 +124,10 @@ PREFERRED_AUTH_METHOD = "PreferredAuthentications=publickey"
 class PrivateWorkspaceSDK(WorkloadSDK):
     _POLLING_INTERVAL_SECONDS = 10.0
     _WAIT_TIMEOUT_SECONDS = 1800.0
+    # None, not {}: a mutable class attribute would be shared by every instance. Assigning
+    # on first use makes it per-instance, which is per CLI invocation. The float is when
+    # the entry was fetched, for the TTL below.
+    _kuberay_ssh_details_cache: Optional[Dict[str, Tuple[float, WorkspaceSshDetails]]] = None
 
     _BACKEND_SESSION_STATE_TO_WORKSPACE_STATE: ClassVar[Dict[SessionState, WorkspaceState]] = {
         SessionState.STOPPED: WorkspaceState.TERMINATED,
@@ -254,7 +306,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             id=id, name=name, cloud=cloud, project=project
         )
 
-        status = self._get_workspace_status(workspace_model.id)
+        status = self._get_workspace_status(workspace_model)
         return status
 
     def wait(  # noqa: PLR0912
@@ -292,13 +344,17 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         )
 
         workspace_id_or_name = workspace_model.id or workspace_model.name
-        curr_state = self._get_workspace_status(workspace_model.id)
+        curr_state = self._get_workspace_status(workspace_model)
 
         self.logger.info(
             f"Waiting for workspace '{workspace_id_or_name}' to reach target state {state}, currently in state: {curr_state}"
         )
         for _ in self.timer.poll(timeout_s=timeout_s, interval_s=interval_s):
-            new_state = self._get_workspace_status(workspace_model.id)
+            # Re-resolved, not reused: for a KubeRay workspace the state lives on this row,
+            # so polling a model fetched once would never observe the transition.
+            new_state = self._get_workspace_status(
+                self._resolve_to_workspace_model(id=workspace_model.id)
+            )
 
             if new_state != curr_state:
                 self.logger.info(
@@ -316,12 +372,78 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 f"Workspace '{workspace_id_or_name}' did not reach target state {state} within {timeout_s}s. Last seen state: {curr_state}."
             )
 
-    def _get_workspace_status(self, workspace_id: Optional[str]) -> WorkspaceState:
+    def _get_workspace_status(self, workspace_model: ExperimentalWorkspace) -> WorkspaceState:
+        if workspace_model.kuberay_cr_id:
+            # No `sessions` row to read a cluster state off. The workspace row carries its
+            # own, settled from the observed CR state, in the same vocabulary.
+            return self._convert_cluster_state_to_workspace_state(workspace_model.state)
 
-        cluster = self.client.get_workspace_cluster(workspace_id)
+        cluster = self.client.get_workspace_cluster(workspace_model.id)
         if not cluster:
-            raise ValueError(f"Workspace {workspace_id} cluster not found.")
+            raise ValueError(f"Workspace {workspace_model.id} cluster not found.")
         return self._convert_cluster_state_to_workspace_state(cluster.state)
+
+    def _kuberay_ssh_details(self, workspace_id: str) -> WorkspaceSshDetails:
+        """Memoized briefly: the config generator and the working-directory lookup both
+        need it, and each call mints a cluster access token.
+
+        Briefly, not for the life of the instance. The CLI exits in seconds, but an SDK
+        caller holds the singleton as long as its process, and a token handed out hours
+        later is one the edge has already stopped accepting.
+        """
+        if self._kuberay_ssh_details_cache is None:
+            self._kuberay_ssh_details_cache = {}
+        now = time.monotonic()
+        cached = self._kuberay_ssh_details_cache.get(workspace_id)
+        if cached is not None and now - cached[0] < KUBERAY_SSH_DETAILS_TTL_S:
+            return cached[1]
+        details = self.client.get_kuberay_workspace_ssh_details(workspace_id)
+        self._kuberay_ssh_details_cache[workspace_id] = (now, details)
+        return details
+
+    def _resolve_ssh_target(
+        self, workspace_model: ExperimentalWorkspace, *, with_tunnel: bool = True
+    ) -> _SshTarget:
+        """Where to connect, with what key and what token, for either compute stack.
+
+        The KubeRay arm is one call: a `kcr_` workspace has no `sessions` row, so the
+        head-node IP, key, hostname and token the VM arm looks up separately have no
+        endpoint that resolves them.
+
+        with_tunnel=False drops the VM arm's hostname and token, which cost two further
+        endpoints. A caller that does not tunnel must not be made to depend on the token
+        endpoint -- `--direct-ssh` and the legacy fallback exist to reach the shell
+        without it. The KubeRay arm ignores the flag: one response already carries
+        everything.
+        """
+        if workspace_model.kuberay_cr_id:
+            details = self._kuberay_ssh_details(workspace_model.id)
+            return _SshTarget(
+                hostname=details.hostname,
+                key_name=details.key_name,
+                private_key=details.private_key,
+                token=details.cluster_access_token,
+                head_node_ip=None,
+                working_dir=details.working_dir,
+            )
+
+        ssh_key = self.client.get_cluster_ssh_key(workspace_model.cluster_id)
+        hostname: Optional[str] = None
+        token: Optional[str] = None
+        if with_tunnel:
+            cluster = self.client.get_workspace_cluster(workspace_model.id)
+            if not cluster or not cluster.id:
+                raise ValueError(f"Workspace {workspace_model.id} cluster not found.")
+            hostname = self._get_https_public_hostname(cluster)
+            token = self._get_https_cluster_access_token(str(cluster.id))
+        return _SshTarget(
+            hostname=hostname,
+            key_name=ssh_key.key_name,
+            private_key=ssh_key.private_key,
+            token=token,
+            head_node_ip=self.client.get_cluster_head_node_ip(workspace_model.cluster_id),
+            working_dir=None,
+        )
 
     def generate_ssh_config_file(
         self,
@@ -336,18 +458,27 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             id=id, name=name, cloud=cloud, project=project
         )
 
-        assert self.status(id=workspace_model.id) == WorkspaceState.RUNNING, (
+        assert self._get_workspace_status(workspace_model) == WorkspaceState.RUNNING, (
             "Workspace must be running to generate SSH config file"
         )
 
-        head_node_ip = self.client.get_cluster_head_node_ip(workspace_model.cluster_id)
-        ssh_key = self.client.get_cluster_ssh_key(workspace_model.cluster_id)
+        # Only the KubeRay template carries the tunnel. Asking for it on the VM path puts
+        # the token endpoint between `--direct-ssh` and the shell it exists to reach
+        # without one.
+        target = self._resolve_ssh_target(
+            workspace_model, with_tunnel=bool(workspace_model.kuberay_cr_id)
+        )
 
         def _store_ssh_key(name: str, ssh_key: str, key_dir: str) -> str:
             key_path = os.path.join(key_dir, f"{name}.pem")
             os.makedirs(os.path.dirname(key_path), exist_ok=True)
 
+            # chmod as well as the opener: the opener's mode applies only when it creates
+            # the file, so a key left 0644 by an older CLI in a reused directory keeps it.
+            # os.chmod, not fchmod, which Windows lacks before 3.13 (auth_controller.py
+            # does the same for the credentials file).
             with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
+                os.chmod(key_path, 0o600)
                 f.write(ssh_key)
 
             return key_path
@@ -355,17 +486,48 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if ssh_config_path is None:
             ssh_config_path = tempfile.mkdtemp()
 
-        key_path = _store_ssh_key(ssh_key.key_name, ssh_key.private_key, ssh_config_path)
+        key_path = _store_ssh_key(target.key_name, target.private_key, ssh_config_path)
 
-        ssh_config = SSH_TEMPLATE.format(
-            head_node_ip=head_node_ip, key_path=key_path, name=workspace_model.name
-        )
+        if workspace_model.kuberay_cr_id:
+            if not target.hostname or not target.token:
+                raise ValueError(
+                    f"Workspace {workspace_model.id} has no SSH tunnel; it may not be running."
+                )
+            # From the target we already hold, not _build_https_proxy_command: that would
+            # resolve and mint a second time, and a second token is a second expiry.
+            # Writing it in is what dates the file: nothing can refresh a ProxyCommand
+            # already on disk, and the token lives KUBERAY_CLUSTER_TOKEN_TTL.
+            proxy_command = self._create_https_proxy_command(target.hostname, target.token)
+            if proxy_command is None:
+                raise ValueError(
+                    "Could not locate the Anyscale SSH tunnel helper. Reinstall the anyscale package."
+                )
+            # Host is the tunnel's own hostname: with no jump host there is nothing else
+            # for ssh to resolve, and the ProxyCommand is what actually dials.
+            ssh_config = SSH_TEMPLATE_KUBERAY.format(
+                key_path=key_path,
+                name=target.hostname,
+                port=HTTPS_PORT,
+                proxy_command=proxy_command,
+            )
+            host_name = target.hostname
+        else:
+            ssh_config = SSH_TEMPLATE.format(
+                head_node_ip=target.head_node_ip,
+                key_path=key_path,
+                name=workspace_model.name,
+            )
+            host_name = workspace_model.name
 
         config_file_name = os.path.join(ssh_config_path, "config")
-        with open(config_file_name, "w") as f:
+        # 0600 like the key beside it: the KubeRay config carries the cluster access token
+        # in its ProxyCommand, and the caller chooses the directory. chmod for the same
+        # reason as the key above -- the opener's mode only lands on a new file.
+        with open(config_file_name, "w", opener=partial(os.open, mode=0o600)) as f:
+            os.chmod(config_file_name, 0o600)
             f.write(ssh_config)
 
-        return workspace_model.name, config_file_name
+        return host_name, config_file_name
 
     def run_command(
         self,
@@ -426,6 +588,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         workspace_model = self._resolve_to_workspace_model(
             id=id, name=name, cloud=cloud, project=project
         )
+        if workspace_model.kuberay_cr_id:
+            # Admission fixes the mount at one path for every workspace, so the project's
+            # directory name is the wrong answer here -- following it would cd into an
+            # empty directory on any non-default project.
+            details = self._kuberay_ssh_details(workspace_model.id)
+            return os.path.basename(details.working_dir)
         return self.client.get_workspace_default_dir_name(workspace_model.id)
 
     def _parse_rsync_dry_run_output(self, dry_run_output: str) -> Tuple[List[str], List[str]]:
@@ -506,7 +674,13 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         return None
 
     def _get_https_cluster_access_token(self, cluster_id: str) -> Optional[str]:
-        """Get cluster access token for HTTPS connection."""
+        """Get cluster access token for HTTPS connection.
+
+        None on failure, ApiException included. Every caller reads a missing token as "no
+        tunnel" and falls back to standard SSH; letting the endpoint's own 4xx/5xx through
+        instead turns a degraded path into a crash. ApiTypeError and ApiValueError are
+        already covered, being a TypeError and a ValueError.
+        """
         try:
             cluster_access_token = self.client._internal_api_client.get_cluster_access_token_api_v2_authentication_cluster_id_cluster_access_token_get(  # noqa: SLF001
                 cluster_id=cluster_id
@@ -517,7 +691,14 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             if isinstance(cluster_access_token, bytes):
                 return cluster_access_token.decode("utf-8")
             return str(cluster_access_token)
-        except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
+        except (
+            ApiException,
+            AttributeError,
+            KeyError,
+            TypeError,
+            ValueError,
+            RuntimeError,
+        ) as e:
             self._logger.debug(f"Failed to get cluster access token: {type(e).__name__}")
             return None
 
@@ -553,19 +734,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         individually quoted, suitable as the value of ssh's `-o ProxyCommand=`.
         """
         try:
-            cluster = self.client.get_workspace_cluster(workspace_id)
-            if not cluster or not cluster.id:
+            workspace_model = self._resolve_to_workspace_model(id=workspace_id)
+            target = self._resolve_ssh_target(workspace_model)
+            if not target.hostname or not target.token:
                 return None
 
-            public_hostname = self._get_https_public_hostname(cluster)
-            if not public_hostname:
-                return None
-
-            cluster_access_token = self._get_https_cluster_access_token(str(cluster.id))
-            if not cluster_access_token:
-                return None
-
-            return self._create_https_proxy_command(public_hostname, cluster_access_token)
+            return self._create_https_proxy_command(target.hostname, target.token)
         except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
             self._logger.debug(f"Failed to build HTTPS proxy command: {type(e).__name__}")
             return None
@@ -777,7 +951,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if config.name is not None and config.name != workspace.name:
             validate_resource_name(config.name)
 
-        current_status = self._get_workspace_status(id)
+        current_status = self._get_workspace_status(workspace)
         if current_status != WorkspaceState.TERMINATED:
             raise ValueError(
                 "Workspace must be in the TERMINATED state to be updated. Use `anyscale workspace terminate` to terminate the workspace, and `anyscale workspace wait` to wait for the workspace to terminate."

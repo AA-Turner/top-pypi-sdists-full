@@ -9,6 +9,7 @@ from office365.runtime.client_request import ClientRequest
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.queries.client_query import ClientQuery
+from office365.runtime.transport.offload import get_offload_executor, run_offloaded
 
 
 class UploadSessionRequest(ClientRequest):
@@ -73,6 +74,23 @@ class UploadSessionRequest(ClientRequest):
         for chunk_data in self._read_next():
             self._range_data = chunk_data
             super().execute_query(query)
+
+    async def execute_query_async(self, query: ClientQuery) -> None:
+        """Execute the upload query for each chunk without blocking the loop.
+
+        Async twin of :meth:`execute_query`: every chunk is read from the source
+        stream on the shared offload executor and PUT through the async
+        transport, so neither the disk read nor the upload stalls the event
+        loop. Chunks are still uploaded sequentially, in order, as the service
+        requires.
+        """
+        executor = get_offload_executor()
+        while True:
+            chunk_data = await run_offloaded(self._file_object.read, self._chunk_size, executor=executor)
+            if not chunk_data:
+                break
+            self._range_data = chunk_data
+            await super().execute_query_async(query)
 
     def _read_next(self):
         """Generate fixed-size chunks from the file object.

@@ -10,26 +10,18 @@ When editing configuration files with ConfigUpdater, a handy way of setting a mu
 (or comma separated value) for an specific option is to use the
 :meth:`~Option.set_values` method.
 """
-import sys
+
+from __future__ import annotations
+
 import warnings
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
-
-if sys.version_info[:2] >= (3, 9):  # pragma: no cover
-    from collections.abc import Iterable
-
-    List = list
-    Dict = dict
-else:  # pragma: no cover
-    from typing import Iterable, List
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, Self, cast
 
 if TYPE_CHECKING:
-    from .section import Section
     from .document import Document
+    from .section import Section
 
 from .block import AssignMultilineValueError, Block
-
-Value = Union["Option", str]
-T = TypeVar("T", bound="Option")
 
 
 def is_multi_line(value: Any) -> bool:
@@ -41,33 +33,46 @@ def is_multi_line(value: Any) -> bool:
 
 
 class NoneValueDisallowed(SyntaxWarning):
-    """Cannot represent <{option} = None>, it will be converted to <{option} = ''>.
-    Please use ``allow_no_value=True`` with ``ConfigUpdater``.
+    """Warns that an option without a value is omitted from the output.
+
+    This happens when such an option is converted to a string while the
+    :class:`~configupdater.ConfigUpdater` does not use ``allow_no_value=True``.
     """
 
     @classmethod
-    def warn(cls, option):
-        warnings.warn(cls.__doc__.format(option=option), cls, stacklevel=2)
+    def warn(cls, option: str) -> None:
+        msg = (
+            f"Cannot represent <{option} = None>, the option is omitted. "
+            "Please use ``allow_no_value=True`` with ``ConfigUpdater``."
+        )
+        warnings.warn(msg, cls, stacklevel=2)
 
 
 class Option(Block):
-    """Option block holding a key/value pair."""
+    """Option block holding a key/value pair.
+
+    ``space_around_delimiters`` decides whether the delimiter is surrounded by spaces
+    when the option is rendered after a change. ``True`` and ``False`` take precedence
+    over the syntax options of the :class:`~configupdater.ConfigUpdater` holding the
+    option. ``None`` (the default) follows its ``space_around_delimiters`` and adds
+    spaces if the option does not belong to a :class:`~configupdater.ConfigUpdater`.
+    """
 
     def __init__(
         self,
         key: str,
-        value: Optional[str] = None,
-        container: Optional["Section"] = None,
+        value: str | None = None,
+        container: Section | None = None,
         delimiter: str = "=",
-        space_around_delimiters: bool = True,
-        line: Optional[str] = None,
+        space_around_delimiters: bool | None = None,
+        line: str | None = None,
     ):
         super().__init__(container=container)
         self._key = key
-        self._values: List[Optional[str]] = [] if value is None else [value]
+        self._values: list[str | None] = [] if value is None else [value]
         self._value_is_none = value is None
         self._delimiter = delimiter
-        self._value: Optional[str] = None  # will be filled after join_multiline_value
+        self._value: str | None = None  # will be filled after join_multiline_value
         self._updated = False
         self._multiline_value_joined = False
         self._space_around_delimiters = space_around_delimiters
@@ -76,35 +81,36 @@ class Option(Block):
         if value is not None:
             self._set_value(value)
 
-    def add_value(self, value: Optional[str]):
+    def add_value(self, value: str | None) -> None:
         """PRIVATE: this function is not part of the public API of Option.
         It is only used internally by other classes of the package during parsing.
         """
         self._value_is_none = value is None
         self._values.append(value)
 
-    def add_line(self, line: str):
+    def add_line(self, line: str) -> Self:
         """PRIVATE: this function is not part of the public API of Option.
         It is only used internally by other classes of the package during parsing.
         """
         super().add_line(line)
         self.add_value(line.strip())
+        return self
 
-    def _join_multiline_value(self):
+    def _join_multiline_value(self) -> None:
         if not self._multiline_value_joined and not self._value_is_none:
             # do what `_join_multiline_value` in ConfigParser would do
-            self._value = "\n".join(self._values).rstrip()
+            self._value = "\n".join(cast(list[str], self._values)).rstrip()
             self._multiline_value_joined = True
 
-    def _get_delim(self, determine_suffix=True) -> str:
+    def _get_delim(self, determine_suffix: bool = True) -> str:
         document = self._document()
         opts = getattr(document, "syntax_options", None) or {}
         value = self._value
-        space = self._space_around_delimiters or opts.get("space_around_delimiters")
-        if determine_suffix and str(value).startswith("\n"):
-            suffix = ""  # no space is needed if we use multi-line arguments
-        else:
-            suffix = " "
+        space = self._space_around_delimiters
+        if space is None:
+            space = opts.get("space_around_delimiters", True)
+        # no space is needed if we use multi-line arguments
+        suffix = "" if determine_suffix and str(value).startswith("\n") else " "
         delim = f" {self._delimiter}{suffix}" if space else self._delimiter
         return delim
 
@@ -133,7 +139,7 @@ class Option(Block):
     def __repr__(self) -> str:
         return f"<Option: {self._key} = {self.value!r}>"
 
-    def _instantiate_copy(self: T) -> T:
+    def _instantiate_copy(self) -> Self:
         """Will be called by :meth:`Block.__deepcopy__`"""
         self._join_multiline_value()
         return self.__class__(
@@ -144,13 +150,13 @@ class Option(Block):
             space_around_delimiters=self._space_around_delimiters,
         )
 
-    def _document(self) -> Optional["Document"]:
+    def _document(self) -> Document | None:
         if self._container is None:
             return None
-        return self._container._container  # type: ignore
+        return cast("Section", self._container)._container
 
     @property
-    def section(self) -> "Section":
+    def section(self) -> Section:
         return cast("Section", self.container)
 
     @property
@@ -166,7 +172,7 @@ class Option(Block):
         return self.section.document.optionxform(self._key)
 
     @key.setter
-    def key(self, value: str):
+    def key(self, value: str) -> None:
         self._join_multiline_value()
         self._key = value
         self._updated = True
@@ -177,24 +183,24 @@ class Option(Block):
         return self._key
 
     @property
-    def value(self) -> Optional[str]:
+    def value(self) -> str | None:
         """Value associated with the given option."""
         self._join_multiline_value()
         return self._value
 
     @value.setter
-    def value(self, value: str):
+    def value(self, value: str | None) -> None:
         if is_multi_line(value):
             raise AssignMultilineValueError(self)
         self._set_value(value)
 
-    def _set_value(self, value: str):
+    def _set_value(self, value: str | None) -> None:
         self._updated = True
         self._multiline_value_joined = True
         self._value = value
         self._values = [value]
 
-    def as_list(self, separator="\n") -> List[str]:
+    def as_list(self, separator: str = "\n") -> list[str]:
         """Returns the (multi-line/element) value as a list
 
         Empty list if value is None, single-element list for a one-element
@@ -208,18 +214,15 @@ class Option(Block):
         else:
             return [v.strip() for v in cast(str, self.value).strip().split(separator)]
 
-    def append(self, value: str, **kwargs) -> "Option":
+    def append(self, value: str, **kwargs: Any) -> Option:
         """Append a value to a mult-line value
 
         Args:
             value (str): value
             kwargs: keyword arguments for `set_values`
         """
-        sep = kwargs.get("separator", None)
-        if sep is None:
-            new_values = self.as_list()
-        else:
-            new_values = self.as_list(separator=sep)
+        sep = kwargs.get("separator")
+        new_values = self.as_list() if sep is None else self.as_list(separator=sep)
 
         new_values.append(value)
         self.set_values(new_values, **kwargs)
@@ -228,10 +231,10 @@ class Option(Block):
     def set_values(
         self,
         values: Iterable[str],
-        separator="\n",
-        indent: Optional[str] = None,
-        prepend_newline=True,
-    ):
+        separator: str = "\n",
+        indent: str | None = None,
+        prepend_newline: bool = True,
+    ) -> None:
         """Sets the value to a given list of options, e.g. multi-line values
 
         Args:
@@ -245,17 +248,14 @@ class Option(Block):
         values = list(values).copy()
         self._updated = True
         self._multiline_value_joined = True
-        self._values = cast(List[Optional[str]], values)
+        self._values = cast(list[str | None], values)
 
         if indent is None:
-            if prepend_newline:
-                indent = 4 * " "
-            else:
-                indent = self.value_start_idx() * " "
+            indent = 4 * " " if prepend_newline else self.value_start_idx() * " "
 
         # The most common case of multiline values being preceded by a new line
         if prepend_newline and "\n" in separator:
-            values = [""] + values
+            values = ["", *values]
             separator = separator + indent
         elif "\n" in separator:
             separator = separator + indent

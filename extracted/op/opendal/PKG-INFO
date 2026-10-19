@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opendal
-Version: 0.47.10
+Version: 0.47.12
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE
@@ -46,6 +46,12 @@ Install from PyPI:
 
 ```bash
 pip install opendal
+```
+
+Or install from [Anaconda main](https://anaconda.org/main/opendal):
+
+```bash
+conda install opendal
 ```
 
 Or install from [conda-forge](https://anaconda.org/conda-forge/opendal):

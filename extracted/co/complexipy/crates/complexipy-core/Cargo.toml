@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-core"
+description = "Analysis engine: cognitive complexity scoring, diff, refactoring rules, and --fix"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,14 +12,18 @@ publish = false
 
 [lib]
 name = "complexipy_core"
+doctest = false
 
 [features]
 default = ["runner"]
 runner = ["dep:ignore", "dep:globset", "dep:wax", "dep:rayon"]
-python = ["dep:pyo3"]
+python = ["dep:pyo3", "complexipy-types/python"]
 wasm = []
+config = ["dep:toml"]
+schema = ["config", "dep:schemars"]
 
 [dependencies]
+complexipy-types = { path = "../complexipy-types" }
 ruff_python_parser = { workspace = true }
 ruff_python_ast = { workspace = true }
 regex = { workspace = true }
@@ -30,6 +35,8 @@ globset = { workspace = true, optional = true }
 wax = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

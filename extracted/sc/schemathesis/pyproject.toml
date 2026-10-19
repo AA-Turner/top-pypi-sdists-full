@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemathesis"
-version = "4.31.1"
+version = "4.32.0"
 description = "Adaptive API testing for OpenAPI and GraphQL"
 keywords = ["pytest", "hypothesis", "openapi", "graphql", "testing", "fuzzing", "adaptive"]
 authors = [{ name = "Dmitry Dygalo", email = "dmitry@dygalo.dev" }]
@@ -37,7 +37,7 @@ dependencies = [
   "harfile>=0.5.0,<1.0",
   "hypothesis>=6.130.12,<7",
   "hypothesis_graphql>=0.13.2,<1",
-  "jsonschema_rs>=0.58.6,<0.59.0",
+  "jsonschema_rs>=0.59.0,<0.60.0",
   "pyrate-limiter>=4.0,<5.0",
   "pytest>=8.4,<10",
   "PyYAML>=5.1,<7.0",
@@ -56,8 +56,8 @@ tests = [
   "httpx2>=2.12.0,<3.0",
   "pydantic>=1.10.2",
   "pytest-asyncio>=1.0,<2.0",
-  "pytest-httpserver>=1.0,<2.0",
-  "pytest-mock>=3.7.0,<4.0",
+  "pytest-rerunfailures>=15.0,<17.0",
+  "pytest-timeout>=2.3,<3.0",
   "pytest-trio>=0.8,<1.0",
   "pytest-xdist>=3,<4.0",
   "strawberry-graphql[fastapi]>=0.109.0",
@@ -71,7 +71,7 @@ tests = [
 ]
 allure = ["allure-python-commons>=2.13.0"]
 cov = ["coverage-enable-subprocess", "coverage[toml]>=5.3"]
-bench = ["pytest-codspeed==5.0.3"]
+bench = ["pytest-codspeed==5.0.3", "pytest-timeout>=2.3,<3.0"]
 docs = ["mkdocs-material", "mkdocstrings[python]", "pymdown-extensions<12.2"]
 profiling = ["pyinstrument>=5.1"]
 scripts = ["tracecov>=0.21", "seaborn>=0.13"]
@@ -103,9 +103,13 @@ exclude = [
 
 [tool.pytest.ini_options]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
-# Dump every thread's stack for a test running over 5 minutes, so a stalled CI job names the culprit.
-faulthandler_timeout = 300
+# Fail a test running over 5 minutes and dump every thread's stack, so a stalled CI job names the culprit.
+timeout = 300
 xfail_strict = true
+# Duplicate parametrize ids hide repeated or mislabelled cases. pytest 9+ only; the pytest 8 tox env drops `--strict-config`.
+strict_parametrization_ids = true
+# Show the full diff for failed comparisons of large dicts and lists, not only "Use -v to get more diff".
+verbosity_assertions = 1
 truncation_limit_lines = 0
 truncation_limit_chars = 0
 testpaths = "test"
@@ -211,9 +215,7 @@ known-third-party = [
   "click",
   "fastapi",
   "flask",
-  "graphene",
   "graphql",
-  "graphql_server",
   "hypothesis",
   "hypothesis_graphql",
   "packaging",

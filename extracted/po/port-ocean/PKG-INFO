@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.54.0
-Summary: Port Ocean is a CLI tool for managing your Port projects.
+Version: 0.54.1
+Summary: Port Ocean is a Python framework for building integrations that ingest data into Port, the platform for building your AI software factory.
 License-File: LICENSE.md
 Keywords: ocean,port-ocean,port
 Author: Daniel Sinai
@@ -63,8 +63,9 @@ Requires-Dist: urllib3 (>=2.8.0,<3.0.0)
 Requires-Dist: uvicorn (>=0.54.0,<0.55.0)
 Requires-Dist: virtualenv (>=21.14.2,<22.0.0)
 Requires-Dist: werkzeug (>=3.1.9,<4.0.0)
-Project-URL: Homepage, https://app.getport.io
-Project-URL: Repository, https://github.com/port-labs/Port-Ocean
+Project-URL: Documentation, https://docs.port.io/context-lake/ingestion/ingest-data-into-port/native-integrations/ocean-framework/overview/
+Project-URL: Homepage, https://docs.port.io/context-lake/ingestion/ingest-data-into-port/native-integrations/ocean-framework/overview/
+Project-URL: Repository, https://github.com/port-labs/ocean
 Description-Content-Type: text/markdown
 
 <img src="./assets/Thumbnail.png" alt="Ocean">
@@ -74,8 +75,7 @@ Description-Content-Type: text/markdown
 [![Lint](https://github.com/port-labs/Port-Ocean/actions/workflows/lint.yml/badge.svg)](https://github.com/port-labs/port-ocean/actions/workflows/lint.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/port-labs/ocean)
 
-Ocean is an innovative solution developed by Port to seamlessly integrate various third-party systems with our developer portal product,
-empowering engineers to effortlessly prioritize key features and streamline the integration process.
+Ocean is Port's open source integration framework. It makes it easy to ingest data from your third-party tools and infrastructure into Port, the platform for building your AI software factory.
 
 ## Prerequisites
 

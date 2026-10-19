@@ -1,7 +1,3 @@
-# This source code is part of the Biotite package and is distributed
-# under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
-# information.
-
 from __future__ import annotations
 
 __name__ = "biotite.sequence.align"
@@ -103,12 +99,12 @@ class ScoreThresholdRule(SimilarityRule, Generic[S]):
     Examples
     --------
 
-    >>> kmer_alphabet = KmerAlphabet(ProteinSequence.alphabet, k=3)
+    >>> kmer_alphabet = KmerAlphabet(ProteinSequence.alphabet_ambiguous, k=3)
     >>> matrix = SubstitutionMatrix.std_protein_matrix()
     >>> rule = ScoreThresholdRule(matrix, threshold=15)
     >>> similars = rule.similar_kmers(kmer_alphabet, kmer_alphabet.encode("AIW"))
     >>> print(["".join(s) for s in kmer_alphabet.decode_multiple(similars)])
-    ['AFW', 'AIW', 'ALW', 'AMW', 'AVW', 'CIW', 'GIW', 'SIW', 'SVW', 'TIW', 'VIW', 'XIW']
+    ['AFW', 'AIW', 'ALW', 'AMW', 'AVW', 'AJW', 'CIW', 'GIW', 'SIW', 'SVW', 'SJW', 'TIW', 'VIW', 'XIW']
     """
 
     def __init__(self, matrix: SubstitutionMatrix[S, S], threshold: int) -> None:

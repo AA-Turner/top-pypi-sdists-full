@@ -258,6 +258,34 @@ def test_xml_check_passes_the_serializer() -> None:
     assert xml_check("<p a=1>x<svg><circle r=1></circle></svg>") is None
 
 
+@pytest.mark.parametrize("markup", ["<!DOCTYPE", "<d<>", "<z:>", "<l :>"])
+def test_xml_check_accepts_dropped_invalid_names(markup: str) -> None:
+    assert xml_check(markup) is None
+
+
+@pytest.mark.parametrize("markup", ["<z:b>", "<l a:c>"])
+def test_xml_check_skips_unbound_prefixes(markup: str) -> None:
+    with pytest.raises(OutOfScopeError):
+        xml_check(markup)
+
+
+@pytest.mark.parametrize("markup", ['<!DOCTYPEL PUBLIC"<', '<!DOCTYPEl PUBLIC"<""'])
+def test_xml_check_waives_unrepresentable_doctype_metadata(markup: str) -> None:
+    assert xml_check(markup) is None
+
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        pytest.param("<svg><template><foreignObject><d></template>>", id="text-outside-root"),
+        pytest.param("<svg><template><foreignObject><d></template><d>", id="element-outside-root"),
+    ],
+)
+def test_xml_check_skips_content_outside_root(markup: str) -> None:
+    with pytest.raises(OutOfScopeError):
+        xml_check(markup)
+
+
 @pytest.mark.parametrize(
     ("markup", "serialize", "expected"),
     [
@@ -297,8 +325,39 @@ def test_markdown_check_passes_to_markdown() -> None:
     assert markdown_check("<h2>t</h2><p>*a* and <em>b</em></p><ul><li>c</li></ul>") is None
 
 
+@pytest.mark.parametrize(
+    "markup",
+    [
+        "<ol><li><i> </i></><li>&",
+        "<ul><li><d> <i><li>/",
+        "<strong><b><<b>😀</b></b><b>*",
+        "<em><code>\\</code></em><b><del>*<br></b>&",
+        "<table><td>&nbsp </><br>]",
+        "<em><br>[<br>",
+        "d<b>😀=</b><del>;<strong>&gt",
+        "<b><b>\\ </b><strong>\\<g></b>~",
+        "><b><br> <br>",
+        "<strong><br>x<br></strong>[",
+        "><em><br><m><br><i>#<br></i>o",
+        "<ol><li><i><br></i><br><em><b>😀",
+        "<br><strong>><br></strong><",
+        "<ol><li><i><br></i><br>><b>😀",
+        ";<strong><b>d </b><b>\\<t",
+        "<strong><b></b></strong><p><i><br></i><br>é",
+        "<br><i>*<br></i> <",
+        "<del>[</del>\\<em><em>h|</em>>(<br><del><br><el",
+    ],
+)
+def test_markdown_check_accepts_equivalent_html(markup: str) -> None:
+    assert markdown_check(markup) is None
+
+
 def test_markdown_check_flags_unescaped_text() -> None:
     assert markdown_check("<p>*a*</p>", lambda node: node.text) == "not a fixpoint: '<' vs letter"
+
+
+def test_markdown_check_keeps_nested_closing_runs_separate() -> None:
+    assert markdown_check("<em><b>&</b>'<i>a\\</></em><strong>[") is None
 
 
 def test_markdown_check_skips_a_block_inside_an_inline() -> None:
@@ -306,8 +365,54 @@ def test_markdown_check_skips_a_block_inside_an_inline() -> None:
         markdown_check("<del><pre>x</pre></del>")
 
 
+def test_markdown_check_skips_reader_html_outside_the_meaning_model() -> None:
+    with pytest.raises(OutOfScopeError):
+        markdown_check('<ul><li><b><br></b><br><a href="a ">><em>😀')
+
+
+@pytest.mark.parametrize("markup", ["<em>_<br><br></em>)", "<del>y<br><br></del>>"])
+def test_markdown_check_skips_adjacent_breaks_inside_inline(markup: str) -> None:
+    with pytest.raises(OutOfScopeError):
+        markdown_check(markup)
+
+
+def test_markdown_check_skips_break_inside_table_cell_formatting() -> None:
+    with pytest.raises(OutOfScopeError):
+        markdown_check("<table><td><em>\\<i>😀</i><br>")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "@media{[",
+        '@media{["\n',
+        "a{font:x -E",
+        "\\1;-",
+        "0;@a}t",
+        "@supports(){(x+2",
+        "a{h:calc(+c(x+2",
+        "a{t:''({",
+        ":::before{x:1}",
+        "[/\n**/f\"\"]{x:''}",
+        "@media{a b{{}}a b{f:1}a b{{()}}}",
+    ],
+)
+def test_css_fixpoint_skips_incomplete_stylesheets(source: str) -> None:
+    with pytest.raises(OutOfScopeError):
+        ORACLES["css-fixpoint"].check(source)
+
+
+def test_css_fixpoint_checks_balanced_quoted_braces() -> None:
+    assert ORACLES["css-fixpoint"].check('a{color:"{"}') is None
+
+
 def test_css_semantics_check_passes_minify_css() -> None:
     markup = "<style>p{color:#ff0000;margin:0px 1px}p{margin-top:0}div>p{z-index:01}</style><div><p>x</p></div>"
+    assert css_semantics_check(markup) is None
+
+
+def test_css_semantics_check_preserves_interleaved_margin_shorthand() -> None:
+    markup = "<style>i{margin-right:0}i{margin:0 10px;margin-top:0;margin-bottom:0}i{margin-left:1.5px}</style><i></i>"
     assert css_semantics_check(markup) is None
 
 
@@ -359,6 +464,12 @@ def test_css_semantics_check_flags_a_broken_minifier(markup: str, minify: Callab
 def test_css_semantics_check_skips_a_document_without_style() -> None:
     with pytest.raises(OutOfScopeError):
         css_semantics_check("<p>x")
+
+
+def test_css_semantics_check_skips_invalid_distributive_shorthand() -> None:
+    markup = "<style>i{margin-right:0}i{margin:0 1px 1r;margin-top:0;margin-bottom:0px}</style><i></i>"
+    with pytest.raises(OutOfScopeError):
+        css_semantics_check(markup)
 
 
 @pytest.mark.parametrize(
@@ -559,6 +670,16 @@ def test_generation_public_consumers_reject_undeclared_profile(name: str, source
         target.callback(source)
 
 
+def test_markdown_html_grammar_skips_trees_beyond_meaning_depth() -> None:
+    with pytest.raises(OutOfScopeError):
+        ORACLES["markdown-html-grammar"].check("<div>" * 130 + "x" + "</div>" * 130)
+
+
+def test_markdown_source_grammar_skips_lost_control_whitespace() -> None:
+    with pytest.raises(OutOfScopeError):
+        ORACLES["markdown-source-grammar"].check("<html>\x1c")
+
+
 @pytest.mark.parametrize(
     ("data", "encoding", "sniff", "expected"),
     [
@@ -570,6 +691,8 @@ def test_generation_public_consumers_reject_undeclared_profile(name: str, source
         pytest.param(b"\xff\xfe" + "<p>é</p>".encode("utf-16-le"), "UTF-8", True, "é", id="utf16-bom"),
         pytest.param(b"<meta charset=windows-1252><p>\xe9</p>", "UTF-8", True, "é", id="prescan"),
         pytest.param(b" " * 1025 + b"<meta charset=windows-1251><p>\xc0</p>", "UTF-8", True, "\u0410", id="late-meta"),
+        pytest.param(b"<p>a<!--c-->b<strong>c</strong>d</p>", "UTF-8", False, "abcd", id="comment-tails"),
+        pytest.param(("<div>" * 1200 + "x" + "</div>" * 1200).encode(), "UTF-8", False, "x", id="deep-tree"),
     ],
 )
 def test_encoding_mutation_context(data: bytes, encoding: str, expected: str, *, sniff: bool) -> None:
@@ -954,6 +1077,25 @@ def test_stylesheet_consumer_rejects_wrong_output(kind: str) -> None:
 
     with pytest.raises(AssertionError):
         stylesheet_observation(b"p { color: red; }", wrong)
+
+
+@pytest.mark.parametrize("source", [b"y{(:{", b'a{r:(""{'])
+def test_stylesheet_consumer_skips_unclosed_css_blocks(source: bytes) -> None:
+    with pytest.raises(OutOfScopeError, match="unclosed block"):
+        stylesheet_observation(source)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(b'p{content:"\\{"}', id="escaped-string"),
+        pytest.param(b"p{content:'{'}", id="single-quoted-string"),
+        pytest.param(b"p{/* { */ color:red}", id="comment"),
+    ],
+)
+def test_stylesheet_consumer_keeps_balanced_css_findings(source: bytes) -> None:
+    with pytest.raises(AssertionError):
+        stylesheet_observation(source, lambda text: text + "x")
 
 
 if TYPE_CHECKING:
@@ -1551,6 +1693,10 @@ def test_dom_range_literal() -> None:
     assert dom_observation(b"<&>", "dom-range").actual == repr(("<p>&lt;&amp;&gt;</p>", 0, 1, 0, 1, False, "<&>"))
 
 
+def test_dom_range_nbsp() -> None:
+    assert dom_observation("\xa0".encode(), "dom-range").verify() is None
+
+
 def test_dom_input_bound() -> None:
     assert dom_observation(b"x" * 65, "dom-range") == dom_observation(b"x" * 64, "dom-range")
 
@@ -1719,7 +1865,12 @@ def test_atheris_reference_empty_css_records() -> None:
         pytest.param(b"color: (", (("color", "(", False),), id="open-block"),
         pytest.param(b'content: "x', (("content", '"x', False),), id="open-string"),
         pytest.param(b'content: "a\n/* x', (("content", '"a\n/* x', False),), id="open-comment-after-string"),
+        pytest.param(
+            b'x: "open\n; color: red } }', (("x", '"open\n; color: red } }', False),), id="bad-string-before-braces"
+        ),
         pytest.param(b"a: b}", (("a", "b}", False),), id="top-level-closer"),
+        pytest.param(b'{{}}"""\n":}5{', (('{{}}"""\n"', "}5{", False),), id="malformed-nested-rule-split"),
+        pytest.param(b'a: before"\n{ b: x:} 0', (("a", 'before"\n{ b: x:} 0', False),), id="open-block-in-bad-string"),
     ],
 )
 def test_atheris_reference_css_records_left_open_at_end(
@@ -1742,6 +1893,11 @@ def test_atheris_reference_css_block_records(data: bytes, expected: tuple[tuple[
 def test_atheris_reference_selector_specificity() -> None:
     expression, specificity = selector_observation(b"div#a > p.x")
     assert (bool(expression), specificity) == (True, ((1, 1, 2),))
+
+
+def test_atheris_reference_selector_uses_standards_mode() -> None:
+    expression, specificity = selector_observation(b"#A")
+    assert (bool(expression), specificity) == (True, ((1, 0, 0),))
 
 
 def test_atheris_reference_untranslatable_selector() -> None:
@@ -2122,26 +2278,59 @@ def test_atheris_callback_keeps_injected_memory_error(mocker: MockerFixture) -> 
     assert reject.call_count == 0
 
 
+@pytest.mark.parametrize("lossy", [False, True], ids=["strict", "lossy"])
+def test_atheris_callback_handles_injected_assertion(*, lossy: bool) -> None:
+    def consume(_data: bytes, _header: Header) -> None:
+        msg = "record lost"
+        raise AssertionError(msg)
+
+    callback = rejecting_callback(
+        consume, (), lambda: None, lambda _position: (1, True), lossy_on_allocation_failure=lossy
+    )
+    if lossy:
+        callback(SEED_HEADER)
+    else:
+        with pytest.raises(AssertionError, match="record lost"):
+            callback(SEED_HEADER)
+
+
 @pytest.mark.parametrize(
     ("raised", "failed", "error", "match"),
     [
         pytest.param(MemoryError, False, MemoryError, "^$", id="uninjected-memory-error"),
-        pytest.param(None, True, AssertionError, "^a result for an injected", id="injected-result"),
+        pytest.param(None, True, None, "", id="recovered-allocation"),
         pytest.param(UnicodeError, True, AssertionError, "^UnicodeError for an injected", id="injected-documented"),
     ],
 )
 def test_atheris_callback_reports_failure_mismatch(
-    mocker: MockerFixture, raised: type[Exception] | None, error: type[Exception], match: str, *, failed: bool
+    mocker: MockerFixture, raised: type[Exception] | None, error: type[Exception] | None, match: str, *, failed: bool
 ) -> None:
+    calls = 0
+
     def consume(_data: bytes, _header: Header) -> None:
-        if raised is not None:
+        nonlocal calls
+        calls += 1
+        if raised is not None and (not failed or calls == 1):
             raise raised
 
     reject = mocker.MagicMock()
     callback = rejecting_callback(consume, (UnicodeError,), reject, lambda _position: (1, failed))
-    with pytest.raises(error, match=match):
+    if error is None:
         callback(SEED_HEADER)
+    else:
+        with pytest.raises(error, match=match):
+            callback(SEED_HEADER)
     assert reject.call_count == 0
+
+
+def test_atheris_callback_rejects_documented_error_after_injection(mocker: MockerFixture) -> None:
+    def consume(_data: bytes, _header: Header) -> None:
+        msg = "invalid input"
+        raise UnicodeError(msg)
+
+    reject = mocker.MagicMock()
+    rejecting_callback(consume, (UnicodeError,), reject, lambda _position: (1, True))(SEED_HEADER)
+    reject.assert_called_once_with()
 
 
 def test_atheris_rejection_hook_propagates_loader_error(mocker: MockerFixture) -> None:

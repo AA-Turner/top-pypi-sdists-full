@@ -139,6 +139,59 @@ tests.
 * Mission-level rollback event: ``ReviewRollbackPayload``
   (``src/spec_kitty_events/lifecycle.py``).
 * Planning issue: ``Priivacy-ai/spec-kitty-planning#16``.
+
+## Review-Ref-Gated Rewind Family
+
+Three backward rewinds to ``in_progress`` form a second, separate family. They
+are force-exempt and gated on ``review_ref``:
+
+    | from_lane   | to_lane     |
+    |-------------|-------------|
+    | for_review  | in_progress |
+    | in_review   | in_progress |
+    | approved    | in_progress |
+
+### Wire requirements
+
+* ``review_ref`` MUST be a non-empty string, whether the event is forced or
+  not. A missing or blank ``review_ref`` is invalid even when ``force=True``.
+* ``force`` is NOT required and is allowed. If ``force=True`` is set, the
+  payload's existing rule still applies (``force=True requires a non-empty
+  reason``).
+
+### Force-exempt by contract
+
+Consumers MUST NOT require ``force=True`` on these edges.
+``validate_transition()`` accepts them unforced, provided ``review_ref`` is
+present. Do not extend the review-rejection force rule to them.
+
+### Violation routing
+
+A missing ``review_ref`` produces a violation containing
+``requires review_ref``. Consumers MAY route on that substring.
+
+### Rationale
+
+Forcing a rewind bypasses the status diary's ``from_lane`` continuity check.
+A forced, stale ``approved -> in_progress`` can then reopen a WP that is
+already ``done``. Keeping these edges unforced keeps that check in force, and
+``review_ref`` records which review sent the WP back
+(spec-kitty-events#48).
+
+### Contrast with the review-rejection family
+
+The review-rejection family (``* -> planned``) is the opposite: it requires
+``force=True`` plus a non-empty ``reason``, and ``review_ref`` is optional
+when forced.
+
+### Conformance fixtures
+
+Nine fixtures under ``edge_cases/valid/`` and ``edge_cases/invalid/`` pin the
+family: for each source lane, an unforced event with ``review_ref`` (valid),
+an unforced event without it (invalid), and a forced event without it
+(invalid). Their manifest ids start with
+``wp-status-changed-unforced-`` or ``wp-status-changed-forced-`` and end in
+``-to-in-progress-...``.
 """
 
 import logging
@@ -168,6 +221,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # ``spec_kitty_events.status.reduce``.
 from spec_kitty_events.diary import DiaryError, State, parse_diary, reduce
 from spec_kitty_events.models import Event, SpecKittyEventsError, ValidationError
+from spec_kitty_events.ordering import canonical_order_key
 
 logger = logging.getLogger(__name__)
 
@@ -578,6 +632,17 @@ _REVIEW_REJECTION_FAMILY: FrozenSet[Tuple[Lane, Lane]] = frozenset(
 )
 
 
+# Review-ref-gated, force-exempt rewinds; see the module docstring section
+# "Review-Ref-Gated Rewind Family" (spec-kitty-events#48).
+_REVIEW_REF_GATED_REWINDS: FrozenSet[Tuple[Lane, Lane]] = frozenset(
+    {
+        (Lane.FOR_REVIEW, Lane.IN_PROGRESS),
+        (Lane.IN_REVIEW, Lane.IN_PROGRESS),
+        (Lane.APPROVED, Lane.IN_PROGRESS),
+    }
+)
+
+
 def _is_review_rejection_pair(from_lane: Optional[Lane], to_lane: Lane) -> bool:
     """Return True iff (from_lane, to_lane) is in the review-rejection family.
 
@@ -651,10 +716,10 @@ def validate_transition(payload: StatusTransitionPayload) -> TransitionValidatio
     # review-rejection family treats review_ref as optional when force=True;
     # older review rollback edges such as for_review -> in_progress still
     # require review_ref.
-    review_ref_required = (
+    review_ref_required = (payload.from_lane, payload.to_lane) in _REVIEW_REF_GATED_REWINDS or (
         payload.from_lane in {Lane.FOR_REVIEW, Lane.IN_REVIEW, Lane.APPROVED}
-        and payload.to_lane in {Lane.IN_PROGRESS, Lane.PLANNED}
-        and not (payload.force and _is_review_rejection_pair(payload.from_lane, payload.to_lane))
+        and payload.to_lane is Lane.PLANNED
+        and not payload.force
     )
     if review_ref_required and (payload.review_ref is None or payload.review_ref.strip() == ""):
         violations.append(
@@ -680,12 +745,13 @@ def validate_transition(payload: StatusTransitionPayload) -> TransitionValidatio
 # ---------------------------------------------------------------------------
 
 
-def status_event_sort_key(event: Event) -> Tuple[int, str, str]:
+def status_event_sort_key(event: Event) -> Tuple[int, int, str, str]:
     """Deterministic sort key for status events.
 
-    Returns (lamport_clock, timestamp_isoformat, event_id).
+    Delegates to :func:`spec_kitty_events.ordering.canonical_order_key`:
+    ``(1 if clocked else 0, clock or 0, utc_timestamp_iso, event_id)``.
     """
-    return (event.lamport_clock, event.timestamp.isoformat(), event.event_id)
+    return canonical_order_key(event)
 
 
 def dedup_events(events: Sequence[Event]) -> List[Event]:
@@ -818,12 +884,19 @@ def reduce_status_events(events: Sequence[Event]) -> ReducedStatus:
             last_processed_event_id=unique_events[-1].event_id,
         )
 
-    # 5. Rollback-aware reordering: group by (wp_id, lamport_clock)
+    # 5. Rollback-aware reordering: group by (wp_id, lamport_clock); unclocked = singleton
     # Use insertion-order dict grouping to handle interleaving keys correctly.
     grouped: List[List[Tuple[Event, StatusTransitionPayload]]] = []
-    grouped_by_key: Dict[Tuple[str, int], List[Tuple[Event, StatusTransitionPayload]]] = {}
+    grouped_by_key: Dict[
+        Tuple[str, Optional[int], str], List[Tuple[Event, StatusTransitionPayload]]
+    ] = {}
     for event, payload in parsed:
-        key = (payload.wp_id, event.lamport_clock)
+        # An unclocked event is never concurrent: it forms its own singleton group.
+        key = (
+            payload.wp_id,
+            event.lamport_clock,
+            event.event_id if event.lamport_clock is None else "",
+        )
         grouped_by_key.setdefault(key, []).append((event, payload))
     for group in grouped_by_key.values():
         grouped.append(_rollback_aware_order(group))

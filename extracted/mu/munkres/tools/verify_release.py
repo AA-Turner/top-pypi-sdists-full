@@ -4,7 +4,7 @@ Check that the repository is consistent and release-ready: required files, match
 working links and images, valid configuration files, and public files free of internal notes.
 
     python tools/verify_release.py          # exit status 0 means no problems
-    python tools/verify_release.py --tag v2.0.0rc1   # also check a tag name against the version
+    python tools/verify_release.py --tag v3.0.0      # also check a stable tag against the version
 """
 
 import argparse
@@ -25,6 +25,7 @@ REQUIRED = [
     "LICENSE.md",
     "NOTICE",
     "V2_RELEASE.txt",
+    "V3_RELEASE.txt",
     "LICENSES/THIRD_PARTY_NOTICES.md",
     "AUTHORS.md",
     "MAINTAINERS.md",
@@ -198,12 +199,15 @@ def check_versions(tag):
         fail("CITATION.cff version differs from munkres.__version__")
     if f"Version {version}" not in (ROOT / "CHANGELOG.md").read_text():
         fail("CHANGELOG.md has no entry for the current version")
-    if version not in (ROOT / "V2_RELEASE.txt").read_text():
-        fail("V2_RELEASE.txt does not mention the current version")
+    if version not in (ROOT / "V3_RELEASE.txt").read_text():
+        fail("V3_RELEASE.txt does not mention the current version")
     if version not in (ROOT / "release/RELEASE_NOTES.md").read_text():
         fail("release/RELEASE_NOTES.md does not mention the current version")
-    if tag and tag != f"v{version}":
-        fail(f"tag {tag} does not match version v{version}")
+    if tag:
+        if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+            fail(f"tag {tag} is not a stable vX.Y.Z release tag")
+        elif tag != f"v{version}":
+            fail(f"tag {tag} does not match version v{version}")
 
 
 def check_links():

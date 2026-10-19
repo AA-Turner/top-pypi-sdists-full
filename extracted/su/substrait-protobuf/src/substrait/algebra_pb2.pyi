@@ -1074,18 +1074,17 @@ Global___AggregateRel: typing_extensions.TypeAlias = AggregateRel
 
 @typing.final
 class ConsistentPartitionWindowRel(google.protobuf.message.Message):
-    """ConsistentPartitionWindowRel provides the ability to perform calculations across sets of rows
-    that are related to the current query row. It can be used to execute window functions where
-    all the windows share the same partitioning and ordering.
+    """Window functions with shared partitioning and ordering.
+    See https://substrait.io/expressions/window_functions/#window-bindings
     """
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     @typing.final
     class WindowRelFunction(google.protobuf.message.Message):
-        """This message mirrors the `WindowFunction` message but removes the fields defining the partition,
-        sorts, and bounds, since those must be consistent across the various functions in this rel.  Refer
-        to the `WindowFunction` message for a description of these fields.
+        """Mirrors Expression.WindowFunction with partitioning and ordering supplied
+        by the enclosing relation. Each function has its own frame bounds and mode.
+        See https://substrait.io/expressions/window_functions/
         """
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -1104,13 +1103,8 @@ class ConsistentPartitionWindowRel(google.protobuf.message.Message):
         phase: Global___AggregationPhase.ValueType
         invocation: Global___AggregateFunction.AggregationInvocation.ValueType
         bounds_type: Global___Expression.WindowFunction.BoundsType.ValueType
-        """Defines how this function's window bounds are interpreted.
-        Must be ROWS or RANGE when either bound is CurrentRow, Preceding, or
-        Following.
-
-        For RANGE with a Preceding or Following bound, `sorts` on the enclosing
-        ConsistentPartitionWindowRel must contain exactly one ordering expression
-        and must not use SORT_DIRECTION_CLUSTERED or a custom comparison function.
+        """Required bound mode. Uses the enclosing relation's sorts.
+        See https://substrait.io/expressions/window_functions/#bound-modes
         """
         @property
         def arguments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___FunctionArgument]: ...
@@ -1120,16 +1114,14 @@ class ConsistentPartitionWindowRel(google.protobuf.message.Message):
         def output_type(self) -> substrait.type_pb2.Type: ...
         @property
         def lower_bound(self) -> Global___Expression.WindowFunction.Bound:
-            """Defines the lower bound of the window frame.
-            Optional; defaults to the start of the partition.
-            See `Expression.WindowFunction.Bound`.
+            """Inclusive lower bound; defaults to the start of the partition.
+            See https://substrait.io/expressions/window_functions/#frame-bounds
             """
 
         @property
         def upper_bound(self) -> Global___Expression.WindowFunction.Bound:
-            """Defines the upper bound of the window frame.
-            Optional; defaults to the end of the partition.
-            See `Expression.WindowFunction.Bound`.
+            """Inclusive upper bound; defaults to the end of the partition.
+            See https://substrait.io/expressions/window_functions/#frame-bounds
             """
 
         def __init__(
@@ -1757,6 +1749,12 @@ class Rel(google.protobuf.message.Message):
     EXCHANGE_FIELD_NUMBER: builtins.int
     EXPAND_FIELD_NUMBER: builtins.int
     TOP_N_FIELD_NUMBER: builtins.int
+    DETACHED_REL_ORDINAL_FIELD_NUMBER: builtins.int
+    detached_rel_ordinal: builtins.int
+    """Encoding-only, zero-based index into detached_rels on the
+    containing PlanRel or ExtendedExpression.
+    See https://substrait.io/serialization/binary_serialization/#detached-relations-and-expressions.
+    """
     @property
     def read(self) -> Global___ReadRel: ...
     @property
@@ -1834,10 +1832,11 @@ class Rel(google.protobuf.message.Message):
         exchange: Global___ExchangeRel | None = ...,
         expand: Global___ExpandRel | None = ...,
         top_n: Global___TopNRel | None = ...,
+        detached_rel_ordinal: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["read", "filter", "fetch", "aggregate", "sort", "join", "lateral_join", "project", "set", "extension_single", "extension_multi", "extension_leaf", "cross", "reference", "write", "ddl", "update", "hash_join", "merge_join", "nested_loop_join", "window", "exchange", "expand", "top_n"] | None: ...
+    def HasField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "detached_rel_ordinal", b"detached_rel_ordinal", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "cross", b"cross", "ddl", b"ddl", "detached_rel_ordinal", b"detached_rel_ordinal", "exchange", b"exchange", "expand", b"expand", "extension_leaf", b"extension_leaf", "extension_multi", b"extension_multi", "extension_single", b"extension_single", "fetch", b"fetch", "filter", b"filter", "hash_join", b"hash_join", "join", b"join", "lateral_join", b"lateral_join", "merge_join", b"merge_join", "nested_loop_join", b"nested_loop_join", "project", b"project", "read", b"read", "reference", b"reference", "rel_type", b"rel_type", "set", b"set", "sort", b"sort", "top_n", b"top_n", "update", b"update", "window", b"window", "write", b"write"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["read", "filter", "fetch", "aggregate", "sort", "join", "lateral_join", "project", "set", "extension_single", "extension_multi", "extension_leaf", "cross", "reference", "write", "ddl", "update", "hash_join", "merge_join", "nested_loop_join", "window", "exchange", "expand", "top_n", "detached_rel_ordinal"] | None: ...
 
 Global___Rel: typing_extensions.TypeAlias = Rel
 
@@ -3265,9 +3264,35 @@ class Expression(google.protobuf.message.Message):
         def ClearField(self, field_name: typing.Literal["body", b"body", "parameters", b"parameters"]) -> None: ...
 
     @typing.final
+    class NamedLambdaReference(google.protobuf.message.Message):
+        """A function value referring to a named lambda, without invoking it.
+        Its non-nullable Func type is derived from the referenced lambda's
+        parameter types and body type. It does not capture the caller's scope.
+        References within named lambda bodies, including higher-order function
+        arguments, must form an acyclic definition dependency graph.
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        LAMBDA_REFERENCE_FIELD_NUMBER: builtins.int
+        lambda_reference: builtins.int
+        """References a lambda_anchor in Plan.named_lambdas, not an extension
+        function anchor. The definition must exist in Plan.named_lambdas;
+        named lambdas cannot be used in an ExtendedExpression.
+        0 is a valid anchor/reference, but prefer non-zero values for ergonomics.
+        """
+        def __init__(
+            self,
+            *,
+            lambda_reference: builtins.int = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["lambda_reference", b"lambda_reference"]) -> None: ...
+
+    @typing.final
     class LambdaInvocation(google.protobuf.message.Message):
-        """Invokes an inline lambda expression with provided arguments.
-        Enables immediate invocation patterns like: ((x) -> x * 2)(5)
+        """Invokes an inline or named lambda expression with provided arguments.
+        Enables immediate invocation patterns like ((x) -> x * 2)(5), as well as
+        reuse of a lambda defined in Plan.named_lambdas.
 
         The return type is derived from the type of the lambda's body expression.
         """
@@ -3275,7 +3300,12 @@ class Expression(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
         LAMBDA_FIELD_NUMBER: builtins.int
+        NAMED_LAMBDA_FIELD_NUMBER: builtins.int
         ARGUMENTS_FIELD_NUMBER: builtins.int
+        @property
+        def named_lambda(self) -> Global___Expression.NamedLambdaReference:
+            """References a lambda_anchor in Plan.named_lambdas."""
+
         @property
         def arguments(self) -> Global___Expression.Nested.Struct:
             """Arguments to pass to the lambda, as a struct expression. The struct must have
@@ -3286,10 +3316,12 @@ class Expression(google.protobuf.message.Message):
         def __init__(
             self,
             *,
+            named_lambda: Global___Expression.NamedLambdaReference | None = ...,
             arguments: Global___Expression.Nested.Struct | None = ...,
         ) -> None: ...
-        def HasField(self, field_name: typing.Literal["arguments", b"arguments", "lambda", b"lambda"]) -> builtins.bool: ...
-        def ClearField(self, field_name: typing.Literal["arguments", b"arguments", "lambda", b"lambda"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["arguments", b"arguments", "lambda", b"lambda", "lambda_type", b"lambda_type", "named_lambda", b"named_lambda"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["arguments", b"arguments", "lambda", b"lambda", "lambda_type", b"lambda_type", "named_lambda", b"named_lambda"]) -> None: ...
+        def WhichOneof(self, oneof_group: typing.Literal["lambda_type", b"lambda_type"]) -> typing.Literal["lambda", "named_lambda"] | None: ...
 
     @typing.final
     class ScalarFunction(google.protobuf.message.Message):
@@ -3345,7 +3377,9 @@ class Expression(google.protobuf.message.Message):
 
     @typing.final
     class WindowFunction(google.protobuf.message.Message):
-        """A window function call."""
+        """A window function call.
+        See https://substrait.io/expressions/window_functions/
+        """
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3356,84 +3390,40 @@ class Expression(google.protobuf.message.Message):
         class _BoundsTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[Expression.WindowFunction._BoundsType.ValueType], builtins.type):
             DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
             BOUNDS_TYPE_UNSPECIFIED: Expression.WindowFunction._BoundsType.ValueType  # 0
-            """Unspecified. Producers must set one of the defined bounds type."""
+            """Invalid; producers must select ROWS or RANGE."""
             BOUNDS_TYPE_ROWS: Expression.WindowFunction._BoundsType.ValueType  # 1
-            """Bounds are physical row offsets in the declared ordering in `sorts`.
-            If no ordering is declared, no order is guaranteed.
-            """
             BOUNDS_TYPE_RANGE: Expression.WindowFunction._BoundsType.ValueType  # 2
-            """Bounds are value offsets from the current row's ordering value.
-            This bounds type requires exactly one ordering expression if Preceding or Following is used.
-            Preceding moves toward values earlier in the declared ordering in `sorts`;
-            Following moves toward values later in the declared ordering in `sorts`.
-            Bounds are inclusive.
-            """
 
-        class BoundsType(_BoundsType, metaclass=_BoundsTypeEnumTypeWrapper): ...
+        class BoundsType(_BoundsType, metaclass=_BoundsTypeEnumTypeWrapper):
+            """See https://substrait.io/expressions/window_functions/#bound-modes"""
+
         BOUNDS_TYPE_UNSPECIFIED: Expression.WindowFunction.BoundsType.ValueType  # 0
-        """Unspecified. Producers must set one of the defined bounds type."""
+        """Invalid; producers must select ROWS or RANGE."""
         BOUNDS_TYPE_ROWS: Expression.WindowFunction.BoundsType.ValueType  # 1
-        """Bounds are physical row offsets in the declared ordering in `sorts`.
-        If no ordering is declared, no order is guaranteed.
-        """
         BOUNDS_TYPE_RANGE: Expression.WindowFunction.BoundsType.ValueType  # 2
-        """Bounds are value offsets from the current row's ordering value.
-        This bounds type requires exactly one ordering expression if Preceding or Following is used.
-        Preceding moves toward values earlier in the declared ordering in `sorts`;
-        Following moves toward values later in the declared ordering in `sorts`.
-        Bounds are inclusive.
-        """
 
         @typing.final
         class Bound(google.protobuf.message.Message):
-            """Defines one of the two boundaries for the window of a window function."""
+            """A frame boundary.
+            See https://substrait.io/expressions/window_functions/#frame-bounds
+            """
 
             DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
             @typing.final
             class Preceding(google.protobuf.message.Message):
-                """Defines a bound earlier than the current record in the declared ordering in `sorts`."""
+                """A bound toward earlier rows or values in the declared ordering."""
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
                 OFFSET_FIELD_NUMBER: builtins.int
                 OFFSET_EXPR_FIELD_NUMBER: builtins.int
                 offset: builtins.int
-                """A strictly positive integer specifying the offset of this bound.
-                Use CurrentRow for offset zero and Following for negative offsets.
-
-                At least one of `offset` and `offset_expr` must be set.
-
-                Deprecated: use `offset_expr` instead.
+                """Deprecated positive integer offset; use offset_expr instead.
+                See https://substrait.io/expressions/window_functions/#offset-expressions
                 """
                 @property
-                def offset_expr(self) -> Global___Expression:
-                    """Expression specifying the distance of this bound from the current
-                    row. Its interpretation depends on `WindowFunction.bounds_type`:
-
-                    * BOUNDS_TYPE_ROWS: evaluates to a non-negative integer number
-                      of rows. The type must be int64.
-                    * BOUNDS_TYPE_RANGE: evaluates to a non-negative distance
-                      applied toward values earlier in the declared ordering in `sorts`.
-                      Its type D must be compatible with the type T of the single ordering
-                      expression, i.e. `add(T, D) -> T` and `subtract(T, D) -> T` must
-                      be defined (e.g. timestamp/interval_day, decimal/decimal,
-                      i64/i64).
-
-                    A null offset expression result is invalid. When the current row's
-                    ordering value is null, a RANGE offset bound is equivalent to CurrentRow.
-                    A negative result is invalid; a zero result is equivalent
-                    to CurrentRow. Because `offset` cannot represent zero, producers
-                    should emit CurrentRow rather than a zero `offset_expr` so that the
-                    bound remains readable by consumers that do not yet support
-                    `offset_expr`. Use Following for a bound after the current row.
-
-                    Field references resolve against the input schema of the relation
-                    containing this window function; the expression must behave
-                    as if evaluated once per input record.
-                    It must not contain window or aggregate functions.
-                    """
-
+                def offset_expr(self) -> Global___Expression: ...
                 def __init__(
                     self,
                     *,
@@ -3445,48 +3435,18 @@ class Expression(google.protobuf.message.Message):
 
             @typing.final
             class Following(google.protobuf.message.Message):
-                """Defines a bound later than the current record in the declared ordering in `sorts`."""
+                """A bound toward later rows or values in the declared ordering."""
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
                 OFFSET_FIELD_NUMBER: builtins.int
                 OFFSET_EXPR_FIELD_NUMBER: builtins.int
                 offset: builtins.int
-                """A strictly positive integer specifying the offset of this bound.
-                Use CurrentRow for offset zero and Preceding for negative offsets.
-
-                At least one of `offset` and `offset_expr` must be set.
-
-                Deprecated: use `offset_expr` instead.
+                """Deprecated positive integer offset; use offset_expr instead.
+                See https://substrait.io/expressions/window_functions/#offset-expressions
                 """
                 @property
-                def offset_expr(self) -> Global___Expression:
-                    """Expression specifying the distance of this bound from the current
-                    row. Its interpretation depends on `WindowFunction.bounds_type`:
-
-                    * BOUNDS_TYPE_ROWS: evaluates to a non-negative integer number
-                      of rows. The type must be int64.
-                    * BOUNDS_TYPE_RANGE: evaluates to a non-negative distance
-                      applied toward values later in the declared ordering in `sorts`.
-                      Its type D must be compatible with the type T of the single ordering
-                      expression, i.e. `add(T, D) -> T` and `subtract(T, D) -> T` must
-                      be defined (e.g. timestamp/interval_day, decimal/decimal,
-                      i64/i64).
-
-                    A null offset expression result is invalid. When the current row's
-                    ordering value is null, a RANGE offset bound is equivalent to CurrentRow.
-                    A negative result is invalid; a zero result is equivalent
-                    to CurrentRow. Because `offset` cannot represent zero, producers
-                    should emit CurrentRow rather than a zero `offset_expr` so that the
-                    bound remains readable by consumers that do not yet support
-                    `offset_expr`. Use Preceding for a bound before the current row.
-
-                    Field references resolve against the input schema of the relation
-                    containing this window function; the expression must behave
-                    as if evaluated once per input record.
-                    It must not contain window or aggregate functions.
-                    """
-
+                def offset_expr(self) -> Global___Expression: ...
                 def __init__(
                     self,
                     *,
@@ -3498,10 +3458,8 @@ class Expression(google.protobuf.message.Message):
 
             @typing.final
             class CurrentRow(google.protobuf.message.Message):
-                """Defines that the bound extends to or from the current record under
-                BOUNDS_TYPE_ROWS, or to or from the current peer group under
-                BOUNDS_TYPE_RANGE. A peer group is the set of records with equal sort
-                key values, where two null sort key values are considered equal.
+                """The current row or peer-group boundary, depending on the bound mode.
+                See https://substrait.io/expressions/window_functions/#bound-modes
                 """
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -3512,10 +3470,7 @@ class Expression(google.protobuf.message.Message):
 
             @typing.final
             class Unbounded(google.protobuf.message.Message):
-                """Defines an "unbounded bound": for lower bounds this means the start
-                of the partition, and for upper bounds this means the end of the
-                partition.
-                """
+                """The start of the partition for a lower bound; the end for an upper bound."""
 
                 DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -3529,22 +3484,19 @@ class Expression(google.protobuf.message.Message):
             UNBOUNDED_FIELD_NUMBER: builtins.int
             @property
             def preceding(self) -> Global___Expression.WindowFunction.Bound.Preceding:
-                """The bound is earlier than the current record in the declared ordering in `sorts`."""
+                """A bound toward earlier rows or values in the declared ordering."""
 
             @property
             def following(self) -> Global___Expression.WindowFunction.Bound.Following:
-                """The bound is later than the current record in the declared ordering in `sorts`."""
+                """A bound toward later rows or values in the declared ordering."""
 
             @property
             def current_row(self) -> Global___Expression.WindowFunction.Bound.CurrentRow:
-                """The bound extends to the current record."""
+                """The current row or peer-group boundary, depending on the bound mode."""
 
             @property
             def unbounded(self) -> Global___Expression.WindowFunction.Bound.Unbounded:
-                """The bound extends to the start of the partition or the end of the
-                partition, depending on whether this represents the upper or lower
-                bound.
-                """
+                """The start of the partition for a lower bound; the end for an upper bound."""
 
             def __init__(
                 self,
@@ -3589,8 +3541,8 @@ class Expression(google.protobuf.message.Message):
         Optional, defaults to AGGREGATION_INVOCATION_ALL.
         """
         bounds_type: Global___Expression.WindowFunction.BoundsType.ValueType
-        """Defines how the window bounds are interpreted.
-        Required when either bound is CurrentRow, Preceding, or Following
+        """Required bound mode.
+        See https://substrait.io/expressions/window_functions/#bound-modes
         """
         @property
         def arguments(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___FunctionArgument]:
@@ -3622,46 +3574,27 @@ class Expression(google.protobuf.message.Message):
 
         @property
         def sorts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___SortField]:
-            """If specified, the records that are part of the window defined by
-            upper_bound and lower_bound are ordered according to this list
-            before they are aggregated. The first sort field has the highest
-            priority; only if a sort field determines two records to be equivalent
-            is the next field queried. This field is optional, and is only allowed
-            if the window function is defined to support sorting.
-
-            For RANGE bounds type, SORT_DIRECTION_CLUSTERED and custom comparison
-            functions are not allowed in any of the sorts if either bound is Preceding
-            or Following.
+            """Ordering within each partition, highest-priority sort field first.
+            See https://substrait.io/expressions/window_functions/#window-bindings
+            and https://substrait.io/expressions/window_functions/#bound-modes
             """
 
         @property
         def partitions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___Expression]:
-            """When one or more partition expressions are specified, two records are
-            considered to be in the same partition if and only if these expressions
-            yield an equal record of values for both (nulls are considered equal).
-            When computing the window function, only the subset of records within
-            the inclusive frame bounds that are also in the same partition as the current record
-            are aggregated.
+            """Partitioning expressions; empty means one partition for the entire input.
+            See https://substrait.io/expressions/window_functions/#partitions-peer-groups-and-frames
             """
 
         @property
         def lower_bound(self) -> Global___Expression.WindowFunction.Bound:
-            """Defines the record relative to the current record from which the window
-            extends. The bound is inclusive. If the lower bound indexes a record
-            greater than the upper bound (i.e., empty frame due to contradiction),
-            then the behavior follows the semantics of the window function over
-            the empty frame (e.g., SUM yields NULL, COUNT(*) yields 0).
-            Optional; defaults to the start of the partition.
+            """Inclusive lower bound; defaults to the start of the partition.
+            See https://substrait.io/expressions/window_functions/#frame-bounds
             """
 
         @property
         def upper_bound(self) -> Global___Expression.WindowFunction.Bound:
-            """Defines the record relative to the current record up to which the window
-            extends. The bound is inclusive. If the upper bound indexes a record
-            less than the lower bound (i.e., empty frame due to contradiction),
-            then the behavior follows the semantics of the window function over
-            the empty frame (e.g., SUM yields NULL, COUNT(*) yields 0).
-            Optional; defaults to the end of the partition.
+            """Inclusive upper bound; defaults to the end of the partition.
+            See https://substrait.io/expressions/window_functions/#frame-bounds
             """
 
         def __init__(
@@ -4580,10 +4513,11 @@ class Expression(google.protobuf.message.Message):
     LAMBDA_INVOCATION_FIELD_NUMBER: builtins.int
     EXECUTION_CONTEXT_VARIABLE_FIELD_NUMBER: builtins.int
     DETACHED_EXPRESSION_ORDINAL_FIELD_NUMBER: builtins.int
+    NAMED_LAMBDA_REFERENCE_FIELD_NUMBER: builtins.int
     detached_expression_ordinal: builtins.int
     """Encoding-only, zero-based index into detached_expressions on the
     containing PlanRel or ExtendedExpression.
-    See https://substrait.io/serialization/binary_serialization/#bounded-expression-nesting.
+    See https://substrait.io/serialization/binary_serialization/#detached-relations-and-expressions.
     """
     @property
     def literal(self) -> Global___Expression.Literal: ...
@@ -4613,6 +4547,8 @@ class Expression(google.protobuf.message.Message):
     def lambda_invocation(self) -> Global___Expression.LambdaInvocation: ...
     @property
     def execution_context_variable(self) -> Global___Expression.ExecutionContextVariable: ...
+    @property
+    def named_lambda_reference(self) -> Global___Expression.NamedLambdaReference: ...
     def __init__(
         self,
         *,
@@ -4631,10 +4567,11 @@ class Expression(google.protobuf.message.Message):
         lambda_invocation: Global___Expression.LambdaInvocation | None = ...,
         execution_context_variable: Global___Expression.ExecutionContextVariable | None = ...,
         detached_expression_ordinal: builtins.int = ...,
+        named_lambda_reference: Global___Expression.NamedLambdaReference | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["cast", b"cast", "detached_expression_ordinal", b"detached_expression_ordinal", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["cast", b"cast", "detached_expression_ordinal", b"detached_expression_ordinal", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["rex_type", b"rex_type"]) -> typing.Literal["literal", "selection", "scalar_function", "window_function", "if_then", "switch_expression", "singular_or_list", "multi_or_list", "cast", "subquery", "nested", "dynamic_parameter", "lambda", "lambda_invocation", "execution_context_variable", "detached_expression_ordinal"] | None: ...
+    def HasField(self, field_name: typing.Literal["cast", b"cast", "detached_expression_ordinal", b"detached_expression_ordinal", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "named_lambda_reference", b"named_lambda_reference", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["cast", b"cast", "detached_expression_ordinal", b"detached_expression_ordinal", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "named_lambda_reference", b"named_lambda_reference", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["rex_type", b"rex_type"]) -> typing.Literal["literal", "selection", "scalar_function", "window_function", "if_then", "switch_expression", "singular_or_list", "multi_or_list", "cast", "subquery", "nested", "dynamic_parameter", "lambda", "lambda_invocation", "execution_context_variable", "detached_expression_ordinal", "named_lambda_reference"] | None: ...
 
 Global___Expression: typing_extensions.TypeAlias = Expression
 

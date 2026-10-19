@@ -4,6 +4,8 @@ from boto_session_manager.manager import BotoSesManager
 from boto_session_manager.manager import PATH_DEFAULT_SNAPSHOT
 
 import pytest
+import botocore.exceptions
+from botocore.stub import Stubber
 
 import os
 import json
@@ -138,6 +140,67 @@ class TestSnapshot:
         assert PATH_DEFAULT_SNAPSHOT.name == ".bsm-snapshot.json"
 
 
+CALLER_IDENTITY = {
+    "UserId": "AIDAFAKEUSERID123456",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/fake-user",
+}
+
+
+class TestAccountAlias:
+    """
+    The IAM answers are stubbed: a real account cannot show all three cases.
+    """
+
+    def make_stubbed_bsm(self) -> tuple[BotoSesManager, Stubber]:
+        bsm = make_offline_bsm()
+        sts_stubber = Stubber(bsm.sts_client)
+        sts_stubber.add_response("get_caller_identity", CALLER_IDENTITY)
+        sts_stubber.activate()
+        iam_stubber = Stubber(bsm.iam_client)
+        iam_stubber.activate()
+        return bsm, iam_stubber
+
+    def test_alias_set(self, capsys):
+        bsm, iam_stubber = self.make_stubbed_bsm()
+        iam_stubber.add_response(
+            "list_account_aliases",
+            {"AccountAliases": ["my-alias"], "IsTruncated": False},
+        )
+        bsm.print_who_am_i()
+        assert "AWS Account Alias = my-alias" in capsys.readouterr().out
+        assert bsm.aws_account_alias == "my-alias"  # cached, no second call
+
+    def test_alias_not_set(self, capsys):
+        bsm, iam_stubber = self.make_stubbed_bsm()
+        iam_stubber.add_response(
+            "list_account_aliases",
+            {"AccountAliases": [], "IsTruncated": False},
+        )
+        assert bsm.aws_account_alias is None
+        bsm.print_who_am_i(masked=False)
+        out = capsys.readouterr().out
+        assert "AWS Account Alias = <not set>" in out
+        assert f"AWS Account Id = {CALLER_IDENTITY['Account']}" in out
+
+    def test_alias_access_denied(self, capsys):
+        bsm, iam_stubber = self.make_stubbed_bsm()
+        iam_stubber.add_client_error(
+            "list_account_aliases", service_error_code="AccessDenied"
+        )
+        bsm.print_who_am_i()
+        out = capsys.readouterr().out
+        assert "AWS Account Alias = <unavailable: AccessDenied>" in out
+        assert f"AWS Region = {AWS_REGION}" in out
+
+        # the property itself raises, and the failure is not cached
+        iam_stubber.add_client_error(
+            "list_account_aliases", service_error_code="AccessDenied"
+        )
+        with pytest.raises(botocore.exceptions.ClientError):
+            _ = bsm.aws_account_alias
+
+
 class TestAwsCliEnvVar:
     def test_static_credentials(self, monkeypatch):
         """
@@ -240,6 +303,14 @@ class TestIdentity:
 
         alias = bsm_project.aws_account_alias
         assert alias is None or isinstance(alias, str)
+        aliases = bsm_project.iam_client.list_account_aliases()["AccountAliases"]
+        assert alias == (aliases[0] if aliases else None)
+
+    def test_print_who_am_i(self, bsm_project, capsys):
+        bsm_project.print_who_am_i()
+        out = capsys.readouterr().out
+        assert bsm_project.masked_principal_arn in out
+        assert "AWS Account Alias = " in out
 
 
 class TestAssumeRole:

@@ -186,7 +186,8 @@ def _probe(monkeypatch, **kw) -> Probe:
 
 
 def test_write_tools_name_the_tools_that_write():
-    assert tools.WRITE_TOOLS == frozenset({"shell"})
+    # `edit` changes a checked-out draft (ARTIFACT-PAGES P3): it runs alone too.
+    assert tools.WRITE_TOOLS == frozenset({"shell", "bash", "edit"})
 
 
 def test_each_probe_part_runs_through_the_probe_tool_in_order_in_the_cd_folder(tmp_path, monkeypatch):

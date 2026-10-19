@@ -7,6 +7,7 @@ import hashlib
 import json
 import sqlite3
 import tempfile
+import time
 from collections import deque
 from collections.abc import Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor, wait
@@ -18,11 +19,13 @@ from uuid import uuid4
 import httpx2
 
 from trajectory import Client
+from trajectory._exceptions import APIConnectionError, APIStatusError, UnprocessableEntityError
 from trajectory.lib._exceptions import FileUploadError
 from trajectory.lib.benchmark_operations import BenchmarkOperation
 from trajectory.lib.benchmark_progress import _SubmissionProgress
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
-from trajectory.lib.upload_pool import BENCHMARK_UPLOAD_CONCURRENCY, UploadPool
+from trajectory.lib.upload_pool import BENCHMARK_UPLOAD_CONCURRENCY, RetryBudget, UploadPool
+from trajectory.types.benchmark_ingestion_upload_urls import BenchmarkIngestionUploadUrls
 
 MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
@@ -37,6 +40,10 @@ MAX_PENDING_HASHES = 64
 MIN_PARALLEL_HASH_BYTES = 1024 * 1024
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
+# Allocations and uploads retry past the client's default so they outlast minutes of signing
+# throttling; RETRY_WAIT_BUDGET_SECONDS bounds the total wait.
+DEFAULT_UPLOAD_MAX_RETRIES = 32
+_ALLOCATION_EXTRA_BODY = {"upload_method": "post"}
 
 
 class SubmissionUpload:
@@ -224,6 +231,7 @@ class SubmissionUpload:
     idempotency_key: str | None = None,
     http_client: Any = None,
     upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
+    upload_max_retries: int = DEFAULT_UPLOAD_MAX_RETRIES,
   ) -> BenchmarkOperation:
     reporter = self.progress
     self.validate_benchmark_name(bench_name)
@@ -264,23 +272,43 @@ class SubmissionUpload:
       if http_client is not None
       else httpx2.Client(timeout=upload_timeout, follow_redirects=True)
     )
+    # Allocation retries run here, so their total wait is bounded like an upload's.
+    allocator = client.with_options(max_retries=0)
+    # `upload_method` and `policy` are not in the generated client yet.
+    extra_body: dict[str, str] = dict(_ALLOCATION_EXTRA_BODY)
     with client_context as upload_client:
       with UploadPool(
         upload_client,
         timeout=upload_timeout,
-        max_retries=client.max_retries,
+        max_retries=upload_max_retries,
         max_concurrency=BENCHMARK_UPLOAD_CONCURRENCY,
         progress=reporter,
+        parse_retry_after=client._parse_retry_after,
       ) as pool:
         for batch in self._upload_batches():
           declarations = [declaration for _, declaration, _ in batch]
-          self._require_bounded({"files": declarations}, MAX_ALLOCATION_BYTES)
-          response = client.benchmarks.ingestion.allocate_uploads(operation_id, files=declarations)
+          self._require_bounded({"files": declarations, **extra_body}, MAX_ALLOCATION_BYTES)
+          try:
+            response = self._allocate(
+              allocator, operation_id, declarations, extra_body, upload_max_retries
+            )
+          except UnprocessableEntityError as error:
+            if not extra_body or error.param != "upload_method":
+              raise
+            # An API without form-upload policies rejects the field; it signs a URL per file.
+            extra_body = {}
+            response = self._allocate(
+              allocator, operation_id, declarations, extra_body, upload_max_retries
+            )
           files = [
             self._declared_file(source, declaration, mtime_ns)
             for source, declaration, mtime_ns in batch
           ]
-          pool.add(files, response.urls)
+          policy = response.to_dict(mode="json").get("policy")
+          if policy is None:
+            pool.add(files, response.urls)
+          else:
+            pool.add_with_policy(files, policy)
         pool.finish()
     reporter.set_stage("finalizing")
     status = client.benchmarks.ingestion.finalize(
@@ -288,6 +316,32 @@ class SubmissionUpload:
     )
     reporter.set_stage("completed")
     return BenchmarkOperation(client, operation_id, status)
+
+  @staticmethod
+  def _allocate(
+    allocator: Client,
+    operation_id: str,
+    declarations: list[dict[str, Any]],
+    extra_body: dict[str, str],
+    max_retries: int,
+  ) -> BenchmarkIngestionUploadUrls:
+    budget = RetryBudget(max_retries, allocator._parse_retry_after)
+    while True:
+      try:
+        return allocator.benchmarks.ingestion.allocate_uploads(
+          operation_id, files=declarations, extra_body=extra_body
+        )
+      except APIStatusError as error:
+        # The generated client's rule: 408, 429 and 5xx unless Trajectory-Should-Retry overrides it.
+        retryable = allocator._should_retry(error.response)
+        delay = budget.take_retry_delay(error.response) if retryable else None
+        if delay is None:
+          raise
+      except APIConnectionError:
+        delay = budget.take_retry_delay()
+        if delay is None:
+          raise
+      time.sleep(delay)
 
   def _validate_runtime_contexts(self, metadata: dict[str, Any]) -> None:
     checked: set[str] = set()
@@ -349,7 +403,8 @@ class SubmissionUpload:
 
   def _upload_batches(self) -> Iterator[list[tuple[str, dict[str, Any], int | None]]]:
     batch: list[tuple[str, dict[str, Any], int | None]] = []
-    empty_size = len(json.dumps({"files": []}).encode())
+    # Packed as the request is sent, so the upload method field counts toward the limit.
+    empty_size = len(json.dumps({"files": [], **_ALLOCATION_EXTRA_BODY}).encode())
     size = empty_size
     upload_bytes = 0
     for source, encoded, mtime_ns in self.database.execute(

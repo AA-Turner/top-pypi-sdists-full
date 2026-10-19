@@ -1033,6 +1033,84 @@ def load_required_binary_from_config(
     )
 
 
+_AUTOMATIC_USER_AGENTS = {
+    "",
+    "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
+    "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)",
+}
+
+
+def _is_automatic_user_agent(value: str) -> bool:
+    return value in _AUTOMATIC_USER_AGENTS or bool(
+        re.fullmatch(
+            re.escape(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/",
+            )
+            + r"[0-9A-Za-z.+-]+"
+            + re.escape(" (+https://github.com/ArchiveBox/ArchiveBox/)"),
+            value,
+        ),
+    )
+
+
+def resolve_user_agent(config: Mapping[str, Any]) -> str:
+    """Resolve HTTP identity from saved Chrome state, without launching it.
+
+    Snapshot/crawl metadata retains the active persona identity; the shared cache
+    contains only Chrome's native identity. A browserless install stays supported.
+    """
+    configured = str(config.get("USER_AGENT") or "")
+    automatic = _is_automatic_user_agent(configured)
+    if not automatic and not re.search(r"(?:Headless)?Chrome/", configured):
+        return configured
+    paths = [
+        Path(str(config[key])).expanduser() / "chrome" / "browser.json"
+        for key in ("SNAP_DIR", "CRAWL_DIR")
+        if config.get(key)
+    ]
+    if config.get("ABXPKG_LIB_DIR"):
+        paths.append(
+            Path(str(config["ABXPKG_LIB_DIR"])).expanduser() / "chrome-user-agent.json",
+        )
+    for path in paths:
+        try:
+            metadata = json.loads(path.read_text())
+            if not isinstance(metadata, dict):
+                continue
+            identity = metadata.get("userAgentOverride", metadata)
+            value = identity.get("userAgent") if isinstance(identity, dict) else None
+            if (
+                isinstance(value, str)
+                and value.strip()
+                and not any(char in value for char in "\r\n")
+            ):
+                if automatic:
+                    return value
+                version = re.search(r"(?:Headless)?Chrome/(\d+)\.", value)
+                if version:
+                    # Match Chrome's reduced-version emulation, retaining the
+                    # configured persona's platform and custom product tokens.
+                    return re.sub(
+                        r"(Chrome|HeadlessChrome)/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?",
+                        rf"\g<1>/{version[1]}.0.0.0",
+                        configured,
+                    )
+        except (OSError, ValueError):
+            continue
+    return "" if automatic else configured
+
+
+def _hydrate_user_agent(payload: dict[str, Any], properties: Mapping[str, Any]) -> None:
+    original = payload.get("USER_AGENT", "")
+    payload["USER_AGENT"] = resolve_user_agent(payload)
+    for name, prop in properties.items():
+        if prop.get("x-fallback") == "USER_AGENT" and (
+            payload.get(name, "") == original
+            or _is_automatic_user_agent(payload.get(name, ""))
+        ):
+            payload[name] = payload["USER_AGENT"]
+
+
 def load_config(
     config_path: Path | str | None = None,
     *,
@@ -1040,6 +1118,7 @@ def load_config(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
     hydrate_binaries: bool = True,
+    hydrate_user_agent: bool = True,
 ) -> Any:
     """Load typed plugin config with `x-aliases` and `x-fallback`.
 
@@ -1067,6 +1146,8 @@ def load_config(
         if hydrate_binaries
         else None,
     )
+    if hydrate_user_agent:
+        _hydrate_user_agent(payload, properties)
     model = build_config_model(title, properties)
     return model.model_validate(payload)
 
@@ -1078,6 +1159,7 @@ def get_config(
     user_config: Mapping[str, str] | None = None,
     environ: Mapping[str, str] | None = None,
     hydrate_binaries: bool = True,
+    hydrate_user_agent: bool = True,
 ) -> Any:
     """Alias for `load_config()` that preserves direct-caller config lookup."""
     if config_path is None:
@@ -1088,26 +1170,30 @@ def get_config(
         user_config=user_config,
         environ=environ,
         hydrate_binaries=hydrate_binaries,
+        hydrate_user_agent=hydrate_user_agent,
     )
+
+
+TEXT_SOURCE_MIME_TYPES = {
+    "application/json",
+    "application/jsonl",
+    "application/x-ndjson",
+    "application/xml",
+    "application/rss+xml",
+    "application/atom+xml",
+    "application/xhtml+xml",
+}
 
 
 def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Path, ...]:
     """Return imported text and the captured main document's raw text body."""
     base = Path(snap_dir or os.environ.get("SNAP_DIR") or ".").expanduser().resolve()
     staticfile_dir = base / "staticfile"
-    text_mime_types = {
-        "application/json",
-        "application/jsonl",
-        "application/x-ndjson",
-        "application/xml",
-        "application/rss+xml",
-        "application/atom+xml",
-        "application/xhtml+xml",
-    }
     paths = set(staticfile_dir.glob("*.txt"))
-    stdout_log = staticfile_dir / "stdout.log"
-    if stdout_log.is_file():
-        for line in stdout_log.read_text(errors="replace").split("\n"):
+    result_file = staticfile_dir / "result.json"
+    metadata = result_file if result_file.is_file() else staticfile_dir / "stdout.log"
+    if metadata.is_file():
+        for line in metadata.read_text(errors="replace").split("\n"):
             try:
                 record = json.loads(line)
             except json.JSONDecodeError:
@@ -1123,7 +1209,8 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
             )
             output = record.get("output_str")
             if not isinstance(output, str) or not (
-                content_type.startswith("text/") or content_type in text_mime_types
+                content_type.startswith("text/")
+                or content_type in TEXT_SOURCE_MIME_TYPES
             ):
                 continue
             # Staticfile reuses the responses-owned body when available. Its
@@ -1153,7 +1240,10 @@ def iter_staticfile_text_inputs(snap_dir: Path | str | None = None) -> tuple[Pat
                     and entry.get("method") == "GET"
                     and 200 <= entry.get("status", 0) < 300
                     and urldefrag(entry.get("url", ""))[0] == final_url
-                    and (mime_type.startswith("text/") or mime_type in text_mime_types)
+                    and (
+                        mime_type.startswith("text/")
+                        or mime_type in TEXT_SOURCE_MIME_TYPES
+                    )
                     and isinstance(entry.get("path"), str)
                 ):
                     path = (response_dir / entry["path"]).resolve()
@@ -1193,6 +1283,25 @@ def has_failed_source_navigation(url: str, snap_dir: Path) -> bool:
     )
 
 
+def has_binary_source_navigation(url: str, snap_dir: Path) -> bool:
+    """A captured binary response is not another text-parser download target."""
+    try:
+        navigation = json.loads((snap_dir / "chrome/navigation.json").read_text())
+    except (OSError, ValueError):
+        return False
+    if not isinstance(navigation, dict) or navigation.get("url") != url:
+        return False
+    status = navigation.get("status")
+    mime = str(navigation.get("content_type") or "").split(";", 1)[0].strip().lower()
+    return (
+        isinstance(status, int)
+        and 200 <= status < 300
+        and "/" in mime
+        and not mime.startswith("text/")
+        and mime not in TEXT_SOURCE_MIME_TYPES
+    )
+
+
 def read_snapshot_source_text(
     url: str,
     *,
@@ -1216,7 +1325,10 @@ def read_snapshot_source_text(
         return file_content
     if not url.startswith(("http://", "https://")):
         return ""
-    if has_failed_source_navigation(url, snap_dir):
+    if has_failed_source_navigation(url, snap_dir) or has_binary_source_navigation(
+        url,
+        snap_dir,
+    ):
         return ""
 
     import urllib.request
@@ -1310,7 +1422,14 @@ def build_request(
         username, _, password = userinfo.partition(":")
         credentials = f"{unquote(username)}:{unquote(password)}".encode()
         authorization = "Basic " + base64.b64encode(credentials).decode("ascii")
-    request = urllib.request.Request(request_url, headers=dict(headers or {}))
+    request = urllib.request.Request(
+        request_url,
+        headers={
+            key: value
+            for key, value in (headers or {}).items()
+            if key.lower() != "user-agent" or value
+        },
+    )
     if authorization:
         request.add_unredirected_header("Authorization", authorization)
     return request

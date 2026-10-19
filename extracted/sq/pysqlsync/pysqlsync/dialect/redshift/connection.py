@@ -10,8 +10,9 @@ import dataclasses
 import logging
 import re
 import typing
+from collections.abc import Iterable
 from io import BytesIO
-from typing import Iterable, Optional, TypeVar
+from typing import TypeVar
 
 import redshift_connector
 from strong_typing.inspection import DataclassInstance, is_dataclass_type
@@ -83,7 +84,7 @@ class RedshiftContext(BaseContext):
             for s in re.split(r";$", statement, flags=re.MULTILINE):
                 try:
                     cursor.execute(s)
-                except Exception as e:
+                except Exception as e:  # noqa: PERF203
                     raise QueryException(s) from e
 
     @override
@@ -125,7 +126,7 @@ class RedshiftContext(BaseContext):
         source: DataSource,
         *,
         field_types: tuple[type, ...],
-        field_names: Optional[tuple[str, ...]] = None,
+        field_names: tuple[str, ...] | None = None,
     ) -> None:
         order = tuple(name for name in field_names if name) if field_names else None
         columns = [col.name for col in table.get_columns(order)]

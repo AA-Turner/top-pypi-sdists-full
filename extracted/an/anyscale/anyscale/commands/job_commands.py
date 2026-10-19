@@ -13,6 +13,7 @@ import yaml
 
 import anyscale
 from anyscale._private.models.image_uri import ImageURI
+from anyscale._private.models.validation import RAY_VERSION_DEPRECATION_MESSAGE
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
 from anyscale.commands import command_examples, events_commands
@@ -47,6 +48,7 @@ from anyscale.commands.util import (
     parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.job_controller import JobController
+from anyscale.job._private.job_sdk import FILTERABLE_JOB_STATES
 from anyscale.job.models import (
     JobConfig,
     JobLogMode,
@@ -199,6 +201,10 @@ def job_cli() -> None:
     option_docs={
         "--config-file": {"schema": JobConfig},
         "--connection": {"status": ReleaseStatus.BETA},
+        "--ray-version": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": RAY_VERSION_DEPRECATION_MESSAGE},
+        },
     },
     examples=[
         CommandExample(
@@ -830,7 +836,7 @@ def _display_jobs_table(jobs: List[JobStatus]) -> None:
     multiple=True,
     help=(
         "Filter jobs by state. Accepts one or more states. "
-        "With --v2, use: STARTING, RUNNING, SUCCEEDED, FAILED. "
+        f"With --v2, use: {', '.join(FILTERABLE_JOB_STATES)}. "
         f"Without --v2, use: {', '.join(HaJobStates.allowable_values)}."
     ),
 )
@@ -943,12 +949,12 @@ def list(  # noqa: A001 PLR0913 PLR0912
     if states:
         if v2:
             # V2 path: Only accept SDK states
-            allowed = {"STARTING", "RUNNING", "SUCCEEDED", "FAILED", "TERMINATED"}
             for state in states:
                 state_upper = state.upper()
-                if state_upper not in allowed:
+                if state_upper not in FILTERABLE_JOB_STATES:
                     raise click.UsageError(
-                        f"Invalid state '{state}' with --v2. Allowed: {', '.join(sorted(allowed))}"
+                        f"Invalid state '{state}' with --v2. "
+                        f"Allowed: {', '.join(FILTERABLE_JOB_STATES)}"
                     )
         else:
             # Legacy path: Only accept backend HaJobStates

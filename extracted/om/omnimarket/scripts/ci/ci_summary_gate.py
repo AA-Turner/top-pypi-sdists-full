@@ -176,6 +176,7 @@ DETECT_CHANGES_JOB = "Detect Changes"
 # — draft-induced or otherwise — still fails ``CI Summary`` closed. The "no
 # legitimate if:" derivation above is otherwise unchanged for every other row.
 STRICT_GATE_JOBS: tuple[str, ...] = (
+    "Internal Release Path Guard (OMN-19998)",  # internal-release-path-guard
     # Repo-owned evidence dependency — non-PR events keep their existing gates;
     # no ``if:``, so the job is always present + completed.
     "Repo Evidence Dependency",
@@ -319,6 +320,9 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     # default-deny sweep, and this row makes a skipped or absent conclusion fail
     # closed too. Unconditional in ci.yml (no needs/if), so a skip is anomalous.
     "Canonical File Shape (OMN-20304)",  # canonical-file-shape
+    # OMN-19998: public-repository runner placement; unconditional in ci.yml
+    # (no needs/if), so a skip or absence fails closed here.
+    "Public Runner Placement (OMN-19998)",  # public-runner-placement
     # OMN-20844: the customer-chooses-the-OpenRouter-model tests, named so a
     # change to the generic test job's selection cannot drop them. Registered
     # on the same terms as the rows above; unconditional in ci.yml.

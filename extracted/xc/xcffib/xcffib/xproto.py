@@ -695,6 +695,7 @@ class Window:
 
 class KeyPressEvent(xcffib.Event):
     xge = False
+    event_number = 2
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -775,6 +776,7 @@ _events[2] = KeyPressEvent
 
 class KeyReleaseEvent(xcffib.Event):
     xge = False
+    event_number = 3
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -864,6 +866,7 @@ class ButtonMask:
 
 class ButtonPressEvent(xcffib.Event):
     xge = False
+    event_number = 4
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -944,6 +947,7 @@ _events[4] = ButtonPressEvent
 
 class ButtonReleaseEvent(xcffib.Event):
     xge = False
+    event_number = 5
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1029,6 +1033,7 @@ class Motion:
 
 class MotionNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 6
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1127,6 +1132,7 @@ class NotifyMode:
 
 class EnterNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 7
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1211,6 +1217,7 @@ _events[7] = EnterNotifyEvent
 
 class LeaveNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 8
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1295,6 +1302,7 @@ _events[8] = LeaveNotifyEvent
 
 class FocusInEvent(xcffib.Event):
     xge = False
+    event_number = 9
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1327,6 +1335,7 @@ _events[9] = FocusInEvent
 
 class FocusOutEvent(xcffib.Event):
     xge = False
+    event_number = 10
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1359,6 +1368,7 @@ _events[10] = FocusOutEvent
 
 class KeymapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 11
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1390,6 +1400,7 @@ _events[11] = KeymapNotifyEvent
 
 class ExposeEvent(xcffib.Event):
     xge = False
+    event_number = 12
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1437,6 +1448,7 @@ _events[12] = ExposeEvent
 
 class GraphicsExposureEvent(xcffib.Event):
     xge = False
+    event_number = 13
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1497,6 +1509,7 @@ _events[13] = GraphicsExposureEvent
 
 class NoExposureEvent(xcffib.Event):
     xge = False
+    event_number = 14
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1539,6 +1552,7 @@ class Visibility:
 
 class VisibilityNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 15
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1570,6 +1584,7 @@ _events[15] = VisibilityNotifyEvent
 
 class CreateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 16
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1630,6 +1645,7 @@ _events[16] = CreateNotifyEvent
 
 class DestroyNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 17
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1661,6 +1677,7 @@ _events[17] = DestroyNotifyEvent
 
 class UnmapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 18
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1695,6 +1712,7 @@ _events[18] = UnmapNotifyEvent
 
 class MapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 19
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1729,6 +1747,7 @@ _events[19] = MapNotifyEvent
 
 class MapRequestEvent(xcffib.Event):
     xge = False
+    event_number = 20
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1760,6 +1779,7 @@ _events[20] = MapRequestEvent
 
 class ReparentNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 21
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1807,6 +1827,7 @@ _events[21] = ReparentNotifyEvent
 
 class ConfigureNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 22
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1879,6 +1900,7 @@ _events[22] = ConfigureNotifyEvent
 
 class ConfigureRequestEvent(xcffib.Event):
     xge = False
+    event_number = 23
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1955,6 +1977,7 @@ _events[23] = ConfigureRequestEvent
 
 class GravityNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 24
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1988,6 +2011,7 @@ _events[24] = GravityNotifyEvent
 
 class ResizeRequestEvent(xcffib.Event):
     xge = False
+    event_number = 25
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2025,6 +2049,7 @@ class Place:
 
 class CirculateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 26
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2057,6 +2082,7 @@ _events[26] = CirculateNotifyEvent
 
 class CirculateRequestEvent(xcffib.Event):
     xge = False
+    event_number = 27
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2094,6 +2120,7 @@ class Property:
 
 class PropertyNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 28
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2129,6 +2156,7 @@ _events[28] = PropertyNotifyEvent
 
 class SelectionClearEvent(xcffib.Event):
     xge = False
+    event_number = 29
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2238,6 +2266,7 @@ class Atom:
 
 class SelectionRequestEvent(xcffib.Event):
     xge = False
+    event_number = 30
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2290,6 +2319,7 @@ _events[30] = SelectionRequestEvent
 
 class SelectionNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 31
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2344,6 +2374,7 @@ class Colormap:
 
 class ColormapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 32
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2398,6 +2429,7 @@ class ClientMessageData(xcffib.Union):
 
 class ClientMessageEvent(xcffib.Event):
     xge = False
+    event_number = 33
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2443,6 +2475,7 @@ class Mapping:
 
 class MappingNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 34
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2475,6 +2508,7 @@ _events[34] = MappingNotifyEvent
 
 class GeGenericEvent(xcffib.Event):
     xge = True
+    event_number = 35
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

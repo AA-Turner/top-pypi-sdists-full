@@ -1,0 +1,43 @@
+# The python-package aspect: machine-readable house-standard requirements.
+# Mirrors scripts/check.py; see SKILL.md and references/house-standard.md.
+
+name        = "python-package"
+description = "The AAIARE house standard for a Python package."
+provider    = "autobahn-crossbar-ai"
+
+# Load-bearing rules: a divergence is a FAIL (the package is not the house pattern).
+[require.build_backend]
+backend  = "hatchling.build"
+requires = "hatchling"
+severity = "fail"
+
+[require.version]
+scheme   = "calver"        # YY.M.MICRO
+micro_min = 1              # never .0; .devN suffix allowed
+severity = "fail"
+
+[require.requires_python]
+floor    = "3.11"
+severity = "fail"
+
+# House-pattern rules: a divergence is a WARN (brought up by a rollout, not failed).
+[require.license]
+# House values: "MIT" (OSS) or "LicenseRef-Proprietary" (closed). Presence required; any
+# other value is a deviation -> a signed `license_deviation` decision in the target.
+present  = true
+house    = ["MIT", "LicenseRef-Proprietary"]
+decision = "license_deviation"
+severity = "warn"
+
+[require.lint_excludes]
+# Every .gitmodules path is in the top-level [tool.ruff] exclude/extend-exclude.
+submodules = true
+severity   = "fail"
+
+# NOTE: lint (ruff) / types (ty) / tests (pytest) requirements are PRELIMINARY and
+# PARKED in .parked/ - not active, not materialized here. See SKILL.md / .parked/.
+
+[require.headers]
+# SPDX / copyright header on every source file.
+spdx     = true
+severity = "warn"

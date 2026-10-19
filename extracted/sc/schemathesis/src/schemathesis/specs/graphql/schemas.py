@@ -22,6 +22,7 @@ from typing_extensions import override
 from schemathesis import auths
 from schemathesis.core import NOT_SET, Body, NotSet, Specification
 from schemathesis.core.errors import InvalidSchema, OperationNotFound
+from schemathesis.core.failures import AcceptedNegativeData, Failure, MalformedJson
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
@@ -110,6 +111,10 @@ class GraphQLResponses:
 
     def add(self, status_code: str, definition: dict[str, Any]) -> None:
         return None  # pragma: no cover
+
+    @property
+    def status_codes(self) -> tuple[str, ...]:
+        return ()
 
 
 @dataclass
@@ -215,6 +220,10 @@ class GraphQLSchema(BaseSchema):
         parts = list(urlsplit(base_url))
         parts[2] = prepare_path(case.path, case.path_parameters)
         return urlunsplit(parts)
+
+    @override
+    def build_url_template(self, case: Case, base_url: str) -> str:
+        return self.build_request_url(case, base_url)
 
     @override
     def prepare_request_body(self, case: Case) -> Body:
@@ -438,7 +447,7 @@ class GraphQLSchema(BaseSchema):
         return None
 
     @override
-    def classify_call_outcome(self, response: Response) -> CallOutcome:
+    def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome:
         """Decide what the API did with a positive case, from the body rather than the status code.
 
         A GraphQL server answers the same status whether it served the query or refused it, and an
@@ -463,33 +472,75 @@ class GraphQLSchema(BaseSchema):
 
     @override
     def evaluate_server_error(self, case: Case, response: Response) -> None:
-        from schemathesis.core.failures import AcceptedNegativeData, MalformedJson
-        from schemathesis.graphql.checks import GraphQLClientError
-        from schemathesis.specs.graphql.validation import is_client_error, parse_payload, validate_graphql_response
+        from schemathesis.graphql.checks import GraphQLServerError
 
-        is_negative_mode = case.meta is not None and case.meta.generation.mode.is_negative
-        try:
-            data = parse_payload(response)
-            if is_negative_mode:
-                errors = data.get("errors")
-                if errors is None or len(errors) == 0:
-                    description = ""
-                    if case.meta and case.meta.phase.data.description:
-                        description = f"\n{case.meta.phase.data.description}"
-                    raise AcceptedNegativeData(
-                        operation=case.operation.label,
-                        message=f"Invalid data should have been rejected by GraphQL schema validation{description}",
-                        status_code=response.status_code,
-                        expected_statuses=[],
-                    )
-                if is_client_error(data):
-                    return
-            validate_graphql_response(case, data)
-        except GraphQLClientError:
-            if not is_negative_mode:
-                raise
-        except json.JSONDecodeError as exc:
-            raise MalformedJson.from_exception(operation=case.operation.label, exc=exc) from None
+        failure = _response_failure(case, response)
+        if isinstance(failure, GraphQLServerError):
+            raise failure
+
+    @override
+    def evaluate_negative_data(self, case: Case, response: Response) -> None:
+        failure = _response_failure(case, response)
+        if isinstance(failure, AcceptedNegativeData):
+            raise failure
+
+    @override
+    def evaluate_positive_data(self, case: Case, response: Response) -> None:
+        from schemathesis.graphql.checks import GraphQLClientError
+
+        failure = _response_failure(case, response)
+        if isinstance(failure, GraphQLClientError):
+            raise failure
+
+    @override
+    def validate_response(
+        self,
+        operation: APIOperation,
+        response: Response,
+        *,
+        case: Case | None = None,
+    ) -> bool | None:
+        from schemathesis.graphql.checks import GraphQLSchemaViolation, UnexpectedGraphQLResponse
+
+        failure = _response_failure(case if case is not None else operation.Case(), response)
+        if isinstance(failure, (MalformedJson, UnexpectedGraphQLResponse, GraphQLSchemaViolation)):
+            raise failure
+        return None
+
+
+def _response_failure(case: Case, response: Response) -> Failure | None:
+    """The failure a GraphQL response carries; each check raises the kinds it owns."""
+    from schemathesis.graphql.checks import GraphQLClientError
+    from schemathesis.specs.graphql.validation import is_client_error, parse_payload, validate_graphql_response
+
+    # `not_a_server_error` reports a 5xx by its status, so its body is not judged here.
+    if response.status_code >= 500:
+        return None
+    is_negative_mode = case.meta is not None and case.meta.generation.mode.is_negative
+    try:
+        data = parse_payload(response)
+    except json.JSONDecodeError as exc:
+        return MalformedJson.from_exception(operation=case.operation.label, exc=exc)
+    if is_negative_mode and isinstance(data, dict):
+        if not data.get("errors"):
+            description = ""
+            if case.meta and case.meta.phase.data.description:
+                description = f"\n{case.meta.phase.data.description}"
+            return AcceptedNegativeData(
+                operation=case.operation.label,
+                message=f"Invalid data should have been rejected by GraphQL schema validation{description}",
+                status_code=response.status_code,
+                expected_statuses=[],
+            )
+        if is_client_error(data):
+            return None
+    try:
+        validate_graphql_response(case, data)
+    except GraphQLClientError as exc:
+        return None if is_negative_mode else exc
+    except Failure as exc:
+        return exc
+    return None
 
 
 @dataclass
@@ -644,7 +695,8 @@ def graphql_cases(
                 )
             )
         if mutate_ast is not None:
-            mutate_ast(operation_node, draw(st.randoms()))
+            # Hypothesis-driven randoms favor tiny values and would skip captured ids far above the exploration rate.
+            mutate_ast(operation_node, draw(st.randoms(use_true_random=True)))
     body = graphql.print_ast(ast_node)
 
     path_parameters_ = _generate_parameter(

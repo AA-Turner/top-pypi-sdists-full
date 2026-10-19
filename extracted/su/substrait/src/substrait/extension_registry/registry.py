@@ -4,7 +4,11 @@ import re
 from collections import defaultdict
 from importlib.resources import files as importlib_files
 from pathlib import Path
-from typing import Optional, Union
+
+try:  # Python 3.11+
+    from importlib.resources.abc import Traversable
+except ImportError:  # Python 3.10
+    from importlib.abc import Traversable
 
 import yaml
 from substrait.type_pb2 import Type
@@ -34,21 +38,35 @@ class ExtensionRegistry:
         # extension relation's output schema can be derived during inference.
         self._extension_relations: dict = {}
         if load_default_extensions:
-            for fpath in importlib_files("substrait_extensions.extensions").glob(  # type: ignore
-                "functions*.yaml"
-            ):
+            # Traversable has no portable glob() (MultiplexedPath lacks it), so
+            # filter iterdir() by name instead.
+            ext_dir = importlib_files("substrait_extensions.extensions")
+            yamls = [
+                f
+                for f in ext_dir.iterdir()
+                if f.name.startswith("functions") and f.name.endswith(".yaml")
+            ]
+            if not yamls:
+                raise RuntimeError(
+                    f"no functions*.yaml found in {ext_dir!r}; "
+                    "is the substrait_extensions package data installed?"
+                )
+            for fpath in yamls:
                 self.register_extension_yaml(fpath)
 
     def register_extension_yaml(
         self,
-        fname: Union[str, Path],
+        fname: str | Path | Traversable,
     ) -> None:
         """Register extensions from a YAML file.
         Args:
-            fname: Path to the YAML file
+            fname: Path to the YAML file, or any ``Traversable`` such as an entry
+                from ``importlib.resources.files``
         """
-        fname = Path(fname)
-        with open(fname) as f:  # type: ignore
+        if not hasattr(fname, "open"):
+            fname = Path(fname)
+        # Binary mode lets PyYAML detect the encoding instead of using the locale's.
+        with fname.open("rb") as f:
             extension_definitions = yaml.safe_load(f)
         self.register_extension_dict(extension_definitions)
 
@@ -145,7 +163,7 @@ class ExtensionRegistry:
         urn: str,
         function_name: str,
         signature: tuple[Type] | list[Type],
-    ) -> Optional[tuple[FunctionEntry, Type]]:
+    ) -> tuple[FunctionEntry, Type] | None:
         """Look up a function within a specific URN."""
         matches = self._find_matching_functions(function_name, signature, [urn])
         return matches[0] if matches else None
@@ -171,8 +189,8 @@ class ExtensionRegistry:
         self,
         function_name: str,
         signature: tuple[Type] | list[Type],
-        urns: Optional[list[str]] = None,
-    ) -> Optional[tuple[FunctionEntry, Type]]:
+        urns: list[str] | None = None,
+    ) -> tuple[FunctionEntry, Type] | None:
         """Find the best-matching function for ``function_name`` across ``urns``.
 
         Searches ``urns`` in order (every registered URN when ``None``) and returns

@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+import string
 import subprocess
 import sys
 import textwrap
@@ -30,6 +31,7 @@ from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.hypothesis import examples, setup
 from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, HypothesisTestMode, create_test
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.jsonschema import strategy
 from schemathesis.generation.jsonschema.context import Alphabet
 from schemathesis.generation.meta import CaseMetadata, FuzzingPhaseData, GenerationInfo, PhaseInfo, TestPhase
@@ -48,7 +50,7 @@ from schemathesis.specs.openapi.adapter.parameters import (
     form_data_to_json_schema,
 )
 from schemathesis.transport.serialization import Binary, quote_all
-from test.utils import assert_requests_call
+from test.utils import assert_requests_call, run_given
 
 
 def make_operation(schema, **kwargs) -> APIOperation:
@@ -100,27 +102,84 @@ def test_fuzzing_phase_uses_its_generation_config(ctx):
     assert [case.meta.generation.mode for case in generated] == [GenerationMode.NEGATIVE]
 
 
-def test_negative_case_can_negate_the_body_alone(ctx):
-    # A server may check the path before the body, so negating every location at once hides body handling.
-    schema = ctx.openapi.load_schema(
+@pytest.mark.parametrize(
+    ("generation", "mode", "offending"),
+    [
+        (
+            {"codec": "ascii"},
+            GenerationMode.POSITIVE,
+            lambda case: [value for value in (case.query["q"], case.body) if not value.isascii()],
+        ),
+        (
+            {"allow-x00": False},
+            GenerationMode.POSITIVE,
+            lambda case: [value for value in (case.query["q"], case.body) if "\x00" in value],
+        ),
+        (
+            {"exclude-header-characters": string.ascii_letters},
+            GenerationMode.POSITIVE,
+            lambda case: [case.headers["X-Token"]] if set(case.headers["X-Token"]) & set(string.ascii_letters) else [],
+        ),
+        (
+            {"dictionaries": {"string": {"dictionary": "edge", "probability": 1.0}}},
+            GenerationMode.POSITIVE,
+            lambda case: [case.query["q"]] if case.query["q"] != "dictionary-value" else [],
+        ),
+        (
+            {"allow-extra-parameters": False},
+            GenerationMode.NEGATIVE,
+            lambda case: sorted(set(case.query or {}) - {"q"}),
+        ),
+    ],
+    ids=["codec", "allow-x00", "exclude-header-characters", "dictionaries", "allow-extra-parameters"],
+)
+def test_phase_generation_config_applies_after_another_phase_generated(ctx, generation, mode, offending):
+    config = SchemathesisConfig.from_dict(
         {
-            "/items/{kind}": {
-                "post": {
-                    "parameters": [
-                        {
-                            "name": "kind",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "enum": ["a", "b"]},
-                        }
-                    ],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "string"}}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "dictionaries": {"edge": {"values": ["dictionary-value"]}},
+            "phases": {"stateful": {"generation": generation}},
         }
     )
-    strategy = schema["/items/{kind}"]["POST"].as_strategy(generation_mode=GenerationMode.NEGATIVE)
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "parameters": [
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "minLength": 10}},
+                {"name": "X-Token", "in": "header", "required": True, "schema": {"type": "string", "minLength": 10}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "string", "minLength": 10}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        config=config,
+    )
+    generate_many(operation.as_strategy(generation_mode=mode, phase=TestPhase.FUZZING), 30)
+
+    cases = generate_many(operation.as_strategy(generation_mode=mode, phase=TestPhase.STATEFUL), 30)
+
+    assert [value for case in cases for value in offending(case)] == []
+
+
+def test_negative_case_can_negate_the_body_alone(ctx):
+    # A server may check the path before the body, so negating every location at once hides body handling.
+    operation = ctx.openapi.load_operation(
+        "POST /items/{kind}",
+        {
+            "parameters": [
+                {
+                    "name": "kind",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "enum": ["a", "b"]},
+                }
+            ],
+            "requestBody": {"required": True, "content": {"application/json": {"schema": {"type": "string"}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    strategy = operation.as_strategy(generation_mode=GenerationMode.NEGATIVE)
 
     find(
         strategy,
@@ -152,10 +211,10 @@ def test_negative_case_can_negate_the_body_alone(ctx):
 def test_explicit_value_differing_in_case_leaves_location_negatable(ctx, parameters, location, explicit):
     # Only header names are case-insensitive, so `LIMIT` does not cover `limit`.
     header = {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}}
-    schema = ctx.openapi.load_schema(
-        {"/items": {"get": {"parameters": [*parameters, header], "responses": {"200": {"description": "OK"}}}}}
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"parameters": [*parameters, header], "responses": {"200": {"description": "OK"}}}
     )
-    strategy = schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE, **explicit)
+    strategy = operation.as_strategy(generation_mode=GenerationMode.NEGATIVE, **explicit)
 
     find(
         strategy,
@@ -228,23 +287,20 @@ def test_ref_with_sibling_anyof_against_anyof_target(ctx):
             }
         }
     }
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": body}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                },
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": body}},
             },
+            "responses": {"200": {"description": "OK"}},
         },
         components=components,
     )
     validator = jsonschema_rs.validator_for({**body, "components": components})
 
-    @given(schema["/data"]["POST"].as_strategy())
+    @given(operation.as_strategy())
     @settings(max_examples=1, deadline=None, database=InMemoryExampleDatabase())
     def test(case):
         validator.validate(case.body)
@@ -254,21 +310,18 @@ def test_ref_with_sibling_anyof_against_anyof_target(ctx):
 
 def test_draft4_typed_integer_enum_stays_in_enum(ctx):
     # OpenAPI 3.0 is Draft 4, where an integer enum canonicalizes to a typed group; body must stay in the enum.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"type": "integer", "enum": [1, 2]}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "integer", "enum": [1, 2]}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/data"]["POST"].as_strategy())
+    @given(operation.as_strategy())
     @settings(max_examples=10, deadline=None, database=InMemoryExampleDatabase())
     def test(case):
         assert case.body in (1, 2), case.body
@@ -278,21 +331,18 @@ def test_draft4_typed_integer_enum_stays_in_enum(ctx):
 
 def test_empty_enum_body_is_omitted(ctx):
     # An empty enum canonicalizes to `false`; an optional body carrying it generates no value.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": False,
-                        "content": {"application/json": {"schema": {"enum": []}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "required": False,
+                "content": {"application/json": {"schema": {"enum": []}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/data"]["POST"].as_strategy())
+    @given(operation.as_strategy())
     @settings(max_examples=5, deadline=None, database=InMemoryExampleDatabase())
     def test(case):
         assert case.body is NOT_SET
@@ -302,22 +352,19 @@ def test_empty_enum_body_is_omitted(ctx):
 
 def test_multitype_null_boolean_body(ctx):
     # A 3.1 `type: [null, boolean]` body lifts to a multi-type union; values stay null or boolean.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"type": ["null", "boolean"]}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": ["null", "boolean"]}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/data"]["POST"].as_strategy())
+    @given(operation.as_strategy())
     @settings(max_examples=10, deadline=None, database=InMemoryExampleDatabase())
     def test(case):
         assert case.body is None or isinstance(case.body, bool), case.body
@@ -361,24 +408,52 @@ def test_string_body_respects_alphabet(ctx, codec, allow_x00, body_schema):
     test()
 
 
-def test_anyof_disjoint_branches_body(ctx):
-    # A 3.1 `anyOf` of branches that don't merge into one type lifts to a union; values stay in one branch.
+@pytest.mark.parametrize(
+    "body_schema",
+    [{"type": "string"}, {"type": "string", "pattern": ".+"}],
+    ids=["plain", "pattern"],
+)
+def test_string_body_without_codec_has_no_lone_surrogates(ctx, body_schema):
+    # Lone surrogates cannot be encoded as UTF-8, so checking a drawn value against a pattern crashed.
     schema = ctx.openapi.load_schema(
         {
             "/data": {
                 "post": {
                     "requestBody": {
                         "required": True,
-                        "content": {"application/json": {"schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]}}},
+                        "content": {"application/json": {"schema": body_schema}},
                     },
                     "responses": {"200": {"description": "OK"}},
                 }
             }
+        }
+    )
+    schema.config.generation.codec = None
+    bodies = []
+
+    # Seed 43 reaches a lone surrogate within 10 draws for both schemas.
+    @run_given(schema["/data"]["POST"].as_strategy(), max_examples=10, seed=43)
+    def collect(case):
+        bodies.append(case.body)
+
+    assert [body for body in bodies if any("\ud800" <= char <= "\udfff" for char in body)] == []
+
+
+def test_anyof_disjoint_branches_body(ctx):
+    # A 3.1 `anyOf` of branches that don't merge into one type lifts to a union; values stay in one branch.
+    operation = ctx.openapi.load_operation(
+        "POST /data",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/data"]["POST"].as_strategy())
+    @given(operation.as_strategy())
     @settings(max_examples=10, deadline=None, database=InMemoryExampleDatabase())
     def test(case):
         assert case.body is None or isinstance(case.body, int), case.body
@@ -537,106 +612,82 @@ def test_default_strategies_binary(swagger_20):
 
 
 def test_merge_length_into_pattern(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "string",
-                                    # Unlikely to generate a string of this length from a pattern
-                                    "minLength": 460,
-                                    "maxLength": 465,
-                                    "pattern": "^[a-z]+$",
-                                },
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "string",
+                            # Unlikely to generate a string of this length from a pattern
+                            "minLength": 460,
+                            "maxLength": 465,
+                            "pattern": "^[a-z]+$",
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
+                    }
                 },
             },
-        }
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/data"]["POST"]
-
-    @given(operation.as_strategy())
-    @settings(max_examples=1)
+    @run_given(operation.as_strategy(), max_examples=1)
     def test(case):
         pass
-
-    test()
 
 
 def test_required_without_properties(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "additionalProperties": False,
-                                    "type": "object",
-                                    "required": ["A"],
-                                },
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "additionalProperties": False,
+                            "type": "object",
+                            "required": ["A"],
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
+                    }
                 },
             },
-        }
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/data"]["POST"]
-
-    @given(operation.as_strategy())
-    @settings(max_examples=1)
+    @run_given(operation.as_strategy(), max_examples=1)
     def test(case):
         pass
-
-    test()
 
 
 def test_non_schema_property_value(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "name": {"type": "string"},
-                                        "maxItems": 0,
-                                    },
-                                },
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "maxItems": 0,
+                            },
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
+                    }
                 },
             },
-        }
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/data"]["POST"]
-
-    @given(operation.as_strategy())
-    @settings(max_examples=1)
+    @run_given(operation.as_strategy(), max_examples=1)
     def test(case):
         pass
-
-    test()
 
 
 def test_as_strategy_example_resolves_bundled_refs(tmp_path):
@@ -695,30 +746,27 @@ def test_as_strategy_example_resolves_bundled_refs(tmp_path):
 
 def test_malformed_annotation_behind_a_reference_still_generates(ctx):
     # An annotation cannot change which values the schema admits, and canonicalization drops it.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /probe",
         {
-            "/probe": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"field": {"$ref": "#/components/schemas/Annotated"}},
-                                    "required": ["field"],
-                                },
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"field": {"$ref": "#/components/schemas/Annotated"}},
+                            "required": ["field"],
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         components={"schemas": {"Annotated": {"type": "string", "description": None}}},
     )
 
-    case = examples.generate_one(schema["/probe"]["POST"].as_strategy())
+    case = examples.generate_one(operation.as_strategy())
 
     assert isinstance(case.body["field"], str)
 
@@ -727,41 +775,38 @@ def test_malformed_annotation_behind_a_reference_still_generates(ctx):
 def test_array_with_allof_of_multiple_contains(ctx, version):
     # Filtering for several `contains` demands exhausts before both consts land, so each is placed:
     # by the `contains` strategy under 3.1, by the converter's positional prefix under Draft 4.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /probe",
         {
-            "/probe": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "required": ["type"],
-                                    "properties": {
-                                        "type": {
-                                            "type": "array",
-                                            "minItems": 1,
-                                            "uniqueItems": True,
-                                            "items": {"type": "string"},
-                                            "allOf": [
-                                                {"contains": {"const": "VerifiablePresentation"}},
-                                                {"contains": {"const": "KyaManifest"}},
-                                            ],
-                                        }
-                                    },
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["type"],
+                            "properties": {
+                                "type": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "uniqueItems": True,
+                                    "items": {"type": "string"},
+                                    "allOf": [
+                                        {"contains": {"const": "VerifiablePresentation"}},
+                                        {"contains": {"const": "KyaManifest"}},
+                                    ],
                                 }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version=version,
     )
 
-    case = examples.generate_one(schema["/probe"]["POST"].as_strategy())
+    case = examples.generate_one(operation.as_strategy())
 
     assert "VerifiablePresentation" in case.body["type"]
     assert "KyaManifest" in case.body["type"]
@@ -769,39 +814,36 @@ def test_array_with_allof_of_multiple_contains(ctx, version):
 
 def test_string_with_allof_of_formats_and_patterns(ctx):
     # Every generated value has to satisfy both halves of each conjunction at once.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /probe",
         {
-            "/probe": {
-                "post": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "host",
-                            "required": True,
-                            "schema": {
-                                "allOf": [
-                                    {"type": "string", "format": "hostname"},
-                                    {"type": "string", "format": "ipv4"},
-                                ]
-                            },
-                        }
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {"type": "string", "allOf": [{"pattern": "^[a-z]+$"}, {"pattern": "a"}]}
-                            }
-                        },
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "host",
+                    "required": True,
+                    "schema": {
+                        "allOf": [
+                            {"type": "string", "format": "hostname"},
+                            {"type": "string", "format": "ipv4"},
+                        ]
                     },
-                    "responses": {"200": {"description": "OK"}},
                 }
-            }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"type": "string", "allOf": [{"pattern": "^[a-z]+$"}, {"pattern": "a"}]}
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    case = examples.generate_one(schema["/probe"]["POST"].as_strategy())
+    case = examples.generate_one(operation.as_strategy())
 
     assert jsonschema_rs.Draft202012Validator({"type": "string", "format": "ipv4"}, validate_formats=True).is_valid(
         case.query["host"]
@@ -811,29 +853,21 @@ def test_string_with_allof_of_formats_and_patterns(ctx):
 
 @pytest.mark.parametrize("media_type", ["text/yaml"])
 def test_binary_is_serializable(ctx, media_type):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {media_type: {"schema": {"type": "string", "format": "binary"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                },
+            "requestBody": {
+                "required": True,
+                "content": {media_type: {"schema": {"type": "string", "format": "binary"}}},
             },
-        }
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/data"]["POST"]
-
-    @given(operation.as_strategy())
-    @settings(max_examples=1)
+    @run_given(operation.as_strategy(), max_examples=1)
     def test(case):
         assert_requests_call(case)
         assert case.as_transport_kwargs()["data"] == case.body.data
-
-    test()
 
 
 @pytest.mark.filterwarnings("ignore:.*method is good for exploring strategies.*")
@@ -897,12 +931,9 @@ def test_valid_headers(ctx, swagger_20, definition):
         ),
     )
 
-    @given(case=operation.as_strategy())
-    @settings(suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow], deadline=None, max_examples=10)
+    @run_given(case=operation.as_strategy(), max_examples=10)
     def inner(case):
         case.call()
-
-    inner()
 
 
 def make_swagger(*parameters):
@@ -973,13 +1004,11 @@ def test_valid_form_data(ctx, raw_schema):
     schema = ctx.openapi.from_full_schema(raw_schema)
     schema.config.update(base_url=f"{api.base_url}/api")
 
-    @given(case=schema["/form"]["POST"].as_strategy())
-    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow], max_examples=10)
+    @run_given(case=schema["/form"]["POST"].as_strategy(), max_examples=10)
     def inner(case):
         case.call()
 
     # Then these values should be cast to bytes and handled successfully
-    inner()
 
 
 @pytest.mark.hypothesis_nested
@@ -1008,14 +1037,12 @@ def test_optional_form_data(ctx):
     # It is done mostly due to performance reasons
     schema.config.update(base_url=f"{api.base_url}/api")
 
-    @given(case=schema["/form"]["POST"].as_strategy())
-    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much], max_examples=1)
+    @run_given(case=schema["/form"]["POST"].as_strategy(), max_examples=1)
     def inner(case):
         assume(case.body is NOT_SET)
         case.call()
 
     # Then payload can be absent
-    inner()
 
 
 @pytest.mark.parametrize(
@@ -1067,35 +1094,29 @@ def test_percent_encoded_base_url_reserved_char_preserved(ctx):
 def test_parameters_jsonified(ctx, expected):
     # See GH-1166
     # When `None` or `True` / `False` are generated in path or query
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /foo/{param_path}",
         {
-            "/foo/{param_path}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": f"param_{location}",
-                            "in": location,
-                            "required": True,
-                            "schema": {"type": "boolean", "nullable": True},
-                        }
-                        for location in ("path", "query")
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": f"param_{location}",
+                    "in": location,
+                    "required": True,
+                    "schema": {"type": "boolean", "nullable": True},
                 }
-            }
-        }
+                for location in ("path", "query")
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    strategy = schema["/foo/{param_path}"]["GET"].as_strategy()
+    strategy = operation.as_strategy()
 
-    @given(case=strategy)
-    @settings(deadline=None, max_examples=1)
+    @run_given(case=strategy, max_examples=1)
     def test(case):
         # Then they should be converted to their JSON equivalents
         assume(case.path_parameters["param_path"] == expected)
         assume(case.query["param_query"] == expected)
-
-    test()
 
 
 @pytest.mark.parametrize("version", ["2.0", "3.0.2"])
@@ -1212,27 +1233,24 @@ def test_large_minimum_array_size(ctx, cli, snapshot_cli, min_items):
     ids=["implicit", "explicit"],
 )
 def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_values):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /pets",
         {
-            "/pets": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "oneOf": [
-                                        {"$ref": "#/components/schemas/Cat"},
-                                        {"$ref": "#/components/schemas/Dog"},
-                                    ],
-                                    "discriminator": discriminator,
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "oneOf": [
+                                {"$ref": "#/components/schemas/Cat"},
+                                {"$ref": "#/components/schemas/Dog"},
+                            ],
+                            "discriminator": discriminator,
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "schemas": {
@@ -1242,25 +1260,46 @@ def test_discriminator_property_pinned_in_generation(ctx, discriminator, valid_v
         },
     )
 
-    @given(case=schema["/pets"]["POST"].as_strategy())
-    @settings(max_examples=10, database=None, phases=[Phase.generate])
+    @run_given(case=operation.as_strategy(), max_examples=10, phases=[Phase.generate])
     def inner(case):
         assert case.body["petType"] in valid_values
-
-    inner()
 
 
 def test_hypothesis_observability_serialization(ctx):
     # Hypothesis observability serializes all dataclass fields on generated values
-    schema = ctx.openapi.load_schema({"/test": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    operation = ctx.openapi.load_operation("GET /test", {"responses": {"200": {"description": "OK"}}})
 
-    @given(case=schema["/test"]["GET"].as_strategy())
+    @given(case=operation.as_strategy())
     @settings(max_examples=1, database=None, phases=[Phase.generate])
     def test(case):
         pass
 
     with with_observability_callback(lambda _: None):
         test()
+
+
+def test_properties_no_value_satisfies_never_discard_draws():
+    # A discarded draw ends a whole stateful scenario; `readOnly` request body fields arrive here as `false`.
+    schema = {
+        "type": "object",
+        "required": ["name"],
+        "properties": {"name": {"const": "a"}, "id": False, "url": False, "created": False},
+        "additionalProperties": False,
+    }
+    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
+    statuses = []
+
+    @given(built)
+    @settings(max_examples=100, database=None, derandomize=True, phases=[Phase.generate], deadline=None)
+    def test(value):
+        pass
+
+    with with_observability_callback(
+        lambda observation: statuses.append(observation.status) if observation.type == "test_case" else None
+    ):
+        test()
+
+    assert set(statuses) == {"passed"}
 
 
 @pytest.mark.parametrize("location", [ParameterLocation.QUERY, ParameterLocation.HEADER])
@@ -1306,59 +1345,47 @@ def test_apply_exclusions_reachable_via_auth_supplied_required_header():
 def test_positive_integers_stay_within_format_range(ctx, format, minimum, maximum):
     # `format` alone declares the range; without it generation draws arbitrary-precision ints
     # that a fixed-width-int server rejects, turning a positive case into a false failure.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /x",
         {
-            "/x": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"value": {"type": "integer", "format": format}},
-                                    "required": ["value"],
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"value": {"type": "integer", "format": format}},
+                            "required": ["value"],
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/x"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
     # The violating draw is rare, so fewer examples would let a regression pass.
-    @settings(max_examples=250, suppress_health_check=list(HealthCheck), deadline=None)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=250)
     def test(case):
         assert minimum <= case.body["value"] <= maximum, f"Out of {format} range: {case.body['value']}"
 
-    test()
-
 
 def test_integer_multiple_of_body(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"type": "integer", "multipleOf": 3, "minimum": 1}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "integer", "multipleOf": 3, "minimum": 1}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/data"]["POST"].as_strategy())
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(), max_examples=10)
     def test(case):
         assert case.body >= 1 and case.body % 3 == 0, case.body
-
-    test()
 
 
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
@@ -1375,27 +1402,21 @@ def test_integer_multiple_of_body(ctx):
 )
 def test_format_constrained_string_body(ctx, version, body_schema, extract):
     # Draft 2020-12 reads `format` as an annotation, which must not turn `uuid` into arbitrary text.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": body_schema}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": body_schema}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version=version,
     )
 
-    @given(schema["/data"]["POST"].as_strategy())
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(), max_examples=10)
     def test(case):
         uuid.UUID(extract(case.body))
-
-    test()
 
 
 CANONICAL_NUMBER_SCHEMAS = [
@@ -1436,7 +1457,6 @@ CANONICAL_INTEGER_SCHEMAS = [
 CANONICAL_OBJECT_SCHEMAS = [
     {"type": "object"},
     {"type": "object", "properties": {"a": {"type": "integer"}}},
-    {"type": "object", "properties": {"a": {"type": "integer"}}, "required": ["a"]},
     {"type": "object", "properties": {"a": {"type": "integer"}, "b": {"type": "string"}}, "required": ["a"]},
     {"type": "object", "properties": {"a": {"type": "string", "minLength": 2}}},
     {"type": "object", "properties": {"a": {"type": "object", "properties": {"b": {"type": "integer"}}}}},
@@ -1450,7 +1470,6 @@ CANONICAL_OBJECT_SCHEMAS = [
             {"type": "object", "properties": {"a": {"minimum": 5}, "b": {"type": "string"}}},
         ]
     },
-    {"type": "object", "properties": {"a": {"type": "integer"}}, "additionalProperties": {"type": "string"}},
     {"type": "object", "additionalProperties": {"type": "integer"}},
     # The required key is absent from `properties`, so its value answers to `additionalProperties`.
     {"type": "object", "required": ["a"], "additionalProperties": {"type": "string", "minLength": 2}},
@@ -1650,7 +1669,8 @@ CANONICAL_CASES = [
     # A barred format and a barred pattern at once: each run has to keep filtering on its own.
     (
         {"allOf": [{"type": "string"}, {"not": {"format": "ipv4"}}, {"not": {"pattern": "^z"}}]},
-        (lambda value: value.startswith("a"),),
+        # Any lowercase first letter the pattern leaves allowed; one fixed letter is too rare a draw.
+        (lambda value: "a" <= value[:1] <= "y",),
     ),
     # Both violations need a key of their own, and the ceiling has to leave room for them while the
     # floor still reaches. Room for each is what the bounds on the base draw are computed against.
@@ -2396,11 +2416,11 @@ CANONICAL_CASES = [
             "type": "object",
             "patternProperties": {
                 "^a": {"type": "object", "patternProperties": {"^a": {"type": "null"}}},
-                "b$": {"type": "object", "additionalProperties": {"type": "string"}, "patternProperties": {"x$": {}}},
+                "a$": {"type": "object", "additionalProperties": {"type": "string"}, "patternProperties": {"x$": {}}},
             },
             "additionalProperties": False,
         },
-        (lambda value: any(key.startswith("a") and key.endswith("b") for key in value),),
+        (lambda value: any(key.startswith("a") and key.endswith("a") for key in value),),
     ),
 ]
 # NOT `ids=str`: pytest applies an `ids` callable per parameter, so a predicate tuple stringifies with
@@ -2417,17 +2437,10 @@ def test_canonical_generation(schema, reaches):
     ).is_valid
 
     # A format generator cannot be steered by a pattern or a length, so those draws are discarded.
-    @given(built)
     # A starved CI runner makes metaschema draws slow enough to trip `too_slow`; validity is what this checks.
-    @settings(
-        max_examples=25,
-        deadline=None,
-        suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow],
-    )
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -2455,16 +2468,14 @@ def test_barred_pointer_cycle_never_unsound(schema):
     # means, so it must not be the thing that decides which values are drawn.
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(
+    @run_given(
         make_positive_strategy(
             schema, "test", ParameterLocation.BODY, None, GenerationConfig(), jsonschema_rs.Draft202012Validator
-        )
+        ),
+        max_examples=50,
     )
-    @settings(max_examples=50, deadline=None, suppress_health_check=list(HealthCheck), database=None)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 def test_barred_cycle_admits_nothing():
@@ -2501,12 +2512,9 @@ def test_degenerate_root_cycle(schema):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 def test_pattern_properties_root_reference_overlap():
@@ -2515,12 +2523,9 @@ def test_pattern_properties_root_reference_overlap():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much, HealthCheck.too_slow])
+    @run_given(built, max_examples=50)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 def test_canonical_contains_conflicting_formats_never_unsound():
@@ -2578,14 +2583,7 @@ def test_optional_properties_are_size_biased():
         "additionalProperties": False,
     }
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    sizes = []
-
-    @given(built)
-    @settings(max_examples=30, deadline=None)
-    def test(value):
-        sizes.append(len(value))
-
-    test()
+    sizes = [len(value) for value in generate_many(built, 30)]
 
     assert sum(sizes) / len(sizes) < 10, sizes
 
@@ -2605,27 +2603,17 @@ def test_long_strings_are_padded(schema):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=10, deadline=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert is_valid(value), value
         assert len(set(value)) <= 32, len(set(value))
-
-    test()
 
 
 def test_short_strings_keep_their_variety():
     built = _canonical_strategy(
         {"type": "string", "minLength": 40}, GenerationConfig(), jsonschema_rs.Draft202012Validator
     )
-    counts = []
-
-    @given(built)
-    @settings(max_examples=20, deadline=None)
-    def test(value):
-        counts.append(len(set(value)))
-
-    test()
+    counts = [len(set(value)) for value in generate_many(built, 20)]
 
     assert max(counts) > 8, counts
 
@@ -2680,12 +2668,9 @@ def test_array_size_bounds_over_unfillable_element(array_schema):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=10, deadline=None, database=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -2701,12 +2686,9 @@ def test_uncountable_size_ceiling_leaves_values_unbounded(schema):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=10, deadline=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 @pytest.mark.parametrize("schema", CANONICAL_INTEGER_SCHEMAS, ids=str)
@@ -2714,12 +2696,9 @@ def test_canonical_integer_generation_emits_python_ints(schema):
     # `1.0` satisfies `type: integer` in JSON terms, so the validator alone would accept a float here.
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
-    @given(built)
-    @settings(max_examples=10, deadline=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert isinstance(value, int), value
-
-    test()
 
 
 def test_canonical_reference_is_not_inlined(ctx):
@@ -2733,12 +2712,9 @@ def test_canonical_reference_is_not_inlined(ctx):
 
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=10, deadline=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 RECURSIVE_SHAPES = [
@@ -2759,6 +2735,8 @@ RECURSIVE_SHAPES = [
     {"type": "object", "properties": {"other": {"$ref": "#/$defs/other"}}},
     # A pointer at a position `prefixItems` names, where the array may also stop before it.
     {"type": "array", "prefixItems": [{"$ref": "#/$defs/node"}, {"type": "integer"}], "maxItems": 2},
+    # A pointer under `additionalProperties`, where every undeclared key nests another level.
+    {"type": "object", "additionalProperties": {"$ref": "#/$defs/node"}},
 ]
 
 
@@ -2772,12 +2750,9 @@ def test_canonical_recursion_is_drawn_at_any_depth(node):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
     def depth(value):
         if isinstance(value, dict):
@@ -2819,12 +2794,9 @@ def test_canonical_dynamic_recursion_is_drawn_at_any_depth(validator_cls, schema
     built = _canonical_strategy(schema, GenerationConfig(), validator_cls)
     is_valid = validator_cls(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
     def depth(value):
         return 1 + depth(value["child"]) if isinstance(value, dict) and "child" in value else 0
@@ -2855,12 +2827,9 @@ def test_canonical_all_of_with_a_pointer_back_into_the_value():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
     find(built, lambda value: "parent" in value, settings=settings(max_examples=1000, database=None))
 
@@ -2876,13 +2845,10 @@ def test_canonical_one_of_admits_only_what_a_single_branch_takes():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @run_given(built, max_examples=50)
     def test(value):
         # Values both branches take belong to neither of them alone.
         assert is_valid(value), value
-
-    test()
 
     # Both ends stay reachable; only the overlap between them is gone.
     find(built, lambda value: value < 0, settings=settings(max_examples=1000, database=None))
@@ -2899,12 +2865,9 @@ def test_canonical_one_of_branches_naming_draft_4_definitions():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft4Validator)
     is_valid = jsonschema_rs.Draft4Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
     # Ceiling for a search that stops at the first match.
     find(built, lambda value: value < 0, settings=settings(max_examples=1000, database=None))
@@ -2926,12 +2889,9 @@ def test_canonical_one_of_beside_a_conjunction_drives_the_draw():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
     find(built, lambda value: value["mode"] == "onDemand", settings=settings(max_examples=1000, database=None))
 
@@ -2954,12 +2914,9 @@ def test_canonical_array_keeps_the_positions_a_floor_demands():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert len(value) == 2 and is_valid(value), value
-
-    test()
 
 
 META_INVALID_SCHEMAS = [
@@ -3015,12 +2972,9 @@ def test_canonical_pattern_naming_a_character_outside_the_alphabet(ctx):
 
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert matches(value), value
-
-    test()
 
     # Ceiling for a search that stops at the first match.
     find(built, lambda value: len(value) > 1, settings=settings(max_examples=1000, database=None))
@@ -3066,17 +3020,14 @@ def test_canonical_reference_with_no_finite_value_admits_nothing():
 
 def test_recursion_next_to_a_schema_that_declines_canonicalization(ctx):
     # `oneOf` routes the body to the other engine, which cannot follow the pointer back to itself.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /orders",
         {
-            "/orders": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Order"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Order"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "schemas": {
@@ -3104,15 +3055,11 @@ def test_recursion_next_to_a_schema_that_declines_canonicalization(ctx):
             }
         },
     )
-    operation = schema["/orders"]["POST"]
     is_valid = jsonschema_rs.Draft202012Validator(operation.body[0].validation_schema).is_valid
 
-    @given(operation.as_strategy())
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(operation.as_strategy(), max_examples=10)
     def test(case):
         assert is_valid(case.body), case.body
-
-    test()
 
 
 SCRIPT_PATTERN_SCHEMAS = [
@@ -3128,12 +3075,9 @@ def test_canonical_script_property_patterns(schema):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 def test_canonical_unknown_script_property_is_named():
@@ -3177,12 +3121,10 @@ def test_canonical_content_string_generation(schema, reaches):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft7Validator)
     is_valid = jsonschema_rs.Draft7Validator(schema, validate_formats=True).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
 
-    test()
     for predicate in reaches:
         # Ceiling for a search that stops at the first match.
         find(built, predicate, settings=settings(max_examples=1000, database=None))
@@ -3206,12 +3148,10 @@ def test_canonical_number_excluding_integers_under_draft4():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft4Validator)
     is_valid = jsonschema_rs.Draft4Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
 
-    test()
     # Ceiling for a search that stops at the first match.
     find(built, lambda value: value > 4, settings=settings(max_examples=1000, database=None))
 
@@ -3295,86 +3235,68 @@ def test_canonical_integer_grid_without_a_multiple_in_range():
     ids=["number", "number-branch", "number-bound-off-the-float-grid"],
 )
 def test_canonical_number_generation_respects_original_schema(ctx, body_schema):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": body_schema,
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": body_schema,
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
     is_valid = jsonschema_rs.Draft202012Validator(body_schema).is_valid
 
-    @given(schema["/data"]["POST"].as_strategy())
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(), max_examples=10)
     def test(case):
         assert is_valid(case.body)
-
-    test()
 
 
 @pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
 def test_positive_generation_respects_not_with_unicode_property_pattern(ctx, version):
     body_schema = {"type": "string", "not": {"pattern": "[\\p{L}]"}}
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": body_schema}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": body_schema}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version=version,
     )
     is_valid = jsonschema_rs.validator_for(body_schema).is_valid
 
-    @given(schema["/data"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         assert is_valid(case.body), case.body
 
-    test()
-
 
 def test_cookie_value_barred_from_every_printable_character_is_empty(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "session",
-                            "in": "cookie",
-                            "required": True,
-                            "schema": {"type": "string", "not": {"pattern": "[ -~]"}},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "session",
+                    "in": "cookie",
+                    "required": True,
+                    "schema": {"type": "string", "not": {"pattern": "[ -~]"}},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         assert case.cookies == {"session": ""}
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -3399,13 +3321,10 @@ def test_canonical_number_never_spells_a_rejected_bound(schema, rejected):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
     # The violating draw is rare, so fewer examples would let a regression pass.
-    @settings(max_examples=100, deadline=None, database=None)
+    @run_given(built, max_examples=100)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 def test_canonical_number_above_the_float_range():
@@ -3415,25 +3334,19 @@ def test_canonical_number_above_the_float_range():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=20, deadline=None, database=None)
+    @run_given(built, max_examples=20)
     def test(value):
         assert isinstance(value, int)
         assert is_valid(value), value
-
-    test()
 
 
 def test_canonical_object_prefers_documented_keys_for_the_floor():
     schema = {"type": "object", "properties": {"a": {"type": "integer"}, "b": {"type": "string"}}, "minProperties": 2}
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
-    @given(built)
-    @settings(max_examples=50, deadline=None)
+    @run_given(built, max_examples=50)
     def test(value):
         assert {"a", "b"} <= set(value), value
-
-    test()
 
 
 CLOSED_OBJECT_SCHEMAS = [
@@ -3466,13 +3379,10 @@ def test_canonical_closed_object_generation(schema, allowed):
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.validator_for(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert set(value) <= allowed, value
         assert is_valid(value), value
-
-    test()
 
 
 def test_canonical_closed_object_reaches_every_admitted_name():
@@ -3518,12 +3428,10 @@ def test_canonical_object_demand_without_a_spellable_complement(schema, validato
     built = _canonical_strategy(schema, GenerationConfig(), validator_cls)
     is_valid = validator_cls(schema, validate_formats=True, pattern_options=FANCY_REGEX_OPTIONS).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
 
-    test()
     # Objects are the only shape the demand governs; the other branches are off-type values.
     find(
         built,
@@ -3539,16 +3447,13 @@ def test_canonical_object_respects_alphabet():
         jsonschema_rs.Draft202012Validator,
     )
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         for key, item in value.items():
             assert "\x00" not in key
             key.encode("ascii")
             if isinstance(item, str):
                 assert "\x00" not in item
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -3587,12 +3492,9 @@ def test_canonical_typed_group_keeps_the_type():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft4Validator)
     is_valid = jsonschema_rs.Draft4Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
     # Ceiling for a search that stops at the first match.
     find(built, lambda value: value == 2, settings=settings(max_examples=1000, database=None))
@@ -3752,12 +3654,9 @@ def test_canonical_array_contains_is_satisfied_without_filtering():
         jsonschema_rs.Draft202012Validator,
     )
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert 7654321 in value, value
-
-    test()
 
 
 def test_canonical_array_min_contains_places_every_demanded_element():
@@ -3767,12 +3666,9 @@ def test_canonical_array_min_contains_places_every_demanded_element():
         jsonschema_rs.Draft202012Validator,
     )
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert value.count("A") >= 3, value
-
-    test()
 
 
 def test_canonical_array_max_contains_uses_non_matching_filler():
@@ -3789,12 +3685,9 @@ def test_canonical_array_max_contains_uses_non_matching_filler():
         jsonschema_rs.Draft202012Validator,
     )
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert sum(item >= 10 for item in value) == 2, value
-
-    test()
 
 
 def test_canonical_array_unique_items_separates_booleans_from_numbers():
@@ -3821,24 +3714,18 @@ def test_canonical_array_unique_items_merges_equal_numbers():
         jsonschema_rs.Draft202012Validator,
     )
 
-    @given(built)
-    @settings(max_examples=50, deadline=None)
+    @run_given(built, max_examples=50)
     def test(value):
         rendered = [float(item) for item in value]
         assert len(set(rendered)) == len(rendered), value
-
-    test()
 
 
 def test_canonical_string_format_byte():
     built = _canonical_strategy({"type": "string", "format": "byte"}, GenerationConfig(), jsonschema_rs.Draft4Validator)
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         b64decode(value)
-
-    test()
 
 
 def test_canonical_string_format_binary():
@@ -3846,12 +3733,9 @@ def test_canonical_string_format_binary():
         {"type": "string", "format": "binary"}, GenerationConfig(), jsonschema_rs.Draft4Validator
     )
 
-    @given(built)
-    @settings(max_examples=25, deadline=None)
+    @run_given(built, max_examples=25)
     def test(value):
         assert isinstance(value, Binary), value
-
-    test()
 
 
 def test_canonical_format_drops_values_over_the_length_bound():
@@ -3860,12 +3744,9 @@ def test_canonical_format_drops_values_over_the_length_bound():
     schema = {"type": "string", "format": "date-time", "maxLength": 25}
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @run_given(built, max_examples=25)
     def test(value):
         assert len(value) <= 25, value
-
-    test()
 
 
 def test_canonical_format_drops_values_the_pattern_rejects():
@@ -3886,50 +3767,41 @@ def test_canonical_object_property_formats(ctx, version):
         "properties": {"id": {"type": "string", "format": "uuid"}, "seen": {"type": "string", "format": "date-time"}},
         "required": ["id", "seen"],
     }
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+            "responses": {"200": {"description": "OK"}},
         },
         version=version,
     )
     is_valid = jsonschema_rs.Draft202012Validator(body_schema, validate_formats=True).is_valid
 
-    @given(schema["/data"]["POST"].as_strategy())
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(), max_examples=10)
     def test(case):
         assert is_valid(case.body), case.body
-
-    test()
 
 
 def test_canonical_contains_demand_behind_a_branch_pointer(ctx):
     # A demand one branch reaches through a pointer still has to draw from what the pointer names.
     big = {"type": "integer", "minimum": 5}
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {"type": ["integer", "string"]},
-                                    "contains": {"anyOf": [{"$ref": "#/components/schemas/Big"}, {"type": "string"}]},
-                                    "minItems": 1,
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "array",
+                            "items": {"type": ["integer", "string"]},
+                            "contains": {"anyOf": [{"$ref": "#/components/schemas/Big"}, {"type": "string"}]},
+                            "minItems": 1,
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
         components={"schemas": {"Big": big}},
@@ -3943,12 +3815,9 @@ def test_canonical_contains_demand_behind_a_branch_pointer(ctx):
         }
     ).is_valid
 
-    @given(schema["/data"]["POST"].as_strategy())
-    @settings(max_examples=10, deadline=None)
+    @run_given(operation.as_strategy(), max_examples=10)
     def test(case):
         assert is_valid(case.body), case.body
-
-    test()
 
 
 def test_canonical_object_keeps_declared_names_outside_the_alphabet():
@@ -3956,12 +3825,9 @@ def test_canonical_object_keeps_declared_names_outside_the_alphabet():
     schema = {"type": "object", "properties": {"é": {"type": "integer"}}, "required": ["é"]}
     built = _canonical_strategy(schema, GenerationConfig(codec="ascii"), jsonschema_rs.Draft202012Validator)
 
-    @given(built)
-    @settings(max_examples=10, deadline=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert "é" in value, value
-
-    test()
 
 
 def test_canonical_pattern_outside_the_alphabet():
@@ -3970,12 +3836,9 @@ def test_canonical_pattern_outside_the_alphabet():
     built = _canonical_strategy(schema, GenerationConfig(codec="ascii"), jsonschema_rs.Draft202012Validator)
     is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
 
-    @given(built)
-    @settings(max_examples=10, deadline=None)
+    @run_given(built, max_examples=10)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 # Bounds where a decimal and its `f64` reading disagree.
@@ -4235,12 +4098,9 @@ def test_metaschema_generation(validator_cls, metaschema):
     built = _canonical_strategy(metaschema, GenerationConfig(), validator_cls)
     is_valid = validator_cls(metaschema).is_valid
 
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
+    @run_given(built, max_examples=25)
     def test(value):
         assert is_valid(value), value
-
-    test()
 
 
 @pytest.mark.parametrize(("validator_cls", "metaschema"), METASCHEMAS, ids=METASCHEMA_IDS)
@@ -4272,12 +4132,9 @@ def test_array_with_undrawable_items_and_no_floor_is_empty():
 
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
-    @given(built)
-    @settings(max_examples=5, deadline=None)
+    @run_given(built, max_examples=5)
     def test(value):
         assert value == []
-
-    test()
 
 
 def test_array_with_undrawable_items_and_a_floor_declines():
@@ -4311,16 +4168,10 @@ BOUNDED_INTEGER = {"type": "integer", "minimum": 1, "maximum": 100}
 
 
 def _positive_values(schema, location, media_type, validator_cls, count=25):
-    values = []
-
-    @given(make_positive_strategy(schema, "test", location, media_type, GenerationConfig(), validator_cls))
     # Both spellings need enough draws to show up.
-    @settings(max_examples=count, deadline=None, suppress_health_check=list(HealthCheck), database=None)
-    def test(value):
-        values.append(value)
-
-    test()
-    return values
+    return generate_many(
+        make_positive_strategy(schema, "test", location, media_type, GenerationConfig(), validator_cls), count
+    )
 
 
 def test_integer_json_body_drawn_as_whole_float():
@@ -4374,18 +4225,15 @@ def test_whole_float_never_misrepresents_a_large_integer():
 
 
 def _body_operation(ctx, body_schema):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
-    return schema["/items"]["POST"]
+    return operation
 
 
 @pytest.mark.hypothesis_nested
@@ -4406,12 +4254,9 @@ def test_body_draws_satisfy_schema(ctx, body_schema):
     operation = _body_operation(ctx, body_schema)
     validator = jsonschema_rs.validator_for(body_schema, pattern_options=FANCY_REGEX_OPTIONS)
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=10, database=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(), max_examples=10)
     def check(case):
         assert validator.is_valid(case.body), case.body
-
-    check()
 
 
 @pytest.mark.hypothesis_nested
@@ -4441,17 +4286,14 @@ def test_body_nothing_can_be_drawn_for(ctx, body_schema):
 
 
 def _query_operation(ctx, parameter_schema, config):
-    raw_schema = ctx.openapi.build_schema(
+    return ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": parameter_schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "q", "in": "query", "required": True, "schema": parameter_schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
+        config=SchemathesisConfig.from_dict(config),
     )
-    return schemathesis.openapi.from_dict(raw_schema, config=SchemathesisConfig.from_dict(config))["/items"]["GET"]
 
 
 @pytest.mark.hypothesis_nested
@@ -4479,48 +4321,40 @@ def _query_operation(ctx, parameter_schema, config):
 )
 def test_query_dictionary_binding(ctx, parameter_schema, config, expected):
     operation = _query_operation(ctx, parameter_schema, config)
-    values = set()
-
-    @given(case=operation.as_strategy())
-    @settings(max_examples=10, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
-    def collect(case):
-        values.add(case.query["q"])
-
-    collect()
+    values = {case.query["q"] for case in generate_many(operation.as_strategy(), 10)}
     assert values == expected
 
 
 @pytest.mark.hypothesis_nested
 def test_body_dictionary_binding_through_recursive_reference(ctx):
-    node = {"type": "object", "properties": {"token": {"type": "string"}, "child": {"$ref": "#/components/schemas/A"}}}
-    raw_schema = ctx.openapi.build_schema(
-        {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/A"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        },
-        components={"schemas": {"A": node}},
-    )
+    node = {
+        "type": "object",
+        "properties": {"token": {"type": "string"}, "child": {"$ref": "#/components/schemas/A"}},
+        "required": ["token"],
+    }
     config = SchemathesisConfig.from_dict(
         {"dictionaries": {"tokens": {"values": ["DICT"]}}, "parameters": {"body.child.token": {"dictionary": "tokens"}}}
     )
-    operation = schemathesis.openapi.from_dict(raw_schema, config=config)["/items"]["POST"]
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/A"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        components={"schemas": {"A": node}},
+        config=config,
+    )
     tokens = []
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=10, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(), max_examples=10, derandomize=True)
     def collect(case):
         child = case.body.get("child") if isinstance(case.body, dict) else None
         if isinstance(child, dict) and "token" in child:
             tokens.append(child["token"])
 
-    collect()
     assert tokens
     assert set(tokens) == {"DICT"}
 
@@ -4531,25 +4365,19 @@ def test_body_dictionary_binding_on_unknown_item_field_is_ignored(ctx):
         "type": "array",
         "items": {"type": "object", "properties": {"x": {"type": "string"}}, "additionalProperties": False},
     }
-    raw_schema = ctx.openapi.build_schema(
-        {
-            "/items": {
-                "post": {
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )
     config = SchemathesisConfig.from_dict(
         {"dictionaries": {"tokens": {"values": ["DICT"]}}, "parameters": {"body.[*].missing": {"dictionary": "tokens"}}}
     )
-    operation = schemathesis.openapi.from_dict(raw_schema, config=config)["/items"]["POST"]
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+            "responses": {"200": {"description": "OK"}},
+        },
+        config=config,
+    )
     validator = jsonschema_rs.validator_for(body_schema)
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=10, database=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(), max_examples=10)
     def check(case):
         assert validator.is_valid(case.body), case.body
-
-    check()

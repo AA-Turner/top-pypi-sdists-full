@@ -76,6 +76,7 @@ class SupportedExpressions(Enum):
     LAMBDA = "LAMBDA"
     LAMBDA_INVOCATION = "LAMBDA_INVOCATION"
     EXECUTION_CONTEXT_VARIABLE = "EXECUTION_CONTEXT_VARIABLE"
+    NAMED_LAMBDA_REFERENCE = "NAMED_LAMBDA_REFERENCE"
 
 
 class SupportedVariableEvaluationMode(Enum):
@@ -680,6 +681,12 @@ class LambdaInvocationExpression:
     metadata: dict[str, Any] | None = None
 
 
+@dataclass
+class NamedLambdaReferenceExpression:
+    expression: Literal["NAMED_LAMBDA_REFERENCE"]
+    metadata: dict[str, Any] | None = None
+
+
 class VariableTypes(Enum):
     CURRENT_TIMESTAMP = "CURRENT_TIMESTAMP"
     CURRENT_TIMEZONE = "CURRENT_TIMEZONE"
@@ -778,6 +785,7 @@ class Dialect:
             | LambdaExpression
             | LambdaInvocationExpression
             | ExecutionContextVariable
+            | NamedLambdaReferenceExpression
         ]
         | None
     ) = None

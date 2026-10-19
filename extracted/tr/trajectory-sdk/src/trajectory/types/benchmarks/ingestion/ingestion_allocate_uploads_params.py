@@ -16,3 +16,8 @@ class BenchmarkIngestionUploadObjectParam(TypedDict, total=False):
 
 class IngestionAllocateUploadsParams(TypedDict, total=False):
   files: Required[Iterable[BenchmarkIngestionUploadObjectParam]]
+  upload_method: Literal["put", "post"]
+  """
+  `put` returns a signed PUT URL per file. `post` returns one signed form-upload policy for the
+  whole batch; uploads are checked against their declarations when the submission is verified.
+  """

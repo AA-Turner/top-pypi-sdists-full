@@ -207,11 +207,11 @@ from pathlib import Path
 from pprint import pformat
 from shlex import quote
 from textwrap import indent, dedent
-from types import MethodType, SimpleNamespace
+from types import MethodType, ModuleType, SimpleNamespace
 
 # NOTE: This version needs to be manually maintained in
 # line_profiler/line_profiler.py and line_profiler/__init__.py as well
-__version__ = '5.0.2'
+__version__ = '5.1.0'
 
 # Guard the import of cProfile such that 3.x people
 # without lsprof can still use this script.
@@ -228,6 +228,7 @@ from line_profiler.cli_utils import (
     positive_float,
     short_string_path,
 )
+from line_profiler.line_profiler_utils import restore
 from line_profiler.profiler_mixin import ByCountProfilerMixin
 from line_profiler._logger import Logger
 from line_profiler import _diagnostics as diagnostics
@@ -402,118 +403,6 @@ def _normalize_profiling_targets(targets):
             filename = find(subchunk)
             results.setdefault(subchunk if filename is None else filename)
     return list(results)
-
-
-class _restore:
-    """
-    Restore a collection like :py:data:`sys.path` after running code
-    which potentially modifies it.
-    """
-
-    def __init__(self, obj, getter, setter):
-        self.obj = obj
-        self.setter = setter
-        self.getter = getter
-        self.old = None
-
-    def __enter__(self):
-        assert self.old is None
-        self.old = self.getter(self.obj)
-
-    def __exit__(self, *_, **__):
-        self.setter(self.obj, self.old)
-        self.old = None
-
-    def __call__(self, func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            with self:
-                return func(*args, **kwargs)
-
-        return wrapper
-
-    @classmethod
-    def sequence(cls, seq):
-        """
-        Example
-        -------
-        >>> l = [1, 2, 3]
-        >>>
-        >>> with _restore.sequence(l):
-        ...     print(l)
-        ...     l.append(4)
-        ...     print(l)
-        ...     l[:] = 5, 6
-        ...     print(l)
-        ...
-        [1, 2, 3]
-        [1, 2, 3, 4]
-        [5, 6]
-        >>> l
-        [1, 2, 3]
-        """
-
-        def set_list(orig, copy):
-            orig[:] = copy
-
-        return cls(seq, methodcaller('copy'), set_list)
-
-    @classmethod
-    def mapping(cls, mpg):
-        """
-        Example
-        -------
-        >>> d = {1: 2}
-        >>>
-        >>> with _restore.mapping(d):
-        ...     print(d)
-        ...     d[2] = 3
-        ...     print(d)
-        ...     d.clear()
-        ...     d.update({1: 4, 3: 5})
-        ...     print(d)
-        ...
-        {1: 2}
-        {1: 2, 2: 3}
-        {1: 4, 3: 5}
-        >>> d
-        {1: 2}
-        """
-
-        def set_mapping(orig, copy):
-            orig.clear()
-            orig.update(copy)
-
-        return cls(mpg, methodcaller('copy'), set_mapping)
-
-    @classmethod
-    def instance_dict(cls, obj):
-        """
-        Example
-        -------
-        >>> class Obj:
-        ...     def __init__(self, x, y):
-        ...         self.x, self.y = x, y
-        ...
-        ...     def __repr__(self):
-        ...         return 'Obj({0.x!r}, {0.y!r})'.format(self)
-        ...
-        >>>
-        >>> obj = Obj(1, 2)
-        >>>
-        >>> with _restore.instance_dict(obj):
-        ...     print(obj)
-        ...     obj.x, obj.y, obj.z = 4, 5, 6
-        ...     print(obj, obj.z)
-        ...
-        Obj(1, 2)
-        Obj(4, 5) 6
-        >>> obj
-        Obj(1, 2)
-        >>> hasattr(obj, 'z')
-        False
-        """
-        return cls.mapping(vars(obj))
 
 
 def pre_parse_single_arg_directive(args, flag, sep='--'):
@@ -922,9 +811,9 @@ def _parse_arguments(
     return options, tempfile_source_and_content
 
 
-@_restore.sequence(sys.argv)
-@_restore.sequence(sys.path)
-@_restore.instance_dict(diagnostics)
+@restore.sequence(sys.argv)
+@restore.sequence(sys.path)
+@restore.instance_dict(diagnostics, ['log'])
 def main(args=None, *, exit_on_error=True):
     """
     Runs the command line interface
@@ -1331,6 +1220,7 @@ def _main_profile(options, module=False, exit_on_error=True):
     after initial parsing of options; not to be invoked on its own.
     """
     script_file, prof = _pre_profile(options, module, exit_on_error)
+    call = functools.partial(_call_with_diagnostics, options)
     try:
         rmod = functools.partial(
             run_module, run_name='__main__', alter_sys=True
@@ -1345,8 +1235,7 @@ def _main_profile(options, module=False, exit_on_error=True):
         if options.prof_mod and options.line_by_line:
             from line_profiler.autoprofile import autoprofile
 
-            _call_with_diagnostics(
-                options,
+            call(
                 autoprofile.run,
                 script_file,
                 ns,
@@ -1355,21 +1244,34 @@ def _main_profile(options, module=False, exit_on_error=True):
                 as_module=module is not None,
             )
         else:
+            # Note: to reduce complications (e.g. whenever something
+            # needs to be pickled), regardless of whether the code is to
+            # be run as a module, we always create a mock module object
+            # for `sys.modules['__main__']` and execute the code in its
+            # context;
+            # similar handling is already used for
+            # `~.autoprofile.autoprofile.run()`, and we do the same for
+            # the other execution modes here.
+            module_obj = ModuleType('__main__')
+            module_ns = vars(module_obj)
+            module_ns.update(ns)
             if module:
                 runner, target = 'rmod', options.script
             else:
                 runner, target = 'execfile', script_file
-            assert runner in ns
-            if options.builtin:
-                _call_with_diagnostics(options, ns[runner], target, ns)
-            else:
-                _call_with_diagnostics(
-                    options,
-                    prof.runctx,
-                    f'{runner}({target!r}, globals())',
-                    ns,
-                    ns,
-                )
+            assert runner in module_ns
+
+            with restore.mapping(sys.modules, ['__main__']):
+                sys.modules['__main__'] = module_obj
+                if options.builtin:
+                    call(module_ns[runner], target, module_ns)
+                else:
+                    call(
+                        prof.runctx,
+                        f'{runner}({target!r}, globals())',
+                        module_ns,
+                        module_ns,
+                    )
     finally:
         _post_profile(options, prof)
 

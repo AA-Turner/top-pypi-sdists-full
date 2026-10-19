@@ -6,6 +6,8 @@ pub mod new_analysis_pool;
 pub mod normalize;
 pub mod normalize_batch;
 pub mod normalize_dialect;
+pub mod normalize_mapped;
+pub mod truth_test_spans;
 use crate::semantic_validation::models::ProjectCatalog;
 
 use polyglot_sql::{

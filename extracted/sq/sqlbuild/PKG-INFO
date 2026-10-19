@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.157.2
+Version: 0.158.2
 Requires-Dist: duckdb>=1.3.2
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: orjson>=3.11.7
@@ -8,7 +8,7 @@ Requires-Dist: polyglot-sql-chio==0.13.9
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: rich>=15.0.0
-Requires-Dist: sqlbuild-cli==0.157.2
+Requires-Dist: sqlbuild-cli==0.158.2
 Requires-Dist: google-cloud-bigquery>=3.37.0 ; extra == 'bigquery'
 Requires-Dist: dagster>=1.13.0 ; extra == 'dagster'
 Requires-Dist: dagster-webserver>=1.13.0 ; extra == 'dagster'
@@ -54,6 +54,8 @@ Change your warehouse as often as your code. SQLBuild brings compile-time checks
 and safe renames to your SQL, so change stops being risky. It is a free, open-source framework for
 SQL and Python data pipelines, and it keeps its state in append-only tables in your own warehouse:
 no external state database, no manifest files and no paid tier.
+
+Its compiler and planner run in Rust. Warehouse execution and extensions use Python.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/chio-labs/sqlbuild/main/.github/demos/rename.gif" alt="Moving and renaming an incremental model with sqb mv: sqb plan migrates the existing table instead of rebuilding it" width="100%">

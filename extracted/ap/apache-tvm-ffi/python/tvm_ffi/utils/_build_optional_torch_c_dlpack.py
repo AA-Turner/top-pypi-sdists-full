@@ -847,7 +847,7 @@ def main() -> None:  # noqa: PLR0912, PLR0915
 
         for lib_dir in torch.utils.cpp_extension.library_paths():
             if IS_WINDOWS:
-                ldflags.append(f"/LIBPATH:{lib_dir}")
+                ldflags.append(subprocess.list2cmdline([f"/LIBPATH:{lib_dir}"]))
             else:
                 ldflags.extend(["-L", str(lib_dir)])
 
@@ -865,7 +865,14 @@ def main() -> None:  # noqa: PLR0912, PLR0915
 
         # Add Python library linking
         if IS_WINDOWS:
-            python_lib = f"python{sys.version_info.major}.lib"
+            # pyconfig.h on Windows leaves Py_GIL_DISABLED undefined even for free-threaded
+            # Python, so define it to compile the free-threaded object layout. Python's headers
+            # then auto-link python3XXt.lib, the only import library such an install ships.
+            free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+            if free_threaded:
+                cflags.append("/DPy_GIL_DISABLED=1")
+            abiflag = "t" if free_threaded else ""
+            python_lib = f"python{sys.version_info.major}{sys.version_info.minor}{abiflag}.lib"
             python_libdir_list = [
                 sysconfig.get_config_var("LIBDIR"),
                 str(Path(sys.base_exec_prefix) / "libs"),
@@ -879,7 +886,10 @@ def main() -> None:  # noqa: PLR0912, PLR0915
                 )
             for python_libdir in python_libdir_list:
                 if python_libdir and (Path(python_libdir) / python_lib).exists():
-                    ldflags.append(f"/LIBPATH:{python_libdir.replace(':', '$:')}")
+                    # A Python installed for all users lives under C:\Program Files.
+                    ldflags.append(
+                        subprocess.list2cmdline([f"/LIBPATH:{python_libdir.replace(':', '$:')}"])
+                    )
                     break
 
         if IS_DARWIN:

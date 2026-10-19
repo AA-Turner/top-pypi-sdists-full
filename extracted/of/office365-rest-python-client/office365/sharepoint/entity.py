@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union, cast
 
 from typing_extensions import Self
 
+from office365.runtime.auth.certificate import CertificateData
 from office365.runtime.auth.client_credential import ClientCredential
 from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.client_object import ClientObject
@@ -36,6 +37,22 @@ class Entity(ClientObject):
         self.context.execute_query_with_incremental_retry(max_retry, max_delay=max_delay, jitter=jitter)
         return self
 
+    async def execute_query_with_incremental_retry_async(
+        self, max_retry: int = 5, max_delay=None, jitter: bool = True
+    ) -> Self:
+        """Async counterpart of :meth:`execute_query_with_incremental_retry`.
+
+        Args:
+            max_retry: Maximum number of retry attempts (default: 5)
+            max_delay: Optional cap on the exponential delay (seconds)
+            jitter: Whether to randomize the delay (default True)
+
+        Returns:
+            self: Supports method chaining
+        """
+        await self.context.execute_query_with_incremental_retry_async(max_retry, max_delay=max_delay, jitter=jitter)
+        return self
+
     @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
     def execute_batch(
         self,
@@ -64,6 +81,33 @@ class Entity(ClientObject):
         )
         return self
 
+    @limit(Limits.BATCH_ITEMS, arg="items_per_batch")
+    async def execute_batch_async(
+        self,
+        items_per_batch: int = Limits.BATCH_ITEMS.value,
+        success_callback: Optional[Callable[[List[Union[ClientObject, ClientResult]]], None]] = None,
+        max_batch_bytes: Optional[int] = None,
+        concurrency: int = 1,
+    ) -> Self:
+        """Async counterpart of :meth:`execute_batch` (awaits the context's async batch).
+
+        Args:
+            items_per_batch: Number of items per batch (default: 100)
+            success_callback: Callback function for successful batch execution
+            max_batch_bytes: Maximum estimated batch payload size in bytes
+            concurrency: Maximum number of concurrent batch requests (default 1)
+
+        Returns:
+            self: Supports method chaining
+        """
+        await self.context.execute_batch_async(
+            items_per_batch,
+            success_callback,
+            concurrency=concurrency,
+            max_batch_bytes=max_batch_bytes,
+        )
+        return self
+
     def with_credentials(self, credentials: Union[UserCredential, ClientCredential]) -> Self:
         """
         Initialize authentication with user or client credentials
@@ -81,11 +125,14 @@ class Entity(ClientObject):
         self,
         tenant: str,
         client_id: str,
-        thumbprint: str,
+        thumbprint: Optional[str] = None,
         cert_path: Optional[str] = None,
         private_key: Optional[str] = None,
         scopes: Optional[List[str]] = None,
         passphrase: Optional[str] = None,
+        *,
+        public_certificate: Optional[CertificateData] = None,
+        use_sni: bool = False,
     ) -> Self:
         """Creates authenticated SharePoint context via certificate credentials
 
@@ -93,12 +140,28 @@ class Entity(ClientObject):
             tenant (str): Tenant name
             cert_path (str or None): Path to A PEM encoded certificate private key.
             private_key (str or None): A PEM encoded certificate private key.
-            thumbprint (str): Hex encoded thumbprint of the certificate.
+            thumbprint (str): Hex encoded thumbprint of the certificate (optional
+                when ``public_certificate`` is given).
             client_id (str): The OAuth client id of the calling application.
             scopes (list[str] or None): Scopes requested to access a protected API (a resource)
             passphrase (str): Passphrase if the private_key is encrypted
+            public_certificate: Certificate (DER/PEM bytes, inline PEM text, or a
+                path) used to derive the thumbprint or, with ``use_sni``, for
+                subject name/issuer authentication
+            use_sni (bool): Use subject name/issuer authentication (requires the
+                optional ``cryptography`` package)
         """
-        self.context.with_client_certificate(tenant, client_id, thumbprint, cert_path, private_key, scopes, passphrase)
+        self.context.with_client_certificate(
+            tenant,
+            client_id,
+            thumbprint,
+            cert_path,
+            private_key,
+            scopes,
+            passphrase,
+            public_certificate=public_certificate,
+            use_sni=use_sni,
+        )
         return self
 
     def with_username_and_password(self, tenant: str, client_id: str, username: str, password: str) -> Self:
@@ -115,15 +178,22 @@ class Entity(ClientObject):
         self.context.authentication_context.with_username_and_password(tenant, client_id, username, password, scopes)
         return self
 
-    def delete_object(self) -> Self:
+    def delete_object(self, *, ignore_missing: bool = False) -> Self:
         """
         Delete the SharePoint entity
+
+        Args:
+            ignore_missing (bool): When True, deleting an object that no longer
+                exists (HTTP 404) succeeds instead of raising
+                :class:`~office365.runtime.exceptions.ObjectNotFoundException`,
+                which makes cleanup idempotent.
 
         Returns:
             self: Supports method chaining
         """
         qry = DeleteEntityQuery(self)
         self.context.add_query(qry)
+        self._tolerate_missing(ignore_missing)
         self.remove_from_parent_collection()
         return self
 
@@ -137,6 +207,26 @@ class Entity(ClientObject):
         qry = UpdateEntityQuery(self)
         self.context.add_query(qry)
         return self
+
+    def update_properties(self, **properties: Any) -> Self:
+        """
+        Set one or more properties and update the SharePoint entity
+
+        Sugar over repeated :meth:`set_property` calls followed by :meth:`update`:
+        the values are coerced exactly as :meth:`set_property` does, and the
+        request stays deferred until ``execute_query()`` runs.
+
+        Args:
+            **properties: Property names mapped to their new values. Use
+                :meth:`set_property` instead for names that are not valid
+                Python identifiers.
+
+        Returns:
+            self: Supports method chaining
+        """
+        for name, value in properties.items():
+            self.set_property(name, value)
+        return self.update()
 
     @property
     def context(self) -> ClientContext:

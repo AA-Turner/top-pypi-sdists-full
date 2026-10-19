@@ -89,6 +89,27 @@ def test_deep_input_is_sanitized_without_using_the_c_stack() -> None:
     assert (output.count("<div>"), "bottom" in output) == (1_200, True)
 
 
+def test_deep_unwrap_preserves_kept_ancestors() -> None:
+    source: Final = "<div>" * 40 + "<summary>x</summary>" + "</div>" * 40
+    expected: Final = "<div>" * 40 + "&lt;summary&gt;x&lt;/summary&gt;" + "</div>" * 40
+    assert sanitize(source, Policy(tags=frozenset({"div"}))) == expected
+
+
+def test_deep_table_unwrap_keeps_nested_content_in_order() -> None:
+    node: Element = E.span("x")
+    for _layer in range(40):
+        node = E.div(node)
+    root: Final = E.div(E.table(E.tbody(E.tr(E.td(node)))))
+    expected: Final = (
+        "<div>&lt;table&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td&gt;"
+        + "<div>" * 40
+        + "<span>x</span>"
+        + "</div>" * 40
+        + "&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;</div>"
+    )
+    assert sanitize_node(root, Policy(tags=frozenset({"div", "tr", "td", "span"}))).html == expected
+
+
 @pytest.mark.parametrize(
     ("mode", "expected_open_count"),
     [
@@ -3131,6 +3152,17 @@ _PARSE_STABLE_CASES = [
 ]
 
 
+@pytest.mark.parametrize("container", ["desc", "span"])
+def test_sanitize_nested_option_under_kept_container_matches_string_path(container: str) -> None:
+    markup: Final = f"<option><{container}><option>"
+    policy: Final = Policy(tags=frozenset({"option", container}), on_disallowed_tag=OnDisallowed.REMOVE)
+    expected: Final = f"<option><{container}><option></option></{container}></option>"
+    assert (sanitize(markup, policy), sanitize_node(parse_fragment(markup, "div"), policy).inner_html) == (
+        expected,
+        expected,
+    )
+
+
 @pytest.mark.parametrize(("payload", "policy", "expected"), _PARSE_STABLE_CASES)
 def test_parse_stable_output_matches_exactly(payload: str, policy: Policy, expected: str) -> None:
     assert sanitize(payload, policy) == expected
@@ -3208,6 +3240,8 @@ _PARSE_STABLE_RULES = [
     pytest.param("<a><object><b><a>x", frozenset({"a", "b"}), id="link-behind-unwrapped-marker"),
     pytest.param("<nobr><object><b><nobr>x", frozenset({"nobr", "b"}), id="nobr-behind-unwrapped-marker"),
     pytest.param("<button><select><i><button>x", frozenset({"button"}), id="button-in-button"),
+    pytest.param("<optgroup><optgroup>", frozenset({"optgroup"}), id="nested-optgroup-reopens"),
+    pytest.param("<select><table>", frozenset({"select", "table"}), id="select-ignored-table-reopens"),
     pytest.param("<select><object><input>x", frozenset({"select", "input"}), id="input-closes-select"),
     pytest.param(
         "<select><dd><object><option>x", frozenset({"select", "dd", "option"}), id="option-closes-implied-parent"
@@ -3480,9 +3514,9 @@ _SETTLE_SCAN_CASES: Final = [
     pytest.param(
         lambda: E.div(E.select(E.optgroup(E.span(E.section(E.optgroup("x")))))),
         frozenset({"div", "select", "optgroup", "span"}),
-        "<div><select><optgroup><span>&lt;section&gt;&lt;optgroup&gt;x&lt;/optgroup&gt;&lt;/section&gt;</span></optgroup>"
+        "<div><select><optgroup><span>&lt;section&gt;<optgroup>x</optgroup>&lt;/section&gt;</span></optgroup>"
         "</select></div>",
-        id="optgroup-scan-passes-a-span",
+        id="optgroup-behind-span-stays-nested",
     ),
     pytest.param(
         lambda: E.div(E.span(E.section(E.option("x")))),

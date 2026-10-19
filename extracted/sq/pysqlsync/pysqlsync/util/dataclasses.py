@@ -1,7 +1,6 @@
 import dataclasses
 import sys
 import types
-from typing import Optional
 
 from strong_typing.docstring import Docstring, DocstringParam, parse_type
 from strong_typing.inspection import DataclassField, DataclassInstance, dataclass_fields
@@ -14,8 +13,8 @@ def make_dataclass(
     name: str,
     fields: list[DataclassField],
     *,
-    module: Optional[types.ModuleType] = None,
-    docstring: Optional[Docstring] = None,
+    module: types.ModuleType | None = None,
+    docstring: Docstring | None = None,
 ) -> type[DataclassInstance]:
     """
     Dynamically creates a new data class type.
@@ -26,7 +25,7 @@ def make_dataclass(
     :param docstring: The doc-string to set on the newly created type.
     """
 
-    field_names = set(field.name for field in fields)
+    field_names = {field.name for field in fields}
 
     if docstring is not None:
         docstring.params = {name: param for name, param in docstring.params.items() if name in field_names}

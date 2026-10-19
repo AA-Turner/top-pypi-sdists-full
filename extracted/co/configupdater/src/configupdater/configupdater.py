@@ -6,18 +6,14 @@ To complete the API, this module adds file handling functions, so that you can r
 configuration file from the disk, change it to your liking and save the updated
 content.
 """
-import sys
+
+from __future__ import annotations
+
+import io
+from collections.abc import Iterable, Mapping
 from configparser import Error
 from types import MappingProxyType as ReadOnlyMapping
-from typing import Optional, TextIO, Tuple, TypeVar
-
-if sys.version_info[:2] >= (3, 9):  # pragma: no cover
-    from collections.abc import Iterable, Mapping
-
-    List = list
-    Dict = dict
-else:  # pragma: no cover
-    from typing import Iterable, Mapping
+from typing import Any, Self, TextIO
 
 from .block import (
     AlreadyAttachedError,
@@ -32,26 +28,24 @@ from .parser import Parser, PathLike
 from .section import Section
 
 __all__ = [
-    "ConfigUpdater",
-    "Section",
-    "Option",
-    "Comment",
-    "Space",
-    "Parser",
+    "AlreadyAttachedError",
     "AssignMultilineValueError",
+    "Comment",
+    "ConfigUpdater",
     "NoConfigFileReadError",
     "NoneValueDisallowed",
     "NotAttachedError",
-    "AlreadyAttachedError",
+    "Option",
+    "Parser",
+    "Section",
+    "Space",
 ]
-
-T = TypeVar("T", bound="ConfigUpdater")
 
 
 class NoConfigFileReadError(Error):
     """Raised when no configuration file was read but update requested."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("No configuration file was yet read! Use .read(...) first.")
 
 
@@ -88,16 +82,16 @@ class ConfigUpdater(Document):
 
     def __init__(
         self,
-        allow_no_value=False,
+        allow_no_value: bool = False,
         *,
-        delimiters: Tuple[str, ...] = ("=", ":"),
-        comment_prefixes: Tuple[str, ...] = ("#", ";"),
-        inline_comment_prefixes: Optional[Tuple[str, ...]] = None,
+        delimiters: tuple[str, ...] = ("=", ":"),
+        comment_prefixes: tuple[str, ...] = ("#", ";"),
+        inline_comment_prefixes: tuple[str, ...] | None = None,
         strict: bool = True,
         empty_lines_in_values: bool = True,
         space_around_delimiters: bool = True,
-    ):
-        self._parser_opts = {
+    ) -> None:
+        self._parser_opts: dict[str, Any] = {
             "allow_no_value": allow_no_value,
             "delimiters": delimiters,
             "comment_prefixes": comment_prefixes,
@@ -107,42 +101,55 @@ class ConfigUpdater(Document):
             "space_around_delimiters": space_around_delimiters,
         }
         self._syntax_options = ReadOnlyMapping(self._parser_opts)
-        self._filename: Optional[PathLike] = None
+        self._filename: PathLike | None = None
+        self._encoding: str | None = None
         super().__init__()
 
-    def _instantiate_copy(self: T) -> T:
+    def _instantiate_copy(self) -> Self:
         """Will be called by ``Container.__deepcopy__``"""
         clone = self.__class__(**self._parser_opts)
         clone.optionxform = self.optionxform  # type: ignore[method-assign]
         clone._filename = self._filename
+        clone._encoding = self._encoding
         return clone
 
-    def _parser(self, **kwargs):
+    def _parser(self, **kwargs: Any) -> Parser:
         opts = {"optionxform": self.optionxform, **self._parser_opts, **kwargs}
         return Parser(**opts)
 
     @property
-    def syntax_options(self) -> Mapping:
+    def syntax_options(self) -> Mapping[str, Any]:
         return self._syntax_options
 
-    def read(self: T, filename: PathLike, encoding: Optional[str] = None) -> T:
+    def read(self, filename: PathLike, encoding: str | None = None) -> Self:
         """Read and parse a filename.
+
+        ``filename`` and ``encoding`` are remembered, so that :meth:`update_file`
+        writes the file back with the encoding it was read with.
 
         Args:
             filename (str): path to file
-            encoding (str): encoding of file, default None
+            encoding (str): encoding of file, default None, i.e. the locale encoding
+                (UTF-8 in UTF-8 mode) like in :func:`open`
         """
+        encoding = io.text_encoding(encoding)
         self.clear()
         self._filename = filename
-        return self._parser().read(filename, encoding, self)
+        self._encoding = encoding
+        return self._parser().read(filename, encoding=encoding, into=self)
 
-    def read_file(self: T, f: Iterable[str], source: Optional[str] = None) -> T:
+    def read_file(self, f: Iterable[str], source: str | None = None) -> Self:
         """Like read() but the argument must be a file-like object.
 
         The ``f`` argument must be iterable, returning one line at a time.
         Optional second argument is the ``source`` specifying the name of the
         file being read. If not given, it is taken from f.name. If ``f`` has no
         ``name`` attribute, ``<???>`` is used.
+
+        If ``f`` has a ``name`` attribute, like a file opened with :func:`open`,
+        :meth:`update_file` writes to this file using ``f.encoding`` (the default
+        encoding if ``f`` has none). Otherwise, the file and encoding of a previous
+        ``read*`` call are kept for :meth:`update_file`.
 
         Args:
             f: file like object
@@ -151,10 +158,14 @@ class ConfigUpdater(Document):
         self.clear()
         if hasattr(f, "name"):
             self._filename = f.name
+            self._encoding = getattr(f, "encoding", None)
         return self._parser().read_file(f, source, self)
 
-    def read_string(self: T, string: str, source="<string>") -> T:
+    def read_string(self, string: str, source: str = "<string>") -> Self:
         """Read configuration from a given string.
+
+        The file and encoding of a previous ``read*`` call are kept for
+        :meth:`update_file`.
 
         Args:
             string (str): string containing a configuration
@@ -163,7 +174,7 @@ class ConfigUpdater(Document):
         self.clear()
         return self._parser().read_string(string, source, self)
 
-    def write(self, fp: TextIO, validate: bool = True):
+    def write(self, fp: TextIO, validate: bool = True) -> None:
         # TODO: For Python>=3.8 instead of TextIO we can define a Writeable protocol
         """Write an .cfg/.ini-format representation of the configuration state.
 
@@ -175,8 +186,11 @@ class ConfigUpdater(Document):
             self.validate_format()
         fp.write(str(self))
 
-    def update_file(self: T, validate: bool = True) -> T:
+    def update_file(self, validate: bool = True) -> Self:
         """Update the read-in configuration file.
+
+        The file is written with the encoding it was read with, see :meth:`read` and
+        :meth:`read_file`.
 
         Args:
             validate (Boolean): validate format before writing
@@ -185,11 +199,12 @@ class ConfigUpdater(Document):
             raise NoConfigFileReadError()
         if validate:  # validate BEFORE opening the file!
             self.validate_format()
-        with open(self._filename, "w") as fb:
+        encoding = io.text_encoding(self._encoding)
+        with open(self._filename, "w", encoding=encoding) as fb:
             self.write(fb, validate=False)
         return self
 
-    def validate_format(self, **kwargs):
+    def validate_format(self, **kwargs: Any) -> bool:
         """Given the current state of the ``ConfigUpdater`` object (e.g. after
         modifications), validate its INI/CFG textual representation by parsing it with
         :class:`~configparser.ConfigParser`.

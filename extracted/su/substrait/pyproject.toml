@@ -7,8 +7,8 @@ readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "protobuf >=5,<7",
-    "substrait-protobuf==0.102.0",
-    "substrait-extensions==0.102.0",
+    "substrait-protobuf==0.106.0",
+    "substrait-extensions==0.106.0",
 ]
 dynamic = ["version"]
 
@@ -16,11 +16,11 @@ dynamic = ["version"]
 write_to = "src/substrait/_version.py"
 
 [project.optional-dependencies]
-extensions = ["substrait-antlr==0.102.0", "pyyaml"]
+extensions = ["substrait-antlr==0.106.0", "pyyaml"]
 sql = ["sqloxide", "deepdiff"]
 
 [dependency-groups]
-dev = ["pytest >= 7.0.0", "substrait-antlr==0.102.0", "pyyaml", "sqloxide", "deepdiff", "duckdb<=1.2.2; python_version < '3.14'", "datafusion"]
+dev = ["pytest >= 7.0.0", "substrait-antlr==0.106.0", "pyyaml", "sqloxide", "deepdiff", "duckdb<=1.2.2; python_version < '3.14'", "datafusion"]
 
 [tool.pytest.ini_options]
 pythonpath = "src"
@@ -53,11 +53,41 @@ respect-gitignore = true
 # should target minimum supported version
 target-version = "py310"
 lint.extend-select = ["I"]
+# The public API raises plain `Exception`; switching to typed exceptions is a separate,
+# user-visible change.
+lint.extend-ignore = ["TRY002", "TRY004"]
 
+[tool.ruff.lint.per-file-ignores]
+# Naive datetimes are deliberate: they model Substrait's timezone-less timestamp literals.
+"tests/**" = ["DTZ001"]
+# Re-exports the generated protobuf modules wholesale.
+"src/substrait/proto/__init__.py" = ["F401", "F403"]
+
+
+[tool.uv]
+# 0.11.8 is the first release that writes a relative exclude-newer into uv.lock
+# without a solve timestamp, so the lock does not change on every re-lock.
+required-version = ">=0.11.8"
+# Ignore PyPI packages published in the last 14 days when locking, so a
+# compromised or broken upload has time to be noticed before it can reach a
+# build. See CONTRIBUTING.md for how to bypass this for an urgent security fix.
+exclude-newer = "14 days"
+# We publish these ourselves, so there is no third-party release to let the
+# ecosystem vet. Matches their minimumReleaseAge exemption in renovate.json.
+exclude-newer-package = { substrait-protobuf = false, substrait-extensions = false, substrait-antlr = false }
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64", "linux-aarch64"]
+# The same 14-day cutoff for the conda and PyPI packages pixi solves. 0.67.0 is
+# the first release that accepts a relative cutoff and the per-package tables.
+exclude-newer = "14d"
+requires-pixi = ">=0.67.0"
+
+[tool.pixi.pypi-exclude-newer]
+substrait-protobuf = "0d"
+substrait-extensions = "0d"
+substrait-antlr = "0d"
 
 [tool.pixi.environments]
 dev = { features = ["dev"], solve-group = "default" }
@@ -70,4 +100,4 @@ lint = "ruff check"
 lint_fix = "ruff check --fix"
 
 [tool.pixi.dependencies]
-ruff = ">=0.14.10,<0.15"
+ruff = ">=0.16.9,<0.17"

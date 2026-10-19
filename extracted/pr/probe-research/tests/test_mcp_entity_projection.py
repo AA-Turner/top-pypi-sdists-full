@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from copy import deepcopy
 from types import SimpleNamespace
 from uuid import uuid4
@@ -118,9 +119,9 @@ def test_files_and_sweep_groups_carry_no_notes_on_their_card_or_views(kind):
         service.get_entity(f"{kind}:one", view=View.NOTES)
 
 
-def test_nonshared_artifact_actual_id_resolution_preserves_its_limitation(client, app):
+def test_nonshared_artifact_id_resolves_to_a_full_card(client, app):
     artifact_id = str(uuid4())
-    app.artifacts["owning-run"] = [{"id": artifact_id, "name": "private-scorer.py", "notes": "private caveat"}]
+    app.artifacts["owning-run"] = [{"id": artifact_id, "name": "private-scorer.py"}]
     service = ResearchReadService(ResearchOSSource(client))
     start = len(app.requests)
 
@@ -128,22 +129,64 @@ def test_nonshared_artifact_actual_id_resolution_preserves_its_limitation(client
 
     entity = card["data"]["entity"]
     assert entity["id"] == artifact_id and entity["shared"] is False
-    assert "exists but is not shared" in entity["resolution_note"]
-    assert "only its id and version chain are readable" in entity["resolution_note"]
-    assert len(entity["resolution_note"]) <= 480
+    assert entity["name"] == "private-scorer.py"
     assert entity["read_versions"] == 'view="versions"'
-    assert "name" not in entity and "notes" not in card["data"]
-    # The ordinary envelope may also initialize the cached /v1/me identity.
+    assert entity["read_content"] == 'view="content"'
     assert [r.url.path for r in app.requests[start:] if r.url.path != "/v1/me"] == [
-        "/v1/shared/files", f"/v1/artifacts/{artifact_id}/versions",
+        "/v1/shared/files", f"/v1/artifacts/{artifact_id}",
     ]
-    # The suggested read is real even when there are no versions yet. It must
-    # not imply that RECORD can resolve the unavailable name/metadata/notes.
-    versions = service.get_entity(f"artifact:{artifact_id}", view=View.VERSIONS)
-    assert versions["data"]["versions"] == []
-    record = service.get_entity(f"artifact:{artifact_id}", view=View.RECORD)
-    assert record["data"]["record"]["shared"] is False
-    assert "name" not in record["data"]["record"]
+    assert service.get_entity(f"artifact:{artifact_id}", view=View.VERSIONS)["data"]["versions"] == []
+
+
+def test_unknown_artifact_id_is_not_found(client, app):
+    service = ResearchReadService(ResearchOSSource(client))
+    with pytest.raises(errors.NotFoundError):
+        service.source.artifact_by_id(str(uuid4()))
+
+
+def _content_service(client, app, blob, **row):
+    artifact_id = str(uuid4())
+    app.artifacts["owning-experiment"] = [
+        {"id": artifact_id, "name": "combined_candidate.py", "size_bytes": len(blob), **row}
+    ]
+    app.blobs[artifact_id] = blob
+    return ResearchReadService(ResearchOSSource(client)), artifact_id
+
+
+def test_nonshared_artifact_content_reads_its_source(client, app):
+    source = "".join(f"line {n}\n" for n in range(1, 101)) + "def score():\n    return 1"
+    service, artifact_id = _content_service(client, app, source.encode())
+
+    out = service.get_entity(f"artifact:{artifact_id}", view=View.CONTENT)
+
+    data = out["data"]
+    assert data["name"] == "combined_candidate.py"
+    assert data["total_lines"] == 102
+    assert data["sha256"] == hashlib.sha256(source.encode()).hexdigest()
+    sections = data["sections"]
+    assert sections[0]["line_start"] == 1 and sections[0]["text"].startswith("line 1\nline 2")
+    assert "\n".join(s["text"] for s in sections) == source
+
+    hit = service.get_entity(
+        f"artifact:{artifact_id}", view=View.CONTENT, filters={"grep": "def score", "context_lines": 0}
+    )["data"]["sections"]
+    assert hit == [{"line": 101, "line_start": 101, "line_end": 101, "text": "def score():"}]
+
+
+@pytest.mark.parametrize(
+    ("blob", "row", "needle"),
+    [
+        (b"\x89PNG\x00\x01", {}, "binary"),
+        (b"x", {"size_bytes": 3 * 1024 * 1024}, "byte text limit"),
+        (b"x", {"is_reference": True, "uri": "file:///data/ckpt.pt"}, "is a reference"),
+    ],
+)
+def test_artifact_content_refuses_what_it_cannot_show_as_text(client, app, blob, row, needle):
+    service, artifact_id = _content_service(client, app, blob, **row)
+    with pytest.raises(errors.ValidationError, match=needle) as exc:
+        service.get_entity(f"artifact:{artifact_id}", view=View.CONTENT)
+    if needle != "is a reference":
+        assert f"probe artifact download {artifact_id}" in str(exc.value)
 
 
 class IntentSource(EntitySource):

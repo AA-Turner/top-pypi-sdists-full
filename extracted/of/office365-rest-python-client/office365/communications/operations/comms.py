@@ -1,8 +1,16 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from office365.communications.result_info import ResultInfo
 from office365.entity import Entity
+from office365.runtime.pollable import PollableOperation
+
+if TYPE_CHECKING:
+    from office365.directory.identitygovernance.operationstatus import OperationStatus
 
 
-class CommsOperation(Entity):
+class CommsOperation(PollableOperation, Entity):
     """
     Represents the status of certain long-running operations.
 
@@ -29,3 +37,16 @@ class CommsOperation(Entity):
         The result information.
         """
         return self.properties.get("resultInfo", ResultInfo())
+
+    @property
+    def status(self) -> OperationStatus:
+        """Gets the status property"""
+        from office365.directory.identitygovernance.operationstatus import (
+            OperationStatus,
+        )
+
+        return self.properties.get("status", OperationStatus.NotStarted)
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.CommsOperation"

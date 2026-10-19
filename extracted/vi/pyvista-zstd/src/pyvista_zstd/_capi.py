@@ -32,6 +32,8 @@ from typing import Any
 import numpy as np
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Iterable
     from collections.abc import Iterator
 
     from numpy.typing import NDArray
@@ -52,7 +54,7 @@ __all__ = [
     "max_file_version",
 ]
 
-ABI_VERSION = 11
+ABI_VERSION = 13
 """ABI this binding speaks. A library reporting anything else is refused."""
 
 DTYPE_LEN = 16
@@ -213,6 +215,18 @@ class _ArrayInfo(Structure):
     )
 
 
+class _ThumbnailInfo(Structure):
+    """Mirrors ``pvzstd_thumbnail_info``."""
+
+    _fields_ = (
+        ("png", c_void_p),
+        ("nbytes", c_uint64),
+        ("width", c_uint32),
+        ("height", c_uint32),
+        ("stale", c_int),
+    )
+
+
 class _AppendArray(Structure):
     # Field order is the C declaration's; ctypes reproduces its padding from that,
     # and a reordering here would misread every member past the first difference.
@@ -271,6 +285,7 @@ _load_error: str | None = None
 def _bind(lib: ctypes.CDLL) -> None:
     """Declare every signature. ctypes defaults are wrong for 64-bit returns."""
     _bind_reader(lib)
+    _bind_thumbnail(lib)
     _bind_writer(lib)
 
 
@@ -361,6 +376,15 @@ def _bind_reader(lib: ctypes.CDLL) -> None:
 
     lib.pvzstd_frame_sizes.restype = c_int
     lib.pvzstd_frame_sizes.argtypes = [c_void_p, POINTER(c_uint64), POINTER(c_uint64), c_uint64]
+
+
+def _bind_thumbnail(lib: ctypes.CDLL) -> None:
+    """Thumbnail entry points of the reader and writer."""
+    lib.pvzstd_thumbnail.restype = c_int
+    lib.pvzstd_thumbnail.argtypes = [c_void_p, POINTER(_ThumbnailInfo)]
+
+    lib.pvzstd_writer_set_thumbnail.restype = c_int
+    lib.pvzstd_writer_set_thumbnail.argtypes = [c_void_p, c_char_p, c_uint64]
 
 
 def _bind_writer(lib: ctypes.CDLL) -> None:
@@ -559,6 +583,9 @@ class CoreReader:
         # Only a memory-backed reader holds one. The core borrows the bytes
         # rather than owning them, so something on this side has to outlive it.
         self._buffer: NDArray[np.uint8] | None = None
+        # Decoded array headers and a name-to-index map, built on first use.
+        self._catalog: tuple[list[tuple[str, np.dtype[Any], tuple[int, ...]]], dict[str, int]] | None = None
+        self._field_names: list[str] | None = None
 
         if (path is None) == (buffer is None):
             msg = "CoreReader takes exactly one of `path` and `buffer`"
@@ -643,7 +670,7 @@ class CoreReader:
             Names as stored, including the 16-character UID prefix.
 
         """
-        return [self._info(i).name.decode("utf-8") for i in range(len(self))]
+        return [name for name, _, _ in self._array_catalog()[0]]
 
     def read_at(self, index: int) -> NDArray[Any]:
         """
@@ -711,12 +738,15 @@ class CoreReader:
             Empty for a MultiBlock container, which has no single root dataset.
 
         """
-        count = int(self._lib.pvzstd_field_array_count(self._live))
-        names = []
-        for i in range(count):
-            raw = self._lib.pvzstd_field_array_name_at(self._live, c_uint64(i))
-            names.append(raw.decode("utf-8"))
-        return names
+        if self._field_names is None:
+            live = self._live
+            count = int(self._lib.pvzstd_field_array_count(live))
+            names = []
+            for i in range(count):
+                raw = self._lib.pvzstd_field_array_name_at(live, c_uint64(i))
+                names.append(raw.decode("utf-8"))
+            self._field_names = names
+        return list(self._field_names)
 
     def find_field(self, name: str) -> int | None:
         """
@@ -736,7 +766,36 @@ class CoreReader:
         found = int(self._lib.pvzstd_find_field_array(self._live, name.encode("utf-8")))
         return None if found < 0 else found
 
-    def read_arrays(self, keep: set[str] | None = None, n_threads: int = THREADS_AUTO) -> dict[str, NDArray[Any]]:
+    def _array_catalog(self) -> tuple[list[tuple[str, np.dtype[Any], tuple[int, ...]]], dict[str, int]]:
+        """Return every array's ``(name, dtype, shape)`` in frame order, and each name's index."""
+        if self._catalog is not None:
+            return self._catalog
+        handle = self._live
+        # Every header in one crossing.
+        n_arrays = int(self._lib.pvzstd_array_count(handle))
+        infos = (_ArrayInfo * n_arrays)()
+        if n_arrays:
+            _check(self._lib.pvzstd_array_info_range(handle, 0, n_arrays, infos))
+
+        dtypes: dict[bytes, np.dtype[Any]] = {}
+        entries: list[tuple[str, np.dtype[Any], tuple[int, ...]]] = []
+        for info in infos:
+            raw_dtype = info.dtype
+            dtype = dtypes.get(raw_dtype)
+            if dtype is None:
+                dtype = np.dtype(raw_dtype.decode("utf-8"))
+                dtypes[raw_dtype] = dtype
+            # Slicing converts the dimensions in one C-level step.
+            entries.append((info.name.decode("utf-8"), dtype, tuple(info.shape[: info.ndim])))
+        self._catalog = (entries, {name: i for i, (name, _, _) in enumerate(entries)})
+        return self._catalog
+
+    def read_arrays(
+        self,
+        keep: set[str] | None = None,
+        n_threads: int = THREADS_AUTO,
+        allocate: Callable[[str, tuple[int, ...], np.dtype[Any]], NDArray[Any]] | None = None,
+    ) -> dict[str, NDArray[Any]]:
         """
         Decompress arrays into a name-keyed mapping.
 
@@ -752,6 +811,10 @@ class CoreReader:
             Workers to spread the frames over. The default picks from the
             total size; 0 or 1 decompresses inline and negative uses every
             core, matching :meth:`CoreWriter.set_threads`.
+        allocate : callable, optional
+            Called as ``allocate(name, shape, dtype)`` for each kept array and
+            returns the C-contiguous, writable destination it is decompressed
+            into. Defaults to :func:`numpy.empty`.
 
         Returns
         -------
@@ -759,29 +822,30 @@ class CoreReader:
 
         """
         handle = self._live
-        dtypes: dict[bytes, np.dtype[Any]] = {}
-        empty = np.empty
-
-        # Every header in one crossing.
-        n_arrays = int(self._lib.pvzstd_array_count(handle))
-        infos = (_ArrayInfo * n_arrays)()
-        if n_arrays:
-            _check(self._lib.pvzstd_array_info_range(handle, 0, n_arrays, infos))
+        entries, index_of = self._array_catalog()
+        if keep is None:
+            order: Iterable[int] = range(len(entries))
+        else:
+            order = sorted(index_of[name] for name in keep if name in index_of)
 
         wanted: list[tuple[int, str, NDArray[Any]]] = []
-        for index in range(n_arrays):
-            info = infos[index]
-            name = info.name.decode("utf-8")
-            if keep is not None and name not in keep:
-                continue
-            raw_dtype = info.dtype
-            dtype = dtypes.get(raw_dtype)
-            if dtype is None:
-                dtype = np.dtype(raw_dtype.decode("utf-8"))
-                dtypes[raw_dtype] = dtype
-            # Slicing converts the dimensions in one C-level step.
-            shape = tuple(info.shape[: info.ndim])
-            wanted.append((index, name, empty(shape, dtype=dtype)))
+        if allocate is None:
+            empty = np.empty
+            for index in order:
+                name, dtype, shape = entries[index]
+                wanted.append((index, name, empty(shape, dtype=dtype)))
+        else:
+            for index in order:
+                name, dtype, shape = entries[index]
+                out = allocate(name, shape, dtype)
+                if out.shape != shape or out.dtype != dtype or not out.flags.c_contiguous or not out.flags.writeable:
+                    msg = (
+                        f"allocate returned an unusable destination for '{name}': need shape {shape}, "
+                        f"dtype {dtype}, C-contiguous and writeable; got shape {out.shape}, dtype {out.dtype}, "
+                        f"contiguous={out.flags.c_contiguous}, writeable={out.flags.writeable}"
+                    )
+                    raise ValueError(msg)
+                wanted.append((index, name, out))
 
         payloads = [(i, n, a) for i, n, a in wanted if a.nbytes]
         if payloads:
@@ -858,6 +922,14 @@ class CoreReader:
         )
         return decompressed, compressed
 
+    def thumbnail(self) -> tuple[bytes, int, int, bool] | None:
+        """Return ``(png, width, height, stale)`` for the embedded thumbnail, or None."""
+        info = _ThumbnailInfo()
+        _check(self._lib.pvzstd_thumbnail(self._live, byref(info)))
+        if not info.png:
+            return None
+        return ctypes.string_at(info.png, info.nbytes), info.width, info.height, bool(info.stale)
+
 
 class CoreWriter:
     """
@@ -931,6 +1003,10 @@ class CoreWriter:
     def set_fixed_width_cells(self, *, enabled: bool) -> None:
         """Record whether any dataset used the fixed-width cell encoding."""
         _check(self._lib.pvzstd_writer_set_fixed_width_cells(self._live, 1 if enabled else 0))
+
+    def set_thumbnail(self, png: bytes) -> None:
+        """Embed PNG bytes as the container's thumbnail."""
+        _check(self._lib.pvzstd_writer_set_thumbnail(self._live, png, len(png)))
 
     def add_array(self, name: str, arr: NDArray[Any]) -> None:
         """

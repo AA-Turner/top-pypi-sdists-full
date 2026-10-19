@@ -2,7 +2,7 @@
 Utility and debugging functions for Substrait.
 """
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import substrait.algebra_pb2 as stalg
 import substrait.extensions.extensions_pb2 as ste
@@ -19,9 +19,21 @@ def type_num_names(typ: stp.Type):
     elif kind == "list":
         return type_num_names(typ.list.type)
     elif kind == "map":
-        return type_num_names(typ.map.key) + type_num_names(typ.map.value)
+        # The map field's own name, plus any struct field names in its key/value.
+        return type_num_names(typ.map.key) + type_num_names(typ.map.value) - 1
     else:
         return 1
+
+
+def top_level_names(ns: stp.NamedStruct) -> list[str]:
+    """The names of ``ns``'s top-level fields, skipping the nested struct field
+    names that ``ns.names`` interleaves in depth-first order."""
+    names, offset = [], 0
+    for typ in ns.struct.types:
+        if offset < len(ns.names):
+            names.append(ns.names[offset])
+        offset += type_num_names(typ)
+    return names
 
 
 def merge_extension_urns(*extension_urns: Iterable[ste.SimpleExtensionURN]):
@@ -650,9 +662,12 @@ def to_id_based_outer_references(plan: stplan.Plan) -> stplan.Plan:
             for name, expr in _iter_named_direct_expressions(node):
                 if single_input is not None:
                     binding = single_input
-                elif reshaped_join and name in _JOIN_COMBINED_SCOPED_FIELDS:
-                    binding = None
-                elif projected_read and name in _READ_FILTER_FIELDS:
+                elif (
+                    reshaped_join
+                    and name in _JOIN_COMBINED_SCOPED_FIELDS
+                    or projected_read
+                    and name in _READ_FILTER_FIELDS
+                ):
                     binding = None
                 else:
                     binding = rel

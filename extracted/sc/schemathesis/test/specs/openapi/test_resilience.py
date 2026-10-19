@@ -1,12 +1,12 @@
 import pytest
 from flask import jsonify
-from hypothesis import given, settings
 
 import schemathesis
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.parameters import SkippedParameter
 from schemathesis.core.result import Err, Ok
 from schemathesis.specs.openapi.adapter.responses import ResolvedSchema
+from test.utils import run_given
 
 
 def _schema(servers):
@@ -427,12 +427,9 @@ def test_request_is_sent_when_optional_parameter_is_dropped(ctx, app_runner):
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     operation = _first_operation(schema).ok()
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=1, deadline=None)
+    @run_given(case=operation.as_strategy(), max_examples=1)
     def test(case):
         assert case.call().status_code == 200
-
-    test()
 
 
 # `required` and the parameter's name live behind the `$ref`, not on the stub that names it.
@@ -470,22 +467,19 @@ def test_referenced_parameter_with_unresolvable_ref_v3(ctx, required):
 
 
 def test_response_schema_with_unresolvable_ref_is_unvalidatable(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /things",
         {
-            "/things": {
-                "get": {
-                    "responses": {
-                        "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}},
-                        "404": {
-                            "description": "Not Found",
-                            "content": {"*/*": {"schema": {"$ref": "#/components/schemas/Missing"}}},
-                        },
-                    }
-                }
+            "responses": {
+                "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}},
+                "404": {
+                    "description": "Not Found",
+                    "content": {"*/*": {"schema": {"$ref": "#/components/schemas/Missing"}}},
+                },
             }
-        }
+        },
     )
-    responses = schema["/things"]["GET"].responses
+    responses = operation.responses
 
     assert responses.get("200").get_schema("application/json") == ResolvedSchema(
         schema={"type": "object"}, media_type="application/json", name_to_uri={}, unresolvable_reference=None
@@ -496,21 +490,18 @@ def test_response_schema_with_unresolvable_ref_is_unvalidatable(ctx):
 
 
 def test_response_header_with_unresolvable_ref_is_unvalidatable(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /things",
         {
-            "/things": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "headers": {"X-Total": {"schema": {"$ref": "#/components/schemas/Missing"}}},
-                        }
-                    }
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "headers": {"X-Total": {"schema": {"$ref": "#/components/schemas/Missing"}}},
                 }
             }
-        }
+        },
     )
-    header = dict(schema["/things"]["GET"].responses.get("200").headers.items())["X-Total"]
+    header = dict(operation.responses.get("200").headers.items())["X-Total"]
 
     assert header.unresolvable_reference == "#/components/schemas/Missing"
     assert header.schema == {}

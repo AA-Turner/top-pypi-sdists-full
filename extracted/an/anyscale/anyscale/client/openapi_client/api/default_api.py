@@ -2355,7 +2355,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: RoleResponse
+        :return: None
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -2382,7 +2382,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(RoleResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: None
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -2443,7 +2443,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='RoleResponse',  # noqa: E501
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -9910,7 +9910,7 @@ class DefaultApi(object):
     def delete_cloud_api_v2_clouds_cloud_id_delete(self, cloud_id, **kwargs):  # noqa: E501
         """Delete Cloud  # noqa: E501
 
-        Deletes a Cloud. Will delete all clusters that are using this cloud. If the cloud has a system cluster, it will be terminated before the cloud is deleted.If any of those clusters are not terminated, this call will fail.  # noqa: E501
+        Deletes a Cloud. Will delete all clusters that are using this cloud. If the cloud has system clusters, they will be terminated before the cloud is deleted.If any of those clusters are not terminated, this call will fail.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_cloud_api_v2_clouds_cloud_id_delete(cloud_id, async_req=True)
@@ -9936,7 +9936,7 @@ class DefaultApi(object):
     def delete_cloud_api_v2_clouds_cloud_id_delete_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
         """Delete Cloud  # noqa: E501
 
-        Deletes a Cloud. Will delete all clusters that are using this cloud. If the cloud has a system cluster, it will be terminated before the cloud is deleted.If any of those clusters are not terminated, this call will fail.  # noqa: E501
+        Deletes a Cloud. Will delete all clusters that are using this cloud. If the cloud has system clusters, they will be terminated before the cloud is deleted.If any of those clusters are not terminated, this call will fail.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.delete_cloud_api_v2_clouds_cloud_id_delete_with_http_info(cloud_id, async_req=True)
@@ -13653,7 +13653,7 @@ class DefaultApi(object):
     def describe_system_workload_api_v2_system_workload_cloud_id_describe_post(self, cloud_id, workload_name, **kwargs):  # noqa: E501
         """Describe System Workload  # noqa: E501
 
-        Get details of system workload cluster and optionally start cluster.  # noqa: E501
+        Get details of system workload cluster and optionally start cluster. The system cluster is that of `cloud_resource_id`, else of the cloud resource `cluster_id` last ran in, else of the cloud's primary cloud resource.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.describe_system_workload_api_v2_system_workload_cloud_id_describe_post(cloud_id, workload_name, async_req=True)
@@ -13663,6 +13663,7 @@ class DefaultApi(object):
         :param str cloud_id: (required)
         :param SystemWorkloadName workload_name: (required)
         :param str cloud_resource_id:
+        :param str cluster_id:
         :param bool start_cluster:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
@@ -13681,7 +13682,7 @@ class DefaultApi(object):
     def describe_system_workload_api_v2_system_workload_cloud_id_describe_post_with_http_info(self, cloud_id, workload_name, **kwargs):  # noqa: E501
         """Describe System Workload  # noqa: E501
 
-        Get details of system workload cluster and optionally start cluster.  # noqa: E501
+        Get details of system workload cluster and optionally start cluster. The system cluster is that of `cloud_resource_id`, else of the cloud resource `cluster_id` last ran in, else of the cloud's primary cloud resource.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.describe_system_workload_api_v2_system_workload_cloud_id_describe_post_with_http_info(cloud_id, workload_name, async_req=True)
@@ -13691,6 +13692,7 @@ class DefaultApi(object):
         :param str cloud_id: (required)
         :param SystemWorkloadName workload_name: (required)
         :param str cloud_resource_id:
+        :param str cluster_id:
         :param bool start_cluster:
         :param _return_http_data_only: response data without head status code
                                        and headers
@@ -13712,6 +13714,7 @@ class DefaultApi(object):
             'cloud_id',
             'workload_name',
             'cloud_resource_id',
+            'cluster_id',
             'start_cluster'
         ]
         all_params.extend(
@@ -13751,6 +13754,8 @@ class DefaultApi(object):
             query_params.append(('workload_name', local_var_params['workload_name']))  # noqa: E501
         if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
             query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
         if 'start_cluster' in local_var_params and local_var_params['start_cluster'] is not None:  # noqa: E501
             query_params.append(('start_cluster', local_var_params['start_cluster']))  # noqa: E501
 
@@ -36299,6 +36304,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get(self, workload_id, **kwargs):  # noqa: E501
+        """Get Workspace Ssh Details  # noqa: E501
+
+        Everything needed to SSH into a KubeRay workspace: the host the tunnel connects to, the cloud's private key, and a freshly minted cluster access token. The token admits the connection at the workspace's edge; the key authenticates to sshd inside the pod.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get(workload_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workload_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkspacesshdetailsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get_with_http_info(workload_id, **kwargs)  # noqa: E501
+
+    def get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get_with_http_info(self, workload_id, **kwargs):  # noqa: E501
+        """Get Workspace Ssh Details  # noqa: E501
+
+        Everything needed to SSH into a KubeRay workspace: the host the tunnel connects to, the cloud's private key, and a freshly minted cluster access token. The token admits the connection at the workspace's edge; the key authenticates to sshd inside the pod.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get_with_http_info(workload_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str workload_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkspacesshdetailsResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'workload_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'workload_id' is set
+        if self.api_client.client_side_validation and ('workload_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['workload_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `workload_id` when calling `get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'workload_id' in local_var_params:
+            path_params['workload_id'] = local_var_params['workload_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/kuberay/workloads/{workload_id}/ssh_details', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkspacesshdetailsResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_workspace_template_cluster_environment_api_v2_experimental_workspaces_template_template_id_cluster_environment_get(self, template_id, **kwargs):  # noqa: E501
         """Get Workspace Template Cluster Environment  # noqa: E501
 
@@ -56383,7 +56502,7 @@ class DefaultApi(object):
     def terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post(self, cloud_id, **kwargs):  # noqa: E501
         """Terminate System Cluster  # noqa: E501
 
-        Initializes workflow to transition the System Cluster of a given cloud into the Terminated state. This is a long running operation. Clients will need to poll the operation's status to determine completion.  # noqa: E501
+        Initializes workflow to transition the System Cluster of a given cloud into the Terminated state. Terminates the System Cluster of the given cloud resource, or of the cloud's primary cloud resource if none is given. This is a long running operation. Clients will need to poll the operation's status to determine completion.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post(cloud_id, async_req=True)
@@ -56391,6 +56510,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: ID of the Cloud to terminate the System Cluster in. (required)
+        :param str cloud_resource_id:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -56408,7 +56528,7 @@ class DefaultApi(object):
     def terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post_with_http_info(self, cloud_id, **kwargs):  # noqa: E501
         """Terminate System Cluster  # noqa: E501
 
-        Initializes workflow to transition the System Cluster of a given cloud into the Terminated state. This is a long running operation. Clients will need to poll the operation's status to determine completion.  # noqa: E501
+        Initializes workflow to transition the System Cluster of a given cloud into the Terminated state. Terminates the System Cluster of the given cloud resource, or of the cloud's primary cloud resource if none is given. This is a long running operation. Clients will need to poll the operation's status to determine completion.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post_with_http_info(cloud_id, async_req=True)
@@ -56416,6 +56536,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: ID of the Cloud to terminate the System Cluster in. (required)
+        :param str cloud_resource_id:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -56433,7 +56554,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
+            'cloud_id',
+            'cloud_resource_id'
         ]
         all_params.extend(
             [
@@ -56464,6 +56586,8 @@ class DefaultApi(object):
             path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
 
         query_params = []
+        if 'cloud_resource_id' in local_var_params and local_var_params['cloud_resource_id'] is not None:  # noqa: E501
+            query_params.append(('cloud_resource_id', local_var_params['cloud_resource_id']))  # noqa: E501
 
         header_params = {}
 
@@ -57293,6 +57417,120 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post(self, compute_template_id, **kwargs):  # noqa: E501
+        """Unarchive Compute Template  # noqa: E501
+
+        Unarchives a compute template and all of its versions.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post(compute_template_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str compute_template_id: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post_with_http_info(compute_template_id, **kwargs)  # noqa: E501
+
+    def unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post_with_http_info(self, compute_template_id, **kwargs):  # noqa: E501
+        """Unarchive Compute Template  # noqa: E501
+
+        Unarchives a compute template and all of its versions.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post_with_http_info(compute_template_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str compute_template_id: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'compute_template_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'compute_template_id' is set
+        if self.api_client.client_side_validation and ('compute_template_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['compute_template_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `compute_template_id` when calling `unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'compute_template_id' in local_var_params:
+            path_params['compute_template_id'] = local_var_params['compute_template_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/compute_templates/{compute_template_id}/unarchive', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def unarchive_role_api_v2_roles_role_id_unarchive_post(self, role_id, **kwargs):  # noqa: E501
         """Unarchive Role  # noqa: E501
 
@@ -57311,7 +57549,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: RoleResponse
+        :return: None
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -57338,7 +57576,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(RoleResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: None
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -57399,7 +57637,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='RoleResponse',  # noqa: E501
+            response_type=None,  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tests.test_companion_bench import (  # noqa: F401 -- `served` is a fixture
     CHOSEN,
     KEY,
@@ -22,6 +24,8 @@ from tests.test_companion_bench import (  # noqa: F401 -- `served` is a fixture
     _entity,
     _fake,
     _final,
+    _reads,
+    fp,
     score,
     served,
 )
@@ -172,12 +176,24 @@ def test_the_fakes_visuals_routes_share_the_pages_version():
     assert state["entities"][SVM]["summary"] is None, "no summary written"
 
 
-def test_the_real_cli_keeps_a_summary_and_sets_visuals_through_the_fake(tmp_path, served):  # noqa: F811
-    fake, server = served
+@pytest.fixture
+def served_markdown():
+    """A fake without the full-page door: a server before ARTIFACT-PAGES P1."""
+    fake = _fake(T0 + 3600, pages=False)
+    server = fp.Served(fake, upstream=None, mcp=True)
+    yield fake, server
+    server.stop()
+
+
+def test_the_real_cli_keeps_a_summary_and_sets_visuals_through_the_fake(tmp_path, served_markdown):
+    """The Markdown path: a server before full pages ignores `format`, so the
+    CLI drafts Markdown and pushes `markdown`, as it always did."""
+    fake, server = served_markdown
     out = _cli(tmp_path, server, "summary", "checkout", "--experiment", "svm-vs-logreg")
     assert out.returncode == 0, out.stderr
     checkout = json.loads(out.stdout)
     assert checkout["version"] == 0 and checkout["mode"] == "recorder"
+    assert checkout["path"].endswith(".md")
     Path(checkout["path"]).write_text(SUMMARY)
     pushed = _cli(tmp_path, server, "summary", "push", "--experiment", "svm-vs-logreg")
     assert pushed.returncode == 0, pushed.stderr
@@ -190,6 +206,119 @@ def test_the_real_cli_keeps_a_summary_and_sets_visuals_through_the_fake(tmp_path
     state = fake.final_state()
     assert state["entities"][SVM]["summary"] == SUMMARY and state["entities"][SVM]["visuals"] == table
     assert state["summary_pushes"] == 1 and SVM in state["touched"] and fake.unmapped == []
+
+
+# ---------------------------------------------------------------------------
+# The full-page door (ARTIFACT-PAGES P1)
+# ---------------------------------------------------------------------------
+
+#: A run of the experiment with a logged metric, so `chartable` names one.
+CHART_RUN_METRIC = "cv_accuracy"
+
+
+def _paged_fake():
+    reads = _reads()
+    reads[f"/v1/runs/{CHOSEN}"]["summary_metrics"] = {CHART_RUN_METRIC: 0.9889}
+    return fp.FakeProbe(reads, clock=fp.ManualClock(T0 + 3600), token="bench-fake-t")
+
+
+def _page(series_id: str | None = None, metric: str = CHART_RUN_METRIC) -> str:
+    block = ""
+    chart = ""
+    if series_id:
+        declared = [{"id": series_id, "metric": metric, "run_ids": [CHOSEN]}]
+        block = f'<script type="application/json" data-probe-series>{json.dumps(declared)}</script>\n'
+        chart = (f'<div id="chart-{series_id}" class="ov-chart" style="height:280px"></div>'
+                 f"<script>PROBE.lineChart('chart-{series_id}', '{series_id}', {{title: 'CV accuracy'}})</script>")
+    return (block + "<p>An SVM beats logistic regression on digits: 0.9889 vs 0.9603 (fortunate-quail-346).</p>"
+            '<h2>How it was run</h2><figure><svg viewBox="0 0 120 40"><rect x="4" y="4" width="50" height="30"/>'
+            '<text x="10" y="24">sweep</text></svg><figcaption>The sweep.</figcaption></figure>' + chart)
+
+
+def test_the_fakes_html_door_answers_like_the_contract():
+    fake = _paged_fake()
+    route = f"/v1/projects/{PROJECT}/experiments/{SVM}/summary"
+    got = _call(fake, "GET", route, query="format=html").body
+    assert (got["format"], got["markdown"], got["html"], got["series"], got["version"]) == ("html", "", "", [], 0)
+    chartable = got["chartable"]
+    assert chartable["columns"][:3] == ["kind", "key", "point_count"] and chartable["runs_covered"] == 1
+    assert chartable["by_run"][0]["run_id"] == CHOSEN and chartable["by_run"][0]["series"][0][1:3] == [
+        CHART_RUN_METRIC, 1], "a fixture's run holds one value per metric: one point"
+    assert chartable["caps"]["charts_per_page"] == 6
+    plain = _call(fake, "GET", route).body
+    assert (plain["format"], plain["html"], plain["chartable"]) == ("markdown", None, None)
+
+    put = _call(fake, "PUT", route, {"html": _page("acc"), "expected_version": 0, "session_id": "s"})
+    assert put.status == 200, put.body
+    assert (put.body["version"], put.body["changed"], put.body["markdown"]) == (1, True, "")
+    assert put.body["html"].startswith('<article class="ov-page">'), "wrapped like the server wraps it"
+    assert [s["id"] for s in put.body["series"]] == ["acc"] and "data-probe-series" not in put.body["html"]
+    again = _call(fake, "PUT", route, {"html": _page("acc"), "expected_version": 1})
+    assert (again.status, again.body["changed"], again.body["version"]) == (200, False, 1), "same page: no version"
+    stale = _call(fake, "PUT", route, {"html": _page(), "expected_version": 0})
+    assert stale.status == 409 and stale.body["detail"]["code"] == "version_moved"
+    assert stale.body["detail"]["version"] == 1 and stale.body["detail"]["html"] == put.body["html"]
+    assert [s["id"] for s in stale.body["detail"]["series"]] == ["acc"]
+    both = _call(fake, "PUT", route, {"html": _page(), "markdown": "x", "expected_version": 1})
+    assert both.status == 422 and both.body["detail"]["code"] == "body"
+    md_series = _call(fake, "PUT", route, {"markdown": "x", "series": [], "expected_version": 1})
+    assert md_series.status == 422 and md_series.body["detail"]["code"] == "body"
+    # The Markdown read of an HTML page, and its history.
+    assert "0.9889" in _call(fake, "GET", route).body["markdown"]
+    assert "0.9889" in _call(fake, "GET", f"{route}/versions/1").body["markdown"]
+    state = fake.final_state()
+    page = state["entities"][SVM]
+    assert page["summary_format"] == "html" and page["summary"] == put.body["html"]
+    assert [s["id"] for s in page["summary_series"]] == ["acc"] and state["summary_pushes"] == 1
+    assert [r["code"] for r in state["summary_refusals"]] == ["version_moved", "body", "body"]
+    assert state["summary_pages"] is True and state["html_checks"] in ("server", "accept")
+
+
+@pytest.mark.skipif(fp.server_pages() is None, reason="the server's page rules need asyncpg, structlog, "
+                    "fastapi and orjson in this venv")
+def test_an_html_push_meets_the_servers_own_refusals():
+    fake = _paged_fake()
+    route = f"/v1/projects/{PROJECT}/experiments/{SVM}/summary"
+    assert fake.html_checks == "server"
+    for html, code, words in (
+        ("<p>ok</p><script>alert(1)</script>", "script_refused", "PROBE.lineChart"),
+        ("<h1>Title</h1><p>ok</p>", "page_refused", "<h1>"),
+        (_page("acc", metric="val_loss"), "series_refused", "val_loss"),
+        (_page().replace("<p>An SVM", '<p onclick="x()">An SVM'), "script_refused", "onclick"),
+    ):
+        refused = _call(fake, "PUT", route, {"html": html, "expected_version": 0})
+        assert refused.status == 422 and refused.body["detail"]["code"] == code, refused.body
+        assert words in refused.body["detail"]["message"]
+    assert fake.final_state()["entities"][SVM]["summary"] is None, "nothing refused was written"
+
+
+def test_the_real_cli_drafts_and_pushes_a_full_page_through_the_fake(tmp_path, served):  # noqa: F811
+    fake, server = served
+    out = _cli(tmp_path, server, "summary", "checkout", "--experiment", "svm-vs-logreg")
+    assert out.returncode == 0, out.stderr
+    checkout = json.loads(out.stdout)
+    assert checkout["path"].endswith(".html") and Path(checkout["chartable_path"]).exists()
+    draft = Path(checkout["path"])
+    assert "data-probe-series" in draft.read_text(), "the declarations travel at the top of the draft"
+    draft.write_text(_page())
+    pushed = _cli(tmp_path, server, "summary", "push", "--experiment", "svm-vs-logreg")
+    assert pushed.returncode == 0, pushed.stderr
+    assert json.loads(pushed.stdout)["pushed"] is True
+    state = fake.final_state()
+    assert state["entities"][SVM]["summary_format"] == "html" and "<svg" in state["entities"][SVM]["summary"]
+    assert fake.unmapped == []
+
+
+def test_an_html_page_is_scored_on_its_visible_text_and_opens_with_prose():
+    html = _page("acc")
+    result = _state(html, visuals=[{"id": "acc", "kind": "table"}])
+    result["final"]["entities"][SVM].update(summary_format="html", summary_series=[{"id": "acc"}])
+    sm = score.score(result, KEY, READS, _evidence())["summaries"]
+    assert (sm["S1"], sm["S2"], sm["S4"]) == (1.0, 1.0, 0), sm["detail"]
+    assert sm["pages"]["svm-vs-logreg"] == {"format": "html", "words": 15, "svg": 1, "charts": 1, "series": 1}
+    assert score.documents(result["final"])[0][1].startswith("An SVM beats"), "no markup in the text"
+    assert score.html_shape("<h2>Results</h2><p>words</p>") == ["opens with <h2>, not prose"]
+    assert score.html_shape('<div class="ov-chart"></div><p>words</p>') == ["opens with <chart>, not prose"]
 
 
 # ---------------------------------------------------------------------------

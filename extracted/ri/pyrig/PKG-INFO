@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 18.108.12
+Version: 19.2.3
 Summary: A Python project setup and management tool built on infrastructure as code and convention over configuration.
 Keywords: automation,boilerplate,ci-cd,code-generation,code-quality,configuration,convention-over-configuration,developer-tools,devops,github-actions,infrastructure-as-code,project-generator,project-maintenance,project-scaffolding,project-setup,python-project,test-generation,test-scaffolding
 Author: Winipedia
@@ -26,7 +26,7 @@ Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
 Requires-Dist: inquirerpy>=0.3.4
 Requires-Dist: packaging>=26.3
-Requires-Dist: pyrig-runtime>=3.26.0
+Requires-Dist: pyrig-runtime>=3.27.0
 Requires-Dist: ruamel-yaml>=0.19.1
 Requires-Dist: spdx-matcher>=0.1.4
 Requires-Dist: tomli-w>=1.2.0

@@ -31,7 +31,7 @@ extern "C" {
 
 /* Bumped on any change below, additions included -- callers check equality, not
  * a floor, because they bind every symbol up front. */
-#define PVZSTD_ABI_VERSION 11u
+#define PVZSTD_ABI_VERSION 13u
 
 /* Dtype-field width and dataset-UID prefix width. They coincide in the format. */
 #define PVZSTD_DTYPE_LEN 16
@@ -74,12 +74,12 @@ typedef enum pvzstd_status {
 /* Highest container file_version this build can decode.
  *
  * A container stamped higher is refused rather than read: a newer format may
- * transform payloads in a way this build cannot invert, so reading one would
- * hand back corrupt values instead of failing. The ceiling lives here, beside
- * the decoder it describes, so every caller of this ABI gets the same answer --
- * a language binding that kept its own copy would refuse files the library can
- * read, or accept files it cannot. */
-#define PVZSTD_FILE_VERSION_MAX 2u
+ * transform payloads in a way this build cannot invert, or carry data this build
+ * would drop, so reading one would hand back wrong values instead of failing.
+ * The ceiling lives here, beside the decoder it describes, so every caller of
+ * this ABI gets the same answer -- a language binding that kept its own copy
+ * would refuse files the library can read, or accept files it cannot. */
+#define PVZSTD_FILE_VERSION_MAX 3u
 PVZSTD_API uint32_t pvzstd_max_file_version(void);
 
 typedef struct pvzstd_reader pvzstd_reader;
@@ -136,7 +136,7 @@ PVZSTD_API pvzstd_status pvzstd_open_memory_versioned(const void *data, uint64_t
  * the caller's buffer is left alone, and is theirs to free afterwards. */
 PVZSTD_API void pvzstd_close(pvzstd_reader *reader);
 
-/* Number of arrays, excluding the two JSON metadata frames. */
+/* Number of arrays, excluding the two JSON metadata frames and the thumbnail. */
 PVZSTD_API uint64_t pvzstd_array_count(const pvzstd_reader *reader);
 
 /* Describe array `index`. */
@@ -154,7 +154,10 @@ PVZSTD_API int64_t pvzstd_find_array(const pvzstd_reader *reader, const char *na
 
 /* Decompress array `index` into `dst`, reversing any filter. `dst_size` must
  * be at least the `nbytes` reported by pvzstd_array_info_at, or PVZSTD_E_RANGE is
- * returned and nothing is written. */
+ * returned and nothing is written. A payload stored as several zstd frames is
+ * decompressed on one worker per logical CPU once it exceeds 4 MiB, the size
+ * at which PVZSTD_THREADS_AUTO spawns workers for a batch; route through
+ * pvzstd_read_arrays with count 1 and n_threads 0 to keep it inline. */
 PVZSTD_API pvzstd_status pvzstd_read_array_at(const pvzstd_reader *reader, uint64_t index,
                                               void *dst, uint64_t dst_size);
 
@@ -162,9 +165,11 @@ PVZSTD_API pvzstd_status pvzstd_read_array_at(const pvzstd_reader *reader, uint6
  * `dsts[i]`, at least `dst_sizes[i]` bytes. Frames are independent, so this is a
  * pure fan-out. 0 or 1 runs inline; negative means one worker per logical CPU,
  * the same sign convention pvzstd_writer_set_threads uses; PVZSTD_THREADS_AUTO picks
- * from the total size. Every count is capped at `count`, and the work and its
- * order do not depend on the setting. Returns the first non-OK status, by slot
- * rather than by which worker finished first.
+ * from the total size. When there are fewer arrays than workers, the spare
+ * workers are shared out over each array's zstd frames and its shuffle inverse,
+ * so one large array still uses every core; the work and its order do not
+ * depend on the setting. Returns the first non-OK status, by slot rather than
+ * by which worker finished first.
  *
  * `failed_slot` (optional) receives the index into `indices` that status is
  * about, or PVZSTD_SLOT_NONE. Without it a caller can only learn that one of the
@@ -221,10 +226,25 @@ PVZSTD_API const char *pvzstd_metadata_name_at(const pvzstd_reader *reader, uint
 /* JSON of metadata document `index`, owned by the reader, or NULL. */
 PVZSTD_API const char *pvzstd_metadata_json_at(const pvzstd_reader *reader, uint64_t index);
 
+/* ---- Thumbnail ---- */
+
+/* An embedded PNG thumbnail. `png` is owned by the reader until pvzstd_close(). */
+typedef struct pvzstd_thumbnail_info {
+  const void *png; /* NULL when the container has none */
+  uint64_t nbytes;
+  uint32_t width;
+  uint32_t height;
+  int stale; /* nonzero when the data changed after the thumbnail was written */
+} pvzstd_thumbnail_info;
+
+/* Describe the container's thumbnail; `out->png` is NULL when it has none. The
+ * thumbnail pair is not reported as an array. */
+PVZSTD_API pvzstd_status pvzstd_thumbnail(const pvzstd_reader *reader, pvzstd_thumbnail_info *out);
+
 /* ---- Frame sizes ----
  *
  * Two frames per array, (header, payload), in file order -- including the
- * metadata frames, which are not reported as arrays. These are the trailer's
+ * metadata frames and the thumbnail pair, which are not reported as arrays. These are the trailer's
  * own numbers, so a caller needing them no longer has to parse the trailer
  * itself to answer "how big is this file decompressed". */
 
@@ -294,10 +314,11 @@ PVZSTD_API pvzstd_status pvzstd_writer_set_threads(pvzstd_writer *writer, int n_
 
 PVZSTD_API pvzstd_status pvzstd_writer_set_shuffle(pvzstd_writer *writer, pvzstd_shuffle_mode mode);
 
-/* Cell topology stored without an offsets array; promotes the file version to 2. */
+/* Cell topology stored without an offsets array; promotes the file version to at least 2. */
 PVZSTD_API pvzstd_status pvzstd_writer_set_fixed_width_cells(pvzstd_writer *writer, int enabled);
 
 /* Append one array; call order is frame order, which is how names map to frames.
+ * The name "__thumbnail" is reserved and refused with PVZSTD_E_INVALID.
  * ``dtype`` is a numpy dtype string such as "<f8". The data is copied. */
 PVZSTD_API pvzstd_status pvzstd_writer_add_array(pvzstd_writer *writer, const char *name,
                                                  const char *dtype, const uint64_t *shape,
@@ -312,13 +333,26 @@ PVZSTD_API pvzstd_status pvzstd_writer_add_array_borrowed(pvzstd_writer *writer,
                                                           uint32_t ndim, const void *data,
                                                           uint64_t nbytes);
 
+/* Embed a PNG thumbnail as the container's first frame pair, stored uncompressed
+ * so it can be read without zstd (doc/format/container-v2.md, section 11). The
+ * bytes are copied and must be a PNG: PVZSTD_E_INVALID otherwise, PVZSTD_E_RANGE
+ * past PVZSTD_THUMBNAIL_MAX_BYTES. NULL with zero bytes removes it. */
+#define PVZSTD_THUMBNAIL_MAX_BYTES (8u * 1024u * 1024u)
+PVZSTD_API pvzstd_status pvzstd_writer_set_thumbnail(pvzstd_writer *writer, const void *png,
+                                                     uint64_t nbytes);
+
 /* Dataset-metadata JSON, stored under "<uid>__ds_metadata". Dataset readers
  * expect it. */
 PVZSTD_API pvzstd_status pvzstd_writer_set_ds_metadata(pvzstd_writer *writer, const char *uid,
                                                        const char *json);
 
 /* Emit the file. The trailing file-metadata frame is generated here, so it always
- * agrees with what was written. */
+ * agrees with what was written. The file version is 3 when a staged
+ * "*__ds_metadata" document has ds_type "ExplicitStructuredGrid", or ds_type
+ * "StructuredGrid" or "RectilinearGrid" with a non-zero offset, or a
+ * "*__multiblock__ds_metadata" document has a field_data_keys object, and the
+ * call returns PVZSTD_E_INVALID, writing nothing, when such a document is not a
+ * single brace-balanced JSON object. */
 PVZSTD_API pvzstd_status pvzstd_writer_write(pvzstd_writer *writer, const char *path);
 
 /* ------------------------------------------------------------------ *

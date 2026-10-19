@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: antsibull-changelog
-Version: 0.35.1
+Version: 0.35.2
 Summary: Changelog tool for Ansible-core and Ansible collections
 Project-URL: Documentation, https://docs.ansible.com/projects/antsibull-changelog/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-changelog/
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Requires-Dist: annotated-types

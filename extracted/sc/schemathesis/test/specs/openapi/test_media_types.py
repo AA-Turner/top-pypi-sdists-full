@@ -3,13 +3,13 @@ from pathlib import Path
 import pytest
 import yaml
 from flask import jsonify
-from hypothesis import given
 from hypothesis import strategies as st
 
 import schemathesis
 from schemathesis.core.media_types import MEDIA_TYPE_STRATEGIES
 from schemathesis.transport.requests import REQUESTS_TRANSPORT
 from schemathesis.transport.wsgi import WSGI_TRANSPORT
+from test.utils import run_given
 
 HERE = Path(__file__).absolute().parent
 
@@ -41,14 +41,12 @@ def test_pdf_generation(ctx):
 
     strategy = schema["/pdf"]["post"].as_strategy()
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(case):
         assert case.body == SAMPLE_PDF
         assert case.media_type in (MEDIA_TYPE, ALIAS)
         for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT):
             assert transport.serialize_case(case)["data"] == SAMPLE_PDF
-
-    test()
 
 
 def test_explicit_example_with_custom_media_type(ctx, cli, snapshot_cli):
@@ -103,11 +101,9 @@ def test_malformed_registered_media_type_is_skipped(ctx):
     # Should not crash when encountering the malformed registered type
     strategy = schema["/data"]["post"].as_strategy()
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(case):
         assert case.media_type == "application/json"
-
-    test()
 
 
 # Pure-Python PyYAML closes top-level plain scalars with an explicit document end marker.
@@ -124,22 +120,19 @@ YAML_SCALAR_END = "" if yaml.__with_libyaml__ else "...\n"
     ids=["yaml-string", "yaml-integer", "xml-bytes"],
 )
 def test_transport_data_for_scalar_yaml_and_bytes_xml_bodies(ctx, media_type, body, expected):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "content": {
-                            "application/yaml": {"schema": {"type": "string"}},
-                            "application/xml": {"schema": {"type": "string"}},
-                        }
-                    },
-                    "responses": {"200": {"description": "OK"}},
+            "requestBody": {
+                "content": {
+                    "application/yaml": {"schema": {"type": "string"}},
+                    "application/xml": {"schema": {"type": "string"}},
                 }
-            }
-        }
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/data"]["POST"].Case(body=body, media_type=media_type)
+    case = operation.Case(body=body, media_type=media_type)
     assert case.as_transport_kwargs(base_url="http://127.0.0.1")["data"] == expected
 
 
@@ -169,13 +162,11 @@ def test_jose_jwe_generation(ctx):
 
     strategy = schema["/jwe"]["post"].as_strategy()
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(case):
         assert case.media_type == "application/jose+jwe"
         assert case.body == {"payload": 42}
         assert REQUESTS_TRANSPORT.serialize_case(case)["json"] == {"payload": 42}
-
-    test()
 
 
 def test_coverage_phase(ctx, testdir):
@@ -258,35 +249,31 @@ def test_multipart_encoding_multiple_content_types(ctx):
     schemathesis.openapi.media_type("image/png", st.just(PNG_DATA))
     schemathesis.openapi.media_type("image/jpeg", st.just(JPEG_DATA))
 
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
         {
-            "/upload": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "multipart/form-data": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"image": {"type": "string", "format": "binary"}},
-                                    "required": ["image"],
-                                },
-                                "encoding": {"image": {"contentType": "image/png, image/jpeg"}},
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"image": {"type": "string", "format": "binary"}},
+                            "required": ["image"],
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+                        "encoding": {"image": {"contentType": "image/png, image/jpeg"}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/upload"]["POST"]
     strategy = operation.as_strategy()
 
     content_types_seen = set()
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(case):
         if isinstance(case.body, dict):
             files, _ = case.operation.prepare_multipart(case.body, case.multipart_content_types)
@@ -307,8 +294,6 @@ def test_multipart_encoding_multiple_content_types(ctx):
                         )
                         content_types_seen.add(content_type)
 
-    test()
-
     assert len(content_types_seen) == 2, (
         f"Expected both content types to be selected, but only saw: {content_types_seen}"
     )
@@ -318,40 +303,34 @@ def test_multipart_encoding_array_content_type_with_custom_strategy(ctx):
     pdf_data = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n"
     schemathesis.openapi.media_type("application/pdf", st.just(pdf_data))
 
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
         {
-            "/upload": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "multipart/form-data": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"attachment": {"type": "string", "format": "binary"}},
-                                    "required": ["attachment"],
-                                },
-                                "encoding": {"attachment": {"contentType": ["application/pdf"]}},
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"attachment": {"type": "string", "format": "binary"}},
+                            "required": ["attachment"],
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+                        "encoding": {"attachment": {"contentType": ["application/pdf"]}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/upload"]["POST"]
     strategy = operation.as_strategy()
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(case):
         assert isinstance(case.body, dict)
         assert case.body["attachment"] == pdf_data
         # Content type should match the value from the encoding array, not be omitted
         assert case.multipart_content_types["attachment"] == "application/pdf"
-
-    test()
 
 
 def test_custom_media_type_strategy_in_coverage_phase(ctx, testdir):
@@ -391,38 +370,32 @@ def test(case):
 def test_multipart_encoding_with_custom_strategy_fuzzing_phase(ctx):
     schemathesis.openapi.media_type("application/pdf", st.just(b"%PDF-1.4"))
 
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
         {
-            "/upload": {
-                "post": {
-                    "requestBody": {
-                        "content": {
-                            "multipart/form-data": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"file": {"type": "string", "format": "binary"}},
-                                    "required": ["file"],
-                                },
-                                "encoding": {"file": {"contentType": "application/pdf"}},
-                            },
+            "requestBody": {
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"file": {"type": "string", "format": "binary"}},
+                            "required": ["file"],
                         },
-                        "required": True,
+                        "encoding": {"file": {"contentType": "application/pdf"}},
                     },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+                },
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    operation = schema["/upload"]["POST"]
     strategy = operation.as_strategy()
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(case):
         if case.body is not None and isinstance(case.body, dict) and "file" in case.body:
             assert case.body["file"] == b"%PDF-1.4"
-
-    test()
 
 
 def test_multipart_encoding_with_custom_strategy_parametrize(ctx, testdir):

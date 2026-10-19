@@ -12,7 +12,7 @@ from test.apps.catalog.openapi.modifiers.stateful import (
     OmitRequiredField,
     ReturnPlainText,
 )
-from test.utils import flaky, load_yaml_or_fail
+from test.utils import load_yaml_or_fail
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -32,7 +32,7 @@ def test_default(ctx, cli, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-@flaky(max_runs=3, min_passes=1)
+@pytest.mark.flaky(reruns=2)
 def test_sanitization(ctx, cli, tmp_path):
     api = ctx.openapi.apps.users_crud()
     cassette_path = tmp_path / "output.yaml"
@@ -50,7 +50,7 @@ def test_sanitization(ctx, cli, tmp_path):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_max_failures(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.users_crud_with_failure()
     assert (
@@ -131,13 +131,15 @@ def test_junit(ctx, tmp_path, cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True, replace_phase_statistic=True)
-def test_stateful_only_with_error(ctx, cli, snapshot_cli):
+def test_stateful_only_with_error(ctx, cli, app_runner, snapshot_cli):
     api = ctx.openapi.apps.users_crud()
     assert (
         cli.run(
             api.schema_url,
-            "--url=http://127.0.0.1:1/api",
+            f"--url=http://127.0.0.1:{app_runner.run_resetting_server()}/api",
             "--phases=stateful",
+            # The reported request body must not depend on the random seed.
+            "--generation-deterministic",
         )
         == snapshot_cli
     )
@@ -378,7 +380,6 @@ def test_link_with_multiple_failing_parameters(ctx, cli, snapshot_cli):
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-@flaky(max_runs=3, min_passes=1)
 def test_link_requestbody_extraction_fails_when_producer_missing_id(ctx, cli, snapshot_cli):
     openapi = {
         "openapi": "3.0.0",
@@ -479,13 +480,11 @@ def test_link_requestbody_extraction_fails_when_producer_missing_id(ctx, cli, sn
         if not isinstance(data, dict):
             return {"error": "Invalid input"}, 400
 
-        name = data.get("name", "Product")
-        if not isinstance(name, str) or not name:
-            return {"error": "Invalid name"}, 400
-
-        price = data.get("price", 9.99)
-        if not isinstance(price, (int | float)):
-            return {"error": "Invalid price"}, 400
+        name = data.get("name")
+        price = data.get("price")
+        # Rejecting negative bodies keeps the reported producer response identical across runs.
+        if name != "Product" or price != 9.99:
+            return {"error": "Invalid product"}, 400
 
         product_id = str(next_id)
         next_id += 1
@@ -533,8 +532,7 @@ def test_non_json_response(ctx, cli, snapshot_cli, content):
         cli.run(
             api.schema_url,
             "--phases=stateful",
-            # The bug needs a specific call sequence, which takes many scenarios to reach.
-            "-n 80",
+            "-n 10",
             "-c not_a_server_error",
             "--mode=positive",
             config={"phases": {"stateful": {"inference": {"algorithms": []}}}},

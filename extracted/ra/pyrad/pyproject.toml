@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,20 +7,17 @@ name = "pyrad"
 dynamic = ["version"]
 description = "RADIUS tools"
 readme = "README.rst"
-license = { text = "BSD-3-Clause" }
-requires-python = ">=3.8"
+license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
+requires-python = ">=3.10"
 authors = [
-  { name = "Christian Giese", email = "gic@gicnet.de" },
-  { name = "Istvan Ruzman", email = "istvan@ruzman.eu" },
-  { name = "Stefan Lieberth", email = "stefan@lieberth.net" },
+  { name = "Christian Giese (GIC-de)" }
 ]
 keywords = ["radius", "authentication", "AAA", "accounting", "authorization", "RADIUS"]
 classifiers = [
   "Development Status :: 6 - Mature",
   "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -34,14 +31,19 @@ dependencies = [
   "netaddr>=0.8.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
+lint = [
+  "ruff",
+]
 test = [
+  "coverage",
+  "lcov",
   "pytest>=8",
 ]
 docs = [
-    "sphinx>=7.0",
-    "sphinx-autodoc-typehints",
-    "sphinx-rtd-theme>=2.0"
+  "sphinx>=7.0",
+  "sphinx-autodoc-typehints",
+  "sphinx-rtd-theme>=2.0",
 ]
 
 [project.urls]
@@ -59,3 +61,16 @@ addopts = "-ra"
 
 [tool.setuptools.dynamic]
 version = { attr = "pyrad.__version__" }
+
+[tool.ruff.lint]
+# Pin the rule set so newer ruff releases do not enable additional rules.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.coverage.run]
+# Measure the whole package, including modules not imported by any test
+source = ["pyrad"]
+omit = ["pyrad/tests/*"]
+
+[tool.coverage.report]
+# demo code run as a script, e.g. starting the Twisted reactor
+exclude_also = ['if __name__ == .__main__.:']

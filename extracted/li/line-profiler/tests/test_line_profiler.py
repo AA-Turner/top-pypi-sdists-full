@@ -7,11 +7,15 @@ import inspect
 import io
 import os
 import pickle
+import subprocess
 import sys
 import textwrap
+import time
 import types
+from pathlib import Path
 from tempfile import TemporaryDirectory
 import pytest
+from ubelt import ChDir
 from line_profiler import _line_profiler, LineProfiler, LineStats
 
 
@@ -191,6 +195,236 @@ def test_last_time():
     assert not get_last_time(prof)
     assert set(clt) == {hash(func.__wrapped__.__code__.co_code)}
     assert set(lt) == {func.__wrapped__.__code__}
+
+
+@pytest.fixture(params=['legacy', 'sys.monitoring'])
+def tracing_core(request, monkeypatch):
+    """
+    Run the test with both the legacy trace system and sys.monitoring
+    """
+    use_legacy = request.param == 'legacy'
+    if not (use_legacy or hasattr(sys, 'monitoring')):
+        pytest.skip('no sys.monitoring in version '
+                    f'{".".join(str(v) for v in sys.version_info[:2])}')
+    monkeypatch.setattr(_line_profiler, 'USE_LEGACY_TRACE', use_legacy)
+    return request.param
+
+
+class _Sleeper:
+    """
+    Sleep for multiples of delay, tallying (by tag) how long it
+    actually took, since time.sleep() can be much shorter or
+    longer than requested depending on the platform.
+    """
+    def __init__(self, delay):
+        self.delay = delay
+        self.slept = {}
+
+    def __call__(self, tag, factor=1):
+        start = time.perf_counter()
+        time.sleep(self.delay * factor)
+        duration = time.perf_counter() - start
+        self.slept[tag] = self.slept.get(tag, 0) + duration
+
+
+def get_tagged_line_stats(prof, func):
+    func = inspect.unwrap(func)
+    code = func.__code__
+    lines, first_lineno = inspect.getsourcelines(func)
+    tags = {first_lineno + i: line.rsplit('# ', 1)[1].strip()
+            for i, line in enumerate(lines) if '# ' in line}
+    stats = prof.get_stats()
+    (timings,) = [
+        timings for (filename, lineno, _), timings in stats.timings.items()
+        if (filename, lineno) == (code.co_filename, code.co_firstlineno)]
+    line_stats = dict.fromkeys(tags.values(), (0, 0.))
+    for lineno, nhits, line_time in timings:
+        if lineno in tags:
+            line_stats[tags[lineno]] = (nhits, line_time * stats.unit)
+    total_time = sum(line_time for *_, line_time in timings) * stats.unit
+    return line_stats, total_time
+
+
+def test_recursive_call_timing(tracing_core):
+    """
+    Test that a line making a recursive call is timed like any other line
+    with a call in it, i.e. its time includes that of the call (the
+    records of the inner calls used to overwrite those of the outer ones,
+    so that the time was lost). Thanks to @notEvil for finding this bug in 2023!
+    """
+    prof = LineProfiler()
+    delay = .01
+    call_durations = []
+
+    def timed_recurse(n):
+        # this is not profiled, it just measures how long the recursive call 
+        # takes since time.sleep() can be quite a bit shorter or longer than
+        # requested depending on the platform
+        start = time.perf_counter()
+        recurse(n)
+        call_durations.append(time.perf_counter() - start)
+
+    @prof
+    def recurse(n):
+        if not n:
+            return
+        time.sleep(delay)
+        timed_recurse(n - 1)
+
+    recurse(3)
+    stats = prof.get_stats()
+    (timings,) = stats.timings.values()
+    *_, (_, sleep_nhits, sleep_time), (_, call_nhits, call_time) = timings
+    assert sleep_nhits == call_nhits == 3
+    assert len(call_durations) == 3
+    # the time of the line making the recursive calls should include all
+    # of them (whereas it used to be lost), so we allow for some slack
+    # between the profiler's timer and time.perf_counter()
+    assert call_time * stats.unit >= .9 * sum(call_durations)
+
+
+def test_interleaved_generator_timing(tracing_core):
+    """
+    Test that interleaved executions of the same generator function are
+    timed separately, and that the time they spend suspended isn't
+    charged to any of their lines.
+    """
+    prof = LineProfiler()
+    sleep = _Sleeper(.01)
+    idle = 5
+
+    @prof
+    def gen():
+        sleep('first')  # first
+        yield 1  # yield 1
+        sleep('second')  # second
+        yield 2  # yield 2
+
+    with prof:
+        a, b = gen(), gen()
+        for expected in 1, 2:
+            for g in a, b:
+                assert next(g) == expected
+                assert not prof.c_last_time
+                sleep('idle', idle)
+        for g in a, b:
+            assert list(g) == []
+        assert not prof.c_last_time
+
+    line_stats, total_time = get_tagged_line_stats(prof, gen)
+    assert {tag: nhits for tag, (nhits, _) in line_stats.items()} == {
+        'first': 2, 'yield 1': 2, 'second': 2, 'yield 2': 2}
+    for tag in 'first', 'second':
+        assert line_stats[tag][1] >= .9 * sleep.slept[tag]
+    slept = sleep.slept['first'] + sleep.slept['second']
+    assert total_time < slept + .5 * idle * sleep.delay
+
+
+def test_exception_frame_timing(tracing_core):
+    """
+    Test that frames exited by an exception (raised in the frame itself
+    or propagated from a callee) leave no records behind, even when
+    calls alternate with ones of the same depth (so that their frames
+    are likely to reuse the same addresses) exiting normally.
+    """
+    prof = LineProfiler()
+    sleep = _Sleeper(.01)
+    idle = 5
+
+    class MyException(Exception):
+        pass
+
+    @prof
+    def inner(fail):
+        sleep('inner')  # inner: sleep
+        if fail:  # inner: check
+            raise MyException  # inner: raise
+        return 1  # inner: return
+
+    @prof
+    def outer(fail):
+        result = inner(fail)  # outer: call
+        return result  # outer: return
+
+    with prof:
+        for _ in range(3):
+            with pytest.raises(MyException):
+                outer(True)
+            assert not prof.c_last_time
+            sleep('idle', idle)
+            assert outer(False) == 1
+            assert not prof.c_last_time
+            sleep('idle', idle)
+
+    inner_stats, inner_total = get_tagged_line_stats(prof, inner)
+    outer_stats, outer_total = get_tagged_line_stats(prof, outer)
+    assert {tag: nhits for tag, (nhits, _) in inner_stats.items()} == {
+        'inner: sleep': 6, 'inner: check': 6,
+        'inner: raise': 3, 'inner: return': 3}
+    assert {tag: nhits for tag, (nhits, _) in outer_stats.items()} == {
+        'outer: call': 6, 'outer: return': 3}
+    for line_stats, tag in [(inner_stats, 'inner: sleep'),
+                            (outer_stats, 'outer: call')]:
+        assert line_stats[tag][1] >= .9 * sleep.slept['inner']
+    for total_time in inner_total, outer_total:
+        assert total_time < sleep.slept['inner'] + .5 * idle * sleep.delay
+
+
+def test_abandoned_generator_and_coroutine_timing(tracing_core):
+    """
+    Test that generators which are closed or garbage-collected, and
+    coroutines which are cancelled, while suspended are timed correctly
+    and leave no records behind.
+    """
+    prof = LineProfiler()
+    sleep = _Sleeper(.01)
+    idle = 5
+
+    @prof
+    def gen():
+        try:
+            yield 1  # gen: yield
+            yield 2  # gen: unreached
+        finally:
+            sleep('gen')  # gen: cleanup
+
+    @prof
+    async def coro():
+        try:
+            await asyncio.sleep(60)  # coro: await
+        finally:
+            sleep('coro')  # coro: cleanup
+
+    async def cancel_coro():
+        task = asyncio.ensure_future(coro())
+        await asyncio.sleep(0)  # Let `coro()` start and suspend
+        assert not prof.c_last_time
+        sleep('idle', idle)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    with prof:
+        g = gen()
+        assert next(g) == 1
+        assert not prof.c_last_time
+        sleep('idle', idle)
+        g.close()
+        assert not prof.c_last_time
+        g = gen()
+        assert next(g) == 1
+        sleep('idle', idle)
+        del g  # finalized right away by refcounting
+        assert not prof.c_last_time
+        asyncio.run(cancel_coro())
+        assert not prof.c_last_time
+
+    for func, n, tag in [(gen, 2, 'gen'), (coro, 1, 'coro')]:
+        line_stats, total_time = get_tagged_line_stats(prof, func)
+        assert line_stats[f'{tag}: cleanup'][0] == n
+        assert line_stats[f'{tag}: cleanup'][1] >= .9 * sleep.slept[tag]
+        assert total_time < sleep.slept[tag] + .5 * idle * sleep.delay
+    assert get_tagged_line_stats(prof, gen)[0]['gen: unreached'][0] == 0
 
 
 def test_enable_disable():
@@ -817,6 +1051,47 @@ def test_show_func_column_formatting():
     # TODO: write a check to verify columns are aligned nicely
 
 
+def test_show_func_non_encodable_source(tmp_path):
+    """
+    Source lines containing characters the output stream cannot encode
+    are printed with escape-sequence placeholders instead of being
+    dropped.
+    """
+    from line_profiler.line_profiler import show_func
+
+    # A source file with text an ascii stream cannot encode
+    mod_fpath = tmp_path / 'mod_with_unicode.py'
+    mod_fpath.write_text(
+        'def foo():\n    x = "∀"\n    return x\n', encoding='utf-8'
+    )
+
+    # An ascii-encoded stream raises UnicodeEncodeError on non-ascii
+    # text, mimicking ``PYTHONIOENCODING=ascii``.
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding='ascii')
+
+    timings = [(lineno, 1, 1e-6) for lineno in range(1, 4)]
+    show_func(
+        filename=str(mod_fpath),
+        start_lineno=1,
+        func_name='foo',
+        timings=timings,
+        unit=1e-6,
+        output_unit=1e-6,
+        stream=stream,
+        stripzeros=False,
+    )
+    stream.flush()
+    text = raw.getvalue().decode('ascii')
+
+    # Every source line is still shown; the unencodable character is
+    # replaced by its escape sequence.
+    assert 'def foo():' in text
+    assert 'return x' in text
+    assert 'x = "\\u2200"' in text
+    assert 'UnicodeEncodeError' not in text
+
+
 @pytest.mark.skipif(
     not hasattr(sys, 'monitoring'),
     reason='no `sys.monitoring` in version '
@@ -989,6 +1264,94 @@ def test_duplicate_code_objects():
     assert entries[-2][1] == 10 + 20
 
 
+def test_nonprofiled_clashing_bytecodes(tmp_path_factory):
+    """
+    Test that the profiler can distinguish between a profiled function
+    and a non-profiled one compiling down to the same bytecode.
+    """
+    # See issue #424
+    template = textwrap.dedent("""
+    def {}(n):  # Any function using this compiles to the same bytecode
+        x = 0
+        for n in range(1, n + 1):
+            x += n
+        return x
+    """).strip('\n')
+    module_name = 'my_module'
+    script_name = 'my-script.py'
+    outfile = 'out.lprof'
+    func_p = 'profiled_func'
+    func_no_p = 'nonprofiled_func'
+
+    # Note: bytecode padding depends on the existence of duplicates,
+    # which are counted throughout the lifetime of the `LineProfiler`
+    # class. To ensure that we start on a clean slate -- that
+    # `LineProfiler` isn't "polluted" by running prior tests -- run the
+    # profliing in a subprocess.
+    with ChDir(tmp_path_factory.mktemp('test_nonprofiled_clashing_bytecodes')):
+        syspath_annex = (Path.cwd() / 'syspath').resolve()
+        syspath_annex.mkdir()
+        with (syspath_annex / (module_name + '.py')).open('w') as fobj:
+            print(
+                textwrap.dedent("""
+    '''
+    This docstring is fluff to make the function definitions overlap in
+    line numbers.
+    '''
+
+
+    {fp_def}
+                """).strip('\n').format(fp_def=template.format(func_p)),
+                file=fobj,
+            )
+        with open(script_name, 'w') as fobj:
+            print(
+                textwrap.dedent("""
+    from line_profiler import LineProfiler
+    from {mod} import {fp_name}
+
+
+    {fnp_def}
+
+
+    if __name__ == '__main__':
+        prof = LineProfiler()
+        prof.add_callable({fp_name})
+        with prof:
+            # The context turns on profiling for the call, but it
+            # shouldn't do anything since the imported and profiled
+            # function is not called
+            {fnp_name}(10)
+        prof.dump_stats({out!r})
+                """).strip('\n').format(
+                    mod=module_name,
+                    fp_name=func_p,
+                    fnp_name=func_no_p,
+                    fnp_def=template.format(func_no_p),
+                    out=outfile,
+                ),
+                file=fobj,
+            )
+
+        syspath = os.environ.get('PYTHONPATH', '')
+        syspath = ('{}:{}' if syspath else '{}').format(syspath_annex, syspath)
+        subprocess.run(
+            [sys.executable, script_name],
+            check=True, env={**os.environ, 'PYTHONPATH': syspath},
+        )
+
+        assert os.path.exists(outfile)
+        stats = LineStats.from_files(outfile)
+        stats.print()  # For debugging purposes
+
+    # There should only be one function profiled (`profiled_func()`),
+    # which however doesn't have any actual data because it was never
+    # called
+    ((*_, func_name), data), = stats.timings.items()
+    assert (func_name == func_p), stats
+    assert (not data), stats
+
+
 @pytest.mark.parametrize('force_same_line_numbers', [True, False])
 @pytest.mark.parametrize(
     'ops',
@@ -1157,6 +1520,11 @@ def test_aggregate_profiling_data_between_code_versions():
     Test that profiling data from previous versions of the code object
     are preserved when another profiler causes the code object of a
     function to be overwritten.
+
+    Note
+    ----
+    Now obsolete because we no longer double-pad/overwrite the function
+    bytecode if it has already been seen by another profiler instance.
     """
 
     def func(n):
@@ -1171,10 +1539,8 @@ def test_aggregate_profiling_data_between_code_versions():
     # Gather data with `@prof1`
     wrapper1 = prof1(func)
     assert wrapper1(10) == 10 * 11 // 2
-    code = func.__code__
     # Gather data with `@prof2`; the code object is overwritten here
     wrapper2 = prof2(wrapper1)
-    assert func.__code__ != code
     assert wrapper2(15) == 15 * 16 // 2
     # Despite the overwrite of the code object, the old data should
     # still remain, and be aggregated with the new data when calling

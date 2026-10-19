@@ -881,6 +881,30 @@ test_metadata.cc.s:
 	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_metadata.cc.s
 .PHONY : test_metadata.cc.s
 
+test_native_function.o: test_native_function.cc.o
+.PHONY : test_native_function.o
+
+# target to build an object file
+test_native_function.cc.o:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_native_function.cc.o
+.PHONY : test_native_function.cc.o
+
+test_native_function.i: test_native_function.cc.i
+.PHONY : test_native_function.i
+
+# target to preprocess a source file
+test_native_function.cc.i:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_native_function.cc.i
+.PHONY : test_native_function.cc.i
+
+test_native_function.s: test_native_function.cc.s
+.PHONY : test_native_function.s
+
+# target to generate assembly for a file
+test_native_function.cc.s:
+	cd /home/runner/work/tvm-ffi/tvm-ffi/build_test && $(MAKE) $(MAKESILENT) -f tests/cpp/CMakeFiles/tvm_ffi_tests.dir/build.make tests/cpp/CMakeFiles/tvm_ffi_tests.dir/test_native_function.cc.s
+.PHONY : test_native_function.cc.s
+
 test_object.o: test_object.cc.o
 .PHONY : test_object.o
 
@@ -1246,6 +1270,9 @@ help:
 	@echo "... test_metadata.o"
 	@echo "... test_metadata.i"
 	@echo "... test_metadata.s"
+	@echo "... test_native_function.o"
+	@echo "... test_native_function.i"
+	@echo "... test_native_function.s"
 	@echo "... test_object.o"
 	@echo "... test_object.i"
 	@echo "... test_object.s"

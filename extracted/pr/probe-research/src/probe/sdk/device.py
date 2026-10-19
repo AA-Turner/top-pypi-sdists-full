@@ -20,6 +20,7 @@ import sys
 import time
 import webbrowser
 from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -115,6 +116,41 @@ class DevicePrompt:
     user_code: str
     verification_uri: str
     verification_uri_complete: str
+    #: Seconds the approval stays open, as the server said (RFC 8628).
+    expires_in: int | None = None
+
+
+#: Told about every browser approval before its polling starts, beside the
+#: caller's own ``on_prompt``: `probe wizard --json` reports it as an event
+#: (`probe.cli.json_events`), whichever flow asked. One slot for the process,
+#: not a context variable, so an approval started on another thread reaches it.
+_prompt_observer: Callable[[DevicePrompt], None] | None = None
+
+
+def set_prompt_observer(
+    observer: Callable[[DevicePrompt], None] | None,
+) -> Callable[[DevicePrompt], None] | None:
+    """Install ``observer`` (None removes it) and return the previous one."""
+    global _prompt_observer
+    previous, _prompt_observer = _prompt_observer, observer
+    return previous
+
+
+#: Wraps the wait for the approval itself -- the token poll, from the prompt to
+#: the server's answer. `probe wizard --json` makes it the one stretch of a run
+#: that SIGINT can end (`probe.cli.json_events.interruptible`), because nothing
+#: is written while it waits. Process-wide, like the observer.
+_approval_wait: Callable[[], AbstractContextManager[None]] = nullcontext
+
+
+def set_approval_wait(
+    wrapper: Callable[[], AbstractContextManager[None]] | None,
+) -> Callable[[], AbstractContextManager[None]]:
+    """Install ``wrapper`` around every approval's token poll (None: nothing)
+    and return the previous one."""
+    global _approval_wait
+    previous, _approval_wait = _approval_wait, wrapper or nullcontext
+    return previous
 
 
 def _pkce_pair() -> tuple[str, str]:
@@ -233,11 +269,15 @@ def device_authorize(
             raise _login_error(start, f"could not start device login ({start.status_code})")
         data = start.json()
 
+        expires_in = int(data.get("expires_in", 600))
         prompt = DevicePrompt(
             user_code=data["user_code"],
             verification_uri=data["verification_uri"],
             verification_uri_complete=data["verification_uri_complete"],
+            expires_in=expires_in,
         )
+        if install_code is None and _prompt_observer is not None:
+            _prompt_observer(prompt)
         if install_code is None and on_prompt is not None:
             on_prompt(prompt)
         if install_code is None and open_browser:
@@ -248,21 +288,22 @@ def device_authorize(
 
         device_code = data["device_code"]
         interval = max(1, int(data.get("interval", 5)))
-        deadline = monotonic() + int(data.get("expires_in", 600))
+        deadline = monotonic() + expires_in
 
-        while monotonic() < deadline:
-            resp = http.post(
-                _TOKEN_PATH,
-                json={"device_code": device_code, "code_verifier": verifier},
-            )
-            if resp.status_code == 200:
-                return resp.json()
-            code, desc = _error_code(resp)
-            if code == "slow_down":
-                interval += _SLOW_DOWN_BACKOFF
-            elif code != "authorization_pending":
-                raise _login_error(resp, f"device login failed ({code or resp.status_code})")
-            sleep(interval)
+        with _approval_wait():
+            while monotonic() < deadline:
+                resp = http.post(
+                    _TOKEN_PATH,
+                    json={"device_code": device_code, "code_verifier": verifier},
+                )
+                if resp.status_code == 200:
+                    return resp.json()
+                code, desc = _error_code(resp)
+                if code == "slow_down":
+                    interval += _SLOW_DOWN_BACKOFF
+                elif code != "authorization_pending":
+                    raise _login_error(resp, f"device login failed ({code or resp.status_code})")
+                sleep(interval)
 
         raise DeviceLoginError("device authorization expired before it was approved")
     except httpx.HTTPError as exc:

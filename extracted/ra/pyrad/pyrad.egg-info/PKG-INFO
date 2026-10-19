@@ -1,17 +1,15 @@
 Metadata-Version: 2.4
 Name: pyrad
-Version: 2.5.4
+Version: 2.6.0
 Summary: RADIUS tools
-Author-email: Christian Giese <gic@gicnet.de>, Istvan Ruzman <istvan@ruzman.eu>, Stefan Lieberth <stefan@lieberth.net>
-License: BSD-3-Clause
+Author: Christian Giese (GIC-de)
+License-Expression: BSD-3-Clause
 Project-URL: Repository, https://github.com/pyradius/pyrad
 Project-URL: Documentation, https://pyradius-pyrad.readthedocs.io
 Keywords: radius,authentication,AAA,accounting,authorization,RADIUS
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -19,16 +17,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Systems Administration :: Authentication/Directory
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: netaddr>=0.8.0
-Provides-Extra: test
-Requires-Dist: pytest>=8; extra == "test"
-Provides-Extra: docs
-Requires-Dist: sphinx>=7.0; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=2.0; extra == "docs"
 Dynamic: license-file
 
 
@@ -53,11 +45,12 @@ Dynamic: license-file
 Introduction
 ============
 
-pyrad is an implementation of a RADIUS client/server as described in RFC2865.
-It takes care of all the details like building RADIUS packets, sending
-them and decoding responses.
+pyrad is an implementation of a RADIUS client/server as described in RFC 2865
+and related RFCs: accounting, CoA and Disconnect, tunnel attributes,
+Status-Server and EAP-MD5. It takes care of all the details like building
+RADIUS packets, sending them and decoding responses.
 
-Here is an example of doing a authentication request:
+Here is an example of doing an authentication request:
 
 .. code-block:: python
 
@@ -86,45 +79,76 @@ Here is an example of doing a authentication request:
         print("access denied")
 
     print("Attributes returned by server:")
-    for key, val in reply.items():
-        print(f"{key}: {val}")
+    for key in reply.keys():
+        print(f"{key}: {reply[key]}")
 
+The ``dictionary`` file defines the RADIUS attributes; the ``example``
+directory of the source distribution has one to start from.
+
+More examples, for accounting, CoA, tagged attributes, servers and asyncio,
+are in the `usage documentation
+<https://pyradius-pyrad.readthedocs.io/en/latest/usage.html>`_.
+
+
+BlastRADIUS
+===========
+
+pyrad implements the countermeasures against the BlastRADIUS attack
+(CVE-2024-3596, https://blastradius.fail):
+
+* Clients add a Message-Authenticator as first attribute to all
+  Access-Request and Status-Server packets (disable per packet with
+  ``message_authenticator=False``).
+* A Message-Authenticator in a reply, or in an Access-Request received by
+  a server, is always verified. Replies to Access-Request and Status-Server
+  packets containing Proxy-State attributes which were not sent in the
+  request are discarded.
+* Servers add a Message-Authenticator as first attribute to all replies to
+  Access-Requests and copy the Proxy-State attributes from the request.
+* ``Client(enforce_ma=True)`` and ``ClientAsync(enforce_ma=True)`` discard
+  replies to Access-Request and Status-Server packets without
+  Message-Authenticator, and ``Server(enforce_ma=True)`` and
+  ``ServerAsync(enforce_ma=True)`` drop Access-Requests without
+  Message-Authenticator. This is recommended if all peers support it.
 
 Requirements & Installation
 ===========================
 
-pyrad requires Python 3.8 or later
+pyrad requires Python 3.10 or later.
 
-Installing is simple; pyrad uses the standard distutils system for installing
-Python modules::
+pyrad is available on PyPI and can be installed with pip::
 
-  python setup.py install
+  pip install pyrad
+
+To install from a source checkout, run the following in the project directory::
+
+  pip install .
 
 
 Author, Copyright, Availability
 ===============================
 
-pyrad was written by Wichert Akkerman <wichert@wiggy.net> and is maintained by 
-Christian Giese (GIC-de), Istvan Ruzman (Istvan91) and Stefan Lieberth (slieberth). 
+pyrad was written by Wichert Akkerman <wichert@wiggy.net> and is maintained by
+Christian Giese (GIC-de), Alan DeKok (alandekok) and Arran Cudbard-Bell (arr2036).
 
-We’re looking for contributors to support the pyrad team! If you’re interested in 
-helping with development, testing, documentation, or other areas, please contact 
+We’re looking for contributors to support the pyrad team! If you’re interested in
+helping with development, testing, documentation, or other areas, please contact
 us directly.
 
-This project is licensed under a BSD license.
+This project is licensed under the BSD 3-Clause license.
 
 Copyright and license information can be found in the LICENSE.txt file.
 
-The current version and documentation can be found on pypi:
+The current version and documentation can be found on PyPI:
 https://pypi.org/project/pyrad/
 
-Bugs and wishes can be submitted in the pyrad issue tracker on github:
+Bugs and wishes can be submitted in the pyrad issue tracker on GitHub:
 https://github.com/pyradius/pyrad/issues
 
 Related Projects & Forks
 ========================
 
-**pyrad2:** Noteworthy fork with experimental RadSec (RFC 6614) support. Targets Python 3.12+, 
+**pyrad2:** Noteworthy fork with experimental RadSec (RFC 6614) support. Targets Python 3.12+,
 adds extensive type hints, boosts test coverage, and includes fresh bug fixes.
 https://github.com/nicholasamorim/pyrad2
 

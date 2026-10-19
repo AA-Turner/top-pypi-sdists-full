@@ -4,7 +4,7 @@ build-backend= "setuptools.build_meta"
 
 [project]
 name = "Mastodon.py"
-version = "2.2.2"
+version = "2.3.3"
 description = "Python wrapper for the Mastodon API"
 readme = "README.rst"
 authors = [
@@ -30,6 +30,9 @@ dependencies = [
 webpush = [
     'http_ece>=1.0.5',
     'cryptography>=1.6.0',
+]
+websocket_streaming = [
+    'websocket-client>=1.0.0',
 ]
 blurhash = [
     'blurhash>=1.1.4',

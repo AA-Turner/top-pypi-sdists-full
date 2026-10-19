@@ -728,7 +728,12 @@ def test_the_bench_turns_the_reader_on_through_the_workers_env_only():
 
     from probe.daemon import agent as agent_mod
 
-    assert "mcp_url(env.get(\"PROBE_BASE_URL\", \"\"))" in inspect.getsource(agent_mod.build_reader_agent)
+    from probe.daemon import local_commands
+
+    # Today's tools load it natively; the `bash` tool set's `probe mcp call` connects the same way.
+    assert "mcp_url(env.get(\"PROBE_BASE_URL\", \"\"))" in inspect.getsource(agent_mod._native_mcp)
+    assert "_native_mcp(capabilities, \" to the reader\"" in inspect.getsource(agent_mod.build_reader_agent)
+    assert "mcp_url(deps.probe_env.get(\"PROBE_BASE_URL\", \"\"))" in inspect.getsource(local_commands._target)
 
 
 def test_the_deliverer_hands_one_more_unasked_message_per_window_of_a_long_turn(tmp_path):

@@ -33,6 +33,26 @@ _SCALAR_CONVERTERS = {
 _declared_cache: Dict[Tuple[type, str], Any] = {}
 
 
+def _serialize_enum(value: Enum, json_format: Optional[ODataJsonFormat]) -> Any:
+    """Serialize an enum member for the active OData dialect.
+
+    OData V3 (SharePoint) enums travel as their numeric value
+    (``FieldTypeKind`` is ``Edm.Int32``); OData V4 / Graph enums travel as
+    the member *name* ("teamsForBusiness"). Enums generated with string
+    values already match their name; older Graph ones (e.g. auto-numbered
+    ``unknown = 0``) must fall back to the name, not the ordinal.
+
+    A generated Graph enum carries the *CSDL ordinal* as a string
+    (``TaskStatus.completed = "2"``), which is not a wire value — Graph
+    rejects it, so a digit-only string falls back to the member name too.
+    """
+    if isinstance(json_format, JsonLightFormat) and isinstance(value.value, int):
+        return value.value
+    if isinstance(value.value, str):
+        return value.name if value.value.isdigit() else value.value
+    return value.name
+
+
 def serialize_value(value: Any, json_format: Optional[ODataJsonFormat] = None) -> Any:
     """Convert a stored value to its JSON representation.
 
@@ -42,7 +62,7 @@ def serialize_value(value: Any, json_format: Optional[ODataJsonFormat] = None) -
     ``list``, ``ClientResult``) passes through unchanged.
     """
     if isinstance(value, Enum):
-        return value.value
+        return _serialize_enum(value, json_format)
     if isinstance(value, uuid.UUID):
         return str(value)
     if isinstance(value, bytes):
@@ -96,9 +116,16 @@ def declared_type(cls: type, name: str) -> Any:
 
 def _resolve_declared_type(cls: type, name: str) -> Any:
     meta = getattr(cls, "_odata_meta", {}).get(name)
-    attr = meta.attr if meta is not None else to_snake_case(name)
-    member = getattr(cls, attr, None)
-    if member is not None:
+    if meta is not None:
+        attrs = (meta.attr,)
+    else:
+        # Generated getters rename reserved words with a trailing underscore
+        # (``type`` -> ``type_``), a rename ``to_snake_case`` cannot express.
+        attrs = (to_snake_case(name), to_snake_case(name) + "_")
+    for attr in attrs:
+        member = getattr(cls, attr, None)
+        if member is None:
+            continue
         target = member.fget if isinstance(member, property) else member
         try:
             declared = get_type_hints(target).get("return")

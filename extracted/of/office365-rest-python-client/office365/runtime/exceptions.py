@@ -22,7 +22,9 @@ class DuplicatedObjectException(ClientRequestException):
     """Raised when creating an object that already exists (HTTP 400 + ConflictingObjects)."""
 
     MATCH_PRIORITY = 10
-    _CODES = frozenset({"nameAlreadyExists", "ErrorFolderExists", "-2130575342"})
+    # Lower-case: ``matches`` compares against ``payload.code.lower()``.
+    # ``20117`` is OneNote's "an item with this name already exists in this location".
+    _CODES = frozenset({"namealreadyexists", "errorfolderexists", "-2130575342", "20117"})
 
     @classmethod
     def matches(cls, payload: ErrorPayload) -> bool:
@@ -40,7 +42,7 @@ class ObjectNotFoundException(ClientRequestException):
     """Raised when a requested object is not found (HTTP 404 or ResourceNotFound code)."""
 
     MATCH_PRIORITY = 10
-    _CODES = frozenset({"itemnotfound", "resourcenotfound", "notfound"})
+    _CODES = frozenset({"itemnotfound", "resourcenotfound", "notfound", "request_resourcenotfound"})
     _TYPE_NAMES = ("FileNotFoundException", "DirectoryNotFoundException", "ResourceNotFoundException")
 
     @classmethod
@@ -98,8 +100,67 @@ class FileLockedException(ClientRequestException):
 
     def __str__(self) -> str:
         owner = self.lock_owner
-        described = f"{super().__str__()} (locked by {owner})" if owner else super().__str__()
-        return f"{described}\n{self.GUIDANCE}"
+        described = self._base_description()
+        if owner:
+            described = f"{described} (locked by {owner})"
+        return self._render(described)
 
 
 register_error_type(FileLockedException)
+
+
+class AccessDeniedException(ClientRequestException):
+    """Raised when the caller is not permitted to perform the request (HTTP 401/403).
+
+    This is a **product-agnostic** type: it covers Microsoft Graph symbolic
+    codes (``accessDenied``, ``Authorization_RequestDenied``,
+    ``ErrorAccessDenied``), SharePoint's ``System.UnauthorizedAccessException``
+    HRESULT, and any status-only 401/403 response (including throttling and
+    conditional-access rejections that carry no JSON body).
+
+    It tells apart *not allowed* from *not found* (:class:`ObjectNotFoundException`)
+    and *not now* (:class:`FileLockedException`), so callers can react to a denied
+    permission instead of parsing error strings.
+    """
+
+    MATCH_PRIORITY = 5  # above the base catch-alls (0), below specific typed errors (10/15)
+    # Lower-case: ``matches`` compares against ``payload.code.lower()``.
+    _CODES = frozenset({"accessdenied", "authorization_requestdenied", "erroraccessdenied", "forbidden"})
+    # E_ACCESSDENIED (0x80070005), as emitted by SharePoint/OneDrive.
+    _HRESULTS = frozenset({"-2147024891"})
+
+    GUIDANCE = (
+        "The caller is not permitted to perform this request. For an app-only call, confirm the "
+        "application role is granted and admin-consented; for a delegated call, confirm the signed-in "
+        "user has the OAuth scope. Use require_application_permission(...) / require_role(...) to fail "
+        "fast with the exact requirement. Prefer a least-privileged permission that covers the endpoint."
+    )
+
+    @classmethod
+    def matches(cls, payload: ErrorPayload) -> bool:
+        return payload.status in (401, 403) or payload.code.lower() in cls._CODES or payload.hresult in cls._HRESULTS
+
+
+register_error_type(AccessDeniedException)
+
+
+class UpsertNotSupported(ClientRequestException):
+    """Raised when a service does not honour a server-side upsert (``create-if-missing``).
+
+    A server-side upsert is a ``PATCH`` carrying ``Prefer: create-if-missing``
+    against a resource addressed by an alternate key (or a singleton). Not every
+    entity set supports it: a service that does not answers ``404`` for a missing
+    resource instead of creating it. The client translates that response into
+    this type (chained to the original error) so callers can fall back to a
+    client-side lookup-then-write.
+
+    This type is **not** registered with the payload dispatcher - it is raised by
+    the client from :func:`~office365.runtime.queries.upsert_entity.raise_if_upsert_unsupported`,
+    never selected by matching an error body.
+    """
+
+    GUIDANCE = (
+        "The endpoint does not support server-side upsert (Prefer: create-if-missing). Fall back "
+        "to a client-side lookup-then-create/update - e.g. the collection's upsert(...) helper, "
+        "which reconciles locally."
+    )

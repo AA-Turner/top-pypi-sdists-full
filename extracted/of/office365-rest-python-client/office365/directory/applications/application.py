@@ -1,19 +1,28 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timedelta
-from typing import Optional
+import os
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Optional
 from uuid import UUID
 
 from typing_extensions import Self
 
 from office365.directory.applications.api import ApiApplication
-from office365.directory.applications.nativeauthenticationapisenabled import NativeAuthenticationApisEnabled
+from office365.directory.applications.nativeauthenticationapisenabled import (
+    NativeAuthenticationApisEnabled,
+)
 from office365.directory.applications.optional_claims import OptionalClaims
-from office365.directory.applications.parentalcontrolsettings import ParentalControlSettings
+from office365.directory.applications.parentalcontrolsettings import (
+    ParentalControlSettings,
+)
 from office365.directory.applications.public_client import PublicClientApplication
-from office365.directory.applications.requestsignatureverification import RequestSignatureVerification
-from office365.directory.applications.required_resource_access import RequiredResourceAccess
+from office365.directory.applications.requestsignatureverification import (
+    RequestSignatureVerification,
+)
+from office365.directory.applications.required_resource_access import (
+    RequiredResourceAccess,
+)
 from office365.directory.applications.roles.role import AppRole
 from office365.directory.applications.spa import SpaApplication
 from office365.directory.applications.verifiedpublisher import VerifiedPublisher
@@ -28,10 +37,17 @@ from office365.directory.objects.informationalurl import InformationalUrl
 from office365.directory.objects.object import DirectoryObject
 from office365.directory.password_credential import PasswordCredential
 from office365.directory.permissions.require_permission import require_permission
+from office365.directory.permissions.resource_name import ResourceName
 from office365.directory.policies.token_issuance import TokenIssuancePolicy
-from office365.directory.serviceprincipals.lockconfiguration import ServicePrincipalLockConfiguration
+from office365.directory.serviceprincipals.lockconfiguration import (
+    ServicePrincipalLockConfiguration,
+)
 from office365.directory.synchronization.synchronization import Synchronization
 from office365.entity_collection import EntityCollection
+from office365.runtime.auth.certificate import certificate_der as _certificate_der
+from office365.runtime.auth.certificate import (
+    certificate_thumbprint as _certificate_thumbprint,
+)
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
@@ -39,6 +55,17 @@ from office365.runtime.paths.v4.entity import EntityPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.types.collections import GuidCollection, StringCollection
 from office365.runtime.types.odata_property import odata
+
+if TYPE_CHECKING:
+    from office365.directory.policies.app_management import AppManagementPolicy
+    from office365.directory.policies.home_realm_discovery import (
+        HomeRealmDiscoveryPolicy,
+    )
+    from office365.directory.policies.token_lifetime import TokenLifetimePolicy
+    from office365.directory.serviceprincipals.federated_identity_credential import (
+        FederatedIdentityCredential,
+    )
+    from office365.directory.serviceprincipals.service_principal import ServicePrincipal
 
 
 class Application(DirectoryObject):
@@ -56,10 +83,24 @@ class Application(DirectoryObject):
     def __str__(self):
         return self.display_name or self.app_id or self.entity_type_name
 
+    @staticmethod
+    def certificate_thumbprint(cert_data: bytes | bytearray | str | os.PathLike[str]) -> str:
+        """Compute the SHA-1 thumbprint of a certificate.
+
+        Returns the upper-case hex string that Entra stores in
+        ``keyCredential.customKeyIdentifier`` and that MSAL expects for
+        certificate authentication. The certificate may be supplied as raw
+        DER/PEM bytes, inline PEM text, or a file path.
+
+        Args:
+            cert_data: The certificate's raw DER/PEM bytes, inline PEM text, or a file path.
+        """
+        return _certificate_thumbprint(cert_data)
+
     @require_permission(delegated=["Application.ReadWrite.All"], application=["Application.ReadWrite.All"])
     def add_certificate(
         self,
-        cert_data: bytes,
+        cert_data: bytes | bytearray | str | os.PathLike[str],
         display_name: str,
         start_datetime: datetime | None = None,
         end_datetime: datetime | None = None,
@@ -67,13 +108,13 @@ class Application(DirectoryObject):
         """Adds a certificate to an application.
 
         Args:
+            cert_data: The certificate's raw DER/PEM bytes, inline PEM text, or a file path.
             display_name (str): Friendly name for the key.
-            cert_data (bytes): The certificate's raw data or path.
             start_datetime (datetime.datetime): The date and time at which the credential becomes valid. Default: now
             end_datetime (datetime.datetime): The date and time at which the credential expires. Default: now + 180days
         """
         if start_datetime is None:
-            start_datetime = datetime.utcnow()
+            start_datetime = datetime.now(timezone.utc)
         if end_datetime is None:
             end_datetime = start_datetime + timedelta(days=180)
         params = KeyCredential(
@@ -81,11 +122,42 @@ class Application(DirectoryObject):
             type="AsymmetricX509Cert",
             startDateTime=start_datetime,
             endDateTime=end_datetime,
-            key=base64.b64encode(cert_data).decode("utf-8"),
+            key=base64.b64encode(_certificate_der(cert_data)).decode("utf-8"),
             displayName=f"CN={display_name}",
         )
         self.key_credentials.add(params)
         self.update()
+        return self
+
+    @require_permission(delegated=["Application.ReadWrite.All"], application=["Application.ReadWrite.All"])
+    def ensure_certificate(
+        self,
+        cert_data: bytes | bytearray | str | os.PathLike[str],
+        display_name: str,
+        start_datetime: datetime | None = None,
+        end_datetime: datetime | None = None,
+    ) -> Self:
+        """Attaches a certificate to an application unless it is already attached.
+
+        The certificate may be supplied as raw DER/PEM bytes, inline PEM text, or a
+        file path. Its SHA-1 thumbprint is compared against the application's
+        existing ``keyCredentials`` so that repeating a setup run does not add
+        duplicate credentials. Requires ``Application.ReadWrite.All``.
+
+        Args:
+            cert_data: The certificate's raw DER/PEM bytes, inline PEM text, or a file path.
+            display_name (str): Friendly name for the key.
+            start_datetime (datetime.datetime): The date and time at which the credential becomes valid. Default: now
+            end_datetime (datetime.datetime): The date and time at which the credential expires. Default: now + 180days
+        """
+        thumbprint = _certificate_thumbprint(cert_data)
+
+        def _attach(_: Any) -> None:
+            attached = {c.customKeyIdentifier.upper() for c in self.key_credentials if c.customKeyIdentifier}
+            if thumbprint not in attached:
+                self.add_certificate(cert_data, display_name, start_datetime, end_datetime)
+
+        self.ensure_property("keyCredentials").after_execute(_attach)
         return self
 
     def remove_certificate(self, thumbprint: str) -> Self:
@@ -95,6 +167,82 @@ class Application(DirectoryObject):
             thumbprint (str): The unique identifier for the password.
         """
         raise NotImplementedError("remove_certificate")
+
+    @require_permission(
+        delegated=["AppRoleAssignment.ReadWrite.All"],
+        application=["AppRoleAssignment.ReadWrite.All"],
+    )
+    def grant_permissions(
+        self,
+        scope: str,
+        resource: str | ResourceName = ResourceName.Graph,
+    ) -> Self:
+        """Grant this application an application permission (app role) on a resource.
+
+        Idempotent — re-running once the permission is granted is a no-op. The
+        app role assignment is created on the resource's service principal, so
+        ``AppRoleAssignment.ReadWrite.All`` (with admin consent) is required.
+        Deferred; resolve with ``execute_query()``:
+
+            app = client.applications.ensure("my-app").execute_query()
+            app.grant_permissions("Sites.Selected", MsAppIds.Office_365_SharePoint_Online).execute_query()
+
+        Args:
+            scope: The app role (permission) name, e.g. ``"Sites.Selected"``.
+            resource: The resource application that exposes the role, identified
+                by application (client) ID (e.g. ``MsAppIds.Office_365_SharePoint_Online``)
+                or display name (e.g. ``ResourceName.SharePoint``).
+        """
+        resource_sp = self._resolve_resource_sp(resource)
+
+        def _grant(_: Any) -> None:
+            assert self.app_id is not None
+            resource_sp.grant_application_permissions(self.app_id, scope)
+
+        self.ensure_property("appId").after_execute(_grant)
+        return self
+
+    @require_permission(
+        delegated=["AppRoleAssignment.ReadWrite.All"],
+        application=["AppRoleAssignment.ReadWrite.All"],
+    )
+    def revoke_permissions(
+        self,
+        scope: str,
+        resource: str | ResourceName = ResourceName.Graph,
+    ) -> Self:
+        """Revoke a previously granted application permission (app role) from this application.
+
+        A no-op when the permission is not assigned, so it is safe to re-run. The
+        app role assignment lives on the resource's service principal, so
+        ``AppRoleAssignment.ReadWrite.All`` (with admin consent) is required.
+        Deferred; resolve with ``execute_query()``:
+
+            app.revoke_permissions("Sites.Selected", MsAppIds.Office_365_SharePoint_Online).execute_query()
+
+        Args:
+            scope: The app role (permission) name, e.g. ``"Sites.Selected"``.
+            resource: The resource application that exposes the role, identified
+                by application (client) ID (e.g. ``MsAppIds.Office_365_SharePoint_Online``)
+                or display name (e.g. ``ResourceName.SharePoint``).
+        """
+        resource_sp = self._resolve_resource_sp(resource)
+
+        def _revoke(_: Any) -> None:
+            assert self.app_id is not None
+            resource_sp.revoke_application_permissions(self.app_id, scope)
+
+        self.ensure_property("appId").after_execute(_revoke)
+        return self
+
+    def _resolve_resource_sp(self, resource: str | ResourceName) -> ServicePrincipal:
+        """Resolve a resource app's service principal from a client ID or display name."""
+        value = str(resource)
+        try:
+            UUID(value)
+        except (TypeError, ValueError):
+            return self.context.service_principals.find_by_name(value, required=True)
+        return self.context.service_principals.get_by_app_id(value)
 
     @require_permission(delegated=["Application.ReadWrite.All"], application=["Application.ReadWrite.All"])
     def add_password(self, display_name: str) -> ClientResult[PasswordCredential]:
@@ -121,17 +269,18 @@ class Application(DirectoryObject):
         return self
 
     @require_permission(delegated=["Application.ReadWrite.All"], application=["Application.ReadWrite.All"])
-    def delete_object(self, permanent_delete: bool = False) -> Self:
+    def delete_object(self, permanent_delete: bool = False, *, ignore_missing: bool = False) -> Self:
         """Args:
         permanent_delete (bool): Permanently deletes the application from directory
+        ignore_missing (bool): Treat deleting a missing application as success
         """
-        super().delete_object()
+        super().delete_object(ignore_missing=ignore_missing)
         deleted_app = DirectoryObject(
             self.context, EntityPath(self.id, self.context.directory.deleted_applications.resource_path)
         )
         self.context.directory.deleted_applications.add_child(deleted_app)
         if permanent_delete:
-            deleted_app.delete_object()
+            deleted_app.delete_object(ignore_missing=ignore_missing)
         return self
 
     @require_permission(delegated=["Application.ReadWrite.All"], application=["Application.ReadWrite.All"])
@@ -492,3 +641,57 @@ class Application(DirectoryObject):
     @property
     def entity_type_name(self) -> str:
         return "microsoft.graph.Application"
+
+    @property
+    def app_management_policies(self) -> EntityCollection[AppManagementPolicy]:
+        """Gets the appManagementPolicies property"""
+        from office365.directory.policies.app_management import AppManagementPolicy
+
+        return self.properties.get(
+            "appManagementPolicies",
+            EntityCollection[AppManagementPolicy](
+                self.context, AppManagementPolicy, ResourcePath("appManagementPolicies", self.resource_path)
+            ),
+        )
+
+    @property
+    def federated_identity_credentials(self) -> EntityCollection[FederatedIdentityCredential]:
+        """Gets the federatedIdentityCredentials property"""
+        from office365.directory.serviceprincipals.federated_identity_credential import (
+            FederatedIdentityCredential,
+        )
+
+        return self.properties.get(
+            "federatedIdentityCredentials",
+            EntityCollection[FederatedIdentityCredential](
+                self.context,
+                FederatedIdentityCredential,
+                ResourcePath("federatedIdentityCredentials", self.resource_path),
+            ),
+        )
+
+    @property
+    def home_realm_discovery_policies(self) -> EntityCollection[HomeRealmDiscoveryPolicy]:
+        """Gets the homeRealmDiscoveryPolicies property"""
+        from office365.directory.policies.home_realm_discovery import (
+            HomeRealmDiscoveryPolicy,
+        )
+
+        return self.properties.get(
+            "homeRealmDiscoveryPolicies",
+            EntityCollection[HomeRealmDiscoveryPolicy](
+                self.context, HomeRealmDiscoveryPolicy, ResourcePath("homeRealmDiscoveryPolicies", self.resource_path)
+            ),
+        )
+
+    @property
+    def token_lifetime_policies(self) -> EntityCollection[TokenLifetimePolicy]:
+        """Gets the tokenLifetimePolicies property"""
+        from office365.directory.policies.token_lifetime import TokenLifetimePolicy
+
+        return self.properties.get(
+            "tokenLifetimePolicies",
+            EntityCollection[TokenLifetimePolicy](
+                self.context, TokenLifetimePolicy, ResourcePath("tokenLifetimePolicies", self.resource_path)
+            ),
+        )

@@ -1,7 +1,9 @@
 import argparse
+import sys
 
 from approvaltests import verify_argument_parser
 from approvaltests.core.options import Options
+from approvaltests.namer.default_namer_factory import NamerFactory
 
 
 def test_argument_parser() -> None:
@@ -11,8 +13,17 @@ def test_argument_parser() -> None:
     )
     parser.add_argument("1st_argument", help="1st argument help text")
     parser.add_argument("--optional_argument", help="An Optional Argument help text")
+    parser.add_argument("-c", "--count", type=int, help="Number of items to process")
     parser.add_argument("long_argument", help=f"{'Very' * 100} Long message")
-    verify_argument_parser(parser)
+    help_includes_duplicate_metavars = sys.version_info < (3, 13)
+    if help_includes_duplicate_metavars:
+        options = NamerFactory.with_parameters("help_includes_duplicate_metavars")
+    else:
+        options = None
+    verify_argument_parser(
+        parser,
+        options=options,
+    )
 
 
 def test_argument_parser_scrubs() -> None:

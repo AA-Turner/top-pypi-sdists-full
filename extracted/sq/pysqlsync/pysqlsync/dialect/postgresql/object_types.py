@@ -7,7 +7,7 @@ Copyright 2023-2026, Levente Hunyadi
 """
 
 import re
-from typing import Optional
+from typing import Final
 
 from pysqlsync.formation.object_types import (
     EnumTable,
@@ -18,7 +18,7 @@ from pysqlsync.formation.object_types import (
 )
 from pysqlsync.model.id_types import LocalId
 
-_sql_quoted_str_table = str.maketrans(
+_sql_quoted_str_table: Final[dict[int, str]] = str.maketrans(
     {
         "\\": "\\\\",
         "'": "\\'",
@@ -48,9 +48,11 @@ class PostgreSQLTable(Table):
         # output comments for table and column objects
         if self.description is not None:
             statements.append(f"COMMENT ON TABLE {self.name} IS {sql_quoted_string(self.description)};")
-        for column in self.columns.values():
-            if column.description is not None:
-                statements.append(f"COMMENT ON COLUMN {self.name}.{column.name} IS {sql_quoted_string(column.description)};")
+        statements.extend(
+            f"COMMENT ON COLUMN {self.name}.{column.name} IS {sql_quoted_string(column.description)};"
+            for column in self.columns.values()
+            if column.description is not None
+        )
         return "\n".join(statements)
 
     @property
@@ -69,20 +71,22 @@ class PostgreSQLStructType(StructType):
 
         if self.description is not None:
             statements.append(f"COMMENT ON TYPE {self.name} IS {sql_quoted_string(self.description)};")
-        for member in self.members.values():
-            if member.description is not None:
-                statements.append(f"COMMENT ON COLUMN {self.name}.{member.name} IS {sql_quoted_string(member.description)};")
+        statements.extend(
+            f"COMMENT ON COLUMN {self.name}.{member.name} IS {sql_quoted_string(member.description)};"
+            for member in self.members.values()
+            if member.description is not None
+        )
         return "\n".join(statements)
 
 
 class PostgreSQLNamespace(Namespace):
-    def create_schema_stmt(self) -> Optional[str]:
+    def create_schema_stmt(self) -> str | None:
         if self.name.local_id:
             return f"CREATE SCHEMA IF NOT EXISTS {self.name};"
         else:
             return None
 
-    def drop_schema_stmt(self) -> Optional[str]:
+    def drop_schema_stmt(self) -> str | None:
         if self.name.local_id:
             return f"DROP SCHEMA IF EXISTS {self.name} CASCADE;"
         else:

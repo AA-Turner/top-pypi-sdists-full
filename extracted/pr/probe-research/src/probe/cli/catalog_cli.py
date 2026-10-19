@@ -252,6 +252,10 @@ def dataset_add(
         _fail("--run and --from: pick one (--from records a new run for the step)")
     if (step or project) and not from_ref:
         _fail("--step and --project go with --from")
+    if from_ref and catalog.is_moving_ref(from_ref):
+        # The step is recorded after it happened, often by the agent: a moving
+        # ref would pin whatever is newest now (D16).
+        _fail(catalog.moving_ref_refusal(from_ref.strip()))
     try:
         catalog.check_name(name)
         prepared = catalog.prepare(path, hash_mode=hash_mode.value, upload=upload)
@@ -361,17 +365,47 @@ def _use(run: str, body: dict) -> dict:
         return c.use_in_run(run_id, body) or {}
 
 
+def _use_body(ref: str, role: Role, reason: str | None, evidence: list[str] | None) -> dict[str, Any]:
+    """`/uses` for one ref the caller names. A moving ref is refused here: the
+    server resolves it when the link is MADE, and a link made from the CLI is
+    made after the run used the data, so it could pin a newer version or save
+    than the run read (D16)."""
+    if catalog.is_moving_ref(ref):
+        _fail(catalog.moving_ref_refusal(ref.strip()))
+    body: dict[str, Any] = {"target": ref, "roles": [role.value], "provenance": catalog.STATED}
+    if reason:
+        body["reason"] = reason
+    if evidence:
+        # `{session, event}` per event id, exactly as `probe edge add --evidence`.
+        body["evidence"] = _main()._edge_evidence(evidence)
+    return body
+
+
+def _roles(answer: dict, role: Role) -> str:
+    return ", ".join(answer.get("roles") or [role.value])
+
+
+_REASON_HELP = "why this run used it, in a sentence"
+_EVIDENCE_HELP = (
+    "repeatable: the id of a session event this use rests on "
+    "(<stream>:<offset>:<index>, as the transcript shows it)"
+)
+
+
 @dataset_app.command("use")
 def dataset_use(
-    ref: str = typer.Argument(..., help="dataset:<name>[@<N>] or source:<id>"),
+    ref: str = typer.Argument(..., help="dataset:<name>@<N> or source:<id>"),
     run: str = typer.Option(..., "--run", help="the run that used it"),
     role: Role = typer.Option(Role.TRAIN, "--role"),
     share: Optional[float] = typer.Option(None, "--share", help="its weight in the run's training mix"),
+    reason: Optional[str] = typer.Option(None, "--reason", help=_REASON_HELP),
+    evidence: list[str] = typer.Option(None, "--evidence", metavar="EVENT_ID", help=_EVIDENCE_HELP),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Record that a run used a dataset version or a source. A bare
-    `dataset:<name>` is pinned to the version current now."""
-    body: dict[str, Any] = {"target": ref, "roles": [role.value], "provenance": catalog.STATED}
+    """Record that a run used a dataset version or a source. Name the version
+    (`dataset:<name>@<N>`; `probe dataset show` lists them): a bare name or
+    `@latest` is refused, because it would pin whatever is newest now."""
+    body = _use_body(ref, role, reason, evidence)
     if share is not None:
         try:
             body["share"] = catalog.check_share(share)
@@ -382,7 +416,7 @@ def dataset_use(
         _print_json(answer)
         return
     target = answer.get("target") if isinstance(answer.get("target"), dict) else {}
-    typer.echo(f"run {run} uses {target.get('ref') or ref} ({', '.join(answer.get('roles') or [role.value])})")
+    typer.echo(f"run {run} uses {target.get('ref') or ref} ({_roles(answer, role)})")
 
 
 @dataset_app.command("list")
@@ -588,17 +622,29 @@ def checkpoint_list(
 
 @checkpoint_app.command("use")
 def checkpoint_use(
-    ref: str = typer.Argument(..., help="checkpoint:<id> or checkpoint:<run>@best|latest|step<N>"),
-    run: str = typer.Option(..., "--run", help="the run that started from it"),
+    ref: str = typer.Argument(..., help="checkpoint:<run>@step<N> or checkpoint:<id>"),
+    run: str = typer.Option(..., "--run", help="the run that used it"),
+    role: Role = typer.Option(Role.INIT, "--role", help="init: the weights it started from; eval: what it evaluated"),
+    reason: Optional[str] = typer.Option(None, "--reason", help=_REASON_HELP),
+    evidence: list[str] = typer.Option(None, "--evidence", metavar="EVENT_ID", help=_EVIDENCE_HELP),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Record the weights a run started from (role `init`)."""
-    answer = _use(run, {"target": ref, "roles": [Role.INIT.value], "provenance": catalog.STATED})
+    """Record a checkpoint a run used: the weights it started from (`--role
+    init`, the default) or the one it evaluated (`--role eval`). Name the save
+    (`checkpoint:<run>@step<N>`; `probe checkpoint list --run RUN` lists them):
+    `@latest` and `@best` are refused, because they would pin whatever is newest
+    or best now. Prints the save it pinned."""
+    answer = _use(run, _use_body(ref, role, reason, evidence))
     if as_json:
         _print_json(answer)
         return
     target = answer.get("target") if isinstance(answer.get("target"), dict) else {}
-    typer.echo(f"run {run} started from {target.get('ref') or ref}")
+    pinned = answer.get("pinned") if isinstance(answer.get("pinned"), dict) else {}
+    shown = [f"step {pinned['step']}"] if pinned.get("step") is not None else []
+    if pinned.get("uri"):
+        shown.append(str(pinned["uri"]))
+    save = f" ({', '.join(shown)})" if shown else ""
+    typer.echo(f"run {run} uses {target.get('ref') or ref}{save} ({_roles(answer, role)})")
 
 
 # ---------------------------------------------------------------------------

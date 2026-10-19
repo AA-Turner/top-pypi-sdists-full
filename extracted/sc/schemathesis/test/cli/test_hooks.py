@@ -1,5 +1,6 @@
 import pytest
 from _pytest.main import ExitCode
+from flask import jsonify
 from hypothesis import settings
 
 
@@ -63,14 +64,16 @@ def after_call(context, case, response):
 
 
 @pytest.fixture
-def restore_default_profile():
+def restore_hypothesis_profile():
+    # Hooks in these tests register and load their own profiles; later tests must keep the suite's one.
+    active = settings.get_current_profile_name()
     original = settings.get_profile("default")
     yield
     settings.register_profile("default", original)
-    settings.load_profile("default")
+    settings.load_profile(active)
 
 
-@pytest.mark.usefixtures("restore_default_profile")
+@pytest.mark.usefixtures("restore_hypothesis_profile")
 def test_hypothesis_deadline_from_hooks_is_reported(ctx, cli):
     api = ctx.openapi.apps.success()
     module = ctx.write_pymodule(
@@ -90,7 +93,44 @@ def before_call(context, case, kwargs):
     assert "exceeds the deadline of 50.00ms" in result.stdout
 
 
-@pytest.mark.usefixtures("restore_default_profile")
+@pytest.mark.usefixtures("restore_hypothesis_profile")
+@pytest.mark.parametrize("max_examples", [3, 100])
+def test_max_examples_option_wins_over_profile_from_hooks(ctx, cli, app_runner, max_examples):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items")
+    def items():
+        return jsonify({})
+
+    module = ctx.write_pymodule(
+        """
+import hypothesis
+
+hypothesis.settings.register_profile("large", max_examples=150)
+hypothesis.settings.load_profile("large")
+"""
+    )
+    result = cli.main(
+        "run",
+        app_runner.openapi_url(app),
+        "--phases=fuzzing",
+        "--mode=positive",
+        f"--max-examples={max_examples}",
+        hooks=module,
+    )
+    assert f"{max_examples} generated" in result.stdout
+
+
+@pytest.mark.usefixtures("restore_hypothesis_profile")
 def test_stateful_run_with_default_profile_settings(ctx, cli):
     api = ctx.openapi.apps.stateful_users()
     module = ctx.write_pymodule(

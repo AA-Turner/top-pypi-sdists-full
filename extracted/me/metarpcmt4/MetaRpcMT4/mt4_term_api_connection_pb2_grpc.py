@@ -131,9 +131,9 @@ class ConnectionServicer(object):
         "password": "ehj4bod", 
         "host": "mt4-demo.roboforex.com", 
         "port": "443",
-        "proxyUser": "ProxyUser123", 
-        "proxyPassword": "qwerty123", 
-        "proxyHost": "65.108.126.217", 
+        "proxyUser": "proxy-user", 
+        "proxyPassword": "proxy-password", 
+        "proxyHost": "proxy.example.com", 
         "proxyPort": "1080", 
         "proxyType": "Socks5" 
         }

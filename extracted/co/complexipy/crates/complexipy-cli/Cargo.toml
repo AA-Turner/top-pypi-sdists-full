@@ -1,5 +1,6 @@
 [package]
 name = "complexipy-cli"
+description = "Command-line argument parsing, the run loop, and output formatting"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,13 +12,15 @@ publish = false
 
 [lib]
 name = "complexipy_cli"
+doctest = false
 
 [[bin]]
 name = "complexipy"
 path = "src/main.rs"
+test = false
 
 [dependencies]
-complexipy-core = { path = "../complexipy-core" }
+complexipy-core = { path = "../complexipy-core", features = ["config"] }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -25,10 +28,14 @@ toml = { workspace = true }
 blake2 = { workspace = true }
 sha2 = { workspace = true }
 comfy-table = { workspace = true }
-owo-colors = { workspace = true }
+owo-colors = { workspace = true, features = ["supports-colors"] }
+supports-color = { workspace = true }
 syntect = { workspace = true }
 terminal_size = { workspace = true }
 unicode-width = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+complexipy-core = { path = "../complexipy-core", features = ["config", "schema"] }
+schemars = { workspace = true }
+jsonschema = { workspace = true }

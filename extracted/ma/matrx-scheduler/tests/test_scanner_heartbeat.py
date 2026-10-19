@@ -8,7 +8,7 @@ could say so. The only health surface was in-process, so it answered "not
 running" identically from a dead scheduler and from the many instances that
 never run one. Absence has to be a durable fact someone else can read.
 
-These tests pin BEHAVIOUR: the loop beats on every tick, and it beats one last
+These tests pin BEHAVIOR: the loop beats on every tick, and it beats one last
 time on the way out so a vanished scanner reads as gone rather than as merely
 one beat stale.
 """

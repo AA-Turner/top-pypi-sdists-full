@@ -50,6 +50,12 @@ _SYNCED = (
     # writer-owns-summary (D2): the recorder keeps summaries and Metrics-center visuals
     "write-summary",
     "overview-visuals",
+    # ARTIFACT-PAGES P2: the page skills a full-page summary is written by
+    "overview-page",
+    "overview-contract",
+    "overview-charts",
+    "artifact-diagramming",
+    "artifact-design",
 )
 
 #: A fenced block, lazily matched so adjacent fences do not merge into one.

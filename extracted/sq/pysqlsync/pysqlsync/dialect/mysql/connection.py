@@ -9,9 +9,10 @@ Copyright 2023-2026, Levente Hunyadi
 import logging
 import ssl
 import typing
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import aiomysql
+import aiomysql.connection
 import pymysql
 from strong_typing.inspection import DataclassInstance, is_dataclass_type
 
@@ -26,6 +27,18 @@ D = TypeVar("D", bound=DataclassInstance)
 T = TypeVar("T")
 
 LOGGER = logging.getLogger("pysqlsync.mysql")
+
+
+# fixes an issue with aiomysql 0.3.x that relies on an implementation detail in PyMySQL
+_escape_bytes_prefixed = getattr(aiomysql.connection, "escape_bytes_prefixed", None)
+if _escape_bytes_prefixed is not None and not callable(_escape_bytes_prefixed):
+
+    def escape_bytes_prefixed(value: bytes) -> str:
+        return f"X'{value.hex()}'"
+
+    # PyMySQL 1.2.x keeps the name importable for aiomysql 0.3.x but binds it to a placeholder string, not a function,
+    # breaking `aiomysql.Connection.escape()` for `bytes` parameters, which calls `escape_bytes_prefixed` internally.
+    aiomysql.connection.escape_bytes_prefixed = escape_bytes_prefixed
 
 
 def quoted_id(identifier: str) -> str:
@@ -57,7 +70,7 @@ class MySQLConnection(BaseConnection):
         else:
             raise ValueError(f"unsupported SSL mode: {ssl_mode}")
 
-    async def _open(self, ctx: Optional[ssl.SSLContext] = None) -> BaseContext:
+    async def _open(self, ctx: ssl.SSLContext | None = None) -> BaseContext:
         sql_mode = ",".join(
             [
                 "ANSI_QUOTES",
@@ -116,7 +129,7 @@ class MySQLContext(BaseContext):
             return resultset_unwrap_tuple(signature, records)
 
     @override
-    async def current_schema(self) -> Optional[str]:
+    async def current_schema(self) -> str | None:
         return None
 
     @override

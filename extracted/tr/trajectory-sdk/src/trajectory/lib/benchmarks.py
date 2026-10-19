@@ -22,7 +22,7 @@ from trajectory.lib.benchmark_progress import (
   _BenchmarkProgressDisplay,
   _SubmissionProgress,
 )
-from trajectory.lib.benchmark_submission import SubmissionUpload
+from trajectory.lib.benchmark_submission import DEFAULT_UPLOAD_MAX_RETRIES, SubmissionUpload
 from trajectory.lib.files import DEFAULT_UPLOAD_TIMEOUT, UploadFile
 from trajectory.types.batch_item_failure import BatchItemFailure
 from trajectory.types.benchmark_images_page import BenchmarkImage
@@ -69,6 +69,7 @@ def push(
   progress: Callable[[BenchmarkProgress], None] | None = None,
   agent_name: str | None = None,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
+  upload_max_retries: int = DEFAULT_UPLOAD_MAX_RETRIES,
 ) -> IngestBenchmarkResponse:
   """Call start_push and wait for registration and any requested image builds."""
   result = start_push(
@@ -81,6 +82,7 @@ def push(
     agent_id=agent_id,
     agent_name=agent_name,
     upload_timeout=upload_timeout,
+    upload_max_retries=upload_max_retries,
   ).result()
   return IngestBenchmarkResponse(
     bench_id=result.status.bench_id,
@@ -101,6 +103,7 @@ def start_push(
   progress: Callable[[BenchmarkProgress], None] | None = None,
   agent_name: str | None = None,
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
+  upload_max_retries: int = DEFAULT_UPLOAD_MAX_RETRIES,
 ) -> BenchmarkOperation:
   """Upload files and return an operation while registration and optional image builds continue."""
   if not isinstance(manifest, BenchmarkSpec):
@@ -127,6 +130,7 @@ def start_push(
         build_images=build_images,
         idempotency_key=idempotency_key,
         upload_timeout=upload_timeout,
+        upload_max_retries=upload_max_retries,
       )
       return operation
     except BaseException as error:

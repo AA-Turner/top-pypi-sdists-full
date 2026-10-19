@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Dict, Optional, cast
 
+from office365.runtime.deprecated import deprecated
+from office365.runtime.odata.literals import escape_odata_string
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
@@ -19,13 +21,28 @@ class ContentTypeCollection(EntityCollection[ContentType]):
     def __init__(self, context, resource_path=None, parent=None):
         super().__init__(context, ContentType, resource_path, parent)
 
+    def find_by_name(self, name: str, *, required: bool = False) -> ContentType:
+        """Look up the content type with the given name from the collection.
+
+        Deferred — run with ``execute_query()``. Tolerant by default: when no
+        content type matches, the returned object is left uninitialized (check
+        :attr:`~office365.runtime.client_object.ClientObject.is_loaded`). Pass
+        ``required=True`` to raise instead (or on an ambiguous match).
+
+        Args:
+            name (str): Content type name
+            required (bool): Raise on a missing or ambiguous match when ``True``
+        """
+        return self._find_by_filter(f"Name eq '{escape_odata_string(name)}'", required=required)
+
+    @deprecated("Use find_by_name() instead.", version="4.0")
     def get_by_name(self, name: str) -> ContentType:
-        """Returns the content type with the given name from the collection.
+        """Deprecated alias of :meth:`find_by_name` (strict).
 
         Args:
             name (str): Content type name
         """
-        return self.single(f"Name eq '{name}'")
+        return self.find_by_name(name, required=True)
 
     def get_by_id(self, content_type_id: str) -> ContentType:
         """Returns the content type with the given identifier from the collection.
@@ -46,16 +63,28 @@ class ContentTypeCollection(EntityCollection[ContentType]):
         description: str | None = None,
         group: str | None = None,
         *,
+        content_type_id: str | None = None,
         on_conflict: str = "skip",
     ) -> ContentType:
         """Ensure a content type with the given name exists (idempotent).
 
-        With ``on_conflict="update"`` the existing content type's description and
-        group are reconciled.
-        """
-        from office365.runtime.queries.get_or_create import create_or_get
+        Looks the content type up by name and creates it only when missing, so a
+        re-run is a no-op. With ``on_conflict="update"`` the existing content
+        type's description and group are reconciled.
 
-        info = ContentTypeCreationInformation(name, description, group)
+        Args:
+            name: The content type name (the lookup key).
+            description: The description to create it with.
+            group: The group to create it with.
+            content_type_id: The ``ContentTypeId`` to request. SharePoint Online
+                assigns a content type its own identifier (and ignores this value
+                at both list and web scope), so match content types by *name* —
+                this is a best-effort hint for servers that do honour it.
+            on_conflict: ``"skip"`` (default) or ``"update"``.
+        """
+        from office365.runtime.queries.get_or_create import get_or_create
+
+        info = ContentTypeCreationInformation(Name=name, Description=description, Group=group, Id=content_type_id)
 
         def _reconcile(content_type: ContentType) -> None:
             changed = False
@@ -68,12 +97,27 @@ class ContentTypeCollection(EntityCollection[ContentType]):
             if changed:
                 content_type.update()
 
-        return create_or_get(
-            create=lambda: self.add(info),
-            find=lambda: self.get_by_name(name),
+        return_type = self.find_by_name(name)
+        return get_or_create(
+            find=lambda: return_type,
+            create_query=lambda: self._build_add_query(info, return_type),
+            return_type=return_type,
+            missing=lambda content_type: not content_type.is_loaded,
             on_conflict=on_conflict,
             reconcile=_reconcile,
         )
+
+    def _build_add_query(
+        self, content_type_info: ContentTypeCreationInformation, return_type: ContentType
+    ) -> CreateEntityQuery:
+        """Build (but do not queue) the ``Add`` query for the given content type spec."""
+        params = cast(Dict, content_type_info.to_json())
+        for k, v in params.items():
+            if k == "Id":
+                return_type.set_property(k, {"StringValue": v}, True)
+            else:
+                return_type.set_property(k, v, True)
+        return CreateEntityQuery(self, return_type, return_type)
 
     def add(self, content_type_info: ContentTypeCreationInformation) -> ContentType:
         """Adds a new content type to the collection and returns a reference to the added SP.ContentType.
@@ -84,14 +128,7 @@ class ContentTypeCollection(EntityCollection[ContentType]):
         """
         return_type = ContentType(self.context)
         self.add_child(return_type)
-        params = cast(Dict, content_type_info.to_json())
-        for k, v in params.items():
-            if k == "Id":
-                return_type.set_property(k, {"StringValue": v}, True)
-            else:
-                return_type.set_property(k, v, True)
-        qry = CreateEntityQuery(self, return_type, return_type)
-        self.context.add_query(qry)
+        self.context.add_query(self._build_add_query(content_type_info, return_type))
         return return_type
 
     def create(

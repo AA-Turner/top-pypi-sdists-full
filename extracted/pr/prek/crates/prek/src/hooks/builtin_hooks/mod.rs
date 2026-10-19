@@ -20,8 +20,10 @@ use crate::store::Store;
 
 use super::{HookFuture, HookOutput};
 
+mod check_commit_trailers;
 mod check_json5;
 mod check_jsonc;
+mod check_signed_commit;
 mod pattern;
 
 #[derive(
@@ -41,6 +43,7 @@ mod pattern;
 pub(crate) enum BuiltinHooks {
     CheckAddedLargeFiles,
     CheckCaseConflict,
+    CheckCommitTrailers,
     CheckExecutablesHaveShebangs,
     CheckIllegalWindowsNames,
     CheckJson,
@@ -48,6 +51,7 @@ pub(crate) enum BuiltinHooks {
     CheckJsonc,
     CheckMergeConflict,
     CheckShebangScriptsAreExecutable,
+    CheckSignedCommit,
     CheckSymlinks,
     CheckToml,
     CheckVcsPermalinks,
@@ -74,6 +78,7 @@ impl BuiltinHooks {
     fn flags_command(self) -> Option<Command> {
         Some(match self {
             Self::CheckAddedLargeFiles => check_added_large_files::Args::command(),
+            Self::CheckCommitTrailers => check_commit_trailers::Args::command(),
             Self::CheckJsonc => check_jsonc::Args::command(),
             Self::CheckMergeConflict => check_merge_conflict::Args::command(),
             Self::CheckVcsPermalinks => check_vcs_permalinks::Args::command(),
@@ -111,6 +116,7 @@ impl BuiltinHooks {
         let future: HookFuture<'_> = match self {
             Self::CheckAddedLargeFiles => Box::pin(check_added_large_files::run(hook, filenames)),
             Self::CheckCaseConflict => Box::pin(check_case_conflict::run(hook, filenames)),
+            Self::CheckCommitTrailers => Box::pin(check_commit_trailers::run(hook, filenames)),
             Self::CheckExecutablesHaveShebangs => {
                 Box::pin(check_executables_have_shebangs::run(hook, filenames))
             }
@@ -124,6 +130,7 @@ impl BuiltinHooks {
             Self::CheckShebangScriptsAreExecutable => {
                 Box::pin(check_shebang_scripts_are_executable::run(hook, filenames))
             }
+            Self::CheckSignedCommit => Box::pin(check_signed_commit::run(hook)),
             Self::CheckSymlinks => Box::pin(check_symlinks::run(hook, filenames)),
             Self::CheckToml => Box::pin(check_toml::run(hook, filenames)),
             Self::CheckVcsPermalinks => Box::pin(check_vcs_permalinks::run(hook, filenames)),
@@ -182,6 +189,22 @@ impl BuiltinHook {
                         "Checks for files that would conflict in case-insensitive filesystems."
                             .to_string(),
                     ),
+                    ..Default::default()
+                },
+            },
+            BuiltinHooks::CheckCommitTrailers => BuiltinHook {
+                id: "check-commit-trailers".to_string(),
+                name: "check commit trailers".to_string(),
+                entry: "check-commit-trailers".to_string(),
+                priority: None,
+                groups: None,
+                options: HookOptions {
+                    description: Some(
+                        "Checks required and denied commit trailers."
+                            .to_string(),
+                    ),
+                    stages: Some([Stage::CommitMsg, Stage::PrePush].into()),
+                    always_run: Some(true),
                     ..Default::default()
                 },
             },
@@ -282,6 +305,23 @@ impl BuiltinHook {
                     ),
                     types: Some(tags::TAG_SET_TEXT),
                     stages: Some([Stage::PreCommit, Stage::PrePush, Stage::Manual].into()),
+                    ..Default::default()
+                },
+            },
+            BuiltinHooks::CheckSignedCommit => BuiltinHook {
+                id: "check-signed-commit".to_string(),
+                name: "check for commit signatures".to_string(),
+                entry: "check-signed-commit".to_string(),
+                priority: None,
+                groups: None,
+                options: HookOptions {
+                    description: Some(
+                        "Ensures commits are signed with a valid GPG/SSH signature before they're pushed."
+                            .to_string(),
+                    ),
+                    pass_filenames: Some(PassFilenames::None),
+                    always_run: Some(true),
+                    stages: Some([Stage::PrePush, Stage::Manual].into()),
                     ..Default::default()
                 },
             },

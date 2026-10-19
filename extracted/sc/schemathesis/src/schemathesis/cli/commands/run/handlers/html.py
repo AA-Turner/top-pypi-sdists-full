@@ -21,11 +21,12 @@ from schemathesis.cli.output import LOADER_ERROR_SUGGESTIONS, replay_command
 from schemathesis.cli.summary import running_time
 from schemathesis.core.errors import LoaderError, LoaderErrorKind
 from schemathesis.core.output import format_response_payload
+from schemathesis.core.output.sanitization import sanitized
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.errors import EngineErrorInfo
 from schemathesis.engine.run import INTERNAL_PHASES, PhaseName, PhaseSkipReason
 from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
-from schemathesis.reporting.html.build import enabled_checks, failing_case, request_name, sanitized
+from schemathesis.reporting.html.build import enabled_checks, failing_case, failure_titles, request_name
 from schemathesis.reporting.html.model import (
     AFTER_RUN,
     Command,
@@ -240,7 +241,7 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
             if not names_operation(label):
                 continue
             cases = failing_cases.get(label, [])
-            failures = sorted({failure.title for case in cases for failure in case.failures})
+            failures = failure_titles(cases)
             errors = list(self.errors.get(label, {}).values())
             note = errors[0].title if errors else None
             if failures:

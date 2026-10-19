@@ -302,8 +302,13 @@ def test_erased_since_checkout_is_not_merged_and_asks_for_a_fresh_checkout(
     assert path.read_text() == "my edit, grown from the erased text\n", "the file keeps its edits"
     assert path.with_suffix(".base").read_text() == base, "nothing was merged onto the erased page"
     assert sum(1 for c in server.calls if c[0] == "GET") == gets_before
-    # A fresh checkout is allowed (the draft is this session's own) and pushes.
-    out = _checkout(capsys, "--project", "p")
+    assert "--steal" in pushed["detail"]
+    # The draft still holds those edits: a checkout replaces it only with
+    # --steal (review of #3034, finding 3), then pushes.
+    capsys.readouterr()
+    assert cli.main(["summary", "checkout", "--project", "p"]) == 2
+    assert path.read_text() == "my edit, grown from the erased text\n"
+    out = _checkout(capsys, "--project", "p", "--steal")
     assert out["markdown"] == "rolled back\n"
     Path(out["path"]).write_text("rolled back\nand mine\n")
     assert _push(capsys, "--project", "p")[0] == 0
@@ -550,6 +555,10 @@ def test_checkout_in_lane_mode_asks_nothing_about_tables(server, capsys, monkeyp
     out, err = _checkout_err(capsys, "--project", "p")
     assert out["visuals"] is None and "Tables and charts" not in err
     assert not any(c[1].endswith("/visuals/options") for c in server.calls)
+    # Since writer-owns-summary R2 no lane writes a `lane` team's summaries:
+    # the note says the door is closed and who opens it, with the daemon's mark.
+    assert "summary door is closed (summaries_by=lane) (mode lane)" in err
+    assert "ask Probe (support@prbe.ai)" in err and "overview lane" not in err
 
 
 # ---------------------------------------------------------------------------
@@ -829,7 +838,11 @@ def test_no_reminder_while_the_team_was_last_seen_in_lane_mode(server, capsys, m
     _checkout(capsys, "--project", "p")
     capsys.readouterr()
     assert cli.main(["experiment", "create", "recx", "--question", "q?", "--project", "p"]) == 0
-    assert _reminders(capsys.readouterr().err) == [summary_cli.REMINDER.format(label="recx", kind="experiment")]
+    # The agent's own session (no daemon): its first write checks the summary
+    # out itself and names the draft (ARTIFACT-PAGES P3), in the reminder's place.
+    (line,) = _reminders(capsys.readouterr().err)
+    assert line.startswith("Summary of recx checked out for this session (v0): "), line
+    assert Path(line.split(": ", 1)[1].split(" - ", 1)[0]).is_file()
 
 
 def test_the_lane_memory_names_the_server_it_saw(server, capsys, monkeypatch):

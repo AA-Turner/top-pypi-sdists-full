@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 import requests
+import strawberry
 import trustme
 from flask import Response, jsonify, request
 from rich.console import Console
@@ -407,7 +408,7 @@ def test_replay_unsupported_method_crash(cli, ctx, tmp_path):
     result = cli.main("replay", case_id)
 
     assert result.exit_code == 1, result.output
-    assert "Unsupported methods" in result.output
+    assert "Wrong response to undeclared method" in result.output
     assert "operation not found" not in result.output
     assert "TRACE /api/thing/{id}" in result.output, result.output
     assert "GET /api/thing/{id}" not in result.output, result.output
@@ -467,8 +468,7 @@ def test_replay_applies_per_operation_headers(cli, app_runner, ctx, crash_factor
 
 def test_build_case_drops_stale_framing_headers(ctx, crash_factory):
     # Stale framing headers (Content-Length, Host) are dropped so the re-sent request isn't misframed.
-    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    operation = schema["/users"]["GET"]
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
     crash = crash_factory.single(
         path="/users",
         status=500,
@@ -485,8 +485,7 @@ def test_build_case_drops_stale_framing_headers(ctx, crash_factory):
 
 def test_build_case_drops_stale_cookie_header(ctx, crash_factory):
     # A recorded Cookie header would override the structured cookies, so it is dropped.
-    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    operation = schema["/users"]["GET"]
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
     crash = crash_factory.single(
         path="/users",
         status=500,
@@ -689,6 +688,78 @@ def test_replay_reproduces_recorded_unit_failures(cli, ctx, tmp_path, snapshot_c
     assert "ERROR" not in result.output
 
 
+def test_replay_graphql_crash(cli, ctx, tmp_path):
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def boom(self) -> str:
+            raise RuntimeError("planted")
+
+    api = ctx.graphql.apps.from_schema(strawberry.Schema(Query))
+    run = cli.run(api.schema_url, "--max-examples=1", "--phases=fuzzing")
+    case_id = json.loads(_list_crash_files(crash_cache_dir(tmp_path))[0].read_text())["case_id"]
+
+    result = cli.main("replay", case_id, "--keep")
+
+    assert (result.exit_code, "ERROR" in result.output, "1 failed" in result.output) == (1, False, True), result.output
+    # Replay names the case by the same operation label as the run.
+    assert (
+        re.findall(r"^_+ (.+?) _+$", run.stdout, re.MULTILINE),
+        re.findall(r"^_+ (.+?) _+$", result.stdout, re.MULTILINE),
+        re.findall(r"^  x FAILED (.+)$", result.stdout, re.MULTILINE),
+    ) == (["Query.boom"], ["Query.boom"], ["Query.boom"]), result.output
+
+
+def test_replay_graphql_stateful_crash(cli, ctx, tmp_path):
+    api = ctx.graphql.apps.generic_id_pool()
+    cli.run(api.schema_url, "--max-examples=20", "--phases=stateful", "--mode=positive", "--seed=42")
+    crash = json.loads(_list_crash_files(crash_cache_dir(tmp_path))[0].read_text())
+    assert len(crash["sequence"]) > 1
+
+    result = cli.main("replay", crash["case_id"], "--keep")
+
+    assert (result.exit_code, "ERROR" in result.output, "1 failed" in result.output) == (1, False, True), result.output
+
+
+def test_graphql_crash_url_template_is_endpoint_url(cli, ctx, tmp_path):
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def boom(self) -> str:
+            raise RuntimeError("planted")
+
+    api = ctx.graphql.apps.from_schema(strawberry.Schema(Query))
+    cli.run(api.schema_url, "--max-examples=1", "--phases=fuzzing")
+    step = json.loads(_list_crash_files(crash_cache_dir(tmp_path))[0].read_text())["sequence"][0]
+
+    assert (step["url"], step["url_template"]) == (api.schema_url, api.schema_url)
+
+
+def test_openapi_crash_url_template_keeps_path_placeholders(cli, app_runner, ctx, tmp_path):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/items/{id}": {
+                "get": {
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer", "enum": [7]}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/api/items/<int:item_id>")
+    def item(item_id):
+        return jsonify({}), 500
+
+    base_url = app_runner.openapi_url(app, path="")
+    cli.run(f"{base_url}/openapi.json", "--max-examples=1", "--phases=fuzzing")
+    step = json.loads(_list_crash_files(crash_cache_dir(tmp_path))[0].read_text())["sequence"][0]
+
+    assert (step["url"], step["url_template"]) == (f"{base_url}/api/items/7", f"{base_url}/api/items/{{id}}")
+
+
 def test_replay_reuses_disabled_tls_verification(cli, tmp_path):
     server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     trustme.CA().issue_cert("127.0.0.1").configure_cert(server_context)
@@ -736,7 +807,7 @@ def test_replay_failure_order_matches_run(cli, app_runner, ctx, tmp_path):
         return re.findall(r"^- (\S.*?)(?:  \(\d+ violations\))?$", block, re.MULTILINE)
 
     run_titles = titles(run.output)
-    assert run_titles[0] == "Server error", run.output
+    assert run_titles[0] == "ST101 Server error", run.output
 
     result = cli.main("replay", shared, "--keep")
 
@@ -1139,8 +1210,7 @@ def test_replay_resends_custom_wire_headers_but_not_generated_ones(
 
 
 def test_build_case_keeps_wire_headers_alongside_header_parameters(ctx, crash_factory):
-    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    operation = schema["/users"]["GET"]
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
     crash = crash_factory.single(
         path="/users",
         status=500,
@@ -1895,7 +1965,7 @@ def test_replay_invalid_link_location_is_errored(cli, app_runner, ctx, tmp_path,
     )
     writer.write(
         CrashFile(
-            operation="GET /source -> GET /target",
+            operation="GET /target",
             method="GET",
             path_template="/target",
             fingerprint="badloc",
@@ -2428,7 +2498,7 @@ def test_replay_ignores_link_with_out_of_range_parent_index(cli, app_runner, ctx
     )
     writer.write(
         CrashFile(
-            operation="GET /source -> GET /target",
+            operation="GET /target",
             method="GET",
             path_template="/target",
             fingerprint="stalepar",

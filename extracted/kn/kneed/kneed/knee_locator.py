@@ -1,5 +1,4 @@
 import numpy as np
-from scipy import interpolate
 from scipy.signal import argrelextrema
 from typing import Tuple, Optional, Iterable
 
@@ -37,7 +36,8 @@ class KneeLocator(object):
     direction : str, default "increasing"
         One of ``{"increasing", "decreasing"}``.
     interp_method : str, default "interp1d"
-        One of ``{"interp1d", "polynomial"}``.
+        One of ``{"interp1d", "polynomial"}``. ``"interp1d"`` uses ``y`` as
+        given; ``"polynomial"`` smooths ``y`` with a polynomial fit.
     online : bool, default False
         If True, kneed will correct old knee points as it traverses the
         curve. If False, it returns the first knee found.
@@ -104,9 +104,9 @@ class KneeLocator(object):
         The normalized x value of the knee point.
     norm_knee_y : float or None
         The normalized y value of the knee point.
-    all_knees : set
-        All the x values of the identified knee points.
-    all_norm_knees : set
+    all_knees : list
+        All the x values of the identified knee points, in the order they were found.
+    all_norm_knees : list
         All the normalized x values of the identified knee points.
     all_knees_y : list
         All the y values of the identified knee points.
@@ -144,12 +144,14 @@ class KneeLocator(object):
         # Step 0: Raw Input
         self.x = np.array(x)
         self.y = np.array(y)
+        if len(self.x) != len(self.y):
+            raise ValueError("x and y must be the same length.")
         self.curve = curve
         self.direction = direction
         self.N = len(self.x)
         self.S = S
-        self.all_knees = set()
-        self.all_norm_knees = set()
+        self.all_knees = []
+        self.all_norm_knees = []
         self.all_knees_y = []
         self.all_norm_knees_y = []
         self.online = online
@@ -168,10 +170,10 @@ class KneeLocator(object):
                 "Please check that the curve and direction arguments are valid."
             )
 
-        # Step 1: fit a smooth line
+        # Step 1: smooth the data. "interp1d" means no smoothing: a linear
+        # interpolant evaluated at its own x values returns y unchanged.
         if interp_method == "interp1d":
-            uspline = interpolate.interp1d(self.x, self.y)
-            self.Ds_y = uspline(self.x)
+            self.Ds_y = self.y.astype(float)
         elif interp_method == "polynomial":
             p = np.poly1d(np.polyfit(x, y, self.polynomial_degree))
             self.Ds_y = p(x)
@@ -190,6 +192,10 @@ class KneeLocator(object):
         self.y_normalized = self.transform_y(
             self.y_normalized, self.direction, self.curve
         )
+        # flipping y by index only mirrors the curve on evenly spaced x;
+        # mirror x by value too (paper: x -> x_max - x), keeping ascending order
+        if (self.direction, self.curve) in (("decreasing", "concave"), ("increasing", "convex")):
+            self.x_normalized = np.flip(1 - self.x_normalized)
         # normalized difference curve
         self.y_difference = self.y_normalized - self.x_normalized
         self.x_difference = self.x_normalized.copy()
@@ -215,7 +221,7 @@ class KneeLocator(object):
 
         # Step 7: If we have a knee, extract data about it
         self.knee_y = self.norm_knee_y = None
-        if self.knee:
+        if self.knee is not None:
             self.knee_y = self.y[self.x == self.knee][0]
             self.norm_knee_y = self.y_normalized[self.x_normalized == self.norm_knee][0]
 
@@ -233,6 +239,7 @@ class KneeLocator(object):
         numpy.ndarray
             The normalized array.
         """
+        a = np.asarray(a, dtype=float)
         return (a - min(a)) / (max(a) - min(a))
 
     @staticmethod
@@ -336,18 +343,16 @@ class KneeLocator(object):
                 y_at_knee = self.y[self.x == knee][0]
                 y_norm_at_knee = self.y_normalized[self.x_normalized == norm_knee][0]
                 if knee not in self.all_knees:
+                    self.all_knees.append(knee)
+                    self.all_norm_knees.append(norm_knee)
                     self.all_knees_y.append(y_at_knee)
                     self.all_norm_knees_y.append(y_norm_at_knee)
-
-                # now add the knee
-                self.all_knees.add(knee)
-                self.all_norm_knees.add(norm_knee)
 
                 # if detecting in offline mode, return the first knee found
                 if self.online is False:
                     return knee, norm_knee
 
-        if self.all_knees == set():
+        if not self.all_knees:
             # No knee was found
             return None, None
 

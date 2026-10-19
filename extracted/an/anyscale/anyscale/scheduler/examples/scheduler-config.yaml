@@ -12,41 +12,75 @@
 resource_flavors:
   - name: spot
     selector:
-      - key: market
+      - key: market-type
         operator: in
-        values: [spot]
-  - name: ondemand
+        values: [SPOT]
+  - name: reserved
     selector:
-      - key: market
+      - key: market-type
         operator: in
-        values: [ondemand]
+        values: [ON_DEMAND]
+      # Select the reservation's zone so this flavor is only used for launches there.
+      - key: zone
+        operator: in
+        values: [us-west-2a]
     # Cloud-provider-specific advanced launch overrides (pass-through).
     advanced_instance_config:
       CapacityReservationSpecification:
         CapacityReservationTarget:
           CapacityReservationId: cr-xxxx
+  - name: ondemand
+    selector:
+      - key: market-type
+        operator: in
+        values: [ON_DEMAND]
   # No selector: matches any instance. Used by the `default` queue's catch-all flavor.
   - name: any
 
 # Resource queues — where requests land.
 resource_queues:
   - name: research
+    # Queues sharing a cohort_name pool their unused nominal quota: a queue at its
+    # nominal may borrow a peer's idle quota, and the peer can reclaim it.
+    cohort_name: ml
     preemption:
       # Preempt strictly lower-priority requests within this queue.
       within_resource_queue: lower_priority
+      # Take back borrowed quota by preempting lower-priority borrowers on cohort peers.
+      reclaim_within_cohort: lower_priority
     resource_groups:
       # Quotas are scoped per resource (e.g., gpu) and per flavor.
       - covered_resources: [gpu]
+        # Flavors are tried in order, so the reservation comes first and on-demand covers
+        # launches outside its zone.
         flavors:
+          - name: reserved
+            resources:
+              - name: gpu
+                nominal_quota: 8
           - name: spot
             resources:
               - name: gpu
                 # Guaranteed capacity for this queue+flavor+resource.
                 nominal_quota: 64
+                # Cohort peers may borrow at most this much of it while idle
+                # (omit to lend all unused nominal quota).
+                lending_limit: 32
           - name: ondemand
             resources:
               - name: gpu
                 nominal_quota: 32
+  - name: analytics
+    cohort_name: ml
+    resource_groups:
+      - covered_resources: [gpu]
+        flavors:
+          - name: spot
+            resources:
+              - name: gpu
+                nominal_quota: 16
+                # May exceed nominal by at most this much via borrowing (omit for no limit).
+                borrowing_limit: 16
   # Default queue: no preemption.
   - name: default
     resource_groups:
@@ -79,5 +113,10 @@ scheduling_rules:
       # 'reject' rejects out-of-range priorities; 'force_update' clamps the
       # priority to the nearest in-range value and continues.
       on_violation: reject
+  - resource_queue: analytics
+    selector:
+      - key: team
+        operator: in
+        values: [analytics]
   # Catch-all rule (no selector) routes everything else to the default queue.
   - resource_queue: default

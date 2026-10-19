@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crc32c-rs
-Version: 0.0.6
+Version: 0.0.7
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python

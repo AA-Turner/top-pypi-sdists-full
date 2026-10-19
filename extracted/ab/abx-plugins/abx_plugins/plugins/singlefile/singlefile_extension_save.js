@@ -48,12 +48,15 @@ function getSinglefileDownloadWaitTimeoutMs(
   return Math.max(3000, totalTimeoutMs - DOWNLOAD_WAIT_RESERVE_MS - elapsedMs);
 }
 
-async function moveAcrossMounts(src, dest) {
+async function moveAcrossMounts(src, dest, startedAt) {
+  console.error(`[singlefile] phase=file-rename started elapsed_ms=${Date.now() - startedAt}`);
   try {
     await fs.promises.rename(src, dest);
   } catch (error) {
     if (error?.code !== "EXDEV") throw error;
+    console.error(`[singlefile] phase=file-copy started elapsed_ms=${Date.now() - startedAt}`);
     await fs.promises.copyFile(src, dest);
+    console.error(`[singlefile] phase=file-unlink started elapsed_ms=${Date.now() - startedAt}`);
     await fs.promises.unlink(src);
   }
 }
@@ -301,15 +304,17 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
               await findCompleted();
             })().catch(fail);
           };
-          const timer = setTimeout(() => {
+          const timer = setTimeout(async () => {
+            if (settled) return;
+            settled = true;
             cleanup();
-            // Cancel only this tab's capture through the running extension,
-            // without importing another copy of its background modules.
-            chrome.runtime.sendMessage({ method: "downloads.getInfo" })
-              .then(tasks => Promise.all(tasks.filter(task => task.tabId === exactTab.id)
-                .map(task => chrome.runtime.sendMessage({ method: "downloads.cancel", taskId: task.id }))))
-              .catch(error => console.error("SingleFile cancellation failed:", error));
-            fail(
+            // SingleFile treats taskId=0 as absent. Send its native tab-cancel
+            // message from the capture tab, and finish before closing this helper.
+            await chrome.scripting.executeScript({
+              target: { tabId: exactTab.id },
+              func: () => chrome.runtime.sendMessage({ method: "downloads.cancel" }),
+            }).catch(error => console.error("SingleFile cancellation failed:", error));
+            reject(
               new Error(
                 `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
               )
@@ -323,15 +328,6 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       { exactTab: tab, extensionId: extension.id, timeoutMs: downloadTimeoutMs }
     );
     console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
-    const stat = await fs.promises.stat(downloadedPath);
-    if (stat.size <= 0) {
-      throw new Error(`SingleFile download is empty: ${downloadedPath}`);
-    }
-    if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
-      await moveAcrossMounts(downloadedPath, outputPath);
-    }
-    console.error(`[singlefile] phase=file-saved elapsed_ms=${Date.now() - saveStartedAt}`);
-    return outputPath;
   } finally {
     try {
       if (originalProfileOptions) {
@@ -349,6 +345,20 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }
   }
+  // The exact GUID download is complete and exclusively ours. Restore browser
+  // state before publishing to an archive filesystem: a slow mount must not
+  // hold the browser-wide download lock and stall other snapshot captures.
+  console.error(`[singlefile] phase=browser-released elapsed_ms=${Date.now() - saveStartedAt}`);
+  const stat = await fs.promises.stat(downloadedPath);
+  console.error(`[singlefile] phase=file-stat completed elapsed_ms=${Date.now() - saveStartedAt}`);
+  if (stat.size <= 0) {
+    throw new Error(`SingleFile download is empty: ${downloadedPath}`);
+  }
+  if (path.resolve(downloadedPath) !== path.resolve(outputPath)) {
+    await moveAcrossMounts(downloadedPath, outputPath, saveStartedAt);
+  }
+  console.error(`[singlefile] phase=file-saved elapsed_ms=${Date.now() - saveStartedAt}`);
+  return outputPath;
 }
 
 async function main() {

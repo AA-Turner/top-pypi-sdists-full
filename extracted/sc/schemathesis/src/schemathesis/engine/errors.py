@@ -552,6 +552,15 @@ def is_connection_refused(exc: requests.ConnectionError) -> bool:
     return False
 
 
+def never_reached_server(exc: BaseException | None) -> bool:
+    """Whether the request failed before any server saw it: the connection timed out or was refused."""
+    import requests
+
+    return isinstance(exc, requests.ConnectTimeout) or (
+        isinstance(exc, requests.ConnectionError) and is_connection_refused(exc)
+    )
+
+
 @dataclass(slots=True)
 class UnrecoverableNetworkError:
     error: requests.ConnectionError | ChunkedEncodingError | requests.Timeout
@@ -596,7 +605,7 @@ class TestingState:
 
     @property
     def unrecoverable_network_error(self) -> UnrecoverableNetworkError | None:
-        """Return any stored unrecoverable network error (for backward compatibility)."""
+        """Return any stored unrecoverable network error."""
         if self._unrecoverable_network_errors:
             return next(iter(self._unrecoverable_network_errors.values()))
         return None

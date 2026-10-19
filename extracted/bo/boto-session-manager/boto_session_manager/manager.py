@@ -22,6 +22,7 @@ try:
     import boto3
     import boto3.session
     import botocore.session
+    import botocore.exceptions
 except ImportError:  # pragma: no cover
     print("You probably need to install 'boto3' first.")
 
@@ -194,6 +195,11 @@ class BotoSesManager(ClientMixin):
     def aws_account_alias(self) -> str | None:
         """
         Get the first aws account alias of the boto session. This is a cached property.
+
+        Returns ``None`` when the account has no alias. Raises
+        :class:`botocore.exceptions.ClientError` (e.g. ``AccessDenied``) when
+        the caller is not allowed to call ``iam:ListAccountAliases``; a failed
+        call is not cached.
         """
         if self._aws_account_alias_cache is NOTHING:
             self._aws_account_alias_cache = get_account_alias(
@@ -201,9 +207,14 @@ class BotoSesManager(ClientMixin):
             )
         return self._aws_account_alias_cache
 
-    def print_who_am_i(self, masked: bool = True):  # pragma: no cover
+    def print_who_am_i(self, masked: bool = True):
         """
         Print the boto session AWS Account and IAM principal information.
+
+        The account alias never makes this method fail: it prints
+        ``<not set>`` when the account has no alias, and
+        ``<unavailable: {error code}>`` (e.g. ``AccessDenied``) when the
+        alias cannot be read.
         """
         if masked:
             print(f"User Id = {self.masked_aws_account_user_id}")
@@ -213,7 +224,14 @@ class BotoSesManager(ClientMixin):
             print(f"User Id = {self.aws_account_user_id}")
             print(f"AWS Account Id = {self.aws_account_id}")
             print(f"Principal Arn = {self.principal_arn}")
-        print(f"AWS Account Alias = {self.aws_account_alias}")
+        try:
+            alias = self.aws_account_alias
+            if alias is None:
+                alias = "<not set>"
+        except botocore.exceptions.ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            alias = f"<unavailable: {error_code}>"
+        print(f"AWS Account Alias = {alias}")
         print(f"AWS Region = {self.aws_region}")
 
     def get_client(

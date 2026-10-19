@@ -23,7 +23,7 @@ from datamodel_code_generator.parser.xmlschema import (
     _read_xml_text,
     convert_xml_schema_data,
 )
-from tests.conftest import assert_output
+from tests.conftest import assert_output, stored_expected
 from tests.main.conftest import (
     BACKEND_GOLDEN_CASES,
     BACKEND_GOLDEN_TARGET_ARGS,
@@ -90,7 +90,7 @@ def test_read_xml_text_detects_byte_order_mark(tmp_path: Path, byte_order_mark: 
     """Decode XML source according to its byte order mark."""
     schema_path = tmp_path / "schema.xsd"
     expected_path = EXPECTED_XML_SCHEMA_PATH / "xml_text_initial.txt"
-    schema_text = expected_path.read_text(encoding="utf-8")
+    schema_text = stored_expected(expected_path).read_text(encoding="utf-8")
     schema_path.write_bytes(byte_order_mark + schema_text.encode(xml_encoding))
 
     assert_output(_read_xml_text(schema_path, "ascii"), expected_path)
@@ -101,10 +101,10 @@ def test_read_xml_text_reads_updated_source(tmp_path: Path) -> None:
     schema_path = tmp_path / "schema.xsd"
     first_expected_path = EXPECTED_XML_SCHEMA_PATH / "xml_text_initial.txt"
     second_expected_path = EXPECTED_XML_SCHEMA_PATH / "xml_text_updated.txt"
-    schema_path.write_bytes(first_expected_path.read_text(encoding="utf-8").encode("latin-1"))
+    schema_path.write_bytes(stored_expected(first_expected_path).read_text(encoding="utf-8").encode("latin-1"))
     assert_output(_read_xml_text(schema_path, "latin-1"), first_expected_path)
 
-    schema_path.write_bytes(second_expected_path.read_text(encoding="utf-8").encode("latin-1"))
+    schema_path.write_bytes(stored_expected(second_expected_path).read_text(encoding="utf-8").encode("latin-1"))
     assert_output(_read_xml_text(schema_path, "latin-1"), second_expected_path)
 
 
@@ -178,6 +178,17 @@ def test_main_xmlschema_edge_cases(output_file: Path) -> None:
         input_file_type="xmlschema",
         assert_func=assert_file_content,
         expected_file="edge_cases.py",
+    )
+
+
+@pytest.mark.parametrize("extra_args", [["--use-single-value-enum-as-const"], []], ids=["option", "without-option"])
+def test_main_xmlschema_single_value_enum_as_const_keeps_converted(extra_args: list[str], output_file: Path) -> None:
+    """Keep the fixed values of nillable elements as written, as XML Schema is converted rather than read as JSON."""
+    run_main_and_assert(
+        input_path=XML_SCHEMA_DATA_PATH / "single_value_enum_as_const.xsd",
+        output_path=output_file,
+        input_file_type="xmlschema",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--formatters", "builtin", *extra_args],
     )
 
 
@@ -1207,6 +1218,11 @@ XSD_PROPERTY_CONTROLS = (
     "default_namespace_alias_reuse",
     "empty_namespace_reuse",
 )
+XSD_PROPERTY_SHARED_INSTANCES = {
+    "empty_namespace_reuse.xml": "group_reuse.xml",
+    "simple_content_collision.xml": "namespaced_attributes.xml",
+    "simple_content_collision.invalid.xml": "namespaced_attributes.invalid.xml",
+}
 XSD_PROPERTY_BACKENDS = (
     DataModelType.PydanticV2BaseModel,
     DataModelType.PydanticV2Dataclass,
@@ -1220,10 +1236,14 @@ XSD_PROPERTY_BACKENDS = (
 def test_native_xsd_property_names(name: str) -> None:
     """Confirm collision and reuse fixtures are legal XSD with valid XML instances."""
     source = XML_SCHEMA_DATA_PATH / "field_name_collisions" / name
+    valid, invalid = (
+        source.with_name(XSD_PROPERTY_SHARED_INSTANCES.get(instance, instance))
+        for instance in (f"{name}.xml", f"{name}.invalid.xml")
+    )
     schema = etree.XMLSchema(etree.parse(str(source.with_suffix(".xsd"))))
-    schema.assertValid(etree.parse(str(source.with_suffix(".xml"))))
+    schema.assertValid(etree.parse(str(valid)))
     with pytest.raises(etree.DocumentInvalid):
-        schema.assertValid(etree.parse(str(source.with_suffix(".invalid.xml"))))
+        schema.assertValid(etree.parse(str(invalid)))
 
 
 @pytest.mark.parametrize("name", [*XSD_PROPERTY_CONTROLS, "unused"])

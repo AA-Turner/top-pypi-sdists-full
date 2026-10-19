@@ -59,6 +59,7 @@ class ExperimentalWorkspace(object):
         'restart_on_env_var_change': 'bool',
         'priority': 'int',
         'is_imported': 'bool',
+        'maximum_uptime_minutes': 'int',
         'state': 'SessionState',
         'integration_details': 'IntegrationDetails',
         'ray_dashboard_url': 'str',
@@ -93,6 +94,7 @@ class ExperimentalWorkspace(object):
         'restart_on_env_var_change': 'restart_on_env_var_change',
         'priority': 'priority',
         'is_imported': 'is_imported',
+        'maximum_uptime_minutes': 'maximum_uptime_minutes',
         'state': 'state',
         'integration_details': 'integration_details',
         'ray_dashboard_url': 'ray_dashboard_url',
@@ -100,7 +102,7 @@ class ExperimentalWorkspace(object):
         'kuberay_details': 'kuberay_details'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, is_imported=False, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, is_imported=False, maximum_uptime_minutes=None, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
         """ExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -132,6 +134,7 @@ class ExperimentalWorkspace(object):
         self._restart_on_env_var_change = None
         self._priority = None
         self._is_imported = None
+        self._maximum_uptime_minutes = None
         self._state = None
         self._integration_details = None
         self._ray_dashboard_url = None
@@ -182,6 +185,8 @@ class ExperimentalWorkspace(object):
             self.priority = priority
         if is_imported is not None:
             self.is_imported = is_imported
+        if maximum_uptime_minutes is not None:
+            self.maximum_uptime_minutes = maximum_uptime_minutes
         if state is not None:
             self.state = state
         if integration_details is not None:
@@ -808,6 +813,29 @@ class ExperimentalWorkspace(object):
         """
 
         self._is_imported = is_imported
+
+    @property
+    def maximum_uptime_minutes(self):
+        """Gets the maximum_uptime_minutes of this ExperimentalWorkspace.  # noqa: E501
+
+        How long the workspace may run before the platform stops it, in minutes. Set from the `anyscale.com/maximum-uptime-minutes` annotation on the backing custom resource. KubeRay workspaces only: null on any other workspace, which says nothing about whether it has a limit.  # noqa: E501
+
+        :return: The maximum_uptime_minutes of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: int
+        """
+        return self._maximum_uptime_minutes
+
+    @maximum_uptime_minutes.setter
+    def maximum_uptime_minutes(self, maximum_uptime_minutes):
+        """Sets the maximum_uptime_minutes of this ExperimentalWorkspace.
+
+        How long the workspace may run before the platform stops it, in minutes. Set from the `anyscale.com/maximum-uptime-minutes` annotation on the backing custom resource. KubeRay workspaces only: null on any other workspace, which says nothing about whether it has a limit.  # noqa: E501
+
+        :param maximum_uptime_minutes: The maximum_uptime_minutes of this ExperimentalWorkspace.  # noqa: E501
+        :type: int
+        """
+
+        self._maximum_uptime_minutes = maximum_uptime_minutes
 
     @property
     def state(self):

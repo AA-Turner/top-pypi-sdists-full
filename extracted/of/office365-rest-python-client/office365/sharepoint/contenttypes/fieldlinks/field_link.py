@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional
 
 from office365.sharepoint.entity import Entity
@@ -13,8 +15,14 @@ class FieldLink(Entity):
 
     @property
     def field_internal_name(self) -> Optional[str]:
-        """Gets a value that specifies field internal name"""
-        return self.properties.get("FieldInternalName", None)
+        """Gets a value that specifies the linked field's internal name.
+
+        Note:
+            SharePoint's REST API returns the internal name in ``Name`` and
+            leaves ``FieldInternalName`` (a creation-time property) empty, so this
+            falls back to :attr:`name` for a value read back from the server.
+        """
+        return self.properties.get("FieldInternalName", None) or self.name
 
     @property
     def read_only(self) -> Optional[bool]:
@@ -35,3 +43,13 @@ class FieldLink(Entity):
     def show_in_display_form(self) -> Optional[bool]:
         """A Boolean value that indicates whether this field is shown in the display form."""
         return self.properties.get("ShowInDisplayForm", None)
+
+    @property
+    def display_name(self) -> Optional[str]:
+        """Gets the DisplayName property"""
+        return self.properties.get("DisplayName", None)
+
+    @property
+    def name(self) -> Optional[str]:
+        """Gets the Name property"""
+        return self.properties.get("Name", None)

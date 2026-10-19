@@ -161,7 +161,7 @@ async def run_claimed_task(hydrated: HydratedTask, run: SchRun) -> None:
             hydrated, run, task, agent_task, trigger, claim_token, lease
         )
     except asyncio.CancelledError:
-        reason = "the worker shut down mid-run (runner cancelled before completion)"
+        reason = "the worker shut down mid-run (runner canceled before completion)"
         try:
             await asyncio.shield(
                 _interrupt_cancelled_run(run, task, claim_token, lease, reason=reason)
@@ -547,7 +547,7 @@ async def _dispatch_under_lease(
         current = asyncio.current_task()
         if current is not None and current.cancelling():
             raise  # that was OUR cancellation, not the child's
-    except Exception:  # noqa: BLE001 -- the handler's own error while being cancelled
+    except Exception:  # noqa: BLE001 -- the handler's own error while being canceled
         log.exception("run %s: handler raised while being stopped for %s", run.id, stop)
 
     if stop == "deadline":
@@ -558,7 +558,7 @@ async def _dispatch_under_lease(
         )
         log.error(
             "[scheduler-run-ceiling] run %s (task %s) hit max_runtime_seconds=%d with %d "
-            "unit(s) committed; handler cancelled, progress preserved",
+            "unit(s) committed; handler canceled, progress preserved",
             run.id,
             task.id,
             lease.max_runtime_seconds,
@@ -579,7 +579,7 @@ async def _dispatch_under_lease(
         reason = f"lease lost mid-run: {lease.lost_reason or 'another worker owns this run'}"
         log.error(
             "[scheduler-lease-lost] run %s (task %s) lost its lease mid-run with %d unit(s) "
-            "committed; handler cancelled so it does not zombie on",
+            "committed; handler canceled so it does not zombie on",
             run.id,
             task.id,
             lease.units_done,

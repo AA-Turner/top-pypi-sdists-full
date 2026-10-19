@@ -157,6 +157,9 @@ SKIP_RUN_IN_FLIGHT = "run in flight"
 SKIP_NOT_A_TTY = "not an interactive terminal"
 SKIP_HOT_PATH_COMMAND = "hot-path command"
 SKIP_LIVENESS_UNPROVABLE = "run liveness unprovable on this platform"
+#: Another `probe wizard` (a terminal, or the desktop app) holds the device
+#: (`wizard_lock`). Reaches the server as `other` until it learns this code.
+SKIP_SETUP_RUNNING = "another Probe setup is running"
 
 
 @dataclass(frozen=True)

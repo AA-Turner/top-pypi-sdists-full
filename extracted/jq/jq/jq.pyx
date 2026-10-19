@@ -22,26 +22,62 @@ cdef extern from "jv.h":
     ctypedef struct jv:
         pass
 
-    jv_kind jv_get_kind(jv)
-    int jv_is_valid(jv)
-    jv jv_copy(jv)
+    # value: not consumed
+    jv_kind jv_get_kind(jv value)
+
+    # value: not consumed
+    int jv_is_valid(jv value)
+
+    # value: not consumed
+    jv jv_copy(jv value)
+
+    # value: consumed
     void jv_free(jv)
-    jv jv_invalid_get_msg(jv)
-    int jv_invalid_has_msg(jv)
-    char* jv_string_value(jv)
-    jv jv_dump_string(jv, int flags)
-    int jv_string_length_bytes(jv)
+
+    # value: consumed
+    jv jv_invalid_get_msg(jv value)
+
+    # value: consumed
+    int jv_invalid_has_msg(jv value)
+
+    # value: not consumed
+    const char* jv_string_value(jv value)
+
+    # value: consumed
+    int jv_string_length_bytes(jv value)
+
+    # value: not consumed
     int jv_is_integer(jv)
+
+    # value: not consumed
     double jv_number_value(jv)
+
     jv jv_array()
-    jv jv_array_append(jv, jv)
-    int jv_array_length(jv)
-    jv jv_array_get(jv, int)
-    int jv_object_iter(jv)
-    int jv_object_iter_next(jv, int)
-    int jv_object_iter_valid(jv, int)
-    jv jv_object_iter_key(jv, int)
-    jv jv_object_iter_value(jv, int)
+
+    # array: consumed
+    # element: consumed
+    jv jv_array_append(jv array, jv element)
+
+    # array: consumed
+    int jv_array_length(jv array)
+
+    # array: consumed
+    jv jv_array_get(jv array, int index)
+
+    # value: not consumed
+    int jv_object_iter(jv value)
+
+    # value: not consumed
+    int jv_object_iter_next(jv value, int)
+
+    # value: not consumed
+    int jv_object_iter_valid(jv value, int)
+
+    # value: not consumed
+    jv jv_object_iter_key(jv value, int)
+
+    # value: not consumed
+    jv jv_object_iter_value(jv value, int)
 
     cdef struct jv_parser:
         pass
@@ -70,8 +106,13 @@ cdef extern from "jq.h":
     void jq_get_error_cb(jq_state *, jq_err_cb *, void **)
 
 
-cdef object _jv_to_python(jv value):
-    """Unpack a jv value into a Python value"""
+cdef object _jv_to_python(jv value) noexcept:
+    """Unpack a jv value into a Python value.
+
+    Invalid values are treated as nulls.
+
+    Consumes the input value."""
+
     cdef jv_kind kind = jv_get_kind(value)
     cdef int idx
     cdef jv property_key
@@ -80,13 +121,17 @@ cdef object _jv_to_python(jv value):
     cdef double number_value
 
     if kind == JV_KIND_INVALID:
-        raise ValueError("Invalid value")
+        python_value = None
+
     elif kind == JV_KIND_NULL:
         python_value = None
+
     elif kind == JV_KIND_FALSE:
         python_value = False
+
     elif kind == JV_KIND_TRUE:
         python_value = True
+
     elif kind == JV_KIND_NUMBER:
         number_value = jv_number_value(value)
         if number_value == INFINITY:
@@ -99,28 +144,35 @@ cdef object _jv_to_python(jv value):
             python_value = int(number_value)
         else:
             python_value = number_value
+
     elif kind == JV_KIND_STRING:
         python_value = jv_string_to_py_string(value)
+
     elif kind == JV_KIND_ARRAY:
         python_value = []
-        for idx in range(0, jv_array_length(jv_copy(value))):
+        length = jv_array_length(jv_copy(value))
+        for idx in range(0, length):
             property_value = jv_array_get(jv_copy(value), idx)
             python_value.append(_jv_to_python(property_value))
+
     elif kind == JV_KIND_OBJECT:
         python_value = {}
         idx = jv_object_iter(value)
         while jv_object_iter_valid(value, idx):
             property_key = jv_object_iter_key(value, idx)
+            python_property_key = jv_string_to_py_string(property_key)
+            jv_free(property_key)
+
             property_value = jv_object_iter_value(value, idx)
-            try:
-                python_value[jv_string_to_py_string(property_key)] = \
-                    _jv_to_python(property_value)
-            finally:
-                jv_free(property_key)
+            python_value[python_property_key] = _jv_to_python(property_value)
+
             idx = jv_object_iter_next(value, idx)
+
     else:
-        raise ValueError("Invalid value kind: " + str(kind))
+        python_value = None
+
     jv_free(value)
+
     return python_value
 
 
@@ -183,7 +235,9 @@ cdef void _store_error(void* store_ptr, jv error) noexcept:
 
 
 cdef unicode _jq_error_to_py_string(jv error) noexcept:
-    error = jv_copy(error)
+    """Convert a jq error into a Python string.
+
+    Does not consume the input error."""
 
     if jv_get_kind(error) == JV_KIND_STRING:
         try:
@@ -191,7 +245,7 @@ cdef unicode _jq_error_to_py_string(jv error) noexcept:
         except:
             return u"Internal error"
     else:
-        return json.dumps(_jv_to_python(error))
+        return json.dumps(_jv_to_python(jv_copy(error)))
 
 
 cdef class _ErrorStore(object):
@@ -389,6 +443,9 @@ cdef class _ResultIterator(object):
                 except StopIteration:
                     self._slurp = False
                     break
+                except:
+                    jv_free(value)
+                    raise
         else:
             value = self._parse_next_input()
 
@@ -434,6 +491,10 @@ def jq(object program):
 
 
 cdef unicode jv_string_to_py_string(jv value):
+    """Convert a jv string into a Python string.
+
+    Does not consume its input."""
+
     cdef int length = jv_string_length_bytes(jv_copy(value))
     cdef char* string_value = jv_string_value(value)
     return string_value[:length].decode("utf-8")

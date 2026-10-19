@@ -712,6 +712,10 @@ def _csr_expand(ptr, idx, rows):
 # (pairs, wings, wings) transient whatever the number of elevated pairs.
 _PAIR_SCATTER_CHUNK = 1 << 15
 
+# `_build_J_blocks` fills only the off-edge pairs, one kernel call per edge,
+# up to this many edges (momwire#1517); past it, one whole-mesh call.
+_OFFEDGE_SPLIT_MAX_EDGES = 32
+
 
 def _ek_slice(ek, rows=None, cols=None):
     """Restrict an `_EK` spec's per-segment labels to a block's rows/cols.
@@ -3088,7 +3092,11 @@ class BSplineSolver(
             # poly coeffs (in u_local). Then divide by h_seg^p column-wise
             # to recover coeffs in u_local = h_seg · u_unit terms.
             V_unit_inv = _V_UNIT_INV[d]
-            inv_h_powers = h_per_seg_w[:, None] ** (-np.arange(d + 1))
+            # `np.float_power`, not `**`: numpy's `power` takes a vectorised
+            # AVX-512 route on an AVX-512 CPU that rounds differently from
+            # libm's `pow` (momwire#1517), and `float_power` is libm's
+            # everywhere -- the bits `power` gives on every AVX2 machine.
+            inv_h_powers = np.float_power(h_per_seg_w[:, None], -np.arange(d + 1))
             # → (N, d+1, d+1): for each segment, polynomial coeff p of
             # each in-band basis expressed as Σ_p coeffs_p · u_local^p
             poly_per_seg = np.einsum("ij,sjk->sik", V_unit_inv, DM_seg)
@@ -3305,7 +3313,9 @@ class BSplineSolver(
             nodes = sl[:, None, :] + tq[None, :, None] * (sr - sl)[:, None, :]
             u_phys = h[segs][:, None] * tq[None, :]
             w_node = 0.5 * h[segs][:, None] * wg[None, :]
-            W = w_node[None] * u_phys[None] ** np.arange(d1)[:, None, None]
+            W = w_node[None] * np.float_power(
+                u_phys[None], np.arange(d1)[:, None, None]
+            )
             return nodes, np.ascontiguousarray(tang[segs], dtype=np.float64), W
 
         nodes_o, tang_o, W_o = side(obs_segs)
@@ -3937,9 +3947,9 @@ class BSplineSolver(
             return M
         return M + remainder.evaluate(supp_seg, polys)
 
-    def _somm_grid(self, eps_t, r1_max):
+    def _somm_grid(self, eps_t, r1_max, lazy=False):
         return _below_interface.somm_grid(
-            eps_t, self.k, r1_max, self.omega, self.mu, self._cancel_flag
+            eps_t, self.k, r1_max, self.omega, self.mu, self._cancel_flag, lazy=lazy
         )
 
     def _Z_sommerfeld_remainder(self, geom, supp_seg, polys, eps_t, restrict=None):
@@ -4012,7 +4022,7 @@ class BSplineSolver(
         w_node = 0.5 * h[:, None] * wg[None, :]
         # Moment weights W[p, i, qi] = w_qi * u_qi^p — the quadrature dual
         # of the J-block u^p moments, so `polys` applies unchanged.
-        W = w_node[None] * u_phys[None] ** np.arange(d + 1)[:, None, None]
+        W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
 
         # Grid extent: obs-to-image-point distance is convex in the two
         # segment parameters, so its max over all pairs is attained at
@@ -4264,7 +4274,9 @@ class BSplineSolver(
         nodes_p = seg_l[:, None, :] + tq[None, :, None] * (seg_r - seg_l)[:, None, :]
         u_phys = h[:, None] * tq[None, :]
         w_node = 0.5 * h[:, None] * wg[None, :]
-        Wm = w_node[None] * u_phys[None] ** np.arange(d + 1)[:, None, None]
+        Wm = w_node[None] * np.float_power(
+            u_phys[None], np.arange(d + 1)[:, None, None]
+        )
         obs_p = nodes_p.reshape(n_seg * q, 3)
         tobs_p = np.repeat(tang, q, axis=0)
 
@@ -4653,6 +4665,32 @@ class BSplineSolver(
         # single-edge deck, so this is the commonest shape there is.
         if len(same_slices) == 1 and same_slices[0] == slice(0, n_total):
             J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=complex)
+        elif len(same_slices) <= _OFFEDGE_SPLIT_MAX_EDGES:
+            # The off-edge pairs only (momwire#1517): each edge's rows against
+            # every column off it. The same-edge blocks are overwritten below,
+            # and a pair's moments do not depend on which pairs share its call
+            # (the per-pair phase guard and tier, momwire#920), so this is the
+            # J the whole-mesh call gives, bit for bit, without computing the
+            # half it would throw away. Few edges only: many short edges would
+            # pay a call each for little.
+            ladder = self._fill_ladder(k, seg_l, seg_r, ek)
+            J = np.zeros((d + 1, d + 1, n_total, n_total), dtype=complex)
+            for sl in same_slices:
+                cols = np.r_[0 : sl.start, sl.stop : n_total]
+                if cols.size == 0:
+                    continue
+                J[:, :, sl, cols] = _seg_seg_full_moments_offedge(
+                    seg_l[sl],
+                    seg_r[sl],
+                    seg_l[cols],
+                    seg_r[cols],
+                    a_row[sl],
+                    k,
+                    d,
+                    self.n_qp_pair,
+                    ek=_ek_slice(ek, rows=sl, cols=cols),
+                    ladder=ladder,
+                )
         else:
             J = _seg_seg_full_moments_offedge(
                 seg_l,
@@ -5436,7 +5474,8 @@ class BSplineSolver(
         for s, entries in seg_map.items():
             hs = h_per_seg[s]
             # H[p, q] = ∫₀^h u^p·u^q du = h^(p+q+1)/(p+q+1)
-            H = hs**pq_sum / pq_sum
+            # libm's pow on every CPU (momwire#1517), not numpy's `power`
+            H = np.float_power(hs, pq_sum) / pq_sum
             C = coef[[m for m, _ in entries], [a for _, a in entries], :]
             M = C @ H @ C.T
             w = int(np.searchsorted(seg_offsets, s, side="right") - 1)
@@ -6549,7 +6588,7 @@ class BSplineSolver(
             self._n_qp_buried_field() * int(q_factor),
         )
         d = self.degree
-        W = w_node[None] * u_phys[None] ** np.arange(d + 1)[:, None, None]
+        W = w_node[None] * np.float_power(u_phys[None], np.arange(d + 1)[:, None, None])
         return nodes, tang, W
 
     def _field_galerkin_block(

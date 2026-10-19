@@ -45,6 +45,50 @@ def test_convert_pipfile(project):
     assert settings["source"][0]["url"] == "https://pypi.python.org/simple"
 
 
+def test_convert_pipfile_custom_categories(project):
+    pipfile_path = project.root / "Pipfile"
+    pipfile_path.write_text(
+        '[packages]\nrequests = "*"\n\n'
+        '[dev-packages]\npytest = "*"\n\n'
+        '[docs]\nsphinx = ">=7"\n\n'
+        '[scripts]\nserve = "python -m http.server"\n',
+        encoding="utf-8",
+    )
+    result, settings = pipfile.convert(project, pipfile_path, None)
+
+    assert result["dependencies"] == ["requests"]
+    assert settings["dev-dependencies"] == {"dev": ["pytest"], "docs": ["sphinx>=7"]}
+
+
+def test_convert_pipfile_file_url(project):
+    pipfile_path = project.root / "Pipfile"
+    pipfile_path.write_text(
+        '[packages]\nmy-package = {file = "https://example.com/packages/my-package-1.0.tar.gz"}\n',
+        encoding="utf-8",
+    )
+    result, _ = pipfile.convert(project, pipfile_path, None)
+
+    assert result["dependencies"] == ["my-package @ https://example.com/packages/my-package-1.0.tar.gz"]
+
+
+def test_convert_pipfile_relative_path(project):
+    pipfile_dir = project.root / "legacy"
+    package = pipfile_dir / "my-lib"
+    package.mkdir(parents=True)
+    package.joinpath("pyproject.toml").write_text('[project]\nname = "my-lib"\nversion = "1.0"\n')
+    pipfile_path = pipfile_dir / "Pipfile"
+    pipfile_path.write_text(
+        '[packages]\nmy-lib = {path = "./my-lib"}\n\n[dev-packages]\nmy-lib = {path = "./my-lib", editable = true}\n',
+        encoding="utf-8",
+    )
+    with cd(project.root):
+        result, settings = pipfile.convert(project, pipfile_path, None)
+
+    url = project.backend.relative_path_to_url("legacy/my-lib")
+    assert result["dependencies"] == [f"my-lib @ {url}"]
+    assert settings["dev-dependencies"]["dev"] == [f"-e {url}#egg=my-lib"]
+
+
 @pytest.mark.parametrize(
     "requires",
     [
@@ -377,6 +421,55 @@ def test_convert_poetry_sdist_only_include(project):
     assert settings["build"]["source-includes"] == ["tests", "docs"]
 
 
+def test_convert_poetry_develop_dependency(project):
+    (project.root / "libs/core").mkdir(parents=True)
+    (project.root / "libs/devtools").mkdir(parents=True)
+    (project.root / "dist").mkdir()
+    (project.root / "dist/wheeltool-1.0-py3-none-any.whl").touch()
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n'
+        "[tool.poetry.dependencies]\n"
+        'core = {path = "libs/core", develop = true}\n'
+        "[tool.poetry.group.dev.dependencies]\n"
+        'devtools = {path = "libs/devtools", develop = true}\n'
+        'wheeltool = {path = "dist/wheeltool-1.0-py3-none-any.whl", develop = true}\n',
+        encoding="utf-8",
+    )
+    result, settings = poetry.convert(project, pyproject, ns())
+
+    # Editable requirements are only allowed in dependency groups.
+    assert result["dependencies"] == ["core @ file:///${PROJECT_ROOT}/libs/core"]
+    # A local archive can't be editable, Poetry ignores ``develop`` for it.
+    assert settings["dev-dependencies"]["dev"] == [
+        "-e file:///${PROJECT_ROOT}/libs/devtools#egg=devtools",
+        "wheeltool @ file:///${PROJECT_ROOT}/dist/wheeltool-1.0-py3-none-any.whl",
+    ]
+
+
+def test_convert_poetry_legacy_dev_dependencies_develop(project):
+    (project.root / "libs/old").mkdir(parents=True)
+    (project.root / "libs/new").mkdir(parents=True)
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n'
+        "[tool.poetry.dependencies]\n"
+        'python = ">=3.9"\n'
+        "[tool.poetry.dev-dependencies]\n"
+        "devtools = [\n"
+        '    {path = "libs/old", develop = true, python = "<3.11"},\n'
+        '    {path = "libs/new", develop = true, python = ">=3.11"},\n'
+        "]\n",
+        encoding="utf-8",
+    )
+    _, settings = poetry.convert(project, pyproject, ns())
+
+    assert settings["dev-dependencies"]["dev"] == [
+        '-e file:///${PROJECT_ROOT}/libs/old#egg=devtools ; python_version < "3.11"',
+        '-e file:///${PROJECT_ROOT}/libs/new#egg=devtools ; python_version >= "3.11"',
+    ]
+
+
 def test_convert_poetry_optional_dependency_in_multiple_extras(project):
     golden_file = FIXTURES / "pyproject.toml"
     with cd(FIXTURES):
@@ -385,6 +478,106 @@ def test_convert_poetry_optional_dependency_in_multiple_extras(project):
     assert result["optional-dependencies"]["mysql"] == ["mysqlclient<2.0,>=1.3"]
     assert result["optional-dependencies"]["pgsql"] == ["psycopg2<3.0,>=2.7"]
     assert result["optional-dependencies"]["all"] == ["psycopg2<3.0,>=2.7", "mysqlclient<2.0,>=1.3"]
+
+
+@pytest.mark.parametrize(
+    "platform, matches",
+    [
+        ("win32", {"win32"}),
+        ("=linux", {"linux"}),
+        ("==linux", {"linux"}),
+        ("===linux", {"linux"}),
+        ("!=win32", {"linux", "darwin"}),
+        ("linux || darwin", {"linux", "darwin"}),
+        ("win32 || darwin,linux", {"win32"}),
+        ("linux | darwin", {"linux", "darwin"}),
+        ("!=linux, !=darwin", {"win32"}),
+        ("'linux darwin' in", {"linux", "darwin"}),
+        ("'linux darwin' not in", {"win32"}),
+        ("'linux darwin'in", {"linux", "darwin"}),
+        ("' linux darwin ' in", {"linux", "darwin"}),
+        ("'linux2 darwin' in", {"darwin"}),
+        ("'linux2 darwin' not in", {"linux", "win32"}),
+        ("'darwin2 linux2' in", set()),
+        ("'darwin2 linux2' not in", {"win32", "linux", "darwin"}),
+        ("'linux\tdarwin' in", set()),
+        ("'linux\tdarwin' not in", {"win32", "linux", "darwin"}),
+        ("*", {"win32", "linux", "darwin"}),
+        ("", {"win32", "linux", "darwin"}),
+    ],
+)
+def test_convert_poetry_platform_constraint(project, platform, matches):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\n'
+        f'foo = {{version = "^1.0", platform = "{platform}"}}\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+    req = parse_requirement(result["dependencies"][0])
+
+    assert str(req.specifier) == "<2.0,>=1.0"
+    for sys_platform in ("win32", "linux", "darwin"):
+        assert (req.marker is None or req.marker.evaluate({"sys_platform": sys_platform})) == (sys_platform in matches)
+
+
+@pytest.mark.parametrize(
+    "platform",
+    ["linux ||", "|| linux", "linux,", "linux,,darwin", "' ' in", "' ' not in", "win32,darwin", "linux,!=linux"],
+)
+def test_convert_poetry_platform_rejects_invalid_constraints(project, platform):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\n'
+        f'foo = {{version = "^1.0", platform = "{platform}"}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(MetaConvertError, match="Invalid platform constraint"):
+        poetry.convert(project, pyproject, ns())
+
+
+def test_convert_poetry_platform_combines_with_other_markers(project):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\n'
+        'foo = {version = "^1.0", platform = "win32", python = ">=3.11", '
+        "markers = \"platform_machine == 'AMD64' or platform_machine == 'x86_64'\"}\n",
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+    marker = parse_requirement(result["dependencies"][0]).marker
+    assert marker is not None
+    environment = {"sys_platform": "win32", "python_version": "3.11", "platform_machine": "AMD64"}
+    assert marker.evaluate(environment)
+    assert marker.evaluate({**environment, "platform_machine": "x86_64"})
+    for key, value in (("sys_platform", "linux"), ("python_version", "3.10"), ("platform_machine", "arm64")):
+        assert not marker.evaluate({**environment, key: value})
+
+
+def test_convert_poetry_optional_dependency_extras_matching(project):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n'
+        "[tool.poetry.dependencies]\n"
+        'PyYAML = {version = "^6.0", optional = true}\n'
+        "tomli = [\n"
+        '    {version = "^1.0", python = "<3.8", optional = true},\n'
+        '    {version = "^2.0", python = ">=3.8", optional = true},\n'
+        "]\n"
+        "[tool.poetry.extras]\n"
+        'yaml = ["pyyaml"]\n'
+        'toml = ["tomli"]\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["dependencies"] == []
+    assert result["optional-dependencies"]["yaml"] == ["PyYAML<7.0,>=6.0"]
+    assert result["optional-dependencies"]["toml"] == [
+        'tomli<2.0,>=1.0; python_version < "3.8"',
+        'tomli<3.0,>=2.0; python_version >= "3.8"',
+    ]
 
 
 @pytest.mark.parametrize(
@@ -501,6 +694,60 @@ def test_convert_poetry_multi_and_v_prefixed_constraint(project, constraint, exp
     assert result["dependencies"] == [f"foo{expected}"]
 
 
+@pytest.mark.parametrize(
+    "constraint,expected",
+    [
+        # Poetry writes a multi-constraint with spaces instead of a comma too;
+        # only the comma form was split, so `>=2.0 <3.0` reached the requirement
+        # parser as a single version and aborted the import.
+        (">=2.0 <3.0", "<3.0,>=2.0"),
+        (">=2.0  <3.0", "<3.0,>=2.0"),
+        (">=1.0 <2.0,!=1.5", "!=1.5,<2.0,>=1.0"),
+        ("^1.2.3 <2.0", "<2.0,>=1.2.3"),
+    ],
+)
+def test_convert_poetry_space_separated_constraint(project, constraint, expected):
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        f'[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\nfoo = "{constraint}"\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["dependencies"] == [f"foo{expected}"]
+
+
+def test_convert_poetry_space_separated_python_constraint(project):
+    """A space-separated `python` constraint used to abort the whole import.
+
+    `>=3.8 <4.0` was read as a single version, which is not a valid specifier.
+    """
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\npython = ">=3.8 <4.0"\n',
+        encoding="utf-8",
+    )
+    result, _ = poetry.convert(project, pyproject, ns())
+
+    assert result["requires-python"] == "<4.0,>=3.8"
+
+
+def test_convert_poetry_constraint_without_a_separator_is_rejected(project):
+    """A constraint with no separator must not be read as a space-separated one.
+
+    Poetry rejects ``>=1.0<2.0`` (poetry-core raises ``ParseConstraintError``), and
+    the space form this converter accepts needs at least one space before the next
+    operator, so the lookahead cannot be relaxed into an optional separator again.
+    """
+    pyproject = project.root / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.poetry]\nname = "demo"\nversion = "0.1.0"\n[tool.poetry.dependencies]\nfoo = ">=1.0<2.0"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(MetaConvertError, match="Invalid specifier for foo"):
+        poetry.convert(project, pyproject, ns())
+
+
 def test_convert_poetry_12(project):
     golden_file = FIXTURES / "poetry-new.toml"
     with cd(FIXTURES):
@@ -597,6 +844,35 @@ def test_convert_flit_sdist_with_one_of_include_and_exclude(project, tmp_path, s
     _, settings = flit.convert(project, pyproject_file, None)
 
     assert settings["build"] == expected_build
+
+
+def test_convert_flit_keywords_and_dev_requires(project, tmp_path):
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(
+        '[tool.flit.metadata]\nmodule = "flit"\nauthor = "Thomas Kluyver"\n'
+        'keywords = "packaging, flit,,wheel "\n'
+        'dev-requires = ["pytest"]\n',
+        encoding="utf-8",
+    )
+    result, _ = flit.convert(project, pyproject_file, None)
+
+    assert result["keywords"] == ["packaging", "flit", "wheel"]
+    assert result["optional-dependencies"] == {"dev": ["pytest"]}
+    assert "dev-requires" not in result
+
+
+def test_convert_flit_dev_requires_does_not_override_dev_extra(project, tmp_path):
+    pyproject_file = tmp_path / "pyproject.toml"
+    pyproject_file.write_text(
+        '[tool.flit.metadata]\nmodule = "flit"\nauthor = "Thomas Kluyver"\n'
+        'dev-requires = ["pytest"]\n\n'
+        '[tool.flit.metadata.requires-extra]\ndev = ["tox"]\n',
+        encoding="utf-8",
+    )
+    result, _ = flit.convert(project, pyproject_file, None)
+
+    assert result["optional-dependencies"] == {"dev": ["tox"]}
+    assert "dev-requires" not in result
 
 
 def test_convert_error_preserve_metadata(project):
@@ -749,10 +1025,10 @@ def test_convert_poetry_project_with_circular_dependency(project):
     child_file = FIXTURES / "projects/poetry-with-circular-dep/packages/child/pyproject.toml"
 
     _, settings = poetry.convert(project, parent_file, ns())
-    assert settings["dev-dependencies"]["dev"] == ["child @ file:///${PROJECT_ROOT}/packages/child"]
+    assert settings["dev-dependencies"]["dev"] == ["-e file:///${PROJECT_ROOT}/packages/child#egg=child"]
 
     _, settings = poetry.convert(project, child_file, ns())
-    assert settings["dev-dependencies"]["dev"] == ["parent @ file:///${PROJECT_ROOT}/../.."]
+    assert settings["dev-dependencies"]["dev"] == ["-e file:///${PROJECT_ROOT}/../..#egg=parent"]
 
 
 def test_export_pylock_toml(core, pdm):

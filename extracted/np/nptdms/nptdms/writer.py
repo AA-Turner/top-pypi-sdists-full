@@ -7,7 +7,7 @@ from io import UnsupportedOperation
 import struct
 import numpy as np
 from nptdms.common import toc_properties, ObjectPath
-from nptdms.timestamp import TdmsTimestamp
+from nptdms.timestamp import TdmsTimestamp, TimestampArray
 from nptdms.types import *
 from nptdms import TdmsFile
 
@@ -45,11 +45,18 @@ class TdmsWriter(object):
             for group in file.groups():
                 new_file.write_segment([GroupObject(group.name, group.properties)])
                 for channel in group.channels():
+                    channel_data = channel.read_data(scaled=False)
+                    channel_properties = channel.properties
+                    if isinstance(channel_data, dict) and len(channel_data) == 1:
+                        scale_id, channel_data = next(iter(channel_data.items()))
+                        channel_properties = OrderedDict(channel_properties)
+                        channel_properties[
+                            "NI_Scale[%d]_Scale_Type" % scale_id] = "AdvancedAPI"
                     new_file.write_segment([ChannelObject(
                         group.name,
                         channel.name,
-                        channel.read_data(scaled=False),
-                        channel.properties
+                        channel_data,
+                        channel_properties
                     )])
 
     def __init__(self, file, mode='w', version=4712, index_file=False):
@@ -246,13 +253,13 @@ class TdmsSegment(object):
         return metadata
 
     def raw_data_index(self, obj):
-        if hasattr(obj, 'data'):
+        if _object_has_data(obj):
             num_values = len(obj.data)
             if obj.data_type == String:
                 # For strings, we also need to write the total data size in bytes
                 total_size = object_data_size(obj.data_type, obj.data)
                 packed = struct.pack(
-                    '<LlLQQ', 20, obj.data_type.enum_value, 1, num_values, total_size)
+                    '<LlLQQ', 28, obj.data_type.enum_value, 1, num_values, total_size)
             else:
                 packed = struct.pack(
                     '<LlLQ', 20, obj.data_type.enum_value, 1, num_values)
@@ -281,14 +288,19 @@ class TdmsSegment(object):
     def _data_size(self):
         data_size = 0
         for obj in self.objects:
-            if hasattr(obj, 'data'):
+            if _object_has_data(obj):
                 data_size += object_data_size(obj.data_type, obj.data)
         return data_size
 
     def _write_data(self, file):
         for obj in self.objects:
-            if hasattr(obj, 'data'):
+            if _object_has_data(obj):
                 write_data(file, obj)
+
+
+def _object_has_data(obj):
+    # Channels read from a file that never had data have no data type
+    return getattr(obj, 'data', None) is not None and obj.data_type is not None
 
 
 class TdmsObject(object):
@@ -348,35 +360,55 @@ class ChannelObject(TdmsObject):
     """A TDMS object for a channel with data
     """
 
-    def __init__(self, group, channel, data, properties=None):
+    def __init__(self, group, channel, data=None, properties=None):
         """Initialise a new ChannelObject
 
         :param group: The name of the group this channel is in.
         :param channel: The name of this channel.
         :param data: 1-D Numpy array of data to be written.
+            If None, no data is written for this channel in the segment,
+            which allows writing only channel properties.
         :param properties: A dictionary mapping property names to
             their value.
         """
         self.group = group
         self.channel = channel
-        self.data = _to_np_array(data)
-        if self.data.ndim != 1:
-            raise ValueError("Channel data must be a 1d array")
+        if data is None:
+            self.data = None
+        else:
+            self.data = _to_np_array(data)
+            if self.data.ndim != 1:
+                raise ValueError("Channel data must be a 1d array")
         self.properties = properties
 
     @property
     def has_data(self):
-        return True
+        return self.data is not None
 
     @property
     def data_type(self):
+        if self.data is None:
+            return None
+        np_dtype = getattr(self.data, 'dtype', None)
         try:
-            return numpy_data_types[self.data.dtype]
-        except (AttributeError, KeyError):
+            return numpy_data_types[np_dtype]
+        except KeyError:
             try:
                 return _to_tdms_value(self.data[0]).__class__
             except IndexError:
-                return Void
+                # No values to infer the type from, so infer it from the dtype
+                if np_dtype is None:
+                    return Void
+                if np_dtype.kind in ('O', 'U', 'S'):
+                    # Assume empty object, unicode or bytes arrays are for string data
+                    return String
+                if np_dtype.kind == 'M':
+                    return TimeStamp
+                if isinstance(self.data, TimestampArray):
+                    return TdmsTimestamp
+                if np_dtype.kind == 'V' and np_dtype.fields is None:
+                    return Void
+                raise TypeError("Unsupported data type for channel data: %s" % np_dtype)
 
 
 def read_properties_dict(properties_dict):
@@ -456,11 +488,7 @@ def write_values(file, array):
 
 
 def write_string_values(file, strings):
-    try:
-        encoded_strings = [s.encode("utf-8") for s in strings]
-    except AttributeError:
-        # Assume if we can't encode then we already have bytes
-        encoded_strings = strings
+    encoded_strings = [String.encode(s) for s in strings]
     lengths = np.fromiter(
         (len(s) for s in encoded_strings), dtype=np.uint32, count=len(encoded_strings))
     offsets = np.cumsum(lengths, dtype=np.uint32)
@@ -479,11 +507,7 @@ def object_data_size(data_type, data_values):
     if data_type == String:
         # For string data, the total size is 8 bytes per string for the
         # offsets to the start of each string, plus the length of each string.
-        try:
-            encoded_strings = [s.encode("utf-8") for s in data_values]
-        except AttributeError:
-            encoded_strings = data_values
-        return sum(4 + len(s) for s in encoded_strings)
+        return sum(4 + len(String.encode(s)) for s in data_values)
 
     return data_type.size * len(data_values)
 

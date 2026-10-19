@@ -360,8 +360,8 @@ BETA_ENDPOINTS_HELP_EXAMPLES = """[dim]Examples:[/dim]
 [dim]-[/dim] Mirror live traffic to a shadow deployment:
   [primary]tg beta endpoints shadow Qwen/Qwen2.5-7B --endpoint <endpoint-name-or-id> --rate 0.1[/primary]
 
-[dim]-[/dim] Delete a deployment, experiment, rollout, or entire endpoint:
-  [primary]tg beta endpoints rm <ep_|dep_|abx_|exp_|rol_...>[/primary]
+[dim]-[/dim] Delete a deployment, adapter, experiment, rollout, or entire endpoint:
+  [primary]tg beta endpoints rm <ep_|dep_|dad_|abx_|exp_|rol_...>[/primary]
 
 [dim]-[/dim] Roll out a deployment onto live traffic:
   [primary]tg beta endpoints rollout <deployment-id> --rolling[/primary]
@@ -478,6 +478,9 @@ BETA_ENDPOINTS_SHADOW_HELP_EXAMPLES = """[dim]Examples:[/dim]
 BETA_ENDPOINTS_RM_HELP_EXAMPLES = """[dim]Examples:[/dim]
 [dim]-[/dim] Delete a deployment:
   [primary]tg beta endpoints rm dep_xxxxxxxxxxxx[/primary]
+
+[dim]-[/dim] Detach an adapter from the deployment it belongs to:
+  [primary]tg beta endpoints rm dad_xxxxxxxxxxxx[/primary]
 
 [dim]-[/dim] Delete an A/B or shadow experiment:
   [primary]tg beta endpoints rm abx_xxxxxxxxxxxx[/primary]
@@ -780,8 +783,8 @@ TRAINING_HELP_EXAMPLES = """[dim]Examples:[/dim]
 [dim]-[/dim] Fetch a model resource, training session, or checkpoint by ID:
   [primary]tg training get <id>[/primary]
 
-[dim]-[/dim] Prepare a fine-tuned adapter for FP4 inference:
-  [primary]tg training fp4 create <adapter-object-id>[/primary]
+[dim]-[/dim] Prepare a fine-tuned model for FP4 inference:
+  [primary]tg training fp4 create <model-object-id>[/primary]
 """
 
 ## Beta > Jig commands
@@ -934,11 +937,11 @@ JIG_VOLUMES_UPDATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
 """
 
 TRAINING_FP4_HELP_EXAMPLES = """[dim]Examples:[/dim]
-[dim]-[/dim] Estimate the price of preparing an adapter:
-  [primary]tg training fp4 estimate <adapter-object-id>[/primary]
+[dim]-[/dim] Estimate the price of preparing a fine-tuned model:
+  [primary]tg training fp4 estimate <model-object-id>[/primary]
 
-[dim]-[/dim] Prepare an adapter and wait for the job to finish:
-  [primary]tg training fp4 create <adapter-object-id> --watch[/primary]
+[dim]-[/dim] Prepare a model and wait for the job to finish:
+  [primary]tg training fp4 create <model-object-id> --watch[/primary]
 
 [dim]-[/dim] Follow a running job:
   [primary]tg training fp4 get <job-id> --watch[/primary]
@@ -948,9 +951,9 @@ TRAINING_FP4_HELP_EXAMPLES = """[dim]Examples:[/dim]
 """
 
 TRAINING_FP4_CREATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
-[dim]-[/dim] Prepare the adapter's current revision:
-  [primary]tg training fp4 create <adapter-object-id>[/primary]
+[dim]-[/dim] Prepare the model's current revision:
+  [primary]tg training fp4 create <model-object-id>[/primary]
 
 [dim]-[/dim] Prepare a specific revision without the confirmation prompt, and wait for it:
-  [primary]tg training fp4 create <adapter-object-id> -r <revision-id> -y --watch[/primary]
+  [primary]tg training fp4 create <model-object-id> -r <revision-id> -y --watch[/primary]
 """

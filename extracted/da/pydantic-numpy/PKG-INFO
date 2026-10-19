@@ -1,19 +1,19 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pydantic-numpy
-Version: 9.0.2
+Version: 9.1.0
 Summary: Pydantic Model integration of the NumPy array
 Keywords: pydantic,numpy,typing,validation
 Author: Can H. Tartanoglu, Christoph Heindl
 Author-email: Can H. Tartanoglu <gpg@rotas.mozmail.com>
-License: BSD-3-Clause
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: OS Independent
 Requires-Dist: compress-pickle[lz4]
-Requires-Dist: ruamel-yaml==0.18
+Requires-Dist: ruamel-yaml~=0.18.5
 Requires-Dist: numpy>=2.3.5,<3
-Requires-Dist: pydantic~=2.12.5
-Requires-Dist: semver~=3.0.4
+Requires-Dist: pydantic>=2.12.5,<3
 Requires-Python: >=3.11, <3.15
 Project-URL: Homepage, https://github.com/caniko/pydantic-numpy
 Description-Content-Type: text/markdown
@@ -91,7 +91,7 @@ model = MyModel(array=np.array([1.5, 2.5, 3.5]))
 
 # Serialize to JSON
 json_str = model.model_dump_json()
-# {"array":{"data_type":"float64","data":[1.5,2.5,3.5]}}
+# {"array":{"data_type":"float64","data":[1.5,2.5,3.5],"shape":[3]}}
 
 # Deserialize from JSON
 restored = MyModel.model_validate_json(json_str)
@@ -109,7 +109,8 @@ schema = MyModel.model_json_schema()
 #             "type": "object",
 #             "properties": {
 #                 "data_type": {"title": "dtype", "type": "string", "default": "float64"},
-#                 "data": {"type": "array", "items": {"type": "number"}}
+#                 "data": {"type": "array", "items": {"type": "number"}},
+#                 "shape": {"title": "shape", "type": "array", "items": {"type": "integer"}}
 #             },
 #             "required": ["data_type", "data"]
 #         }

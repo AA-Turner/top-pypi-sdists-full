@@ -1,12 +1,15 @@
 import hashlib
 import hmac
 import os
+import signal
 import struct
 import unittest
+import unittest.mock
 
 from . import home
 
 from collections import OrderedDict
+from io import StringIO
 from pyrad import packet
 from pyrad.client import Client
 from pyrad.dictionary import Dictionary
@@ -164,6 +167,16 @@ class PacketTests(unittest.TestCase):
         self.assertEqual(self.packet['Test-Encrypted-String'], ['dummy'])
         self.packet['Test-Encrypted-Integer'] = 10
         self.assertEqual(self.packet['Test-Encrypted-Integer'], [10])
+
+    def testSaltCryptRoundTrip(self):
+        # SaltDecrypt must invert SaltCrypt past the first 16-byte block. The
+        # chaining used the ciphertext when encrypting but the plaintext when
+        # decrypting, so anything over one block (MS-MPPE keys, long
+        # Tunnel-Password) came back corrupt after byte 15.
+        self.packet.request_authenticator = self.packet.authenticator
+        for value in (b'x', b'0123456789abcde', bytes(range(32)), bytes(range(100))):
+            self.assertEqual(
+                self.packet.SaltDecrypt(self.packet.SaltCrypt(value)), value)
 
     def testHasKey(self):
         self.assertEqual(self.packet.has_key('Test-String'), False)
@@ -362,7 +375,7 @@ class PacketTests(unittest.TestCase):
         self.assertEqual(self.packet[4], {1: [b'value', b'other']})
 
         # add a different sub attribute
-        decode(4, b'\x02\x07\x00\x00\x00\x01')
+        decode(4, b'\x02\x06\x00\x00\x00\x01')
         self.assertEqual(self.packet[4], {
             1: [b'value', b'other'],
             2: [b'\x00\x00\x00\x01']
@@ -383,6 +396,54 @@ class PacketTests(unittest.TestCase):
             self.assertTrue('invalid length' in str(e))
         else:
             self.fail()
+
+    def testDecodePacketShorterThanLength(self):
+        self.assertRaises(packet.PacketError, self.packet.DecodePacket,
+                          b'\x01\x02\x00\x1b1234567890123456\x01\x07valu')
+
+    def testDecodePacketWithPadding(self):
+        # RFC 2865 section 3: octets outside the range of the Length field
+        # MUST be treated as padding and ignored on reception.
+        raw = b'\x01\x02\x00\x1b1234567890123456\x01\x07value'
+        self.packet.DecodePacket(raw + b'\x00\x00\x01\x07other')
+        self.assertEqual(self.packet[1], [b'value'])
+        self.assertEqual(self.packet.raw_packet, raw)
+
+    def testConstructWithPaddedPacket(self):
+        raw = b'\x01\x02\x00\x1b1234567890123456\x01\x07value'
+        pkt = packet.Packet(dict=self.dict, packet=raw + 4 * b'\x00')
+        self.assertEqual(pkt[1], [b'value'])
+        self.assertEqual(pkt.raw_packet, raw)
+
+    def testVerifyReplyDecodedWithoutRawReply(self):
+        request = packet.AuthPacket(id=0, secret=b'secret',
+                                    authenticator=b'0123456789ABCDEF',
+                                    dict=self.dict)
+        request.add_message_authenticator()
+        request.RequestPacket()
+        raw = request.CreateReply(**{'Test-String': 'test'}).ReplyPacket()
+        received = request.CreateReply(packet=raw)
+        ma = received[80][0]
+        # the reply is verified with the bytes it was decoded from and not
+        # modified
+        self.assertTrue(request.VerifyReply(received))
+        self.assertEqual(received[80][0], ma)
+        self.assertEqual(received.authenticator, raw[4:20])
+        self.assertEqual(received.raw_packet, raw)
+
+    def testVerifyReplyDecodedWithoutRawReplyTampered(self):
+        request = packet.AuthPacket(id=0, secret=b'secret',
+                                    authenticator=b'0123456789ABCDEF',
+                                    dict=self.dict)
+        raw = request.CreateReply(**{'Test-String': 'test'}).ReplyPacket()
+        received = request.CreateReply(packet=raw[:-1] + b'X')
+        self.assertFalse(request.VerifyReply(received))
+
+    def testVerifyReplyWithPadding(self):
+        reply = self.packet.CreateReply(**{'Test-String': 'test'})
+        raw = reply.ReplyPacket() + 4 * b'\x00'
+        received = self.packet.CreateReply(packet=raw)
+        self.assertTrue(self.packet.VerifyReply(received, raw))
 
     def testDecodePacketWithTooBigPacket(self):
         try:
@@ -476,6 +537,76 @@ class PacketTests(unittest.TestCase):
         self.packet.AddAttribute('Test-String', ['2', '3'])
         self.assertEqual(self.packet['Test-String'], ['1', '1', '2', '3'])
 
+    def testAddAttributeWithNonStringKey(self):
+        # e.g. swapped arguments: AddAttribute(pkt['Test-String'], 'Test-String') (#17)
+        self.assertRaises(TypeError, self.packet.AddAttribute, ['1'], 'Test-String')
+        self.assertRaises(TypeError, self.packet.AddAttribute, 1, '1')
+
+
+
+class DecodeTimeout(BaseException):
+    """Raised by the alarm handler; a BaseException so that broad
+    ``except Exception`` blocks in the decoder cannot swallow it."""
+
+
+@unittest.skipUnless(hasattr(signal, 'setitimer'), 'requires signal.setitimer')
+class MalformedAttributeDecodeTests(unittest.TestCase):
+    """Malformed (sub-)attribute lengths must not hang or crash the decoder."""
+
+    def setUp(self):
+        self.dict = Dictionary(os.path.join(home, 'data', 'full'))
+        self.packet = packet.Packet(dict=self.dict)
+
+        def timeout(signum, frame):
+            raise DecodeTimeout('decoder did not terminate')
+        self.old_handler = signal.signal(signal.SIGALRM, timeout)
+        signal.setitimer(signal.ITIMER_REAL, 2)
+
+    def tearDown(self):
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, self.old_handler)
+
+    @staticmethod
+    def _raw(attributes):
+        return struct.pack('!BBH', 1, 2, 20 + len(attributes)) + \
+            b'1234567890123456' + attributes
+
+    def testVendorAttributeWithZeroLength(self):
+        vsa = b'\x00\x00\x00\x10\x01\x00'
+        self.packet.DecodePacket(self._raw(b'\x1a\x08' + vsa))
+        self.assertEqual(self.packet[26], [vsa])
+
+    def testVendorAttributeWithZeroLengthSecondSubAttribute(self):
+        vsa = b'\x00\x00\x00\x10\x02\x07value\x01\x00'
+        self.packet.DecodePacket(self._raw(b'\x1a\x0f' + vsa))
+        self.assertEqual(self.packet[26], [vsa])
+
+    def testVendorAttributeWithTooLongSubAttribute(self):
+        vsa = b'\x00\x00\x00\x10\x02\x09value'
+        self.packet.DecodePacket(self._raw(b'\x1a\x0d' + vsa))
+        self.assertEqual(self.packet[26], [vsa])
+
+    def testTlvAttributeWithZeroLength(self):
+        self.assertRaises(packet.PacketError, self.packet.DecodePacket,
+                          self._raw(b'\x04\x06\x01\x00zz'))
+
+    def testTlvAttributeWithTruncatedSubAttribute(self):
+        self.assertRaises(packet.PacketError, self.packet.DecodePacket,
+                          self._raw(b'\x04\x03\x01'))
+
+    def testTlvAttributeWithTooLongSubAttribute(self):
+        self.assertRaises(packet.PacketError, self.packet.DecodePacket,
+                          self._raw(b'\x04\x09\x01\x09value'))
+
+    def testVendorTlvAttributeWithZeroLength(self):
+        self.assertRaises(packet.PacketError, self.packet.DecodePacket,
+                          self._raw(b'\x1a\x0c\x00\x00\x00\x10\x03\x06\x01\x00zz'))
+
+    def testIntegerAttributeWithWrongLength(self):
+        # the raw value is kept, only decoding it raises a ValueError (#13)
+        self.packet.DecodePacket(self._raw(b'\x03\x04\x00\x01'))
+        self.assertEqual(self.packet[3], [b'\x00\x01'])
+        self.assertRaises(ValueError, self.packet.__getitem__, 'Test-Integer')
 
 class AuthPacketConstructionTests(PacketConstructionTests):
     klass = packet.AuthPacket
@@ -516,7 +647,21 @@ class AuthPacketTests(unittest.TestCase):
         self.assertTrue(self.packet.id is not None)
 
     def testPwCryptEmptyPassword(self):
-        self.assertEqual(self.packet.PwCrypt(''), b'')
+        # RFC 2865 section 5.2: padded with nulls to 16 octets
+        encrypted = self.packet.PwCrypt('')
+        self.assertEqual(len(encrypted), 16)
+        self.assertEqual(encrypted, self.packet.PwCrypt(16 * b'\x00'))
+        self.assertEqual(self.packet.PwDecrypt(encrypted), '')
+
+    def testPwCryptMaximumLength(self):
+        encrypted = self.packet.PwCrypt(128 * 'x')
+        self.assertEqual(len(encrypted), 128)
+        self.assertEqual(self.packet.PwDecrypt(encrypted), 128 * 'x')
+
+    def testPwCryptTooLong(self):
+        # RFC 2865 section 5.2: the password is at most 128 octets
+        self.assertRaises(ValueError, self.packet.PwCrypt, 129 * 'x')
+        self.assertRaises(ValueError, self.packet.PwCrypt, 65 * '\xe9')
 
     def testPwCryptPassword(self):
         self.assertEqual(self.packet.PwCrypt('Simplon'),
@@ -534,6 +679,24 @@ class AuthPacketTests(unittest.TestCase):
         self.assertEqual(self.packet.PwDecrypt(
                 b'\xd3U;\xb23\r\x11\xba\x07\xe3\xa8*\xa8x\x14\x01'),
                 'Simplon')
+
+    def testPwDecryptNamedAttribute(self):
+        # The encrypted value is not valid UTF-8 and must survive the
+        # string decoding of the named attribute access (#232).
+        dictionary = Dictionary(StringIO('ATTRIBUTE User-Password 2 string\n'))
+        request = packet.AuthPacket(secret=b'secret', dict=dictionary,
+                                    authenticator=b'0123456789ABCDEF')
+        request['User-Password'] = request.PwCrypt('Simplon')
+        pkt = packet.AuthPacket(packet=request.RequestPacket(),
+                                secret=b'secret', dict=dictionary)
+        self.assertEqual(pkt.PwDecrypt(pkt['User-Password'][0]), 'Simplon')
+
+    def testPwDecryptUtf8String(self):
+        # An encrypted value which is valid UTF-8 is decoded to str by the
+        # named attribute access and must be converted back losslessly (#192).
+        encrypted = ('\xe9' * 8).encode('utf-8')
+        self.assertEqual(self.packet.PwDecrypt(encrypted.decode('utf-8')),
+                         self.packet.PwDecrypt(encrypted))
 
 
 class AuthPacketChapTests(unittest.TestCase):
@@ -560,6 +723,37 @@ class AuthPacketChapTests(unittest.TestCase):
         self.assertEqual(pkt['CHAP-Challenge'][0], chap_challenge)
         self.assertEqual(pkt['CHAP-Password'][0], chap_password)
         self.assertEqual(pkt.VerifyChapPasswd('test_password'), True)
+
+    def testVerifyChapPasswdWithoutChapPassword(self):
+        pkt = self.client.CreateAuthPacket(authenticator=16 * b'A',
+                                           User_Name='test_name')
+        self.assertFalse(pkt.VerifyChapPasswd('test_password'))
+
+    def testVerifyChapPasswdWrongPassword(self):
+        chap_id = b'9'
+        chap_password = chap_id + hashlib.md5(
+                chap_id + b'test_password' + 16 * b'A').digest()
+        pkt = self.client.CreateAuthPacket(authenticator=16 * b'A',
+                                           CHAP_Password=chap_password)
+        self.assertTrue(pkt.VerifyChapPasswd(b'test_password'))
+        self.assertFalse(pkt.VerifyChapPasswd(b'other_password'))
+
+    def testVerifyChapPasswdUsesConstantTimeComparison(self):
+        chap_id = b'9'
+        chap_password = chap_id + hashlib.md5(
+                chap_id + b'test_password' + 16 * b'A').digest()
+        pkt = self.client.CreateAuthPacket(authenticator=16 * b'A',
+                                           CHAP_Password=chap_password)
+        calls = []
+        compare_digest = hmac.compare_digest
+
+        def spy(a, b):
+            calls.append((a, b))
+            return compare_digest(a, b)
+
+        with unittest.mock.patch('pyrad.packet.hmac.compare_digest', spy):
+            self.assertTrue(pkt.VerifyChapPasswd('test_password'))
+        self.assertEqual(len(calls), 1)
 
 
 class AcctPacketConstructionTests(PacketConstructionTests):
@@ -603,6 +797,16 @@ class AcctPacketTests(unittest.TestCase):
 
         pkt.raw_packet = b'X' + pkt.raw_packet[1:]
         self.assertEqual(pkt.VerifyAcctRequest(), False)
+
+    def testVerifyAcctRequestWithPadding(self):
+        self.packet['Test-String'] = 'test'
+        self.packet.add_message_authenticator()
+        rawpacket = self.packet.RequestPacket() + 4 * b'\x00'
+        pkt = packet.AcctPacket(secret=b'secret', dict=self.dict,
+                                packet=rawpacket)
+        self.assertEqual(pkt['Test-String'], ['test'])
+        self.assertTrue(pkt.VerifyAcctRequest())
+        self.assertTrue(pkt.verify_message_authenticator())
 
     def testRequestPacket(self):
         self.assertEqual(self.packet.RequestPacket(),
@@ -677,3 +881,457 @@ class AcctPacketTests(unittest.TestCase):
         rebuilt_no_authenticator = rebuilt[:4] + b"\x00" * 16 + rebuilt[20:]
 
         self.assertEqual(raw_no_authenticator, rebuilt_no_authenticator)
+
+
+class PacketEdgeCaseTests(unittest.TestCase):
+    def setUp(self):
+        self.dict = Dictionary(os.path.join(home, 'data', 'full'))
+
+    def testAuthenticatorMustBeBytes(self):
+        self.assertRaises(TypeError, packet.Packet, authenticator='0123456789abcdef')
+
+    def testAddMessageAuthenticatorCreatesIdAndAuthenticator(self):
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.dict)
+        pkt.id = None
+        pkt.add_message_authenticator()
+        self.assertIsNotNone(pkt.id)
+        self.assertIsNotNone(pkt.authenticator)
+        self.assertTrue(pkt.get_message_authenticator())
+        self.assertEqual(len(pkt[80][0]), 16)
+
+    def testMessageAuthenticatorWithoutAuthenticator(self):
+        pkt = packet.Packet(code=packet.AccessAccept, secret=b'secret', dict=self.dict)
+        pkt.add_message_authenticator()
+        self.assertRaises(Exception, pkt._refresh_message_authenticator)
+
+    def testVerifyMessageAuthenticatorErrors(self):
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.dict)
+        self.assertRaises(Exception, pkt.verify_message_authenticator)
+        pkt.add_message_authenticator()
+        pkt.secret = None
+        self.assertRaises(Exception, pkt.verify_message_authenticator)
+
+    def testTaggedAttributes(self):
+        # RFC 2868 section 3: the tag replaces the first octet of integers
+        dictionary = Dictionary(StringIO(
+            'ATTRIBUTE Tunnel-Type 64 integer has_tag\n'
+            'ATTRIBUTE Tunnel-Private-Group-Id 81 string has_tag\n'))
+        pkt = packet.Packet(dict=dictionary)
+        pkt['Tunnel-Type:1'] = 3
+        pkt['Tunnel-Private-Group-Id:2'] = 'vlan'
+        self.assertEqual(pkt[64], [b'\x01\x00\x00\x03'])
+        self.assertEqual(pkt[81], [b'\x02vlan'])
+
+    def tagged_dictionary(self):
+        return Dictionary(StringIO(
+            'ATTRIBUTE Tunnel-Type 64 integer has_tag\n'
+            'ATTRIBUTE Tunnel-Password 69 string has_tag,encrypt=2\n'
+            'ATTRIBUTE Tunnel-Private-Group-Id 81 string has_tag\n'
+            'VALUE Tunnel-Type VLAN 13\n'))
+
+    def testTaggedAttributesRoundTrip(self):
+        dictionary = self.tagged_dictionary()
+        request = packet.AuthPacket(secret=b'secret', dict=dictionary,
+                                    authenticator=b'0123456789ABCDEF')
+        reply = request.CreateReply()
+        reply.AddAttribute('Tunnel-Type:1', 'VLAN')
+        reply.AddAttribute('Tunnel-Type:2', 'VLAN')
+        reply.AddAttribute('Tunnel-Private-Group-Id:1', '100')
+        reply.AddAttribute('Tunnel-Private-Group-Id:2', '200')
+        reply.AddAttribute('Tunnel-Password:1', 'first-tunnel-password')
+        reply.AddAttribute('Tunnel-Password:2', 'second')
+
+        decoded = packet.Packet(packet=reply.ReplyPacket(), secret=b'secret',
+                                dict=dictionary)
+        decoded.request_authenticator = request.authenticator
+        self.assertEqual(decoded['Tunnel-Type'], ['VLAN', 'VLAN'])
+        self.assertEqual(decoded['Tunnel-Type:2'], ['VLAN'])
+        self.assertEqual(decoded['Tunnel-Private-Group-Id'], ['100', '200'])
+        self.assertEqual(decoded['Tunnel-Private-Group-Id:1'], ['100'])
+        self.assertEqual(decoded['Tunnel-Private-Group-Id:2'], ['200'])
+        self.assertEqual(decoded['Tunnel-Password:1'], ['first-tunnel-password'])
+        self.assertEqual(decoded['Tunnel-Password:2'], ['second'])
+        self.assertTrue('Tunnel-Type:1' in decoded)
+        self.assertFalse('Tunnel-Type:3' in decoded)
+        self.assertRaises(KeyError, decoded.__getitem__, 'Tunnel-Type:3')
+        self.assertEqual(decoded.get('Tunnel-Type:3', []), [])
+
+    def testUntaggedAttributes(self):
+        dictionary = self.tagged_dictionary()
+        pkt = packet.AuthPacket(secret=b'secret', dict=dictionary,
+                                authenticator=b'0123456789ABCDEF')
+        pkt['Tunnel-Type'] = 'VLAN'
+        pkt['Tunnel-Private-Group-Id'] = 'vlan'
+        pkt['Tunnel-Password'] = 'password'
+        # RFC 2868 section 3.5: Tunnel-Password always has a tag
+        self.assertEqual(pkt[69][0][:1], b'\x00')
+        self.assertEqual(len(pkt[69][0]), 1 + 2 + 16)
+        self.assertEqual(pkt['Tunnel-Type'], ['VLAN'])
+        self.assertEqual(pkt['Tunnel-Type:0'], ['VLAN'])
+        self.assertEqual(pkt['Tunnel-Private-Group-Id'], ['vlan'])
+        self.assertEqual(pkt['Tunnel-Password'], ['password'])
+        # a first octet above 0x1F is part of the value, not a tag
+        pkt[81] = [b'\x1fvlan', b' vlan']
+        self.assertEqual(pkt['Tunnel-Private-Group-Id'], ['vlan', ' vlan'])
+
+    def testUntaggedValueLookingLikeTag(self):
+        # RFC 2868 section 3: a value whose first octet is at most 0x1F
+        # needs a tag, or its first octet is read as tag
+        dictionary = self.tagged_dictionary()
+        pkt = packet.AuthPacket(dict=dictionary)
+        pkt['Tunnel-Private-Group-Id'] = ['\x05vlan', 'vlan', '']
+        self.assertEqual(pkt[81], [b'\x00\x05vlan', b'vlan', b''])
+        self.assertEqual(pkt['Tunnel-Private-Group-Id'], ['\x05vlan', 'vlan', ''])
+        decoded = packet.AuthPacket(packet=pkt.RequestPacket(), dict=dictionary)
+        self.assertEqual(decoded['Tunnel-Private-Group-Id'], ['\x05vlan', 'vlan', ''])
+
+    def testUntaggedTunnelPasswordWithoutTag(self):
+        # pyrad 2.5.4 and older sent an untagged Tunnel-Password without
+        # the mandatory tag octet
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.tagged_dictionary(),
+                                authenticator=b'0123456789ABCDEF')
+        pkt[69] = [pkt.SaltCrypt('password')]
+        self.assertEqual(pkt['Tunnel-Password'], ['password'])
+        self.assertEqual(pkt['Tunnel-Password:0'], ['password'])
+
+    def testInvalidTag(self):
+        pkt = packet.Packet(dict=self.tagged_dictionary())
+        self.assertRaises(ValueError, pkt.__setitem__, 'Tunnel-Type:32', 'VLAN')
+
+    def testInvalidSaltEncryptedValue(self):
+        pkt = packet.Packet(secret=b'secret', dict=self.tagged_dictionary(),
+                            authenticator=b'0123456789ABCDEF')
+        pkt[69] = [b'\x01\x80\x00short']
+        self.assertRaises(packet.PacketError, pkt.__getitem__, 'Tunnel-Password')
+
+    def testGetDefault(self):
+        pkt = packet.Packet(dict=self.dict)
+        self.assertEqual(pkt.get('Test-String', 'default'), 'default')
+
+    def testTlvAttributeRoundTrip(self):
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.dict,
+                                authenticator=b'0123456789ABCDEF',
+                                **{'Test-Tlv-Str': 'text', 'Test-Tlv-Int': 10})
+        decoded = packet.AuthPacket(packet=pkt.RequestPacket(), secret=b'secret',
+                                    dict=self.dict)
+        self.assertEqual(decoded['Test-Tlv'],
+                         {'Test-Tlv-Str': ['text'], 'Test-Tlv-Int': [10]})
+
+    def testSetItemTlvSubAttribute(self):
+        pkt = packet.Packet(dict=self.dict)
+        pkt['Test-Tlv-Str'] = 'first'
+        pkt['Test-Tlv-Int'] = 10
+        pkt['Test-Tlv-Str'] = 'text'
+        self.assertNotIn(1, OrderedDict.keys(pkt))
+        self.assertEqual(pkt['Test-Tlv'],
+                         {'Test-Tlv-Str': ['text'], 'Test-Tlv-Int': [10]})
+        expected = packet.Packet(dict=self.dict)
+        expected.AddAttribute('Test-Tlv-Str', 'text')
+        expected.AddAttribute('Test-Tlv-Int', 10)
+        self.assertEqual(pkt._PktEncodeAttributes(),
+                         expected._PktEncodeAttributes())
+
+    def testTlvSubAttributeAccess(self):
+        # Test-String has the code of the sub-attribute Test-Tlv-Str
+        pkt = packet.Packet(dict=self.dict)
+        pkt['Test-String'] = 'top-level'
+        self.assertNotIn('Test-Tlv-Str', pkt)
+        self.assertRaises(KeyError, pkt.__getitem__, 'Test-Tlv-Str')
+        self.assertRaises(KeyError, pkt.__delitem__, 'Test-Tlv-Str')
+        pkt['Test-Tlv-Str'] = 'text'
+        pkt.AddAttribute('Test-Tlv-Int', 10)
+        self.assertIn('Test-Tlv-Str', pkt)
+        self.assertEqual(pkt['Test-Tlv-Str'], ['text'])
+        self.assertEqual(pkt.get('Test-Tlv-Int'), [10])
+        del pkt['Test-Tlv-Str']
+        self.assertNotIn('Test-Tlv-Str', pkt)
+        self.assertEqual(pkt['Test-Tlv'], {'Test-Tlv-Int': [10]})
+        self.assertEqual(pkt['Test-String'], ['top-level'])
+        # the TLV is removed with its last sub-attribute
+        del pkt['Test-Tlv-Int']
+        self.assertEqual(pkt.keys(), ['Test-String'])
+
+    def testTlvSubAttributeOfRawTlv(self):
+        # a TLV set with raw bytes has no sub-attributes to look up
+        pkt = packet.Packet(dict=self.dict)
+        pkt[4] = [b'\x01\x05abc']
+        self.assertNotIn('Test-Tlv-Str', pkt)
+        self.assertRaises(KeyError, pkt.__getitem__, 'Test-Tlv-Str')
+        self.assertRaises(KeyError, pkt.__delitem__, 'Test-Tlv-Str')
+
+    def testVendorTlvSubAttributeAccess(self):
+        pkt = packet.Packet(dict=self.dict)
+        pkt['Simplon-Number'] = 1
+        pkt['Simplon-Tlv-Str'] = 'text'
+        self.assertEqual(pkt['Simplon-Tlv-Str'], ['text'])
+        del pkt['Simplon-Tlv-Str']
+        self.assertNotIn('Simplon-Tlv-Str', pkt)
+        self.assertEqual(pkt['Simplon-Number'], ['One'])
+
+    def testSetItemVendorTlvSubAttribute(self):
+        pkt = packet.Packet(dict=self.dict)
+        pkt['Simplon-Tlv-Str'] = '2.1'
+        self.assertNotIn(1, OrderedDict.keys(pkt))
+        self.assertEqual(pkt[(16, 3)], {1: [b'2.1']})
+        self.assertEqual(pkt['Simplon-Tlv'], {'Simplon-Tlv-Str': ['2.1']})
+        self.assertEqual(pkt._PktEncodeAttributes(),
+                         b'\x1a\x0d\x00\x00\x00\x10\x03\x07\x01\x052.1')
+
+    def testEapMd5MessageAuthenticator(self):
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.dict, auth_type='eap-md5',
+                                authenticator=b'0123456789ABCDEF')
+        pkt['Test-String'] = 'eap'
+        received = packet.AuthPacket(packet=pkt.RequestPacket(), secret=b'secret',
+                                     dict=self.dict)
+        self.assertTrue(received.verify_message_authenticator())
+
+    def testPwDecryptBytearray(self):
+        pkt = packet.AuthPacket(secret=b'secret', authenticator=b'0123456789ABCDEF')
+        self.assertEqual(pkt.PwDecrypt(bytearray(pkt.PwCrypt('password'))), 'password')
+
+    def testSaltCryptString(self):
+        pkt = packet.AuthPacket(secret=b'secret', authenticator=b'0123456789ABCDEF')
+        self.assertEqual(pkt.SaltDecrypt(pkt.SaltCrypt('password')), b'password')
+
+    def testVerifyChapPasswdInvalidLength(self):
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.dict)
+        pkt[3] = [b'\x01short']
+        self.assertFalse(pkt.VerifyChapPasswd('password'))
+        self.assertIsNotNone(pkt.authenticator)
+
+    def testRequestPacketCreatesId(self):
+        for klass in (packet.AcctPacket, packet.CoAPacket):
+            pkt = klass(secret=b'secret', dict=self.dict)
+            pkt.id = None
+            pkt.RequestPacket()
+            self.assertIsNotNone(pkt.id)
+
+    def testZeroMessageAuthenticator(self):
+        zero = packet.Packet._zero_message_authenticator
+        ma = b'\x50\x12' + b'M' * 16
+        self.assertEqual(zero(b'\x01\x05abc' + ma + b'\x01\x03d'),
+                         b'\x01\x05abc\x50\x12' + 16 * b'\x00' + b'\x01\x03d')
+        # without a (parseable) Message-Authenticator attr is unchanged
+        self.assertEqual(zero(b'\x01\x05abc'), b'\x01\x05abc')
+        self.assertEqual(zero(b'\x01\x00' + ma), b'\x01\x00' + ma)
+
+    def testVendorAttributeWithMultipleSubAttributes(self):
+        pkt = packet.Packet(dict=self.dict)
+        vsa = b'\x00\x00\x00\x10\x01\x06\x00\x00\x00\x02\x02\x07value'
+        pkt.DecodePacket(struct.pack('!BBH', 1, 2, 22 + len(vsa)) + 16 * b'\x00' +
+                         b'\x1a' + struct.pack('B', 2 + len(vsa)) + vsa)
+        self.assertEqual(pkt['Simplon-Number'], ['Two'])
+        self.assertEqual(pkt['Simplon-String'], ['value'])
+
+    def _decode(self, attributes, code=packet.AccessRequest):
+        pkt = packet.Packet(dict=self.dict)
+        pkt.DecodePacket(struct.pack('!BBH', code, 2, 20 + len(attributes)) +
+                         16 * b'\x00' + attributes)
+        return pkt
+
+    def testVendorTlvAfterOtherSubAttribute(self):
+        number = b'\x01\x06\x00\x00\x00\x02'
+        tlv = b'\x03\x07\x01\x05abc'
+        vsa = b'\x00\x00\x00\x10' + number + tlv
+        pkt = self._decode(b'\x1a' + struct.pack('B', 2 + len(vsa)) + vsa)
+        self.assertEqual(pkt['Simplon-Number'], ['Two'])
+        self.assertEqual(pkt['Simplon-Tlv'], {'Simplon-Tlv-Str': ['abc']})
+
+    def testVendorTlvInSeveralVendorAttributes(self):
+        # used to raise AttributeError, which stopped the blocking server
+        first = b'\x00\x00\x00\x10\x03\x07\x01\x05abc'
+        second = b'\x00\x00\x00\x10\x01\x06\x00\x00\x00\x02\x03\x07\x01\x05def'
+        pkt = self._decode(b'\x1a' + struct.pack('B', 2 + len(first)) + first +
+                           b'\x1a' + struct.pack('B', 2 + len(second)) + second)
+        self.assertEqual(pkt['Simplon-Tlv'], {'Simplon-Tlv-Str': ['abc', 'def']})
+        self.assertEqual(pkt['Simplon-Number'], ['Two'])
+
+    def testEmptyTlv(self):
+        pkt = self._decode(b'\x04\x02')
+        self.assertEqual(pkt['Test-Tlv'], {})
+        self.assertEqual(pkt._PktEncodeAttributes(), b'\x04\x02')
+
+    def testTlvUndefinedSubAttribute(self):
+        pkt = self._decode(b'\x04\x0a\x01\x05abc\x09\x03A')
+        self.assertEqual(pkt['Test-Tlv'], {'Test-Tlv-Str': ['abc'], 9: [b'A']})
+
+    def testVerifyReplyWithEmptyTlv(self):
+        # a forged reply used to raise ValueError instead of failing
+        request = packet.AuthPacket(secret=b'secret', dict=self.dict)
+        request.RequestPacket()
+        raw = (struct.pack('!BBH', packet.AccessAccept, request.id, 22) +
+               16 * b'\x00' + b'\x04\x02')
+        reply = packet.Packet(secret=b'secret', dict=self.dict, packet=raw)
+        self.assertFalse(request.VerifyReply(reply, raw))
+
+    def testPwDecryptInvalidLength(self):
+        pkt = packet.AuthPacket(secret=b'secret', authenticator=b'0123456789ABCDEF')
+        for length in (5, 17, 31):
+            self.assertRaises(packet.PacketError, pkt.PwDecrypt, length * b'x')
+        self.assertEqual(pkt.PwDecrypt(pkt.PwCrypt('x' * 17)), 'x' * 17)
+
+    def testCreateReplyWithoutDictionary(self):
+        raw = packet.AuthPacket(secret=b'secret').RequestPacket()
+        request = packet.AuthPacket(secret=b'secret', packet=raw)
+        self.assertIsNone(request.dict)
+        reply = request.CreateReply()
+        self.assertEqual(reply.id, request.id)
+        self.assertTrue(request.VerifyReply(reply, reply.ReplyPacket()))
+
+    def testCoAReplyCodes(self):
+        # RFC 5176: a Disconnect-Request is answered with a Disconnect-ACK
+        # or -NAK, a CoA-Request with a CoA-ACK or -NAK
+        for (code, reply_code) in ((packet.CoARequest, packet.CoAACK),
+                                   (packet.DisconnectRequest, packet.DisconnectACK)):
+            request = packet.CoAPacket(code=code, secret=b'secret', dict=self.dict)
+            request.RequestPacket()
+            raw = request.CreateReply().ReplyPacket()
+            self.assertEqual(raw[0], reply_code)
+            # decoding a received reply keeps its code
+            other = packet.CoANAK
+            reply = request.CreateReply()
+            reply.code = other
+            decoded = request.CreateReply(packet=reply.ReplyPacket())
+            self.assertEqual(decoded.code, other)
+
+    def testDictionaryOfSubclass(self):
+        class DictPacket(packet.AuthPacket):
+            dict = self.dict
+
+        pkt = DictPacket(secret=b'secret', **{'Test-String': 'text'})
+        self.assertIs(pkt.dict, self.dict)
+        self.assertEqual(pkt['Test-String'], ['text'])
+        decoded = DictPacket(secret=b'secret', packet=pkt.RequestPacket())
+        self.assertEqual(decoded['Test-String'], ['text'])
+        self.assertIs(DictPacket(dict=None).dict, None)
+
+    def testVendorAttributeWithoutDictionary(self):
+        pkt = packet.Packet()
+        vsa = b'\x00\x00\x00\x10\x01\x06\x00\x00\x00\x02'
+        pkt.DecodePacket(struct.pack('!BBH', 1, 2, 22 + len(vsa)) + 16 * b'\x00' +
+                         b'\x1a' + struct.pack('B', 2 + len(vsa)) + vsa)
+        self.assertEqual(pkt[26], [vsa])
+
+    def testSaltCryptWithoutAuthenticator(self):
+        pkt = packet.Packet(secret=b'secret')
+        encrypted = pkt.SaltCrypt('password')
+        self.assertEqual(pkt.authenticator, 16 * b'\x00')
+        self.assertEqual(pkt.SaltDecrypt(encrypted), b'password')
+
+    def testSaltCryptRequestUsesZeroVector(self):
+        for (klass, code) in ((packet.AcctPacket, packet.AccountingRequest),
+                              (packet.CoAPacket, packet.CoARequest),
+                              (packet.CoAPacket, packet.DisconnectRequest)):
+            pkt = klass(code=code, secret=b'secret', dict=self.dict)
+            encrypted = pkt.SaltCrypt('password')
+            key = hashlib.md5(b'secret' + 16 * b'\x00' + encrypted[:2]).digest()
+            plain = bytes(a ^ b for (a, b) in zip(key, encrypted[2:18]))
+            self.assertEqual(plain[:9], b'\x08password')
+
+    def testSaltCryptRequestRoundTrip(self):
+        for (klass, code, verify) in (
+                (packet.AcctPacket, packet.AccountingRequest, 'VerifyAcctRequest'),
+                (packet.CoAPacket, packet.CoARequest, 'VerifyCoARequest'),
+                (packet.CoAPacket, packet.DisconnectRequest, 'VerifyCoARequest')):
+            pkt = klass(code=code, secret=b'secret', dict=self.dict)
+            pkt['Test-Encrypted-String'] = 'first'
+            pkt.RequestPacket()
+            # added after the Request Authenticator was calculated
+            pkt['Test-Encrypted-Octets'] = b'second'
+            received = klass(secret=b'secret', dict=self.dict,
+                             packet=pkt.RequestPacket())
+            self.assertTrue(getattr(received, verify)())
+            self.assertEqual(received['Test-Encrypted-String'], ['first'])
+            self.assertEqual(received['Test-Encrypted-Octets'], [b'second'])
+
+    def testSaltCryptAccessRequestAuthenticator(self):
+        authenticators = set()
+        passwords = set()
+        for _ in range(2):
+            pkt = packet.AuthPacket(secret=b'secret', dict=self.dict)
+            pkt['Test-Encrypted-String'] = 'dummy'
+            pkt['Test-String'] = pkt.PwCrypt('password')
+            raw = pkt.RequestPacket()
+            self.assertNotEqual(pkt.authenticator, 16 * b'\x00')
+            authenticators.add(pkt.authenticator)
+            passwords.add(pkt['Test-String'][0])
+            received = packet.AuthPacket(secret=b'secret', dict=self.dict,
+                                         packet=raw)
+            self.assertEqual(received['Test-Encrypted-String'], ['dummy'])
+        self.assertEqual(len(authenticators), 2)
+        self.assertEqual(len(passwords), 2)
+
+    def testVerifyAuthRequest(self):
+        attr = b'\x01\x07alice'
+        header = struct.pack('!BBH', packet.AccessRequest, 1, 20 + len(attr))
+        authenticator = hashlib.md5(header + 16 * b'\x00' + attr + b'secret').digest()
+        pkt = packet.AuthPacket(secret=b'secret', dict=self.dict,
+                                packet=header + authenticator + attr)
+        self.assertTrue(pkt.VerifyAuthRequest())
+        pkt.secret = b'different'
+        self.assertFalse(pkt.VerifyAuthRequest())
+
+    def testAcctRequestPacketWithMessageAuthenticator(self):
+        pkt = packet.AcctPacket(secret=b'secret', dict=self.dict)
+        pkt.add_message_authenticator()
+        received = packet.AcctPacket(packet=pkt.RequestPacket(), secret=b'secret',
+                                     dict=self.dict)
+        self.assertTrue(received.VerifyAcctRequest())
+        self.assertTrue(received.verify_message_authenticator())
+
+    def testEncodeAttributeTooLong(self):
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        pkt[1] = [253 * b'x']
+        self.assertEqual(len(pkt.ReplyPacket()), 20 + 255)
+        pkt[1] = [254 * b'x']
+        with self.assertRaisesRegex(ValueError, 'too long'):
+            pkt.ReplyPacket()
+
+    def testEncodeVendorAttributeTooLong(self):
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        # 26, length, 4 octets vendor id, type, length, value
+        pkt[(16, 2)] = [247 * b'x']
+        self.assertEqual(len(pkt.ReplyPacket()), 20 + 255)
+        pkt[(16, 2)] = [248 * b'x']
+        with self.assertRaisesRegex(ValueError, 'too long'):
+            pkt.ReplyPacket()
+
+    def testEncodeTlvAttributeTooLong(self):
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        pkt.AddAttribute('Test-Tlv-Str', 251 * 'x')
+        self.assertEqual(pkt.ReplyPacket()[20:], b'\x04\xff\x01\xfd' + 251 * b'x')
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        pkt.AddAttribute('Test-Tlv-Str', 252 * 'x')
+        with self.assertRaisesRegex(ValueError, 'too long'):
+            pkt.ReplyPacket()
+
+    def testEncodeVendorTlvAttributeTooLong(self):
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        pkt.AddAttribute('Simplon-Tlv-Str', 245 * 'x')
+        self.assertEqual(pkt.ReplyPacket()[20:],
+                         b'\x1a\xff\x00\x00\x00\x10\x03\xf9\x01\xf7' + 245 * b'x')
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        pkt.AddAttribute('Simplon-Tlv-Str', 246 * 'x')
+        with self.assertRaisesRegex(ValueError, 'too long'):
+            pkt.ReplyPacket()
+
+    def testSaltCryptTooLong(self):
+        pkt = packet.Packet(dict=self.dict, secret=b'secret',
+                            authenticator=16 * b'\x00')
+        self.assertRaises(ValueError, pkt.SaltCrypt, 256 * 'x')
+
+    def testTunnelPasswordTooLong(self):
+        dictionary = Dictionary(StringIO(
+            'ATTRIBUTE Tunnel-Password 69 string has_tag,encrypt=2\n'))
+        request = packet.AuthPacket(secret=b'secret', dict=dictionary,
+                                    authenticator=b'0123456789ABCDEF')
+        reply = request.CreateReply()
+        reply.AddAttribute('Tunnel-Password:1', 240 * 'x')
+        with self.assertRaisesRegex(ValueError, 'too long'):
+            reply.ReplyPacket()

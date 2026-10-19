@@ -701,6 +701,25 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "POST",
         "/v1/projects/{}/experiments/{}/overview/regenerate",
     ): "async generation machinery; the button on the experiment's Overview tab (X21)",
+    # Correcting a read's byte match (`probe run input dismiss|pin|reset`): retired
+    # with the matcher (agent-set data links D6). The route answers 410 naming
+    # `probe dataset use` / `checkpoint use` / `edge add`.
+    ("PATCH", "/v1/runs/{}/inputs"): "retired: a read's match is no longer corrected; the agent sets data links",
+    # Dragged in by the regen for stored-link lineage (PR-B): the dashboard's
+    # and the tap's own doors.
+    ("PATCH", "/auth/me/preferences"): "dashboard Settings -> Preferences (the canvas toggle)",
+    ("POST", "/ingest/v1/sessions/{}/{}/title"): "capture tap's session title (tap_core.session_journal `_request`, not the SDK)",
+    ("GET", "/v1/catalog/usage"): "dashboard: the team's hosted-data usage",
+    ("GET", "/v1/projects/{}/data"): "dashboard Data tab (project)",
+    ("GET", "/v1/projects/{}/experiments/{}/data"): "dashboard Data tab (experiment)",
+    ("GET", "/v1/runs/{}/data"): "dashboard Data tab (run): Uses / Used by",
+    ("GET", "/v1/runs/{}/rl-dashboard/{}"): "dashboard RL view",
+    ("GET", "/v1/projects/{}/workspaces"): "dashboard: a project's workspaces (multi-workspace projects)",
+    ("PUT", "/v1/projects/{}/workspaces/{}"): "dashboard: add a project to a workspace",
+    ("DELETE", "/v1/projects/{}/workspaces/{}"): "dashboard: remove a project from a workspace",
+    ("DELETE", "/v1/catalog/datasets/{}"): "dashboard: delete a team dataset",
+    ("DELETE", "/v1/sources/{}"): "dashboard: delete a source",
+    ("GET", "/v1/catalog/checkpoints/{}"): "MCP checkpoint card, through mcp.source `_CATALOG_DETAIL_ROUTES` (a mapped path)",
 }
 
 # --------------------------------------------------------------------------
@@ -1133,60 +1152,23 @@ PENDING: dict[Op, str] = {
 CLIENT_AHEAD: dict[Op, str] = {
     # Shape: ("METHOD", "/v1/path/{}"): "why the client is ahead + the guard".
     #
-    # EMPTY since the schema refresh of the light experiments' R4 (X15): every
-    # route this client was ahead on -- floating runs, the log stream, the
-    # multipart doors, a run's recorded outputs, a session's created work -- is
-    # declared by the backend now, so the debt is paid.
+    # The run-alert poller, recorder summaries and visuals, and the data
+    # catalog were here until the regen for stored-link lineage (agent-set data
+    # links PR-B): the backend declares them all now, so that debt is paid.
     #
-    # Run alerts to the agent (plan run-alerts-to-agent): the daemon's poller
-    # (`probe.daemon.probe_api.run_alerts`) is built against the route's contract
-    # while the server half (PR 1) lands beside it. Its old-backend guard: a 404
-    # reads as "no alerts", asked again at the next poll. Delete this entry once
-    # `make regen` brings the route into schema/openapi.json.
-    ("GET", "/v1/sessions/{}/run-alerts"): "daemon run-alert poller; the server route ships in its own PR",
-    # Recorder-written summaries (plan writer-owns-summary, PR B): the SDK's
-    # summary reads and the MCP's `overview.markdown` / `summary_history`
-    # views are built to CONTRACT.md while the server routes land in PR A.
-    # Old-backend guard: `overview.markdown` is left out on a 404; the history
-    # view and the SDK reads surface the 404 as the SDK's NotFoundError.
-    # Delete these once `make regen` brings the routes into schema/openapi.json.
-    ("GET", "/v1/projects/{}/summary"): "recorder summary read; the server route ships in PR A",
-    ("GET", "/v1/projects/{}/summary/versions"): "summary history; the server route ships in PR A",
-    ("GET", "/v1/projects/{}/summary/versions/{}"): "one summary version; the server route ships in PR A",
-    ("GET", "/v1/projects/{}/experiments/{}/summary"): "recorder summary read; the server route ships in PR A",
-    ("GET", "/v1/projects/{}/experiments/{}/summary/versions"): "summary history; the server route ships in PR A",
-    ("GET", "/v1/projects/{}/experiments/{}/summary/versions/{}"): "one summary version; the server route ships in PR A",
-    # The data catalog (plan data-catalog, PR D): the SDK and CLI are built to
-    # the plan's Interfaces while the server PRs (A, B, C) land beside them.
-    # Old-backend guard: every SDK verb (`probe.sdk.catalog`) reads FastAPI's
-    # own 404 / a 405 as "this server predates the catalog", warns once and
-    # records nothing (`catalog.old_server`); the CLI prints the error. Delete
-    # each entry once `make regen` brings its route into schema/openapi.json.
-    ("POST", "/v1/sources"): "data catalog C1 (server PR A)",
-    ("GET", "/v1/sources/{}"): "data catalog C1 (server PR A)",
-    ("POST", "/v1/runs/{}/uses"): "data catalog C2/C10 (server PR A)",
-    ("PUT", "/v1/catalog/manifests/{}"): "data catalog C5/Q9 (server PR B)",
-    ("POST", "/v1/catalog/datasets"): "data catalog C3 registration (server PR B)",
-    ("GET", "/v1/catalog/datasets"): "data catalog C4 lists (server PR B)",
-    ("GET", "/v1/catalog/datasets/{}"): "data catalog C4 detail (server PR B)",
-    ("GET", "/v1/catalog/datasets/{}/files"): "data catalog C11 files list (server PR B)",
-    ("GET", "/v1/catalog/checkpoints"): "data catalog C4 checkpoints list (server PR B)",
-    ("GET", "/v1/catalog/sources"): "data catalog C4 sources list (server PR B)",
-    ("GET", "/v1/provenance"): "data catalog C4 walk + methods view (server PR B)",
-    ("POST", "/v1/catalog/datasets/uploads"): "data catalog C8 hosting door (server PR C)",
-    # Recorder summaries (plan writer-owns-summary, PR D1): `probe summary` and
-    # `probe visuals` are built to the plan's CONTRACT.md while the server PRs
-    # (A: summary routes, V: visuals routes) land beside them; its reads are
-    # PR B's entries above. Old-backend guard: FastAPI's own 404 reads as
-    # `CapabilityUnavailable("summaries")` (`Client._summary_route`, and
-    # `summary_cli._get_summary` for the read) and the CLI prints it. Delete
-    # each entry once `make regen` brings its route into schema/openapi.json.
-    ("PUT", "/v1/projects/{}/summary"): "recorder summaries (server PR A)",
-    ("PUT", "/v1/projects/{}/experiments/{}/summary"): "recorder summaries (server PR A)",
-    ("GET", "/v1/projects/{}/visuals/options"): "recorder visuals (server PR V)",
-    ("PUT", "/v1/projects/{}/visuals"): "recorder visuals (server PR V)",
-    ("GET", "/v1/projects/{}/experiments/{}/visuals/options"): "recorder visuals (server PR V)",
-    ("PUT", "/v1/projects/{}/experiments/{}/visuals"): "recorder visuals (server PR V)",
+    # BEHIND, not ahead: the loose-file doors the data-catalog freeze and the
+    # workspace anchor's retirement took away. The server still answers each
+    # one, with the freeze's `client_too_old` 410 (app/artifacts/files_freeze_router.py,
+    # hidden from the schema), and the SDK's workspace-upload and share paths
+    # still reach them; they are dead code to remove with that retirement.
+    ("POST", "/v1/workspaces/{}/files/uploads"): "retired loose-file door: 410 client_too_old (files freeze)",
+    ("POST", "/v1/workspaces/{}/files/multipart"): "retired loose-file door: 410 client_too_old (files freeze)",
+    ("POST", "/v1/workspaces/{}/files/multipart/{}/parts"): "retired workspace multipart: 410 (anchor retirement)",
+    ("GET", "/v1/workspaces/{}/files/multipart/{}"): "retired workspace multipart: 410 (anchor retirement)",
+    ("POST", "/v1/workspaces/{}/files/multipart/{}/complete"): "retired workspace multipart: 410 (anchor retirement)",
+    ("DELETE", "/v1/workspaces/{}/files/multipart/{}"): "retired workspace multipart: 410 (anchor retirement)",
+    ("POST", "/v1/workspace-files/{}/share"): "retired loose-file move: 410 client_too_old (files freeze)",
+    ("POST", "/v1/shared/files/{}/unshare"): "retired loose-file move: 410 client_too_old (files freeze)",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

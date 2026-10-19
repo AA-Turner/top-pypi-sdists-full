@@ -4,7 +4,7 @@ On POSIX each name here is a direct pass-through to the POSIX call -- the same
 constants, the call made as it was -- so a POSIX caller behaves exactly as it
 did before it came through this module. Only Windows takes the other branch.
 
-- ``flock`` / ``LOCK_EX`` / ``LOCK_NB`` / ``LOCK_UN``: ``fcntl.flock``'s advisory
+- ``flock`` / ``LOCK_EX`` / ``LOCK_SH`` / ``LOCK_NB`` / ``LOCK_UN``: ``fcntl.flock``'s advisory
   whole-file lock. Windows has no fcntl (importing it was why ``import probe``
   failed there), so it is ``msvcrt.locking`` on ONE byte at `LOCK_OFFSET`, far
   past any lock file's content: Windows byte-range locks are MANDATORY, and a
@@ -15,8 +15,11 @@ did before it came through this module. Only Windows takes the other branch.
   dies. A non-blocking attempt that finds the lock taken raises
   ``BlockingIOError``, as flock does; a blocking one waits for as long as it
   takes (msvcrt's own blocking mode gives up after 10 s, so it polls). Unlocking
-  a byte that is not locked is a no-op, as ``LOCK_UN`` is. Shared locks are not
-  offered: nothing on the SDK path takes one.
+  a byte that is not locked is a no-op, as ``LOCK_UN`` is. ``msvcrt`` has no
+  shared lock, so ``LOCK_SH`` there is a stand-in that takes the exclusive one:
+  two shared holders conflict on Windows (as two exclusive ones do), where on
+  POSIX they never do. Its one user, `wizard_lock.running`, reads that as
+  "a setup is running" for the instant the other probe holds it.
 - ``probe_pid(pid)``: ``os.kill(pid, 0)`` -- returns if ``pid`` exists, raises
   ``ProcessLookupError`` if not, ``PermissionError`` if it exists but is not ours
   to signal. On Windows ``os.kill(pid, 0)`` is NOT a probe: CPython routes every
@@ -50,6 +53,7 @@ __all__ = [
     "LOCK_EX",
     "LOCK_NB",
     "LOCK_OFFSET",
+    "LOCK_SH",
     "LOCK_UN",
     "O_BINARY",
     "flock",
@@ -71,6 +75,7 @@ except ImportError:  # Windows
 
 if _fcntl is not None:
     LOCK_EX: int = _fcntl.LOCK_EX
+    LOCK_SH: int = _fcntl.LOCK_SH
     LOCK_NB: int = _fcntl.LOCK_NB
     LOCK_UN: int = _fcntl.LOCK_UN
 
@@ -81,6 +86,7 @@ if _fcntl is not None:
 
 else:
     # fcntl's values, so a caller's `LOCK_EX | LOCK_NB` means the same thing.
+    LOCK_SH = 1
     LOCK_EX = 2
     LOCK_NB = 4
     LOCK_UN = 8
@@ -103,7 +109,8 @@ else:
             os.lseek(fd, here, os.SEEK_SET)
 
     def flock(fd: Any, operation: int) -> None:  # type: ignore[misc]
-        """``fcntl.flock`` for LOCK_EX, LOCK_EX | LOCK_NB and LOCK_UN."""
+        """``fcntl.flock`` for LOCK_EX, LOCK_EX | LOCK_NB and LOCK_UN; LOCK_SH
+        (with or without LOCK_NB) takes the exclusive lock (module docstring)."""
         import msvcrt
 
         if not isinstance(fd, int):
@@ -114,7 +121,7 @@ else:
             except OSError:
                 pass  # not locked by this handle: flock's LOCK_UN is a no-op then
             return
-        if not operation & LOCK_EX:
+        if not operation & (LOCK_EX | LOCK_SH):
             raise ValueError(f"unsupported flock operation {operation!r} on Windows")
         pause = 0.001
         while True:

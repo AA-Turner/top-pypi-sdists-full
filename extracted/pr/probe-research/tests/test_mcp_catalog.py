@@ -427,13 +427,24 @@ def test_a_dataset_card_shows_the_entry_and_its_latest_version_with_lists_counte
     assert version["change"]["note"] == "dedup pass 3"
     # The heavy parts are counted, not listed; the versions view has them.
     # The server's exact count, not the length of its capped list.
-    assert version["users"] == {"stored": 23, "derived": 0, "truncated": True}
+    assert version["users"] == {"stored": 23, "truncated": True}
     assert version["checks"] == 1
     assert "step" not in version and "meta" not in version
     assert "completeness" not in out
     assert [r.url.raw_path.decode() for r in _catalog_requests(catalog)] == [
         "/v1/catalog/datasets/dataset:c4-clean"
     ]
+
+
+def test_a_dataset_card_says_producer_and_preview_even_when_there_is_none(server, catalog, refs):
+    """PR-D (c): `producer: null` and the preview sample's id ride the card
+    explicitly -- a dropped key read as "this server never says"."""
+    versions = catalog.dataset_details["c4-clean"]["versions"]
+    versions[0].update(producer=None, preview_artifact_id="pv-1")
+    version = _call(server, "entity", {"refs": ["dataset:c4-clean"]})["data"]["version"]
+    assert version["producer"] is None and version["preview_artifact_id"] == "pv-1"
+    older = _call(server, "entity", {"refs": ["dataset:c4-clean@2"]})["data"]["version"]
+    assert "preview_artifact_id" in older and older["preview_artifact_id"] is None
 
 
 @pytest.mark.parametrize("selector", ["@2", "@v2"])
@@ -895,6 +906,17 @@ def test_a_listing_past_the_fill_bound_says_its_page_was_hidden(catalog, tmp_pat
     out = _list_as_reader(service, "checkpoints", limit=2)
     assert out["data"]["checkpoints"] == [] and out["next_cursor"]
     assert MissingMarker.PAGE_HIDDEN_AS_OWN_SESSION_WORK in out["completeness"]["missing"]
+    assert out["data"]["hidden_own_session_work"] == 10, "5 pages of 2, every save hidden"
+
+
+def test_a_checkpoint_listing_of_only_the_sessions_saves_counts_them(catalog, tmp_path):
+    """PR-D (a): `browse(checkpoints, run=...)` for the reader's own run came
+    back empty with nothing saying why."""
+    catalog.catalog_items["checkpoints"] = [_save(i, RUN) for i in range(1, 4)]
+    service = _hiding_service(catalog, tmp_path, [RUN_ID])
+    out = _list_as_reader(service, "checkpoints")
+    assert out["data"]["checkpoints"] == [] and not out.get("next_cursor")
+    assert out["data"]["hidden_own_session_work"] == 3
 
 
 def test_a_server_that_cannot_say_what_the_session_made_marks_the_listing(catalog, refs, tmp_path):

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: sdmx1
-Version: 2.27.0
+Version: 2.28.0
 Summary: Statistical Data and Metadata eXchange (SDMX)
 Project-URL: Homepage, https://github.com/khaeru/sdmx
 Project-URL: Repository, https://github.com/khaeru/sdmx
@@ -16,20 +16,21 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: lxml>=3.6
 Requires-Dist: packaging>=26
 Requires-Dist: pandas>=1.0
 Requires-Dist: platformdirs>=4.1
 Requires-Dist: python-dateutil
 Requires-Dist: requests>=2.7
+Requires-Dist: typing-extensions
 Provides-Extra: cache
 Requires-Dist: requests-cache; extra == 'cache'
 Provides-Extra: docs

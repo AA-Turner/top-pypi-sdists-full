@@ -223,7 +223,64 @@ function maybeSkipUnsupportedSnapshotUrl(schema) {
   process.exit(0);
 }
 
-function loadConfig(configPath = null) {
+const automaticUserAgents = new Set([
+  "",
+  "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
+  "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)",
+]);
+
+function isAutomaticUserAgent(value) {
+  return automaticUserAgents.has(value || "") || /^Mozilla\/5\.0 \(Macintosh; Intel Mac OS X 10_15_7\) AppleWebKit\/537\.36 \(KHTML, like Gecko\) Chrome\/131\.0\.0\.0 Safari\/537\.36 ArchiveBox\/[0-9A-Za-z.+-]+ \(\+https:\/\/github\.com\/ArchiveBox\/ArchiveBox\/\)$/.test(value);
+}
+
+function parseChromiumUserAgentVersion(output) {
+  const version = String(output || "").match(/(\d+)\.\d+\.\d+(?:\.\d+)?/);
+  return version ? `${version[1]}.0.0.0` : "";
+}
+
+function replaceChromeUserAgentVersion(userAgent, browserVersionOutput) {
+  const version = parseChromiumUserAgentVersion(browserVersionOutput);
+  if (!version) return userAgent || "";
+  return String(userAgent || "").replace(
+    /(Chrome|HeadlessChrome)\/(?:\{)?\d+\.\d+\.\d+(?:\.\d+)?(?:\})?/g,
+    `$1/${version}`
+  );
+}
+
+function resolveUserAgent(config) {
+  const configured = config.USER_AGENT || "";
+  const automatic = isAutomaticUserAgent(configured);
+  if (!automatic && !/(?:Headless)?Chrome\//.test(configured)) return configured;
+  const paths = ["SNAP_DIR", "CRAWL_DIR"]
+    .filter(key => config[key])
+    .map(key => path.join(config[key], "chrome", "browser.json"));
+  if (config.ABXPKG_LIB_DIR) paths.push(path.join(config.ABXPKG_LIB_DIR, "chrome-user-agent.json"));
+  for (const filename of paths) {
+    try {
+      const metadata = JSON.parse(fs.readFileSync(filename, "utf8"));
+      const value = (metadata?.userAgentOverride || metadata)?.userAgent;
+      if (typeof value === "string" && value.trim() && !/[\r\n]/.test(value)) {
+        if (automatic) return value;
+        const version = value.match(/(?:Headless)?Chrome\/\d+\.\d+\.\d+(?:\.\d+)?/);
+        if (version) return replaceChromeUserAgentVersion(configured, version[0]);
+      }
+    } catch { /* Optional metadata may be absent or malformed. */ }
+  }
+  return automatic ? "" : configured;
+}
+
+function hydrateUserAgent(config, properties) {
+  const original = config.USER_AGENT;
+  config.USER_AGENT = resolveUserAgent(config);
+  for (const [name, prop] of Object.entries(properties)) {
+    if (prop["x-fallback"] === "USER_AGENT" && (config[name] === original || isAutomaticUserAgent(config[name]))) {
+      config[name] = config.USER_AGENT;
+    }
+  }
+  return config;
+}
+
+function loadConfig(configPath = null, { hydrateUserAgent: hydrateIdentity = true } = {}) {
   const pluginConfigPath = resolveConfigPath(configPath);
   const pluginMtime = fs.statSync(pluginConfigPath).mtimeMs;
   const baseMtime = fs.statSync(BASE_CONFIG_PATH).mtimeMs;
@@ -234,7 +291,7 @@ function loadConfig(configPath = null) {
     cached.pluginMtime === pluginMtime &&
     cached.baseMtime === baseMtime
   ) {
-    return { ...cached.config };
+    return hydrateIdentity ? hydrateUserAgent({ ...cached.config }, cached.properties) : { ...cached.config };
   }
 
   const baseSchema = JSON.parse(fs.readFileSync(BASE_CONFIG_PATH, "utf8"));
@@ -300,10 +357,11 @@ function loadConfig(configPath = null) {
   }
   configCache.set(cacheKey, {
     config,
+    properties,
     pluginMtime,
     baseMtime,
   });
-  return { ...config };
+  return hydrateIdentity ? hydrateUserAgent({ ...config }, properties) : { ...config };
 }
 
 function getConfig(configPath = null) {
@@ -737,6 +795,9 @@ function iterStaticfileTextInputs(snapDir = null) {
 
 module.exports = {
   PROCESS_EXIT_SKIPPED,
+  isAutomaticUserAgent,
+  parseChromiumUserAgentVersion,
+  replaceChromeUserAgentVersion,
   getConfig,
   loadConfig,
   getEnv,

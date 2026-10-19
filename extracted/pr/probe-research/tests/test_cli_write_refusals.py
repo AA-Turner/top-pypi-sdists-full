@@ -467,7 +467,7 @@ def test_edge_add_help_names_every_end_type_and_relation():
 
     add = typer.main.get_command(cli_main.app).commands["edge"].commands["add"]
     helps = {p.name: p.help or "" for p in add.params}
-    ends = ["run", "artifact", "artifact_version", "paper", "experiment", "project"]
+    ends = ["run", "artifact", "artifact_version", "paper", "source", "experiment", "project"]
     assert helps["source"] == helps["target"] == "type: " + " | ".join(ends)
     relations = set(helps["relation"].split(" | "))
     assert {"derived_from", "evaluates_on", "retried_from", "branched_from", "supersedes",
@@ -476,7 +476,7 @@ def test_edge_add_help_names_every_end_type_and_relation():
 
 
 # ---------------------------------------------------------------------------
-# L5: the read facts, and their correction.
+# L5: the read facts (a read is evidence; there is no match left to correct).
 # ---------------------------------------------------------------------------
 
 
@@ -495,76 +495,3 @@ def test_run_inputs_and_upstream_print_the_servers_facts(wired, capsys):
     assert json.loads(capsys.readouterr().out) == walk
     assert [p for m, p, _ in wired.seen if p.endswith("/upstream")] == [f"/v1/runs/{RUN_A}/upstream"]
     assert cli.main(["run", "upstream", RUN_A, "--depth", "9"]) == 2  # the server's cap, said locally
-
-
-@pytest.mark.parametrize("argv, sent", [
-    (["dismiss", RUN_A, "data/train.csv"], {"path": "data/train.csv", "dismissed": True}),
-    (["pin", RUN_A, "data/train.csv", "--version", VERSION], {"path": "data/train.csv", "version_id": VERSION}),
-    (["pin", RUN_A, "data/train.csv", "--writer", RUN_B, "--hash", "a" * 64],
-     {"path": "data/train.csv", "writer_run_id": RUN_B, "content_hash": "a" * 64}),
-    (["reset", RUN_A, "data/train.csv", "--hash", "sha256:" + "a" * 64],
-     {"path": "data/train.csv", "dismissed": False, "content_hash": "sha256:" + "a" * 64}),
-])
-def test_a_read_is_corrected_with_one_patch(wired, capsys, argv, sent):
-    wired.answers[("GET", f"/v1/runs/{RUN_A}")] = (200, {"id": RUN_A, "slug": "a"})
-    wired.answers[("GET", f"/v1/runs/{RUN_B}")] = (200, {"id": RUN_B, "slug": "b"})
-    wired.answers[("PATCH", f"/v1/runs/{RUN_A}/inputs")] = (204, None)
-    assert cli.main(["run", "input", *argv]) == 0
-    assert wired.sent("PATCH", f"/v1/runs/{RUN_A}/inputs") == [sent]
-    printed = json.loads(capsys.readouterr().out)
-    assert printed["run_id"] == RUN_A and printed["path"] == "data/train.csv"
-
-
-def test_a_pin_names_a_writer_by_slug(wired, capsys):
-    """`--writer` takes any run ref; the server pins the id it resolves to."""
-    wired.answers[("GET", f"/v1/runs/{RUN_A}")] = (200, {"id": RUN_A, "slug": "a"})
-    wired.answers[("GET", "/v1/runs/tokenizer-run")] = (200, {"id": RUN_B, "slug": "tokenizer-run"})
-    wired.answers[("PATCH", f"/v1/runs/{RUN_A}/inputs")] = (204, None)
-    assert cli.main(["run", "input", "pin", RUN_A, "vocab.json", "--writer", "tokenizer-run"]) == 0
-    assert wired.sent("PATCH", f"/v1/runs/{RUN_A}/inputs") == [{"path": "vocab.json", "writer_run_id": RUN_B}]
-    assert json.loads(capsys.readouterr().out)["writer_run_id"] == RUN_B
-
-
-@pytest.mark.parametrize("flags", [[], ["--version", VERSION, "--writer", RUN_B]])
-def test_a_pin_names_exactly_one_thing(wired, capsys, flags):
-    assert cli.main(["run", "input", "pin", RUN_A, "data/train.csv", *flags]) == 2
-    assert "--version or --writer" in capsys.readouterr().err
-    assert not [s for s in wired.seen if s[0] == "PATCH"]
-
-
-@pytest.mark.parametrize(("status", "detail"), [
-    (422, "writer_run_id not found"), (410, "run is in the trash"), (404, "no read at that path"),
-])
-def test_a_refused_writer_pin_exits_non_zero(wired, capsys, status, detail):
-    wired.answers[("GET", f"/v1/runs/{RUN_A}")] = (200, {"id": RUN_A, "slug": "a"})
-    wired.answers[("GET", f"/v1/runs/{RUN_B}")] = (200, {"id": RUN_B, "slug": "b"})
-    wired.answers[("PATCH", "/v1/runs/[^/]+/inputs")] = (status, {"detail": detail})
-    assert cli.main(["run", "input", "pin", RUN_A, "data/train.csv", "--writer", RUN_B]) == 1
-    assert detail in capsys.readouterr().err
-    assert wired.queued() == []
-
-
-def test_a_refused_correction_fails(wired, capsys):
-    wired.answers[("GET", f"/v1/runs/{RUN_A}")] = (200, {"id": RUN_A, "slug": "a"})
-    wired.answers[("PATCH", "/v1/runs/[^/]+/inputs")] = (422, {"detail": "send dismissed or version_id"})
-    assert cli.main(["run", "input", "dismiss", RUN_A, "data/train.csv"]) == 1
-    assert "send dismissed or version_id" in capsys.readouterr().err
-    assert wired.queued() == []
-
-
-def test_a_correction_that_was_not_delivered_prints_what_happened_to_it(wired, capsys, monkeypatch):
-    """Queued: exit 0 and the queued object. Lost with the outbox: exit 1 and the
-    same object -- never the correction as if it were made."""
-    wired.answers[("GET", f"/v1/runs/{RUN_A}")] = (200, {"id": RUN_A, "slug": "a"})
-    wired.answers[("PATCH", f"/v1/runs/{RUN_A}/inputs")] = httpx.ConnectError("connection refused")
-    assert cli.main(["run", "input", "dismiss", RUN_A, "data/train.csv"]) == 0
-    printed = json.loads(capsys.readouterr().out)
-    assert printed["queued"] is True and "run_id" not in printed
-
-    def full(*_a, **_k):
-        raise OSError(errno.ENOSPC, "No space left on device")
-
-    monkeypatch.setattr(Journal, "append_http", full)
-    assert cli.main(["run", "input", "dismiss", RUN_A, "data/train.csv"]) == 1
-    printed = json.loads(capsys.readouterr().out)
-    assert printed["queued"] is False and "run_id" not in printed

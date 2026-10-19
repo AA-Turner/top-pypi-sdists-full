@@ -157,13 +157,20 @@ def get_default(*, _private_sdk: Optional[PrivateCloudSDK] = None) -> Optional[C
 _TERMINATE_SYSTEM_CLUSTER_EXAMPLE = """
 import anyscale
 
-# Terminate the system cluster for the cloud with the specified ID
+# Terminate the system clusters of every cloud resource of the cloud with the specified ID
 anyscale.cloud.terminate_system_cluster(cloud_id="cloud_id", wait=True)
+
+# Terminate the system cluster of a specific cloud resource of the cloud
+anyscale.cloud.terminate_system_cluster(
+    cloud_id="cloud_id", cloud_resource="my-cloud-resource", wait=True
+)
 """
 
 _TERMINATE_SYSTEM_CLUSTER_ARG_DOCSTRINGS = {
-    "cloud_id": "The ID of the cloud whose system cluster should be terminated.",
-    "wait": "If True, wait for the system cluster to be terminated before returning. Defaults to False.",
+    "cloud_id": "The ID of the cloud whose system clusters should be terminated.",
+    "wait": "If True, wait for the system clusters to be terminated before returning. Defaults to False.",
+    "cloud_resource": "Name of the cloud resource whose system cluster should be terminated. Each cloud resource of a cloud has its own system cluster. If neither this nor `cloud_resource_id` is provided, the system clusters of every cloud resource of the cloud are terminated.",
+    "cloud_resource_id": "ID of the cloud resource whose system cluster should be terminated. Alternative to `cloud_resource`.",
 }
 
 
@@ -177,13 +184,23 @@ def terminate_system_cluster(
     cloud_id: str,
     wait: Optional[bool] = False,
     *,
+    cloud_resource: Optional[str] = None,
+    cloud_resource_id: Optional[str] = None,
     _private_sdk: Optional[PrivateCloudSDK] = None,
-) -> str:
+) -> List[str]:
     """
-    Terminate the system cluster for the specified cloud.
+    Terminate the system clusters of the specified cloud: of every cloud resource of
+    the cloud, or only of the given cloud resource.
 
-    :param cloud: The name of the cloud whose system cluster should be terminated.
-    :param wait: If True, wait for the system cluster to be terminated before returning. Defaults to False.
-    :return: ID of the terminated system cluster.
+    :param cloud_id: The ID of the cloud whose system clusters should be terminated.
+    :param wait: If True, wait for the system clusters to be terminated before returning. Defaults to False.
+    :param cloud_resource: Name of the cloud resource whose system cluster should be terminated. Defaults to every cloud resource of the cloud.
+    :param cloud_resource_id: ID of the cloud resource whose system cluster should be terminated. Alternative to `cloud_resource`.
+    :return: IDs of the terminated system clusters.
     """
-    return _private_sdk.terminate_system_cluster(cloud_id, wait)  # type: ignore
+    return _private_sdk.terminate_system_cluster(  # type: ignore
+        cloud_id,
+        wait,
+        cloud_resource=cloud_resource,
+        cloud_resource_id=cloud_resource_id,
+    )

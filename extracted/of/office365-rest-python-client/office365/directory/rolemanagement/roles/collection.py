@@ -6,16 +6,39 @@ from office365.delta_collection import DeltaCollection
 from office365.directory.rolemanagement.roles.role import DirectoryRole
 from office365.directory.rolemanagement.templates.collection import DirectoryRoleTemplateCollection
 from office365.directory.rolemanagement.templates.template import DirectoryRoleTemplate
+from office365.runtime.deprecated import deprecated
+from office365.runtime.odata.literals import escape_odata_string
+from office365.runtime.query_capabilities import query_capabilities
 
 
+@query_capabilities(
+    unsupported={"top"},
+    doc="https://learn.microsoft.com/en-us/graph/api/directoryrole-list",
+    note="directoryRoles cannot be paged with $top",
+)
 class DirectoryRoleCollection(DeltaCollection[DirectoryRole]):
     """User's collection"""
 
     def __init__(self, context, resource_path=None):
         super().__init__(context, DirectoryRole, resource_path)
 
+    def find_by_name(self, name: str, *, required: bool = False) -> DirectoryRole:
+        """Look up a directory role by its display name.
+
+        Deferred — run with ``execute_query()``. Tolerant by default: when no
+        role matches, the returned object is left uninitialized (check
+        :attr:`~office365.runtime.client_object.ClientObject.is_loaded`). Pass
+        ``required=True`` to raise instead (or on an ambiguous match).
+
+        Args:
+            name (str): The display name (e.g. 'Security Administrator')
+            required (bool): Raise on a missing or ambiguous match when ``True``
+        """
+        return self._find_by_filter(f"displayName eq '{escape_odata_string(name)}'", required=required)
+
+    @deprecated("Use find_by_name() instead.", version="4.0")
     def get_by_name(self, name: str) -> DirectoryRole:
-        """Retrieve a directory role by its display name.
+        """Deprecated alias of :meth:`find_by_name` (strict).
 
         Args:
             name (str): The display name (e.g. 'Security Administrator')
@@ -25,7 +48,7 @@ class DirectoryRoleCollection(DeltaCollection[DirectoryRole]):
             NotFoundException: If no role matches
             ValueError: If multiple roles match
         """
-        return self.single(f"displayName eq '{name}'")
+        return self.find_by_name(name, required=True)
 
     def assign(self, role_name: str) -> Self:
         """Activate a directory role by display name.
@@ -62,5 +85,5 @@ class DirectoryRoleCollection(DeltaCollection[DirectoryRole]):
 
             role.members.get().after_execute(_remove_members)
 
-        self.get_by_name(role_name).after_execute(_get_members)
+        self.find_by_name(role_name, required=True).after_execute(_get_members)
         return self

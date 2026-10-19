@@ -3372,8 +3372,10 @@ class Run:
         catalog.use_mixture(self, parts, role=role)
 
     def use_checkpoint(self, ref: str, *, role: str = "init") -> None:
-        """Record the weights this run started from: ``checkpoint:<id>`` or
-        ``checkpoint:<run>@best|latest|step<N>`` (role ``init``)."""
+        """Record a checkpoint this run used: ``checkpoint:<id>`` or
+        ``checkpoint:<run>@best|latest|step<N>``. The weights it started from
+        are role ``init`` (the default); a run that evaluates the checkpoint
+        passes ``role="eval"``."""
         from . import catalog
 
         catalog.use(self, ref, role=role, what="use_checkpoint")

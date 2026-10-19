@@ -1,10 +1,11 @@
 import pytest
-from hypothesis import HealthCheck, Phase, assume, given, settings
+from hypothesis import Phase, assume
 
 import schemathesis
 from schemathesis.core.transforms import to_wire_string
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.schemas import PayloadAlternatives
+from test.utils import run_given
 
 from ..utils import assert_requests_call, integer
 
@@ -529,54 +530,45 @@ def test_(request, case):
 
 def test_empty_content(ctx):
     # When the "content" value is empty in "requestBody"
-    schema = ctx.openapi.load_schema(
-        {"/body": {"post": {"requestBody": {"content": {}}, "responses": {"200": {"description": "OK"}}}}}
+    operation = ctx.openapi.load_operation(
+        "POST /body", {"requestBody": {"content": {}}, "responses": {"200": {"description": "OK"}}}
     )
     # Then the body processing should be no-op
-    operation = schema["/body"]["POST"]
     assert operation.body == PayloadAlternatives([])
 
 
 @pytest.mark.hypothesis_nested
 def test_loose_multipart_definition(ctx):
     # When the schema of "multipart/form-data" content does not define "object" type
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /body",
         {
-            "/body": {
-                "post": {
-                    "requestBody": {
-                        "content": {"multipart/form-data": {"schema": {"properties": {"foo": {"type": "string"}}}}},
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "content": {"multipart/form-data": {"schema": {"properties": {"foo": {"type": "string"}}}}},
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
         },
     )
     # Then non-object data should be excluded during generation
 
-    @given(case=schema["/body"]["POST"].as_strategy())
-    @settings(max_examples=5, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much])
+    @run_given(case=operation.as_strategy(), max_examples=5)
     def test(case):
         assert isinstance(case.body, dict)
 
     # And the resulting values should be valid
-    test()
 
 
 @pytest.mark.hypothesis_nested
 def test_multipart_behind_a_reference(ctx):
     # When the schema of "multipart/form-data" is behind a reference
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /body",
         {
-            "/body": {
-                "post": {
-                    "requestBody": {
-                        "$ref": "#/components/requestBodies/MultipartBody",
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "$ref": "#/components/requestBodies/MultipartBody",
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "requestBodies": {
@@ -589,17 +581,9 @@ def test_multipart_behind_a_reference(ctx):
     )
     # Then it should be correctly resolved
 
-    @given(case=schema["/body"]["POST"].as_strategy())
-    @settings(
-        max_examples=5,
-        deadline=None,
-        suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much],
-        phases=[Phase.generate],
-    )
+    @run_given(case=operation.as_strategy(), max_examples=5, phases=[Phase.generate])
     def test(case):
         assert_requests_call(case)
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -609,8 +593,7 @@ def test_optional_form_parameters(ctx):
     schema = schemathesis.openapi.from_url(api.schema_url)
     strategy = schema["/api/multipart"]["POST"].as_strategy()
 
-    @given(case=strategy)
-    @settings(max_examples=3, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much])
+    @run_given(case=strategy, max_examples=3)
     def test(case):
         assume("maybe" in case.body)
         response = case.call()
@@ -618,40 +601,33 @@ def test_optional_form_parameters(ctx):
         # Then they still should be possible to generate
         assert response.json()["maybe"] == to_wire_string(case.body["maybe"])
 
-    test()
-
 
 def test_ref_field(ctx):
     # When the schema contains "$ref" field, that is not a reference (which is supported by the JSON Schema spec)
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /body",
         {
-            "/body": {
-                "post": {
-                    "requestBody": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {"$ref": {"type": "string"}},
-                                    "required": ["$ref"],
-                                    "type": "object",
-                                }
-                            }
-                        },
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "properties": {"$ref": {"type": "string"}},
+                            "required": ["$ref"],
+                            "type": "object",
+                        }
+                    }
+                },
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
         },
     )
 
-    @given(case=schema["/body"]["POST"].as_strategy())
-    @settings(max_examples=5)
+    @run_given(case=operation.as_strategy(), max_examples=5)
     def test(case):
         assert isinstance(case.body["$ref"], str)
 
     # Then "$ref" field should be generated
-    test()
 
 
 def test_exceptions_on_collect(testdir):

@@ -774,7 +774,7 @@ training_fp4_app = training_app.command(
     App(
         name="prepare-for-fp4-inference",
         alias="fp4",
-        help="Merge fine-tuned adapters into their base model and prepare them for FP4 inference",
+        help="Prepare fine-tuned models for FP4 inference",
         help_epilogue=TRAINING_FP4_HELP_EXAMPLES,
         sort_key=5,
     )
@@ -1030,7 +1030,7 @@ beta_endpoints_app.command(
     name="rm",
     alias="-d",
     sort_key=5,
-    help="Delete an endpoint, deployment, A/B experiment, shadow experiment, or rollout by ID",
+    help="Delete an endpoint, deployment, adapter, A/B experiment, shadow experiment, or rollout by ID",
     help_epilogue=BETA_ENDPOINTS_RM_HELP_EXAMPLES,
 )
 # Hidden `delete` alias for `tg beta endpoints delete …` (visible command is `rm`).

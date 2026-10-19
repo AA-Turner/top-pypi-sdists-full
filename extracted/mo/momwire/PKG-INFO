@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: momwire
-Version: 0.78.1
+Version: 0.79.1
 Summary: A pure-Python method-of-moments antenna simulator with optional C++ accelerators
 Author-email: "Steven M. Burns" <smburns47@gmail.com>
 Project-URL: Homepage, https://github.com/stevenmburns/momwire
@@ -260,6 +260,93 @@ pynec-accel; two private copies in one process abort with `OMP: Error #15` (or
 deadlock). Without `libomp` installed, the accelerator can't load and momwire
 warns and falls back to the slower pure-Python path. On Linux the system
 `libgomp` covers this, so no extra step is needed.
+
+### The NEC-5 engines on Linux, without Python
+
+Each release also carries **`momwire-nec5-linux-x86_64.tar.gz`**: two of
+momwire's NEC-5 engines as native programs, with no Python in them. They are
+razor-2p (`momwire-nec5-razor-2p`) and bs2, the default B-spline formulation
+(`momwire-nec5-bspline`). You do not need Python, pip or momwire installed.
+Their printouts are byte for byte the Python commands'.
+
+```bash
+tar -xzf momwire-nec5-linux-x86_64.tar.gz
+cd momwire-nec5-linux-x86_64
+./momwire-nec5-razor2p-linux -version
+./momwire-nec5-razor2p-linux deck.nec deck.out   # EZNEC's and SimNEC's form
+./momwire-nec5-razor2p-linux - - < chain.nec     # SimNEC's streaming form
+./momwire-nec5-bs2-linux deck.nec deck.out       # the same forms, bs2
+```
+
+For SimNEC, point the NEC-5 engine setting at `momwire-nec5-razor2p-linux`
+or `momwire-nec5-bs2-linux` in that folder, and keep the folder together:
+each command runs its `-avx2` build on a processor with AVX2 and FMA, and its
+`-sse2` build on any other 64-bit x86 processor. They need 64-bit x86 Linux
+with glibc 2.28 or newer (RHEL/Alma 8, Debian 10, Ubuntu 18.10 and later);
+everything else is built in. A deck an engine does not serve yet is refused
+in the printout by name ("not served by this build: ..."), and the Python
+command serves it. The other formulations stay Python. The existing Windows
+`momwire-nec5-razor-2p.exe` in the EZNEC drop-in zip is unchanged.
+
+### The NEC-5 engines on Windows, without Python (preview)
+
+**Preview:** each release from 0.79.0 also carries
+**`momwire-nec5-windows-x64.zip`**, the same two engines as native Windows
+programs, signed with momwire's certificate. The zip holds
+`momwire-nec5-razor2p-avx2.exe` and `momwire-nec5-bs2-avx2.exe` for a
+processor with AVX2, the `-sse2` pair for any other 64-bit x86 processor, and
+a `win7` folder with the sse2 pair built to run on Windows 7 SP1. The zip's
+README.txt says which to use. The DLLs they load ship beside them, so nothing
+needs installing; keep each folder together. A deck an engine does not serve
+yet is refused in the printout by name, as on Linux. The EZNEC drop-in,
+`momwire-eznec-windows.zip`, is unchanged and is still the supported way to
+run momwire under EZNEC on Windows.
+
+### The NEC-5 engines on macOS, without Python (preview)
+
+**Preview:** each release from 0.79.0 also carries the same two engines for
+Apple silicon (macOS 14 or later, arm64), as
+**`momwire-nec5-macos-arm64.tar.gz`**. The
+math library is the system's Accelerate, the one numpy and SciPy use on a
+Mac, and the OpenMP runtime is built in, so nothing ships beside the two
+programs. Their printouts match the Python commands' on the same Mac.
+
+They are ad-hoc signed only: no Developer ID and no notarisation. A tarball
+fetched with `curl` and unpacked with `tar` carries no quarantine flag and
+runs as it is:
+
+```bash
+curl -LO <URL of momwire-nec5-macos-arm64.tar.gz>
+tar -xzf momwire-nec5-macos-arm64.tar.gz
+cd momwire-nec5-macos-arm64
+./momwire-nec5-razor2p-macos -version
+./momwire-nec5-bs2-macos deck.nec deck.out
+```
+
+A copy downloaded through a web browser is quarantined, and macOS refuses to
+open it until the flag is cleared from the whole folder:
+
+```bash
+xattr -dr com.apple.quarantine momwire-nec5-macos-arm64
+```
+
+### The same answer with or without AVX-512
+
+numpy and OpenBLAS switch to AVX-512 code on a processor that has it, and
+that code rounds differently in the last bits. momwire's own entry points
+(the `momwire-nec5`/`momwire-nec42`/`momwire-nec2c-shared` commands and the
+servers they start, the Windows drop-in, the Linux razor-2p program and the
+test suite) turn it off on such a processor, by setting
+`NPY_DISABLE_CPU_FEATURES` and `OPENBLAS_CORETYPE=Haswell` before numpy
+loads, so the printout doesn't change with the processor. A value you set
+yourself is left alone, and on a processor without AVX-512 nothing is set.
+This doesn't cover everything. `momwire-nec2c`, `python -m momwire...` run by
+hand, a resident server one of those started, and a program that imports
+numpy before momwire have all loaded numpy before the pin. For those, call
+`momwire_serve_client.pin_cpu_env()` before importing numpy, or set the two
+variables in the environment. The Windows razor-2p hybrid's own OpenBLAS DLL
+picks its kernels before any code can pin it. Even pinned, a value that
+cancels to almost nothing can still print differently in its last digits.
 
 ## Test
 

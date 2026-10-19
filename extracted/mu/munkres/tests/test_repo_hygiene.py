@@ -117,11 +117,38 @@ def test_readme_python_examples_run_and_print_what_the_comments_claim(capsys):
 
 
 def test_version_is_single_sourced_and_in_changelog():
-    assert re.fullmatch(r"\d+\.\d+\.\d+((a|b|rc)\d+|\.dev\d+)?", munkres.__version__)
+    assert munkres.__version__ == "3.0.0"
     assert pyproject()["tool"]["setuptools"]["dynamic"]["version"] == {
         "attr": "munkres.__version__"
     }
     assert f"Version {munkres.__version__}" in read("CHANGELOG.md")
+
+
+def test_stable_release_material_and_publishing_workflow():
+    project = pyproject()["project"]
+    assert "Development Status :: 5 - Production/Stable" in project["classifiers"]
+    assert "![Release](https://img.shields.io/badge/release-v3.0.0-" in read("README.md")
+    assert "pip install munkres==3.0.0" in read("docs/installation.md")
+
+    for name in (
+        "README.md",
+        "CHANGELOG.md",
+        "V2_RELEASE.txt",
+        "docs/installation.md",
+        "release/RELEASE_NOTES.md",
+    ):
+        assert not re.search(r"2\.0\.0(?:a\d+|b\d+|rc\d+|\.dev\d+)", read(name)), name
+
+    workflow = read(".github/workflows/release.yml")
+    assert '      - "v*"' in workflow
+    assert 'python tools/verify_release.py --tag "$GITHUB_REF_NAME"' in workflow
+    assert "python -m twine check dist/*" in workflow
+    assert "name: pypi" in workflow
+    assert "id-token: write" in workflow
+    assert "https://pypi.org/project/munkres/" in workflow
+    assert "TestPyPI" not in workflow
+    assert "password:" not in workflow.lower()
+    assert "pypi-token:" not in workflow.lower()
 
 
 def test_security_and_contributing_docs_present():
@@ -144,3 +171,76 @@ def test_release_verifier_reports_no_problems():
         capture_output=True, text=True, timeout=120, check=False,
     )  # fmt: skip
     assert done.returncode == 0, done.stdout + done.stderr
+
+
+# ---------------------------------------------------------------------------
+# Verification code must be able to fail (audit: `... or True`, `x if False else y`, vacuous guards)
+# ---------------------------------------------------------------------------
+
+
+def _python_files(*folders):
+    for folder in folders:
+        for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, folder)):
+            dirnames[:] = [d for d in dirnames if d not in {"__pycache__", ".venv", "build"}]
+            for name in filenames:
+                if name.endswith(".py"):
+                    yield os.path.join(dirpath, name)
+
+
+def _dead_logic(tree):
+    import ast
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.BoolOp):
+            for value in node.values:
+                if isinstance(value, ast.Constant) and bool(value.value) == isinstance(
+                    node.op, ast.Or
+                ):
+                    yield (
+                        node.lineno,
+                        "constant operand makes the boolean expression decided in advance",
+                    )
+        elif isinstance(node, (ast.IfExp, ast.If)) and isinstance(node.test, ast.Constant):
+            yield node.lineno, f"condition is the constant {node.test.value!r}"
+        elif isinstance(node, ast.Assert) and isinstance(node.test, ast.Constant):
+            yield node.lineno, "assert on a constant"
+        elif isinstance(node, ast.ExceptHandler) and (
+            node.type is None
+            or (
+                isinstance(node.type, ast.Name)
+                and node.type.id in {"Exception", "BaseException"}
+                and all(isinstance(s, ast.Pass) for s in node.body)
+            )
+        ):
+            yield node.lineno, "handler swallows every exception"
+
+
+def test_no_constant_conditions_or_swallowed_exceptions_in_source_tools_and_tests():
+    import ast
+
+    problems = []
+    for path in _python_files("src", "tools", "tests", "benchmarks", "examples"):
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), path)
+        problems += [
+            f"{os.path.relpath(path, ROOT)}:{line}: {why}" for line, why in _dead_logic(tree)
+        ]
+    assert not problems, "dead or vacuous logic:\n" + "\n".join(problems)
+
+
+def test_the_dead_logic_scanner_actually_detects_what_it_claims_to():
+    import ast
+
+    for source in (
+        "x = a or True",
+        "x = a if False else b",
+        "assert True",
+        "try:\n    f()\nexcept Exception:\n    pass",
+        "try:\n    f()\nexcept:\n    g()",
+    ):
+        assert list(_dead_logic(ast.parse(source))), source
+    assert not list(
+        _dead_logic(
+            ast.parse("x = a or b\nif a:\n    pass\ntry:\n    f()\nexcept ValueError:\n    pass")
+        )
+    )

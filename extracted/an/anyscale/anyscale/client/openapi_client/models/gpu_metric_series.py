@@ -34,15 +34,17 @@ class GpuMetricSeries(object):
     """
     openapi_types = {
         'name': 'str',
-        'points': 'list[GpuMetricPoint]'
+        'points': 'list[GpuMetricPoint]',
+        'source': 'GpuSeriesSource'
     }
 
     attribute_map = {
         'name': 'name',
-        'points': 'points'
+        'points': 'points',
+        'source': 'source'
     }
 
-    def __init__(self, name=None, points=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, points=None, source=None, local_vars_configuration=None):  # noqa: E501
         """GpuMetricSeries - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -50,10 +52,13 @@ class GpuMetricSeries(object):
 
         self._name = None
         self._points = None
+        self._source = None
         self.discriminator = None
 
         self.name = name
         self.points = points
+        if source is not None:
+            self.source = source
 
     @property
     def name(self):
@@ -104,6 +109,29 @@ class GpuMetricSeries(object):
             raise ValueError("Invalid value for `points`, must not be `None`")  # noqa: E501
 
         self._points = points
+
+    @property
+    def source(self):
+        """Gets the source of this GpuMetricSeries.  # noqa: E501
+
+        gpu_utilization only: which DCGM field(s) served the points. Diagnostic; null for the other metrics.  # noqa: E501
+
+        :return: The source of this GpuMetricSeries.  # noqa: E501
+        :rtype: GpuSeriesSource
+        """
+        return self._source
+
+    @source.setter
+    def source(self, source):
+        """Sets the source of this GpuMetricSeries.
+
+        gpu_utilization only: which DCGM field(s) served the points. Diagnostic; null for the other metrics.  # noqa: E501
+
+        :param source: The source of this GpuMetricSeries.  # noqa: E501
+        :type: GpuSeriesSource
+        """
+
+        self._source = source
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -235,7 +235,7 @@ async def test_every_stop_scanner_caller_waits_for_the_interruption_writes() -> 
     """Break (2026-09-14): the worker's signal handler starts ``stop_scanner`` and
     its teardown ``finally`` calls it again. The second call returned at once —
     the scanner task was already cleared — so the host finished tearing down and
-    the event loop closed on top of the cancelled runs' interruption writes."""
+    the event loop closed on top of the canceled runs' interruption writes."""
     from matrx_scheduler import scanner
 
     wrote = asyncio.Event()

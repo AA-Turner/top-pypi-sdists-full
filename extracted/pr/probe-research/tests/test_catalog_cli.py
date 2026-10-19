@@ -120,15 +120,99 @@ def test_a_step_by_hand_with_no_project_to_file_it_under_is_refused(fake, tmp_pa
     assert "--project P" in _plain(result.output) and len(fake.registrations) == 1
 
 
-def test_dataset_use_and_checkpoint_use(fake, run_id, tmp_path):
+def test_dataset_use_and_checkpoint_use(fake, run_id, tmp_path, monkeypatch):
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", "daemon-session-1")
     _cli("dataset", "add", str(_folder(tmp_path / "d", {"a.jsonl": b"{}\n"})), "--name", "val", "--run", run_id,
          "--no-preview")
-    used = _cli("dataset", "use", "dataset:val", "--run", run_id, "--role", "validation", "--share", "1")
+    used = _cli("dataset", "use", "dataset:val@1", "--run", run_id, "--role", "validation", "--share", "1",
+                "--reason", "the held-out split", "--evidence", "main:1200:0", "--evidence", "agent-7:88:2")
     assert used.exit_code == 0, used.output
     assert used.output.strip() == f"run {run_id} uses dataset:val@1 (validation)"
-    ckpt = _cli("checkpoint", "use", "checkpoint:sft-7b@best", "--run", run_id)
-    assert ckpt.output.strip() == f"run {run_id} started from checkpoint:sft-7b@best"
-    assert [(u["roles"], u["provenance"]) for u in fake.uses] == [(["validation"], "human"), (["init"], "human")]
+    # The server answers the row it resolved and the save as it holds it now:
+    # the CLI prints THAT, not the step the ref named.
+    fake.checkpoint_pins["checkpoint:sft-7b@step400"] = {"step": 400, "uri": "s3://ckpt/sft-7b/400"}
+    ckpt = _cli("checkpoint", "use", "checkpoint:sft-7b@step400", "--run", run_id, "--role", "eval")
+    assert ckpt.exit_code == 0, ckpt.output
+    resolved = fake.uses[-1]["target"]["ref"]
+    assert resolved.startswith("checkpoint:") and "@" not in resolved
+    assert ckpt.output.strip() == f"run {run_id} uses {resolved} (step 400, s3://ckpt/sft-7b/400) (eval)"
+    fake.checkpoint_pins["checkpoint:sft-7b@step100"] = None  # no `pinned` in the answer
+    started = _cli("checkpoint", "use", "checkpoint:sft-7b@step100", "--run", run_id)
+    assert started.output.strip() == f"run {run_id} uses {fake.uses[-1]['target']['ref']} (init)"
+    assert [(u["roles"], u["provenance"]) for u in fake.uses] == [
+        (["validation"], "human"), (["eval"], "human"), (["init"], "human")
+    ]
+    # Evidence is `{session, event}` per event id, as `probe edge add --evidence` sends it.
+    assert fake.uses[0]["reason"] == "the held-out split"
+    assert fake.uses[0]["evidence"] == [{"session": "daemon-session-1", "event": "main:1200:0"},
+                                        {"session": "daemon-session-1", "event": "agent-7:88:2"}]
+    assert "reason" not in fake.uses[1] and "evidence" not in fake.uses[1]
+
+
+@pytest.mark.parametrize("group, ref", [("dataset", "dataset:val@1"), ("checkpoint", "checkpoint:sft-7b@step400")])
+def test_evidence_with_no_session_or_no_event_id_is_a_usage_error(fake, run_id, monkeypatch, group, ref):
+    """An event id names nothing the audit can open without its session (R7)."""
+    monkeypatch.delenv("PROBE_DAEMON_SESSION", raising=False)
+    monkeypatch.setattr(cli_main.agent_session, "session_id_from_env", lambda *a, **k: None)
+    no_session = CliRunner().invoke(cli_main.app, [group, "use", ref, "--run", run_id, "--evidence", "main:6:0"])
+    assert no_session.exit_code == 2 and "PROBE_DAEMON_SESSION" in _plain(no_session.output)
+    monkeypatch.setenv("PROBE_DAEMON_SESSION", "daemon-session-1")
+    not_an_id = CliRunner().invoke(cli_main.app, [group, "use", ref, "--run", run_id, "--evidence", "eval.py read it"])
+    assert not_an_id.exit_code == 2 and "--evidence" in _plain(not_an_id.output)
+    assert fake.uses == []
+
+
+#: A ref the server resolves when the link is MADE (D16): from the CLI, after
+#: the run used the data, so it could pin a newer version or save.
+MOVING_REFS = [
+    ("dataset", "dataset:val", "probe dataset show dataset:val"),
+    ("dataset", "dataset:val@latest", "probe dataset show dataset:val"),
+    ("checkpoint", "checkpoint:sft-7b@latest", "probe checkpoint list --run sft-7b"),
+    ("checkpoint", "checkpoint:sft-7b@best", "probe checkpoint list --run sft-7b"),
+    ("checkpoint", "checkpoint:sft-7b@best:val_loss", "probe checkpoint list --run sft-7b"),
+    ("dataset", "source:hf:datasets/allenai/c4", "probe source list"),
+]
+
+
+@pytest.mark.parametrize(("group", "ref", "lister"), MOVING_REFS)
+def test_a_moving_ref_is_refused_before_anything_is_sent(fake, run_id, group, ref, lister):
+    result = CliRunner().invoke(cli_main.app, [group, "use", ref, "--run", run_id])
+    assert result.exit_code == 1
+    plain = _plain(result.output)
+    assert ref in plain and lister in plain
+    assert fake.uses == []
+
+
+def test_a_step_from_a_moving_ref_is_refused_before_anything_is_recorded(fake, run_id, tmp_path):
+    """`--from` records the step after it happened, often by the agent."""
+    _cli("dataset", "add", str(_folder(tmp_path / "v1", {"a.jsonl": b"{}\n"})), "--name", "c4", "--run", run_id,
+         "--no-preview")
+    runs = len(fake.base.runs)
+    result = CliRunner().invoke(cli_main.app, ["dataset", "add", str(_folder(tmp_path / "v2", {"a.jsonl": b"{}\n"})),
+                                               "--name", "c4", "--from", "dataset:c4", "--step", "dedup"])
+    assert result.exit_code == 1
+    assert "probe dataset show dataset:c4" in _plain(result.output)
+    assert (len(fake.base.runs), len(fake.registrations), fake.uses) == (runs, 1, [])
+
+
+UUID = "3f0c6a1e-8b0d-4c4e-9a43-0f3a8f0e6c11"
+
+
+@pytest.mark.parametrize(
+    ("ref", "moving"),
+    [
+        *[(ref, True) for _group, ref, _lister in MOVING_REFS],
+        (f"dataset:{UUID}", True),
+        ("dataset:val@1", False), ("dataset:val@v2", False), (f"dataset:{UUID}@4", False),
+        (f"source:{UUID}", False), ("source:hf:datasets/allenai/c4@1588ec4", False),
+        (f"artifact_version:{UUID}", False), (f"artifact:{UUID}", False),
+        ("checkpoint:sft-7b@step400", False), (f"checkpoint:{UUID}", False),
+        # A form the client cannot read is left to the server to refuse.
+        ("checkpoint:sft-7b@soon", False), ("nonsense", False),
+    ],
+)
+def test_which_refs_move(ref, moving):
+    assert catalog.is_moving_ref(ref) is moving
 
 
 def test_dataset_list_is_a_table(fake, run_id, tmp_path):

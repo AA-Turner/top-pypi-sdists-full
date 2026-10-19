@@ -1,5 +1,7 @@
 import json
 import re
+import sys
+import threading
 
 import pytest
 import yaml
@@ -12,6 +14,7 @@ from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.failures import AcceptedNegativeData, Failure, FailureGroup, MalformedJson
 from schemathesis.core.mutations import MutationMetadata, OperatorKind
 from schemathesis.core.parameters import EncodedPath, ParameterLocation
+from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import Response
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.generation import GenerationMode
@@ -29,6 +32,8 @@ from schemathesis.generation.meta import (
 from schemathesis.generation.overrides import Override
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
+    ContentDeserializationError,
+    DiscriminatorMismatch,
     JsonSchemaError,
     MissingHeaderNotRejected,
     RejectedPositiveData,
@@ -51,6 +56,7 @@ from schemathesis.specs.openapi.checks import (
     use_after_free,
 )
 from schemathesis.specs.openapi.negative.mutations import Mutation, MutationChannel
+from schemathesis.specs.openapi.validation import _check_discriminator
 from test.utils import check_context
 
 
@@ -362,25 +368,21 @@ def test_has_only_additional_properties_mutations_aware(sample_schema, kwargs, e
 
 def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
     # Patterns with large quantifiers require pattern_options with sufficient size_limit
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /test",
         {
-            "/test": {
-                "post": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "key",
-                            "schema": {
-                                "type": "string",
-                                "pattern": "^.{1,262144}$",
-                            },
-                        },
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "key",
+                    "schema": {
+                        "type": "string",
+                        "pattern": "^.{1,262144}$",
+                    },
+                },
+            ]
+        },
     )
-    operation = schema["/test"]["POST"]
     case = operation.Case(
         _meta=build_metadata(query=GenerationMode.NEGATIVE),
         query={"key": "valid", "unknown": "extra"},
@@ -390,18 +392,15 @@ def test_has_only_additional_properties_with_large_quantifier_pattern(ctx):
 
 
 def _boolean_parameter_case(ctx, location, value):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "parameters": [
-                        {"in": location.value, "name": "flag", "required": True, "schema": {"type": "boolean"}},
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {"in": location.value, "name": "flag", "required": True, "schema": {"type": "boolean"}},
+            ]
+        },
     )
-    return schema["/test"]["GET"].Case(
+    return operation.Case(
         _meta=build_metadata(
             generation_modes=[GenerationMode.NEGATIVE],
             parameter_location=location,
@@ -433,18 +432,15 @@ def test_negative_data_rejection_reports_invalid_boolean_next_to_extras(ctx, res
 
 def test_negative_data_rejection_ignores_extras_next_to_allow_empty_value_string(ctx, response_factory):
     # `allowEmptyValue` admits types other than string, but "0" is still a valid string, not `false`.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "parameters": [
-                        {"in": "query", "name": "title", "allowEmptyValue": True, "schema": {"type": "string"}},
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {"in": "query", "name": "title", "allowEmptyValue": True, "schema": {"type": "string"}},
+            ]
+        },
     )
-    case = schema["/test"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -458,25 +454,22 @@ def test_negative_data_rejection_ignores_extras_next_to_allow_empty_value_string
 
 
 def _array_query_case(ctx, query, mutation, phase):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /tags",
         {
-            "/tags": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "tag",
-                            "required": True,
-                            "style": "form",
-                            "explode": True,
-                            "schema": {"type": "array", "items": {"type": "string"}, "maxItems": 1},
-                        },
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "tag",
+                    "required": True,
+                    "style": "form",
+                    "explode": True,
+                    "schema": {"type": "array", "items": {"type": "string"}, "maxItems": 1},
+                },
+            ]
+        },
     )
-    return schema["/tags"]["GET"].Case(
+    return operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -510,19 +503,16 @@ def test_negative_data_rejection_ignores_extras_next_to_array_query_parameter(ct
 
 
 def test_negative_data_rejection_reports_scalar_query_mutation_beside_array_parameter(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /tags",
         {
-            "/tags": {
-                "get": {
-                    "parameters": [
-                        {"in": "query", "name": "tag", "schema": {"type": "array", "items": {"type": "string"}}},
-                        {"in": "query", "name": "limit", "schema": {"type": "integer"}},
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {"in": "query", "name": "tag", "schema": {"type": "array", "items": {"type": "string"}}},
+                {"in": "query", "name": "limit", "schema": {"type": "integer"}},
+            ]
+        },
     )
-    case = schema["/tags"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -696,26 +686,19 @@ _EXTRA_PROPERTY_HINT = (
 )
 def test_additional_properties_hint_follows_response_attribution(ctx, response_factory, error_body, hint):
     # Blaming extras for a rejection the server pinned on a declared field points the reader at the wrong fix.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /foo",
         {
-            "/foo": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {"schema": {"type": "object", "properties": {"name": {"type": "string"}}}}
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/foo"]["POST"].Case(
-        body={"name": "value", "extra": "yes"}, media_type="application/json", _meta=build_metadata()
-    )
+    case = operation.Case(body={"name": "value", "extra": "yes"}, media_type="application/json", _meta=build_metadata())
     response = Response.from_requests(response_factory.requests(status_code=400, content=error_body), verify=True)
     with pytest.raises(RejectedPositiveData) as exc:
         positive_data_acceptance(check_context(), response, case)
@@ -853,19 +836,16 @@ def test_negative_data_rejection_keeps_checking_when_another_location_has_an_unr
 
 
 def test_negative_data_rejection_ignores_repeated_query_value_with_unreadable_schema(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items/{id}",
         {
-            "/items/{id}": {
-                "get": {
-                    "parameters": [
-                        {"in": "path", "name": "id", "required": True, "schema": {"type": "string"}},
-                        {"in": "query", "name": "key", "schema": {"type": "integer", "multipleOf": 0}},
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {"in": "path", "name": "id", "required": True, "schema": {"type": "string"}},
+                {"in": "query", "name": "key", "schema": {"type": "integer", "multipleOf": 0}},
+            ]
+        },
     )
-    case = schema["/items/{id}"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             path_parameters=GenerationMode.NEGATIVE,
             query=GenerationMode.NEGATIVE,
@@ -899,14 +879,11 @@ def test_negative_data_rejection_names_no_parameters_when_several_locations_are_
 
 
 def test_negative_data_rejection_ignores_headers_on_operation_without_header_parameters(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
-        {
-            "/items/{id}": {
-                "get": {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "string"}}]}
-            }
-        }
+    operation = ctx.openapi.load_operation(
+        "GET /items/{id}",
+        {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "string"}}]},
     )
-    case = schema["/items/{id}"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             path_parameters=GenerationMode.NEGATIVE,
             headers=GenerationMode.NEGATIVE,
@@ -1052,17 +1029,14 @@ def test_negative_data_rejection_ignores_type_mutations_wire_identical_in_every_
 
 
 def test_negative_data_rejection_reports_type_mutation_of_parameter_missing_from_query(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1093,17 +1067,14 @@ def test_negative_data_rejection_reports_when_one_location_stays_invalid_on_the_
 
 
 def test_negative_data_rejection_reports_type_mutation_of_undeclared_query_parameter(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1151,17 +1122,14 @@ def test_negative_data_rejection_validates_numeric_wire_value_against_query_sche
     ],
 )
 def test_negative_data_rejection_validates_serialized_query(ctx, response_factory, parameter, value):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "value", "required": False, **parameter}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"in": "query", "name": "value", "required": False, **parameter}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         query={"value": value},
     )
@@ -1172,25 +1140,22 @@ def test_negative_data_rejection_validates_serialized_query(ctx, response_factor
 
 
 def test_negative_data_rejection_validates_repeated_query_with_allowed_empty_value(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "page",
-                            "schema": {"anyOf": [{"type": "integer"}, {"type": "string", "enum": ["first"]}]},
-                            "allowEmptyValue": True,
-                        },
-                        {"in": "query", "name": "filter_dead", "schema": {"type": "boolean"}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "page",
+                    "schema": {"anyOf": [{"type": "integer"}, {"type": "string", "enum": ["first"]}]},
+                    "allowEmptyValue": True,
+                },
+                {"in": "query", "name": "filter_dead", "schema": {"type": "boolean"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1263,17 +1228,14 @@ def test_negative_data_rejection_validates_repeated_query_with_allowed_empty_val
 def test_negative_data_rejection_validates_scalar_query_by_sent_values(
     ctx, response_factory, parameter, value, query, accepted
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "title", **parameter}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"in": "query", "name": "title", **parameter}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1318,31 +1280,28 @@ def test_negative_data_rejection_validates_scalar_query_by_sent_values(
 def test_negative_data_rejection_validates_optional_query_omitted_on_the_wire(
     ctx, response_factory, license_required, license, collection, path, url, accepted
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /audio",
         {
-            "/audio": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "license",
-                            "required": license_required,
-                            "allowEmptyValue": True,
-                            "schema": {"type": "string"},
-                        },
-                        {
-                            "in": "query",
-                            "name": "collection",
-                            "allowEmptyValue": True,
-                            "schema": {"type": "string", "enum": ["tag", "source", "creator"]},
-                        },
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "license",
+                    "required": license_required,
+                    "allowEmptyValue": True,
+                    "schema": {"type": "string"},
+                },
+                {
+                    "in": "query",
+                    "name": "collection",
+                    "allowEmptyValue": True,
+                    "schema": {"type": "string", "enum": ["tag", "source", "creator"]},
+                },
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/audio"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1372,20 +1331,17 @@ def test_negative_data_rejection_validates_optional_query_omitted_on_the_wire(
 def test_negative_data_rejection_validates_boolean_spelling_beside_another_mutation(
     ctx, response_factory, authority, accepted
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /audio",
         {
-            "/audio": {
-                "get": {
-                    "parameters": [
-                        {"in": "query", "name": "title", "schema": {"type": "string", "minLength": 1}},
-                        {"in": "query", "name": "authority", "schema": {"type": "boolean", "default": False}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"in": "query", "name": "title", "schema": {"type": "string", "minLength": 1}},
+                {"in": "query", "name": "authority", "schema": {"type": "boolean", "default": False}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/audio"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1551,11 +1507,10 @@ _NEGATED_NULLABLE_FLAG = _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("anyOf",), 
 def test_negative_data_rejection_validates_null_text_for_nullable_query(
     ctx, response_factory, version, parameters, query, mutations, path, url, accepted, phase
 ):
-    schema = ctx.openapi.load_schema(
-        {"/thumb": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}},
-        version=version,
+    operation = ctx.openapi.load_operation(
+        "GET /thumb", {"parameters": parameters, "responses": {"200": {"description": "OK"}}}, version=version
     )
-    case = schema["/thumb"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1584,18 +1539,13 @@ def test_negative_data_rejection_validates_null_text_for_nullable_query(
 def test_negative_data_rejection_validates_boolean_spelling_in_headers_and_cookies(
     ctx, response_factory, location, value, accepted
 ):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"in": location.value, "name": "flag", "required": True, "schema": {"type": "boolean"}}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/items"]["GET"]
+            "parameters": [{"in": location.value, "name": "flag", "required": True, "schema": {"type": "boolean"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
     case = _negative_case(operation, location, "flag", None, **{location.container_name: {"flag": value}})
     if accepted:
         assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
@@ -1619,23 +1569,20 @@ def test_negative_data_rejection_validates_headers_without_surrounding_whitespac
     ctx, response_factory, value, accepted, extra
 ):
     # HTTP servers drop leading and trailing spaces and tabs from header values before the application reads them.
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /tasks",
         {
-            "/tasks": {
-                "post": {
-                    "parameters": [
-                        {
-                            "in": "header",
-                            "name": "Idempotency-Key",
-                            "required": True,
-                            "schema": {"type": "string", "minLength": 1, "maxLength": 255},
-                        }
-                    ],
-                    "responses": {"201": {"description": "Created"}},
+            "parameters": [
+                {
+                    "in": "header",
+                    "name": "Idempotency-Key",
+                    "required": True,
+                    "schema": {"type": "string", "minLength": 1, "maxLength": 255},
                 }
-            }
-        }
-    )["/tasks"]["POST"]
+            ],
+            "responses": {"201": {"description": "Created"}},
+        },
+    )
     case = _negative_case(
         operation, ParameterLocation.HEADER, "Idempotency-Key", None, headers={"Idempotency-Key": value, **extra}
     )
@@ -1648,20 +1595,17 @@ def test_negative_data_rejection_validates_headers_without_surrounding_whitespac
 
 
 def test_negative_data_rejection_reports_object_query_with_another_invalid_parameter(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"in": "query", "name": "title", "schema": {"type": "string"}},
-                        {"in": "header", "name": "X-Mode", "schema": {"enum": ["fast"]}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"in": "query", "name": "title", "schema": {"type": "string"}},
+                {"in": "header", "name": "X-Mode", "schema": {"enum": ["fast"]}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             headers=GenerationMode.NEGATIVE,
@@ -1705,20 +1649,17 @@ def test_negative_data_rejection_reports_object_query_with_another_invalid_param
 def test_negative_data_rejection_validates_serialized_query_with_typed_values(
     ctx, response_factory, extra_schema, extra_value, url
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"in": "query", "name": "value", "schema": {"type": "string"}},
-                        {"in": "query", "name": "extra", "schema": extra_schema},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"in": "query", "name": "value", "schema": {"type": "string"}},
+                {"in": "query", "name": "extra", "schema": extra_schema},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         query={"value": 42, "extra": extra_value},
     )
@@ -1743,24 +1684,21 @@ def test_negative_data_rejection_validates_serialized_query_with_typed_values(
 def test_negative_data_rejection_reports_invalid_serialized_query(
     ctx, response_factory, parameter_schema, required, value
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "value",
-                            "required": required,
-                            "schema": parameter_schema,
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "value",
+                    "required": required,
+                    "schema": parameter_schema,
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         query={"value": value},
     )
@@ -1778,10 +1716,10 @@ _UNPARSABLE_INTEGER_TEXTS = pytest.mark.parametrize(
 
 @_UNPARSABLE_INTEGER_TEXTS
 def test_negative_data_rejection_reports_unparsable_integer_in_query_array(ctx, response_factory, value):
-    schema = ctx.openapi.load_schema(
-        {"/items": {"get": {"parameters": [{"in": "query", "name": "value", "schema": {"type": "integer"}}]}}}
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"parameters": [{"in": "query", "name": "value", "schema": {"type": "integer"}}]}
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         query={"value": [value]},
     )
@@ -1792,22 +1730,19 @@ def test_negative_data_rejection_reports_unparsable_integer_in_query_array(ctx, 
 @_UNPARSABLE_INTEGER_TEXTS
 @pytest.mark.parametrize("location", [ParameterLocation.PATH, ParameterLocation.QUERY], ids=["path", "query"])
 def test_negative_data_rejection_reports_unparsable_integer_type_mutation(ctx, response_factory, value, location):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items/{value}",
         {
-            "/items/{value}": {
-                "get": {
-                    "parameters": [
-                        {"in": "path", "name": "value", "required": True, "schema": {"type": "integer"}},
-                        {"in": "query", "name": "value", "required": True, "schema": {"type": "integer"}},
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {"in": "path", "name": "value", "required": True, "schema": {"type": "integer"}},
+                {"in": "query", "name": "value", "required": True, "schema": {"type": "integer"}},
+            ]
+        },
     )
     mutation = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="value", location=location)
     meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=(mutation,))
     meta.components = {location: ComponentInfo(mode=GenerationMode.NEGATIVE)}
-    case = schema["/items/{value}"]["GET"].Case(
+    case = operation.Case(
         _meta=meta,
         path_parameters={"value": value if location == ParameterLocation.PATH else 1},
         query={"value": value if location == ParameterLocation.QUERY else 1},
@@ -1818,23 +1753,20 @@ def test_negative_data_rejection_reports_unparsable_integer_type_mutation(ctx, r
 
 @_UNPARSABLE_INTEGER_TEXTS
 def test_negative_data_rejection_reports_unparsable_integer_in_path_array(ctx, response_factory, value):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items/{values}",
         {
-            "/items/{values}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "path",
-                            "name": "values",
-                            "required": True,
-                            "schema": {"type": "array", "items": {"type": "integer"}},
-                        }
-                    ]
+            "parameters": [
+                {
+                    "in": "path",
+                    "name": "values",
+                    "required": True,
+                    "schema": {"type": "array", "items": {"type": "integer"}},
                 }
-            }
-        }
+            ]
+        },
     )
-    case = schema["/items/{values}"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(path_parameters=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         path_parameters={"values": f"{value},2"},
     )
@@ -1846,22 +1778,19 @@ def test_negative_data_rejection_reports_unparsable_integer_in_path_array(ctx, r
 @pytest.mark.parametrize("value", ["nan", "inf", "-Infinity", "1e400"])
 @pytest.mark.parametrize("location", [ParameterLocation.PATH, ParameterLocation.QUERY], ids=["path", "query"])
 def test_negative_data_rejection_ignores_non_finite_numeric_wire_value(ctx, response_factory, value, location):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /rate/{value}",
         {
-            "/rate/{value}": {
-                "get": {
-                    "parameters": [
-                        {"in": "path", "name": "value", "required": True, "schema": {"type": "number"}},
-                        {"in": "query", "name": "value", "required": True, "schema": {"type": "number"}},
-                    ]
-                }
-            }
-        }
+            "parameters": [
+                {"in": "path", "name": "value", "required": True, "schema": {"type": "number"}},
+                {"in": "query", "name": "value", "required": True, "schema": {"type": "number"}},
+            ]
+        },
     )
     mutation = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="value", location=location)
     meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=(mutation,))
     meta.components = {location: ComponentInfo(mode=GenerationMode.NEGATIVE)}
-    case = schema["/rate/{value}"]["GET"].Case(
+    case = operation.Case(
         _meta=meta,
         path_parameters={"value": value if location == ParameterLocation.PATH else 1.5},
         query={"value": value if location == ParameterLocation.QUERY else 1.5},
@@ -1870,33 +1799,23 @@ def test_negative_data_rejection_ignores_non_finite_numeric_wire_value(ctx, resp
 
 
 def test_negative_data_rejection_ignores_huge_integer_wire_value(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
-        {
-            "/items/{id}": {
-                "get": {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "integer"}}]}
-            }
-        }
+    operation = ctx.openapi.load_operation(
+        "GET /items/{id}",
+        {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "integer"}}]},
     )
     mutation = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="id", location=ParameterLocation.PATH)
     meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=(mutation,))
     meta.components = {ParameterLocation.PATH: ComponentInfo(mode=GenerationMode.NEGATIVE)}
-    case = schema["/items/{id}"]["GET"].Case(_meta=meta, path_parameters={"id": "9" * 400})
+    case = operation.Case(_meta=meta, path_parameters={"id": "9" * 400})
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
 def test_negative_data_rejection_reports_non_string_path_value(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
-        {
-            "/items/{id}": {
-                "get": {
-                    "parameters": [
-                        {"in": "path", "name": "id", "required": True, "schema": {"type": "string", "minLength": 3}}
-                    ]
-                }
-            }
-        }
+    operation = ctx.openapi.load_operation(
+        "GET /items/{id}",
+        {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "string", "minLength": 3}}]},
     )
-    case = schema["/items/{id}"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(path_parameters=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         path_parameters={"id": 5},
     )
@@ -1905,10 +1824,10 @@ def test_negative_data_rejection_reports_non_string_path_value(ctx, response_fac
 
 
 def test_negative_data_rejection_ignores_non_finite_element_in_query_array(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
-        {"/rates": {"get": {"parameters": [{"in": "query", "name": "rate", "schema": {"type": "number"}}]}}}
+    operation = ctx.openapi.load_operation(
+        "GET /rates", {"parameters": [{"in": "query", "name": "rate", "schema": {"type": "number"}}]}
     )
-    case = schema["/rates"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -1921,23 +1840,20 @@ def test_negative_data_rejection_ignores_non_finite_element_in_query_array(ctx, 
 
 
 def test_negative_data_rejection_ignores_non_finite_item_in_path_array(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /rates/{values}",
         {
-            "/rates/{values}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "path",
-                            "name": "values",
-                            "required": True,
-                            "schema": {"type": "array", "items": {"type": "number"}},
-                        }
-                    ]
+            "parameters": [
+                {
+                    "in": "path",
+                    "name": "values",
+                    "required": True,
+                    "schema": {"type": "array", "items": {"type": "number"}},
                 }
-            }
-        }
+            ]
+        },
     )
-    case = schema["/rates/{values}"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             path_parameters=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -2035,21 +1951,18 @@ _READ_ONLY_COMPONENTS = {
     ],
 )
 def test_negative_data_rejection_read_only_property(ctx, response_factory, ref, body, raises):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{ref}"}}},
-                    },
-                    "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{ref}"}}},
+            },
+            "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}},
         },
         components=_READ_ONLY_COMPONENTS,
     )
-    case = schema["/items"]["POST"].Case(
+    case = operation.Case(
         body=body,
         media_type="application/json",
         _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
@@ -2069,26 +1982,21 @@ def test_negative_data_rejection_read_only_property(ctx, response_factory, ref, 
     ids=["declared-media-type", "undeclared-media-type"],
 )
 def test_negative_data_rejection_read_only_property_media_types(ctx, response_factory, media_type, raises):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {"type": "object", "properties": {"name": {"type": "string"}}}
-                            },
-                            "application/xml": {"schema": {"$ref": "#/components/schemas/Item"}},
-                        },
-                    },
-                    "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {"schema": {"type": "object", "properties": {"name": {"type": "string"}}}},
+                    "application/xml": {"schema": {"$ref": "#/components/schemas/Item"}},
+                },
+            },
+            "responses": {"201": {"description": "Created"}, "400": {"description": "Bad Request"}},
         },
         components=_READ_ONLY_COMPONENTS,
     )
-    case = schema["/items"]["POST"].Case(
+    case = operation.Case(
         body={"name": "", "id": {}},
         media_type=media_type,
         _meta=build_metadata(body=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
@@ -2116,24 +2024,20 @@ def test_negative_data_rejection_read_only_property_media_types(ctx, response_fa
 def test_body_negation_becomes_valid_after_serialization(
     ctx, response_factory, media_type, body_mode, query_mode, header_mode, expected
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "PUT /endpoint",
         {
-            "/endpoint": {
-                "put": {
-                    "parameters": [
-                        {"in": "query", "name": "key", "schema": {"type": "integer"}},
-                        {"in": "header", "name": "X-Key", "schema": {"type": "integer"}},
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {media_type: {"schema": {"type": "string"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"in": "query", "name": "key", "schema": {"type": "integer"}},
+                {"in": "header", "name": "X-Key", "schema": {"type": "integer"}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {media_type: {"schema": {"type": "string"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/endpoint"]["PUT"]
     case = operation.Case(
         _meta=build_metadata(
             body=body_mode,
@@ -2421,7 +2325,7 @@ def test_positive_data_acceptance(
     if should_raise:
         with pytest.raises(Failure) as exc_info:
             positive_data_acceptance(ctx, response, case)
-        assert "API rejected schema-compliant request" in exc_info.value.title
+        assert "Schema-valid request rejected" in exc_info.value.title
     else:
         assert positive_data_acceptance(ctx, response, case) is None
 
@@ -2605,19 +2509,13 @@ def test_missing_required_authorization_if_provided_explicitly(ctx, cli, tmp_pat
     ],
 )
 def test_missing_required_header_default_statuses(ctx, response_factory, status_code, should_raise):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "parameters": [
-                        {"name": "X-API-Token", "in": "header", "required": True, "schema": {"type": "string"}}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "X-API-Token", "in": "header", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/test"]["GET"]
     response = response_factory.requests(status_code=status_code)
     case = operation.Case(
         _meta=CaseMetadata(
@@ -2637,7 +2535,7 @@ def test_missing_required_header_default_statuses(ctx, response_factory, status_
     )
     context = check_context()
     if should_raise:
-        with pytest.raises(Failure):
+        with pytest.raises(Failure, match="header, expected 400, 401, 403, 406, 415, 422$"):
             missing_required_header(context, response, case)
     else:
         assert missing_required_header(context, response, case) is None
@@ -2671,28 +2569,23 @@ def test_negative_data_rejection_single_element_array_serialization(ctx, respons
     # it serializes to the same query string as a single integer (page=67).
     # The API correctly accepts this as valid, so negative_data_rejection should not fail.
 
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /job_info/scroll",
         {
-            "/job_info/scroll": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "page",
-                            "in": "query",
-                            "required": False,
-                            "schema": {"type": "integer"},
-                        }
-                    ],
-                    "responses": {
-                        "200": {"description": "Success"},
-                        "400": {"description": "Bad Request"},
-                    },
+            "parameters": [
+                {
+                    "name": "page",
+                    "in": "query",
+                    "required": False,
+                    "schema": {"type": "integer"},
                 }
-            }
-        }
+            ],
+            "responses": {
+                "200": {"description": "Success"},
+                "400": {"description": "Bad Request"},
+            },
+        },
     )
-
-    operation = schema["/job_info/scroll"]["GET"]
 
     # Simulate negative testing where a single-element array [67] is generated
     # for an integer parameter
@@ -2722,20 +2615,17 @@ def test_negative_data_rejection_single_element_array_serialization(ctx, respons
 
 
 def test_negative_data_rejection_non_mapping_query_with_another_invalid_location(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "a", "in": "query", "schema": {"type": "integer"}},
-                        {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "a", "in": "query", "schema": {"type": "integer"}},
+                {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             headers=GenerationMode.NEGATIVE,
@@ -2766,19 +2656,16 @@ def test_negative_data_rejection_non_mapping_query_with_another_invalid_location
 def test_negative_data_rejection_single_element_array_element_validity(
     ctx, response_factory, value, is_accepted_negative
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "id", "in": "query", "required": True, "schema": {"type": "integer", "minimum": 1}}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "id", "in": "query", "required": True, "schema": {"type": "integer", "minimum": 1}}
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
         query={"id": value},
     )
@@ -2813,18 +2700,15 @@ def _type_mutation(name, location, new_value):
 def test_negative_data_rejection_valid_array_element_beside_invalid_parameter(
     ctx, response_factory, other_location, other_value, other_is_negated, is_accepted_negative
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "a", "in": "query", "required": True, "schema": {"type": "integer"}},
-                        {"name": "b", "in": other_location.value, "required": True, "schema": {"type": "integer"}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "a", "in": "query", "required": True, "schema": {"type": "integer"}},
+                {"name": "b", "in": other_location.value, "required": True, "schema": {"type": "integer"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
     mutations = [_type_mutation("a", ParameterLocation.QUERY, "array")]
     components = {"query": GenerationMode.NEGATIVE}
@@ -2837,7 +2721,7 @@ def test_negative_data_rejection_valid_array_element_beside_invalid_parameter(
         query["b"] = other_value
     else:
         headers = {"b": other_value}
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(**components, generation_modes=[GenerationMode.NEGATIVE], mutations=tuple(mutations)),
         query=query,
         headers=headers,
@@ -2894,21 +2778,16 @@ def test_negative_data_rejection_nullable_query_beside_invalid_header(ctx, app_r
 
 
 def test_negative_data_rejection_multiple_mutations_name_parameters(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /api/items",
         {
-            "/api/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "kind", "in": "query", "required": True, "schema": {"type": "string", "minLength": 2}},
-                        {"name": "tag", "in": "query", "required": False, "schema": {"type": "string", "minLength": 2}},
-                    ],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "kind", "in": "query", "required": True, "schema": {"type": "string", "minLength": 2}},
+                {"name": "tag", "in": "query", "required": False, "schema": {"type": "string", "minLength": 2}},
+            ],
+            "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+        },
     )
-
-    operation = schema["/api/items"]["GET"]
 
     case = operation.Case(
         _meta=build_metadata(
@@ -2952,25 +2831,20 @@ def test_negative_data_rejection_multiple_mutations_name_parameters(ctx, respons
 )
 def test_negative_data_rejection_query_string_parameter_wire_form(ctx, response_factory, value, reported):
     # A wrong-typed query value can still reach the server as text that satisfies the declared schema.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /api/items",
         {
-            "/api/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "kind",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "string", "minLength": 1, "maxLength": 100, "pattern": "^\\S+$"},
-                        }
-                    ],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+            "parameters": [
+                {
+                    "name": "kind",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string", "minLength": 1, "maxLength": 100, "pattern": "^\\S+$"},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+        },
     )
-
-    operation = schema["/api/items"]["GET"]
 
     case = operation.Case(
         _meta=build_metadata(
@@ -3001,17 +2875,14 @@ def test_negative_data_rejection_query_allow_empty_value(ctx, response_factory, 
     parameter = {"name": "filter", "in": "query", "required": True, "schema": parameter_schema}
     if allow_empty_value is not None:
         parameter["allowEmptyValue"] = allow_empty_value
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [parameter],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [parameter],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -3042,24 +2913,21 @@ def test_negative_data_rejection_query_allow_empty_value(ctx, response_factory, 
 )
 def test_negative_data_rejection_path_array_negated_to_scalar(ctx, response_factory, value, reported):
     # `simple` style joins items with commas, so `18` is the wire form of the valid `[18]`.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /api/items/{ids}",
         {
-            "/api/items/{ids}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "ids",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "array", "items": {"type": "integer"}, "minItems": 1},
-                        }
-                    ],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+            "parameters": [
+                {
+                    "name": "ids",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "array", "items": {"type": "integer"}, "minItems": 1},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+        },
     )
-    case = schema["/api/items/{ids}"]["GET"].Case(
+    case = operation.Case(
         _meta=build_metadata(
             path_parameters=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
@@ -3082,21 +2950,16 @@ def test_negative_data_rejection_path_array_negated_to_scalar(ctx, response_fact
 
 
 def test_negative_data_rejection_path_string_numeric_serialization_with_other_negation(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /api/run/{id}",
         {
-            "/api/run/{id}": {
-                "post": {
-                    "parameters": [
-                        {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
-                        {"name": "key", "in": "query", "required": False, "schema": {"type": "integer"}},
-                    ],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}},
+                {"name": "key", "in": "query", "required": False, "schema": {"type": "integer"}},
+            ],
+            "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+        },
     )
-
-    operation = schema["/api/run/{id}"]["POST"]
 
     case = operation.Case(
         _meta=build_metadata(
@@ -3124,21 +2987,17 @@ def test_response_schema_conformance_with_surrogate_chars_in_response(response_f
     # The JSON escape \uDCF3 is a lone low surrogate; Python's json.loads accepts it and
     # produces a Python str containing the lone surrogate '\udcf3'. jsonschema_rs then
     # raises ValueError  when it tries to UTF-8-encode that string.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {"application/json": {"schema": {"type": "string"}}},
-                        }
-                    }
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/json": {"schema": {"type": "string"}}},
                 }
             }
-        }
+        },
     )
-    operation = schema["/test"]["GET"]
     case = operation.Case()
     response = response_factory.requests(content=b'"\\udcf3"')
     response = Response.from_requests(response, True)
@@ -3163,21 +3022,17 @@ def test_response_validation_reports_surrogate_returned_by_deserializer(ctx, res
     def deserialize(_ctx, response):
         return "\udcf3"
 
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {"application/vnd.surrogate": {"schema": {"type": "string"}}},
-                        }
-                    }
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/vnd.surrogate": {"schema": {"type": "string"}}},
                 }
             }
-        }
+        },
     )
-    operation = schema["/test"]["GET"]
     response = Response.from_requests(
         response_factory.requests(content=b"x", content_type="application/vnd.surrogate"), True
     )
@@ -3188,23 +3043,17 @@ def test_response_validation_reports_surrogate_returned_by_deserializer(ctx, res
 
 
 def test_response_schema_conformance_reports_malformed_response_media_type(response_factory, ctx):
-    schema = ctx.openapi.load_schema(
-        {
-            "/foo": {
-                "get": {
-                    "responses": {"200": {"description": "OK", "content": {"text": {"schema": {"type": "object"}}}}}
-                }
-            }
-        }
+    operation = ctx.openapi.load_operation(
+        "GET /foo", {"responses": {"200": {"description": "OK", "content": {"text": {"schema": {"type": "object"}}}}}}
     )
-    case = schema["/foo"]["GET"].Case()
+    case = operation.Case()
     response = response_factory.requests(content=b'{"a": 1}', content_type="text")
 
     with pytest.raises(FailureGroup) as exc_info:
         case.validate_response(response, checks=[response_schema_conformance])
 
     failures = exc_info.value.exceptions
-    assert len(failures) == 1
+    assert [type(failure) for failure in failures] == [ContentDeserializationError]
     assert failures[0].title == "Content deserialization error"
     assert "Malformed media type: `text`" in failures[0].message
 
@@ -3293,25 +3142,21 @@ def test_response_schema_conformance_applies_keywords_next_to_ref_in_openapi_31(
 )
 def test_response_schema_conformance_names_matched_response(ctx, response_factory, response_key, expected_note):
     # Two definitions share a `code` field with different types; the note must state which response schema was used.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {"application/json": {"schema": {"properties": {"code": {"type": "string"}}}}},
-                        },
-                        response_key: {
-                            "description": "Error",
-                            "content": {"application/json": {"schema": {"properties": {"code": {"type": "integer"}}}}},
-                        },
-                    }
-                }
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/json": {"schema": {"properties": {"code": {"type": "string"}}}}},
+                },
+                response_key: {
+                    "description": "Error",
+                    "content": {"application/json": {"schema": {"properties": {"code": {"type": "integer"}}}}},
+                },
             }
-        }
+        },
     )
-    operation = schema["/test"]["GET"]
     case = operation.Case()
     response = response_factory.requests(status_code=404, content=b'{"code": "213"}')
     response = Response.from_requests(response, True)
@@ -3350,28 +3195,25 @@ def test_response_schema_conformance_invalid_format_fails_by_default(ctx, respon
 
 # A `writeOnly` property is rewritten to a schema nothing satisfies; the message must still read as English.
 def test_response_schema_conformance_forbidden_property_message(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {"secret": {"type": "string", "writeOnly": True}},
-                                    }
-                                }
-                            },
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {"secret": {"type": "string", "writeOnly": True}},
+                            }
                         }
-                    }
+                    },
                 }
             }
-        }
+        },
     )
-    case = schema["/test"]["GET"].Case()
+    case = operation.Case()
     response = Response.from_requests(response_factory.requests(content=b'{"secret": "s"}'), True)
 
     with pytest.raises(JsonSchemaError) as exc_info:
@@ -3379,23 +3221,100 @@ def test_response_schema_conformance_forbidden_property_message(ctx, response_fa
     assert exc_info.value.message.startswith('Property "secret" is not allowed')
 
 
+@pytest.mark.parametrize(
+    ("property_schema", "object_type", "version"),
+    [
+        pytest.param({"$ref": "#/components/schemas/Secret"}, "object", "3.0.2", id="reference"),
+        pytest.param({"allOf": [{"$ref": "#/components/schemas/Secret"}]}, "object", "3.0.2", id="allOf-reference"),
+        pytest.param({"allOf": [{"writeOnly": True}, {"type": "string"}]}, "object", "3.0.2", id="allOf-inline"),
+        pytest.param(
+            {"anyOf": [{"$ref": "#/components/schemas/Secret"}, {"type": "null"}]},
+            "object",
+            "3.1.0",
+            id="anyOf-nullable",
+        ),
+        pytest.param(
+            {"$ref": "#/components/schemas/Secret", "nullable": True},
+            "object",
+            "3.0.2",
+            id="openapi-30-nullable",
+        ),
+        pytest.param({"writeOnly": True}, None, "3.0.2", id="untyped-object"),
+        pytest.param({"writeOnly": True}, ["object", "null"], "3.1.0", id="object-null-union"),
+    ],
+)
+def test_response_schema_conformance_rejects_nested_write_only_property(
+    ctx, response_factory, property_schema, object_type, version
+):
+    response_schema = {"properties": {"secret": property_schema}}
+    if object_type is not None:
+        response_schema["type"] = object_type
+    operation = ctx.openapi.load_operation(
+        "GET /test",
+        {"responses": json_ok(response_schema)},
+        version=version,
+        components={"schemas": {"Secret": {"type": "string", "writeOnly": True}}},
+    )
+    response = response_factory.requests(content=b'{"secret": "s"}')
+
+    with pytest.raises(FailureGroup, match='Property "secret" is not allowed'):
+        operation.Case().validate_response(response, checks=[response_schema_conformance])
+
+
+@pytest.mark.parametrize(
+    ("property_schema", "object_type", "version"),
+    [
+        pytest.param({"$ref": "#/components/schemas/Secret"}, "object", "3.0.2", id="reference"),
+        pytest.param({"allOf": [{"$ref": "#/components/schemas/Secret"}]}, "object", "3.0.2", id="allOf-reference"),
+        pytest.param({"allOf": [{"writeOnly": True}, {"type": "string"}]}, "object", "3.0.2", id="allOf-inline"),
+        pytest.param(
+            {"anyOf": [{"$ref": "#/components/schemas/Secret"}, {"type": "null"}]},
+            "object",
+            "3.1.0",
+            id="anyOf-nullable",
+        ),
+        pytest.param(
+            {"$ref": "#/components/schemas/Secret", "nullable": True},
+            "object",
+            "3.0.2",
+            id="openapi-30-nullable",
+        ),
+        pytest.param({"writeOnly": True}, None, "3.0.2", id="untyped-object"),
+        pytest.param({"writeOnly": True}, ["object", "null"], "3.1.0", id="object-null-union"),
+    ],
+)
+def test_response_schema_conformance_accepts_missing_nested_write_only_property(
+    ctx, response_factory, property_schema, object_type, version
+):
+    # `required` on a writeOnly field applies to requests only.
+    response_schema = {"properties": {"secret": property_schema}, "required": ["secret"]}
+    if object_type is not None:
+        response_schema["type"] = object_type
+    operation = ctx.openapi.load_operation(
+        "GET /test",
+        {"responses": json_ok(response_schema)},
+        version=version,
+        components={"schemas": {"Secret": {"type": "string", "writeOnly": True}}},
+    )
+    response = response_factory.requests(content=b"{}")
+
+    assert operation.Case().validate_response(response, checks=[response_schema_conformance]) is None
+
+
 def test_response_schema_conformance_reports_boolean_branch_rejection(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /test",
         {
-            "/test": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {"application/json": {"schema": {"allOf": [{"type": "object"}, False]}}},
-                        }
-                    }
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/json": {"schema": {"allOf": [{"type": "object"}, False]}}},
                 }
             }
         },
         version="3.1.0",
     )
-    case = schema["/test"]["GET"].Case()
+    case = operation.Case()
     response = Response.from_requests(response_factory.requests(content=b"{}"), True)
 
     with pytest.raises(JsonSchemaError):
@@ -3404,7 +3323,7 @@ def test_response_schema_conformance_reports_boolean_branch_rejection(ctx, respo
 
 def test_response_schema_conformance_validate_formats_disabled(ctx, response_factory):
     config = SchemathesisConfig.from_dict({"checks": {"response_schema_conformance": {"validate-formats": False}}})
-    schema = schemathesis.openapi.from_dict(ctx.openapi.build_schema(_DATE_TIME_PATHS), config=config)
+    schema = ctx.openapi.load_schema(_DATE_TIME_PATHS, config=config)
     case = schema["/test"]["GET"].Case()
     response = Response.from_requests(response_factory.requests(content=_STR_DATETIME_RESPONSE), True)
 
@@ -3503,9 +3422,9 @@ def test_response_schema_conformance_discriminator(ctx, response_factory, body, 
     response = Response.from_requests(response, True)
 
     if should_fail:
-        with pytest.raises(Failure) as exc_info:
+        with pytest.raises(DiscriminatorMismatch) as exc_info:
             response_schema_conformance(_CHECK_CTX, response, case)
-        assert exc_info.value.title == "Discriminator value not in schema mapping"
+        assert exc_info.value.title == "Unknown discriminator value"
     else:
         assert response_schema_conformance(_CHECK_CTX, response, case) is None
 
@@ -3570,26 +3489,23 @@ def test_response_schema_conformance_discriminator_whole_file_ref(tmp_path, resp
 
 def test_response_schema_conformance_discriminator_ignores_nameless_reference(ctx, response_factory):
     # A reference to an `$id` ending in `/` carries no implicit name, so it adds no known value.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /pets",
         {
-            "/pets": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "anyOf": [
-                                            {"$ref": "https://example.invalid/"},
-                                            {"$ref": "#/components/schemas/Dog"},
-                                        ],
-                                        "discriminator": {"propertyName": "petType"},
-                                    }
-                                }
-                            },
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "anyOf": [
+                                    {"$ref": "https://example.invalid/"},
+                                    {"$ref": "#/components/schemas/Dog"},
+                                ],
+                                "discriminator": {"propertyName": "petType"},
+                            }
                         }
-                    }
+                    },
                 }
             }
         },
@@ -3601,7 +3517,6 @@ def test_response_schema_conformance_discriminator_ignores_nameless_reference(ct
             }
         },
     )
-    operation = schema["/pets"]["GET"]
     with pytest.raises(Failure, match="known schema values: 'Dog'$"):
         operation.validate_response(response_factory.requests(content=b'{"petType": ""}'))
 
@@ -3609,26 +3524,23 @@ def test_response_schema_conformance_discriminator_ignores_nameless_reference(ct
 def test_response_schema_conformance_discriminator_boolean_schema(ctx, response_factory):
     # Boolean schemas (true/false) in anyOf/oneOf are valid in OpenAPI 3.1.
     # The boolean item is skipped during implicit mapping extraction; only $ref items contribute.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /pets",
         {
-            "/pets": {
-                "get": {
-                    "responses": {
-                        "200": {
-                            "description": "OK",
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "anyOf": [
-                                            {"$ref": "#/components/schemas/Cat"},
-                                            True,
-                                        ],
-                                        "discriminator": {"propertyName": "petType"},
-                                    }
-                                }
-                            },
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "anyOf": [
+                                    {"$ref": "#/components/schemas/Cat"},
+                                    True,
+                                ],
+                                "discriminator": {"propertyName": "petType"},
+                            }
                         }
-                    }
+                    },
                 }
             }
         },
@@ -3639,16 +3551,15 @@ def test_response_schema_conformance_discriminator_boolean_schema(ctx, response_
             }
         },
     )
-    operation = schema["/pets"]["GET"]
     case = operation.Case()
 
     valid = response_factory.requests(content=b'{"petType": "Cat"}')
     assert response_schema_conformance(_CHECK_CTX, Response.from_requests(valid, True), case) is None
 
     invalid = response_factory.requests(content=b'{"petType": "Fish"}')
-    with pytest.raises(Failure) as exc_info:
+    with pytest.raises(DiscriminatorMismatch) as exc_info:
         response_schema_conformance(_CHECK_CTX, Response.from_requests(invalid, True), case)
-    assert exc_info.value.title == "Discriminator value not in schema mapping"
+    assert exc_info.value.title == "Unknown discriminator value"
 
 
 def _single_response_schema(ctx, content):
@@ -3698,9 +3609,209 @@ def test_response_schema_conformance_discriminator_inline_branch(ctx, response_f
     assert response_schema_conformance(_CHECK_CTX, valid, case) is None
 
     invalid = Response.from_requests(response_factory.requests(content=b'{"petType": "fish"}'), True)
-    with pytest.raises(Failure) as exc_info:
+    with pytest.raises(DiscriminatorMismatch) as exc_info:
         response_schema_conformance(_CHECK_CTX, invalid, case)
-    assert exc_info.value.title == "Discriminator value not in schema mapping"
+    assert exc_info.value.title == "Unknown discriminator value"
+
+
+_KIND_BRANCHES = [{"$ref": "#/components/schemas/Cat"}, {"$ref": "#/components/schemas/Dog"}]
+_KIND_MAPPING = {"propertyName": "kind", "mapping": {"cat": "#/components/schemas/Cat"}}
+
+
+@pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
+@pytest.mark.parametrize(
+    ("response_schema", "body", "should_fail"),
+    [
+        ({"$ref": "#/components/schemas/AnyPet"}, {"kind": "parrot"}, True),
+        ({"$ref": "#/components/schemas/OneOfPet"}, {"kind": "parrot"}, True),
+        ({"$ref": "#/components/schemas/AnyPet"}, {"kind": "Cat"}, False),
+        (
+            {"type": "array", "items": {"anyOf": _KIND_BRANCHES, "discriminator": _KIND_MAPPING}},
+            [{"kind": "parrot"}],
+            True,
+        ),
+        (
+            {"type": "array", "items": {"anyOf": _KIND_BRANCHES, "discriminator": _KIND_MAPPING}},
+            [{"kind": "cat"}],
+            False,
+        ),
+        (
+            {"type": "object", "properties": {"pet": {"$ref": "#/components/schemas/OneOfPet"}}},
+            {"pet": {"kind": "parrot"}},
+            True,
+        ),
+        (
+            {"type": "object", "properties": {"pet": {"$ref": "#/components/schemas/OneOfPet"}}},
+            {"pet": {"kind": "Dog"}},
+            False,
+        ),
+        (
+            {"$ref": "#/components/schemas/Tree"},
+            {"pets": [{"kind": "Cat"}], "children": [{"pets": [{"kind": "parrot"}]}]},
+            True,
+        ),
+        (
+            {"$ref": "#/components/schemas/Tree"},
+            {"pets": [{"kind": "Cat"}], "children": [{"pets": [{"kind": "Dog"}]}]},
+            False,
+        ),
+    ],
+    ids=[
+        "ref-any-of-invalid",
+        "ref-one-of-invalid",
+        "ref-component-name-valid",
+        "array-items-invalid",
+        "array-items-mapping-valid",
+        "property-invalid",
+        "property-valid",
+        "recursive-invalid",
+        "recursive-valid",
+    ],
+)
+def test_response_schema_conformance_discriminator_nested(
+    ctx, response_factory, version, response_schema, body, should_fail
+):
+    operation = ctx.openapi.load_operation(
+        "GET /pets",
+        {"responses": {"200": {"description": "OK", "content": {"application/json": {"schema": response_schema}}}}},
+        version=version,
+        components={
+            "schemas": {
+                "Cat": {"type": "object", "properties": {"kind": {"type": "string"}}},
+                "Dog": {"type": "object", "properties": {"kind": {"type": "string"}}, "required": ["barks"]},
+                "AnyPet": {"anyOf": _KIND_BRANCHES, "discriminator": {"propertyName": "kind"}},
+                "OneOfPet": {"oneOf": _KIND_BRANCHES, "discriminator": {"propertyName": "kind"}},
+                "Tree": {
+                    "type": "object",
+                    "properties": {
+                        "pets": {"type": "array", "items": {"$ref": "#/components/schemas/AnyPet"}},
+                        "children": {"type": "array", "items": {"$ref": "#/components/schemas/Tree"}},
+                    },
+                },
+            }
+        },
+    )
+    case = operation.Case()
+    response = Response.from_requests(response_factory.requests(content=json.dumps(body).encode()), True)
+
+    if should_fail:
+        with pytest.raises(Failure) as exc_info:
+            response_schema_conformance(_CHECK_CTX, response, case)
+        assert exc_info.value.title == "Unknown discriminator value"
+    else:
+        assert response_schema_conformance(_CHECK_CTX, response, case) is None
+
+
+def test_response_schema_conformance_discriminator_walk_handles_shared_recursive_data(ctx):
+    # YAML anchors can make a parsed response body share and nest the same object.
+    operation = ctx.openapi.load_operation(
+        "GET /pets",
+        {
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "first": {"$ref": "#/components/schemas/Node"},
+                                    "second": {"$ref": "#/components/schemas/Node"},
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string"},
+                        "child": {"$ref": "#/components/schemas/Node"},
+                        "passthrough": True,
+                    },
+                    "discriminator": {"propertyName": "kind", "mapping": {"node": "#/components/schemas/Node"}},
+                }
+            }
+        },
+    )
+    definition = operation.responses.find_by_status_code(200)
+    assert definition is not None
+    resolved = definition.get_schema("application/json")
+    assert resolved.has_discriminator is True
+    shared = {"kind": "node", "passthrough": 1}
+    shared["child"] = shared
+
+    assert _check_discriminator(operation, {"first": shared, "second": shared}, resolved) is None
+
+
+@pytest.mark.parametrize("array_schema", [{}, {"items": True}, {"items": []}], ids=["absent", "boolean", "list"])
+def test_response_schema_conformance_discriminator_walk_ignores_non_object_items(ctx, array_schema):
+    operation = ctx.openapi.load_operation(
+        "GET /pets",
+        {
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "values": {"type": "array", **array_schema},
+                                    "pet": {
+                                        "type": "object",
+                                        "discriminator": {
+                                            "propertyName": "kind",
+                                            "mapping": {"cat": "#/components/schemas/Cat"},
+                                        },
+                                    },
+                                },
+                            }
+                        }
+                    },
+                }
+            }
+        },
+        version="3.1.0",
+        components={"schemas": {"Cat": {"type": "object"}}},
+    )
+    definition = operation.responses.find_by_status_code(200)
+    assert definition is not None
+
+    assert (
+        _check_discriminator(
+            operation,
+            {"values": [{}], "pet": {"kind": "cat"}},
+            definition.get_schema("application/json"),
+        )
+        is None
+    )
+
+
+def test_response_schema_conformance_keeps_large_instance_when_truncation_is_disabled(ctx, response_factory):
+    value = "x" * 200
+    operation = ctx.openapi.load_operation(
+        "GET /value",
+        {
+            "responses": {
+                "200": {
+                    "description": "OK",
+                    "content": {"application/json": {"schema": {"type": "string", "maxLength": 1}}},
+                }
+            }
+        },
+        config=SchemathesisConfig.from_dict({"output": {"truncation": {"enabled": False}}}),
+    )
+    response = Response.from_requests(response_factory.requests(content=json.dumps(value).encode()), True)
+
+    with pytest.raises(JsonSchemaError) as exc_info:
+        response_schema_conformance(_CHECK_CTX, response, operation.Case())
+    assert exc_info.value.validation_message == f'"{value}" is longer than 1 character'
 
 
 def test_response_schema_conformance_discriminator_with_file_branches(tmp_path, response_factory):
@@ -3934,9 +4045,9 @@ def test_unsupported_method_404_on_templated_path(
     "scenario", [CoverageScenario.MALFORMED_CONTENT_TYPE, CoverageScenario.UNSUPPORTED_CONTENT_TYPE]
 )
 def test_content_type_probes_skip_response_conformance(ctx, response_factory, scenario):
-    operation = ctx.openapi.load_schema(
-        {"/items": {"get": {"responses": {"200": {"description": "OK", "content": {"application/json": {}}}}}}}
-    )["/items"]["GET"]
+    operation = ctx.openapi.load_operation(
+        "GET /items", {"responses": {"200": {"description": "OK", "content": {"application/json": {}}}}}
+    )
     case = operation.Case(
         headers={"Content-Type": "multipart/form-data"},
         _meta=CaseMetadata(
@@ -3959,17 +4070,14 @@ def test_content_type_probes_skip_response_conformance(ctx, response_factory, sc
 )
 def test_unsupported_method_404_on_pinned_templated_path(ctx, response_factory, pinned, should_raise):
     # A pinned path parameter names a resource the user vouched for, so 404 is a finding rather than a miss.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items/{item_id}",
         {
-            "/items/{item_id}": {
-                "get": {
-                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/items/{item_id}"]["GET"].Case(
+    case = operation.Case(
         path_parameters={"item_id": "42"},
         _meta=CaseMetadata(
             generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
@@ -4005,20 +4113,17 @@ def test_unsupported_method_404_on_pinned_templated_path(ctx, response_factory, 
 )
 def test_missing_required_header_404_on_templated_path(ctx, response_factory, pinned, should_raise):
     # A drawn identifier rarely exists, so the server can 404 before it ever looks at headers.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "DELETE /items/{item_id}",
         {
-            "/items/{item_id}": {
-                "delete": {
-                    "parameters": [
-                        {"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}},
-                        {"name": "X-Token", "in": "header", "required": True, "schema": {"type": "string"}},
-                    ],
-                    "responses": {"204": {"description": "Deleted"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "item_id", "in": "path", "required": True, "schema": {"type": "string"}},
+                {"name": "X-Token", "in": "header", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {"204": {"description": "Deleted"}},
+        },
     )
-    case = schema["/items/{item_id}"]["DELETE"].Case(
+    case = operation.Case(
         path_parameters={"item_id": "42"},
         _meta=CaseMetadata(
             generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
@@ -4072,18 +4177,15 @@ def test_missing_required_header_404_on_templated_path(ctx, response_factory, pi
 )
 def test_unsupported_method_auth_before_routing(ctx, response_factory, secured, status_code, expected_message):
     # Many frameworks authenticate and rate-limit before method dispatch, so 401/403/429 can precede 405.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    **({"security": [{"basicAuth": []}]} if secured else {}),
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            **({"security": [{"basicAuth": []}]} if secured else {}),
+            "responses": {"200": {"description": "OK"}},
         },
         components={"securitySchemes": {"basicAuth": {"type": "http", "scheme": "basic"}}},
     )
-    case = schema["/items"]["GET"].Case(
+    case = operation.Case(
         _meta=CaseMetadata(
             generation=GenerationInfo(time=0.1, mode=GenerationMode.NEGATIVE),
             components={},
@@ -4171,15 +4273,16 @@ def test_positive_data_acceptance_configured_dynamic_auth_path(ctx, response_fac
 
 def test_positive_data_acceptance_token_url_carries_base_path(ctx, response_factory):
     # Swagger 2.0 states the token URL with `basePath`, which operation paths do not carry.
-    schema = ctx.openapi.load_schema(
-        {"/token": {"post": {"responses": {"200": {"description": "OK"}}}}},
+    operation = ctx.openapi.load_operation(
+        "POST /token",
+        {"responses": {"200": {"description": "OK"}}},
         version="2.0",
         basePath="/api/v1",
         securityDefinitions={
             "oauth2": {"type": "oauth2", "flow": "password", "tokenUrl": "/api/v1/token", "scopes": {}}
         },
     )
-    case = schema["/token"]["POST"].Case(_meta=build_metadata())
+    case = operation.Case(_meta=build_metadata())
     assert positive_data_acceptance(check_context(), response_factory.requests(status_code=400), case) is None
 
 
@@ -4395,9 +4498,9 @@ def test_negative_data_rejection_skips_schemas_rejected_by_validator(
     parameters = [{"name": "key", "in": location.value, "required": True, "schema": parameter_schema}]
     if location != ParameterLocation.PATH:
         parameters.append({"name": "key", "in": "path", "required": True, "schema": {"type": "string"}})
-    operation = ctx.openapi.load_schema(
-        {"/items/{key}": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
-    )["/items/{key}"]["GET"]
+    operation = ctx.openapi.load_operation(
+        "GET /items/{key}", {"parameters": parameters, "responses": {"200": {"description": "OK"}}}
+    )
     case = _negative_case(
         operation,
         location,
@@ -4410,19 +4513,16 @@ def test_negative_data_rejection_skips_schemas_rejected_by_validator(
 
 @pytest.mark.parametrize("query_value", ["abc", ["abc"]], ids=["scalar", "array"])
 def test_negative_data_rejection_reports_header_beside_query_rejected_by_validator(ctx, response_factory, query_value):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "q", "in": "query", "required": True, "schema": {"type": "integer", "multipleOf": 0}},
-                        {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/items"]["GET"]
+            "parameters": [
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "integer", "multipleOf": 0}},
+                {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
     case = operation.Case(
         _meta=build_metadata(
             query=GenerationMode.NEGATIVE,
@@ -4522,19 +4622,16 @@ _NAME_PROPERTY = {"type": "object", "properties": {"name": {"type": "string"}}}
 def test_positive_data_acceptance_additional_properties_hint(
     ctx, response_factory, version, content, components, body, media_type, hint
 ):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /foo",
         {
-            "/foo": {
-                "post": {
-                    "requestBody": {"required": True, "content": content},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {"required": True, "content": content},
+            "responses": {"200": {"description": "OK"}},
         },
         version=version,
         components=components,
     )
-    case = schema["/foo"]["POST"].Case(body=body, media_type=media_type, _meta=build_metadata())
+    case = operation.Case(body=body, media_type=media_type, _meta=build_metadata())
     with pytest.raises(RejectedPositiveData) as exc:
         positive_data_acceptance(check_context(), _opaque_rejection(response_factory), case)
     assert (
@@ -4544,18 +4641,15 @@ def test_positive_data_acceptance_additional_properties_hint(
 
 
 def test_additional_properties_hint_ignores_blame_on_query_parameter(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /foo",
         {
-            "/foo": {
-                "post": {
-                    "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer"}}],
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": _NAME_PROPERTY}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer"}}],
+            "requestBody": {"required": True, "content": {"application/json": {"schema": _NAME_PROPERTY}}},
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/foo"]["POST"].Case(
+    case = operation.Case(
         body={"name": "value", "extra": "yes"},
         query={"limit": 5},
         media_type="application/json",
@@ -4574,8 +4668,9 @@ def test_additional_properties_hint_ignores_blame_on_query_parameter(ctx, respon
 
 # An implicit flow has no token endpoint, so no operation is a credential grant.
 def test_positive_data_acceptance_reports_rejection_on_implicit_oauth_flow_operation(ctx, response_factory):
-    schema = ctx.openapi.load_schema(
-        {"/token": {"post": {"responses": {"200": {"description": "OK"}}}}},
+    operation = ctx.openapi.load_operation(
+        "POST /token",
+        {"responses": {"200": {"description": "OK"}}},
         components={
             "securitySchemes": {
                 "oauth": {
@@ -4585,6 +4680,191 @@ def test_positive_data_acceptance_reports_rejection_on_implicit_oauth_flow_opera
             }
         },
     )
-    case = schema["/token"]["POST"].Case(_meta=build_metadata())
+    case = operation.Case(_meta=build_metadata())
     with pytest.raises(RejectedPositiveData):
         positive_data_acceptance(check_context(), _opaque_rejection(response_factory), case)
+
+
+ITEM = {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]}
+
+
+def response_validator(schema, label, status="200", media_type="application/json", validate_formats=True):
+    response = schema.find_operation_by_label(label).responses.get(status)
+    resolved = response.get_schema(media_type)
+    return response.get_validator(resolved.media_type, resolved.schema, validate_formats=validate_formats)
+
+
+def json_ok(schema):
+    return {"200": {"description": "OK", "content": {"application/json": {"schema": schema}}}}
+
+
+def test_operations_sharing_a_response_schema_share_one_validator(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/a": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Item"})}},
+            "/b": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Item"})}},
+        },
+        components={"schemas": {"Item": ITEM}},
+    )
+
+    assert response_validator(schema, "GET /a") is response_validator(schema, "GET /b")
+
+
+def test_shared_response_reference_shares_one_validator(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/a": {"get": {"responses": {"200": {"$ref": "#/components/responses/Ok"}}}},
+            "/b": {"get": {"responses": {"200": {"$ref": "#/components/responses/Ok"}}}},
+        },
+        components={
+            "schemas": {"Item": ITEM},
+            "responses": {
+                "Ok": {
+                    "description": "OK",
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}},
+                }
+            },
+        },
+    )
+
+    assert response_validator(schema, "GET /a") is response_validator(schema, "GET /b")
+
+
+def test_response_validator_survives_operation_rebuilds(ctx):
+    schema = ctx.openapi.load_schema(
+        {"/a": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Item"})}}},
+        components={"schemas": {"Item": ITEM}},
+    )
+
+    first = response_validator(schema, "GET /a")
+    # Each lookup builds a fresh operation; its response validator is not rebuilt with it.
+    assert response_validator(schema, "GET /a") is first
+
+
+def test_different_validate_formats_do_not_share_a_response_validator(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/a": {"get": {"responses": json_ok({"type": "string", "format": "date"})}},
+            "/b": {"get": {"responses": json_ok({"type": "string", "format": "date"})}},
+        }
+    )
+
+    strict = response_validator(schema, "GET /a", validate_formats=True)
+    lenient = response_validator(schema, "GET /b", validate_formats=False)
+
+    assert (strict.is_valid("not a date"), lenient.is_valid("not a date")) == (False, True)
+
+
+def test_separately_loaded_schemas_do_not_share_response_validators(ctx):
+    paths = {"/a": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Item"})}}}
+    first = ctx.openapi.load_schema(paths, components={"schemas": {"Item": ITEM}})
+    second = ctx.openapi.load_schema(paths, components={"schemas": {"Item": {"type": "string"}}})
+
+    verdicts = (
+        response_validator(first, "GET /a").is_valid({"id": 1}),
+        response_validator(second, "GET /a").is_valid({"id": 1}),
+    )
+
+    assert verdicts == (True, False)
+
+
+def test_same_response_schema_text_in_two_documents_does_not_share_a_validator(ctx):
+    paths = {
+        "/a": {"get": {"responses": {"200": {"$ref": "./first/responses.json#/Ok"}}}},
+        "/b": {"get": {"responses": {"200": {"$ref": "./second/responses.json#/Ok"}}}},
+    }
+    schema_path = ctx.openapi.write_schema(paths)
+    ok = {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/Item"}}}}
+    ctx.makefile({"Ok": ok, "Item": ITEM}, filename="responses", parent="first")
+    ctx.makefile({"Ok": ok, "Item": {"type": "string"}}, filename="responses", parent="second")
+    schema = schemathesis.openapi.from_path(str(schema_path))
+
+    verdicts = (
+        response_validator(schema, "GET /a").is_valid({"id": 1}),
+        response_validator(schema, "GET /b").is_valid({"id": 1}),
+    )
+
+    assert verdicts == (True, False)
+
+
+def test_unresolvable_response_reference_is_reported_for_every_response(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/a": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Missing"})}},
+            "/b": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Missing"})}},
+        }
+    )
+
+    unresolvable = [
+        schema.find_operation_by_label(label).responses.get("200").get_schema("application/json").unresolvable_reference
+        for label in ("GET /a", "GET /b")
+    ]
+
+    assert unresolvable == ["#/components/schemas/Missing", "#/components/schemas/Missing"]
+
+
+def test_validating_responses_leaves_the_shared_schema_unchanged(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/a": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Item"})}},
+            "/b": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Item"})}},
+        },
+        components={"schemas": {"Item": ITEM}},
+    )
+    shared = schema.find_operation_by_label("GET /a").responses.get("200").get_schema("application/json").schema
+    before = deepclone(shared)
+
+    for label in ("GET /a", "GET /b"):
+        case = schema.find_operation_by_label(label).Case()
+        response = response_factory.requests(content=b'{"id": "not an integer"}')
+        with pytest.raises(FailureGroup):
+            case.validate_response(response)
+
+    assert shared == before
+
+
+def test_concurrent_first_use_builds_one_shared_response_validator(ctx):
+    # Switching threads often makes the race between first users likely.
+    previous = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    wide = {"type": "object", "properties": {f"field{i}": {"type": "string"} for i in range(2000)}}
+    labels = [f"GET /op{i}" for i in range(16)]
+    schema = ctx.openapi.load_schema(
+        {f"/op{i}": {"get": {"responses": json_ok({"$ref": "#/components/schemas/Wide"})}} for i in range(16)},
+        components={"schemas": {"Wide": wide}},
+    )
+    operations = [schema.find_operation_by_label(label) for label in labels]
+    barrier = threading.Barrier(len(operations))
+    validators = []
+
+    def validate(operation):
+        barrier.wait()
+        response = operation.responses.get("200")
+        resolved = response.get_schema("application/json")
+        validators.append(response.get_validator(resolved.media_type, resolved.schema))
+
+    threads = [threading.Thread(target=validate, args=(operation,)) for operation in operations]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    sys.setswitchinterval(previous)
+
+    assert len({id(validator) for validator in validators}) == 1
+
+
+@pytest.mark.parametrize("version", ["2.0", "3.0.2"])
+@pytest.mark.parametrize("format", ["uuid", "duration"])
+def test_draft4_response_rejects_invalid_supplemental_format(ctx, response_factory, version, format):
+    schema = {"type": "string", "format": format}
+    if version == "2.0":
+        responses = {"200": {"description": "OK", "schema": schema}}
+    else:
+        responses = json_ok(schema)
+    operation = ctx.openapi.load_operation(
+        "GET /a", {"produces": ["application/json"], "responses": responses}, version=version
+    )
+    response = response_factory.requests(content=b'"nope"')
+
+    with pytest.raises(FailureGroup, match=f'is not a "{format}"'):
+        operation.Case().validate_response(response, checks=[response_schema_conformance])

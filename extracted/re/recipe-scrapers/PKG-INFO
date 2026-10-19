@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: recipe_scrapers
-Version: 15.12.0
+Version: 15.13.0
 Summary: Python package, scraping recipes from all over the internet
 Author-email: Hristo Harsev <r+pypi@hharsev.com>, Joey Kennedy <JoeyDevs@proton.me>, James Addison <james@reciperadar.com>
 Maintainer-email: Hristo Harsev <r+pypi@hharsev.com>, Joey Kennedy <JoeyDevs@proton.me>, James Addison <james@reciperadar.com>
@@ -9,17 +9,17 @@ Project-URL: Homepage, https://github.com/hhursev/recipe-scrapers/
 Keywords: python,recipes,scraper,harvest,recipe-scraper,recipe-scrapers
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: beautifulsoup4>=4.12.3
@@ -34,16 +34,13 @@ Requires-Dist: mkdocstrings>=0.27.0; extra == "docs"
 Requires-Dist: mkdocstrings-python>=1.12.2; extra == "docs"
 Requires-Dist: markdown-exec>=1.10.0; extra == "docs"
 Provides-Extra: tests
-Requires-Dist: coverage>=7.6.9; extra == "tests"
-Requires-Dist: unittest-parallel>=1.7.0; extra == "tests"
+Requires-Dist: coverage>=7.16.2; extra == "tests"
+Requires-Dist: unittest-parallel>=1.8.6; extra == "tests"
 Provides-Extra: linters
-Requires-Dist: pre-commit==4.0.1; extra == "linters"
-Requires-Dist: black==24.10.0; extra == "linters"
-Requires-Dist: flake8==7.1.1; extra == "linters"
-Requires-Dist: pep8-naming==0.14.1; extra == "linters"
-Requires-Dist: mypy==1.14.0; extra == "linters"
-Requires-Dist: types-beautifulsoup4; extra == "linters"
-Requires-Dist: types-requests; extra == "linters"
+Requires-Dist: pre-commit==4.7.0; extra == "linters"
+Requires-Dist: black==26.10.1; extra == "linters"
+Requires-Dist: flake8==7.4.1; extra == "linters"
+Requires-Dist: pep8-naming==0.15.1; extra == "linters"
 Provides-Extra: dev
 Requires-Dist: recipe-scrapers[docs,linters,tests]; extra == "dev"
 Provides-Extra: all
@@ -66,8 +63,8 @@ recipe-scrapers
 .. image:: https://github.com/hhursev/recipe-scrapers/actions/workflows/unittests.yaml/badge.svg?branch=main
     :target: unittests
     :alt: GitHub Actions Unittests
-.. image:: https://coveralls.io/repos/hhursev/recipe-scraper/badge.svg?branch=main&service=github
-    :target: https://coveralls.io/github/hhursev/recipe-scraper?branch=main
+.. image:: https://coveralls.io/repos/github/hhursev/recipe-scrapers/badge.svg?branch=main
+    :target: https://coveralls.io/github/hhursev/recipe-scrapers?branch=main
     :alt: Coveralls
 .. image:: https://img.shields.io/github/license/hhursev/recipe-scrapers?
     :target: https://github.com/hhursev/recipe-scrapers/blob/main/LICENSE

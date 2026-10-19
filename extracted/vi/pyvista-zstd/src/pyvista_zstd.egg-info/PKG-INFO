@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista-zstd
-Version: 0.5.0
+Version: 0.7.0
 Summary: VTK zstandard compression library.
 Author-email: The PyVista developers <info@pyvista.org>
 License-Expression: MIT
@@ -16,12 +16,17 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pyvista>=0.45.0
-Requires-Dist: tqdm>=4.0.0
+Requires-Dist: vtk>=9.3.1
+Provides-Extra: benchmarks
+Requires-Dist: matplotlib; extra == "benchmarks"
+Requires-Dist: pandas; extra == "benchmarks"
+Requires-Dist: seaborn; extra == "benchmarks"
+Requires-Dist: tqdm>=4.1.0; extra == "benchmarks"
 Provides-Extra: docs
-Requires-Dist: numpydoc==1.10.0; extra == "docs"
+Requires-Dist: numpydoc==1.11.0; extra == "docs"
 Requires-Dist: sphinx-book-theme==1.2.0; extra == "docs"
 Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
-Requires-Dist: sphinx-gallery==0.21.0; extra == "docs"
+Requires-Dist: sphinx-gallery==0.22.1; extra == "docs"
 Requires-Dist: sphinx-notfound-page==1.1.0; extra == "docs"
 Requires-Dist: sphinx==9.1.0; extra == "docs"
 Provides-Extra: network
@@ -176,6 +181,24 @@ explicit offsets.
    # read back
    pyvista_zstd.write(vtk_ds, "sphere.pv")
    ds_in = pyvista_zstd.read("sphere.pv")
+
+**Thumbnails**
+
+A file can carry a small PNG preview that file browsers and Quick Look style
+viewers show without reading the dataset. Pass PNG bytes, or ``True`` to render
+a 512 x 512 image off-screen, cropped to the dataset on a transparent background:
+
+.. code:: py
+
+   pyvista_zstd.write(ds, "mesh.pv", thumbnail=True)
+   png = pyvista_zstd.read_thumbnail("mesh.pv")  # None when absent
+
+The PNG is stored uncompressed at a fixed position, so non-Python readers can
+extract it without zstd; see section 11 of ``doc/format/container-v2.md``.
+Earlier releases read these files and ignore the thumbnail. A third-party Python
+reader that decompresses every frame with ``zstandard``'s
+``ZstdDecompressor.decompress()`` fails on them; use ``decompressobj()`` or
+Python 3.14's ``compression.zstd`` instead.
 
 
 PyVista Integration

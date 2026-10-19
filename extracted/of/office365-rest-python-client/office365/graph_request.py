@@ -4,14 +4,18 @@ from typing import Callable, Dict, Optional
 
 from office365.azure_env import AzureEnvironment, get_graph_authority
 from office365.graph_version import GraphVersion
+from office365.runtime.auth.certificate import CertificateData
 from office365.runtime.auth.entra.authentication_context import AuthenticationContext
+from office365.runtime.client_request import ASYNC_AUTHENTICATED_FLAG
 from office365.runtime.http.http_method import HttpMethod
+from office365.runtime.http.prefer import prefer_upsert
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.request import ODataRequest
 from office365.runtime.odata.v4.json_format import V4JsonFormat
 from office365.runtime.queries.client_query import ClientQuery
 from office365.runtime.queries.delete_entity import DeleteEntityQuery
 from office365.runtime.queries.update_entity import UpdateEntityQuery
+from office365.runtime.queries.upsert_entity import UpsertEntityQuery
 
 
 class GraphRequest(ODataRequest):
@@ -38,6 +42,7 @@ class GraphRequest(ODataRequest):
         self._environment = environment
         self._auth_context = AuthenticationContext(environment=environment, tenant=tenant, authority=authority)
         self.beforeExecute += self.authenticate_request
+        self._async_authenticate = self.authenticate_request_async
 
     def with_access_token(self, token_callback: Callable[[], Dict[str, str]]) -> GraphRequest:
         """
@@ -52,19 +57,41 @@ class GraphRequest(ODataRequest):
         self._auth_context.with_access_token(token_callback)
         return self
 
-    def with_certificate(self, client_id: str, thumbprint: str, private_key: str) -> GraphRequest:
+    def with_certificate(
+        self,
+        client_id: str,
+        thumbprint: str | None = None,
+        private_key: str | None = None,
+        *,
+        public_certificate: CertificateData | None = None,
+        passphrase: str | None = None,
+        use_sni: bool = False,
+    ) -> GraphRequest:
         """
         Initialize with client certificate authentication.
 
         Args:
             client_id: The OAuth client ID of the calling application
-            thumbprint: Certificate thumbprint
+            thumbprint: Certificate thumbprint (optional when ``public_certificate`` is given)
             private_key: Private key content
+            public_certificate: Certificate (DER/PEM bytes, inline PEM text, or a
+                path) used to derive the thumbprint or, with ``use_sni``, for
+                subject name/issuer authentication
+            passphrase: Private key passphrase
+            use_sni: Use subject name/issuer authentication (requires the optional
+                ``cryptography`` package)
 
         Returns:
             self: Supports fluent method chaining
         """
-        self._auth_context.with_certificate(client_id, thumbprint, private_key)
+        self._auth_context.with_certificate(
+            client_id,
+            thumbprint,
+            private_key,
+            public_certificate=public_certificate,
+            passphrase=passphrase,
+            use_sni=use_sni,
+        )
         return self
 
     def with_client_secret(self, client_id: str, client_secret: str) -> GraphRequest:
@@ -135,12 +162,37 @@ class GraphRequest(ODataRequest):
         Args:
             request: The request to authenticate
         """
+        if getattr(request, ASYNC_AUTHENTICATED_FLAG, False):
+            return  # already authenticated by :meth:`authenticate_request_async`
         token = self._auth_context.acquire_token()
         request.set_header("Authorization", f"Bearer {token.accessToken}")
 
+    async def authenticate_request_async(self, request: RequestOptions) -> None:
+        """Authenticate the request on the event loop.
+
+        A no-op unless the registered token callback is a coroutine function, in
+        which case the token is awaited (single-flight) and the request is
+        flagged so the offloaded synchronous auth hook skips it.
+
+        Args:
+            request: The request to authenticate
+        """
+        if not self._auth_context.is_async_token_callback:
+            return
+        token = await self._auth_context.acquire_token_async()
+        request.set_header("Authorization", f"Bearer {token.accessToken}")
+        setattr(request, ASYNC_AUTHENTICATED_FLAG, True)
+
     def build_request(self, query: ClientQuery) -> RequestOptions:
         request = super().build_request(query)
-        if isinstance(query, UpdateEntityQuery):
+        if isinstance(query, UpsertEntityQuery):
+            request.method = HttpMethod.Patch
+            prefer_upsert(request)
+            if query.if_match is not None:
+                request.set_header("If-Match", query.if_match)
+            if query.if_none_match is not None:
+                request.set_header("If-None-Match", query.if_none_match)
+        elif isinstance(query, UpdateEntityQuery):
             request.method = HttpMethod.Patch
         elif isinstance(query, DeleteEntityQuery):
             request.method = HttpMethod.Delete

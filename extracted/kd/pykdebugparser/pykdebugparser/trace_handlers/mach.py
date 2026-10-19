@@ -2,7 +2,13 @@ import ctypes
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import List
+from typing import List, Optional
+
+from pykdebugparser.trace_codes import default_trace_codes
+from pykdebugparser.trace_handlers import parse_enum
+
+# bsd/sys/kdebug.h: (DBG_MACH << 8) | DBG_MACH_EXCP_SYNC_ARM
+DBG_MACH_EXCP_SYNC_ARM = 0x103
 
 
 class AsynchronousSystemTrapsReason(Enum):
@@ -31,11 +37,15 @@ class AsynchronousSystemTrapsReason(Enum):
     AST_UNQUIESCE = 0x200000
 
 
+# Pairs of (member, value), accessing `.value` through the enum descriptor is slow.
+_ASYNCHRONOUS_SYSTEM_TRAPS_REASON_VALUES = [(m, m.value) for m in AsynchronousSystemTrapsReason]
+
+
 def to_ast_reasons(flags: int):
     if not flags:
         return [AsynchronousSystemTrapsReason.AST_NONE]
     else:
-        return [r for r in AsynchronousSystemTrapsReason if r.value & flags]
+        return [r for r, value in _ASYNCHRONOUS_SYSTEM_TRAPS_REASON_VALUES if value & flags]
 
 
 # osfmk/arm64/proc_reg.h
@@ -53,10 +63,13 @@ class ExceptionSyndromeRegisterClass(Enum):
     ESR_EC_TRAP_SIMD_FP = 0x07
     ESR_EC_PTRAUTH_INSTR_TRAP = 0x09
     ESR_EC_MCRR_MRRC_CP14_TRAP = 0x0c
+    ESR_EC_BTI_FAIL = 0x0d
     ESR_EC_ILLEGAL_INSTR_SET = 0x0e
     ESR_EC_SVC_32 = 0x11
     ESR_EC_SVC_64 = 0x15
+    ESR_EC_HVC_64 = 0x16
     ESR_EC_MSR_TRAP = 0x18
+    ESR_EC_PAC_FAIL = 0x1c
     ESR_EC_IABORT_EL0 = 0x20
     ESR_EC_IABORT_EL1 = 0x21
     ESR_EC_PC_ALIGN = 0x22
@@ -86,8 +99,11 @@ class ThreadState(Enum):
     TH_IDLE = 0x80
 
 
+_THREAD_STATE_VALUES = [(m, m.value) for m in ThreadState]
+
+
 def to_thread_state(flags: int):
-    return [s for s in ThreadState if s.value & flags]
+    return [s for s, value in _THREAD_STATE_VALUES if value & flags]
 
 
 class InterruptType(Enum):
@@ -134,11 +150,14 @@ class VmProtection(Enum):
     VM_PROT_STRIP_READ = 0x80
 
 
+_VM_PROTECTION_VALUES = [(m, m.value) for m in VmProtection]
+
+
 def to_vm_prot(flags: int):
     if not flags:
         return [VmProtection.VM_PROT_NONE]
     else:
-        return [p for p in VmProtection if p.value & flags]
+        return [p for p, value in _VM_PROTECTION_VALUES if value & flags]
 
 
 # osfmk/mach/port.h
@@ -270,6 +289,25 @@ class KernelUncategorizedExcArm:
 
 
 @dataclass
+class ArmException:
+    """An arm64 synchronous exception (`sleh.c`): its ESR, fault address and PC, for the classes without their own
+    trace class (breakpoints, `brk` traps, pointer authentication failures, alignment faults, ...)."""
+    ktraces: List
+    name: str
+    esr: int
+    far: int
+    pc: int
+
+    def __str__(self):
+        esr_class = self.esr >> 26
+        try:
+            esr_class = ExceptionSyndromeRegisterClass(esr_class).name
+        except ValueError:
+            pass
+        return f'{self.name}, class: {esr_class}, far: {hex(self.far)}, pc: {hex(self.pc)}'
+
+
+@dataclass
 class KernelDataAbortSameElExcArm:
     ktraces: List
     esr: int
@@ -309,7 +347,7 @@ class Interrupt:
     type: int
 
     def __str__(self):
-        return f'INTERRUPT, pc: {hex(self.pc)}, is_user: {self.is_user}, type: {InterruptType(self.type).name}'
+        return f'INTERRUPT, pc: {hex(self.pc)}, is_user: {self.is_user}, type: {parse_enum(InterruptType, self.type).name}'
 
 
 @dataclass
@@ -580,6 +618,58 @@ class SemaphoreTimedwait:
 
     def __str__(self):
         return f'semaphore_timedwait({hex(self.wait_name)}, {self.sec}, {self.nsec}), result: {self.result.name}'
+
+
+@dataclass
+class TaskForPid:
+    ktraces: List
+    target_tport: int
+    pid: int
+    t: int
+    result: KernReturn
+
+    def __str__(self):
+        return f'task_for_pid({self.target_tport}, {self.pid}, {hex(self.t)}), result: {self.result.name}'
+
+
+@dataclass
+class TaskNameForPid:
+    ktraces: List
+    target_tport: int
+    pid: int
+    tn: int
+    result: KernReturn
+
+    def __str__(self):
+        return f'task_name_for_pid({self.target_tport}, {self.pid}, {hex(self.tn)}), result: {self.result.name}'
+
+
+@dataclass
+class PidForTask:
+    ktraces: List
+    task: int
+    pid_addr: int
+    result: KernReturn
+
+    def __str__(self):
+        return f'pid_for_task({self.task}, {hex(self.pid_addr)}), result: {self.result.name}'
+
+
+@dataclass
+class TaskSuspension:
+    """A task or thread suspended (by `task_suspend`, a debugger, ...) or resumed (osfmk `DBG_MACH_SUSPENSION`)."""
+    ktraces: List
+    name: str
+    target: str
+    target_id: int
+    user_stop_count: Optional[int] = None
+    pidsuspended: Optional[int] = None
+
+    def __str__(self):
+        rep = f'{self.name}, {self.target}: {self.target_id}'
+        if self.user_stop_count is not None:
+            rep += f', user_stop_count: {self.user_stop_count}, pidsuspended: {bool(self.pidsuspended)}'
+        return rep
 
 
 @dataclass
@@ -1005,6 +1095,11 @@ def handle_user_instr_abort_lower_el_exc_arm(parser, events):
     return UserInstrAbortLowerElExcArm(events, *events[0].values[:3])
 
 
+def handle_arm_exception(parser, events):
+    args = events[0].values
+    return ArmException(events, parser.trace_codes[events[0].eventid], args[0], args[1], args[2])
+
+
 def handle_user_data_abort_lower_el_exc_arm(parser, events):
     args = events[0].values
     return UserDataAbortLowerElExcArm(events, args[0], args[1], args[2])
@@ -1045,9 +1140,44 @@ def handle_msc_mach_vm_map_trap(parser, events):
     return MachVmMap(events, *events[0].values)
 
 
+def handle_msc_task_for_pid(parser, events):
+    args = events[0].values
+    return TaskForPid(events, args[0] & 0xffffffff, ctypes.c_int32(args[1]).value, args[2],
+                      parse_enum(KernReturn, events[-1].values[0]))
+
+
+def handle_msc_task_name_for_pid(parser, events):
+    args = events[0].values
+    return TaskNameForPid(events, args[0] & 0xffffffff, ctypes.c_int32(args[1]).value, args[2],
+                          parse_enum(KernReturn, events[-1].values[0]))
+
+
+def handle_msc_pid_for_task(parser, events):
+    args = events[0].values
+    return PidForTask(events, args[0] & 0xffffffff, args[1], parse_enum(KernReturn, events[-1].values[0]))
+
+
+def handle_task_suspend(parser, events):
+    args = events[0].values
+    return TaskSuspension(events, 'task_suspend', 'pid', args[0], args[1], args[2])
+
+
+def handle_task_resume(parser, events):
+    return TaskSuspension(events, 'task_resume', 'pid', events[0].values[0])
+
+
+def handle_thread_suspend(parser, events):
+    args = events[0].values
+    return TaskSuspension(events, 'thread_suspend', 'tid', args[0], args[1], args[2])
+
+
+def handle_thread_resume(parser, events):
+    return TaskSuspension(events, 'thread_resume', 'tid', events[0].values[0])
+
+
 def handle_msc_mach_port_allocate_trap(parser, events):
     args = events[0].values
-    return MachPortAllocate(events, args[0], MachPortRight(args[1]), args[2])
+    return MachPortAllocate(events, args[0], parse_enum(MachPortRight, args[1]), args[2])
 
 
 def handle_msc_mach_port_deallocate_trap(parser, events):
@@ -1056,11 +1186,11 @@ def handle_msc_mach_port_deallocate_trap(parser, events):
 
 def handle_msc_mach_port_mod_refs_trap(parser, events):
     args = events[0].values
-    return MachPortModRefs(events, args[0], args[1], MachPortRight(args[2]), args[3])
+    return MachPortModRefs(events, args[0], args[1], parse_enum(MachPortRight, args[2]), args[3])
 
 
 def handle_msc_mach_port_insert_right_trap(parser, events):
-    return MachPortInsertRight(events, *events[0].values[:3], MachMsgTypeName(events[0].values[3]))
+    return MachPortInsertRight(events, *events[0].values[:3], parse_enum(MachMsgTypeName, events[0].values[3]))
 
 
 def handle_msc_mach_port_insert_member_trap(parser, events):
@@ -1105,12 +1235,12 @@ def handle_msc_semaphore_wait_trap(parser, events):
 
 def handle_msc_semaphore_timedwait_trap(parser, events):
     args = events[0].values
-    return SemaphoreTimedwait(events, args[0], args[1] & 0xffffffff, args[2], KernReturn(events[-1].values[0]))
+    return SemaphoreTimedwait(events, args[0], args[1] & 0xffffffff, args[2], parse_enum(KernReturn, events[-1].values[0]))
 
 
 def handle_msc_mach_port_get_attributes_trap(parser, events):
     args = events[0].values
-    return MachPortGetAttributes(events, *args[:2], MachPortFlavor(args[2]), args[3])
+    return MachPortGetAttributes(events, *args[:2], parse_enum(MachPortFlavor, args[2]), args[3])
 
 
 def handle_msc_mach_port_guard_trap(parser, events):
@@ -1135,7 +1265,7 @@ def handle_msc_thread_get_special_reply_port(parser, events):
 
 def handle_msc_thread_switch(parser, events):
     args = events[0].values
-    return ThreadSwitch(events, args[0], SwitchOption(args[1]), args[2])
+    return ThreadSwitch(events, args[0], parse_enum(SwitchOption, args[1]), args[2])
 
 
 def handle_msc_host_create_mach_voucher_trap(parser, events):
@@ -1176,7 +1306,7 @@ def handle_msc_mk_timer_cancel(parser, events):
 
 def handle_msc_mk_timer_arm_leeway(parser, events):
     args = events[0].values
-    return MkTimerArmLeeway(events, args[0], MkTimerFlags(args[1]), args[2], args[3])
+    return MkTimerArmLeeway(events, args[0], parse_enum(MkTimerFlags, args[1]), args[2], args[3])
 
 
 def handle_msc_iokit_user_client(parser, events):
@@ -1200,7 +1330,7 @@ def handle_mach_vmfault(parser, events):
     pid = None
     caller_prot = None
     if result == 0:
-        fault_type = DbgVmFaultType(rets[3])
+        fault_type = parse_enum(DbgVmFaultType, rets[3])
         real_events = [e for e in events[1:-1] if 0x1320008 <= e.eventid <= 0x1320014]
         if real_events:
             vm_fault_real = parser.parse_event_list(real_events)
@@ -1212,7 +1342,7 @@ def handle_mach_vmfault(parser, events):
 def handle_real_fault_address(addr_type, parser, events):
     args = events[0].values
     caller_prot = to_vm_prot((args[1] >> 8) & 0xff)
-    fault_type = DbgVmFaultType(args[1] & 0xff)
+    fault_type = parse_enum(DbgVmFaultType, args[1] & 0xff)
     return addr_type(events, args[0], args[1] >> 16, caller_prot, fault_type, args[2], args[3])
 
 
@@ -1233,7 +1363,7 @@ def handle_mach_mkrunnable(parser, events):
 
 def handle_mach_idle(parser, events):
     args = events[-1].values
-    return MachIdle(events, args[0], ProcessState(args[1]), args[2], to_ast_reasons(args[3]))
+    return MachIdle(events, args[0], parse_enum(ProcessState, args[1]), args[2], to_ast_reasons(args[3]))
 
 
 def handle_mach_block(parser, events):
@@ -1294,6 +1424,13 @@ handlers = {
     'MSC_semaphore_signal_trap': handle_msc_semaphore_signal_trap,
     'MSC_semaphore_wait_trap': handle_msc_semaphore_wait_trap,
     'MSC_semaphore_timedwait_trap': handle_msc_semaphore_timedwait_trap,
+    'MSC_task_for_pid': handle_msc_task_for_pid,
+    'MSC_task_name_for_pid': handle_msc_task_name_for_pid,
+    'MSC_pid_for_task': handle_msc_pid_for_task,
+    'MACH_task_suspend': handle_task_suspend,
+    'MACH_task_resume': handle_task_resume,
+    'MACH_thread_suspend': handle_thread_suspend,
+    'MACH_thread_resume': handle_thread_resume,
     'MSC_mach_port_get_attributes_trap': handle_msc_mach_port_get_attributes_trap,
     'MSC_mach_port_guard_trap': handle_msc_mach_port_guard_trap,
     'MSC_mach_port_unguard_trap': handle_msc_mach_port_unguard_trap,
@@ -1329,3 +1466,6 @@ handlers = {
     'SCHED_CLUTCH_CPU_THREAD_SELECT': handle_sched_clutch_cpu_thread_select,
     'SCHED_CLUTCH_TG_BUCKET_PRI': handle_sched_clutch_tg_bucket_pri,
 }
+# Every other arm64 synchronous exception class shares the same arguments.
+handlers.update({name: handle_arm_exception for eventid, name in default_trace_codes().items()
+                 if eventid >> 16 == DBG_MACH_EXCP_SYNC_ARM and name.endswith('_Exc_ARM') and name not in handlers})

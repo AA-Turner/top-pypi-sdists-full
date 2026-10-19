@@ -1,9 +1,10 @@
 # internals.py - many internal helpers
 
 from datetime import timezone, datetime, timedelta
+from urllib.parse import parse_qs
 from contextlib import closing
 import mimetypes
-import threading
+from typing import List, Optional, Union
 import uuid
 import dateutil.parser
 import time
@@ -15,15 +16,19 @@ import base64
 import os
 import inspect
 import warnings
+from mastodon.types_base import IdType, PaginationInfo
 
 from mastodon.versions import parse_version_string
-from mastodon.errors import MastodonNetworkError, MastodonIllegalArgumentError, MastodonRatelimitError, MastodonNotFoundError, \
+from mastodon.errors import MastodonIOError, MastodonFileNotFoundError, MastodonNetworkError, MastodonIllegalArgumentError, MastodonRatelimitError, MastodonNotFoundError, \
                     MastodonUnauthorizedError, MastodonInternalServerError, MastodonBadGatewayError, MastodonServiceUnavailableError, \
                     MastodonGatewayTimeoutError, MastodonServerError, MastodonAPIError, MastodonMalformedEventError, MastodonDeprecationWarning, MastodonWarning
 from mastodon.compat import urlparse, magic, PurePath, Path
 from mastodon.defaults import _DEFAULT_STREAM_TIMEOUT, _DEFAULT_STREAM_RECONNECT_WAIT_SEC
 from mastodon.return_types import AttribAccessDict, PaginatableList, try_cast_recurse
 from mastodon.return_types import *
+from mastodon.streaming import SSEStreamHandle
+from mastodon.streaming_websocket import WebSocketStreamHandle
+from mastodon.types_base import EmptyResponse
 
 ###
 # Internal helpers, dragons probably
@@ -142,7 +147,7 @@ class Mastodon():
 
     def __api_request(self, method, endpoint, params={}, files={}, headers={}, access_token_override=None, base_url_override=None,
                         do_ratelimiting=True, use_json=False, parse=True, return_response_object=False, skip_error_check=False, lang_override=None, override_type=None,
-                        force_pagination=False):
+                        force_pagination=False, offset_pagination=False, offset_pagination_field=None, offset_pagination_previous=None):
         """
         Internal API request helper.
 
@@ -161,9 +166,14 @@ class Mastodon():
 
         # "pace" mode ratelimiting: Assume constant rate of requests, sleep a little less long than it
         # would take to not hit the rate limit at that request rate.
-        if do_ratelimiting and self.ratelimit_method == "pace":
-            if self.ratelimit_remaining == 0:
-                to_next = self.ratelimit_reset - time.time()
+        if do_ratelimiting and self.ratelimit_method == "pace" and self.ratelimit_lastcall is not None:
+            current_time = time.time()
+            if self.ratelimit_reset is None or self.ratelimit_reset <= current_time:
+                raise MastodonRatelimitError(
+                    "Cannot pace requests because the server did not provide a usable rate limit reset time.")
+
+            if self.ratelimit_remaining <= 0:
+                to_next = self.ratelimit_reset - current_time
                 if to_next > 0:
                     # As a precaution, never sleep longer than 5 minutes
                     to_next = min(to_next, 5 * 60)
@@ -237,35 +247,54 @@ class Mastodon():
                 warnings.warn("Endpoint " + endpoint + " is marked as deprecated and may be removed in future Mastodon versions.", MastodonDeprecationWarning)
 
             # Parse rate limiting headers
-            if 'X-RateLimit-Remaining' in response_object.headers and do_ratelimiting:
-                self.ratelimit_remaining = int(
-                    response_object.headers['X-RateLimit-Remaining'])
-                self.ratelimit_limit = int(
-                    response_object.headers['X-RateLimit-Limit'])
-
-                # For gotosocial, we need an int representation, but for non-ints this would crash
-                try:
-                    ratelimit_intrep = str(int(response_object.headers['X-RateLimit-Reset']))
-                except:
-                    ratelimit_intrep = None
-
-                try:
-                    if ratelimit_intrep is not None and ratelimit_intrep == response_object.headers['X-RateLimit-Reset']:
-                        self.ratelimit_reset = int(
-                            response_object.headers['X-RateLimit-Reset'])
-                    else:
-                        ratelimit_reset_datetime = dateutil.parser.parse(response_object.headers['X-RateLimit-Reset'])
-                        self.ratelimit_reset = self.__datetime_to_epoch(ratelimit_reset_datetime)
-
-                    # Adjust server time to local clock
-                    if 'Date' in response_object.headers:
-                        server_time_datetime = dateutil.parser.parse(response_object.headers['Date'])
-                        server_time = self.__datetime_to_epoch(server_time_datetime)
-                        server_time_diff = time.time() - server_time
-                        self.ratelimit_reset += server_time_diff
+            if do_ratelimiting:
+                if 'X-RateLimit-Remaining' in response_object.headers:
+                    try:
+                        ratelimit_remaining = int(response_object.headers['X-RateLimit-Remaining'])
+                        self.ratelimit_remaining = ratelimit_remaining
                         self.ratelimit_lastcall = time.time()
-                except Exception as e:
-                    raise MastodonRatelimitError(f"Rate limit time calculations failed: {e}")
+                    except:
+                        # This is a problem only for "pace" mode
+                        if self.ratelimit_method == 'pace':
+                            raise MastodonRatelimitError(f"Could not parse X-RateLimit-Remaining header, required for pace mode.")
+
+                if 'X-RateLimit-Limit' in response_object.headers:
+                    try:
+                        self.ratelimit_limit = int(response_object.headers['X-RateLimit-Limit'])
+                    except:
+                        pass
+
+                if 'X-RateLimit-Reset' in response_object.headers:
+                    # For gotosocial, we need an int representation, but for non-ints this would crash
+                    try:
+                        ratelimit_intrep = str(int(response_object.headers['X-RateLimit-Reset']))
+                    except:
+                        ratelimit_intrep = None
+
+                    try:
+                        if ratelimit_intrep is not None and ratelimit_intrep == response_object.headers['X-RateLimit-Reset']:
+                            self.ratelimit_reset = int(response_object.headers['X-RateLimit-Reset'])
+                        else:
+                            ratelimit_reset_datetime = dateutil.parser.parse(response_object.headers['X-RateLimit-Reset'])
+                            self.ratelimit_reset = self.__datetime_to_epoch(ratelimit_reset_datetime)
+
+                        # Adjust server time to local clock
+                        if 'Date' in response_object.headers:
+                            server_time_datetime = dateutil.parser.parse(response_object.headers['Date'])
+                            server_time = self.__datetime_to_epoch(server_time_datetime)
+                            server_time_diff = time.time() - server_time
+                            self.ratelimit_reset += server_time_diff
+                        if self.ratelimit_reset > time.time():
+                            self._ratelimit_backoff = 2
+                        else:
+                            self.ratelimit_reset = None
+                    except Exception as e:
+                        raise MastodonRatelimitError(f"Rate limit time calculations failed: {e}")
+                elif self.ratelimit_reset is not None and self.ratelimit_reset <= time.time():
+                    self.ratelimit_reset = None
+
+                if response_object.ok:
+                    self._ratelimit_backoff = 2
 
             # Handle response
             if self.debug_requests:
@@ -289,14 +318,23 @@ class Mastodon():
                 if response_object.status_code == 429:
                     if self.ratelimit_method == 'throw' or not do_ratelimiting:
                         raise MastodonRatelimitError('Hit rate limit.')
-                    elif self.ratelimit_method in ('wait', 'pace'):
-                        to_next = self.ratelimit_reset - time.time()
-                        if to_next > 0:
-                            # As a precaution, never sleep longer than 5 minutes
-                            to_next = min(to_next, 5 * 60)
-                            time.sleep(to_next)
-                            request_complete = False
-                            continue
+                    elif self.ratelimit_method == 'pace':
+                        if self.ratelimit_reset is None or self.ratelimit_reset <= time.time():
+                            raise MastodonRatelimitError(
+                                "Hit rate limit, but cannot pace requests because the server did not provide "
+                                "a usable rate limit reset time.")
+                    elif self.ratelimit_method == 'wait':
+                        if self.ratelimit_reset is None or self.ratelimit_reset <= time.time():
+                            self.ratelimit_reset = time.time() + self._ratelimit_backoff
+                            self._ratelimit_backoff = min(self._ratelimit_backoff * 2, 5 * 60)
+
+                    to_next = self.ratelimit_reset - time.time()
+                    if to_next > 0:
+                        # As a precaution, never sleep longer than 5 minutes
+                        to_next = min(to_next, 5 * 60)
+                        time.sleep(to_next)
+                        request_complete = False
+                        continue
 
                 if not skip_error_check:
                     if response_object.status_code == 404:
@@ -332,18 +370,28 @@ class Mastodon():
                     # within the new type system. This should be overall more robust.
                     response = response_object.json()
                 except Exception as e:
-                    raise MastodonAPIError(
-                        f"Could not parse response as JSON, response code was {response_object.status_code}, "
-                        f"bad json content was {response_object.content!r}.",
-                        f"Exception was: {e}"
-                    )
-                response, final_type = self.__try_cast_to_type(response, override_type = override_type)
+                    if response_object.content:
+                        raise MastodonAPIError(
+                            f"Could not parse response as JSON, response code was {response_object.status_code}, "
+                            f"bad json content was {response_object.content!r}.",
+                            f"Exception was: {e}"
+                        )
+                    response, final_type = self.__try_cast_to_type({}, override_type=override_type)
+                    if not isinstance(response, EmptyResponse):
+                        raise MastodonAPIError(
+                            f"Could not parse response as JSON, response code was {response_object.status_code}, "
+                            f"bad json content was {response_object.content!r}.",
+                            f"Exception was: {e}"
+                        )
+                else:
+                    response, final_type = self.__try_cast_to_type(response, override_type=override_type)
             else:
                 response = response_object.content
 
             # Parse link headers
-            if (isinstance(response, list) or force_pagination) and 'Link' in response_object.headers and response_object.headers['Link'] != "":
-                if not isinstance(response, PaginatableList) and not force_pagination:
+            if (isinstance(response, list) or force_pagination or offset_pagination) and \
+                'Link' in response_object.headers and response_object.headers['Link'] != "":
+                if isinstance(response, list) and not isinstance(response, PaginatableList) and not force_pagination:
                     response = PaginatableList(response)
                 if final_type is None:
                     final_type = str(type(response))
@@ -352,13 +400,32 @@ class Mastodon():
                     if 'rel' not in url:
                         continue
 
+                    if offset_pagination and url['rel'] in ('next', 'prev'):
+                        query = requests.utils.urlparse(url['url']).query
+                        link_params = parse_qs(query)
+                        if 'offset' in link_params:
+                            page_params = PaginationInfo(copy.deepcopy(params))
+                            page_params.update({
+                                '_pagination_method': method,
+                                '_pagination_endpoint': endpoint,
+                                '_mastopy_type': final_type,
+                                '_pagination_offset': offset_pagination,
+                                '_pagination_offset_field': offset_pagination_field,
+                                '_pagination_lang': lang_override,
+                                'offset': int(link_params['offset'][0]),
+                            })
+                            if 'limit' in link_params:
+                                page_params['limit'] = int(link_params['limit'][0])
+                            setattr(response, '_pagination_' + url['rel'], page_params)
+                            continue
+
                     if url['rel'] == 'next':
                         # Be paranoid and extract max_id specifically
                         next_url = url['url']
                         matchgroups = re.search(r"[?&]max_id=([^&]+)", next_url)
 
                         if matchgroups:
-                            next_params = copy.deepcopy(params)
+                            next_params = PaginationInfo(copy.deepcopy(params))
                             next_params['_pagination_method'] = method
                             next_params['_pagination_endpoint'] = endpoint
                             next_params['_mastopy_type'] = final_type
@@ -380,7 +447,7 @@ class Mastodon():
                         # Old and busted (pre-2.6.0): since_id pagination
                         matchgroups = re.search(r"[?&]since_id=([^&]+)", prev_url)
                         if matchgroups:
-                            prev_params = copy.deepcopy(params)
+                            prev_params = PaginationInfo(copy.deepcopy(params))
                             prev_params['_pagination_method'] = method
                             prev_params['_pagination_endpoint'] = endpoint
                             prev_params['_mastopy_type'] = final_type
@@ -396,7 +463,7 @@ class Mastodon():
                         # New and fantastico (post-2.6.0): min_id pagination
                         matchgroups = re.search(r"[?&]min_id=([^&]+)", prev_url)
                         if matchgroups:
-                            prev_params = copy.deepcopy(params)
+                            prev_params = PaginationInfo(copy.deepcopy(params))
                             prev_params['_pagination_method'] = method
                             prev_params['_pagination_endpoint'] = endpoint
                             prev_params['_mastopy_type'] = final_type
@@ -409,6 +476,30 @@ class Mastodon():
                                 del prev_params['max_id']
                             response._pagination_prev = prev_params
         
+            # Without Link headers, advance by the actual number of returned items.
+            if offset_pagination and not response_object.headers.get('Link'):
+                entries = getattr(response, offset_pagination_field) if offset_pagination_field is not None else response
+                offset = int(params.get('offset', 0))
+                page_params = PaginationInfo(copy.deepcopy(params))
+                page_params.update({
+                    '_pagination_method': method,
+                    '_pagination_endpoint': endpoint,
+                    '_mastopy_type': final_type,
+                    '_pagination_offset': offset_pagination,
+                    '_pagination_offset_field': offset_pagination_field,
+                    '_pagination_lang': lang_override,
+                })
+                if entries:
+                    response._pagination_next = PaginationInfo(
+                        page_params, offset=offset + len(entries), _pagination_offset_previous=offset)
+                if offset > 0:
+                    previous_offset = offset_pagination_previous
+                    if previous_offset is None and entries:
+                        previous_offset = max(0, offset - len(entries))
+                    if previous_offset is not None:
+                        response._pagination_prev = PaginationInfo(
+                            page_params, offset=previous_offset, limit=offset - previous_offset)
+
             # Parse Mastodon-Async-Refresh header
             if 'Mastodon-Async-Refresh' in response_object.headers:
                 async_refresh_header = response_object.headers['Mastodon-Async-Refresh']
@@ -472,14 +563,50 @@ class Mastodon():
             else:
                 if parse.scheme in ('http', 'https'):
                     url = parse.scheme + "://" + parse.netloc
-                raise MastodonAPIError(
-                    f"Could not parse streaming api location returned from server: {streaming_api_url}."
-                )
+                else:
+                    raise MastodonAPIError(
+                        f"Could not parse streaming api location returned from server: {streaming_api_url}."
+                    )
         else:
             url = self.api_base_url
         assert not url is None
         self.__streaming_base = url
         return url
+
+    def __get_streaming_websocket_url(self) -> str:
+        """Return the WebSocket endpoint for the instance streaming server."""
+        streaming_base = urlparse(self.__get_streaming_base())
+        if streaming_base.scheme == 'https':
+            scheme = 'wss'
+        elif streaming_base.scheme == 'http':
+            scheme = 'ws'
+        else:
+            raise MastodonAPIError(
+                f"Could not construct WebSocket streaming URL from: {self.__get_streaming_base()}."
+            )
+        path = streaming_base.path.rstrip('/')
+        return f"{scheme}://{streaming_base.netloc}{path}/api/v1/streaming"
+
+    def __open_websocket_stream(self, listener=None, timeout=_DEFAULT_STREAM_TIMEOUT, reconnect_async=False,
+                                reconnect_async_wait_sec=_DEFAULT_STREAM_RECONNECT_WAIT_SEC, start=True):
+        """
+        Internal streaming API helper.
+
+        Returns a handle to the open WebSocket connection that the user can close if they
+        wish to terminate it, and use it to subscribe/unsubscribe to various streams.
+        """
+        handle = WebSocketStreamHandle(
+            self.__get_streaming_websocket_url(),
+            self.access_token,
+            self.user_agent,
+            listener=listener,
+            timeout=timeout,
+            reconnect=reconnect_async,
+            reconnect_wait_sec=reconnect_async_wait_sec,
+        )
+        if start:
+            handle._start()
+        return handle
 
     def __stream(self, endpoint, listener, params={}, run_async=False, timeout=_DEFAULT_STREAM_TIMEOUT, reconnect_async=False, reconnect_async_wait_sec=_DEFAULT_STREAM_RECONNECT_WAIT_SEC):
         """
@@ -509,94 +636,10 @@ class Mastodon():
             return connection
         connection = None
 
-        # Async stream handler
-        class __stream_handle():
-            def __init__(self, connection, connect_func, reconnect_async, reconnect_async_wait_sec):
-                self.closed = False
-                self.running = True
-                self.connection = connection
-                self.connect_func = connect_func
-                self.reconnect_async = reconnect_async
-                self.reconnect_async_wait_sec = reconnect_async_wait_sec
-                self.reconnecting = False
-
-            def close(self):
-                self.closed = True
-                if self.connection is not None:
-                    self.connection.close()
-
-            def is_alive(self):
-                return self._thread.is_alive()
-
-            def is_receiving(self):
-                if self.closed or not self.running or self.reconnecting or not self.is_alive():
-                    return False
-                else:
-                    return True
-
-            def _sleep_attentive(self):
-                if self._thread != threading.current_thread():
-                    raise RuntimeError(
-                        "Illegal call from outside the stream_handle thread")
-                time_remaining = self.reconnect_async_wait_sec
-                while time_remaining > 0 and not self.closed:
-                    time.sleep(0.5)
-                    time_remaining -= 0.5
-
-            def _threadproc(self):
-                self._thread = threading.current_thread()
-
-                # Run until closed or until error if not autoreconnecting
-                while self.running:
-                    if self.connection is not None:
-                        with closing(self.connection) as r:
-                            try:
-                                listener.handle_stream(r)
-                            except (AttributeError, MastodonMalformedEventError, MastodonNetworkError) as e:
-                                if not (self.closed or self.reconnect_async):
-                                    raise e
-                                else:
-                                    if self.closed:
-                                        self.running = False
-
-                    # Reconnect loop. Try immediately once, then with delays on error.
-                    if (self.reconnect_async and not self.closed) or self.connection is None:
-                        self.reconnecting = True
-                        connect_success = False
-                        while not connect_success:
-                            if self.closed:
-                                # Someone from outside stopped the streaming
-                                self.running = False
-                                break
-                            try:
-                                the_connection = self.connect_func()
-                                if the_connection.status_code != 200:
-                                    exception = MastodonNetworkError(f"Could not connect to server. "
-                                                                        f"HTTP status: {the_connection.status_code}")
-                                    listener.on_abort(exception)
-                                    self._sleep_attentive()
-                                if self.closed:
-                                    # Here we have maybe a rare race condition. Exactly on connect, someone
-                                    # stopped the streaming before. We close the previous established connection:
-                                    the_connection.close()
-                                else:
-                                    self.connection = the_connection
-                                    connect_success = True
-                            except:
-                                self._sleep_attentive()
-                                connect_success = False
-                        self.reconnecting = False
-                    else:
-                        self.running = False
-                return 0
-
         if run_async:
-            handle = __stream_handle(
-                connection, connect_func, reconnect_async, reconnect_async_wait_sec)
-            t = threading.Thread(args=(), target=handle._threadproc)
-            t.daemon = True
-            t.start()
-            return handle
+            handle = SSEStreamHandle(
+                connection, connect_func, reconnect_async, reconnect_async_wait_sec, listener)
+            return handle._start()
         else:
             # Blocking, never returns (can only leave via exception)
             connection = connect_func()
@@ -641,7 +684,7 @@ class Mastodon():
 
         return params
 
-    def __unpack_id(self, id, dateconv = False, listify = False, field = "id"):
+    def __unpack_id(self, id, dateconv = False, listify = False, field = "id") -> Optional[Union[IdType, List[IdType]]]:
         """
         Internal object-to-id converter
 
@@ -710,9 +753,24 @@ class Mastodon():
                 media_file = str(Path(media_file).resolve())
             except:
                 pass
-        if isinstance(media_file, str) and os.path.isfile(media_file):
-            mime_type = self.__guess_type(media_file)
-            media_file = open(media_file, 'rb')
+        if isinstance(media_file, str):
+            path = media_file
+            opened_file = None
+            try:
+                opened_file = open(path, 'rb')
+                mime_type = self.__guess_type(path)
+            except OSError as error:
+                if opened_file is not None:
+                    opened_file.close()
+                error_type = MastodonFileNotFoundError if isinstance(error, FileNotFoundError) else MastodonIOError
+                raise error_type(f"Could not load media file {path!r}: {error}") from error
+            except Exception:
+                if opened_file is not None:
+                    opened_file.close()
+                raise
+            media_file = opened_file
+            if mime_type is None:
+                media_file.close()
         if mime_type is None:
             raise MastodonIllegalArgumentError('Could not determine mime type or data passed directly without mime type.')
         if file_name is None:

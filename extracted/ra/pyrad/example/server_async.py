@@ -12,7 +12,7 @@ from pyrad.server import RemoteHost
 try:
     import uvloop
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-except:
+except ModuleNotFoundError:
     pass
 
 logging.basicConfig(level="DEBUG",
@@ -56,7 +56,7 @@ class FakeServer(ServerAsync):
 
     def handle_coa_packet(self, protocol, pkt, addr):
 
-        print("Received an coa request")
+        print("Received a CoA request")
         print("Attributes: ")
         for attr in pkt.keys():
             print("%s: %s" % (attr, pkt[attr]))
@@ -66,7 +66,7 @@ class FakeServer(ServerAsync):
 
     def handle_disconnect_packet(self, protocol, pkt, addr):
 
-        print("Received an disconnect request")
+        print("Received a disconnect request")
         print("Attributes: ")
         for attr in pkt.keys():
             print("%s: %s" % (attr, pkt[attr]))
@@ -80,7 +80,10 @@ class FakeServer(ServerAsync):
 if __name__ == '__main__':
 
     # create server and read dictionary
-    loop = asyncio.get_event_loop()
+    # asyncio.get_event_loop() fails without a running loop since
+    # Python 3.14
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     server = FakeServer(loop=loop, dictionary=Dictionary('dictionary'))
 
     # add clients (address, secret, name)
@@ -100,7 +103,7 @@ if __name__ == '__main__':
         try:
             # start server
             loop.run_forever()
-        except KeyboardInterrupt as k:
+        except KeyboardInterrupt:
             pass
 
         # Close transports

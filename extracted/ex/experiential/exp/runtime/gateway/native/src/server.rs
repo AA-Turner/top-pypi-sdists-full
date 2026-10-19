@@ -39,6 +39,9 @@ use crate::route_images::images;
 use crate::route_messages::{messages, messages_count_tokens};
 use crate::route_responses::responses;
 use crate::route_responses_ws::responses_ws;
+use crate::route_videos::{
+    videos_body_limit, videos_content, videos_create, videos_delete, videos_list, videos_retrieve,
+};
 
 /// Serve-time configuration passed from `exp --engine rust`.
 #[derive(Debug, Clone, Deserialize)]
@@ -78,6 +81,9 @@ pub struct ServeConfig {
     pub pre_first_byte_budget_seconds: f64,
     #[serde(default = "default_callback_permits")]
     pub callback_permits: usize,
+    /// Worker-wide bound on provider output retained across streams.
+    #[serde(default = "default_maximum_retained_output_bytes")]
+    pub maximum_retained_output_bytes: usize,
     #[serde(default = "default_native_usage_enabled")]
     pub native_usage_enabled: bool,
     #[serde(default = "default_graceful_timeout_seconds")]
@@ -124,6 +130,16 @@ fn default_request_timeout_seconds() -> f64 {
 
 fn default_callback_permits() -> usize {
     4
+}
+
+fn default_maximum_retained_output_bytes() -> usize {
+    crate::retained::DEFAULT_WORKER_RETAINED_OUTPUT_BYTES
+}
+
+/// The serde default the server config uses, for the retained-output tests.
+#[cfg(test)]
+pub(crate) fn default_retained_for_tests() -> usize {
+    default_maximum_retained_output_bytes()
 }
 
 fn default_native_usage_enabled() -> bool {
@@ -233,6 +249,17 @@ pub async fn run(
         .route("/v1/files", post(files_create).layer(files_body_limit()))
         .route("/v1/files/{file_id}", get(files_retrieve))
         .route("/v1/files/{file_id}/content", get(files_content))
+        .route(
+            "/v1/videos",
+            post(videos_create)
+                .layer(videos_body_limit())
+                .get(videos_list),
+        )
+        .route(
+            "/v1/videos/{video_id}",
+            get(videos_retrieve).delete(videos_delete),
+        )
+        .route("/v1/videos/{video_id}/content", get(videos_content))
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/metrics.json", get(metrics_json))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 19.1.1
+Version: 20.0.0
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -13,27 +13,27 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pytest>=8.0.0
 Requires-Dist: empty-files>=0.0.3
-Requires-Dist: typing_extensions>=4.12.0
+Requires-Dist: typing_extensions>=4.16.0
 Requires-Dist: pyperclip>=1.5.29
 Requires-Dist: beautifulsoup4>=4.9.0
 Requires-Dist: allpairspy>=2.1.0
 Requires-Dist: testfixtures<12,>=7.1.0
 Requires-Dist: mock>=5.1.0
 Requires-Dist: psutil>=5.9.0
-Requires-Dist: approval_utilities==19.1.1
+Requires-Dist: approval_utilities==20.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -82,8 +82,8 @@ For more information see: [www.approvaltests.com](http://approvaltests.com/).
 [![PyPI version](https://img.shields.io/pypi/v/approvaltests.svg)](https://pypi.org/project/approvaltests)
 [![Python versions](https://img.shields.io/pypi/pyversions/approvaltests.svg)](https://pypi.org/project/approvaltests)
 [![Build Status](https://github.com/approvals/ApprovalTests.Python/workflows/Test/badge.svg?branch=master)](https://github.com/approvals/ApprovalTests.Python/actions)
-[![Build Status](https://github.com/approvals/ApprovalTests.Python/workflows/on-push-do-doco/badge.svg)](https://github.com/approvals/ApprovalTests.Python/actions?query=workflow%3Aon-push-do-doco)
-[![Build Status](https://github.com/approvals/ApprovalTests.Python/workflows/Upload%20Python%20Package/badge.svg)](https://github.com/approvals/ApprovalTests.Python/actions?query=workflow%3A%22Upload+Python+Package%22)
+[![Build Status](https://github.com/approvals/ApprovalTests.Python/workflows/Tidy%20Code%20and%20Update%20Markdown%20Snippets/badge.svg)](https://github.com/approvals/ApprovalTests.Python/actions?query=workflow%3A%22Tidy+Code+and+Update+Markdown+Snippets%22)
+[![Build Status](https://github.com/approvals/ApprovalTests.Python/workflows/Publish%20Python%20Package%20to%20PyPI/badge.svg)](https://github.com/approvals/ApprovalTests.Python/actions?query=workflow%3A%22Publish+Python+Package+to+PyPI%22)
 [![Discord](https://img.shields.io/discord/1349240939406819409?logo=discord)](https://discord.gg/XDrgy6x6Se)
 
 ## What can I use ApprovalTests for?
@@ -138,15 +138,6 @@ def test_simple() -> None:
 ```
 <sup><a href='/tests/examples/getting_started_with_pytest.py#L1-L6' title='Snippet source file'>snippet source</a> | <a href='#snippet-getting_started_with_pytest.py' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
-
-Install the plugin pytest-approvaltests and use it to select a reporter:
-
-    pip install pytest-approvaltests
-    pytest --approvaltests-use-reporter='PythonNative'
-
-The reporter is used both to alert you to changes in your test output, and to provide a tool to update the golden
-master. In this snippet, we chose the 'PythonNative' reporter when we ran the tests. For more information about selecting
-reporters see [the documentation](https://github.com/approvals/ApprovalTests.Python.PytestPlugin)
 
 ### Example using unittest
 
@@ -208,7 +199,7 @@ The default behavior is to open a diff tool showing what you received vs what wa
 You can use this diff tool to change the approved to make the test pass the next time you run it.
 Reporters also have more advanced usages.
 
-- [Intro to reporters](/docs/introduction_to_reporters.md)
+- [Intro to reporters](/docs/tutorial/intro-to-reporters.md)
 - [How to select a reporter](/docs/how_to/select_a_reporter.md)
 - [How to create a custom reporter](/docs/how_to/create_a_custom_reporter.md)
 
@@ -228,7 +219,7 @@ If there is documentation you wish existed, please add a `page request` to [this
 
 #### Python
 
-ApprovalTests is tested on the following Python versions: 3.10, 3.11, 3.12, 3.13, 3.14.<!-- singleLineInclude: tests/approved_files/test_workflow_matrix.test_tested_versions_message.approved.txt -->
+ApprovalTests is tested on the following Python versions: 3.11, 3.12, 3.13, 3.14, 3.15.<!-- singleLineInclude: tests/approved_files/test_workflow_matrix.test_tested_versions_message.approved.txt -->
 
 For older versions of Python, either:
 - use an older version of ApprovalTests, or
@@ -244,7 +235,7 @@ These dependencies are always required for approvaltests
 ```txt
 pytest>=8.0.0
 empty-files>=0.0.3
-typing_extensions>=4.12.0
+typing_extensions>=4.16.0
 ```
 <sup><a href='/requirements.prod.required.txt#L1-L3' title='Snippet source file'>snippet source</a> | <a href='#snippet-requirements.prod.required.txt' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->

@@ -79,6 +79,7 @@ def paths_for(
     *,
     root: str = NOTES_ROOT,
     draft: str | None = None,
+    ext: str = ".md",
 ) -> Paths:
     """Where one entity note's three files live.
 
@@ -96,11 +97,15 @@ def paths_for(
     draft PER SESSION (`<session id>.md`), because two sessions on one machine
     could both check out a clean shared file and overwrite each other before
     either pushes -- `claim` refuses only a dirty one.
+
+    `ext` is the document's extension (`.html` for a summary checked out as
+    a full page); the base, version and lock beside it are named by the stem
+    alone, so one stem holds one draft in one format at a time.
     """
     folder = state_dir() / root / kind / entity_id
     stem = sub_note_id or draft or "note"
     base_dir = folder if sub_note_id is None else folder / "sub"
-    document = base_dir / f"{stem}.md"
+    document = base_dir / f"{stem}{ext}"
     return Paths(
         document=document,
         base=base_dir / f"{stem}.base",

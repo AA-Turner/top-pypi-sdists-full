@@ -21,6 +21,7 @@ import pyvista as pv
 import ref_reader
 
 import pyvista_zstd as pz
+from pyvista_zstd.pyvista_zstd import FILE_VERSION_EXPLICIT_STRUCTURED_GRID
 
 STREAM = os.environ.get("PVZSTD_STREAM")
 
@@ -86,7 +87,7 @@ def _write_spec(tmp_path: Path, tag: str, arrays: dict[str, np.ndarray]) -> str:
             )
         )
     spec = tmp_path / f"{tag}.tsv"
-    spec.write_text("\n".join(lines) + "\n")
+    spec.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return str(spec)
 
 
@@ -148,6 +149,32 @@ def test_streamed_blocks_read_back_through_the_reference_reader(tmp_path) -> Non
             found = [k for k in back if k.endswith(suffix)]
             assert len(found) == 1, f"{suffix} matched {found}"
             assert np.array_equal(back[found[0]].ravel(), arr.ravel()), name
+
+
+def test_stream_into_a_version_3_file_with_non_ascii_names(tmp_path) -> None:
+    """Streaming into a non-ASCII-named ExplicitStructuredGrid file matches append and keeps version 3."""
+    grid = pv.ImageData(dimensions=(3, 3, 3)).cast_to_structured_grid().cast_to_explicit_structured_grid()
+    grid.point_data["témp"] = np.arange(grid.n_points, dtype=np.float64)
+    grid.field_data["born😀"] = np.array([1.5, 2.5])
+    seed = tmp_path / "seed.pv"
+    pz.write(grid, seed, progress_bar=False)
+    reference = tmp_path / "reference.pv"
+    cpp = tmp_path / "cpp.pv"
+    shutil.copyfile(seed, reference)
+    shutil.copyfile(seed, cpp)
+
+    commits = [{"étape_0": np.arange(5.0)}, {"étape_1😀": np.arange(3, dtype=np.int32)}]
+    for arrays in commits:
+        pz.append_arrays(reference, arrays, shuffle=True)
+    _run_stream(cpp, [_write_spec(tmp_path, f"u{i}", a) for i, a in enumerate(commits)], shuffle=True)
+
+    assert cpp.read_bytes() == reference.read_bytes()
+    assert pz.Reader(cpp)._metadata.file_version == FILE_VERSION_EXPLICIT_STRUCTURED_GRID  # noqa: SLF001
+    out = pz.read(cpp)
+    assert isinstance(out, pv.ExplicitStructuredGrid)
+    assert np.array_equal(out.field_data["étape_0"], np.arange(5.0))
+    assert np.array_equal(out.field_data["étape_1😀"], np.arange(3, dtype=np.int32))
+    assert np.array_equal(out.point_data["témp"], grid.point_data["témp"])
 
 
 def test_stream_cost_does_not_grow_with_what_is_already_committed(tmp_path) -> None:
@@ -309,3 +336,19 @@ def test_a_commit_that_failed_part_way_poisons_the_stream(tmp_path) -> None:
     )
     # Nothing was committed, so nothing may be counted.
     assert reported["commits"] == "0"
+
+
+def test_stream_keeps_thumbnail_and_marks_it_stale(tmp_path) -> None:
+    """A streamed commit leaves the thumbnail pair in place and flags it stale."""
+    container = tmp_path / "thumb.pv"
+    png = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\x0dIHDR" + bytes([0, 0, 0, 2, 0, 0, 0, 3]) + bytes(9)
+    pz.write(pv.Sphere(), container, thumbnail=png)
+    assert not pz.Reader(container).thumbnail_info.stale
+
+    _run_stream(container, [_write_spec(tmp_path, "c0", {"step_0_u": np.zeros((4, 3))})], shuffle=False)
+
+    reader = pz.Reader(container)
+    assert pz.read_thumbnail(container) == png
+    assert reader.thumbnail == png
+    assert reader.thumbnail_info == pz.ThumbnailInfo(width=2, height=3, stale=True)
+    assert np.array_equal(pz.read_array(container, "step_0_u"), np.zeros((4, 3)))

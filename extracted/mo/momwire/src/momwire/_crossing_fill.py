@@ -104,6 +104,7 @@ import scipy.sparse as _sp
 
 from . import _accel, _aca, _cancel, _ground_refl, _near_interface, _sommerfeld_below
 from ._quadrature import leggauss as _leggauss_shared
+from ._bspline_kernels import _upow
 from ._sommerfeld_transmitted import _c1_moment
 
 
@@ -954,9 +955,9 @@ def _basis_samples(supp_seg, polys, seg_runs, u_phys):
     fdv = np.zeros(row.size, dtype=float)
     for p in range(n_p):
         c = np.repeat(coef[:, p], cnt)
-        fv += c * u**p
+        fv += c * _upow(u, p)
         if p >= 1:
-            fdv += (p * c) * u ** (p - 1)
+            fdv += (p * c) * _upow(u, p - 1)
     shape = (n_basis, n_nodes)
     F = _sp.csr_array((fv, (row, node)), shape=shape)
     Fd = _sp.csr_array((fdv, (row, node)), shape=shape)
@@ -1020,7 +1021,7 @@ def _end_values(supp_seg, polys, live, gseg, u, d):
             continue
         acc = np.zeros(rows.size)
         for p in range(d + 1):
-            acc = acc + polys[rows, a_, p] * u**p
+            acc = acc + polys[rows, a_, p] * _upow(u, p)
         fv[rows] += acc
     return fv
 
@@ -5248,7 +5249,9 @@ def _corner_v(cache, eps_t, k_p, a_wire, rho):
     if v is None:
         r_eff = a_wire if key == 0.0 else float(np.hypot(rho, a_wire))
         v = complex(
-            _near_interface.six_point(eps_t, k_p, r_eff, 0.0, 0.0, rtol=_CORNER_RTOL)[1]
+            _near_interface.six_point_served(
+                eps_t, k_p, r_eff, 0.0, 0.0, rtol=_CORNER_RTOL
+            )[1]
         )
         cache[key] = v
     return v
@@ -5379,7 +5382,7 @@ def _ends_and_corner(
     """The by-parts end terms + the designed corner, on the DENSE axes —
     linear in axis size, so the admissibility split never touches them
     (and the corner must never see coarse axes or a low-rank pass; its
-    V(a) rides `six_point` at `_CORNER_RTOL`, outside any memo).
+    V(a) rides `six_point_served` at `_CORNER_RTOL`, outside any memo).
 
     `test_ends` / `source_ends` select the two end loops — the above axis's
     ends (BT, TW: point tests at the node) and the below axis's (SQ, SW: the

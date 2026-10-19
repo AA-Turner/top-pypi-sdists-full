@@ -109,6 +109,11 @@ class CatalogFake:
         self.files_page = FILES_PAGE
         self.sources: dict[str, dict] = {}
         self.uses: list[dict] = []
+        #: When set, `POST /v1/runs/{run}/uses` answers this status.
+        self.use_status: int | None = None
+        #: What the server pins for a checkpoint ref, as it holds the save NOW
+        #: (refs.py `_checkpoint_pin`); None answers with no `pinned`.
+        self.checkpoint_pins: dict[str, dict | None] = {}
         self.manifests: dict[str, dict] = {}
         self.manifest_puts: list[dict] = []
         self.registrations: list[dict] = []
@@ -267,6 +272,8 @@ class CatalogFake:
     def _use(self, run_id: str, body: dict) -> httpx.Response:
         if run_id not in self.base.runs:
             return _json(404, {"detail": "unknown run"})
+        if self.use_status is not None:
+            return _json(self.use_status, {"detail": "not now"})
         if "mixture" in body:
             parts = body.get("mixture") or []
             total = sum(float(p.get("share") or 0) for p in parts)
@@ -295,9 +302,18 @@ class CatalogFake:
         target = self._target(str(body.get("target") or ""))
         if target is None:
             return _json(404, {"detail": f"unknown ref {body.get('target')}"})
-        self.uses.append({"run_id": run_id, "target": target, "roles": roles, "share": body.get("share"),
-                          "provenance": body.get("provenance")})
-        return _json(200, {"edge_id": str(uuid.uuid4()), "target": target, "roles": roles, "created": True})
+        use = {"run_id": run_id, "target": target, "roles": roles, "share": body.get("share"),
+               "provenance": body.get("provenance")}
+        use.update({k: body[k] for k in ("reason", "evidence") if body.get(k) is not None})
+        self.uses.append(use)
+        answer = {"edge_id": str(uuid.uuid4()), "target": target, "roles": roles, "created": True}
+        if target["type"] == "artifact":
+            # `UseOut.pinned`: the save as the server holds it now, never the
+            # step the request named.
+            pinned = self.checkpoint_pins.get(str(body.get("target")), {"step": 1200, "uri": f"s3://ckpt/{target['id']}"})
+            if pinned is not None:
+                answer["pinned"] = pinned
+        return _json(200, answer)
 
     def _target(self, ref: str) -> dict | None:
         if ref.startswith("source:"):
@@ -307,7 +323,9 @@ class CatalogFake:
             _entry, version = self._resolve_dataset(ref)
             return {"type": "artifact_version", "id": version["id"], "ref": version["ref"]} if version else None
         if ref.startswith("checkpoint:"):
-            return {"type": "artifact", "id": str(uuid.uuid5(uuid.NAMESPACE_URL, ref)), "ref": ref}
+            # The server answers the row it resolved: `checkpoint:<uuid>`.
+            checkpoint_id = str(uuid.uuid5(uuid.NAMESPACE_URL, ref))
+            return {"type": "artifact", "id": checkpoint_id, "ref": f"checkpoint:{checkpoint_id}"}
         return None
 
     def _put_manifest(self, digest: str, request: httpx.Request) -> httpx.Response:

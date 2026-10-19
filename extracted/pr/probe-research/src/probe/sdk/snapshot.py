@@ -1646,6 +1646,48 @@ SKIP_SECRET_DIRS = frozenset({".secrets", "secrets", ".aws", ".gnupg", ".ssh", "
 #: Every directory a walk prunes (`inputs` and `outputs` read this union).
 SKIP_DIRS = SKIP_GENERATED_DIRS | SKIP_SECRET_DIRS
 
+#: The Cache Directory Tagging Specification (https://bford.info/cachedir/): a
+#: tool that writes a cache or build tree marks it with a `CACHEDIR.TAG` file
+#: whose first bytes are this signature. Cargo tags `target/`, Gradle its caches,
+#: pytest `.pytest_cache`. A name list cannot cover these (`target` is also an
+#: ordinary folder name); the folder's own declaration can. Live 2026-10-17: a
+#: non-git run swept 3,674 files of cargo's `target/` (575 MB) up as its code.
+CACHEDIR_TAG = "CACHEDIR.TAG"
+CACHEDIR_SIGNATURE = b"Signature: 8a477f597d28d172789f06886806bc55"
+
+
+def is_tagged_cache_dir(path: str) -> bool:
+    """Does the folder at ``path`` declare itself a cache (``CACHEDIR.TAG``)?
+
+    A tagged folder is rebuilt by the tool that tagged it, so it is never a
+    run's code or output, whatever it is named. Unreadable means no."""
+    try:
+        with open(os.path.join(path, CACHEDIR_TAG), "rb") as fh:
+            return fh.read(len(CACHEDIR_SIGNATURE)) == CACHEDIR_SIGNATURE
+    except OSError:
+        return False
+
+
+class TaggedCaches:
+    """The top-most tagged cache folder above a relative path, each folder
+    checked once. For listings that name files rather than walk folders (git's
+    untracked list), where the walk's prune-on-entry is not available."""
+
+    def __init__(self, root: str) -> None:
+        self._root = root
+        self._seen: dict[str, bool] = {}
+
+    def top(self, rel: str) -> str | None:
+        parts = rel.split("/")[:-1]
+        for i in range(1, len(parts) + 1):
+            folder = "/".join(parts[:i])
+            hit = self._seen.get(folder)
+            if hit is None:
+                hit = self._seen[folder] = is_tagged_cache_dir(os.path.join(self._root, folder))
+            if hit:
+                return folder
+        return None
+
 # Secret-shaped names. A directory walk with no `.gitignore` to honour would
 # otherwise ship credentials off the machine as a side effect of tracking an
 # experiment -- the exact hazard the git path avoids for free. Excluded by
@@ -1791,6 +1833,9 @@ def capture_directory_manifest(
             rel_dir = _posix(os.path.relpath(os.path.join(root, d), cwd))
             if own is not None and own.top(rel_dir) is not None:
                 skipped.append({"path": rel_dir, "reason": _owndirs.REASON})
+                continue
+            if is_tagged_cache_dir(os.path.join(root, d)):
+                skipped.append({"path": rel_dir, "reason": "generated"})
                 continue
             if not ignored.directory(rel_dir):
                 kept.append(d)
@@ -2017,6 +2062,13 @@ def capture_manifest(
     # it, a dotfiles repo at $HOME): one report per folder, never its files.
     own = _owndirs.current().within(os.path.realpath(cwd))
     own_tops: set[str] = set()
+    # A build folder `.gitignore` does not cover (a cargo `target/` under a repo
+    # with no `/target` line): one report per folder, never its files. Tracked
+    # or not -- the folder declares itself a cache, and the server's sweep of
+    # what older SDKs sent cannot tell tracked from untracked either. Only an
+    # explicit `include=` brings one in.
+    caches = TaggedCaches(cwd)
+    cache_tops: set[str] = set()
     for path in paths:
         if own is not None:
             top = own.top(path)
@@ -2026,6 +2078,10 @@ def capture_manifest(
         full = os.path.join(cwd, path)
         if ignored.config_excluded(path):
             continue  # a researcher's `.probe.config`: not even its name is recorded
+        cache_top = caches.top(path)
+        if cache_top is not None:
+            cache_tops.add(cache_top)
+            continue
         is_tracked = path in tracked
         base_name = os.path.basename(path)
         if _in_secret_dir(path):
@@ -2057,6 +2113,7 @@ def capture_manifest(
             gate.entry(full, path, reference_over_bytes=reference_over_bytes, tracked=is_tracked)
         )
     named.extend({"path": top, "reason": _owndirs.REASON} for top in sorted(own_tops))
+    named.extend({"path": top, "reason": "generated"} for top in sorted(cache_tops))
 
     if include:
         entries.extend(

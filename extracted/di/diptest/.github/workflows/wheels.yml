@@ -15,7 +15,7 @@ jobs:
     name: Build SDist
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: true
 
@@ -40,18 +40,18 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: true
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.11"
 
     - name: Cache OpenMP repo
       if: matrix.os == 'macos-latest'
       id: clone-openmp
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: llvm-project
         key: ${{ runner.os }}-openmp
@@ -80,7 +80,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="$HOME/.local/libomp"
         cmake --build openmp_build --target install --config Release
 
-    - uses: pypa/cibuildwheel@v3.4.1
+    - uses: pypa/cibuildwheel@v4.3.1
       env:
         CIBW_ENVIRONMENT: CMAKE_ARGS="-DDIPTEST_ENABLE_ARCH_FLAGS=OFF -DDIPTEST_ENABLE_OPENMP=ON"
         CIBW_TEST_COMMAND: pytest {project}/tests && python -c "from diptest import _has_openmp_support; assert _has_openmp_support"
@@ -105,13 +105,13 @@ jobs:
       fail-fast: false
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: true
 
     - name: Cache OpenMP repo
       id: clone-openmp
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: llvm-project
         key: ${{ runner.os }}-openmp
@@ -137,7 +137,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX="/usr/local"
         cmake --build openmp_build --target install --config Release
 
-    - uses: pypa/cibuildwheel@v3.4.1
+    - uses: pypa/cibuildwheel@v4.3.1
       env:
         # only build for x86_64, arm wheels are build seperately
         CIBW_ARCHS: "x86_64"
@@ -163,7 +163,7 @@ jobs:
       id-token: write  # IMPORTANT: mandatory for trusted publishing
 
     steps:
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.11"
     - uses: actions/download-artifact@v8
@@ -187,7 +187,7 @@ jobs:
       id-token: write
 
     steps:
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: "3.11"
 

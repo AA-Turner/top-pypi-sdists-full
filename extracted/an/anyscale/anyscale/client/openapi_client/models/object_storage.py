@@ -35,16 +35,18 @@ class ObjectStorage(object):
     openapi_types = {
         'bucket_name': 'str',
         'region': 'str',
-        'endpoint': 'str'
+        'endpoint': 'str',
+        's3_addressing_style': 'S3AddressingStyle'
     }
 
     attribute_map = {
         'bucket_name': 'bucket_name',
         'region': 'region',
-        'endpoint': 'endpoint'
+        'endpoint': 'endpoint',
+        's3_addressing_style': 's3_addressing_style'
     }
 
-    def __init__(self, bucket_name=None, region=None, endpoint=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, bucket_name=None, region=None, endpoint=None, s3_addressing_style=None, local_vars_configuration=None):  # noqa: E501
         """ObjectStorage - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -53,6 +55,7 @@ class ObjectStorage(object):
         self._bucket_name = None
         self._region = None
         self._endpoint = None
+        self._s3_addressing_style = None
         self.discriminator = None
 
         if bucket_name is not None:
@@ -61,6 +64,8 @@ class ObjectStorage(object):
             self.region = region
         if endpoint is not None:
             self.endpoint = endpoint
+        if s3_addressing_style is not None:
+            self.s3_addressing_style = s3_addressing_style
 
     @property
     def bucket_name(self):
@@ -130,6 +135,29 @@ class ObjectStorage(object):
         """
 
         self._endpoint = endpoint
+
+    @property
+    def s3_addressing_style(self):
+        """Gets the s3_addressing_style of this ObjectStorage.  # noqa: E501
+
+        The addressing style Vector's S3 log sinks use for this cloud resource. PATH_STYLE sends log uploads to endpoint/bucket/key; VIRTUAL_HOSTED_STYLE sends them to bucket.endpoint/key. This does not configure other S3 clients. Unset preserves the platform default.  # noqa: E501
+
+        :return: The s3_addressing_style of this ObjectStorage.  # noqa: E501
+        :rtype: S3AddressingStyle
+        """
+        return self._s3_addressing_style
+
+    @s3_addressing_style.setter
+    def s3_addressing_style(self, s3_addressing_style):
+        """Sets the s3_addressing_style of this ObjectStorage.
+
+        The addressing style Vector's S3 log sinks use for this cloud resource. PATH_STYLE sends log uploads to endpoint/bucket/key; VIRTUAL_HOSTED_STYLE sends them to bucket.endpoint/key. This does not configure other S3 clients. Unset preserves the platform default.  # noqa: E501
+
+        :param s3_addressing_style: The s3_addressing_style of this ObjectStorage.  # noqa: E501
+        :type: S3AddressingStyle
+        """
+
+        self._s3_addressing_style = s3_addressing_style
 
     def to_dict(self):
         """Returns the model properties as a dict"""

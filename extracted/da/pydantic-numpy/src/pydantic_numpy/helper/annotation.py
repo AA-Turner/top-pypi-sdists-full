@@ -11,6 +11,7 @@ from typing_extensions import Annotated, Final
 
 from pydantic_numpy.helper.typing import NumpyArrayTypeData, SupportedDTypes
 from pydantic_numpy.helper.validation import (
+    array_from_data_dict,
     create_array_validator,
     validate_multi_array_numpy_file,
     validate_numpy_array_file,
@@ -52,8 +53,8 @@ def pd_np_native_numpy_array_to_data_dict_serializer(
     Example
     -------
     >>> my_array = np.array([1, 2, 3])
-    >>> pd_np_native_numpy_array_to_data_dict_serializer(my_array)
-    {'data_type': 'int64', 'data': [1.0, 2.0, 3.0]}
+     >>> pd_np_native_numpy_array_to_data_dict_serializer(my_array)
+    {'data_type': 'int64', 'data': [1.0, 2.0, 3.0], 'shape': [3]}
     """
     array = np.array(array_like)
 
@@ -65,7 +66,9 @@ def pd_np_native_numpy_array_to_data_dict_serializer(
     ).tolist()
     cast_data = cast(list, data)
 
-    return NumpyArrayTypeData(data_type=str(array.dtype), data=cast_data)
+    return NumpyArrayTypeData(
+        data_type=str(array.dtype), data=cast_data, shape=list(array.shape)
+    )
 
 
 def _numpy_dtype_to_json_schema_type(
@@ -192,6 +195,11 @@ def pd_np_native_numpy_array_json_schema_from_type_data(
                 "default": array_data_type,
             },
             "data": data_schema,
+            "shape": {
+                "title": "shape",
+                "type": "array",
+                "items": {"type": "integer"},
+            },
         },
     }
 
@@ -369,13 +377,7 @@ def _data_type_resolver(data_type: Optional[SupportedDTypes]) -> bool:
 def _deserialize_numpy_array_from_data_dict(
     data_dict: NumpyArrayTypeData,
 ) -> np.ndarray:
-    return np.array(data_dict["data"]).astype(data_dict["data_type"])
-
-
-# IN_THE_FUTURE: Only works with 3.11 and above
-# @validate_call
-# def _dimension_type_from_depth(depth: PositiveInt) -> type[tuple[int, ...]]:
-#     return tuple[*[int] * depth]  # type: ignore
+    return array_from_data_dict(data_dict)
 
 
 _dimensions_to_shape_type: Final[dict[PositiveInt, type[tuple[int, ...]]]] = {
@@ -409,7 +411,7 @@ _common_numpy_array_validator = core_schema.union_schema(
         core_schema.chain_schema(
             [
                 core_schema.is_instance_schema(Sequence),
-                core_schema.no_info_plain_validator_function(lambda v: np.asarray(v)),
+                core_schema.no_info_plain_validator_function(np.asarray),
             ]
         ),
         core_schema.chain_schema(

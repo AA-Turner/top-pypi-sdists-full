@@ -45,8 +45,8 @@ struct CoreSix {
         const cd g_p = gamma_cut(lam, k_p);
         const cd g_m = gamma_cut(lam, k_m);
         const cd e = 2.0 * std::exp(g_m * zp - g_p * z) * lam;
-        const cd u = e / (g_p + g_m);
-        const cd v = e / (km2 * g_p + kp2 * g_m);
+        const cd u = mw_cdiv::div(e, g_p + g_m);
+        const cd v = mw_cdiv::div(e, km2 * g_p + kp2 * g_m);
         const cd w = (g_p - g_m) * v;
         out[0] = u;
         out[1] = v;
@@ -300,16 +300,21 @@ struct Scratch {
     // real-arithmetic reduction, and interleaved std::complex<double> would
     // hand the vectorizer a stride-2 gather on every operand.
     std::vector<double> gpr, gpi, gmr, gmi, fr, fi;
+    // momwire#1441 step 3: the rule's Bessel pairs and factors four nodes at
+    // a time (`lanes=False` is the scalar walk, gated bit for bit), and the
+    // per-node staging those batches read.
+    bool lanes = mw_sl::kActive;
+    std::vector<cd> xs, b0s, dls;
 };
 
 // The column's smallest s = z - z', which is the one thing the rule needs
 // from its members: the slowest-decaying member, and so the one the extents
 // must be converged for.
 template <class ZB, class PB>
-static double s_min_of(const ZB &zb, const PB &pb, py::ssize_t lo,
-                       py::ssize_t hi) {
+static double s_min_of(const ZB &zb, const PB &pb, std::ptrdiff_t lo,
+                       std::ptrdiff_t hi) {
     double s_min = zb(lo) - pb(lo);
-    for (py::ssize_t i = lo + 1; i < hi; ++i)
+    for (std::ptrdiff_t i = lo + 1; i < hi; ++i)
         s_min = std::min(s_min, zb(i) - pb(i));
     return s_min;
 }
@@ -337,6 +342,21 @@ static void column_extents(double k_p, const cd &k_m, double s_min,
     }
     a_head_out = a_head;
     lam_top_out = lam_top;
+}
+
+// J0 of every s.xs into s.b0s, mw_contour::bessel_j0_j1x's value bit for
+// bit: W arguments at a time (_contour_lanes_inline.h), the last few alone.
+static void bessel_j0_many(Scratch &s) {
+    const size_t n = s.xs.size();
+    s.b0s.resize(n);
+    const size_t W = static_cast<size_t>(mw_sl::W);
+    size_t i = 0;
+    // J0 alone (the column never reads J1/x): `bessel_j0_any`.
+    for (; i + W <= n; i += W) mw_contour_lanes::bessel_j0_any(&s.xs[i], &s.b0s[i]);
+    for (; i < n; ++i) {
+        cd b1x;
+        mw_contour::bessel_j0_j1x(s.xs[i], s.b0s[i], b1x);
+    }
 }
 
 // The head and mid nodes, appended to s.lam / s.w. They depend on the column
@@ -370,14 +390,29 @@ static void column_head_mid(double rho, double k_p, const cd &k_m,
     s.edges.erase(std::unique(s.edges.begin(), s.edges.end()), s.edges.end());
     sub_seed(s.edges, rho, s.seeded);
     fixed_gauss(s.seeded, p, gx, gw, ng, s.t, s.wt);
-    for (size_t i = 0; i < s.t.size(); ++i) {
-        const double t = s.t[i];
-        const cd l(t, H * std::sin(MW_PI * t / a_head));
-        const cd dl(1.0, H * (MW_PI / a_head) * std::cos(MW_PI * t / a_head));
-        cd b0, b1x;
-        mw_contour::bessel_j0_j1x(l * rho, b0, b1x);
-        s.lam.push_back(l);
-        s.w.push_back(s.wt[i] * dl * b0);
+    if (s.lanes) {
+        const size_t n = s.t.size();
+        s.xs.resize(n);
+        s.dls.resize(n);
+        for (size_t i = 0; i < n; ++i) {
+            const double t = s.t[i];
+            const cd l(t, H * std::sin(MW_PI * t / a_head));
+            s.dls[i] = cd(1.0, H * (MW_PI / a_head) * std::cos(MW_PI * t / a_head));
+            s.lam.push_back(l);
+            s.xs[i] = l * rho;
+        }
+        bessel_j0_many(s);
+        for (size_t i = 0; i < n; ++i) s.w.push_back(s.wt[i] * s.dls[i] * s.b0s[i]);
+    } else {
+        for (size_t i = 0; i < s.t.size(); ++i) {
+            const double t = s.t[i];
+            const cd l(t, H * std::sin(MW_PI * t / a_head));
+            const cd dl(1.0, H * (MW_PI / a_head) * std::cos(MW_PI * t / a_head));
+            cd b0, b1x;
+            mw_contour::bessel_j0_j1x(l * rho, b0, b1x);
+            s.lam.push_back(l);
+            s.w.push_back(s.wt[i] * dl * b0);
+        }
     }
 
     // --- mid: the real axis [a_head, lam_top], same J0 factor. `six_point`
@@ -388,12 +423,24 @@ static void column_head_mid(double rho, double k_p, const cd &k_m,
     s.edges.push_back(lam_top);
     sub_seed(s.edges, rho, s.seeded);
     fixed_gauss(s.seeded, p, gx, gw, ng, s.t, s.wt);
-    for (size_t i = 0; i < s.t.size(); ++i) {
-        const cd l(s.t[i], 0.0);
-        cd b0, b1x;
-        mw_contour::bessel_j0_j1x(l * rho, b0, b1x);
-        s.lam.push_back(l);
-        s.w.push_back(s.wt[i] * b0);
+    if (s.lanes) {
+        const size_t n = s.t.size();
+        s.xs.resize(n);
+        for (size_t i = 0; i < n; ++i) {
+            const cd l(s.t[i], 0.0);
+            s.lam.push_back(l);
+            s.xs[i] = l * rho;
+        }
+        bessel_j0_many(s);
+        for (size_t i = 0; i < n; ++i) s.w.push_back(s.wt[i] * s.b0s[i]);
+    } else {
+        for (size_t i = 0; i < s.t.size(); ++i) {
+            const cd l(s.t[i], 0.0);
+            cd b0, b1x;
+            mw_contour::bessel_j0_j1x(l * rho, b0, b1x);
+            s.lam.push_back(l);
+            s.w.push_back(s.wt[i] * b0);
+        }
     }
 
 }
@@ -487,11 +534,11 @@ static inline void factor_node(const cd &k_p, const cd &k_m, const cd &kp2,
         // Fused complex products (momwire#1214, _fma_inline.h): the rule
         // build is most of this kernel's time (a column's members share it),
         // and GCC contracted every one of these products before #1194. Each
-        // `mul` keeps the operands in the order written; the divisions stay
-        // library calls, as they always were.
+        // `mul` keeps the operands in the order written. The divisions are
+        // mw_cdiv::div, libgcc's rounding without the call (momwire#1441).
         using mw_fma::mul;
-        const cd u = 2.0 * l / (g_p + g_m);
-        const cd v = 2.0 * l / (mul(km2, g_p) + mul(kp2, g_m));
+        const cd u = mw_cdiv::div(2.0 * l, g_p + g_m);
+        const cd v = mw_cdiv::div(2.0 * l, mul(km2, g_p) + mul(kp2, g_m));
         const cd wv = mul(g_p - g_m, v);
         const cd f[6] = {mul(u, wk),
                          mul(v, wk),
@@ -510,6 +557,56 @@ static inline void factor_node(const cd &k_p, const cd &k_m, const cd &kp2,
     }
 }
 
+// `factor_node` at W consecutive nodes l[0..W), w[0..W): the same products
+// in the same order per lane (_somm_lanes_inline.h), written to the same
+// slots (node j's at offset j of each plane).
+static inline void factor_nodes_lanes(const cd &k_p, const cd &k_m, const cd &kp2,
+                                      const cd &km2, const cd *l, const cd *wk,
+                                      double *fr, double *fi, size_t stride,
+                                      double *gpr, double *gpi, double *gmr,
+                                      double *gmi) {
+    using namespace mw_sl;
+    const C L = cload(l), WK = cload(wk);
+    const C g_p = mw_sl::gamma_cut(L, k_p);
+    const C g_m = mw_sl::gamma_cut(L, k_m);
+    const C u = cdiv(cscale(2.0, L), cadd(g_p, g_m));
+    const C v = cdiv(cscale(2.0, L), cadd(cmul(cset1(km2), g_p), cmul(cset1(kp2), g_m)));
+    const C wv = cmul(csub(g_p, g_m), v);
+    const C f[6] = {cmul(u, WK),
+                    cmul(v, WK),
+                    cmul(wv, WK),
+                    cmul(cmul(cneg(g_p), wv), WK),
+                    cmul(cmul(cneg(cmul(g_p, g_m)), v), WK),
+                    cmul(cmul(g_m, wv), WK)};
+    for (int c = 0; c < 6; ++c) {
+        storeu(fr + c * stride, f[c].re);
+        storeu(fi + c * stride, f[c].im);
+    }
+    storeu(gpr, g_p.re);
+    storeu(gpi, g_p.im);
+    storeu(gmr, g_m.re);
+    storeu(gmi, g_m.im);
+}
+
+// `factor_node` over nodes [k0, k1) of lam / w into the planes at fr / fi
+// (offset `off` + k, plane stride `stride`) and the gamma arrays.
+static inline void factor_range(bool lanes, const cd &k_p, const cd &k_m,
+                                const cd &kp2, const cd &km2, const cd *lam,
+                                const cd *w, size_t n, double *fr, double *fi,
+                                size_t stride, double *gpr, double *gpi,
+                                double *gmr, double *gmi) {
+    size_t k = 0;
+    if (lanes) {
+        const size_t W = static_cast<size_t>(mw_sl::W);
+        for (; k + W <= n; k += W)
+            factor_nodes_lanes(k_p, k_m, kp2, km2, lam + k, w + k, fr + k, fi + k,
+                               stride, gpr + k, gpi + k, gmr + k, gmi + k);
+    }
+    for (; k < n; ++k)
+        factor_node(k_p, k_m, kp2, km2, lam[k], w[k], fr + k, fi + k, stride,
+                    gpr[k], gpi[k], gmr[k], gmi[k]);
+}
+
 static void column_factors(const cd &k_p, const cd &k_m, Scratch &s) {
     const size_t K = s.lam.size();
     const cd kp2 = k_p * k_p, km2 = k_m * k_m;
@@ -519,17 +616,40 @@ static void column_factors(const cd &k_p, const cd &k_m, Scratch &s) {
     s.gmi.resize(K);
     s.fr.resize(6 * K);
     s.fi.resize(6 * K);
-    for (size_t k = 0; k < K; ++k)
-        factor_node(k_p, k_m, kp2, km2, s.lam[k], s.w[k], &s.fr[k], &s.fi[k],
-                    K, s.gpr[k], s.gpi[k], s.gmr[k], s.gmi[k]);
+    factor_range(s.lanes, k_p, k_m, kp2, km2, s.lam.data(), s.w.data(), K,
+                 s.fr.data(), s.fi.data(), K, s.gpr.data(), s.gpi.data(),
+                 s.gmr.data(), s.gmi.data());
 }
 
 // A column's head + mid factors, held for reuse (`ColumnCache`): the arrays
 // `column_factors` writes, for those nodes only, in its layout (plane c of
 // fr / fi at c * K).
+//
+// Its arrays are written in full by `head_mid_factors` before anything reads
+// them, so they are allocated WITHOUT the zero fill a std::vector<double>
+// resize does (momwire#1512): a miss built that fill, then overwrote it.
+template <class T>
+struct NoFillAlloc : std::allocator<T> {
+    template <class U>
+    struct rebind {
+        using other = NoFillAlloc<U>;
+    };
+    NoFillAlloc() = default;
+    template <class U>
+    NoFillAlloc(const NoFillAlloc<U> &) noexcept {}
+    template <class U>
+    void construct(U *p) noexcept {
+        ::new (static_cast<void *>(p)) U;  // default-init: no value written
+    }
+    template <class U, class... A>
+    void construct(U *p, A &&...a) {
+        ::new (static_cast<void *>(p)) U(std::forward<A>(a)...);
+    }
+};
+
 struct HeadMid {
     size_t K = 0;
-    std::vector<double> gpr, gpi, gmr, gmi, fr, fi;
+    std::vector<double, NoFillAlloc<double>> gpr, gpi, gmr, gmi, fr, fi;
     size_t bytes() const { return (4 + 12) * K * sizeof(double); }
 };
 
@@ -544,9 +664,9 @@ static void head_mid_factors(const cd &k_p, const cd &k_m, const Scratch &s,
     h.gmi.resize(K);
     h.fr.resize(6 * K);
     h.fi.resize(6 * K);
-    for (size_t k = 0; k < K; ++k)
-        factor_node(k_p, k_m, kp2, km2, s.lam[k], s.w[k], &h.fr[k], &h.fi[k],
-                    K, h.gpr[k], h.gpi[k], h.gmr[k], h.gmi[k]);
+    factor_range(s.lanes, k_p, k_m, kp2, km2, s.lam.data(), s.w.data(), K,
+                 h.fr.data(), h.fi.data(), K, h.gpr.data(), h.gpi.data(),
+                 h.gmr.data(), h.gmi.data());
 }
 
 // `column_factors` over head + mid from `h` and the tail nodes in s.lam /
@@ -572,10 +692,9 @@ static size_t column_factors_joined(const cd &k_p, const cd &k_m,
         std::copy(h.fi.begin() + c * Kh, h.fi.begin() + (c + 1) * Kh,
                   s.fi.begin() + c * K);
     }
-    for (size_t k = 0; k < Kt; ++k)
-        factor_node(k_p, k_m, kp2, km2, s.lam[k], s.w[k], &s.fr[Kh + k],
-                    &s.fi[Kh + k], K, s.gpr[Kh + k], s.gpi[Kh + k],
-                    s.gmr[Kh + k], s.gmi[Kh + k]);
+    factor_range(s.lanes, k_p, k_m, kp2, km2, s.lam.data(), s.w.data(), Kt,
+                 s.fr.data() + Kh, s.fi.data() + Kh, K, s.gpr.data() + Kh,
+                 s.gpi.data() + Kh, s.gmr.data() + Kh, s.gmi.data() + Kh);
     return K;
 }
 
@@ -598,17 +717,23 @@ static void column_member(const Scratch &s, size_t K, double z, double zp,
     for (size_t k0 = 0; k0 < K; k0 += MW_BLOCK) {
         const int nb =
             static_cast<int>(std::min<size_t>(MW_BLOCK, K - k0));
-        double amax = -std::numeric_limits<double>::infinity();
         // Explicit fused multiply-adds (momwire#1214, _fma_inline.h), here and
         // in the six sums below: the sites GCC contracted before
         // -ffp-contract=off (#1194), in the split it chose (the first product
         // fused, the second rounded). The lane sums themselves stay adds, in
         // the order the lanes fix.
+        //
+        // The block is dead when its largest exponent is under MW_EXP_ZERO,
+        // NaN ignored (std::max(amax, NaN) keeps amax) -- i.e. when no node's
+        // exponent is >= MW_EXP_ZERO, NaN failing the test. Spelled as that
+        // OR rather than as the running max, whose serial vmaxsd chain was the
+        // loop's whole cost (momwire#1512): the same decision, vectorized.
+        int live = 0;
         for (int j = 0; j < nb; ++j) {
             ar[j] = mw_fma::fma(gmr[k0 + j], zp, -(gpr[k0 + j] * z));
-            amax = std::max(amax, ar[j]);
+            live |= ar[j] >= MW_EXP_ZERO;
         }
-        if (amax < MW_EXP_ZERO) continue;  // exactly zero, see MW_EXP_ZERO
+        if (!live) continue;  // exactly zero, see MW_EXP_ZERO
         MW_NI_SIMD()
         for (int j = 0; j < nb; ++j) {
             ai[j] = mw_fma::fma(gmi[k0 + j], zp, -(gpi[k0 + j] * z));
@@ -632,43 +757,69 @@ static void column_member(const Scratch &s, size_t K, double z, double zp,
         // hub16 x16 fill (Haswell); the lanes cost nothing measurable
         // (see mw_lanes for why they are a vector type).
         static_assert(MW_LANES == 4, "the lane combine is written for four");
-        for (int c = 0; c < 6; ++c) {
-            const double *fr = s.fr.data() + c * K + k0;
-            const double *fi = s.fi.data() + c * K + k0;
-            mw_lanes sr = {0.0, 0.0, 0.0, 0.0}, si = {0.0, 0.0, 0.0, 0.0};
+        //
+        // The six columns are walked TOGETHER, three at a time, each with its
+        // own lane accumulators (momwire#1512): column c's lane l still takes
+        // nodes l, l + 4, ... in order and then the leftovers, so every sum
+        // is the one the column-at-a-time loop formed, bit for bit. One
+        // column alone was a single 4-cycle add chain per four nodes; three
+        // give the core independent chains to overlap, and er / ei are read
+        // once per three columns rather than once per column.
+        for (int c0 = 0; c0 < 6; c0 += 3) {
+            const double *fr[3], *fi[3];
+            for (int u = 0; u < 3; ++u) {
+                fr[u] = s.fr.data() + (c0 + u) * K + k0;
+                fi[u] = s.fi.data() + (c0 + u) * K + k0;
+            }
+            mw_lanes sr[3], si[3];
+            for (int u = 0; u < 3; ++u) {
+#if defined(__GNUC__)
+                sr[u] = mw_lanes{0.0, 0.0, 0.0, 0.0};
+                si[u] = mw_lanes{0.0, 0.0, 0.0, 0.0};
+#else
+                // MSVC's lanes are an array, which is not assignable.
+                for (int l = 0; l < MW_LANES; ++l) sr[u][l] = si[u][l] = 0.0;
+#endif
+            }
             int j = 0;
             for (; j + MW_LANES <= nb; j += MW_LANES) {
 #if defined(__GNUC__)
-                mw_lanes a, b, x, y;  // memcpy: unaligned loads, no aliasing
+                mw_lanes a, b;  // memcpy: unaligned loads, no aliasing
                 std::memcpy(&a, er + j, sizeof a);
                 std::memcpy(&b, ei + j, sizeof b);
-                std::memcpy(&x, fr + j, sizeof x);
-                std::memcpy(&y, fi + j, sizeof y);
-                // Lane by lane through the scalar mw_fma::fma, which GCC
-                // packs back into one vfmadd per sum under -mfma.
-                const mw_lanes by = b * y, bx = b * x;
-                mw_lanes p, q;
-                for (int l = 0; l < MW_LANES; ++l) {
-                    p[l] = mw_fma::fma(a[l], x[l], -by[l]);
-                    q[l] = mw_fma::fma(a[l], y[l], bx[l]);
+                for (int u = 0; u < 3; ++u) {
+                    mw_lanes x, y;
+                    std::memcpy(&x, fr[u] + j, sizeof x);
+                    std::memcpy(&y, fi[u] + j, sizeof y);
+                    // Lane by lane through the scalar mw_fma::fma, which GCC
+                    // packs back into one vfmadd per sum under -mfma.
+                    const mw_lanes by = b * y, bx = b * x;
+                    mw_lanes p, q;
+                    for (int l = 0; l < MW_LANES; ++l) {
+                        p[l] = mw_fma::fma(a[l], x[l], -by[l]);
+                        q[l] = mw_fma::fma(a[l], y[l], bx[l]);
+                    }
+                    sr[u] += p;
+                    si[u] += q;
                 }
-                sr += p;
-                si += q;
 #else
-                for (int l = 0; l < MW_LANES; ++l) {
-                    sr[l] += mw_fma::fma(er[j + l], fr[j + l],
-                                         -(ei[j + l] * fi[j + l]));
-                    si[l] += mw_fma::fma(er[j + l], fi[j + l],
-                                         ei[j + l] * fr[j + l]);
-                }
+                for (int u = 0; u < 3; ++u)
+                    for (int l = 0; l < MW_LANES; ++l) {
+                        sr[u][l] += mw_fma::fma(er[j + l], fr[u][j + l],
+                                                -(ei[j + l] * fi[u][j + l]));
+                        si[u][l] += mw_fma::fma(er[j + l], fi[u][j + l],
+                                                ei[j + l] * fr[u][j + l]);
+                    }
 #endif
             }
-            for (int l = 0; j < nb; ++j, ++l) {
-                sr[l] += mw_fma::fma(er[j], fr[j], -(ei[j] * fi[j]));
-                si[l] += mw_fma::fma(er[j], fi[j], ei[j] * fr[j]);
+            for (int u = 0; u < 3; ++u) {
+                for (int jj = j, l = 0; jj < nb; ++jj, ++l) {
+                    sr[u][l] += mw_fma::fma(er[jj], fr[u][jj], -(ei[jj] * fi[u][jj]));
+                    si[u][l] += mw_fma::fma(er[jj], fi[u][jj], ei[jj] * fr[u][jj]);
+                }
+                accr[c0 + u] += (sr[u][0] + sr[u][1]) + (sr[u][2] + sr[u][3]);
+                acci[c0 + u] += (si[u][0] + si[u][1]) + (si[u][2] + si[u][3]);
             }
-            accr[c] += (sr[0] + sr[1]) + (sr[2] + sr[3]);
-            acci[c] += (si[0] + si[1]) + (si[2] + si[3]);
         }
     }
     for (int c = 0; c < 6; ++c) out[c] = cd(accr[c], acci[c]);

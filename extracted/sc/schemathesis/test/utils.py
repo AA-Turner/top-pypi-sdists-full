@@ -3,16 +3,17 @@ from __future__ import annotations
 import json
 import os
 import struct
-from collections.abc import Callable
-from functools import lru_cache, wraps
+from collections.abc import Callable, Sequence
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, TypeVar
 
+import hypothesis
 import pytest
 import requests
 import urllib3
 import yaml
-from syrupy import SnapshotAssertion
+from hypothesis import HealthCheck, given, settings
 
 import schemathesis
 from schemathesis import Case
@@ -33,6 +34,52 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # assert the header is *present* fail loudly on a future rename, which is what keeps the tests asserting
 # its absence from silently passing against a string Hypothesis no longer emits.
 HYPOTHESIS_FAILURE_HEADERS = ("Failing test case", "Falsifying example")
+
+
+def profile_max_examples() -> int | None:
+    # `max_examples` set via `--hypothesis-profile`, or None under the default profile.
+    value = settings().max_examples
+    return None if value == 100 else value
+
+
+def run_given(
+    *args: Any,
+    max_examples: int,
+    derandomize: bool = False,
+    phases: Sequence[hypothesis.Phase] | None = None,
+    seed: int | None = None,
+    **kwargs: Any,
+) -> Callable[[Callable], None]:
+    """Run the decorated function as a Hypothesis test right away; `--hypothesis-profile` overrides `max_examples`."""
+    options: dict[str, Any] = {"derandomize": True} if derandomize else {}
+    if phases is not None:
+        options["phases"] = phases
+
+    def run(test: Callable) -> None:
+        wrapped = given(*args, **kwargs)(
+            settings(
+                max_examples=profile_max_examples() or max_examples,
+                deadline=None,
+                database=None,
+                suppress_health_check=list(HealthCheck),
+                **options,
+            )(test)
+        )
+        if seed is not None:
+            wrapped = hypothesis.seed(seed)(wrapped)
+        wrapped()
+
+    return run
+
+
+def objects_at(value: Any, path: Sequence[str]) -> list[Any]:
+    """Values at `path` in `value`, where `*` stands for every array item."""
+    if not path:
+        return [value]
+    head, *rest = path
+    if head == "*":
+        return [found for item in value for found in objects_at(item, rest)] if isinstance(value, list) else []
+    return objects_at(value[head], rest) if isinstance(value, dict) and head in value else []
 
 
 def has_hypothesis_failure_header(text: str, test_name: str = "") -> bool:
@@ -162,37 +209,6 @@ def load_json_or_fail(path: str | os.PathLike, *, context: str = "") -> Any:
 
 def _format_context(context: str) -> str:
     return f"\n--- context ---\n{context}\n--- end context ---" if context else ""
-
-
-def flaky(*, max_runs: int, min_passes: int):
-    """A decorator to mark a test as flaky."""
-
-    def decorate(test):
-        @wraps(test)
-        def inner(*args, **kwargs):
-            snapshot_fixture_name = None
-            snapshot_cli = None
-            for name, kwarg in kwargs.items():
-                if isinstance(kwarg, SnapshotAssertion):
-                    snapshot_fixture_name = name
-                    snapshot_cli = kwarg
-                    break
-            runs = passes = 0
-            while passes < min_passes:
-                runs += 1
-                try:
-                    test(*args, **kwargs)
-                except Exception:
-                    if snapshot_fixture_name is not None:
-                        kwargs[snapshot_fixture_name] = snapshot_cli.rebuild()
-                    if runs >= max_runs:
-                        raise
-                else:
-                    passes += 1
-
-        return inner
-
-    return decorate
 
 
 E = TypeVar("E", bound=EngineEvent)

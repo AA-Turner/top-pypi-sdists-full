@@ -12,11 +12,13 @@ ExperimentalFeatureKind = Literal["input-format", "formatter", "cli-option", "py
 ExperimentalFeatureFormat = Literal["table", "json", "markdown"]
 ExperimentalFeatureId = Literal[
     "behavior.batch-generation-jobs",
+    "behavior.naming-hint",
     "behavior.remote-reference-lock",
     "cli-option.generate-client",
     "cli-option.generate-schema-validators",
     "cli-option.generate-server",
     "cli-option.install-skill",
+    "cli-option.recommend-options",
     "cli-option.schema-validator-type",
     "cli-option.use-missing-sentinel",
     "cli-option.use-type-alias",
@@ -58,6 +60,26 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
             "Define named generation jobs in [tool.datamodel-codegen.jobs] and select them with --job or "
             "--all-jobs. Each selected job has its own input and output, and the full selection is validated "
             "before generation begins."
+        ),
+    ),
+    "behavior.naming-hint": ExperimentalFeature(
+        id="behavior.naming-hint",
+        kind="behavior",
+        target="NamingHintWarning",
+        message=(
+            "The hint at --recommend-options that a command line generation shows when many class names are numbered "
+            "collisions is experimental; when it is shown and its text may change."
+        ),
+        since_version="0.86.0",
+        note=(
+            "A command line generation warns with datamodel_code_generator.NamingHintWarning when at least 10 class "
+            "names, and at least one in five, are numbered collisions: names the model resolver numbered because the "
+            "name without the number was taken, such as Pet1 beside Pet. It is shown at most once per command and "
+            "never by generate(). An explicit --naming-strategy, --model-name-map, or deprecated "
+            "--parent-scoped-naming, on the command line or in pyproject.toml, --check, --diff-against, "
+            "--output-format json, --disable-warnings, and the options --recommend-options refuses (--watch, "
+            "--all-jobs, and more than one --job) leave it out; a filter that turns warnings into errors drops it. "
+            "It never changes the generated files, the result of --check, or the exit code."
         ),
     ),
     "behavior.remote-reference-lock": ExperimentalFeature(
@@ -170,6 +192,27 @@ EXPERIMENTAL_FEATURES: dict[ExperimentalFeatureId, ExperimentalFeature] = {
         note=(
             "Use --install-skill with codex or claude-code. --skill-scope selects a project or user installation, "
             "and --overwrite-skill safely replaces an existing regular skill directory."
+        ),
+    ),
+    "cli-option.recommend-options": ExperimentalFeature(
+        id="cli-option.recommend-options",
+        kind="cli-option",
+        target=(
+            "--recommend-options, its rule data, its candidate comparison, its JSON payload, and "
+            "--generate-prompt --recommend-options with the prompt JSON field recommendation"
+        ),
+        message=(
+            "Option recommendations are experimental; the rules, the schema signals they read, the class-name "
+            "metrics, the report, and the JSON payload may change."
+        ),
+        since_version="0.86.0",
+        note=(
+            "--recommend-options reads the input schema, measures naming-relevant signals of OpenAPI, AsyncAPI, and "
+            "JSON Schema documents, and prints the latest dated preset to start from with the options to add, as a "
+            "command and a pyproject.toml block. Options set on the command line or in pyproject.toml are kept. "
+            "For schemas of up to 3000 estimated models, it also generates the candidate configurations in memory "
+            "and recommends the one whose class names score best; nothing is written. With --generate-prompt, the "
+            "prompt embeds the report, and its JSON output carries the recommend-options payload as recommendation."
         ),
     ),
     "cli-option.schema-validator-type": ExperimentalFeature(

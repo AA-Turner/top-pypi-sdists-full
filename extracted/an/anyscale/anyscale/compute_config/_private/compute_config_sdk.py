@@ -809,6 +809,17 @@ class PrivateComputeConfigSDK(BaseSDK):
         self.client.archive_compute_config(compute_config_id=compute_config_id)
         self.logger.info("Compute config is successfully archived.")
 
+    def unarchive_compute_config(
+        self,
+        *,
+        name: Optional[str] = None,
+        id: Optional[str] = None,  # noqa: A002
+        cloud: Optional[str] = None,
+    ):
+        compute_config_id = self._resolve_id(id=id, name=name, cloud=cloud, include_archived=True)
+        self.client.unarchive_compute_config(compute_config_id=compute_config_id)
+        self.logger.info("Compute config is successfully unarchived.")
+
     def get_default_compute_config(
         self,
         *,

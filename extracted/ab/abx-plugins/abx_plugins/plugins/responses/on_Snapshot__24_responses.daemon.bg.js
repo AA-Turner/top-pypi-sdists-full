@@ -182,9 +182,16 @@ async function createSymlink(target, linkPath, isIndex = false) {
       if (isIndex) throw error;
       return createSymlink(target, path.join(linkPath, indexName), true);
     }
-    // Replace dangling links too; existsSync follows their missing target.
-    await fs.promises.unlink(linkPath);
-    await fs.promises.symlink(relativePath, linkPath);
+    // Keep the parent nonempty: object-store mounts can forget a directory
+    // between unlink and symlink. Rename also replaces dangling links safely.
+    const temporaryPath = path.join(dir, `.response-${crypto.randomUUID()}`);
+    await fs.promises.symlink(relativePath, temporaryPath);
+    try {
+      await fs.promises.rename(temporaryPath, linkPath);
+    } catch (replacementError) {
+      await fs.promises.unlink(temporaryPath);
+      throw replacementError;
+    }
   }
   return linkPath;
 }
@@ -264,8 +271,9 @@ async function setupListener() {
       });
       const uniquePath = path.join(allDir, uniqueFilename);
 
-      // Save to unique file
-      fs.writeFileSync(uniquePath, bodyBuffer);
+      // Keep CDP interception responsive while the archive filesystem waits.
+      // The serialized response queue still retains only one body at a time.
+      await fs.promises.writeFile(uniquePath, bodyBuffer);
 
       const relativeOutputPath = path.posix.join(
         PLUGIN_DIR,
@@ -377,7 +385,7 @@ async function setupListener() {
         extension,
       };
 
-      fs.appendFileSync(indexPath, JSON.stringify(indexEntry) + "\n");
+      await fs.promises.appendFile(indexPath, JSON.stringify(indexEntry) + "\n");
       responseCount += 1;
       emitResponseProgress();
     } catch (error) {

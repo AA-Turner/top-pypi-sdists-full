@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import xcffib
-import xcffib.xproto
-import xcffib.xinput
-import xcffib.randr
 import os
 import struct
 import sys
+
+import xcffib
+import xcffib.randr
+import xcffib.xinput
+import xcffib.xproto
 from xcffib.ffi import ffi
 from xcffib.xproto import EventMask
 
@@ -58,7 +59,7 @@ class TestPythonCode:
             assert cm.data32[1] == 0x04050607
             assert cm.data32[2] == 0x08090A0B
         else:
-            raise Exception("unknown byte order?")
+            raise ValueError("unknown byte order?")
 
     def test_offset_map(self):
         om = xcffib.OffsetMap({0: "Event0,0"})
@@ -178,8 +179,36 @@ class TestPythonCode:
         event = xcffib_test.conn.hoist_event(generic_reply)
 
         assert isinstance(event, xcffib.xinput.BarrierHitEvent)
+        assert event.response_type == 35
+        assert event.event_type == event.event_number == xcffib.xinput.BarrierHitEvent.event_number == 25
         assert event.root_x >> 16 == 100
         assert event.root_y >> 16 == 200
+
+    def test_core_event_response_type(self, xcffib_test):
+        for response_type in (2, 0x82):
+            event_bytes = struct.pack(
+                "=BB2xIIIIhhhhHBx",
+                response_type,
+                10,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+            )
+            cdata = ffi.new("char[]", event_bytes)
+            generic_event = ffi.cast("xcb_generic_event_t *", cdata)
+
+            event = xcffib_test.conn.hoist_event(generic_event)
+
+            assert isinstance(event, xcffib.xproto.KeyPressEvent)
+            assert event.response_type == response_type
+            assert response_type & 0x7F == event.event_number == xcffib.xproto.KeyPressEvent.event_number == 2
 
     def test_List_to_string(self, xcffib_test):
         xrandr = xcffib_test.conn(xcffib.randr.key)

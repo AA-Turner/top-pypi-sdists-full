@@ -84,10 +84,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. Returns the process exit status (0 ok, 1 unsolvable, 2 bad input)."""
     args_list = list(sys.argv[1:] if argv is None else argv)
+    from munkres._tools import TOOLS, run_tool
+
+    if args_list and args_list[0] in TOOLS:
+        return run_tool(args_list[0], args_list[1:])
     args = build_parser().parse_args(args_list)
 
     if args.self_check or not args_list:
-        from munkres.__main__ import main as self_check  # noqa: PLC0415
+        from munkres.__main__ import main as self_check
 
         self_check()
         return 0

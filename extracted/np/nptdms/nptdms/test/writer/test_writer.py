@@ -9,6 +9,7 @@ import tempfile
 
 from nptdms import TdmsFile, TdmsWriter, RootObject, GroupObject, ChannelObject, types
 from nptdms.test import scenarios
+from nptdms.timestamp import TimestampArray
 from nptdms.test.util import compare_arrays
 
 
@@ -338,6 +339,135 @@ def test_can_write_string_data():
     assert len(output_data) == 2
     assert output_data[0] == input_data[0]
     assert output_data[1] == input_data[1]
+
+
+@pytest.mark.parametrize("input_data", [
+    pytest.param(np.array([b"hello", b"world!"]), id="numpy_bytes"),
+    pytest.param([b"hello", b"world!"], id="list_bytes"),
+    pytest.param(["hello", b"world!"], id="mixed_str_bytes"),
+])
+def test_can_write_bytes_string_data(input_data):
+    segment = ChannelObject("group", "string_data", input_data, properties={"prop": b"value"})
+
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment([segment])
+
+    output_file.seek(0)
+    tdms_file = TdmsFile(output_file)
+
+    channel = tdms_file["group"]["string_data"]
+    assert channel.data_type == types.String
+    assert list(channel.data) == ["hello", "world!"]
+    assert channel.properties["prop"] == "value"
+
+
+@pytest.mark.parametrize("input_dtype,expected_type,expected_dtype", [
+    (np.dtype('O'), types.String, np.dtype('O')),
+    (np.dtype('<U5'), types.String, np.dtype('O')),
+    (np.dtype('|S5'), types.String, np.dtype('O')),
+    (np.dtype('datetime64[us]'), types.TimeStamp, np.dtype('datetime64[us]')),
+    (np.dtype('datetime64[ns]'), types.TimeStamp, np.dtype('datetime64[us]')),
+])
+def test_can_write_empty_data(input_dtype, expected_type, expected_dtype):
+    segment = ChannelObject("group", "channel", np.array([], dtype=input_dtype))
+
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment([segment])
+
+    output_file.seek(0)
+    tdms_file = TdmsFile(output_file)
+
+    channel = tdms_file["group"]["channel"]
+    assert channel.data_type == expected_type
+    assert len(channel) == 0
+    assert channel.data.dtype == expected_dtype
+
+
+def test_can_write_empty_raw_timestamp_data():
+    input_data = TimestampArray(np.array([], dtype=[('second_fractions', '<u8'), ('seconds', '<i8')]))
+    segment = ChannelObject("group", "channel", input_data)
+
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment([segment])
+
+    output_file.seek(0)
+    tdms_file = TdmsFile(output_file)
+
+    channel = tdms_file["group"]["channel"]
+    assert channel.data_type == types.TimeStamp
+    assert len(channel) == 0
+
+
+@pytest.mark.parametrize("input_dtype", [
+    np.dtype('float16'),
+    np.dtype('timedelta64[s]'),
+    np.dtype([('a', '<i4'), ('b', '<f8')]),
+])
+def test_writing_empty_data_with_unsupported_type_raises(input_dtype):
+    segment = ChannelObject("group", "channel", np.array([], dtype=input_dtype))
+
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        with pytest.raises(TypeError, match="Unsupported data type for channel data"):
+            tdms_writer.write_segment([segment])
+
+
+def test_can_write_channel_properties_without_data():
+    input_data = np.linspace(0.0, 1.0, 10)
+
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment([
+            ChannelObject("group", "channel", input_data, properties={"prop1": "a"})])
+        tdms_writer.write_segment([
+            ChannelObject("group", "channel", properties={"prop1": "b", "prop2": 2})])
+
+    output_file.seek(0)
+    tdms_file = TdmsFile(output_file)
+
+    channel = tdms_file["group"]["channel"]
+    assert channel.data_type == types.DoubleFloat
+    compare_arrays(channel.data, input_data)
+    assert channel.properties["prop1"] == "b"
+    assert channel.properties["prop2"] == 2
+
+
+def test_can_write_new_channel_without_data():
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment([
+            ChannelObject("group", "channel", properties={"prop1": "a"})])
+
+    output_file.seek(0)
+    tdms_file = TdmsFile(output_file)
+
+    channel = tdms_file["group"]["channel"]
+    assert channel.data_type is None
+    assert len(channel) == 0
+    assert channel.properties["prop1"] == "a"
+
+
+def test_can_write_tdms_channel_without_data_read_from_file():
+    input_file = BytesIO()
+    with TdmsWriter(input_file) as tdms_writer:
+        tdms_writer.write_segment([
+            ChannelObject("group", "channel", properties={"prop1": "a"})])
+
+    input_file.seek(0)
+    read_channel = TdmsFile(input_file)["group"]["channel"]
+
+    output_file = BytesIO()
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment([read_channel])
+
+    output_file.seek(0)
+    channel = TdmsFile(output_file)["group"]["channel"]
+    assert channel.data_type is None
+    assert len(channel) == 0
+    assert channel.properties["prop1"] == "a"
 
 
 def test_can_write_floats_from_list():

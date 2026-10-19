@@ -198,6 +198,22 @@ def test_bad_yaml_headers(ctx, cli, cassette_path, hypothesis_max_examples):
     assert cassette["http_interactions"][0]["request"]["headers"][header_name] == [fixed_header]
 
 
+def test_cassette_uri_with_single_quote(ctx, cli, cassette_path):
+    app, _ = ctx.openapi.make_flask_app({"/api/o'brien": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/o'brien")
+    def obrien():
+        return flask.jsonify({})
+
+    cli.run_openapi_app(
+        app, f"--report-vcr-path={cassette_path}", "--max-examples=1", "--phases=fuzzing", "--mode=positive"
+    )
+    assert [
+        interaction["request"]["uri"].split("/", 3)[3]
+        for interaction in load_cassette(cassette_path)["http_interactions"]
+    ] == ["api/o'brien"]
+
+
 @pytest.mark.skipif(platform.system() == "Windows", reason="Simpler to setup on Linux")
 def test_run_subprocess(ctx, testdir, hypothesis_max_examples, snapshot_cli):
     api = ctx.openapi.apps.success()
@@ -276,6 +292,53 @@ def test_cassettes_mark_truncated_response_body(ctx, cli, cassette_path):
         (load_response_body(load_cassette(cassette_path), index), interaction["response"]["truncated_from"])
         for index, interaction in enumerate(load_cassette(cassette_path)["http_interactions"])
     ] == [(LARGE_RESPONSE_BODY[:64].decode(), len(LARGE_RESPONSE_BODY))]
+
+
+def test_har_cookies(ctx, cli, cassette_path):
+    app, _ = ctx.openapi.make_flask_app({"/api/cookies": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/api/cookies")
+    def cookies():
+        response = flask.jsonify({})
+        response.set_cookie("session", "abc", path="/")
+        return response
+
+    har_path = cassette_path.with_suffix(".har")
+    cli.run_openapi_app(
+        app,
+        f"--report-har-path={har_path}",
+        "-H",
+        "Cookie: theme=dark",
+        "--max-examples=1",
+        "--phases=fuzzing",
+        "--mode=positive",
+        "--output-sanitize=false",
+    )
+    assert [
+        (entry["request"]["cookies"], entry["response"]["cookies"])
+        for entry in load_json_or_fail(har_path)["log"]["entries"]
+    ] == [([{"name": "theme", "value": "dark"}], [{"name": "session", "value": "abc", "path": "/"}])]
+
+
+def test_har_response_mime_type_and_redirect_url(ctx, cli, cassette_path):
+    app, _ = ctx.openapi.make_flask_app({"/api/items": {"post": {"responses": {"201": {"description": "Created"}}}}})
+
+    @app.route("/api/items", methods=["POST"])
+    def create():
+        return flask.jsonify({}), 201, {"Location": "/api/items/1"}
+
+    har_path = cassette_path.with_suffix(".har")
+    cli.run_openapi_app(
+        app,
+        f"--report-har-path={har_path}",
+        "--max-examples=1",
+        "--phases=fuzzing",
+        "--mode=positive",
+    )
+    assert [
+        (entry["response"]["content"]["mimeType"], entry["response"]["redirectURL"])
+        for entry in load_json_or_fail(har_path)["log"]["entries"]
+    ] == [("application/json", "/api/items/1")]
 
 
 @pytest.mark.parametrize(

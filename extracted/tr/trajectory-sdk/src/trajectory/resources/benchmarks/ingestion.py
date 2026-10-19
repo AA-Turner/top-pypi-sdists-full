@@ -95,6 +95,7 @@ class Ingestion(APIResource):
     operation_id: str,
     *,
     files: Iterable[BenchmarkIngestionUploadObjectParam],
+    upload_method: Literal["put", "post"] | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -103,6 +104,10 @@ class Ingestion(APIResource):
     """Allocate
 
     Args:
+      upload_method: `put` returns a signed PUT URL per file. `post` returns one signed form-upload
+        policy for the whole batch; uploads are checked against their declarations when
+        the submission is verified.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -124,6 +129,7 @@ class Ingestion(APIResource):
       body=maybe_transform(
         {
           "files": files,
+          "upload_method": upload_method,
         },
         IngestionAllocateUploadsParams,
       ),

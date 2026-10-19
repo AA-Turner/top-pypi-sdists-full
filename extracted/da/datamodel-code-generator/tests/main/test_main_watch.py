@@ -307,10 +307,19 @@ def _lines_contain(lines: list[str], expected_text: str) -> bool:
     return any(expected_text in line for line in lines)
 
 
+def _watched_text(path: Path) -> str:
+    """Return the text of a file the watch process writes, or an empty string while it is missing or being replaced.
+
+    Windows refuses to open a file while another process replaces it, which only means it is not ready yet.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except (FileNotFoundError, PermissionError):
+        return ""
+
+
 def _file_contains(path: Path, expected_text: str) -> bool:
-    if not path.is_file():
-        return False
-    return expected_text in path.read_text(encoding="utf-8")
+    return expected_text in _watched_text(path)
 
 
 @dataclass
@@ -328,7 +337,7 @@ class _WatchedOutput:
         """Return a wait condition that keeps the file's text once it has the included and not the excluded text."""
 
         def condition() -> bool:
-            text = self.path.read_text(encoding="utf-8") if self.path.is_file() else ""
+            text = _watched_text(self.path)
             if included not in text or (excluded is not None and excluded in text):
                 return False
             self.text = text
@@ -954,6 +963,47 @@ def test_watch_cli_announces_implied_settings_once(tmp_path: Path) -> None:
             f"implied notices {notices('set the options it needs')}; next steps {notices('Next steps:')}\n",
             EXPECTED_MAIN_PATH / "generation_platform/fastapi/cli/watch/implied.txt",
         )
+    finally:
+        _stop_watch_cli(process, stdout_thread, stderr_thread)
+
+
+@pytest.mark.parametrize(
+    ("options", "pyproject"),
+    [
+        pytest.param([], "[tool.datamodel-codegen]\nwatch = true\nwatch-delay = 0.1\n", id="pyproject-watch"),
+        pytest.param(["--watch", "--watch-delay", "0.1"], "", id="watch-option"),
+    ],
+)
+def test_watch_cli_naming_hint(options: list[str], pyproject: str, tmp_path: Path) -> None:
+    """Point to --recommend-options once when pyproject.toml sets watch, and never with --watch, which it refuses.
+
+    A regeneration whose class names still call for the hint does not repeat it.
+    """
+    source = (PROJECT_ROOT / "tests/data/recommend_options/naming_hint.yaml").read_text(encoding="utf-8")
+    input_file = tmp_path / "naming_hint.yaml"
+    input_file.write_text(source, encoding="utf-8")
+    if pyproject:
+        (tmp_path / "pyproject.toml").write_text(pyproject, encoding="utf-8")
+    output = _WatchedOutput(tmp_path / "models.py")
+    arguments = ["--input", str(input_file), "--output", str(output.path), "--input-file-type", "openapi"]
+    process, stdout_lines, stderr_lines, stdout_thread, stderr_thread = _wait_for_watch_cli_ready(
+        *_start_watch_process(
+            [*_watch_cli_prefix(), *arguments, "--formatters", "builtin", "--disable-timestamp", *options], tmp_path
+        )
+    )
+    ledger = "    Ledger:\n      type: object\n      properties:\n        metadata:\n          type: object\n"
+    try:
+        _write_watch_cli_input_and_wait(
+            process,
+            stdout_lines,
+            stderr_lines,
+            input_file,
+            f"{source}{ledger}          properties:\n            ledger_source:\n              type: string\n",
+            output.contains("class Ledger("),
+            "the models to be regenerated",
+        )
+        hints = [line.partition("NamingHintWarning: ")[2] for line in stderr_lines if "NamingHintWarning: " in line]
+        assert_output(f"hints {len(hints)}\n{''.join(hints)}")
     finally:
         _stop_watch_cli(process, stdout_thread, stderr_thread)
 
@@ -3127,7 +3177,7 @@ def test_watch_cli_update_lock_does_not_trigger_its_own_regeneration(
         )
         time.sleep(WATCH_CLI_CHANGE_RETRY_SECONDS * 2)
         done_count = sum(line.strip() == "Done." for line in stdout_lines)
-        assert_output(f"done={done_count}\n", WATCH_DATA_PATH / "batch_no_cycle.txt")
+        assert_output(f"done={done_count}\n", EXPECTED_MAIN_PATH / "watch_batch_no_cycle.txt")
     finally:
         _stop_watch_cli(process, stdout_thread, stderr_thread)
 
@@ -3725,7 +3775,7 @@ def test_batch_watch_nested_dependency_reruns_full_batch_without_output_loop(tmp
         second_metadata.write_text("stale\n", encoding="utf-8")
         time.sleep(WATCH_CLI_CHANGE_RETRY_SECONDS * 2)
         done_count = sum(line.strip() == "Done." for line in stdout_lines)
-        assert_output(f"done={done_count}\n", WATCH_DATA_PATH / "batch_no_cycle.txt")
+        assert_output(f"done={done_count}\n", EXPECTED_MAIN_PATH / "watch_batch_no_cycle.txt")
         assert_output(
             second_output.read_text(encoding="utf-8"), PROJECT_ROOT / "tests/data/expected/main_kr/jobs/stale.py"
         )
@@ -3752,7 +3802,7 @@ def test_batch_watch_nested_dependency_reruns_full_batch_without_output_loop(tmp
         done_count = sum(line.strip() == "Done." for line in stdout_lines)
         time.sleep(WATCH_CLI_CHANGE_RETRY_SECONDS * 2)
         done_count = sum(line.strip() == "Done." for line in stdout_lines) - done_count
-        assert_output(f"done={done_count}\n", WATCH_DATA_PATH / "batch_no_cycle.txt")
+        assert_output(f"done={done_count}\n", EXPECTED_MAIN_PATH / "watch_batch_no_cycle.txt")
     finally:
         _stop_watch_cli(process, stdout_thread, stderr_thread)
 

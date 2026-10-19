@@ -195,7 +195,9 @@ def rollback(version: int, yes: bool) -> None:
                             name="spot",
                             selector=[
                                 MatchExpression(
-                                    key="market", operator=Operator.IN, values=["spot"]
+                                    key="market-type",
+                                    operator=Operator.IN,
+                                    values=["SPOT"],
                                 )
                             ],
                         )

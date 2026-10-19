@@ -625,19 +625,36 @@ class ThresholdOptimizer(base.BaseGeo):
             ),
             "ceiling": (
                 ax_ceil,
-                "Ceiling threshold (%) — keep cells with crop fraction >= T%",
+                "Ceiling threshold (%) — keep the top T% of cropland cells by crop fraction",
                 "high-T range, paste-ready as [<country>] ceil + threshold = False",
             ),
         }
+        # One fixed colour per region so a region matches across panels; up
+        # to ten regions are drawn in distinct hues and named in the legend,
+        # beyond that the lines stay thin and unlabelled (a legend of 30+
+        # names hides the plot; the per-region PNGs cover that case).
+        # Regions without a single finite metric (too few years everywhere)
+        # draw nothing, so they are left out of the colours and the legend.
+        has_value = df_ranked.groupby("region")["metric_value"].apply(
+            lambda v: v.notna().any()
+        )
+        regions = sorted(has_value[has_value].index)
+        labelled = len(regions) <= 10
+        tab10 = plt.get_cmap("tab10")
+        region_colour = {r: tab10(i % 10) for i, r in enumerate(regions)}
         for direction, (ax, xlabel, subtitle) in panels.items():
-            # Thin per-region lines for this direction.
+            # Per-region lines for this direction.
             sub_ranked = df_ranked[df_ranked["direction"] == direction]
             for region, grp in sub_ranked.groupby("region"):
+                if region not in region_colour:
+                    continue
                 grp_sorted = grp.sort_values("threshold")
                 ax.plot(
                     grp_sorted["threshold"], grp_sorted["metric_value"],
-                    linestyle="-", alpha=0.35, linewidth=0.9,
-                    label="_nolegend_",
+                    linestyle="-", color=region_colour[region],
+                    alpha=0.85 if labelled else 0.35,
+                    linewidth=1.3 if labelled else 0.9,
+                    label=str(region) if labelled else "_nolegend_",
                 )
 
             # Bold pooled line for this direction.
@@ -662,21 +679,30 @@ class ThresholdOptimizer(base.BaseGeo):
             ax.set_xlabel(xlabel)
             ax.set_title(f"{direction}\n({subtitle})", fontsize=10)
             ax.grid(True, alpha=0.3)
-            # Only draw the legend if any artist has a real label.
-            _, labels = ax.get_legend_handles_labels()
-            if labels:
-                ax.legend(loc="best", fontsize=8)
+            # Panel legend: pooled + best marker only; region names go in
+            # one figure legend outside the axes so it never covers a line.
+            handles, labels = ax.get_legend_handles_labels()
+            keep = [(h, l) for h, l in zip(handles, labels) if l not in region_colour]
+            if keep:
+                ax.legend(*zip(*keep), loc="best", fontsize=8)
 
         ax_floor.set_ylabel(metric_label)
         fig.suptitle(
-            f"{country} {crop} s{season} — {metric_label} vs threshold "
-            f"(geoprepare 0.6.253+ semantics)",
+            f"{country} {crop} s{season} — {metric_label} vs threshold",
             fontsize=12,
         )
         fig.tight_layout(rect=[0, 0, 1, 0.96])
+        if labelled and regions:
+            handles, labels = ax_floor.get_legend_handles_labels()
+            pairs = [(h, l) for h, l in zip(handles, labels) if l in region_colour]
+            if pairs:
+                fig.legend(
+                    *zip(*pairs), title="Region", fontsize=8,
+                    loc="center left", bbox_to_anchor=(1.0, 0.5),
+                )
 
         png_path = out_dir / f"{stem}.png"
-        fig.savefig(png_path, dpi=120)
+        fig.savefig(png_path, dpi=120, bbox_inches="tight")
         plt.close(fig)
 
         # Companion CSV (per the plot-CSV-pairs convention).
@@ -913,7 +939,7 @@ class ThresholdOptimizer(base.BaseGeo):
             ),
             "ceiling": (
                 ax_ceil,
-                "Ceiling threshold (%) — keep cells with crop fraction >= T%",
+                "Ceiling threshold (%) — keep the top T% of cropland cells by crop fraction",
                 "high-T range, paste-ready as [<country>] ceil + threshold = False",
             ),
         }

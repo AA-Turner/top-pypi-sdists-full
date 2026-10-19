@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: rhoknp
-Version: 1.8.1
+Version: 1.8.2
 Summary: Yet another Python binding for Juman++/KNP/KWJA
 Keywords: NLP,Japanese,Juman++,KNP,KWJA
 Author: Hirokazu Kiyomaru, Nobuhiro Ueda
 Author-email: Hirokazu Kiyomaru <h.kiyomaru@gmail.com>, Nobuhiro Ueda <ueda@nlp.i.kyoto-u.ac.jp>
 License-Expression: MIT
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: Japanese
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: MacOS :: MacOS X
@@ -19,19 +18,25 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: 3.16
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: Linguistic
 Requires-Dist: typing-extensions>=4.4 ; python_full_version < '3.12'
-Requires-Dist: typer-slim>=0.24.0 ; extra == 'cli'
-Requires-Dist: pyyaml>=6.0 ; extra == 'cli'
-Requires-Dist: rich>=14.0 ; extra == 'cli'
+Requires-Dist: typer>=0.27.2 ; extra == 'cli'
+Requires-Dist: rich>=14.2.0 ; extra == 'cli'
 Requires-Dist: uvicorn>=0.50.0 ; extra == 'cli'
-Requires-Dist: fastapi>=0.140.0 ; extra == 'cli'
-Requires-Dist: jinja2>=3.1.4 ; extra == 'cli'
+Requires-Dist: fastapi>=0.141.0 ; extra == 'cli'
+Requires-Dist: jinja2>=3.1.6 ; extra == 'cli'
 Requires-Dist: pygments>=2.20.0 ; extra == 'cli'
+Requires-Dist: pydantic>=2.12.0 ; python_full_version >= '3.14' and extra == 'cli'
+Requires-Dist: pydantic>=2.14.0 ; python_full_version >= '3.15' and extra == 'cli'
+Requires-Dist: pyyaml>=6.0.0 ; extra == 'cli'
+Requires-Dist: pyyaml>=6.0.1 ; python_full_version >= '3.12' and extra == 'cli'
+Requires-Dist: pyyaml>=6.0.2 ; python_full_version >= '3.13' and extra == 'cli'
+Requires-Dist: pyyaml>=6.0.3 ; python_full_version >= '3.14' and extra == 'cli'
 Maintainer: Hirokazu Kiyomaru, Nobuhiro Ueda
 Maintainer-email: Hirokazu Kiyomaru <h.kiyomaru@gmail.com>, Nobuhiro Ueda <ueda@nlp.i.kyoto-u.ac.jp>
 Requires-Python: >=3.10

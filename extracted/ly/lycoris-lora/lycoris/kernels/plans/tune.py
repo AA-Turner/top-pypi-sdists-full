@@ -22,7 +22,11 @@ SHORTLIST = 6
 ROW_BUCKET = 4096
 
 _CACHE: dict[tuple, TilePlan] = {}
+# First picks made with tuning off: process-only, never stored.
+_UNTIMED: dict[tuple, TilePlan] = {}
 _LOADED = False
+# set_tuning's value; None reads LYCORIS_KERNEL_TUNE.
+_TUNING: bool | None = None
 
 
 def bucket_tokens(t: int) -> int:
@@ -115,12 +119,7 @@ def _write_rows(path: Path, rows: dict[tuple, TilePlan]) -> bool:
 
 
 def _time(fn, warmup: int = 10, iters: int = 30, rounds: int = 3) -> float:
-    """Best of ``rounds`` passes, each the min of ``iters`` events.
-
-    The pick is made once and then cached for the life of the table, so a
-    single noisy pass would freeze a plan that is measurably worse: one pass
-    was observed selecting a plan 2x off the shortlist's best.
-    """
+    """Best of ``rounds`` passes, each the min of ``iters`` events, in ms."""
     for _ in range(warmup):
         fn()
     torch.cuda.synchronize()
@@ -138,7 +137,23 @@ def _time(fn, warmup: int = 10, iters: int = 30, rounds: int = 3) -> float:
 
 
 def tuning_enabled() -> bool:
+    """Whether a config missing from the table is timed: the value given to
+    ``set_tuning``, else ``LYCORIS_KERNEL_TUNE`` (``off`` / ``0`` disable;
+    default on)."""
+    if _TUNING is not None:
+        return _TUNING
     return os.environ.get("LYCORIS_KERNEL_TUNE", "on").lower() not in ("off", "0")
+
+
+def set_tuning(enabled: bool | None) -> bool | None:
+    """Turn config timing on or off for this process; ``None`` reads
+    ``LYCORIS_KERNEL_TUNE`` again. Returns the previous value, which
+    ``set_tuning`` restores."""
+    global _TUNING
+    if enabled is not None and not isinstance(enabled, bool):
+        raise TypeError(f"set_tuning expects a bool or None, got {enabled!r}")
+    prev, _TUNING = _TUNING, enabled
+    return prev
 
 
 def tuned(kernel: str, key: tuple, shortlist_fn, runner_factory) -> TilePlan:
@@ -146,18 +161,27 @@ def tuned(kernel: str, key: tuple, shortlist_fn, runner_factory) -> TilePlan:
 
     Cache-first: ``shortlist_fn`` (a thunk, or a plain list) is evaluated only
     on a miss, so steady-state calls never pay the python scoring loop. First
-    pick when timing is disabled, fails everywhere, or the list is singular.
+    pick when the list is singular or timing fails everywhere; with timing
+    disabled, the first pick is kept for the process and timed once timing is
+    enabled.
     """
     full_key = (resolve_device().name, kernel, *key)
     _load_table()
     if full_key in _CACHE:
         return _CACHE[full_key]
+    enabled = tuning_enabled()
+    if not enabled and full_key in _UNTIMED:
+        return _UNTIMED[full_key]
     shortlist = shortlist_fn() if callable(shortlist_fn) else shortlist_fn
     if not shortlist:
         raise ValueError(f"{kernel}: empty shortlist")
-    if len(shortlist) == 1 or not tuning_enabled():
+    if len(shortlist) == 1:
         best = shortlist[0]
         _CACHE[full_key] = best
+        return best
+    if not enabled:
+        best = shortlist[0]
+        _UNTIMED[full_key] = best
         return best
     best, best_ms = None, float("inf")
     for cand in shortlist:
@@ -175,3 +199,4 @@ def tuned(kernel: str, key: tuple, shortlist_fn, runner_factory) -> TilePlan:
 
 def clear() -> None:
     _CACHE.clear()
+    _UNTIMED.clear()

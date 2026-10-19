@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-gremlins
-Version: 1.12.0
+Version: 1.12.2
 Summary: Fast-first mutation testing for pytest. Let the gremlins loose, see which ones survive.
 Project-URL: Homepage, https://github.com/mikelane/pytest-gremlins
 Project-URL: Documentation, https://pytest-gremlins.readthedocs.io
@@ -26,7 +26,7 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Requires-Dist: coverage>=7.12.0
-Requires-Dist: pytest>=7.0.0
+Requires-Dist: pytest>=8.4.2
 Provides-Extra: docs
 Requires-Dist: mkdocs-material[imaging]>=9.7.7; extra == 'docs'
 Requires-Dist: mkdocs-minify-plugin>=0.7.0; extra == 'docs'
@@ -182,7 +182,7 @@ operators = ["comparison", "arithmetic", "boolean", "boundary", "return"]
 paths = ["src"]
 
 # Patterns to exclude
-exclude = ["**/migrations/*", "**/test_*"]
+exclude = ["**/migrations/*"]
 
 # Report formats: "console", "html", "json" (default: console)
 report = ["console", "html"]

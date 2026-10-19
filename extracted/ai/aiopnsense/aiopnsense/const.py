@@ -4,7 +4,7 @@ from typing import Any
 
 from dateutil.tz import gettz
 
-VERSION = "v1.3.1"  # x-release-please-version
+VERSION = "v1.3.2"  # x-release-please-version
 
 OPNSENSE_LTD_FIRMWARE = "26.1.1"  # If less than this, some functions may not work but the integration in general should work.
 OPNSENSE_MIN_FIRMWARE = "25.1"  # If less than this, don't allow install. It will not work.
@@ -20,6 +20,8 @@ OPNSENSE_INTERFACE_ASSIGNMENT_FIRMWARE = "26.7.6"
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 60
 # Shared cache time-to-live, in seconds, for endpoint availability state.
 DEFAULT_CACHE_TTL_SECONDS = 6 * 60 * 60
+# Pause, in seconds, between queued API requests to avoid overloading OPNsense.
+QUEUE_REQUEST_INTERVAL_SECONDS = 0.3
 
 # Mapping of ambiguous timezone abbreviations to explicit IANA timezones.
 AMBIGUOUS_TZINFOS: dict[str, Any] = {

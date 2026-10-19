@@ -18,7 +18,7 @@ step "3. formatting (ruff format)"
 check ruff format --check src tests tools benchmarks examples
 
 step "4. spelling (codespell)"
-check codespell src tests tools benchmarks examples docs security release README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md PUBLISHING.md NOTICE V2_RELEASE.txt
+check codespell -L coo,anc,missable src tests tools benchmarks examples docs security release README.md CHANGELOG.md
 
 step "5. static types (mypy --strict)"
 check mypy
@@ -27,7 +27,7 @@ step "6. security (bandit: SAST on the shipped package)"
 check bandit -q -r src
 
 step "7. secrets scan (tracked files)"
-check bash -c 'n=$(git ls-files | xargs detect-secrets scan 2>/dev/null | python -c "import json,sys; print(sum(len(v) for v in json.load(sys.stdin)[\"results\"].values()))"); echo "   findings: $n"; [ "$n" = 0 ]'
+check bash -c 'git ls-files | grep -vE "\.(png|jpe?g|gif|webp|whl|tar\.gz|zip|so|pyc|csv)$" | xargs detect-secrets-hook --baseline .secrets.baseline >/dev/null 2>&1 && echo "   no new secrets (reviewed baseline: .secrets.baseline)"'
 
 step "8. dead code (vulture)"
 check vulture src --min-confidence 80

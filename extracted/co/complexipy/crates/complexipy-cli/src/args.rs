@@ -10,6 +10,12 @@ pub struct CliArgs {
     #[arg(short, long, value_delimiter = ',')]
     pub exclude: Vec<String>,
 
+    #[arg(long, value_delimiter = ',')]
+    pub select: Vec<String>,
+
+    #[arg(long, value_delimiter = ',')]
+    pub ignore: Vec<String>,
+
     #[arg(long)]
     pub max_complexity_allowed: Option<u64>,
 
@@ -60,6 +66,12 @@ pub struct CliArgs {
 
     #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
     pub suggest_refactors: Option<bool>,
+
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
+    pub fix: Option<bool>,
+
+    #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
+    pub dry_run: Option<bool>,
 
     #[arg(long, num_args = 0..=1, default_missing_value = "true", require_equals = true)]
     pub check_script: Option<bool>,

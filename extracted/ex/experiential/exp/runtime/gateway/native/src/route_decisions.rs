@@ -153,7 +153,7 @@ async fn serve(
     };
     if let Some(reason) = admission_value.get("escalate") {
         METRICS.record_escalation(classify_escalation(reason.as_str().unwrap_or_default()));
-        return error_response(&escalation_error());
+        return error_response(&escalation_error(reason.as_str().unwrap_or_default()));
     }
     let admission = match serde_json::from_value::<DecisionsAdmission>(admission_value.clone()) {
         Ok(admission) if admission.wire == expected_wire => admission,
@@ -276,10 +276,12 @@ async fn run_ladder(
         }
         total_attempts += 1;
         counts[depth] += 1;
-        match dispatch(&state.http, wire, deadline, admission, guard).await {
+        let http = state.http.for_origin(wire.tenant_origin);
+        match dispatch(http, wire, deadline, admission, guard).await {
             Ok((body, usage)) => return Ok(Served { depth, body, usage }),
             Err(failure) => {
-                let failure = route_failure(failure, wire, policy, counts[depth]);
+                let failure = route_failure(failure, wire, policy, counts[depth])
+                    .with_tenant_origin(wire.tenant_origin);
                 let boundary = failure.clone().boundary();
                 let possible = successor_possible(
                     policy,
@@ -658,6 +660,7 @@ fn decision_usage(payload: &Value) -> Result<Usage, Failure> {
         reasoning_tokens: None,
         billed_units: None,
         cache_writes_read_back: false,
+        image_output_tokens: None,
     })
 }
 

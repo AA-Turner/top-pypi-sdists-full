@@ -184,15 +184,80 @@ def create_compute_config(
     required=False,
     type=str,
 )
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="Filter by cloud name when resolving compute config by name.",
+)
 def archive_compute_config(
     compute_config_name: Optional[str],
     name: Optional[str],
     compute_config_id: Optional[str],
+    cloud: Optional[str],
 ) -> None:
     name, cc_id = _validate_name_and_id_args(
         positional_name=compute_config_name, flag_name=name, id_flag=compute_config_id
     )
-    anyscale.compute_config.archive(name=name, _id=cc_id)
+    anyscale.compute_config.archive(name=name, _id=cc_id, cloud=cloud)
+
+
+@command_metadata(
+    status=ReleaseStatus.GA,
+    since="0.0.0",
+    output_formats=[OutputFormat.TEXT],
+    examples=[
+        CommandExample(
+            description="Unarchive a compute config by name.",
+            command="anyscale compute-config unarchive -n my-compute-config",
+            output_raw=command_examples.COMPUTE_CONFIG_UNARCHIVE_EXAMPLE,
+        ),
+    ],
+)
+@compute_config_cli.command(
+    name="unarchive",
+    short_help="Unarchive all archived versions of a specified compute config.",
+    help=(
+        "Unarchive all archived versions of a specified compute config, "
+        "so its name can be used again.\n\n"
+        "Specify the compute config by name (-n/--name) or by ID "
+        "(--compute-config-id/--id), one of which is required."
+    ),
+    cls=AnyscaleCommand,
+    hidden=True,
+)
+@click.option(
+    "-n",
+    "--name",
+    help="Name of the compute config to unarchive.",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--compute-config-id",
+    "--id",
+    "compute_config_id",
+    help="ID of the compute config to unarchive. Alternative to name.",
+    required=False,
+    type=str,
+)
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="Filter by cloud name when resolving compute config by name.",
+)
+def unarchive_compute_config(
+    name: Optional[str],
+    compute_config_id: Optional[str],
+    cloud: Optional[str],
+) -> None:
+    name, cc_id = _validate_name_and_id_args(
+        positional_name=None, flag_name=name, id_flag=compute_config_id
+    )
+    anyscale.compute_config.unarchive(name=name, _id=cc_id, cloud=cloud)
 
 
 @command_metadata(

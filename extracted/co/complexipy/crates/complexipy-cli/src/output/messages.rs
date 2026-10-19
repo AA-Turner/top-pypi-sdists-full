@@ -1,7 +1,8 @@
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream, Style};
 
 use crate::utils::snapshot::SnapshotEvaluation;
 use complexipy_core::classes::RemovableIgnore;
+pub use complexipy_core::{no_active_rule_warning, unknown_rule_warning};
 
 pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: &str) -> String {
     if !snap.should_run {
@@ -16,7 +17,14 @@ pub fn handle_snapshot_console(snap: &SnapshotEvaluation, output_snapshot_path: 
     } else {
         snap.watermark_messages
             .iter()
-            .map(|message| format!("{}: {}", "Snapshot watermark".bold().red(), message))
+            .map(|message| {
+                format!(
+                    "{}: {}",
+                    "Snapshot watermark".if_supports_color(Stream::Stdout, |text| text
+                        .style(Style::new().bold().red())),
+                    message
+                )
+            })
             .collect::<Vec<_>>()
             .join("\n")
     }

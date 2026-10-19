@@ -122,7 +122,7 @@ NO_SCOPE: frozenset[str] = frozenset({
     *precheck.DELETES,
     "daemon override", "feedback send", "notes checkout", "notes sync",
     # A local draft of the summary or its visuals: nothing written to Probe.
-    "summary checkout", "visuals options",
+    "summary checkout", "visuals options", "draft edit",
     "run set", "run tag", "run end",
     "artifact set", "artifact version-add",
     "group set", "edge add", "paper update", "paper tag",

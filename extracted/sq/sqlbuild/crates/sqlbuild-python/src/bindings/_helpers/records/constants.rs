@@ -165,6 +165,8 @@ pub(crate) const RECORDS: &[&[RecordSpec]] = &[
     CONTRACT_RECORDS,
 ];
 
+/// `str(PurePath("."))`, the path whose name and stem are empty.
+pub(crate) const CURRENT_DIRECTORY_PATH: &str = ".";
 /// Records whose bound values are normalized or validated before the record is created.
 pub(crate) const RECORD_FINISHERS: &[&[(&str, RecordFinish)]] = &[
     &[("SourceFreshnessObservation", normalize_observation)],
@@ -265,6 +267,7 @@ const BUILD_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("max_microbatches", FieldDefault::None),
         FieldSpec::new("selection_diagnostics", FieldDefault::False),
         FieldSpec::new("selector_files", FieldDefault::EmptyTuple),
+        FieldSpec::new("test_timeout", FieldDefault::None),
     ],
 };
 const BUILD_INVOCATION: RecordSpec = RecordSpec {
@@ -588,6 +591,7 @@ const SCENARIO_TEST_COMMAND_REQUEST: RecordSpec = RecordSpec {
         ),
         FieldSpec::new("json_output", FieldDefault::False),
         FieldSpec::new("json_output_path", FieldDefault::None),
+        FieldSpec::new("scenario_timeout", FieldDefault::None),
     ],
 };
 const SCENARIO_CAPTURE_COMMAND_REQUEST: RecordSpec = RecordSpec {
@@ -651,6 +655,7 @@ const TEST_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("concurrency", FieldDefault::None),
         FieldSpec::new("case_name", FieldDefault::None),
         FieldSpec::new("inspect", FieldDefault::False),
+        FieldSpec::new("test_timeout", FieldDefault::None),
     ],
 };
 const REFACTOR_COMMAND_REQUEST: RecordSpec = RecordSpec {

@@ -161,6 +161,14 @@ def _env(env: Mapping[str, str] | None) -> Mapping[str, str]:
 _ADOPTED = False
 
 
+def forgo_harness_process_session() -> None:
+    """This process adopts no harness session (`adopt_harness_process_session`
+    becomes a no-op): for a command that reads no session and must start no
+    process (`probe status`), since the ancestor walk is `ps` without /proc."""
+    global _ADOPTED
+    _ADOPTED = True
+
+
 def adopt_harness_process_session() -> dict[str, str]:
     """Name this process's coding-agent session in the environment when the
     agent itself did not (Kimi Code puts no session id in its shells).

@@ -675,6 +675,8 @@ _GROUPED_ROWS_DEFAULT = 500
 # lines is a screenful of dialogue -- big enough that a default budget reads
 # meaningful context, small enough that the cursor lands with usable granularity.
 _TRANSCRIPT_SECTION_LINES = 40
+#: Artifact `content` view: text files up to this size; larger ones download.
+_ARTIFACT_CONTENT_MAX_BYTES = 2 * 1024 * 1024
 _TRANSCRIPT_CONTEXT_DEFAULT = 3
 _TRANSCRIPT_CONTEXT_MAX = 20
 _EXPORT_PAGE_MAX = 1_000
@@ -818,11 +820,36 @@ def _stand_in_request(fallback: str) -> Any:
     return fallback if request is None else request
 
 
+#: Identity hashes a stand-in cursor is tried with. A delivery cursor is
+#: base64 of compressed bytes that hold the read's identity hash, and how many
+#: tokens base64 of RANDOM bytes takes varies with the bytes: one cursor shape,
+#: 120 to 146 tokens over 60,000 hashes. A stand-in measured with one fixed
+#: hash sat near the middle (130), so a real cursor outweighed it about half
+#: the time, and a page that fit by fewer tokens than that went out as JSON
+#: fragments (`test_a_series_page_is_sized_for_the_cursor_delivery_puts_on_it`,
+#: red on main 4af98a780 and flaky before it). The heaviest of these, plus
+#: `_CURSOR_TOKEN_SLACK`, held every one of those 60,000.
+_STAND_IN_IDENTITIES = tuple(
+    hashlib.sha256(f"series-identity-stand-in-{i}".encode()).hexdigest() for i in range(64)
+)
+#: Tokens reserved past the heaviest stand-in (see `_STAND_IN_IDENTITIES`).
+_CURSOR_TOKEN_SLACK = 8
+
+
 def _delivery_cursor_stand_in() -> str:
-    return _encode_delivery_cursor(
-        _DELIVERY_CURSOR_STAND_IN_STATE,
-        _stand_in_request(hashlib.sha256(b"delivery-cursor-stand-in").hexdigest()[:32]),
+    """The HEAVIEST stand-in cursor for this read's request (by tokens): a
+    fit that reserves it, plus `_CURSOR_TOKEN_SLACK`, leaves room for the real
+    cursor delivery puts on the page whatever its identity hash."""
+    request = _stand_in_request(hashlib.sha256(b"delivery-cursor-stand-in").hexdigest()[:32])
+    cursors = (
+        _encode_delivery_cursor(
+            {**_DELIVERY_CURSOR_STAND_IN_STATE,
+             "source_snapshot": {**_DELIVERY_CURSOR_STAND_IN_STATE["source_snapshot"], "sha256": identity}},
+            request,
+        )
+        for identity in _STAND_IN_IDENTITIES
     )
+    return max(cursors, key=lambda cursor: (count_tokens(cursor), len(cursor)))
 
 
 # `limit` at 200; the token budget trims below this anyway.
@@ -1310,9 +1337,9 @@ def _entity_projection(kind: str, entity: dict, *, card: bool, document: bool = 
     if kind == EntityType.ARTIFACT:
         _card_text(out, entity, "resolution_note", _CARD_DESCRIPTION_CHARS)
         if entity.get("shared") is False:
-            # An id-only resolution still proves existence. Versions are the
-            # available by-id detail; RECORD cannot manufacture missing metadata.
             out["read_versions"] = 'view="versions"'
+        if not entity.get("is_reference"):
+            out["read_content"] = 'view="content"'
     if isinstance(entity.get("tags"), list):
         tags = entity["tags"]
         out["tags"] = [str(tag)[:_CARD_TEXT_CHARS] for tag in tags[:_CARD_LIST_ITEMS]]
@@ -1698,6 +1725,10 @@ _VIEWS: dict[tuple[str, str], str] = {
     # The captured sessions that registered or touched the file -- "who made
     # this", which the artifact's own row does not say.
     (EntityType.ARTIFACT, View.SESSIONS): "_view_artifact_sessions",
+    # The file's own TEXT, in bounded line sections (same shape as a session
+    # transcript). Binary, oversized and reference-only files refuse by name and
+    # point at `probe artifact download`.
+    (EntityType.ARTIFACT, View.CONTENT): "_view_artifact_content",
     # One titled SUB-NOTE (0146). Like the team note, its card IS the document:
     # the `notes` view shows each sub-note as a 700-character excerpt, and this
     # is where the rest lives. Card only -- see the RECORD note below.
@@ -1783,6 +1814,7 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # `source` filter would only add a way to contradict the ref and have one
     # side win silently.
     (EntityType.SESSION, View.TRANSCRIPT): {"grep", "context_lines", "start_line"},
+    (EntityType.ARTIFACT, View.CONTENT): {"grep", "context_lines", "start_line"},
     # The filters `_view_project_code` has always read and documented. This
     # entry was MISSING, so `_checked_view_options` rejected every one of them with
     # "accepts no view options" while the view's own docstring advertised them —
@@ -2447,6 +2479,10 @@ class ResearchReadService:
     #: call answers with no rows, `next_cursor` and a marker rather than walk an
     #: unbounded run of the caller's own rows in one request.
     _HIDDEN_FILL_PAGES = 5
+    #: A short runs page under `X-Probe-Hide-Session-Work` re-reads this many
+    #: rows WITHOUT the server's exclusion, once, to count what it hid (the
+    #: route's own `limit` ceiling).
+    _HIDDEN_COUNT_READ = 200
 
     @staticmethod
     def _list_position(cursor: str | None, mode: str) -> tuple[str | None, str | None]:
@@ -2733,6 +2769,10 @@ class ResearchReadService:
         sent: list[tuple[dict, str | None]] = []
         end: str | None = None
         hidden: frozenset[str] | None = None
+        # Rows the caller's own session accounted for, in the positions this
+        # call read: said when they left the page short (`hidden_own_session_work`).
+        hidden_count = 0
+        hidden_count_more = False
 
         if (
             mode in (BrowseMode.RUNS, BrowseMode.NOTES, BrowseMode.DATASETS, BrowseMode.CHECKPOINTS)
@@ -2784,6 +2824,30 @@ class ResearchReadService:
                 position = backend_next
             else:
                 missing.append(MissingMarker.PAGE_HIDDEN_AS_OWN_SESSION_WORK)
+            if hide_session is not None and hidden is not None and not end and len(visible) < page_size:
+                # The listing ended short, and the server left the session's
+                # runs out before the page was cut, so nothing here saw them:
+                # read the same positions once without the exclusion and count
+                # the ones the session created. Unknown, and left unsaid, when
+                # that read fails -- never a failed browse.
+                try:
+                    probe, probe_next = self.source.run_list(
+                        project_id=project_id,
+                        experiment_id=experiment_id,
+                        status=status,
+                        tags=tags,
+                        active=bool(active),
+                        cursor=backend_cursor,
+                        limit=self._HIDDEN_COUNT_READ,
+                    )
+                except Exception:  # noqa: BLE001 -- the count is optional
+                    probe, probe_next = [], None
+                hidden_count = sum(
+                    1
+                    for row in probe
+                    if isinstance(row, dict) and str(row.get("id") or "").lower() in hidden
+                )
+                hidden_count_more = bool(probe_next) and hidden_count > 0
             for index, row in enumerate(visible):
                 if index + 1 == len(visible):
                     after = end
@@ -2864,6 +2928,7 @@ class ResearchReadService:
                     for index in range(start, len(rows))
                     if not (hidden and self._catalog_row_hidden(mode, rows[index], hidden))
                 ]
+                hidden_count += len(rows) - start - len(visible)
                 for n, index in enumerate(visible[:page_size]):
                     # Nothing this page still holds is sent after it: resume
                     # on the route's own cursor, past the page's hidden tail.
@@ -2925,6 +2990,7 @@ class ResearchReadService:
                     for row in rows[start:]
                     if not (hidden and self._note_names_hidden(row, hidden))
                 ]
+                hidden_count += len(rows) - start - len(visible)
                 end = self._list_cursor(mode, backend_next) if backend_next else None
                 if visible or not backend_next:
                     break
@@ -3041,6 +3107,12 @@ class ResearchReadService:
             views_by_kind = {EntityType.ARTIFACT.value}
 
         data[str(mode)] = [row for row, _ in sent]
+        if hidden_count and len(sent) < page_size:
+            # A short page that the hiding made short: an agent must not read
+            # "nothing here" off it (the audit's empty `browse(runs)`).
+            data["hidden_own_session_work"] = hidden_count
+            if hidden_count_more:
+                data["hidden_own_session_work_more"] = True
         views = {kind: _supported_views(kind) for kind in sorted(views_by_kind)}
         if views:
             data["available_views"] = views
@@ -4958,11 +5030,10 @@ class ResearchReadService:
         payload["run_ancestry"] = ancestry
         payload["edges"] = edges
         # `view_options.depth` (1-5): the upstream walk -- what this run built
-        # on, N hops back, across parents, runs it built on and the writers of
-        # every file it read (0255). "What produced this number?" is this walk
+        # on, N hops back, across parents, runs it built on and the runs that
+        # made what it used (0255). "What produced this number?" is this walk
         # from the run that logged it. Edges carry `provenance` (observed_call /
-        # inferred / human) and derived ones `meta.basis`, so a guess never
-        # reads like an observation.
+        # inferred / human), so a guess never reads like an observation.
         depth = request.filters.get("depth")
         if depth is not None:
             try:
@@ -4995,8 +5066,8 @@ class ResearchReadService:
         `origin`: a project it builds on or replaces, else its parent project;
         null for a root. `edges`: its links in and out -- stored ones (with
         `provenance`, and `meta.via` on the daemon's), then "built on" DERIVED
-        from its runs' reads (`derived: true`, `meta.basis: runs_read`), so a
-        fact never reads like a guess. On an experiment, `run_edges` is the
+        from what its runs used (`derived: true`, `meta.basis: runs_read`), so
+        a fact never reads like a guess. On an experiment, `run_edges` is the
         graph AMONG its runs and files (`GET /v1/projects/{P}/experiments/{E}/edges`,
         stored edges first), and the read is the experiment API's
         (`.../experiments/{E}/lineage`). The ROWS are its children (sub-projects and experiments,
@@ -5253,6 +5324,9 @@ class ResearchReadService:
     #: facts carry up to 64 KiB of config, and the users lists are the reverse
     #: walk. The card counts them instead.
     _CARD_VERSION_OMIT = frozenset({"meta", "step", "users", "checks"})
+    #: Kept on the card even when null: "no producer" and "no preview sample"
+    #: are answers, and a dropped key reads as a field this server never sends.
+    _CARD_VERSION_EXPLICIT = ("producer", "preview_artifact_id")
 
     @staticmethod
     def _catalog_no_match(entity: dict) -> _ViewData:
@@ -5308,7 +5382,8 @@ class ResearchReadService:
             shown = {
                 key: value
                 for key, value in chosen.items()
-                if key not in self._CARD_VERSION_OMIT and value is not None
+                if key not in self._CARD_VERSION_OMIT
+                and (value is not None or key in self._CARD_VERSION_EXPLICIT)
             }
             users = chosen.get("users")
             if isinstance(users, dict):
@@ -5316,7 +5391,6 @@ class ResearchReadService:
                 stored = users.get("stored_count")
                 shown["users"] = {
                     "stored": stored if isinstance(stored, int) else len(users.get("stored") or []),
-                    "derived": len(users.get("derived") or []),
                     **({"truncated": True} if users.get("truncated") else {}),
                 }
             if isinstance(chosen.get("checks_count"), int):
@@ -5503,6 +5577,16 @@ class ResearchReadService:
         # route has no line-range parameter) -- TODO(backend): a start_line/limit
         # query would make a full walk linear instead of O(pages * doc), the same
         # shape as the _bounded() span-walk TODO.
+        return self._line_sections(lines, request, payload, noun="transcript")
+
+    def _line_sections(
+        self, lines: list[str], request: _Req, payload: dict[str, Any], *, noun: str
+    ) -> _ViewData:
+        """One text document as bounded line sections: a plain read pages from
+        `start_line`, `grep` returns one section per matching line with
+        `context_lines` around it. Shared by session transcripts and artifact
+        content, so both read and page the same way."""
+        total = len(lines)
         window = request.offset + _PAGE_FETCH
         grep = request.filters.get("grep")
         if grep is None:
@@ -5534,7 +5618,7 @@ class ResearchReadService:
             # and a list/dict would str()-coerce into a surprising literal. Both
             # are caller errors, refused rather than answered.
             raise errors.ValidationError(
-                "grep must be a non-empty string: to read the whole transcript "
+                f"grep must be a non-empty string: to read the whole {noun} "
                 "omit grep and page the sections instead",
                 status=422,
             )
@@ -5544,7 +5628,7 @@ class ResearchReadService:
             # accepting it beside grep is the accepted-but-inert lie again.
             raise errors.ValidationError(
                 "start_line applies to a plain read, not to grep (grep scans the "
-                "whole transcript); pass one or the other",
+                f"whole {noun}); pass one or the other",
                 status=422,
             )
         context = self._transcript_int(
@@ -5581,6 +5665,56 @@ class ResearchReadService:
             more_beyond=more,
             no_match=not rows,
         )
+
+    def _view_artifact_content(self, entity: dict, request: _Req) -> _ViewData:
+        """The artifact's stored TEXT, in bounded line sections.
+
+        Any anchor (run, experiment, project, shared): the id already resolved
+        under the caller's tenant. Refused by name, never answered empty, when
+        there is no text to give: a client-owned reference (no managed bytes), a
+        file past `_ARTIFACT_CONTENT_MAX_BYTES`, or bytes that are not UTF-8 text.
+        """
+        artifact_id = str(entity["id"])
+        download = f"`probe artifact download {artifact_id} -o <path>`"
+        if entity.get("is_reference"):
+            raise errors.ValidationError(
+                f"artifact {artifact_id} is a reference ({entity.get('uri')}); Probe "
+                "holds no bytes for it, so read it from where it lives",
+                status=422,
+            )
+        size = entity.get("size_bytes")
+        if isinstance(size, int) and size > _ARTIFACT_CONTENT_MAX_BYTES:
+            raise errors.ValidationError(
+                f"artifact {artifact_id} is {size} bytes, past this view's "
+                f"{_ARTIFACT_CONTENT_MAX_BYTES}-byte text limit; fetch it with {download}",
+                status=422,
+            )
+        blob = self.source.artifact_content(artifact_id)
+        if len(blob) > _ARTIFACT_CONTENT_MAX_BYTES:
+            raise errors.ValidationError(
+                f"artifact {artifact_id} is {len(blob)} bytes, past this view's "
+                f"{_ARTIFACT_CONTENT_MAX_BYTES}-byte text limit; fetch it with {download}",
+                status=422,
+            )
+        try:
+            if b"\x00" in blob:
+                raise UnicodeDecodeError("utf-8", blob, 0, 1, "NUL byte")
+            text = blob.decode("utf-8")
+        except UnicodeDecodeError:
+            raise errors.ValidationError(
+                f"artifact {artifact_id} is binary (not UTF-8 text); fetch it with {download}",
+                status=422,
+            ) from None
+        lines = text.split("\n")
+        payload: dict[str, Any] = {
+            "name": entity.get("name"),
+            "content_type": entity.get("content_type"),
+            "size_bytes": len(blob),
+            "sha256": hashlib.sha256(blob).hexdigest(),
+            "total_lines": len(lines),
+            "filters": request.filters or None,
+        }
+        return self._line_sections(lines, request, payload, noun="file")
 
     # -- coordinate reads (below-run coordinates, 0059-0062) -----------------
 
@@ -5957,13 +6091,16 @@ class ResearchReadService:
         low, high, kept = 1, remaining, 0
         while low <= high:
             mid = (low + high) // 2
-            if budget.fits(build(mid, stand_in if mid < remaining else None)):
+            cursor = stand_in if mid < remaining else None
+            if budget.fits(build(mid, cursor), reserve=_CURSOR_TOKEN_SLACK if cursor else 0):
                 kept, low = mid, mid + 1
             else:
                 high = mid - 1
         if remaining and not kept:
             # Not even the next series fits. Say what would, rather than cut it.
-            needed = _budget_cost(build(1, stand_in if remaining > 1 else None))
+            needed = _budget_cost(build(1, stand_in if remaining > 1 else None)) + (
+                _CURSOR_TOKEN_SLACK if remaining > 1 else 0
+            )
             extra: dict[str, Any] = {"next_series_tokens": needed}
             # WITH HEADROOM, as `_budget_for` names its number: the retry
             # re-reads the series, and on a still-logging run with noisy values

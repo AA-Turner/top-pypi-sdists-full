@@ -31,6 +31,7 @@ class PlanRel(google.protobuf.message.Message):
     REL_FIELD_NUMBER: builtins.int
     ROOT_FIELD_NUMBER: builtins.int
     DETACHED_EXPRESSIONS_FIELD_NUMBER: builtins.int
+    DETACHED_RELS_FIELD_NUMBER: builtins.int
     @property
     def rel(self) -> substrait.algebra_pb2.Rel:
         """Any relation (used for references and CTEs)"""
@@ -43,7 +44,14 @@ class PlanRel(google.protobuf.message.Message):
     def detached_expressions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[substrait.algebra_pb2.Expression]:
         """Expression subtrees stored separately to reduce protobuf nesting.
         Referenced by zero-based ordinals local to this PlanRel.
-        See https://substrait.io/serialization/binary_serialization/#bounded-expression-nesting.
+        See https://substrait.io/serialization/binary_serialization/#detached-relations-and-expressions.
+        """
+
+    @property
+    def detached_rels(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[substrait.algebra_pb2.Rel]:
+        """Relation subtrees stored separately to reduce protobuf nesting.
+        Referenced by zero-based ordinals local to this PlanRel.
+        See https://substrait.io/serialization/binary_serialization/#detached-relations-and-expressions.
         """
 
     def __init__(
@@ -52,9 +60,10 @@ class PlanRel(google.protobuf.message.Message):
         rel: substrait.algebra_pb2.Rel | None = ...,
         root: substrait.algebra_pb2.RelRoot | None = ...,
         detached_expressions: collections.abc.Iterable[substrait.algebra_pb2.Expression] | None = ...,
+        detached_rels: collections.abc.Iterable[substrait.algebra_pb2.Rel] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["rel", b"rel", "rel_type", b"rel_type", "root", b"root"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["detached_expressions", b"detached_expressions", "rel", b"rel", "rel_type", b"rel_type", "root", b"root"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["detached_expressions", b"detached_expressions", "detached_rels", b"detached_rels", "rel", b"rel", "rel_type", b"rel_type", "root", b"root"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["rel", "root"] | None: ...
 
 Global___PlanRel: typing_extensions.TypeAlias = PlanRel
@@ -76,6 +85,7 @@ class Plan(google.protobuf.message.Message):
     PARAMETER_BINDINGS_FIELD_NUMBER: builtins.int
     TYPE_ALIASES_FIELD_NUMBER: builtins.int
     EXECUTION_BEHAVIOR_FIELD_NUMBER: builtins.int
+    NAMED_LAMBDAS_FIELD_NUMBER: builtins.int
     @property
     def version(self) -> Global___Version:
         """Substrait version of the plan. Optional up to 0.17.0, required for later
@@ -128,6 +138,10 @@ class Plan(google.protobuf.message.Message):
     def execution_behavior(self) -> Global___ExecutionBehavior:
         """Execution behavior settings for this plan, required."""
 
+    @property
+    def named_lambdas(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[Global___NamedLambda]:
+        """An optional list of named lambdas."""
+
     def __init__(
         self,
         *,
@@ -140,11 +154,45 @@ class Plan(google.protobuf.message.Message):
         parameter_bindings: collections.abc.Iterable[Global___DynamicParameterBinding] | None = ...,
         type_aliases: collections.abc.Iterable[substrait.type_pb2.TypeAlias] | None = ...,
         execution_behavior: Global___ExecutionBehavior | None = ...,
+        named_lambdas: collections.abc.Iterable[Global___NamedLambda] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "execution_behavior", b"execution_behavior", "version", b"version"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "execution_behavior", b"execution_behavior", "expected_type_urls", b"expected_type_urls", "extension_urns", b"extension_urns", "extensions", b"extensions", "parameter_bindings", b"parameter_bindings", "relations", b"relations", "type_aliases", b"type_aliases", "version", b"version"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "execution_behavior", b"execution_behavior", "expected_type_urls", b"expected_type_urls", "extension_urns", b"extension_urns", "extensions", b"extensions", "named_lambdas", b"named_lambdas", "parameter_bindings", b"parameter_bindings", "relations", b"relations", "type_aliases", b"type_aliases", "version", b"version"]) -> None: ...
 
 Global___Plan: typing_extensions.TypeAlias = Plan
+
+@typing.final
+class NamedLambda(google.protobuf.message.Message):
+    """A lambda defined once and available for invocation or reference as a function
+    value throughout a plan.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    LAMBDA_ANCHOR_FIELD_NUMBER: builtins.int
+    LAMBDA_FIELD_NUMBER: builtins.int
+    NAME_FIELD_NUMBER: builtins.int
+    lambda_anchor: builtins.int
+    """A surrogate key used in the context of a single plan to reference this
+    lambda. This anchor is in a separate namespace from extension function
+    anchors. 0 is a valid anchor/reference, but prefer non-zero values for
+    ergonomics.
+    """
+    name: builtins.str
+    """An optional human-readable name for diagnostics and plan inspection. The
+    name has no semantic meaning and cannot be referenced.
+    """
+    def __init__(
+        self,
+        *,
+        lambda_anchor: builtins.int = ...,
+        name: builtins.str | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_name", b"_name", "lambda", b"lambda", "name", b"name"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_name", b"_name", "lambda", b"lambda", "lambda_anchor", b"lambda_anchor", "name", b"name"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_name", b"_name"]) -> typing.Literal["name"] | None: ...
+
+Global___NamedLambda: typing_extensions.TypeAlias = NamedLambda
 
 @typing.final
 class PlanVersion(google.protobuf.message.Message):

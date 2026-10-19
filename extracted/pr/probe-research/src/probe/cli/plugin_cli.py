@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
+import subprocess  # noqa: F401 - tests patch `plugin_cli.subprocess.run`; the call is `claude_cli.capture`
 
 from probe.cli import claude_cli
 
@@ -61,26 +61,7 @@ def run(source: str, args: list[str], *, timeout: float) -> claude_cli.Result:
         return claude_cli.Result(
             ok=False, detail="`codex` not found on PATH", reachable=False, command=command
         )
-    try:
-        completed = subprocess.run(  # noqa: S603 - fixed binary, no shell
-            [binary, *args],
-            capture_output=True,
-            text=True,
-            stdin=subprocess.DEVNULL,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return claude_cli.Result(
-            ok=False, detail=f"timed out after {timeout:.0f}s", reachable=False, command=command
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        return claude_cli.Result(ok=False, detail=str(exc), reachable=False, command=command)
-    out = (completed.stdout or "").strip()
-    err = (completed.stderr or "").strip()
-    if completed.returncode != 0:
-        return claude_cli.Result(ok=False, detail=err or out, command=command)
-    return claude_cli.Result(ok=True, detail=out, command=command)
+    return claude_cli.run_binary(binary, args, timeout=timeout, command=command)
 
 
 #: Each marketplace CLI's own verbs. A dialect of the two binaries, so it lives

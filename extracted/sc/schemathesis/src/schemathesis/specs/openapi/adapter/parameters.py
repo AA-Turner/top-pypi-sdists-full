@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -54,6 +55,7 @@ from schemathesis.transport.serialization import Binary, quote_all
 if TYPE_CHECKING:
     from hypothesis import strategies as st
 
+    from schemathesis.config._dictionaries import DictionaryBinding
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.specs.openapi.extra_data_source import (
         CapturedVariant,
@@ -100,8 +102,10 @@ CAPTURED_VALUES_PROBABILITY = 0.8
 # Probability of using negative strategy when captured values are available.
 # We want to mostly use captured values to test deeper application logic.
 NEGATIVE_STRATEGY_PROBABILITY = 0.03
-# Error-feedback generation, semantic index identity and constants source identity a built strategy closes over.
-StrategyCacheKey = tuple[int | None, int | None, int | None]
+# Generation settings a built strategy depends on: codec, `\x00`, header characters, extra parameters, dictionaries.
+GenerationCacheKey = tuple[str | None, bool, str | None, bool, frozenset[tuple[str, "DictionaryBinding"]]]
+# Feedback generation, semantic index and constants source identities, and the generation settings a strategy uses.
+StrategyCacheKey = tuple[int | None, int | None, int | None, GenerationCacheKey]
 
 # Probability of biasing path parameter integers toward positive values.
 # Most REST APIs use positive integers for resource IDs, so this improves
@@ -120,7 +124,7 @@ CONSTANTS_OVERLAY_PROBABILITY = 0.15
 _TYPE_DECIDING_KEYWORDS = ("anyOf", "oneOf", "allOf", "not", "$ref")
 
 
-def _variant_key(variant: dict[str, Any]) -> str:
+def _variant_key(variant: dict[str, Any] | list[Any]) -> str:
     """Create a stable string key for a variant dict."""
     return jsonschema_rs.canonical.json.to_string(variant)
 
@@ -536,18 +540,26 @@ def _semantic_index(extra_data_source: ExtraDataSource | None) -> SemanticValueI
 
 def _strategy_cache_key(
     operation: APIOperation,
+    generation_config: GenerationConfig,
     extra_data_source: ExtraDataSource | None,
     mix_examples: bool,
     error_feedback: ErrorFeedbackStore | None,
     constants_value_source: ConstantsPool | None,
 ) -> StrategyCacheKey | None:
-    """Identity of every live source a built strategy closes over, or None when it must not be cached."""
+    """Identity of every live source and generation setting a built strategy closes over, or None to skip caching."""
     if not mix_examples or _captured_variants_active(extra_data_source, operation):
         return None
     return (
         error_feedback.generation if error_feedback is not None else None,
         _semantic_cache_key(extra_data_source),
         id(constants_value_source) if constants_value_source is not None else None,
+        (
+            generation_config.codec,
+            generation_config.allow_x00,
+            generation_config.exclude_header_characters,
+            generation_config.allow_extra_parameters,
+            frozenset(generation_config.dictionaries.items()),
+        ),
     )
 
 
@@ -887,9 +899,8 @@ def build_hybrid_strategy(
             base_constants_draws = drawn.constants_draws
             base = drawn.value
 
-        # Captured variants are partial dict overrides; meaningful only when the base is a dict.
-        # Schemas without `type: object` can produce scalars/lists — leave those untouched.
-        if not isinstance(base, dict):
+        # Captured variants are partial overrides of an object body or of top-level array items.
+        if not isinstance(base, (dict, list)):
             return base
 
         # Single variant: no selection needed
@@ -902,22 +913,22 @@ def build_hybrid_strategy(
         chosen = captured_variants[idx]
         overlay = chosen.overlay
         pool_draws = chosen.draws
+        if isinstance(overlay, list) != isinstance(base, list) or base == []:
+            return drawn
         # A dictionary binding is explicit intent, so a captured value never replaces its entry.
         bound = {draw_.parameter_name for draw_ in base_dictionary_draws if draw_.body_path is None}
-        if bound & overlay.keys():
+        if isinstance(overlay, dict) and bound & overlay.keys():
             overlay = {key: value for key, value in overlay.items() if key not in bound}
             pool_draws = tuple(pool_draw for pool_draw in pool_draws if pool_draw.parameter_name not in bound)
             if not overlay:
                 return drawn
 
-        if container_validator is not None:
-            merged = deepclone(base)
-            _deep_merge_overlay(merged, overlay)
-            if not _example_is_valid(merged, container_validator):
-                return drawn
-            base = merged
-        else:
-            _deep_merge_overlay(base, overlay)
+        # The drawn value may be a schema example shared with every later draw.
+        merged = deepclone(base)
+        _apply_overlay(merged, overlay)
+        if container_validator is not None and not _example_is_valid(merged, container_validator):
+            return drawn
+        base = merged
         usage_tracker.record_draw(variant_keys[idx])
         return GeneratedValue(
             value=base,
@@ -931,13 +942,35 @@ def build_hybrid_strategy(
     return hybrid()
 
 
+def _apply_overlay(target: dict[str, Any] | list[Any], overlay: dict[str, Any] | list[Any]) -> None:
+    if isinstance(target, dict) and isinstance(overlay, dict):
+        _deep_merge_overlay(target, overlay)
+    elif isinstance(target, list) and isinstance(overlay, list) and _is_item_overlay(overlay):
+        _merge_item_overlay(target, overlay[0])
+
+
 def _deep_merge_overlay(target: dict[str, Any], overlay: dict[str, Any]) -> None:
     """Apply `overlay` onto `target` in place, recursing into nested dicts so leaf overlays don't drop generated siblings."""
     for key, value in overlay.items():
-        if isinstance(value, dict) and isinstance(target.get(key), dict):
-            _deep_merge_overlay(target[key], value)
+        current = target.get(key)
+        if isinstance(value, dict) and isinstance(current, dict):
+            _deep_merge_overlay(current, value)
+        elif _is_item_overlay(value) and isinstance(current, list) and current:
+            _merge_item_overlay(current, value[0])
         else:
             target[key] = value
+
+
+def _merge_item_overlay(items: list[Any], overlay: dict[str, Any]) -> None:
+    # Fields captured for an array item apply to every generated item, as bulk endpoints check each one.
+    for item in items:
+        if isinstance(item, dict):
+            _deep_merge_overlay(item, overlay)
+
+
+def _is_item_overlay(value: object) -> bool:
+    """Whether `value` holds fields for array items, e.g. `[{"groupId": ...}]` from `data/0/groupId`."""
+    return isinstance(value, list) and len(value) == 1 and isinstance(value[0], dict)
 
 
 def _integer_property_validators(schema: JsonSchemaObject, validator_cls: type) -> dict[str, jsonschema_rs.Validator]:
@@ -964,6 +997,9 @@ def _get_explicit_intent_path_names(*, parameters: Sequence[OpenApiParameter]) -
             explicit.add(parameter.name)
         schema = parameter.optimized_schema
         if isinstance(schema, dict) and schema.get("format") in STRING_FORMATS:
+            explicit.add(parameter.name)
+        # Values the schema lists verbatim carry the same intent as examples.
+        if isinstance(schema, dict) and _has_explicit_slash_example([*(schema.get("enum") or ()), schema.get("const")]):
             explicit.add(parameter.name)
     return frozenset(explicit)
 
@@ -1211,20 +1247,21 @@ class OpenApiComponent(ABC):
         Keeps `prefixItems` intact so `Draft202012Validator` accepts the schema during construction.
         """
         if self._validation_schema is NOT_SET:
-            self._validation_schema = to_json_schema(
-                self.raw_schema,
-                nullable_keyword=self.adapter.nullable_keyword,
-                update_quantifiers=False,
-                upgrade_legacy_exclusive_bounds=(
-                    self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator
-                ),
-                convert_prefix_items=False,
-                convert_if_then_else=False,
-                name_to_uri=self.name_to_uri,
-                merge_ref_siblings=self.adapter.ref_siblings,
-            )
+            self._validation_schema = self._build_validation_schema()
         assert not isinstance(self._validation_schema, NotSet)
         return self._validation_schema
+
+    def _build_validation_schema(self) -> JsonSchema:
+        return to_json_schema(
+            self.raw_schema,
+            nullable_keyword=self.adapter.nullable_keyword,
+            update_quantifiers=False,
+            upgrade_legacy_exclusive_bounds=self.adapter.jsonschema_validator_cls is jsonschema_rs.Draft202012Validator,
+            convert_prefix_items=False,
+            convert_if_then_else=False,
+            name_to_uri=self.name_to_uri,
+            merge_ref_siblings=self.adapter.ref_siblings,
+        )
 
     def _get_validator(self) -> jsonschema_rs.Validator:
         if self._validator is NOT_SET:
@@ -1525,6 +1562,21 @@ class OpenApiParameter(OpenApiComponent):
         return "string" if self.location.is_in_header else None
 
 
+class RequestBodySchemaCache:
+    """Converted request body schemas, shared by every body of a loaded API that declares the same schema."""
+
+    __slots__ = ("_schemas",)
+
+    def __init__(self) -> None:
+        self._schemas: dict[tuple[object, ...], JsonSchema] = {}
+
+    def get_or_build(self, key: tuple[object, ...], build: Callable[[], JsonSchema]) -> JsonSchema:
+        schema = self._schemas.get(key)
+        if schema is None:
+            schema = self._schemas.setdefault(key, build())
+        return schema
+
+
 @dataclass
 class OpenApiBody(OpenApiComponent):
     """OpenAPI request body."""
@@ -1540,6 +1592,7 @@ class OpenApiBody(OpenApiComponent):
         "resource_name",
         "name_to_uri",
         "adapter",
+        "schema_cache",
         "_optimized_schema",
         "_unoptimized_schema",
         "_raw_schema",
@@ -1592,6 +1645,8 @@ class OpenApiBody(OpenApiComponent):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        # Not part of the body's value: bodies that declare the same schema share converted copies through it.
+        self.schema_cache: RequestBodySchemaCache | None = None
         self._strategy_cache: dict[GenerationMode, tuple[StrategyCacheKey, st.SearchStrategy]] = {}
         self._is_negatable: bool | NotSet = NOT_SET
 
@@ -1619,15 +1674,50 @@ class OpenApiBody(OpenApiComponent):
         """Get raw body schema."""
         return self.definition.get("schema", {})
 
+    def _build_schema(self, *, optimize: bool) -> JsonSchema:
+        return self._shared(("generation", optimize), lambda: super(OpenApiBody, self)._build_schema(optimize=optimize))
+
+    def _build_validation_schema(self) -> JsonSchema:
+        return self._shared(("validation",), super()._build_validation_schema)
+
+    def share_converted_schemas(self, cache: RequestBodySchemaCache) -> None:
+        """Share converted schemas with identical bodies, unless they already exist and may have been changed."""
+        if all(
+            value is NOT_SET
+            for value in (
+                self._raw_schema,
+                self._optimized_schema,
+                self._unoptimized_schema,
+                self._validation_schema,
+                self._permissive_schema,
+            )
+        ):
+            self.schema_cache = cache
+
+    def _shared(self, kind: tuple[object, ...], build: Callable[[], JsonSchema]) -> JsonSchema:
+        # Keyed by content when first converted, so a body a hook changed gets its own schema.
+        if self.schema_cache is None:
+            return build()
+        try:
+            text = jsonschema_rs.canonical.json.to_string(self.raw_schema)
+        except ValueError:
+            return build()
+        # Bundled bodies embed every component they reach; a digest keeps the key small.
+        digest = hashlib.sha256(text.encode()).digest()
+        key = (*kind, digest, tuple(sorted(self.name_to_uri.items())), self._get_default_type())
+        return self.schema_cache.get_or_build(key, build)
+
     def _get_default_type(self) -> str | None:
         """Return default type if body is a form type."""
         return "object" if self.media_type in FORM_MEDIA_TYPES else None
 
-    def get_property_content_type(self, property_name: str) -> str | list[str] | None:
-        """Get custom contentType for a form property from `encoding` definition."""
+    def get_property_content_types(self, property_name: str) -> list[str]:
+        """Get media types a form property declares via `encoding.contentType`."""
         encoding = self.definition.get("encoding", {})
-        property_encoding = encoding.get(property_name, {})
-        return property_encoding.get("contentType")
+        raw = encoding.get(property_name, {}).get("contentType")
+        # A string may list several media types separated by commas.
+        items = raw.split(",") if isinstance(raw, str) else raw if isinstance(raw, list) else []
+        return [item.strip() for item in items if isinstance(item, str) and item.strip()]
 
     def get_property_filename(self, property_name: str) -> str | None:
         """Get filename from encoding.headers.Content-Disposition for a form property."""
@@ -1655,7 +1745,7 @@ class OpenApiBody(OpenApiComponent):
         # would freeze stale variants. The semantic overlay closes over the live index and
         # remains correct under caching, so semantic-only data sources stay cache-eligible.
         overlay_key = _strategy_cache_key(
-            operation, extra_data_source, mix_examples, error_feedback, constants_value_source
+            operation, generation_config, extra_data_source, mix_examples, error_feedback, constants_value_source
         )
         # Only the latest strategy per mode is kept; a new feedback generation replaces it.
         cached = self._strategy_cache.get(generation_mode) if overlay_key is not None else None
@@ -1838,7 +1928,14 @@ class OpenApiBody(OpenApiComponent):
             error_feedback=error_feedback,
             constants_value_source=constants_value_source,
         )
-        positive_strategy = build_hybrid_strategy(positive_strategy, captured_variants, usage_tracker)
+        schema = _adjusted_schema(self.optimized_schema, operation, ParameterLocation.BODY, error_feedback)
+        positive_strategy = build_hybrid_strategy(
+            positive_strategy,
+            captured_variants,
+            usage_tracker,
+            container_schema=schema if isinstance(schema, dict) else None,
+            validator_cls=operation.schema.adapter.jsonschema_validator_cls,
+        )
         return _mix_negative_into_positive(positive_strategy, negative_strategy)
 
 
@@ -1939,6 +2036,10 @@ def _bundle_parameter(
     name_to_uri = {}
     if schema is not None:
         definition = dict(definition)
+        # A body stands alone, so names local to it let bodies declaring the same schema bundle identically.
+        # Other parameters are merged into one schema per location and need names unique across them.
+        if definition.get("in") == ParameterLocation.BODY:
+            bundler = Bundler(ref_siblings=bundler.ref_siblings)
         try:
             bundled = bundler.bundle(
                 schema,
@@ -2113,7 +2214,10 @@ def iter_parameters_v2(
         for media_type in form_media_types:
             # Individual `formData` parameters are joined into a single "composite" one.
             yield OpenApiBody.from_form_parameters(
-                definition=form_data, media_type=media_type, name_to_uri=form_name_to_uri, adapter=adapter
+                definition=form_data,
+                media_type=media_type,
+                name_to_uri=form_name_to_uri,
+                adapter=adapter,
             )
 
 
@@ -2185,7 +2289,9 @@ def iter_parameters_v3(
                         resource_name = resource_name_from_ref(items["$ref"])
                 try:
                     to_bundle = cast(dict[str, Any], schema)
-                    bundled = bundler.bundle(
+                    # Names local to this body, so bodies declaring the same schema bundle identically and share
+                    # their converted schemas.
+                    bundled = Bundler(ref_siblings=bundler.ref_siblings).bundle(
                         to_bundle,
                         body_resolver,
                     )
@@ -2403,7 +2509,7 @@ class OpenApiParameterSet(ParameterSet):
         """Get a Hypothesis strategy for this parameter set with specified exclusions."""
         exclude_key = _EMPTY_EXCLUDE_KEY if not exclude else frozenset(exclude)
         overlay_key = _strategy_cache_key(
-            operation, extra_data_source, mix_examples, error_feedback, constants_value_source
+            operation, generation_config, extra_data_source, mix_examples, error_feedback, constants_value_source
         )
         cache_key = (exclude_key, generation_mode, overlay_key)
         if overlay_key is not None and cache_key in self._strategy_cache:

@@ -776,6 +776,7 @@ class AgenticPlatformPipelineType(sgqlc.types.Enum):
     * `AGENT_HEALTH`None
     * `ALERT_ASSESSMENT`None
     * `COST_AGENT_INSIGHTS`None
+    * `META_SUMMARIZER`None
     * `MONITORING`None
     * `MONITOR_TUNING`None
     * `SCHEDULED_REPORT`None
@@ -787,6 +788,7 @@ class AgenticPlatformPipelineType(sgqlc.types.Enum):
         "AGENT_HEALTH",
         "ALERT_ASSESSMENT",
         "COST_AGENT_INSIGHTS",
+        "META_SUMMARIZER",
         "MONITORING",
         "MONITOR_TUNING",
         "SCHEDULED_REPORT",

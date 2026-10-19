@@ -3,7 +3,17 @@ from __future__ import annotations
 import os
 import zipfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, AnyStr, Callable, Iterable, Optional, Tuple, Union, cast
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    AnyStr,
+    Callable,
+    Iterable,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.operations import Progress, ProgressCallback
@@ -13,8 +23,10 @@ from office365.sharepoint.thresholds import Limits
 from office365.sharepoint.types.resource_path import ResourcePath as SPResPath
 
 if TYPE_CHECKING:
+    from office365.sharepoint.client_context import ClientContext
     from office365.sharepoint.files.file import File
     from office365.sharepoint.folders.folder import Folder
+    from office365.sharepoint.utilities.move_copy_options import MoveCopyOptions
 
 _DEFAULT_CHUNK_SIZE = Limits.UPLOAD_SESSION_CHUNK.value  # simple-upload threshold / upload-session chunk
 
@@ -379,7 +391,7 @@ class MoveCopyUtil(Entity):
         entries = []
 
         def _path_provider(path: Path) -> Callable[[], bytes]:
-            return lambda: path.read_bytes()
+            return path.read_bytes
 
         if isinstance(source, (str, Path)):
             path = Path(source)
@@ -406,6 +418,35 @@ class MoveCopyUtil(Entity):
                 path = Path(item)
                 entries.append((path.name, _path_provider(path)))
         return entries
+
+    @staticmethod
+    def copy_file(
+        context: ClientContext, src_url: str, dest_url: str, overwrite: bool, options: MoveCopyOptions
+    ) -> None:
+        """CopyFile operation.
+
+        Args:
+            src_url (str):
+                srcUrl parameter
+            dest_url (str):
+                destUrl parameter
+            overwrite (bool):
+                overwrite parameter
+            options (MoveCopyOptions):
+                options parameter
+        """
+        from office365.sharepoint.utilities.move_copy_util import MoveCopyUtil
+
+        qry = ServiceOperationQuery(
+            MoveCopyUtil(context),
+            "CopyFile",
+            None,
+            {"srcUrl": src_url, "destUrl": dest_url, "overwrite": overwrite, "options": options},
+            None,
+            None,
+            True,
+        )
+        context.add_query(qry)
 
 
 def _chain_uploads(
@@ -459,5 +500,5 @@ def _content_provider(content):
     if isinstance(content, bytes):
         return lambda: content
     if isinstance(content, Path):
-        return lambda: content.read_bytes()
+        return content.read_bytes
     return lambda: str(content).encode("utf-8")

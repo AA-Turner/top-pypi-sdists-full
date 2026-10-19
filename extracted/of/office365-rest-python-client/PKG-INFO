@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: office365-rest-python-client
-Version: 3.2.0
+Version: 3.3.0
 Summary: Microsoft 365 & Microsoft Graph Library for Python
 Author: Vadim Gremyachev
 Author-email: Vadim Gremyachev <vvgrem@gmail.com>
@@ -37,6 +37,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: msal>=1.28,<2
@@ -45,17 +46,20 @@ Requires-Dist: requests>=2.32.4,<3
 Requires-Dist: typing-extensions>=4.5
 Requires-Dist: azure-storage-blob>=12.19 ; extra == 'azure'
 Requires-Dist: cryptography>=42 ; extra == 'azure'
-Requires-Dist: duckdb>=1.0 ; extra == 'duckdb'
+Requires-Dist: duckdb>=1 ; extra == 'duckdb'
 Requires-Dist: faker ; extra == 'examples'
+Requires-Dist: tqdm>=4.60,<5 ; extra == 'examples'
 Requires-Dist: openpyxl>=3.1 ; extra == 'excel'
-Requires-Dist: pandas>=1.3.0 ; extra == 'notebooks'
+Requires-Dist: httpx>=0.27,<1 ; extra == 'httpx'
+Requires-Dist: jinja2 ; extra == 'notebooks'
 Requires-Dist: jupyter ; extra == 'notebooks'
 Requires-Dist: nbformat ; extra == 'notebooks'
-Requires-Dist: jinja2 ; extra == 'notebooks'
+Requires-Dist: pandas>=1.3 ; extra == 'notebooks'
 Requires-Dist: requests-ntlm ; extra == 'ntlm'
 Requires-Dist: pandas>=1.5 ; extra == 'pandas'
 Requires-Dist: pyarrow>=14 ; extra == 'parquet'
-Requires-Dist: sqlalchemy>=2.0 ; extra == 'sql'
+Requires-Dist: tqdm>=4.60,<5 ; extra == 'progress'
+Requires-Dist: sqlalchemy>=2 ; extra == 'sql'
 Maintainer: Domenico Di Nicola
 Maintainer-email: Domenico Di Nicola <dom.dinicola@gmail.com>
 Requires-Python: >=3.8.0
@@ -65,10 +69,12 @@ Provides-Extra: azure
 Provides-Extra: duckdb
 Provides-Extra: examples
 Provides-Extra: excel
+Provides-Extra: httpx
 Provides-Extra: notebooks
 Provides-Extra: ntlm
 Provides-Extra: pandas
 Provides-Extra: parquet
+Provides-Extra: progress
 Provides-Extra: sql
 Description-Content-Type: text/markdown
 
@@ -99,6 +105,7 @@ Description-Content-Type: text/markdown
 - [Quick start](#quick-start)
 - [Examples by product](#examples-by-product)
 - [Common patterns](#common-patterns)
+- [Async / await](#async--await)
 - [Dependencies](#dependencies)
 - [Contributing](#contributing)
 - [Support](#support)
@@ -109,7 +116,7 @@ The library ships two clients. Pick the one that matches the API you need.
 
 | | `ClientContext` | `GraphClient` |
 |---|---|---|
-| **Talks to** | SharePoint REST API (`/_api`) | Microsoft Graph (`graph.microsoft.com`) |
+| **Talks to** | SharePoint REST API v1 | Microsoft Graph (`graph.microsoft.com`) |
 | **Entry point** | `ClientContext("https://contoso.sharepoint.com/sites/team")` | `GraphClient(tenant="contoso.onmicrosoft.com")` |
 | **Best for** | SharePoint lists, items, files, folders, search, permissions, site and tenant administration, taxonomy, webhooks | Outlook, OneDrive, Teams, OneNote, Planner, To Do, Entra ID, Intune, Purview, Bookings, reports, security… |
 | **SharePoint** | Full fidelity | Partial — prefer `ClientContext` for SharePoint-only work |
@@ -163,7 +170,7 @@ Modern flows authenticate through **Microsoft Entra ID** using [MSAL](https://le
 | ACS / SAML | On-premises (legacy) | [legacy app-only](https://github.com/vgrem/office365-rest-python-client/blob/master/examples/sharepoint/auth/legacy/with_app_only.py) · [legacy SAML](https://github.com/vgrem/office365-rest-python-client/blob/master/examples/sharepoint/auth/legacy/with_user_credential.py) |
 
 > [!NOTE]
-> SharePoint app-only access requires a **certificate**. A client secret is not accepted by the SharePoint `/_api` endpoints — use `GraphClient` for secret-based app-only. See [why a client secret doesn't work for SharePoint](https://github.com/vgrem/office365-rest-python-client/blob/master/examples/sharepoint/auth/README.md).
+> SharePoint app-only access requires a **certificate**. A client secret is not accepted by SharePoint REST API v1 — use `GraphClient` for secret-based app-only. See [why a client secret doesn't work for SharePoint](https://github.com/vgrem/office365-rest-python-client/blob/master/examples/sharepoint/auth/README.md).
 
 ```python
 from office365.sharepoint.client_context import ClientContext
@@ -262,7 +269,7 @@ Every snippet below is lifted from a runnable script. Follow the **More →** li
 # Lists and items
 tasks = ctx.web.lists.get_by_title("Tasks")
 item = tasks.add_item({"Title": "Ship it", "Status": "Active"}).execute_query()
-tasks.items.get_all().execute_query()               # or .filter("Status eq 'Active'").get_all()
+tasks.items.get_all().execute_query()  # or .filter("Status eq 'Active'").get_all()
 
 # Files and folders
 folder = ctx.web.get_folder_by_server_relative_url("/sites/team/Shared Documents")
@@ -359,7 +366,7 @@ print(user.display_name)
 ### Planner
 
 ```python
-group = client.groups.get_by_name("My Sample Team").get().execute_query()
+group = client.groups.find_by_name("My Sample Team", required=True).execute_query()
 plans = group.planner.plans.get().execute_query()
 task = client.planner.tasks.add("Update client list", plans[0].id).execute_query()
 print(task.title)
@@ -505,14 +512,25 @@ items = (
 )
 ```
 
+**Addressing resources.** Entities are addressed by the key you already know, so you rarely need an opaque id: user principal name, site path or URL, file path, list title. `get_by_url`/`get_by_path` on `client.sites` fetch when you call `execute_query()`; keyed/UPN forms and `driveItem.get_by_path` are lazy, so chain `.get()` first.
+
+```python
+user = client.users["ada@contoso.com"].get().execute_query()  # a user, by UPN
+site = client.sites.get_by_url("https://contoso.sharepoint.com/sites/marketing").execute_query()
+file = client.me.drive.root.get_by_path("Reports/Q1.xlsx").get().execute_query()
+items = ctx.web.lists.get_by_title("Tasks").items.get().execute_query()
+```
+
 **Reading large collections.** Use `get_all()` to follow paging automatically, and `page_size` to stay under server limits.
 
 ```python
 items = ctx.web.lists.get_by_title("Orders").items.get_all(page_size=2000).execute_query()
 
-files = ctx.web.get_folder_by_server_relative_url("/sites/team/Shared Documents").get_files(
-    recursive=True, page_size=2000
-).execute_query()
+files = (
+    ctx.web.get_folder_by_server_relative_url("/sites/team/Shared Documents")
+    .get_files(recursive=True, page_size=2000)
+    .execute_query()
+)
 ```
 
 **Batching.** Dispatch many queued operations in one round trip. Raise `concurrency` to run batches in parallel; throttled sub-requests are retried individually, honoring `Retry-After`.
@@ -521,8 +539,8 @@ files = ctx.web.get_folder_by_server_relative_url("/sites/team/Shared Documents"
 for row in rows:
     ctx.web.lists.get_by_title("Contacts").add_item(row)
 
-ctx.execute_batch()                     # sequential
-ctx.execute_batch(concurrency=5)        # up to 5 batches in flight
+ctx.execute_batch()  # sequential
+ctx.execute_batch(concurrency=5)  # up to 5 batches in flight
 
 # Graph
 for user in new_users:
@@ -535,17 +553,11 @@ client.execute_batch(concurrency=5)
 ```python
 from office365.sharepoint.listitems.caml import Caml, CamlQuery
 
-query = (
-    CamlQuery.builder()
-    .where(Caml.text("Status").eq("Active"))
-    .order_by("ID")
-    .row_limit(2000, paged=True)
-    .build()
-)
+query = CamlQuery.builder().where(Caml.text("Status").eq("Active")).order_by("ID").row_limit(2000, paged=True).build()
 
-lst.check_query(query)                          # raises with a clear message if an index is missing
-print(lst.index_candidates(query))              # columns worth indexing
-lst.ensure_indexed("Status").execute_query()    # create the index (builds in the background)
+lst.check_query(query)  # raises with a clear message if an index is missing
+print(lst.index_candidates(query))  # columns worth indexing
+lst.ensure_indexed("Status").execute_query()  # create the index (builds in the background)
 ```
 
 **Import and export DataFrames.** Optional helpers turn list items into [pandas](https://pandas.pydata.org/) / [Polars](https://pola.rs/) frames and back.
@@ -556,6 +568,24 @@ lst = ctx.web.lists.ensure_list("Orders").execute_query()
 df = lst.to_dataframe().execute_query().value
 lst.from_dataframe(df, chunksize=100).execute_query()
 ```
+
+## Async / await
+
+Every call that reaches the network has an `await` twin. Builders stay synchronous — only the terminal call changes. No extra dependency is required: by default the blocking HTTP call is handed to a worker thread, so the event loop stays free.
+
+```python
+import asyncio
+
+
+async def main() -> None:
+    web = await ctx.web.get().execute_query_async()
+    print(web.title)
+
+
+asyncio.run(main())
+```
+
+`execute_query_async()`, `execute_batch_async()`, `get_all_async()`, `execute_query_parallel_async()`, streaming downloads/exports and long-running-operation polling all have async twins, and collections support `async for`. See the [async guide](https://vgrem.github.io/office365-rest-python-client/async/).
 
 ## Dependencies
 

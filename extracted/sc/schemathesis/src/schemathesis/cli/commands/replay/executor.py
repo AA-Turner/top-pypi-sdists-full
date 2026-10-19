@@ -222,6 +222,10 @@ def _errored_outcome(
 
 
 def _step_operation(schema: BaseSchema, step: CrashStep) -> APIOperation | None:
+    if step.operation is not None:
+        operation = schema.find_operation_by_label(step.operation)
+        if operation is not None:
+            return operation
     try:
         return schema[step.path][step.method]
     except LookupError:
@@ -542,6 +546,9 @@ def _make_check_context(operation: APIOperation, recorder: ScenarioRecorder) -> 
 
 
 def _resolve_operation(schema: BaseSchema, crash: CrashFile) -> APIOperation | None:
+    operation = schema.find_operation_by_label(crash.operation)
+    if operation is not None:
+        return operation
     try:
         path_map = schema[crash.path_template]
     except LookupError:

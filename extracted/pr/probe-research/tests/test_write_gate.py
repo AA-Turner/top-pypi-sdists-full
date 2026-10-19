@@ -418,6 +418,10 @@ NOT_RESEARCH = frozenset(
         "daemon",
         "deny",
         "doctor",
+        # `probe draft edit` changes a checked-out draft on disk (the push is the
+        # write) and `probe file preview` prints a local file: nothing reaches Probe.
+        "draft",
+        "file",
         # `probe feedback send` holds feedback for the Probe team as a question
         # for the researcher; the CLI refuses it under `off` itself.
         "feedback",
@@ -434,6 +438,8 @@ NOT_RESEARCH = frozenset(
         "snapshot-prune-refs",
         "snapshot-restore",
         "snapshot-show",
+        # `probe status`: this device's install as data, like `doctor`.
+        "status",
         "statusline",
         # Delivers runs recorded with PROBE_MODE=offline: outbox plumbing like
         # `flush`, for queues nothing else drains (plan 2.12).
@@ -523,8 +529,6 @@ WRITE_GROUP_WRITES = frozenset(
         "project tag",
         # `run move` files a floating run: the daemon's in `daemon` state.
         "run child", "run end", "run expect", "run fork", "run move", "run set", "run start", "run tag",
-        # Correcting what a run read was matched to: the researcher's (L5).
-        "run input dismiss", "run input pin", "run input reset",
         "span add",
         # `trial export` uploads a staged trial; `export` read as a read verb
         # let `read` through it.

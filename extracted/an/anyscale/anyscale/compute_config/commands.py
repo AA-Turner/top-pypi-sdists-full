@@ -147,7 +147,10 @@ import anyscale
 anyscale.compute_config.archive(name="my-compute-config")
 """
 
-_ARCHIVE_ARG_DOCSTRINGS = {"name": "Name of the compute config."}
+_ARCHIVE_ARG_DOCSTRINGS = {
+    "name": "Name of the compute config.",
+    "cloud": "Cloud name to filter by when resolving the compute config by name. Useful when multiple compute configs with the same name exist across different clouds.",
+}
 
 
 @sdk_command(
@@ -159,6 +162,7 @@ _ARCHIVE_ARG_DOCSTRINGS = {"name": "Name of the compute config."}
 def archive(
     name: Optional[str],
     *,
+    cloud: Optional[str] = None,
     _id: Optional[str] = None,
     _private_sdk: Optional[PrivateComputeConfigSDK] = None,
 ):
@@ -172,7 +176,41 @@ def archive(
     # NOTE(edoakes): I want to avoid exposing fetching by ID in the public API,
     # but it's needed for parity with the existing CLI. Therefore I am adding it
     # as a hidden private API that can be used like: (`name="", _id=id`).
-    return _private_sdk.archive_compute_config(name=name or None, id=_id)  # type: ignore
+    return _private_sdk.archive_compute_config(name=name or None, id=_id, cloud=cloud)  # type: ignore
+
+
+_UNARCHIVE_EXAMPLE = """
+import anyscale
+
+anyscale.compute_config.unarchive(name="my-compute-config")
+"""
+
+_UNARCHIVE_ARG_DOCSTRINGS = {
+    "name": "Name of the compute config.",
+    "cloud": "Cloud name to filter by when resolving the compute config by name. Useful when multiple compute configs with the same name exist across different clouds.",
+}
+
+
+@sdk_command(
+    _COMPUTE_CONFIG_SDK_SINGLETON_KEY,
+    PrivateComputeConfigSDK,
+    doc_py_example=_UNARCHIVE_EXAMPLE,
+    arg_docstrings=_UNARCHIVE_ARG_DOCSTRINGS,
+    hidden=True,
+)
+def unarchive(
+    name: Optional[str],
+    *,
+    cloud: Optional[str] = None,
+    _id: Optional[str] = None,
+    _private_sdk: Optional[PrivateComputeConfigSDK] = None,
+):
+    """Unarchive a compute config and all of its archived versions.
+
+    The name can contain an optional version, e.g., 'name:version'.
+    Archived versions in the same cloud are restored, so the name can be used again.
+    """
+    return _private_sdk.unarchive_compute_config(name=name or None, id=_id, cloud=cloud)  # type: ignore
 
 
 _GET_DEFAULT_EXAMPLE = """

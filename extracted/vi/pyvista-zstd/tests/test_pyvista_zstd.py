@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import TYPE_CHECKING
@@ -13,6 +15,7 @@ import numpy as np
 import pytest
 import pyvista as pv
 from pyvista.core.composite import MultiBlock
+from pyvista.core.datasetattributes import DataSetAttributes
 from pyvista.core.grid import ImageData
 from pyvista.core.grid import RectilinearGrid
 from pyvista.core.pointset import ExplicitStructuredGrid
@@ -22,6 +25,7 @@ from pyvista.core.pointset import StructuredGrid
 from pyvista.core.pointset import UnstructuredGrid
 
 import pyvista_zstd
+from pyvista_zstd import _capi
 from pyvista_zstd import pyvista_zstd as impl
 
 if TYPE_CHECKING:
@@ -31,6 +35,10 @@ if TYPE_CHECKING:
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 LEGACY_ZVTK_FIXTURE = TEST_DATA_DIR / "legacy_sphere.zvtk"
 SPHERE_FILE_VERSION_0_FIXTURE = TEST_DATA_DIR / "sphere_file_version_0.pv"
+ESGRID_BLOCKING_0_5_0_FIXTURE = TEST_DATA_DIR / "esgrid_blocking_0_5_0.pv"
+ESGRID_NO_BLOCKING_0_5_0_FIXTURE = TEST_DATA_DIR / "esgrid_no_blocking_0_5_0.pv"
+ESGRID_LONE_BLOCK_I_0_5_0_FIXTURE = TEST_DATA_DIR / "esgrid_lone_block_i_0_5_0.pv"
+SGRID_0_5_0_FIXTURE = TEST_DATA_DIR / "sgrid_0_5_0.pv"
 
 
 def _expected_fixture_sphere() -> PolyData:
@@ -248,6 +256,57 @@ def test_sgrid(sgrid: StructuredGrid, tmp_path: Path) -> None:
     assert sgrid.point_data == sgrid_out.point_data
     assert sgrid.cell_data == sgrid_out.cell_data
     assert sgrid.field_data == sgrid_out.field_data
+    assert sgrid == sgrid_out
+
+
+def _make_offset_grid(ds_type: str) -> DataSet:
+    """Return a 4x5x6 structured dataset of ``ds_type`` whose extent starts at (2, -1, 10)."""
+    if ds_type == "ExplicitStructuredGrid":
+        return _make_esgrid("extent_offset")
+    image = pv.ImageData(dimensions=(4, 5, 6))
+    grids = {
+        "ImageData": image,
+        "RectilinearGrid": image.cast_to_rectilinear_grid(),
+        "StructuredGrid": image.cast_to_structured_grid(),
+    }
+    grid = grids[ds_type]
+    grid.SetExtent(2, 5, -1, 3, 10, 15)
+    return grid
+
+
+@pytest.mark.parametrize("has_offset_property", [True, False])
+@pytest.mark.parametrize("ds_type", ["ImageData", "RectilinearGrid", "StructuredGrid", "ExplicitStructuredGrid"])
+def test_structured_offset_round_trip(
+    ds_type: str,
+    has_offset_property: bool,  # noqa: FBT001
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A structured dataset keeps an extent not starting at 0, whether or not pyvista gives it an offset."""
+    grid = _make_offset_grid(ds_type)
+    filename = tmp_path / "grid.pv"
+    with monkeypatch.context() as patch:
+        if has_offset_property and not hasattr(grid, "offset"):
+            patch.setattr(type(grid), "offset", property(lambda self: self.GetExtent()[::2]), raising=False)
+        elif not has_offset_property:
+            # A property without a getter hides offset from hasattr wherever pyvista defines it.
+            patch.setattr(type(grid), "offset", property(), raising=False)
+        pyvista_zstd.write(grid, filename)
+
+    out = pyvista_zstd.read(filename)
+    assert type(out) is type(grid)
+    assert out.GetExtent() == grid.GetExtent()
+    np.testing.assert_array_equal(out.points, grid.points)
+    np.testing.assert_array_equal(out.cell_centers().points, grid.cell_centers().points)
+
+
+def test_read_sgrid_0_5_0_fixture() -> None:
+    """Read a 4x5x6 StructuredGrid file written by ``pyvista-zstd==0.5.0``, which stores no offset."""
+    sgrid = pv.ImageData(dimensions=(4, 5, 6)).cast_to_structured_grid()
+    sgrid.point_data["point_ids"] = np.arange(sgrid.n_points, dtype=np.int32)
+
+    sgrid_out = pyvista_zstd.read(SGRID_0_5_0_FIXTURE)
+    assert sgrid_out.GetExtent() == (0, 3, 0, 4, 0, 5)
     assert sgrid == sgrid_out
 
 
@@ -735,6 +794,199 @@ def test_multiblock_two_empty_blocks(ugrid: UnstructuredGrid, tmp_path: Path) ->
     assert out["b"] is None
 
 
+USER_DICT = {"int": 1, "text": "x", "nested": {"list": [1.5, None, True]}}
+
+
+@pytest.fixture(params=["scalar", "array"])
+def one_value_strings(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
+    """
+    Return one-value string field arrays as ``str`` or as one-element arrays.
+
+    pyvista < 0.50 returns a string array set from a scalar, such as the user_dict,
+    as ``str``; the ``"scalar"`` mode applies that to every one-value string array.
+    """
+    getitem = DataSetAttributes.__getitem__
+
+    def patched(self: DataSetAttributes, key: str) -> np.ndarray | str:
+        """Return the field arrays with one-value string arrays in the selected form."""
+        value = getitem(self, key)
+        if request.param == "scalar" and isinstance(value, np.ndarray) and value.dtype.kind == "U" and value.size == 1:
+            return str(value.item())
+        if request.param == "array" and isinstance(value, str):
+            return pv.pyvista_ndarray(np.array([value]))
+        return value
+
+    monkeypatch.setattr(DataSetAttributes, "__getitem__", patched)
+    return request.param
+
+
+@pytest.mark.filterwarnings("error::pyvista.PyVistaDeprecationWarning")
+@pytest.mark.usefixtures("one_value_strings")
+def test_user_dict(polydata: PolyData, tmp_path: Path) -> None:
+    """A dataset's user_dict survives a write and read."""
+    polydata.user_dict.update(USER_DICT)
+    tmp_filename = tmp_path / "tmp.pv"
+    pyvista_zstd.write(polydata, tmp_filename)
+    out = pyvista_zstd.read(tmp_filename)
+
+    assert out.user_dict == polydata.user_dict == USER_DICT
+    stored = pyvista_zstd.read_array(tmp_filename, "_PYVISTA_USER_DICT")
+    assert stored.shape == (1,)
+    assert stored.dtype.kind == "U"
+    info = pyvista_zstd.Reader(tmp_filename)._ds_metadata.field_data_keys["_PYVISTA_USER_DICT"]  # noqa: SLF001
+    assert tuple(info.shape) == stored.shape
+
+
+@pytest.mark.filterwarnings("error::pyvista.PyVistaDeprecationWarning")
+@pytest.mark.usefixtures("one_value_strings")
+def test_user_dict_multiblock(multi_block: MultiBlock, tmp_path: Path) -> None:
+    """The user_dict of a MultiBlock and of each of its blocks survives a write and read."""
+    multi_block.user_dict.update(USER_DICT)
+    for i, ds in enumerate(multi_block):
+        ds.user_dict.update(USER_DICT, index=i)
+    tmp_filename = tmp_path / "tmp.pv"
+    pyvista_zstd.write(multi_block, tmp_filename)
+    out = pyvista_zstd.read(tmp_filename)
+
+    assert out.user_dict == multi_block.user_dict == USER_DICT
+    info = pyvista_zstd.Reader(tmp_filename)._ds_metadata.field_data_keys["_PYVISTA_USER_DICT"]  # noqa: SLF001
+    assert tuple(info.shape) == (1,)
+    for i, (ds, ds_out) in enumerate(zip(multi_block, out, strict=True)):
+        assert ds_out.user_dict == ds.user_dict == {**USER_DICT, "index": i}
+
+
+def _multiblock_with_field_data(polydata: PolyData) -> MultiBlock:
+    inner = MultiBlock([polydata])
+    inner.field_data["ints"] = np.arange(3, dtype=np.int16)
+    inner.field_data["text"] = ["inner"]
+    mblock = MultiBlock({"poly": polydata, "inner": inner})
+    mblock.field_data["floats"] = np.linspace(0, 1, 4)
+    mblock.field_data["names"] = ["a", "b"]
+    return mblock
+
+
+def _assert_field_data_equal(out: MultiBlock, expected: MultiBlock) -> None:
+    assert out.field_data.keys() == expected.field_data.keys()
+    for name in expected.field_data:
+        assert type(out.field_data[name]) is type(expected.field_data[name])
+        assert np.array_equal(out.field_data[name], expected.field_data[name])
+        assert np.asarray(out.field_data[name]).dtype == np.asarray(expected.field_data[name]).dtype
+
+
+def test_multiblock_field_data(polydata: PolyData, tmp_path: Path) -> None:
+    """Field data on a MultiBlock and on a nested MultiBlock survives a write and read."""
+    mblock = _multiblock_with_field_data(polydata)
+    tmp_filename = tmp_path / "tmp.pv"
+    pyvista_zstd.write(mblock, tmp_filename)
+    out = pyvista_zstd.read(tmp_filename)
+
+    _assert_field_data_equal(out, mblock)
+    _assert_field_data_equal(out["inner"], mblock["inner"])
+    assert not out["poly"].field_data
+
+    reader = pyvista_zstd.Reader(tmp_filename)
+    _assert_field_data_equal(reader[1].read(), mblock["inner"])
+    assert "MultiBlock(children=2, field arrays: floats, names)" in repr(reader)
+    assert "MultiBlock(children=1, field arrays: ints, text)" in repr(reader)
+
+
+@pytest.mark.filterwarnings("error::pyvista.PyVistaDeprecationWarning")
+@pytest.mark.usefixtures("one_value_strings")
+def test_user_dict_nested_multiblock(polydata: PolyData, ugrid: UnstructuredGrid, tmp_path: Path) -> None:
+    """The user_dict of every MultiBlock in a nested hierarchy survives a write and read."""
+    innermost = MultiBlock({"ugrid": ugrid})
+    inner = MultiBlock({"poly": polydata, "innermost": innermost, "empty": None})
+    root = MultiBlock({"inner": inner, "poly": polydata})
+    for depth, mblock in enumerate([root, inner, innermost]):
+        mblock.user_dict.update(USER_DICT, depth=depth)
+        mblock.field_data["depth"] = np.array([depth])
+    polydata.user_dict["leaf"] = True
+
+    tmp_filename = tmp_path / "tmp.pv"
+    pyvista_zstd.write(root, tmp_filename)
+    out = pyvista_zstd.read(tmp_filename)
+
+    nested_out = [out, out["inner"], out["inner"]["innermost"]]
+    for depth, (mblock, mblock_out) in enumerate(zip([root, inner, innermost], nested_out, strict=True)):
+        assert mblock_out.user_dict == mblock.user_dict == {**USER_DICT, "depth": depth}
+        assert mblock_out.field_data["depth"].tolist() == [depth]
+    assert out["poly"].user_dict == out["inner"]["poly"].user_dict == {"leaf": True}
+    assert not out["inner"]["innermost"]["ugrid"].user_dict
+
+    reader = pyvista_zstd.Reader(tmp_filename)
+    assert reader[0].read().user_dict == inner.user_dict
+    assert reader[0][1].read().user_dict == innermost.user_dict
+
+
+@pytest.mark.parametrize("shuffle", [False, True])
+@pytest.mark.parametrize("owner", ["root", "nested"])
+@pytest.mark.parametrize(("block_name", "field_name"), [("a", "b"), ("a", "témp"), ("a", "😀"), ("café", "b")])
+def test_multiblock_field_data_file_version(  # noqa: PLR0913
+    polydata: PolyData,
+    tmp_path: Path,
+    owner: str,
+    block_name: str,
+    field_name: str,
+    *,
+    shuffle: bool,
+) -> None:
+    """Field data on any MultiBlock stamps the MultiBlock field-data file version, whatever its names."""
+    inner = MultiBlock({block_name: polydata})
+    root = MultiBlock({block_name: inner})
+    (root if owner == "root" else inner).field_data[field_name] = np.arange(3.0)
+    tmp_filename = tmp_path / "tmp.pv"
+    pyvista_zstd.write(root, tmp_filename, shuffle=shuffle)
+
+    reader = pyvista_zstd.Reader(tmp_filename)
+    assert reader._metadata.file_version == impl.FILE_VERSION_MULTIBLOCK_FIELD_DATA  # noqa: SLF001
+
+
+@pytest.mark.parametrize(("member", "expected"), [("", 0), (',"field_data_keys":{}', 3)])
+def test_multiblock_field_data_member_presence_sets_file_version(tmp_path: Path, member: str, expected: int) -> None:
+    """The field_data_keys member stamps version 3 by its presence, even when empty."""
+    doc = f'{{"uid":"{"0" * 16}","children":[],"children_keys":[],"children_ds":null{member}}}'
+    filename = tmp_path / "tmp.pv"
+    with _capi.CoreWriter() as writer:
+        writer.add_array(f"{'0' * 16}{impl.MULTIBLOCK_METADATA_KEY}", np.frombuffer(doc.encode(), dtype=np.uint8))
+        writer.write(filename)
+
+    assert pyvista_zstd.Reader(filename)._metadata.file_version == expected  # noqa: SLF001
+
+
+@pytest.mark.parametrize("suffix", [impl.DS_METADATA_KEY, impl.MULTIBLOCK_METADATA_KEY])
+@pytest.mark.parametrize("doc", ["", " \n\t", '{"ds_type":', "[]", '{"uid":"x"} trailing'])
+def test_non_object_staged_metadata_is_refused(tmp_path: Path, suffix: str, doc: str) -> None:
+    """A staged metadata document that is not a JSON object is refused, and nothing is written."""
+    filename = tmp_path / "tmp.pv"
+    with _capi.CoreWriter() as writer:
+        writer.add_array(f"{'0' * 16}{suffix}", np.frombuffer(doc.encode(), dtype=np.uint8))
+        with pytest.raises(_capi.PvzstdError, match="invalid argument"):
+            writer.write(filename)
+    assert not filename.exists()
+
+
+def test_multiblock_block_field_data_keeps_file_version(polydata: PolyData, tmp_path: Path) -> None:
+    """Field data only on a MultiBlock's datasets leaves the file version unchanged."""
+    polydata.user_dict["a"] = 1
+    pyvista_zstd.write(polydata, tmp_path / "alone.pv")
+    pyvista_zstd.write(MultiBlock([MultiBlock([polydata])]), tmp_path / "nested.pv")
+
+    alone = pyvista_zstd.Reader(tmp_path / "alone.pv")._metadata.file_version  # noqa: SLF001
+    nested = pyvista_zstd.Reader(tmp_path / "nested.pv")._metadata.file_version  # noqa: SLF001
+    assert nested == alone != impl.FILE_VERSION_MULTIBLOCK_FIELD_DATA
+
+
+def test_multiblock_metadata_without_field_data(multi_block: MultiBlock, tmp_path: Path) -> None:
+    """MultiBlock metadata without field data has no field-data entry."""
+    tmp_filename = tmp_path / "tmp.pv"
+    pyvista_zstd.write(multi_block, tmp_filename)
+    reader = pyvista_zstd.Reader(tmp_filename)
+
+    raw = reader._metadata_documents[f"{reader._ds_metadata.uid}{impl.MULTIBLOCK_METADATA_KEY}"]  # noqa: SLF001
+    assert "field_data_keys" not in json.loads(raw)
+    assert "field arrays" not in repr(reader)
+
+
 def _reproducible_polydata() -> PolyData:
     mesh = pv.Sphere(theta_resolution=6, phi_resolution=6)
     mesh.point_data["temperature"] = np.arange(mesh.n_points, dtype=np.float32)
@@ -834,6 +1086,346 @@ def test_esgrid(esgrid: ExplicitStructuredGrid, tmp_path: Path) -> None:
     assert "Field arrays" not in repr_no_data_str
 
 
+def _make_esgrid(kind: str) -> ExplicitStructuredGrid:
+    """Return an ExplicitStructuredGrid for the round-trip tests."""
+    esgrid = pv.ImageData(dimensions=(4, 5, 6)).cast_to_structured_grid().cast_to_explicit_structured_grid()
+    if kind == "user_arrays":
+        esgrid.cell_data["cell_ids"] = np.arange(esgrid.n_cells, dtype=np.int64)
+        esgrid.cell_data["centers"] = esgrid.cell_centers().points
+        esgrid.point_data["point_ids"] = np.arange(esgrid.n_points, dtype=np.int32)
+    elif kind == "own_blocking":
+        esgrid = esgrid.cast_to_unstructured_grid().cast_to_explicit_structured_grid()
+    elif kind == "unrelated_blocking":
+        esgrid.cell_data["BLOCK_I"] = np.zeros(esgrid.n_cells, dtype=np.int32)
+    elif kind == "hidden_cells":
+        esgrid.hide_cells([0, 7], inplace=True)
+    elif kind == "connectivity_flags":
+        esgrid.compute_connectivity(inplace=True)
+    elif kind == "custom_flags_name":
+        esgrid.SetFacesConnectivityFlagsArrayName("Neighbours")
+        esgrid.compute_connectivity(inplace=True)
+    elif kind == "no_flags_name":
+        esgrid.SetFacesConnectivityFlagsArrayName(None)
+    elif kind == "extent_offset":
+        # vtkExplicitStructuredGrid.SetExtent replaces the cells.
+        cells = esgrid.GetCells()
+        esgrid.SetExtent(2, 5, -1, 3, 10, 15)
+        esgrid.SetCells(cells)
+    elif kind != "cast":
+        msg = f"Unknown ExplicitStructuredGrid kind {kind!r}"
+        raise ValueError(msg)
+    return esgrid
+
+
+def _assert_esgrid_round_trip(out: DataSet, esgrid: ExplicitStructuredGrid) -> None:
+    """Assert that a read-back grid matches the ExplicitStructuredGrid that was written."""
+    assert isinstance(out, ExplicitStructuredGrid)
+    assert out.GetExtent() == esgrid.GetExtent()
+    np.testing.assert_array_equal(out.points, esgrid.points)
+    np.testing.assert_array_equal(out.cell_centers().points, esgrid.cell_centers().points)
+    assert set(out.cell_data) == set(esgrid.cell_data)
+    assert set(out.point_data) == set(esgrid.point_data)
+    for name, array in esgrid.cell_data.items():
+        np.testing.assert_array_equal(out.cell_data[name], array)
+    for name, array in esgrid.point_data.items():
+        np.testing.assert_array_equal(out.point_data[name], array)
+    assert out.GetFacesConnectivityFlagsArrayName() == esgrid.GetFacesConnectivityFlagsArrayName()
+    expected = esgrid.compute_connectivity()
+    flags_name = expected.GetFacesConnectivityFlagsArrayName()
+    np.testing.assert_array_equal(out.compute_connectivity().cell_data[flags_name], expected.cell_data[flags_name])
+
+
+@pytest.mark.parametrize("force_int32", [True, False])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "example",
+        "cast",
+        "user_arrays",
+        "own_blocking",
+        "unrelated_blocking",
+        "hidden_cells",
+        "connectivity_flags",
+        "custom_flags_name",
+        "no_flags_name",
+        "extent_offset",
+    ],
+)
+def test_esgrid_round_trip(
+    kind: str,
+    force_int32: bool,  # noqa: FBT001
+    tmp_path: Path,
+    request: pytest.FixtureRequest,
+) -> None:
+    """An ExplicitStructuredGrid reads back with its geometry, blocking and data intact."""
+    esgrid = request.getfixturevalue("esgrid") if kind == "example" else _make_esgrid(kind)
+    filename = tmp_path / "esgrid.pv"
+    pyvista_zstd.write(esgrid, filename, force_int32=force_int32)
+
+    reader = pyvista_zstd.Reader(filename)
+    assert reader.available_cell_arrays == set(esgrid.cell_data)
+    assert not [name for name in reader._metadata.frame_names if name.endswith(impl.CELL_TYPES_KEY)]  # noqa: SLF001
+    _assert_esgrid_round_trip(pyvista_zstd.read(filename), esgrid)
+
+
+@pytest.mark.parametrize(
+    ("grid_type", "extent"),
+    [
+        (ExplicitStructuredGrid, None),
+        (ExplicitStructuredGrid, (0, 2, 0, 2, 0, 2)),
+        (ExplicitStructuredGrid, (2, 4, -1, 1, 10, 12)),
+        (pv.StructuredGrid, (0, 1, 0, 1, 0, 1)),
+        (pv.StructuredGrid, (2, 3, -1, 0, 10, 11)),
+    ],
+)
+def test_empty_structured_grid_round_trip(
+    tmp_path: Path, grid_type: type[pv.DataSet], extent: tuple[int, int, int, int, int, int] | None
+) -> None:
+    """A structured grid without points is stored and read back empty."""
+    grid = grid_type()
+    if extent is not None:
+        grid.SetExtent(*extent)
+        grid.cell_data["c"] = np.arange(grid.n_cells)
+    filename = tmp_path / "grid.pv"
+    pyvista_zstd.write(grid, filename)
+
+    with _capi.CoreReader(filename) as reader:
+        documents = reader.metadata_documents()
+    (document,) = (json.loads(doc) for name, doc in documents if name.endswith(impl.DS_METADATA_KEY))
+    assert document["dimensions"] == [0, 0, 0]
+    assert document["offset"] == [0, 0, 0]
+    assert document["n_cells"] == 0
+
+    out = pyvista_zstd.read(filename)
+    assert isinstance(out, grid_type)
+    assert out.GetExtent() == (0, -1, 0, -1, 0, -1)
+    assert out.n_points == 0
+    assert not out.cell_data
+    if isinstance(out, ExplicitStructuredGrid):
+        # VTK before 9.4 counts one cell for an empty ExplicitStructuredGrid extent.
+        assert out.n_cells == (0 if pv.vtk_version_info >= (9, 4) else 1)
+        assert out.GetCells().GetNumberOfCells() == 0
+    else:
+        assert out.n_cells == 0
+
+
+@pytest.mark.parametrize("dimensions", [(10, 10, 10), (2, 2, 2), (2, 6, 10)])
+def test_esgrid_dimensions_must_match_cells(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dimensions: tuple[int, int, int]
+) -> None:
+    """An ExplicitStructuredGrid's dimensions must describe its stored cells."""
+    esgrid = _make_esgrid("cast")
+    filename = tmp_path / "esgrid.pv"
+    with monkeypatch.context() as patch:
+        patch.setattr(ExplicitStructuredGrid, "dimensions", property(lambda _: dimensions))
+        pyvista_zstd.write(esgrid, filename)
+
+    with pytest.raises(ValueError, match=rf"dimensions {re.escape(str(dimensions))} do not match its 60 cells"):
+        pyvista_zstd.read(filename)
+
+
+@pytest.mark.parametrize("dimensions", [(0, 0, 10), (-1, -1, 2), (1, 1)])
+def test_esgrid_invalid_dimensions_without_cells(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dimensions: tuple[int, ...]
+) -> None:
+    """Only three positive dimensions or the canonical empty extent are accepted."""
+    esgrid = ExplicitStructuredGrid()
+    esgrid.SetExtent(0, 0, 0, 0, 0, 0)
+    esgrid.points = np.zeros((1, 3))
+    filename = tmp_path / "esgrid.pv"
+    with monkeypatch.context() as patch:
+        patch.setattr(ExplicitStructuredGrid, "dimensions", property(lambda _: dimensions))
+        pyvista_zstd.write(esgrid, filename)
+
+    with pytest.raises(ValueError, match=rf"dimensions {re.escape(str(dimensions))} do not match its 0 cells"):
+        pyvista_zstd.read(filename)
+
+
+@pytest.mark.parametrize("source", ["file", "buffer"])
+@pytest.mark.parametrize("force_int32", [True, False])
+def test_esgrid_independent_points_round_trip(tmp_path: Path, source: str, *, force_int32: bool) -> None:
+    """Explicit cells can have independent corners with point and cell data."""
+    esgrid = (
+        pv.ImageData(dimensions=(3, 2, 2))
+        .cast_to_structured_grid()
+        .cast_to_explicit_structured_grid()
+        .cast_to_unstructured_grid()
+        .explode(0.1)
+        .cast_to_explicit_structured_grid()
+    )
+    esgrid.point_data["point_ids"] = np.arange(esgrid.n_points, dtype=np.int32)
+    esgrid.cell_data["values"] = np.array([10.0, 20.0])
+    esgrid.field_data["label"] = np.array(["independent corners"])
+    assert esgrid.dimensions == (3, 2, 2)
+    assert esgrid.n_points > np.prod(esgrid.dimensions)
+    filename = tmp_path / "independent_points.pv"
+    pyvista_zstd.write(esgrid, filename, force_int32=force_int32)
+
+    out = pyvista_zstd.read(filename) if source == "file" else pyvista_zstd.read_buffer(filename.read_bytes())
+
+    assert out == esgrid
+    _assert_esgrid_round_trip(out, esgrid)
+
+
+def test_esgrid_in_multiblock_round_trip(tmp_path: Path) -> None:
+    """An ExplicitStructuredGrid nested in a MultiBlock reads back intact."""
+    esgrid = _make_esgrid("user_arrays")
+    filename = tmp_path / "esgrid_multiblock.pv"
+    pyvista_zstd.write(MultiBlock({"esgrid": esgrid, "sphere": pv.Sphere()}), filename)
+
+    out = pyvista_zstd.read(filename)
+    _assert_esgrid_round_trip(out["esgrid"], esgrid)
+    assert isinstance(out["sphere"], PolyData)
+
+
+@pytest.mark.parametrize("container", [False, True])
+@pytest.mark.parametrize("extent_start", [(2, -1, 10), (0, 0, -6), (0, 0, 0)])
+@pytest.mark.parametrize("ds_type", ["ImageData", "RectilinearGrid", "StructuredGrid"])
+def test_structured_extent_offset_file_version(
+    tmp_path: Path,
+    ds_type: str,
+    extent_start: tuple[int, int, int],
+    *,
+    container: bool,
+) -> None:
+    """A StructuredGrid or RectilinearGrid extent away from 0 on any axis stamps version 3; ImageData's does not."""
+    grid = _make_offset_grid(ds_type)
+    (i, j, k), (ni, nj, nk) = extent_start, grid.dimensions
+    grid.SetExtent(i, i + ni - 1, j, j + nj - 1, k, k + nk - 1)
+    filename = tmp_path / "grid.pv"
+    pyvista_zstd.write(MultiBlock([grid]) if container else grid, filename)
+
+    promoted = any(extent_start) and ds_type != "ImageData"
+    expected = impl.FILE_VERSION_STRUCTURED_EXTENT_OFFSET if promoted else impl.FILE_VERSION_UNFILTERED
+    assert pyvista_zstd.Reader(filename)._metadata.file_version == expected  # noqa: SLF001
+    out = pyvista_zstd.read(filename)
+    assert (out[0] if container else out).GetExtent() == grid.GetExtent()
+
+
+@pytest.mark.parametrize("shuffle", [False, True])
+@pytest.mark.parametrize("kind", ["grid", "empty", "multiblock"])
+def test_esgrid_file_version(tmp_path: Path, kind: str, *, shuffle: bool) -> None:
+    """Any ExplicitStructuredGrid stamps the ExplicitStructuredGrid file version."""
+    esgrid = ExplicitStructuredGrid() if kind == "empty" else _make_esgrid("cast")
+    ds = MultiBlock([pv.Sphere(), esgrid]) if kind == "multiblock" else esgrid
+    filename = tmp_path / "esgrid.pv"
+    pyvista_zstd.write(ds, filename, shuffle=shuffle)
+
+    reader = pyvista_zstd.Reader(filename)
+    assert reader._metadata.file_version == impl.FILE_VERSION_EXPLICIT_STRUCTURED_GRID  # noqa: SLF001
+
+
+def test_esgrid_deselected_blocking_arrays(tmp_path: Path) -> None:
+    """A grid's own blocking arrays are ordinary cell data and can be deselected."""
+    esgrid = _make_esgrid("own_blocking")
+    filename = tmp_path / "esgrid.pv"
+    pyvista_zstd.write(esgrid, filename)
+
+    reader = pyvista_zstd.Reader(filename)
+    reader.selected_cell_arrays = set()
+    esgrid.clear_data()
+    _assert_esgrid_round_trip(reader.read(), esgrid)
+
+
+@pytest.mark.parametrize("id_type_width", [True, False])
+def test_vtk_esgrid_needs_id_type_cell_storage(id_type_width: bool) -> None:  # noqa: FBT001
+    """Pin VTK issue 20126, why the reader widens ESG cells; failing here means VTK fixed it."""
+    esgrid = _make_esgrid("cast")
+    cells = impl.vtkCellArray()
+    cells.DeepCopy(esgrid.GetCells())
+    if id_type_width:
+        cells.ConvertToDefaultStorage()
+    elif np.dtype(pv.ID_TYPE) == np.int64:
+        cells.ConvertTo32BitStorage()
+    else:
+        cells.ConvertTo64BitStorage()
+    grid = ExplicitStructuredGrid()
+    grid.SetDimensions(*esgrid.dimensions)
+    grid.points = esgrid.points
+    grid.SetCells(cells)
+
+    # Every cell of this grid has a neighbour, so correct flags are all nonzero.
+    flags = grid.compute_connectivity().cell_data["ConnectivityFlags"]
+    assert flags.all() if id_type_width else not flags.any()
+
+
+# DataSetMetadata fields pyvista-zstd 0.5.0 accepts; it rejects any other key.
+DS_METADATA_FIELDS_0_5_0 = {
+    "ds_type",
+    "uid",
+    "n_points",
+    "points_dtype",
+    "n_cells",
+    "celltypes_dtype",
+    "point_data_keys",
+    "cell_data_keys",
+    "field_data_keys",
+    "fixed_cell_sizes",
+    "point_data_active_scalars_name",
+    "point_data_active_vectors_name",
+    "point_data_active_texture_coordinates_name",
+    "point_data_active_normals_name",
+    "cell_data_active_scalars_name",
+    "cell_data_active_vectors_name",
+    "cell_data_active_texture_coordinates_name",
+    "cell_data_active_normals_name",
+    "dimensions",
+    "origin",
+    "spacing",
+    "direction_matrix",
+    "offset",
+}
+
+
+@pytest.mark.parametrize("fixture", ["polydata", "ugrid", "imagedata", "sgrid", "rgrid", "pointset", "multi_block"])
+def test_ds_metadata_keys_readable_by_0_5_0(fixture: str, request: pytest.FixtureRequest, tmp_path: Path) -> None:
+    """Files of datasets other than ExplicitStructuredGrid only write metadata keys pyvista-zstd 0.5.0 accepts."""
+    filename = tmp_path / "ds.pv"
+    pyvista_zstd.write(request.getfixturevalue(fixture), filename)
+
+    with _capi.CoreReader(filename) as reader:
+        documents = [
+            json.loads(document)
+            for name, document in reader.metadata_documents()
+            if name.endswith(impl.DS_METADATA_KEY) and not name.endswith(impl.MULTIBLOCK_METADATA_KEY)
+        ]
+    assert documents
+    for document in documents:
+        assert set(document) <= DS_METADATA_FIELDS_0_5_0
+
+
+def test_read_esgrid_0_5_0_fixtures() -> None:
+    """Read 4x5x6 ExplicitStructuredGrid files written by ``pyvista-zstd==0.5.0``, with and without blocking."""
+    esgrid = _make_esgrid("cast")
+
+    out = pyvista_zstd.read(ESGRID_BLOCKING_0_5_0_FIXTURE)
+    assert isinstance(out, ExplicitStructuredGrid)
+    assert set(out.cell_data) == {"BLOCK_I", "BLOCK_J", "BLOCK_K", "cell_ids"}
+    assert out.GetExtent() == esgrid.GetExtent()
+    np.testing.assert_array_equal(out.points, esgrid.points)
+    np.testing.assert_array_equal(out.cell_centers().points, esgrid.cell_centers().points)
+    np.testing.assert_array_equal(out.cell_data["cell_ids"], np.arange(esgrid.n_cells))
+
+    reader = pyvista_zstd.Reader(ESGRID_BLOCKING_0_5_0_FIXTURE)
+    reader.selected_cell_arrays = {"cell_ids"}
+    with pytest.raises(ValueError, match=r"Select \['BLOCK_I', 'BLOCK_J', 'BLOCK_K'\] in selected_cell_arrays"):
+        reader.read()
+
+    with pytest.raises(ValueError, match=r"does not store \['BLOCK_I', 'BLOCK_J', 'BLOCK_K'\]; rewrite it"):
+        pyvista_zstd.read(ESGRID_NO_BLOCKING_0_5_0_FIXTURE)
+
+
+@pytest.mark.parametrize("deselect", [False, True])
+def test_read_esgrid_lone_block_i_0_5_0_fixture(deselect: bool) -> None:  # noqa: FBT001
+    """A ``pyvista-zstd==0.5.0`` file storing only ``BLOCK_I`` asks to be rewritten, never to select arrays."""
+    reader = pyvista_zstd.Reader(ESGRID_LONE_BLOCK_I_0_5_0_FIXTURE)
+    if deselect:
+        reader.selected_cell_arrays = set()
+    with pytest.raises(ValueError, match=r"does not store \['BLOCK_J', 'BLOCK_K'\]; rewrite it") as excinfo:
+        reader.read()
+    assert "selected_cell_arrays" not in str(excinfo.value)
+
+
 def test_vtk_imports_route_through_pyvista() -> None:
     """
     VTK must be imported through PyVista, never from ``vtkmodules`` or ``vtk``.
@@ -895,3 +1487,77 @@ def test_declared_int32_bounds_hold_over_the_corpus(
     for values, bound in declared:
         if values.size:
             assert int(values.max()) <= bound, f"declared bound {bound} is below the largest entry {int(values.max())}"
+
+
+def _with_unknown_key(s: str) -> str:
+    """Return the JSON document ``s`` with an extra key no release declares."""
+    raw = json.loads(s)
+    raw["unknown_future_key"] = 1
+    return json.dumps(raw)
+
+
+@pytest.mark.parametrize(
+    "meta",
+    [
+        impl.ZstdFileMetadata(frame_names=["a", "b"], compression_level=3, file_version=2),
+        impl.MultiBlockMetadata(uid="0", children=["1"], children_keys=["block"]),
+        impl.MultiBlockMetadata(
+            uid="0",
+            children=["1"],
+            children_keys=["block"],
+            field_data_keys={"a": impl.ArrayInfo(shape=(1,), dtype="float32")},
+        ),
+        impl.DataSetMetadata(
+            ds_type="PolyData",
+            uid="0",
+            n_points=1,
+            points_dtype="float32",
+            n_cells=0,
+            celltypes_dtype=None,
+            point_data_keys={"a": impl.ArrayInfo(shape=(1,), dtype="float32")},
+        ),
+    ],
+    ids=lambda meta: type(meta).__name__,
+)
+def test_metadata_from_json_ignores_unknown_keys(
+    meta: impl.ZstdFileMetadata | impl.MultiBlockMetadata | impl.DataSetMetadata,
+) -> None:
+    """Test that a metadata document carrying an unknown key decodes to the original metadata."""
+    raw = json.loads(_with_unknown_key(meta.to_json()))
+    if "point_data_keys" in raw:
+        raw["point_data_keys"]["a"]["unknown_future_key"] = 1
+    if "field_data_keys" in raw and "a" in raw["field_data_keys"]:
+        raw["field_data_keys"]["a"]["unknown_future_key"] = 1
+    assert type(meta).from_json(json.dumps(raw)).to_json() == meta.to_json()
+
+
+def test_read_ignores_unknown_metadata_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a file whose dataset metadata carries unknown keys reads back."""
+    for cls in (impl.DataSetMetadata, impl.MultiBlockMetadata):
+        to_json = cls.to_json
+        monkeypatch.setattr(cls, "to_json", lambda self, to_json=to_json: _with_unknown_key(to_json(self)))
+    mesh = pv.Sphere()
+    mesh["values"] = np.arange(mesh.n_points)
+    pyvista_zstd.write(pv.MultiBlock({"sphere": mesh}), tmp_path / "unknown.pv")
+    monkeypatch.undo()
+
+    assert pyvista_zstd.read(tmp_path / "unknown.pv")["sphere"] == mesh
+
+
+@pytest.mark.parametrize(
+    ("getter", "kind", "expected"), [("GetPointData", "Point", 842), ("GetCellData", "Cell", 1680)]
+)
+def test_read_rejects_array_of_wrong_length(tmp_path: Path, getter: str, kind: str, expected: int) -> None:
+    """Test that a point or cell array whose tuple count disagrees with the dataset is refused on read."""
+    mesh = pv.Sphere()
+    bad = impl.numpy_to_vtk(np.zeros(10, dtype=np.float32), deep=True)
+    bad.SetName("bad")
+    getattr(mesh, getter)().AddArray(bad)
+    path = tmp_path / "bad.pv"
+    pyvista_zstd.write(mesh, path)
+
+    match = rf"{kind} array 'bad' has 10 tuples but the dataset has {expected} {kind.lower()}s"
+    with pytest.raises(ValueError, match=match):
+        pyvista_zstd.read(path)
+    with pytest.raises(ValueError, match=match):
+        pyvista_zstd.read_buffer(path.read_bytes())

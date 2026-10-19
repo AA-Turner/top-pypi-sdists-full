@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-env
-Version: 1.8.0
+Version: 1.8.1
 Summary: pytest plugin that allows you to add environment variables.
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-env
 Project-URL: Source, https://github.com/pytest-dev/pytest-env
@@ -293,6 +293,8 @@ API_KEY=${FALLBACK_KEY:-default_key}
 ```
 
 Missing `.env` files from configuration are silently skipped. Paths are resolved relative to the project root.
+An explicit `env_files = []` in native TOML configuration disables INI-style `env_files` fallback; omitting the key
+preserves that fallback. CLI `--envfile` paths still load in either case.
 
 ### CLI options
 

@@ -25,6 +25,7 @@
 #include <tvm/ffi/reflection/access_path.h>
 #include <tvm/ffi/reflection/accessor.h>
 #include <tvm/ffi/reflection/creator.h>
+#include <tvm/ffi/reflection/enum_def.h>
 #include <tvm/ffi/reflection/registry.h>
 #include <tvm/ffi/string.h>
 
@@ -34,7 +35,7 @@
 
 /*! \brief Look up __ffi_init__ from the TypeAttrColumn (not the method table). */
 static tvm::ffi::Function GetInitAttr(const char* type_key) {
-  static tvm::ffi::reflection::TypeAttrColumn col(tvm::ffi::reflection::type_attr::kInit);
+  static tvm::ffi::reflection::TypeAttrColumn col(tvm::ffi::type_attr::kInit);
   return col[tvm::ffi::TypeKeyToIndex(type_key)].cast<tvm::ffi::Function>();
 }
 
@@ -42,6 +43,8 @@ namespace {
 
 using namespace tvm::ffi;
 using namespace tvm::ffi::testing;
+
+constexpr reflection::AttrKey<bool> kFlag{"test.attr.typed.flag"};
 
 struct TestObjA : public Object {
   int64_t x;
@@ -59,7 +62,7 @@ struct TestObjADerived : public TestObjA {
 };
 
 struct TestObjRefADerived : public ObjectRef {
-  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NULLABLE(TestObjRefADerived, ObjectRef, TestObjADerived);
+  TVM_FFI_DEFINE_OBJECT_REF_METHODS_NOTNULLABLE(TestObjRefADerived, ObjectRef, TestObjADerived);
 };
 
 struct PrefixLookupObj : public Object {
@@ -94,6 +97,7 @@ TVM_FFI_STATIC_INIT_BLOCK() {
       .def_type_attr("test.attr.object.int", int64_t{7})
       .def_type_attr("test.attr.object.bool", true)
       .def_type_attr("test.attr.object.func", [](int64_t value) -> int64_t { return value + 1; });
+  refl::TypeAttrDef<TestObjA>().attr(kFlag, false);
   refl::ObjectDef<TestObjADerived>()
       .def(refl::init<int64_t, int64_t, int64_t>())
       .def_ro("z", &TestObjADerived::z);
@@ -226,8 +230,9 @@ TEST(Reflection, ObjectPtrMethod) {
 
   const TVMFFIMethodInfo* info = reflection::GetMethodInfo("test.ObjectPtrHolder", "identity");
   Map<String, Any> metadata = json::Parse(String(info->metadata)).cast<Map<String, Any>>();
-  EXPECT_EQ(metadata["type_schema"].cast<String>(),
-            R"({"type":"ffi.Function","args":[{"type":"test.Int"},{"type":"test.Int"}]})");
+  EXPECT_EQ(
+      metadata["type_schema"].cast<String>(),
+      R"({"type":"ffi.Function","named_args":{"return":[{"type":"test.Int"}],"params":[{"type":"test.Int"}]}})");
 
   const TVMFFIMethodInfo* optional_info =
       reflection::GetMethodInfo("test.ObjectPtrHolder", "optional_identity");
@@ -235,7 +240,7 @@ TEST(Reflection, ObjectPtrMethod) {
       json::Parse(String(optional_info->metadata)).cast<Map<String, Any>>();
   EXPECT_EQ(
       optional_metadata["type_schema"].cast<String>(),
-      R"({"type":"ffi.Function","args":[{"type":"Optional","args":[{"type":"test.Int"}]},{"type":"Optional","args":[{"type":"test.Int"}]}]})");
+      R"({"type":"ffi.Function","named_args":{"return":[{"type":"Optional","args":[{"type":"test.Int"}]}],"params":[{"type":"Optional","args":[{"type":"test.Int"}]}]}})");
 }
 
 TEST(Reflection, FieldInfo) {
@@ -327,6 +332,23 @@ TEST(Reflection, TypeAttrColumn) {
   EXPECT_EQ(size_attr[TIntObj::RuntimeTypeIndex()].cast<int>(), sizeof(TIntObj));
 }
 
+TEST(Reflection, AttrKey) {
+  namespace refl = reflection;
+  refl::TypeAttrColumn column(kFlag);
+  auto flag = kFlag.ValueFrom(column[TestObjA::RuntimeTypeIndex()]);
+  EXPECT_EQ(flag, std::optional<bool>(false));
+  EXPECT_FALSE(kFlag.ValueFrom(column[-1]).has_value());
+  EXPECT_THROW(kFlag.ValueFrom(AnyView(1)), Error);
+
+  // Raw names retain dynamic value storage alongside typed registration.
+  constexpr refl::AttrKey<int64_t> count{"test.attr.typed.count"};
+  refl::TypeAttrDef<TestObjA>().attr(count, int64_t{7});
+  refl::TypeAttrDef<TestObjADerived>().attr(count.name, Any("dynamic"));
+  refl::TypeAttrColumn counts(count);
+  EXPECT_EQ(count.ValueFrom(counts[TestObjA::RuntimeTypeIndex()]), 7);
+  EXPECT_THROW(count.ValueFrom(counts[TestObjADerived::RuntimeTypeIndex()]), Error);
+}
+
 TEST(Reflection, TypeAttrColumnBeginIndex) {
   // Get the column and verify begin_index
   TVMFFIByteArray attr_name = {"test.size", std::char_traits<char>::length("test.size")};
@@ -376,7 +398,7 @@ TEST(Reflection, TypeAttrDefDirectValues) {
 }
 
 TEST(Reflection, ObjectDefPublishesTypeFinal) {
-  reflection::TypeAttrColumn final_attr(reflection::type_attr::kTypeFinal);
+  reflection::TypeAttrColumn final_attr(type_attr::kTypeFinal);
 
   EXPECT_FALSE(final_attr[TestObjA::RuntimeTypeIndex()].cast<bool>());
   EXPECT_TRUE(final_attr[TestObjADerived::RuntimeTypeIndex()].cast<bool>());

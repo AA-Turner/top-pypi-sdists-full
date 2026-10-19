@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.13.225
+Version: 1.13.234
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -42,8 +42,8 @@ Requires-Python: <3.15,>=3.12
 Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus==2.5.77
-Requires-Dist: abxpkg==1.13.54
-Requires-Dist: abx-plugins==1.13.420
+Requires-Dist: abxpkg==1.13.56
+Requires-Dist: abx-plugins==1.13.449
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: platformdirs>=4.0.0
@@ -207,7 +207,7 @@ CHROME_BINARY="chromium"
 
 Common options:
 - `TIMEOUT=60` - default timeout for hooks
-- `USER_AGENT` - default user agent string
+- `USER_AGENT` - optional HTTP user agent override; empty uses Chrome's detected identity after browser setup. yt-dlp keeps its native identity and its own argument overrides.
 - `{PLUGIN}_BINARY` - path or name of the binary to use (e.g. `WGET_BINARY=wget` or `CHROME_BINARY=/usr/bin/chromium`)
 - `{PLUGIN}_ENABLED=True/False` - enable/disable specific plugins
 - `{PLUGIN}_TIMEOUT=120` - per-plugin timeout overrides
@@ -431,6 +431,12 @@ snapshot/crawl cleanup if empty. Plugins returning `noresults` leave no director
 when they wrote nothing; `.DS_Store` is discarded, while captures and failure logs are preserved. Process
 commands are recorded in `index.jsonl` and active process metadata, without
 generating per-hook shell scripts. Plugin-owned files remain unchanged.
+
+Active hook stdout, stderr, and process-control PID files live under
+`TMP_DIR/process` (the system temporary directory when `TMP_DIR` is unset).
+Keep `TMP_DIR` on local storage even when captured output uses a remote mount.
+Successful hooks remove these temporary files; failed or cancelled hooks retain
+their stdout and stderr logs in the plugin output directory.
 
 ```bash
 mkdir -p /tmp/abx-run && cd /tmp/abx-run

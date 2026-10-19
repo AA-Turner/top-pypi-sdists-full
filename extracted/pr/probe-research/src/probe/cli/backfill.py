@@ -1276,18 +1276,27 @@ def agent_version(agent: Agent) -> str | None:
     old Claude Code installs produced no signal at all, and the one report that
     surfaced it was a screenshot in a meeting.
     """
+    from . import claude_cli
+
     binary = which_agent(agent)
-    if binary is None:
+    if binary is None or claude_cli.already_hung(binary):
         return None
     return _agent_version_cached(binary)
 
 
 @lru_cache(maxsize=8)
 def _agent_version_cached(binary: str) -> str | None:
+    from . import claude_cli
+
+    # `probe status --refresh` bounds every agent-CLI call (`claude_cli.bounded`).
+    timeout = claude_cli.call_timeout(HELP_TIMEOUT_S)
+    if timeout <= 0:
+        return None
     try:
-        done = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True, timeout=HELP_TIMEOUT_S
-        )
+        done = claude_cli.capture([binary, "--version"], timeout=timeout)
+    except subprocess.TimeoutExpired:
+        claude_cli.timed_out(binary)
+        return None
     except (OSError, subprocess.SubprocessError):
         return None
     if done.returncode != 0:

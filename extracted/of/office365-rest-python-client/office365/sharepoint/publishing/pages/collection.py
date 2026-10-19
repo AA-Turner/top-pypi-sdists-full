@@ -3,6 +3,8 @@ from typing import Optional
 from typing_extensions import Self
 
 from office365.runtime.client_result import ClientResult
+from office365.runtime.deprecated import deprecated
+from office365.runtime.odata.literals import escape_odata_string
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
@@ -23,10 +25,27 @@ class SitePageCollection(SitePageMetadataCollection[SitePage]):
             resource_path = ResourcePath("SP.Publishing.SitePageCollection")
         super().__init__(context, SitePage, resource_path)
 
-    def add(self) -> SitePage:
-        """Adds Site Page"""
+    def add(
+        self,
+        name: Optional[str] = None,
+        title: Optional[str] = None,
+        page_layout_type: Optional[str] = None,
+    ) -> SitePage:
+        """Adds (creates a draft) site page.
+
+        Args:
+            name: The page file name, e.g. ``Home.aspx``. The server rejects a
+                create that does not name the page.
+            title: The page title; defaults to ``name``.
+            page_layout_type: The page layout, e.g. ``Article`` (the modern page
+                default) or ``SingleWebPartAppPage``.
+        """
         return_type = SitePage(self.context)
-        return_type.set_property("Title", "", True)
+        if name is not None:
+            return_type.set_property("Name", name)
+        return_type.set_property("Title", title or name or "", True)
+        if page_layout_type is not None:
+            return_type.set_property("PageLayoutType", page_layout_type)
         qry = CreateEntityQuery(self, return_type, return_type)
         self.context.add_query(qry)
         self.add_child(return_type)
@@ -81,13 +100,28 @@ class SitePageCollection(SitePageMetadataCollection[SitePage]):
         """
         return SitePage(self.context, ServiceOperationPath("GetByUrl", [url], self.resource_path))
 
+    def find_by_name(self, name: str, *, required: bool = False) -> SitePage:
+        """Look up the site page with the specified file name.
+
+        Deferred — run with ``execute_query()``. Tolerant by default: when no
+        page matches, the returned object is left uninitialized (check
+        :attr:`~office365.runtime.client_object.ClientObject.is_loaded`). Pass
+        ``required=True`` to raise instead (or on an ambiguous match).
+
+        Args:
+            name (str): Specifies the name of the site page.
+            required (bool): Raise on a missing or ambiguous match when ``True``
+        """
+        return self._find_by_filter(f"FileName eq '{escape_odata_string(name)}'", required=required)
+
+    @deprecated("Use find_by_name() instead.", version="4.0")
     def get_by_name(self, name: str) -> SitePage:
-        """Gets the site page with the specified file name.
+        """Deprecated alias of :meth:`find_by_name` (strict).
 
         Args:
             name (str): Specifies the name of the site page.
         """
-        return self.single(f"FileName eq '{name}'")
+        return self.find_by_name(name, required=True)
 
     def templates(self):
         """"""

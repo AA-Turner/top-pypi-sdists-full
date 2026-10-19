@@ -3,6 +3,7 @@ import os
 import platform
 import subprocess
 import sys
+import sysconfig
 import warnings
 
 from pybind11.setup_helpers import ParallelCompile, Pybind11Extension
@@ -197,6 +198,9 @@ if sys.platform == "win32":
     # keeps contraction inside a single expression only) is the follow-up.
     # /std:c++17: every extension is C++17 (the near-interface pair already
     # was, momwire#680). MSVC's default is C++14.
+    # /D_USE_MATH_DEFINES= (empty, the same text as the headers' own
+    # #define): M_PI for every TU, including the Python-free cores, whose
+    # first standard header can come before `_mw_core.h` (momwire#1512).
     extra_compile_args = [
         "/O2",
         "/arch:AVX2",
@@ -204,6 +208,7 @@ if sys.platform == "win32":
         "/fp:fast",
         "/MP",
         "/std:c++17",
+        "/D_USE_MATH_DEFINES=",
     ]
     extra_link_args = []
 elif sys.platform == "darwin":
@@ -215,6 +220,18 @@ elif sys.platform == "darwin":
     # -lmvec (no vectorized libm on macOS); the libmvec `declare simd` block in
     # _accelerators.cpp is #ifdef'd off under __APPLE__. delocate vendors the
     # libomp dylib into the wheel (the -rpath below points the extension at it).
+    #
+    # std::filesystem (the Python-free cores' Sommerfeld grid stores,
+    # momwire#1512) is available from macOS 10.15; python.org's universal2
+    # build targets 10.13, so an editable or sdist build there would fail to
+    # compile the extension and fall back to pure Python. Raise the target to
+    # 10.15 where it is lower; the wheels already build for 14.0
+    # (pyproject.toml's cibuildwheel environment).
+    _target = os.environ.get("MACOSX_DEPLOYMENT_TARGET") or str(
+        sysconfig.get_config_var("MACOSX_DEPLOYMENT_TARGET") or ""
+    )
+    if tuple(int(p) for p in _target.split(".")[:2] if p.isdigit()) < (10, 15):
+        os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.15"
     _libomp = os.environ.get("LIBOMP_PREFIX", "/opt/homebrew/opt/libomp")
     extra_compile_args = [
         "-O3",
@@ -295,16 +312,24 @@ _ACCEL_HEADERS = [
     # 1410 pair-moment TU and the 1433 point-moment TU.
     "src/momwire/_exact_kernel_ring_inline.h",
     "src/momwire/_exact_kernel_table_inline.h",
+    # momwire#1438: the two-radius point moments, included by the 1433 TU.
+    "src/momwire/_exact_kernel_cross_inline.h",
     "src/momwire/_bspline_static_moments_inline.h",
     "src/momwire/_bspline_ek_moments_inline.h",
     "src/momwire/_contour_engine_inline.h",
+    "src/momwire/_somm_below_six_inline.h",
     # The shared preamble of the split TUs (momwire#687): includes, the OpenMP
     # simd declarations and the cancellation machinery. Every accelerator TU
     # includes it, so an edit here must rebuild all of them -- the momwire#568
     # stale-.so lesson, which is exactly why this list exists.
     "src/momwire/_accel_common.h",
     "src/momwire/_accel_somm_proj_inline.h",
+    "src/momwire/_somm_field_core.h",
     "src/momwire/_branch_cut_inline.h",
+    # The integrands' complex division without the libgcc call (momwire#1441),
+    # included by `_contour_engine_inline.h`, `_accel_somm.cpp` and
+    # `_accel_mw568.cpp`.
+    "src/momwire/_cdiv_inline.h",
     # Both of these were MISSING until momwire#824, and the omission is what
     # that issue actually was. The far static-moment header is included by
     # _accel_bspline.cpp; the cross-lane stable spellings (#799) by three TUs.
@@ -329,11 +354,72 @@ _ACCEL_HEADERS = [
     # The SIMD lane layer (momwire#1372), included by the lane kernels'
     # TUs and `_accel_somm_proj_inline.h`.
     "src/momwire/_lanes.h",
+    # The Sommerfeld integrands' lanes (momwire#1441 step 3): the lane
+    # primitives, and the above-ground integrand on them (`_accel_somm.cpp`).
+    "src/momwire/_somm_lanes_inline.h",
+    "src/momwire/_somm_six_lanes_inline.h",
+    # ... and the contour engine's tail integrand on them (`_accel_mw568.cpp`).
+    "src/momwire/_contour_lanes_inline.h",
+    # The field-form Galerkin assembly's compute half, shared by
+    # `_accel_mw568.cpp`'s binding and bs2's buried fill (momwire#1517 step 4).
+    "src/momwire/_field_galerkin_inline.h",
     # The core/binding split: the Python-free preamble, the numpy -> view
     # seam, and the razor core's interface.
     "src/momwire/_mw_core.h",
     "src/momwire/_mw_binding.h",
     "src/momwire/_razor_core.h",
+    "src/momwire/_razor_solve_core.h",
+    "src/momwire/_razor_front_core.h",
+    "src/momwire/_razor_buried_core.h",
+    "src/momwire/_somm_below_proj_core.h",
+    "src/momwire/_somm_below_grid_core.h",
+    "src/momwire/_somm_below_fill_core.h",
+    # The below/below remainder's batch projection, shared by razor's buried
+    # fill and bs2's (momwire#1517 step 4).
+    "src/momwire/_somm_below_remainder_inline.h",
+    "src/momwire/_near_interface_core.h",
+    "src/momwire/_near_interface_eval.h",
+    # The column machinery the near-interface core's twin reads (momwire#1512
+    # B4a), shared with `_near_interface_accel`.
+    "src/momwire/_near_interface_columns_inline.h",
+    "src/momwire/_razor_crossing_core.h",
+    # The crossing fill's shared pieces, razor's and bs2's (momwire#1517 step 4).
+    "src/momwire/_crossing_shared_inline.h",
+    "src/momwire/_razor_wire_loading_core.h",
+    # The exact ring kernel's point moments, Python-free (momwire#1479): the
+    # text `_accel_exact_kernel_point.cpp` and its core twin both compile,
+    # and razor's exact-kernel plan and correction for the C++ route.
+    "src/momwire/_exact_kernel_point_inline.h",
+    "src/momwire/_exact_kernel_point_core.h",
+    # The coaxial pair moments' shared text and its Python-free twin
+    # (momwire#1517 step 0): `_accel_exact_kernel.cpp` compiles the same text.
+    "src/momwire/_exact_kernel_coaxial_inline.h",
+    "src/momwire/_exact_kernel_coaxial_core.h",
+    "src/momwire/_razor_exact_core.h",
+    # The frozen Gauss-Legendre rules, generated from `_leggauss_table.py`
+    # (scripts/gen_leggauss_header.py), read by the front half.
+    "src/momwire/_leggauss_table.h",
+    # pybind11's array vocabulary without Python, its numpy seam, and the
+    # B-spline core's entry points (momwire#1517 step 0).
+    "src/momwire/_mw_nd.h",
+    "src/momwire/_mw_nd_binding.h",
+    "src/momwire/_bspline_core.h",
+    "src/momwire/_nec5_deck_core.h",
+    "src/momwire/_nec5_seam_core.h",
+    "src/momwire/_nec5_razor_seam_core.h",
+    "src/momwire/_nec5_bspline_seam_core.h",
+    "src/momwire/_bspline_front_core.h",
+    "src/momwire/_bspline_fill_core.h",
+    "src/momwire/_bspline_crossing_core.h",
+    "src/momwire/_nec5_bspline_printout_core.h",
+    "src/momwire/_nec5_printout_core.h",
+    "src/momwire/_nec5_razor_printout_core.h",
+    "src/momwire/_somm_kernel_core.h",
+    "src/momwire/_somm_proj_core.h",
+    "src/momwire/_somm_remainder_core.h",
+    "src/momwire/_somm_pairs_core.h",
+    "src/momwire/_somm_grid_core.h",
+    "src/momwire/_accel_somm_proj_py.h",
 ]
 
 # The accelerator's translation units (momwire#687). The monolith was one
@@ -344,8 +430,43 @@ _ACCEL_HEADERS = [
 _ACCEL_SOURCES = [
     "src/momwire/_accelerators.cpp",
     "src/momwire/_accel_bspline.cpp",
+    # The B-spline kernels with no Python in their signatures or includes
+    # (momwire#1517 step 0); `_accel_bspline.cpp` is their binding. The
+    # extension TU's kernel text, moved verbatim, over `_mw_nd.h`'s arrays.
+    "src/momwire/_bspline_core.cpp",
     "src/momwire/_accel_sinusoidal.cpp",
     "src/momwire/_accel_somm.cpp",
+    # The Sommerfeld near-field remainder (`_field_point`), one spelled
+    # kernel rather than numpy's CPU-dependent arctan2 and einsum; its
+    # binding is in `_accel_somm.cpp`.
+    "src/momwire/_somm_field_core.cpp",
+    # momwire#1479 Sommerfeld S2: the six-integral kernel with no Python in it
+    # (`_accel_somm.cpp` is its binding), so the standalone executable links
+    # it. It includes `_mw_core.h` for the binding TU's `omp declare simd`
+    # set, so its codegen is the kernel's own (momwire#1194).
+    "src/momwire/_somm_kernel_core.cpp",
+    # S3: the remainder's projection and moment reduction, likewise
+    # (`_accel_somm.cpp` / `_accel_mw568.cpp` bind them).
+    "src/momwire/_somm_proj_core.cpp",
+    # The B-spline remainder block's kernel (momwire#1517 step 3);
+    # `_accel_somm.cpp` binds it.
+    "src/momwire/_somm_remainder_core.cpp",
+    # The graded rule's inner integral and the pair-order scan (momwire#1517
+    # step 3); `_accel_somm_pairs.cpp` / `_accel_qp_pairs.cpp` bind them.
+    "src/momwire/_somm_pairs_core.cpp",
+    # The below/below remainder's projection, Python-free (momwire#1512 B2):
+    # the kernel `remainder_field_proj_batch_below` binds, moved verbatim.
+    "src/momwire/_somm_below_proj_core.cpp",
+    # The below/below grid's state, key and sources (momwire#1512 B2; its
+    # fill is B5's). No float arithmetic beyond the key.
+    "src/momwire/_somm_below_grid_core.cpp",
+    # B5: the below/below table filled with no Python (the integrand and the
+    # one-node contour are `_somm_below_six_inline.h`, which
+    # `_accel_mw568.cpp` includes too: one code, one set of bits).
+    "src/momwire/_somm_below_fill_core.cpp",
+    # S3: the grid itself, which the C++ front half builds for the composing
+    # ground (`_razor_front_core.cpp`, linked here as well).
+    "src/momwire/_somm_grid_core.cpp",
     "src/momwire/_accel_mw568.cpp",
     "src/momwire/_accel_razor.cpp",
     # The razor kernels with no Python in their signatures or includes;
@@ -399,6 +520,70 @@ _ACCEL_SOURCES = [
     # momwire#1497: the fused elementwise complex multiply (`_cmul.cmul`). Its
     # own TU so that no existing kernel's codegen can move with it.
     "src/momwire/_accel_cmul.cpp",
+    # The razor-2p solve prototype: every fill window and the LU in one C++
+    # call (`_razor_solve_core.cpp`, Python-free) and its binding. Their own
+    # TUs: they only CALL the razor kernels, across a TU boundary, so no
+    # kernel's codegen can move with them (momwire#1187).
+    "src/momwire/_razor_solve_core.cpp",
+    # The razor-2p FRONT half (construction, geometry, the prepared tables,
+    # the port columns), Python-free; `_accel_razor_solve.cpp` binds it too.
+    # Its own TU: it calls no kernel and no kernel calls it.
+    "src/momwire/_razor_front_core.cpp",
+    # razor-2p's BURIED fill (momwire#1512 step 3): the media's own fronts,
+    # their fold, the cross blocks; Python-free. Its own TU: it only calls
+    # the kernels and the solve core, across TU boundaries.
+    "src/momwire/_razor_buried_core.cpp",
+    # The crossing blocks and the designed near-interface tables they read
+    # (momwire#1512 B4), Python-free, and the twin itself for this module.
+    "src/momwire/_razor_crossing_core.cpp",
+    "src/momwire/_near_interface_eval.cpp",
+    "src/momwire/_near_interface_core.cpp",
+    # The front half's exact ring kernel (momwire#1479): the plan and the
+    # correction, and the point moments' Python-free twin of
+    # `_accel_exact_kernel_point.cpp` (the same inline text, so the same
+    # bits). Their own TUs for 1410's reason.
+    "src/momwire/_razor_exact_core.cpp",
+    "src/momwire/_exact_kernel_point_core.cpp",
+    # The coaxial pair moments' Python-free twin of `_accel_exact_kernel.cpp`
+    # (the same inline text, so the same bits): the B-spline basis' exact
+    # kernel for the standalone path (momwire#1517 step 0). Its own TU for
+    # 1410's reason.
+    "src/momwire/_exact_kernel_coaxial_core.cpp",
+    "src/momwire/_accel_razor_solve.cpp",
+    # The NEC-5 deck reader (unit 2a of the standalone razor-2p executable):
+    # `deck/_nec5.py` and the EZNEC seam's text-level front in C++, Python-
+    # free, and its test-facing binding. Their own TUs: no float arithmetic
+    # beyond parsing, and nothing calls them on the default path.
+    "src/momwire/_nec5_deck_core.cpp",
+    "src/momwire/_accel_nec5_deck.cpp",
+    # The NEC-5 seam's structure half (unit 2b): the scope ladder, the mesh
+    # and the ports, for any basis (`_nec5_seam_core.cpp`), and razor-2p's
+    # answers to what a basis decides, deck -> RazorSolver's arguments
+    # (`_nec5_razor_seam_core.cpp`, momwire#1517 step 0); Python-free, and
+    # `_accel_razor_solve.cpp` binds them. Their own TUs: O(N) geometry, and
+    # nothing calls them on the default path.
+    "src/momwire/_nec5_seam_core.cpp",
+    "src/momwire/_nec5_razor_seam_core.cpp",
+    # momwire#1517 step 1: the bspline seam engine.
+    "src/momwire/_nec5_bspline_seam_core.cpp",
+    "src/momwire/_bspline_front_core.cpp",
+    "src/momwire/_bspline_fill_core.cpp",
+    "src/momwire/_bspline_crossing_core.cpp",
+    "src/momwire/_nec5_bspline_printout_core.cpp",
+    # The run half and the printout writer (unit 3a): deck text to the
+    # printout's bytes, Python-free, for any basis (`_nec5_printout_core.cpp`),
+    # and razor-2p's answers to what the solver is asked
+    # (`_nec5_razor_printout_core.cpp`, momwire#1517 step 0). Nothing binds
+    # them yet (the standalone driver is their caller); they are built here so
+    # every platform's toolchain compiles them. Their own TUs: nothing calls
+    # them on the default path.
+    "src/momwire/_nec5_printout_core.cpp",
+    "src/momwire/_nec5_razor_printout_core.cpp",
+    # WIRE loading for that C++ path (LD 5 skin effect through the vendored
+    # xsf's `cyl_bessel_ie`, scipy.special.ive's own code; LD 2 / LD 3
+    # per-metre RLC), Python-free. The ONE TU of this extension that
+    # includes xsf: its headers define functions non-inline.
+    "src/momwire/_razor_wire_loading_core.cpp",
 ]
 
 # Same staleness rationale for the near-interface twin: the contour engine
@@ -406,13 +591,23 @@ _ACCEL_SOURCES = [
 # re-vendoring) one silently re-installs the old binary.
 _NEAR_HEADERS = [
     "src/momwire/_contour_engine_inline.h",
+    "src/momwire/_somm_below_six_inline.h",
     # The shared branch cut (#714) -- this extension carries the third
     # call site, so an edit to it must rebuild this .so too.
     "src/momwire/_branch_cut_inline.h",
+    # The contour engine's complex division (momwire#1441).
+    "src/momwire/_cdiv_inline.h",
     # The contour engine's fused multiply-adds (momwire#1194).
     "src/momwire/_fma_inline.h",
+    # The contour engine's lane hook and the Bessel lanes the column rule
+    # uses (momwire#1441 step 3).
+    "src/momwire/_somm_lanes_inline.h",
+    "src/momwire/_contour_lanes_inline.h",
     # The column machinery both TUs of this extension share (momwire#1224).
     "src/momwire/_near_interface_columns_inline.h",
+    # The Python-free column twin and sheet interpolator's interface
+    # (momwire#1512 B4a), which this extension binds.
+    "src/momwire/_near_interface_core.h",
     # The SIMD lane layer (momwire#1372): the sheet's fixed-width cell sum.
     "src/momwire/_lanes.h",
 ] + sorted(glob.glob("extern/xsf/include/xsf/**/*.h", recursive=True))
@@ -501,13 +696,17 @@ for _suffix, _accel_args, _near_args in _VARIANTS:
             _ACCEL_SOURCES,
             depends=_ACCEL_HEADERS,
             compile_args=_accel_args,
+            include_dirs=["extern/xsf/include"],
         )
     )
     ext_modules.append(
         _variant(
             "_near_interface_accel",
             _suffix,
-            ["src/momwire/_near_interface_accel.cpp"],
+            [
+                "src/momwire/_near_interface_accel.cpp",
+                "src/momwire/_near_interface_core.cpp",
+            ],
             depends=_NEAR_HEADERS,
             compile_args=_near_args,
             include_dirs=["extern/xsf/include"],

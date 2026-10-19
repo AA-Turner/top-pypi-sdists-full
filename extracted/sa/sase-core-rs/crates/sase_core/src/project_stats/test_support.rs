@@ -1,8 +1,10 @@
 //! Temporary Git repositories shared by project-stats phase tests.
 
+use std::ffi::OsStr;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 
 use super::wire::{ProjectStatsRepoKindWire, ProjectStatsRepoSpecWire};
 
@@ -60,6 +62,96 @@ pub(crate) fn commit(repo: &Path, relative: &str, text: &str, message: &str) {
     write_file(repo, relative, text);
     git(repo, &["add", "-A"]);
     git(repo, &["commit", "-m", message]);
+}
+
+pub(crate) fn commit_files(repo: &Path, files: &[(&str, &str)], message: &str) {
+    for (relative, text) in files {
+        write_file(repo, relative, text);
+    }
+    git(repo, &["add", "-A"]);
+    git(repo, &["commit", "-m", message]);
+}
+
+pub(crate) fn write_bytes(repo: &Path, relative: &str, bytes: &[u8]) {
+    let path = repo.join(relative);
+    fs::create_dir_all(path.parent().expect("file parent"))
+        .expect("create parent directory");
+    fs::write(path, bytes).expect("write fixture bytes");
+}
+
+/// Stages `bytes` at a raw (possibly non-UTF-8) `path` directly in the Git
+/// index, never touching the worktree, so filesystems that reject the name
+/// (macOS, Windows) still get a tree entry for it.
+pub(crate) fn stage_blob_at_raw_path(repo: &Path, path: &OsStr, bytes: &[u8]) {
+    let mut hash = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["hash-object", "-w", "--stdin"])
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn git hash-object");
+    hash.stdin
+        .take()
+        .expect("hash-object stdin")
+        .write_all(bytes)
+        .expect("write blob bytes");
+    let hashed = hash.wait_with_output().expect("git hash-object");
+    assert!(
+        hashed.status.success(),
+        "git hash-object failed: {}",
+        String::from_utf8_lossy(&hashed.stderr)
+    );
+    let oid = String::from_utf8(hashed.stdout)
+        .expect("object id is ASCII")
+        .trim()
+        .to_owned();
+    let mut cacheinfo = std::ffi::OsString::from(format!("100644,{oid},"));
+    cacheinfo.push(path);
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repo)
+        .args(["update-index", "--add", "--cacheinfo"])
+        .arg(&cacheinfo)
+        .env_remove("GIT_DIR")
+        .env_remove("GIT_WORK_TREE")
+        .env_remove("GIT_INDEX_FILE")
+        .output()
+        .expect("run git update-index");
+    assert!(
+        output.status.success(),
+        "git update-index failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+pub(crate) fn commit_all(repo: &Path, message: &str) {
+    git(repo, &["add", "-A"]);
+    git(repo, &["commit", "-m", message]);
+}
+
+pub(crate) fn plan_markdown(
+    tier: &str,
+    proposed_with: Option<&str>,
+    proposed_by: Option<&str>,
+    project: Option<&str>,
+) -> String {
+    let mut frontmatter = format!("---\ntier: {tier}\n");
+    if let Some(value) = proposed_with {
+        frontmatter.push_str(&format!("proposed_with: {value}\n"));
+    }
+    if let Some(value) = proposed_by {
+        frontmatter.push_str(&format!("proposed_by: {value}\n"));
+    }
+    if let Some(value) = project {
+        frontmatter.push_str(&format!("project: {value}\n"));
+    }
+    frontmatter.push_str("---\n\n# Plan\n");
+    frontmatter
 }
 
 pub(crate) fn commit_at(

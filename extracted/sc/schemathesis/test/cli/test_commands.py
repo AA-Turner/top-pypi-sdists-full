@@ -10,23 +10,18 @@ import subprocess
 import sys
 import threading
 import time
-from http.client import RemoteDisconnected
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from itertools import count
 from urllib.parse import urljoin
 
 import hypothesis
 import pytest
-import requests
 import strawberry
 import trustme
-import urllib3.exceptions
 import yaml
 from _pytest.main import ExitCode
 from flask import Flask, Response, jsonify, redirect, request, url_for
 from hypothesis.internal.observability import with_observability_callback
-from urllib3.exceptions import ProtocolError
-from werkzeug.serving import make_server
 
 import schemathesis
 from schemathesis.cli.commands.run.context import ExecutionContext
@@ -35,15 +30,13 @@ from schemathesis.config._output import MAX_PAYLOAD_SIZE
 from schemathesis.core.hooks import HOOKS_MODULE_ENV_VAR
 from schemathesis.core.shell import ShellType
 from schemathesis.engine import Status, control, events
-from schemathesis.engine.health import HealthState
 from schemathesis.engine.run import Phase, PhaseName
-from schemathesis.engine.run.unit._pool import DefaultScheduler
 from schemathesis.specs.openapi import unregister_string_format
 from test.apps.catalog.graphql import bookstore as graphql_bookstore
 from test.apps.catalog.openapi import basic as openapi_basic
 from test.apps.fragments.schemas import linked_users
 from test.fixtures.app_runner import wait_for_port
-from test.utils import HERE, SIMPLE_PATH, flaky
+from test.utils import HERE, SIMPLE_PATH
 
 
 def test_commands_help(cli, snapshot_cli):
@@ -222,17 +215,13 @@ def test_force_color_nocolor(ctx, cli, snapshot_cli):
     assert cli.run(api.schema_url, "--force-color", "--no-color") == snapshot_cli
 
 
-def test_certificates(cli, tmp_path):
+def test_certificates(cli, app_runner, tmp_path):
     ca = trustme.CA()
     ca_path = tmp_path / "ca.pem"
     ca.cert_pem.write_to_path(str(ca_path))
     client_cert = ca.issue_cert("test.org")
     client_cert_path = tmp_path / "client.pem"
     client_cert.private_key_and_cert_chain_pem.write_to_path(str(client_cert_path))
-    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ca.issue_cert("127.0.0.1").configure_cert(server_context)
-    ca.configure_trust(server_context)
-    server_context.verify_mode = ssl.CERT_REQUIRED
     app = openapi_basic.success().server
     presented = {}
 
@@ -240,16 +229,12 @@ def test_certificates(cli, tmp_path):
     def record_client_certificate():
         presented.setdefault(request.path, set()).add(ssl.PEM_cert_to_DER_cert(request.environ["SSL_CLIENT_CERT"]))
 
-    server = make_server("127.0.0.1", 0, app, threaded=True, ssl_context=server_context)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        cli.run_and_assert(
-            f"https://127.0.0.1:{server.server_port}/openapi.json",
-            f"--request-cert={client_cert_path}",
-            f"--tls-verify={ca_path}",
-        )
-    finally:
-        server.shutdown()
+    port = app_runner.run_client_cert_flask_app(app, ca)
+    cli.run_and_assert(
+        f"https://127.0.0.1:{port}/openapi.json",
+        f"--request-cert={client_cert_path}",
+        f"--tls-verify={ca_path}",
+    )
     expected = {ssl.PEM_cert_to_DER_cert(client_cert.cert_chain_pems[0].bytes().decode())}
     assert presented["/openapi.json"] == presented["/api/success"] == expected
 
@@ -637,21 +622,54 @@ def test_fuzzing_timeout_outlasting_time_budget(ctx, cli, snapshot_cli):
     assert result == snapshot_cli
 
 
-def test_read_content_timeout(ctx, cli, mocker, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    original = urllib3.response.HTTPResponse.stream
-    count = 0
+@pytest.fixture
+def raw_http_server(ctx):
+    # Serves the schema, then answers every other request with `reply`, for responses no framework would send.
+    schema = json.dumps(ctx.openapi.build_schema(SUCCESS_PATHS)).encode()
+    listeners = []
 
-    def stream(self, *args, **kwargs):
-        nonlocal count
+    def handle(connection, reply):
+        with connection:
+            request_line = connection.recv(65536).split(b"\r\n", 1)[0]
+            if b" /openapi.json " in request_line:
+                connection.sendall(
+                    b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
+                    + str(len(schema)).encode()
+                    + b"\r\nConnection: close\r\n\r\n"
+                    + schema
+                )
+            else:
+                reply(connection)
 
-        count += 1
-        if count > 1:
-            raise urllib3.exceptions.ReadTimeoutError(self._pool, None, "Read timed out.")
-        return original(self, *args, **kwargs)
+    def start(reply):
+        listener = socket.create_server(("127.0.0.1", 0))
+        listeners.append(listener)
 
-    mocker.patch("urllib3.response.HTTPResponse.stream", stream)
-    assert cli.run(api.schema_url) == snapshot_cli
+        def serve():
+            while True:
+                try:
+                    connection, _ = listener.accept()
+                except OSError:
+                    return
+                threading.Thread(target=handle, args=(connection, reply), daemon=True).start()
+
+        threading.Thread(target=serve, daemon=True).start()
+        return f"http://127.0.0.1:{listener.getsockname()[1]}/openapi.json"
+
+    yield start
+    for listener in listeners:
+        listener.close()
+
+
+SUCCESS_PATHS = {"/api/success": {"get": {"responses": {"200": {"description": "OK"}}}}}
+
+
+def test_read_content_timeout(cli, raw_http_server, snapshot_cli):
+    def stall_mid_body(connection):
+        connection.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 20\r\n\r\n{")
+        time.sleep(1)
+
+    assert cli.run(raw_http_server(stall_mid_body), "--request-timeout=0.1", "--max-examples=1") == snapshot_cli
 
 
 @pytest.mark.parametrize("workers", [1, 2])
@@ -915,18 +933,13 @@ def broken_check(ctx, response, case):
         )
 
 
-def test_chunked_encoding_error(ctx, mocker, cli, snapshot_cli):
-    api = ctx.openapi.apps.chunked_success()
+def test_chunked_encoding_error(cli, raw_http_server, snapshot_cli):
+    def empty_chunk_length(connection):
+        connection.sendall(
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Type: application/json\r\n\r\n\r\n"
+        )
 
-    def _update_chunk_length(response):
-        value = b""
-        try:
-            int(value, 16)
-        except ValueError as e:
-            raise urllib3.exceptions.InvalidChunkLength(response, value) from e
-
-    mocker.patch("urllib3.response.HTTPResponse._update_chunk_length", _update_chunk_length)
-    assert cli.run(api.schema_url, "--phases=fuzzing") == snapshot_cli
+    assert cli.run(raw_http_server(empty_chunk_length), "--phases=fuzzing") == snapshot_cli
 
 
 @pytest.mark.skipif(
@@ -949,23 +962,15 @@ def test_remote_disconnected_error(cli, snapshot_cli):
         assert cli.run(f"http://127.0.0.1:{listener.getsockname()[1]}/openapi.json") == snapshot_cli
 
 
-def test_remote_disconnected_error_with_empty_header(ctx, mocker, cli, snapshot_cli):
-    api = ctx.openapi.apps.success()
-    # When a request has an empty header value and the server disconnects
-    # Regression test for IndexError when extracting headers from PreparedRequest with empty values
-    protocol_error = ProtocolError("Connection aborted.", RemoteDisconnected("Remote end closed connection"))
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="conn.close() on Windows does not raise ConnectionError on the client side"
+)
+def test_remote_disconnected_error_with_empty_header(cli, raw_http_server, snapshot_cli):
+    # An empty header value on a request the server drops must still render in the error report.
+    def close_without_response(connection):
+        pass
 
-    def raise_connection_error(self, **kwargs):
-        req = requests.Request("GET", "http://127.0.0.1/success", headers={"X-Empty": ""})
-        prepared = req.prepare()
-        conn_error = requests.ConnectionError(protocol_error)
-        conn_error.request = prepared
-        conn_error.__context__ = protocol_error
-        raise conn_error
-
-    mocker.patch("schemathesis.generation.case.Case.call", raise_connection_error)
-    # Then it should not crash with IndexError on empty header value
-    assert cli.run(api.schema_url) == snapshot_cli
+    assert cli.run(raw_http_server(close_without_response), config={"headers": {"X-Empty": ""}}) == snapshot_cli
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -1092,21 +1097,11 @@ def test_keyboard_interrupt(ctx, cli, workers, snapshot_cli):
 
 
 @pytest.mark.filterwarnings("ignore:Exception in thread")
-def test_keyboard_interrupt_threaded(ctx, cli, mocker, snapshot_cli):
-    # When a Schemathesis run is interrupted by the keyboard or via SIGINT
+def test_keyboard_interrupt_threaded(ctx, cli, snapshot_cli):
+    # The hook runs on the worker threads, so the interrupt starts there rather than in the main thread.
     api = ctx.openapi.apps.success_and_failure()
-    original = DefaultScheduler.next_operation
-    counter = 0
-
-    def mocked(*args, **kwargs):
-        nonlocal counter
-        counter += 1
-        if counter > 1:
-            raise KeyboardInterrupt
-        return original(*args, **kwargs)
-
-    mocker.patch("schemathesis.engine.run.unit._pool.DefaultScheduler.next_operation", wraps=mocked)
-    assert cli.run(api.schema_url, "--workers=2", "--generation-deterministic") == snapshot_cli
+    module = ctx.write_pymodule(INTERRUPT_ON_ADD_EXAMPLES)
+    assert cli.run(api.schema_url, "--workers=2", "--generation-deterministic", hooks=module) == snapshot_cli
 
 
 def test_keyboard_interrupt_during_schema_loading(ctx, cli, tmp_path, snapshot_cli):
@@ -1123,6 +1118,13 @@ INTERRUPT_ON_SCHEMA_LOAD = """
 def before_load_schema(context, raw_schema):
     raise KeyboardInterrupt
 """
+
+INTERRUPT_ON_ADD_EXAMPLES = """
+@schemathesis.hook
+def before_add_examples(context, examples):
+    raise KeyboardInterrupt
+"""
+
 
 INTERRUPT_ON_SECOND_RESPONSE = """
 calls = 0
@@ -1571,6 +1573,49 @@ def test_multipart_encoding_content_type(ctx, cli, snapshot_cli, field_name, fie
     )
 
 
+@pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_coverage_multipart_comma_separated_content_type(ctx, cli, snapshot_cli, version):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/upload": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "multipart/form-data": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["file"],
+                                    "properties": {"file": {"type": "string", "format": "binary"}},
+                                },
+                                "encoding": {"file": {"contentType": "image/png, image/jpeg"}},
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "Stored"}, "400": {"description": "Bad part"}},
+                }
+            }
+        },
+        version=version,
+    )
+    received = []
+
+    @app.route("/upload", methods=["POST"])
+    def upload():
+        content_type = request.files["file"].content_type if "file" in request.files else None
+        received.append(content_type)
+        if content_type is not None and "," in content_type:
+            return jsonify({"error": content_type}), 400
+        return jsonify({}), 201
+
+    result = cli.run_openapi_app(
+        app, "--phases=coverage", "--mode=positive", "--checks=positive_data_acceptance", "--max-examples=10"
+    )
+    assert set(received) - {None} == {"image/png"}
+    assert result == snapshot_cli
+
+
 def test_no_schema_in_media_type(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -1778,6 +1823,41 @@ def test_urlencoded_form(ctx, cli):
     # Then Schemathesis should generate appropriate payload
     api = ctx.openapi.apps.form()
     cli.run_and_assert(api.schema_url, "--mode=positive")
+
+
+def _urlencoded_operation(version, schema):
+    if version == "2.0":
+        return {
+            "consumes": ["application/x-www-form-urlencoded"],
+            "parameters": [{"in": "body", "name": "body", "required": True, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
+        }
+    return {
+        "requestBody": {"required": True, "content": {"application/x-www-form-urlencoded": {"schema": schema}}},
+        "responses": {"200": {"description": "OK"}},
+    }
+
+
+# `exclusiveMinimum: true` without `minimum` is rejected by the Draft 4 meta-schema.
+@pytest.mark.parametrize(
+    ("version", "keyword"),
+    [("2.0", "exclusiveMinimum"), ("2.0", "exclusiveMaximum"), ("3.0.3", "exclusiveMinimum")],
+    ids=["swagger-exclusive-minimum", "swagger-exclusive-maximum", "openapi-30-exclusive-minimum"],
+)
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_urlencoded_example_with_dangling_exclusive_bound(ctx, cli, snapshot_cli, version, keyword):
+    schema = {
+        "type": "object",
+        "properties": {"bound": {"type": "integer", keyword: True}, "value": {"type": "integer", "example": 1}},
+    }
+    app, _ = ctx.openapi.make_flask_app({"/form": {"post": _urlencoded_operation(version, schema)}}, version=version)
+
+    @app.route("/form", methods=["POST"])
+    @app.route("/api/form", methods=["POST"])
+    def form():
+        return jsonify({})
+
+    assert cli.run_openapi_app(app, "--phases=examples") == snapshot_cli
 
 
 @pytest.mark.parametrize("workers", [1, 2])
@@ -2337,6 +2417,13 @@ def test_auth_override_on_protected_operation(ctx, cli, extra, snapshot_cli):
     assert cli.run(api.schema_url, "--output-sanitize=false", "--phases=fuzzing", extra) == snapshot_cli
 
 
+@pytest.mark.parametrize("sanitize", ["true", "false"])
+def test_url_credentials_in_output(ctx, cli, snapshot_cli, sanitize):
+    api = ctx.openapi.apps.success()
+    schema_url = api.schema_url.replace("http://", "http://user:secret@")
+    assert cli.run(schema_url, f"--output-sanitize={sanitize}", "--max-examples=1", "--phases=fuzzing") == snapshot_cli
+
+
 def test_explicit_headers_in_output_on_errors(ctx, cli, snapshot_cli):
     # When there is a non-fatal error during testing (e.g. flakiness)
     # And custom headers were passed explicitly
@@ -2627,6 +2714,26 @@ def test_skipped_on_no_explicit_examples(ctx, cli, snapshot_cli):
     assert cli.run(api.schema_url, "--phases=examples") == snapshot_cli
 
 
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_skipped_on_no_coverage_cases(ctx, cli, snapshot_cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {"schema": {"allOf": [{"type": "string"}, {"type": "integer"}]}}
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    assert cli.run_openapi_app(app, "--phases=coverage", "--mode=positive") == snapshot_cli
+
+
 @pytest.fixture
 def data_generation_check(ctx):
     with ctx.check(
@@ -2640,7 +2747,7 @@ def data_generation_check(ctx, response, case):
         yield module
 
 
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_multiple_generation_modes(ctx, cli, data_generation_check):
     api = ctx.openapi.apps.payload()
     # When multiple data generation methods are supplied in CLI
@@ -2693,16 +2800,14 @@ def test_wait_for_schema(cli, app_runner, schema_path, make_app):
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Fails on Windows")
-def test_wait_for_schema_not_enough(cli, app_runner, snapshot_cli):
-    app = openapi_basic.success().server
-    original_run = app.run
-
-    def run_with_delay(*args, **kwargs):
-        time.sleep(2)
-        return original_run(*args, **kwargs)
-
-    app.run = run_with_delay
-    assert cli.run(app_runner.openapi_url(app, wait=False), "--wait-for-schema=1", "--max-examples=1") == snapshot_cli
+def test_wait_for_schema_not_enough(cli, snapshot_cli):
+    # A bound socket that never listens refuses every connection for the whole wait window.
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        assert (
+            cli.run(f"http://127.0.0.1:{port}/openapi.json", "--wait-for-schema=1", "--max-examples=1") == snapshot_cli
+        )
 
 
 def test_wait_for_schema_retries_503(cli, app_runner, ctx):
@@ -3000,7 +3105,7 @@ def test_output_sanitization_via_config(ctx, cli, hypothesis_max_examples, enabl
     assert expected in result.stdout, result.stdout
 
 
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_multiple_failures_in_single_check(ctx, app_runner, cli, snapshot_cli):
     schema_path = ctx.openapi.write_schema(
         {
@@ -3028,7 +3133,7 @@ def test_multiple_failures_in_single_check(ctx, app_runner, cli, snapshot_cli):
     assert cli.run(str(schema_path), f"--url={base_url}", "--checks=all", "--mode=positive") == snapshot_cli
 
 
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_binary_payload(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -3062,7 +3167,7 @@ def test_binary_payload(ctx, cli, snapshot_cli):
     )
 
 
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_long_payload(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -3097,7 +3202,7 @@ def test_long_payload(ctx, cli, snapshot_cli):
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Snapshot is inaccurate on Windows")
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_multiple_errors(ctx, cli, snapshot_cli):
     schema_path = ctx.openapi.write_schema(
         {
@@ -3132,7 +3237,7 @@ def test_multiple_errors(ctx, cli, snapshot_cli):
     assert cli.run(str(schema_path), "--url=http://127.0.0.1:1") == snapshot_cli
 
 
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_group_errors(ctx, cli, snapshot_cli):
     schema_path = ctx.openapi.write_schema(
         {
@@ -3180,7 +3285,7 @@ def test_group_errors(ctx, cli, snapshot_cli):
     )
 
 
-@flaky(max_runs=5, min_passes=1)
+@pytest.mark.flaky(reruns=4)
 def test_complex_urlencoded_example(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
@@ -3421,6 +3526,26 @@ def test_same_host_redirect_followed(cli, ctx, location):
     assert target_requests == ["GET"]
 
 
+def test_documented_redirect_not_followed(cli, ctx):
+    target_requests = []
+    app, _ = ctx.openapi.make_flask_app(
+        {"/redirect": {"get": {"responses": {"302": {"description": "Found"}}}}},
+    )
+
+    @app.route("/redirect")
+    def redirect_endpoint():
+        return redirect(url_for("target"), code=302)
+
+    @app.route("/target")
+    def target():
+        target_requests.append(request.method)
+        return jsonify({}), 404
+
+    result = cli.run_openapi_app(app, "--phases=fuzzing", "--max-examples=1", "--checks=status_code_conformance")
+    assert result.exit_code == ExitCode.OK, result.stdout
+    assert target_requests == []
+
+
 @pytest.fixture
 def no_null_bytes(ctx):
     with ctx.check(
@@ -3457,6 +3582,52 @@ def test_null_byte_in_header_probe(ctx, cli, snapshot_cli, no_null_bytes):
         )
         == snapshot_cli
     )
+
+
+def test_slow_probe_response_does_not_adapt_generation(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{name}": {
+                "get": {
+                    "parameters": [
+                        {"name": "name", "in": "path", "required": True, "schema": {"type": "string", "enum": ["\\"]}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    names = []
+
+    @app.before_request
+    def delay_probes():
+        if "X-Schemathesis-Probe" in request.headers:
+            time.sleep(1)
+
+    @app.route("/items/<path:name>")
+    def items(name):
+        names.append(name)
+        return jsonify({})
+
+    lines = cli.run_openapi_app(
+        app, "--phases=fuzzing", "--max-examples=1", "--request-timeout=0.5"
+    ).stdout.splitlines()
+    assert [line.strip() for line in lines if "✘" in line] == []
+    assert set(names) == {"\\"}
+
+
+def test_probe_waits_as_long_as_test_requests_by_default(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.before_request
+    def delay_probe():
+        if "X-Schemathesis-Probe-Null" in request.headers:
+            time.sleep(3)
+
+    lines = cli.run_openapi_app(app, "--phases=examples").stdout.splitlines()
+    assert [line.split() for line in lines if "NULL byte" in line] == [
+        ["Supports", "NULL", "byte", "in", "headers:", "✓"]
+    ]
 
 
 @pytest.mark.skipif(sys.version_info >= (3, 13), reason="Error message is different")
@@ -3946,9 +4117,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global CREATED, KILLED
+        # Reading the body first keeps the reset after the client's last write, so it always sees the reset.
+        payload = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         self.reset_after_crash()
         try:
-            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+            body = json.loads(payload)
         except ValueError:
             body = None
         size = body.get("size") if isinstance(body, dict) else None
@@ -5263,7 +5436,7 @@ def before_generate_case(context, strategy):
 
 
 @pytest.mark.snapshot(replace_test_cases=False, replace_generated=True, replace_reproduce_with=True)
-def test_stateful_step_rejected_for_unresponsive_operation_is_not_counted(ctx, cli, mocker, snapshot_cli):
+def test_stateful_step_rejected_for_unresponsive_operation_is_not_counted(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(linked_users())
 
     @app.route("/users", methods=["POST"])
@@ -5272,18 +5445,19 @@ def test_stateful_step_rejected_for_unresponsive_operation_is_not_counted(ctx, c
 
     @app.route("/users/<int:user_id>")
     def get_user(user_id):
+        # Outlasts the request timeout every time, so the operation is flagged unresponsive.
+        time.sleep(1)
         return jsonify({"id": user_id})
-
-    # Hanging requests are what flag an operation in a real run; flagging it directly keeps the test fast
-    mocker.patch.object(HealthState, "is_unresponsive", lambda self, label: label == "GET /users/{userId}")
 
     assert (
         cli.run_openapi_app(
             app,
-            "--max-examples=1",
+            "--max-examples=5",
             "--generation-deterministic",
             "--phases=stateful",
             "--checks=not_a_server_error",
+            # Only the hanging operation gets a short timeout, so a slow runner never times out the answering one.
+            config={"operations": [{"include-name": "GET /users/{userId}", "request-timeout": 0.2}]},
         )
         == snapshot_cli
     )

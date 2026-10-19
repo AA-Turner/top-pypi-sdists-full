@@ -1463,14 +1463,16 @@ def _handle_system_cluster_config(enable_system_cluster: Optional[bool]) -> None
     if enable_system_cluster is True:
         confirm_response = click.confirm(
             "--enable-system-cluster is specified. Please note that this will enable "
-            "system cluster functionality for the cloud and will incur extra cost. "
+            "system cluster functionality for the cloud (each of its cloud resources "
+            "gets its own system cluster) and will incur extra cost. "
             "Are you sure you want to enable system cluster?"
         )
     elif enable_system_cluster is False:
         confirm_response = click.confirm(
             "--disable-system-cluster is specified. This will disable system cluster "
             "functionality for the cloud. Please note that this will not terminate "
-            "the system cluster if it is currently running. "
+            "any of the cloud's system clusters (one per cloud resource) that are "
+            "currently running. "
             "Are you sure you want to disable system cluster?"
         )
 
@@ -1541,7 +1543,7 @@ def _handle_system_cluster_config(enable_system_cluster: Optional[bool]) -> None
 @click.option(
     "--enable-system-cluster/--disable-system-cluster",
     default=None,
-    help="Enable or disable system cluster functionality.",
+    help="Enable or disable system cluster functionality for the cloud, including all of its cloud resources.",
     required=False,
 )
 @click.option(
@@ -3058,23 +3060,28 @@ def generate_jobs_report(
     output_formats=[OutputFormat.TEXT],
     examples=[
         CommandExample(
-            description="Terminate the system cluster of a cloud by ID.",
+            description="Terminate the system clusters of every cloud resource of a cloud by ID.",
             command="anyscale cloud terminate-system-cluster --cloud-id cld_abcdef",
             output_raw=command_examples.CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE,
+        ),
+        CommandExample(
+            description="Terminate the system cluster of a specific cloud resource of a cloud.",
+            command="anyscale cloud terminate-system-cluster --cloud-id cld_abcdef --resource my-cloud-resource",
+            output_raw=command_examples.CLOUD_TERMINATE_SYSTEM_CLUSTER_RESOURCE_EXAMPLE,
         ),
     ],
 )
 @cloud_cli.command(
     name="terminate-system-cluster",
-    short_help="Terminate the system cluster for a specific cloud.",
-    help="Terminate the system cluster for a specific cloud.",
+    short_help="Terminate the system clusters of a cloud.",
+    help="Terminate the system clusters of a cloud.\n\nBy default, terminates the system cluster of every cloud resource of the cloud. Use --resource or --resource-id to terminate the system cluster of one cloud resource only.",
     cls=AnyscaleCommand,
 )
 @click.option(
     "--cloud-id",
     "--id",
     "cloud_id",
-    help="ID of the cloud to terminate the system cluster for.",
+    help="ID of the cloud to terminate the system clusters for.",
     type=str,
     required=True,
 )
@@ -3085,17 +3092,38 @@ def generate_jobs_report(
     default=False,
     type=bool,
     is_flag=True,
-    help="Block this CLI command until the system cluster is terminated.",
+    help="Block this CLI command until the system clusters are terminated.",
 )
-def terminate_system_cluster(cloud_id: str, wait: Optional[bool]) -> None:
-    """
-    Terminate the system cluster for a specific cloud.
-
-    :param cloud_id: The ID of the cloud to terminate the system cluster for.
-    :param wait: If True, wait for the system cluster to be terminated before returning. Defaults to False.
-    """
+@click.option(
+    "--resource",
+    help="Name of the cloud resource whose system cluster to terminate. Each cloud resource has its own system cluster. If not provided, terminates the system clusters of every cloud resource of the cloud.",
+    type=str,
+    required=False,
+)
+@click.option(
+    "--resource-id",
+    "cloud_resource_id",
+    help="Cloud resource ID whose system cluster to terminate. Alternative to cloud resource name.",
+    type=str,
+    required=False,
+)
+def terminate_system_cluster(
+    cloud_id: str,
+    wait: Optional[bool],
+    resource: Optional[str],
+    cloud_resource_id: Optional[str],
+) -> None:
+    if resource and cloud_resource_id:
+        raise click.ClickException(
+            "Cannot specify both --resource and --resource-id. Please provide only one."
+        )
     try:
-        anyscale.cloud.terminate_system_cluster(cloud_id, wait)
+        anyscale.cloud.terminate_system_cluster(
+            cloud_id,
+            wait,
+            cloud_resource=resource,
+            cloud_resource_id=cloud_resource_id,
+        )
     except ValueError as e:
         raise UserError(f"Error terminating system cluster: {e}", legacy_exit_code=0) from None
 

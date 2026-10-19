@@ -1,9 +1,10 @@
 // Primitives shared by the translation units that touch array bytes.
 //
-// Byte-level reproductions of specific reference-writer behaviours, not general
-// utilities: the shuffle decision, the worker count, the dtype width and the JSON
-// escaping each decide what ends up on disk, so a second implementation of any of
-// them would be a second chance to disagree.
+// Mostly byte-level reproductions of specific reference-writer behaviours: the
+// shuffle decision, the worker count, the dtype width and the JSON escaping each
+// decide what ends up on disk, so a second implementation of any of them would be
+// a second chance to disagree. The frame-name constants are here for the same
+// reason.
 
 #ifndef PVZSTD_DETAIL_H
 #define PVZSTD_DETAIL_H
@@ -22,11 +23,32 @@
 
 namespace pvzstd::detail {
 
+// Frame-name suffixes that identify the metadata and field-data frames; the
+// file-metadata suffix is also that frame's whole name.
+constexpr char kDsMetadataSuffix[] = "__ds_metadata";
+constexpr char kMultiblockSuffix[] = "__multiblock__ds_metadata";
+constexpr char kFileMetadataSuffix[] = "__pyvista_zstd_metadata";
+constexpr char kFieldDataSuffix[] = "__field_data";
+
+// Width of the dataset UID that prefixes every frame name.
+constexpr size_t kUidNChar = PVZSTD_DTYPE_LEN;
+
+// File version of the byte-shuffle filter, the floor an append or stream that
+// shuffles raises a file to.
+constexpr int kFileVersionShuffle = 1;
+
+// Whether `s` ends with `suffix`.
+inline bool EndsWith(const std::string &s, const char *suffix) {
+  const size_t n = std::strlen(suffix);
+  return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
+}
+
 constexpr int kDefaultLevel = 3;
 constexpr uint64_t kShuffleProbeBytes = 1u << 20;  // 1 MiB
 constexpr int kMaxManualThreads = 8;
 constexpr uint64_t kBytesPerMiB = 1024ull * 1024ull;
 constexpr uint64_t kThreadBytesPerWorker = 2ull;  // floor(MiB / 2) workers
+constexpr uint64_t kIndexEntryBytes = 16;         // (end:u64, decompressed_size:u64)
 
 // Whether a 64-bit length is too large to be held in a size_t. Always false
 // where size_t is 64 bits; on a 32-bit target -- and a WebAssembly build is one
@@ -48,6 +70,12 @@ inline void StoreU32(std::vector<uint8_t> *out, uint32_t v) {
 
 inline void StoreU64(std::vector<uint8_t> *out, uint64_t v) {
   for (int i = 0; i < 8; ++i) out->push_back(static_cast<uint8_t>((v >> (8 * i)) & 0xFF));
+}
+
+inline uint32_t LoadU32(const uint8_t *src) {
+  uint32_t v = 0;
+  for (int i = 0; i < 4; ++i) v |= static_cast<uint32_t>(src[i]) << (8 * i);
+  return v;
 }
 
 inline uint64_t LoadU64(const uint8_t *src) {
@@ -176,7 +204,11 @@ inline pvzstd_status CompressFrame(const uint8_t *src, uint64_t n, int level, in
   return PVZSTD_OK;
 }
 
-// Matches json.dumps' default (ensure_ascii, minimal separators).
+// Escapes '"', '\\', \n, \r and \t as json.dumps does and other control
+// characters as \u00XX, and writes everything else raw, non-ASCII included:
+// pyvista-zstd cores up to 0.6.0 cannot parse a \u escape above ASCII, so they
+// would not find file_version past such a name and would skip their version
+// ceiling instead of refusing a version 3 file.
 inline void AppendJsonString(std::string *out, const std::string &s) {
   out->push_back('"');
   for (const char c : s) {

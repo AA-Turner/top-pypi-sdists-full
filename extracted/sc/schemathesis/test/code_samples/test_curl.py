@@ -6,7 +6,7 @@ import requests
 from _pytest.main import ExitCode
 from fastapi import FastAPI
 from flask import jsonify, redirect
-from hypothesis import HealthCheck, given, settings
+from hypothesis import HealthCheck, settings
 from pydantic import BaseModel, ConfigDict, Field
 from werkzeug.exceptions import InternalServerError
 
@@ -24,6 +24,8 @@ from schemathesis.generation.meta import (
     TestPhase,
 )
 from schemathesis.generation.modes import GenerationMode
+from test.apps.builders import make_permissive_flask_app
+from test.utils import run_given
 
 
 def _make_get_users_app() -> FastAPI:
@@ -58,19 +60,19 @@ schema.config.generation.update(modes=[GenerationMode.POSITIVE])
 
 
 @pytest.fixture
-def loose_schema(ctx):
-    schema = ctx.openapi.load_schema(
-        {
-            "/test/{key}": {
-                "post": {
-                    "parameters": [{"name": "key", "in": "path"}],
-                    "responses": {"default": {"description": "OK"}},
-                }
+def loose_schema(ctx, app_runner):
+    paths = {
+        "/test/{key}": {
+            "post": {
+                "parameters": [{"name": "key", "in": "path"}],
+                "responses": {"default": {"description": "OK"}},
             }
-        },
-        version="2.0",
-    )
-    schema.config.update(base_url="http://127.0.0.1:1")
+        }
+    }
+    schema = ctx.openapi.load_schema(paths, version="2.0")
+    # A live server answers every generated command, so only a malformed one can make curl fail.
+    app = make_permissive_flask_app(ctx.openapi.build_schema(paths, version="2.0"))
+    schema.config.update(base_url=f"http://127.0.0.1:{app_runner.run_flask_app(app)}/api")
     return schema
 
 
@@ -148,17 +150,14 @@ def test_as_curl_command_sanitizes_string_query_params(curl):
 
 
 def test_as_curl_command_sanitizes_raw_query_with_empty_segments(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /q",
         {
-            "/q": {
-                "get": {
-                    "parameters": [{"name": "token", "in": "query", "schema": {"type": "string"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "token", "in": "query", "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/q"]["GET"].Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&&flag")})
+    case = operation.Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&&flag")})
     assert case.as_curl_command() == "curl -X GET 'http://localhost/q?token=%5BFiltered%5D&flag'"
 
 
@@ -171,17 +170,14 @@ def test_as_curl_command_sanitizes_raw_query_with_empty_segments(ctx):
     ids=["object", "array"],
 )
 def test_as_curl_command_sanitizes_json_body(ctx, body, expected):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /sign-in",
         {
-            "/sign-in": {
-                "post": {
-                    "requestBody": {"content": {"application/json": {"schema": {}}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {"content": {"application/json": {"schema": {}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/sign-in"]["POST"].Case(body=body, media_type="application/json")
+    case = operation.Case(body=body, media_type="application/json")
     assert case.as_curl_command() == (
         f"curl -X POST -H 'Content-Type: application/json' -d '{expected}' http://localhost/sign-in"
     )
@@ -189,17 +185,14 @@ def test_as_curl_command_sanitizes_json_body(ctx, body, expected):
 
 
 def test_as_curl_command_keeps_non_sensitive_raw_query_pairs(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /q",
         {
-            "/q": {
-                "get": {
-                    "parameters": [{"name": "token", "in": "query", "schema": {"type": "string"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "token", "in": "query", "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    case = schema["/q"]["GET"].Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&page=2")})
+    case = operation.Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&page=2")})
     assert case.as_curl_command() == "curl -X GET 'http://localhost/q?token=%5BFiltered%5D&page=2'"
 
 
@@ -255,7 +248,7 @@ def test_reproduce_with_overridden_base_url(ctx, tmp_path, validate):
     with pytest.raises(FailureGroup) as exc_info:
         validate(case, api.base_url)
     assert exc_info.value.message == (
-        "Schemathesis found 1 distinct failure\n\n- Server error\n\n[500] Internal Server Error:\n\n"
+        "Schemathesis found 1 distinct failure\n\n- ST101 Server error\n\n[500] Internal Server Error:\n\n"
         f"    `500: Internal Server Error`\n\nReproduce with:\n\n    curl -X GET {api.base_url}/api/failure\n\n"
     )
 
@@ -288,14 +281,14 @@ def test_reproduce_after_same_host_redirect(ctx, app_runner, validate):
     with pytest.raises(FailureGroup) as exc_info:
         validate(case, base_url)
     assert exc_info.value.message == (
-        "Schemathesis found 1 distinct failure\n\n- Server error\n\n[500] Internal Server Error:\n\n"
+        "Schemathesis found 1 distinct failure\n\n- ST101 Server error\n\n[500] Internal Server Error:\n\n"
         f"    `500: Internal Server Error`\n\nReproduce with:\n\n    curl -X GET {base_url}/items/42\n\n"
     )
 
 
 def test_reproduce_when_validated_response_has_no_request_url(ctx, response_factory):
-    schema = ctx.openapi.load_schema({"/items": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    case = schema["/items"]["GET"].Case()
+    operation = ctx.openapi.load_operation("GET /items", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
     response = response_factory.requests(status_code=500, content=b"Error", content_type="text/plain", method="GET")
     response.request.url = None
 
@@ -311,14 +304,11 @@ def test_reproduce_when_validated_response_has_no_request_url(ctx, response_fact
 def test_curl_command_validity(curl, loose_schema):
     # When the input schema is too loose
 
-    @given(case=loose_schema["/test/{key}"]["POST"].as_strategy())
-    @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much], deadline=None)
+    @run_given(case=loose_schema["/test/{key}"]["POST"].as_strategy(), max_examples=30)
     def test(case):
         command = case.as_curl_command()
         # Then generated command should always be syntactically valid
         curl.assert_valid(command)
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -564,3 +554,15 @@ def test_empty_multipart_curl_body_keeps_closing_delimiter(multipart_schema, mon
     command = case.as_curl_command()
     boundary = HEADER_BOUNDARY.search(command)[1]
     assert f"-d $'--{boundary}--\\r\\n'" in command, command
+
+
+def test_as_curl_command_keeps_encoded_sensitive_raw_query_key(ctx):
+    operation = ctx.openapi.load_operation(
+        "GET /q",
+        {
+            "parameters": [{"name": "api key", "in": "query", "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(query={RAW_QUERY_STRING_KEY: RawQueryString("api%20key=secret&page=2")})
+    assert case.as_curl_command() == "curl -X GET 'http://localhost/q?api%20key=%5BFiltered%5D&page=2'"

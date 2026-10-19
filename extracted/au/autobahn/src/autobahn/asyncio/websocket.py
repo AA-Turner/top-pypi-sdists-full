@@ -33,7 +33,11 @@ import txaio
 
 txaio.use_asyncio()  # noqa
 
-from autobahn.asyncio.util import create_transport_details, transport_channel_id
+from autobahn.asyncio.util import (
+    create_transport_details,
+    get_or_create_event_loop,
+    transport_channel_id,
+)
 from autobahn.util import hltype, public
 from autobahn.wamp import websocket
 from autobahn.websocket import protocol
@@ -108,7 +112,19 @@ class WebSocketAdapterProtocol(asyncio.Protocol):
             while self.receive_queue:
                 data = self.receive_queue.popleft()
                 if self.transport:
-                    self._dataReceived(data)
+                    try:
+                        self._dataReceived(data)
+                    except Exception:
+                        # As Twisted does for an exception raised in
+                        # dataReceived(): log it and drop the connection.
+                        # Otherwise this receive loop would stop, and leave
+                        # the connection open but unserviced.
+                        self.log.error(
+                            "dropping connection: unhandled error while processing received data:\n{tb}",
+                            tb=txaio.failure_format_traceback(txaio.create_failure()),
+                        )
+                        self.receive_queue.clear()
+                        self._closeConnection(abort=True)
             self._consume()
 
         self.waiter.add_done_callback(process)
@@ -276,7 +292,7 @@ class WebSocketServerFactory(WebSocketAdapterFactory, protocol.WebSocketServerFa
             asyncio event loop to be used.
         """
         loop = kwargs.pop("loop", None)
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_or_create_event_loop()
 
         protocol.WebSocketServerFactory.__init__(self, *args, **kwargs)
 
@@ -303,7 +319,7 @@ class WebSocketClientFactory(WebSocketAdapterFactory, protocol.WebSocketClientFa
             asyncio event loop to be used.
         """
         loop = kwargs.pop("loop", None)
-        self.loop = loop or asyncio.get_event_loop()
+        self.loop = loop or get_or_create_event_loop()
 
         protocol.WebSocketClientFactory.__init__(self, *args, **kwargs)
 

@@ -90,9 +90,10 @@ from ._generated.models import (
     UploadResponse,
 )
 
-# The citation graph's two enums carry generic generated names (`Direction`,
-# `GraphState`); they are re-exported under names that say what they are.
-from ._generated.models import Direction as CitationDirection
+# The citation graph's two enums carry generic generated names (the schema now
+# has two `Direction`s, so FastAPI names this one by its module; `GraphState`);
+# they are re-exported under names that say what they are.
+from ._generated.models import AppPapersCitationStoreDirection as CitationDirection
 from ._generated.models import GraphState as CitationGraphState
 
 # The research literature (`Client.find_papers`, `probe paper find`).

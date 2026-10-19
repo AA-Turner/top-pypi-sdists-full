@@ -7,6 +7,23 @@ fn parse(args: &[&str]) -> CliArgs {
 }
 
 #[test]
+fn select_and_ignore_accept_comma_lists_and_repeats() {
+    let cli = parse(&[
+        "complexipy",
+        "src",
+        "--select",
+        "C001,C002",
+        "--select",
+        "C003",
+        "--ignore",
+        "C007,C008",
+    ]);
+
+    assert_eq!(cli.select, vec!["C001", "C002", "C003"]);
+    assert_eq!(cli.ignore, vec!["C007", "C008"]);
+}
+
+#[test]
 fn bare_long_flag_before_path_is_not_consumed() {
     let cli = parse(&[
         "complexipy",
@@ -82,6 +99,8 @@ fn all_bool_flags_accept_equals_values() {
         "--failed=false",
         "--staged=false",
         "--suggest-refactors=false",
+        "--fix=false",
+        "--dry-run=false",
         "--check-script=false",
         "--no-ignore=false",
         "--report-ignored=false",
@@ -94,6 +113,8 @@ fn all_bool_flags_accept_equals_values() {
     assert_eq!(cli.failed, Some(false));
     assert_eq!(cli.staged, Some(false));
     assert_eq!(cli.suggest_refactors, Some(false));
+    assert_eq!(cli.fix, Some(false));
+    assert_eq!(cli.dry_run, Some(false));
     assert_eq!(cli.check_script, Some(false));
     assert_eq!(cli.no_ignore, Some(false));
     assert_eq!(cli.report_ignored, Some(false));

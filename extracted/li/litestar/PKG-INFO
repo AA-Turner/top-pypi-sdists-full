@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: litestar
-Version: 2.24.0
+Version: 2.25.0
 Summary: Litestar - A production-ready, highly performant, extensible ASGI API Framework
 Project-URL: Blog, https://blog.litestar.dev
 Project-URL: Changelog, https://github.com/litestar-org/litestar/releases/
@@ -13,7 +13,7 @@ Project-URL: Issue Tracker, https://github.com/litestar-org/litestar/issues?q=is
 Project-URL: Reddit, https://www.reddit.com/r/LitestarAPI
 Project-URL: Repository, https://github.com/litestar-org/litestar
 Project-URL: Twitter, https://twitter.com/LitestarAPI
-Author-email: Cody Fincher <cody@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Na'aman Hirschfeld <nhirschfeld@gmail.com>, Peter Schutt <peter@litestar.dev>
+Author-email: The Litestar Project <hello@litestar.dev>
 Maintainer-email: Litestar Developers <hello@litestar.dev>, Cody Fincher <cody@litestar.dev>, Jacob Coffee <jacob@litestar.dev>, Janek Nouvertné <janek@litestar.dev>, Julien Courtes <julien@litestar.dev>
 License: MIT
 License-File: LICENSE
@@ -34,6 +34,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
@@ -70,13 +71,16 @@ Provides-Extra: cli
 Requires-Dist: jsbeautifier; extra == 'cli'
 Requires-Dist: uvicorn[standard]; extra == 'cli'
 Provides-Extra: cryptography
-Requires-Dist: cryptography; extra == 'cryptography'
+Requires-Dist: cryptography; (python_version > '3.8') and extra == 'cryptography'
+Requires-Dist: cryptography<47.0; (python_version == '3.8') and extra == 'cryptography'
 Provides-Extra: full
 Requires-Dist: advanced-alchemy>=0.2.2; extra == 'full'
 Requires-Dist: annotated-types; extra == 'full'
 Requires-Dist: attrs; extra == 'full'
 Requires-Dist: brotli; extra == 'full'
 Requires-Dist: cryptography; extra == 'full'
+Requires-Dist: cryptography; (python_version > '3.8') and extra == 'full'
+Requires-Dist: cryptography<47.0; (python_version == '3.8') and extra == 'full'
 Requires-Dist: email-validator; extra == 'full'
 Requires-Dist: jinja2; extra == 'full'
 Requires-Dist: jinja2>=3.1.2; extra == 'full'
@@ -448,4 +452,4 @@ or read more about it [here](https://docs.litestar.dev/latest/benchmarks) in our
 Litestar is open to contributions big and small. You can always [join our discord](https://discord.gg/litestar) server
 or [join our Matrix](https://matrix.to/#/#litestar:matrix.org) space
 to discuss contributions and project maintenance. For guidelines on how to contribute, please
-see [the contribution guide](CONTRIBUTING.rst).
+see [the contribution guide](https://github.com/litestar-org/litestar/blob/main/CONTRIBUTING.rst).

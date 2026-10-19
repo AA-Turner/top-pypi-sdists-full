@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aftership-tracking-sdk
-Version: 10.0.0
+Version: 10.0.1
 Summary: The official AfterShip Tracking Python API library
 License: MIT
 License-File: LICENSE
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Requires-Dist: h11 (>=0.16.0)
 Requires-Dist: httpx (>=0.28.0)
@@ -70,7 +71,7 @@ Before you begin to integrate:
 
 ### API and SDK Version
 
-- SDK Version: 10.0.0
+- SDK Version: 10.0.1
 - API Version: 2026-07
 
 ## Quick Start

@@ -9,7 +9,6 @@ import subprocess
 import sys
 import tempfile
 from typing import Dict, List, Optional, Tuple
-from urllib.parse import urlparse
 
 import click
 from rich.console import Console
@@ -17,14 +16,10 @@ from rich.table import Table
 import yaml
 
 from anyscale._private.models.image_uri import ImageURI
+from anyscale._private.models.validation import RAY_VERSION_DEPRECATION_MESSAGE
 from anyscale._private.sdk import _LAZY_SDK_SINGLETONS
 from anyscale.authenticate import get_auth_api_client
 from anyscale.cli_logger import BlockLogger
-from anyscale.client.openapi_client.exceptions import (
-    ApiException,
-    ApiTypeError,
-    ApiValueError,
-)
 from anyscale.commands import command_examples, events_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
@@ -283,20 +278,26 @@ class SSHConfig:
 def _setup_https_connection(
     workspace_obj: Workspace, workspace_private_sdk, host_name: str, config_file: str
 ) -> SSHConfig:
-    """Set up HTTPS connection and return SSHConfig object."""
-    cluster = workspace_private_sdk.client.get_workspace_cluster(workspace_obj.id)
+    """Set up HTTPS connection and return SSHConfig object.
 
-    if not cluster:
-        raise click.ClickException("Could not retrieve cluster details for the workspace.")
+    Resolved through the SDK rather than here: this used to duplicate the SDK's own
+    hostname and token lookups, and a KubeRay branch added to only one copy would leave
+    the other broken.
+    """
+    workspace_model = workspace_private_sdk._resolve_to_workspace_model(  # noqa: SLF001
+        id=workspace_obj.id
+    )
+    target = workspace_private_sdk._resolve_ssh_target(workspace_model)  # noqa: SLF001
 
-    # Get hostname with multiple fallback methods
-    public_hostname = _get_public_hostname(cluster)
+    if not target.hostname:
+        raise click.ClickException(
+            "Could not retrieve hostname for HTTPS connection. "
+            "Required cluster configuration is not available."
+        )
+    if not target.token:
+        raise click.ClickException("Failed to retrieve authentication token. Please try again.")
 
-    # Get cluster access token
-    cluster_access_token = _get_cluster_access_token(cluster, workspace_private_sdk)
-
-    # Set up proxy command
-    proxy_cmd = _create_proxy_command(public_hostname, cluster_access_token)
+    proxy_cmd = _create_proxy_command(target.hostname, target.token)
 
     return SSHConfig(
         target_host=f"ray@{host_name}",
@@ -305,66 +306,6 @@ def _setup_https_connection(
         proxy_command=proxy_cmd,
         port=HTTPS_PORT,
     )
-
-
-def _get_public_hostname(cluster) -> str:
-    """Extract public hostname from cluster with fallback methods."""
-    # Attempt 1: Use cluster.hostname
-    if hasattr(cluster, "hostname") and cluster.hostname:
-        return cluster.hostname
-
-    # Attempt 2: Fallback to parsing webterminal_auth_url
-    if hasattr(cluster, "webterminal_auth_url") and cluster.webterminal_auth_url:
-        parsed_url = urlparse(cluster.webterminal_auth_url)
-        if parsed_url.netloc:
-            return parsed_url.netloc
-
-        # webterminal_auth_url was present but parsing failed
-        raise click.ClickException(
-            "Could not extract hostname from cluster configuration. "
-            "The URL appears to be malformed."
-        )
-
-    # Both methods failed
-    raise click.ClickException(
-        "Could not retrieve hostname for HTTPS connection. "
-        "Required cluster configuration is not available."
-    )
-
-
-def _get_cluster_access_token(cluster, workspace_private_sdk) -> str:
-    """Get cluster access token for HTTPS connection."""
-    if not hasattr(cluster, "id") or not cluster.id:
-        raise click.ClickException(
-            "Cluster configuration is incomplete, cannot retrieve access token."
-        )
-
-    try:
-        # We need to use the internal API here as there's no public API available
-        # This might be updated in future SDK versions
-        cluster_access_token = workspace_private_sdk.client._internal_api_client.get_cluster_access_token_api_v2_authentication_cluster_id_cluster_access_token_get(  # noqa: SLF001
-            cluster_id=cluster.id
-        )
-
-        if not cluster_access_token:
-            raise click.ClickException(
-                "Failed to retrieve authentication token. Please try again."
-            )
-
-        return cluster_access_token
-
-    except (ApiException, ApiTypeError, ApiValueError):
-        # Don't expose API details in error messages
-        raise click.ClickException(
-            "Failed to authenticate. Please check your permissions and try again."
-        ) from None
-    except click.ClickException:
-        raise  # Re-raise click exceptions as-is
-    except (AttributeError, KeyError, ValueError, TypeError, RuntimeError) as e:
-        # Generic error without exposing internal details
-        raise click.ClickException(
-            "An error occurred during authentication. Please try again."
-        ) from e
 
 
 def _create_proxy_command(public_hostname: str, cluster_access_token: str) -> str:
@@ -450,12 +391,13 @@ def _test_https_connectivity(
     host_name: str,
     config_file: str,
 ) -> bool:
-    """Test HTTPS SSH connectivity with a quick command. Returns True if available."""
-    try:
-        cluster = workspace_private_sdk.client.get_workspace_cluster(workspace_obj.id)
-        if not cluster:
-            return False
+    """Test HTTPS SSH connectivity with a quick command. Returns True if available.
 
+    No `sessions`-backed cluster pre-check: a KubeRay workspace has no such row, and
+    gating on one meant the tunnel was never tried for exactly the workspaces that have
+    no other way in.
+    """
+    try:
         ssh_config = _setup_https_connection(
             workspace_obj, workspace_private_sdk, host_name, config_file
         )
@@ -541,6 +483,12 @@ def workspace_cli() -> None:
     status=ReleaseStatus.GA,
     since="0.0.0",
     output_formats=[OutputFormat.TEXT],
+    option_docs={
+        "--ray-version": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": RAY_VERSION_DEPRECATION_MESSAGE},
+        },
+    },
     examples=[
         CommandExample(
             description="Create a workspace from a YAML config file.",
@@ -1334,19 +1282,23 @@ def ssh(  # noqa: PLR0912
             if not legacy:
                 # Try HTTPS first (unless legacy flag is set)
                 try:
+                    # include_config=False: the config fetch needs a cluster build id and a
+                    # compute config, neither of which a KubeRay workspace has, so it raises
+                    # before the tunnel is ever tried. Only the id is used below anyway.
                     workspace_obj = anyscale.workspace.get(
-                        name=name, id=id, cloud=cloud, project=project
+                        name=name, id=id, cloud=cloud, project=project, include_config=False
                     )
                     workspace_private_sdk = _LAZY_SDK_SINGLETONS[_WORKSPACE_SDK_SINGLETON_KEY]
-                    cluster = workspace_private_sdk.client.get_workspace_cluster(workspace_obj.id)
-
-                    if cluster:
-                        https_connection_successful = _test_https_connectivity(
-                            workspace_obj,
-                            workspace_private_sdk,
-                            host_name,
-                            config_file,
-                        )
+                    # No cluster pre-check: it resolved through `sessions`, which a KubeRay
+                    # workspace has no row in, so the tunnel was never even attempted and the
+                    # command fell through to a jump host that does not exist. The test below
+                    # already reports failure by returning False.
+                    https_connection_successful = _test_https_connectivity(
+                        workspace_obj,
+                        workspace_private_sdk,
+                        host_name,
+                        config_file,
+                    )
 
                 except (ValueError, AttributeError, KeyError, TypeError):
                     # If we can't get workspace/cluster info, proceed with legacy SSH
@@ -1645,6 +1597,12 @@ def push(  # noqa: PLR0913
     status=ReleaseStatus.GA,
     since="0.0.0",
     output_formats=[OutputFormat.TEXT],
+    option_docs={
+        "--ray-version": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": RAY_VERSION_DEPRECATION_MESSAGE},
+        },
+    },
     examples=[
         CommandExample(
             description="Update a workspace from a YAML config file.",

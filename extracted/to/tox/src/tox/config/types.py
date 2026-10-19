@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from tox.execute.request import shell_cmd
@@ -39,8 +40,11 @@ class Command:  # ruff:ignore[eq-without-hash]
 
     @override
     def __repr__(self) -> str:
-        args = (["-"] if self.ignore_exit_code else ["!"] if self.invert_exit_code else []) + self.args
-        return f"{type(self).__name__}(args={args!r})"
+        return f"{type(self).__name__}(args={self.raw_args!r})"
+
+    @property
+    def raw_args(self) -> list[str]:
+        return (["-"] if self.ignore_exit_code else ["!"] if self.invert_exit_code else []) + self.args
 
     @override
     def __eq__(self, other: object) -> bool:
@@ -92,7 +96,16 @@ class EnvList:  # ruff:ignore[eq-without-hash]
         return iter(self.envs)
 
 
+@dataclass(frozen=True)
+class FactorGroup:
+    """``default`` stands in wherever an environment name carries none of ``values``."""
+
+    values: list[str]
+    default: str | None = None
+
+
 __all__ = (
     "Command",
     "EnvList",
+    "FactorGroup",
 )

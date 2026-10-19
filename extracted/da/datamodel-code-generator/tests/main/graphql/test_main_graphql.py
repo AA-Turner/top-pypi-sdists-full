@@ -113,7 +113,10 @@ def test_main_graphql_msgspec_field_type_collision_list(output_file: Path) -> No
     payload_path = DATA_PATH / "payloads" / "field_type_collision_graphql"
     with _generated_model(output_file, "field_type_collision_graphql", "Holder") as model:
         parsed = msgspec.json.decode((payload_path / "valid.json").read_text(encoding="utf-8"), type=model)
-        assert_output(f"{msgspec.json.encode(parsed).decode()}\n", payload_path / "runtime.txt")
+        assert_output(
+            f"{msgspec.json.encode(parsed).decode()}\n",
+            DATA_PATH / "expected/payloads/field_type_collision_graphql/runtime.txt",
+        )
 
 
 def test_main_graphql_msgspec_unions(output_file: Path) -> None:
@@ -1064,7 +1067,7 @@ def test_main_graphql_union_class_name_prefix(output_file: Path) -> None:
     This test verifies fix for issue #2939.
     """
     run_main_and_assert(
-        input_path=GRAPHQL_DATA_PATH / "union_class_name_prefix.graphql",
+        input_path=GRAPHQL_DATA_PATH / "union.graphql",
         output_path=output_file,
         input_file_type="graphql",
         assert_func=assert_file_content,

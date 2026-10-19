@@ -308,7 +308,7 @@ async def stop_scanner(in_flight_timeout: float = 10.0, finalize_timeout: float 
     worker's signal handler starts it; its teardown ``finally`` calls it again).
     Before 2026-09-14 the second call returned at once — ``_task`` was already
     cleared — so the host finished its teardown and the event loop closed while
-    the first drain was still waiting, cancelling the very writes that preserve a
+    the first drain was still waiting, canceling the very writes that preserve a
     run. Every call now awaits the same drain, shielded from its caller's own
     cancellation.
     """
@@ -337,7 +337,7 @@ async def _drain_scanner(in_flight_timeout: float, finalize_timeout: float) -> N
     _done, pending = await asyncio.wait(running, timeout=in_flight_timeout)
     if pending:
         log.warning(
-            "shutdown: %d in-flight run(s) still running after %.0fs; cancelling — each "
+            "shutdown: %d in-flight run(s) still running after %.0fs; canceling — each "
             "is closed `interrupted` and a continuation is queued for the next worker",
             len(pending),
             in_flight_timeout,

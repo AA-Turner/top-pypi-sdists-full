@@ -1,7 +1,3 @@
-# This source code is part of the Biotite package and is distributed
-# under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
-# information.
-
 """
 Function for converting a structure into a sequence.
 """
@@ -63,7 +59,7 @@ def to_sequence(
 
     >>> sequences, chain_starts = to_sequence(atom_array)
     >>> print(sequences)
-    [ProteinSequence("NLYIQWLKDGGPSSGRPPPS")]
+    [ProteinSequence("NLYIQWLKDGGPSSGRPPPS", ambiguous=False)]
     """
     sequences = []
     chain_start_indices = get_chain_starts(atoms, add_exclusive_stop=True)

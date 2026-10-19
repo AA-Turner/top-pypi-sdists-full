@@ -221,7 +221,7 @@ CLOUD_AGENT_SOURCES: tuple[str, ...] = cloud_agents.sources()
 pi_binary_available = pi_config.pi_binary_available
 
 
-def detectable_sources() -> tuple[str, ...]:
+def detectable_sources(*, sniff: bool = True) -> tuple[str, ...]:
     """Every `INSTALLABLE_AGENT_SOURCES` member actually found on this
     machine, right now -- claude_code/codex via `plugin_cli.available`
     (their marketplace CLI), pi via `pi_binary_available` (its own binary,
@@ -236,9 +236,13 @@ def detectable_sources() -> tuple[str, ...]:
     `main.py`'s `available_sources` both call this, so a pi binary shows up
     in exactly one place instead of two independently-maintained checks
     drifting apart.
+
+    `sniff=False` (`probe status` without --refresh, which runs no
+    subprocess) takes a pi binary on PATH at its word instead of asking its
+    `--help`: the one difference, and the impostor guard it gives up.
     """
     detected = [source for source in MARKETPLACE_AGENT_SOURCES if plugin_cli.available(source)]
-    if pi_binary_available():
+    if pi_binary_available() if sniff else pi_config.pi_on_path():
         detected.append("pi")
     # A cloud agent has no command on PATH: its app on disk is the sign, and so
     # is a capture connection this machine already runs for it.
@@ -4208,8 +4212,7 @@ def describe_versions(caps: Capabilities) -> list[str]:
     through to the good-news branch. That is the invariant versions.py is built
     around: "nothing was wrong" and "nothing was checked" must not render alike.
     """
-    rows = [row for row in caps.version_rows if getattr(row, "kind", "") in _VERSION_LABELS]
-    verdict = overall_version_status(rows) if rows else VersionStatus.UNKNOWN
+    rows, verdict = version_verdict(caps)
     mark, text, style = _VERDICT_COPY[verdict]
 
     age = caps.version_manifest_age_s
@@ -4226,6 +4229,13 @@ def describe_versions(caps: Capabilities) -> list[str]:
     if detail:
         lines.append(_state_row("", detail))
     return lines
+
+
+def version_verdict(caps: Capabilities) -> tuple[list, VersionStatus]:
+    """The components the Versions row grades (CLI, plugin, tap) and its
+    verdict on them -- `describe_versions` and `probe status` alike."""
+    rows = [row for row in caps.version_rows if getattr(row, "kind", "") in _VERSION_LABELS]
+    return rows, overall_version_status(rows) if rows else VersionStatus.UNKNOWN
 
 
 def _join_names(names: list[str]) -> str:

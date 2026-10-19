@@ -277,6 +277,35 @@ def test_project_delete_cli_requires_confirmation(wired, monkeypatch):
     assert pid in wired.projects
 
 
+@pytest.mark.parametrize("kind", ["project", "experiment", "run"])
+def test_a_dry_run_delete_prints_what_would_go_and_moves_nothing(wired, monkeypatch, capsys, kind):
+    """`--dry-run` resolves like the delete and asks the same route with
+    `?dry_run=true`: no prompt, nothing moved, the server's answer printed (the
+    dashboard assistant's approval card shows it)."""
+    monkeypatch.setattr(typer, "confirm", lambda *a, **k: pytest.fail("a dry run never prompts"))
+    if kind == "project":
+        ref = make_client(wired).create_project("keepme", "Keep", kind="general")["id"]
+    elif kind == "experiment":
+        ref = next(iter(wired.experiments))
+    else:
+        ref = open_run(make_client(wired), experiment="e", name="r").id
+    before = (set(wired.projects), set(wired.experiments), set(wired.runs))
+    argv = [kind, "delete", ref if kind == "run" else f"id:{ref}", "--dry-run"]
+    assert cli.main(argv) == 0
+    answer = json.loads(capsys.readouterr().out)
+    assert answer["dry_run"] is True and answer["type"] == kind and answer["id"] == ref
+    assert (set(wired.projects), set(wired.experiments), set(wired.runs)) == before
+    deletes = [r for r in wired.requests if r.method == "DELETE"]
+    assert deletes and all(r.url.params.get("dry_run") == "true" for r in deletes)
+
+
+def test_a_server_without_the_trash_has_no_dry_run(wired, app):
+    app.supports_trash = False
+    eid = next(iter(wired.experiments))
+    assert cli.main(["experiment", "delete", f"id:{eid}", "--dry-run"]) != 0
+    assert eid in wired.experiments
+
+
 def test_experiment_delete_cli_proceeds_with_yes(wired):
     """--yes is the scriptable path: no prompt, and the delete actually fires."""
     eid = next(iter(wired.experiments))
@@ -418,3 +447,18 @@ def test_no_trace_file_surface_survives_anywhere(client):
     source = ResearchOSSource(client)
     assert not hasattr(source, "trace_file")
     assert not hasattr(ResearchReadService(source), "research_trace_file")
+
+
+def test_the_sdk_never_dry_runs_a_delete_on_a_server_without_the_trash(wired, app):
+    """An older server ignores `?dry_run=true`, so the same DELETE would remove
+    for good: the SDK refuses before sending it, not only the CLI."""
+    app.supports_trash = False
+    client = make_client(wired)
+    pid = client.create_project("keepme", "Keep", kind="general")["id"]
+    rid = open_run(client, experiment="e", name="r").id
+    with pytest.raises(errors.RosError, match="no dry run"):
+        client.delete_project(pid, dry_run=True)
+    with pytest.raises(errors.RosError, match="no dry run"):
+        client.delete_run(rid, dry_run=True)
+    assert pid in wired.projects and rid in wired.runs
+    assert not [r for r in wired.requests if r.method == "DELETE"]

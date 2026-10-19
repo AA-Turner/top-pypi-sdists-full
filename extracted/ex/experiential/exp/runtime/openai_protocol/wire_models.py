@@ -38,6 +38,7 @@ from exp.runtime.openai_protocol.custom_tool_wire import (
 from exp.runtime.openai_protocol.custom_tool_wire import EchoedItemStatus as _EchoedItemStatus
 from exp.runtime.openai_protocol.native_tools import NativeResponseTool
 from exp.runtime.openai_protocol.reasoning_replay import ReasoningDetail
+from exp.runtime.openai_protocol.tool_call_extra_content import ToolCallExtraContent
 from exp.runtime.openai_protocol.web_search import ChatPlugin, WebSearchOptions
 
 
@@ -257,13 +258,15 @@ class _AssistantToolCall(_WireModel):
     OpenCode-style callers attach an Anthropic ``cache_control`` to the last
     content part of recent messages; when that part is a tool call the hint
     lands inside this entry, so the supported ephemeral form is accepted and
-    carried for the one wire that can honor it.
+    carried for the one wire that can honor it. ``extra_content`` carries
+    Gemini's thought signature back with the call it was issued for.
     """
 
     id: str = Field(min_length=1, max_length=MAXIMUM_TOOL_CALL_ID_CHARACTERS)
     type: Literal["function"] = "function"
     function: _FunctionCall
     cache_control: EphemeralCacheControl | None = None
+    extra_content: ToolCallExtraContent | None = None
     index: int | None = Field(default=None, ge=0)
     """Streaming delta ordinal, validated and dropped.
 
@@ -628,7 +631,10 @@ class _ChatRequest(_WireModel):
 
     @model_validator(mode="after")
     def _require_coherent_options(self) -> _ChatRequest:
-        """Reject conflicting token ceilings and non-stream usage options."""
+        """Reject conflicting token ceilings and orphaned logprob options.
+
+        ``stream_options`` on a non-streaming call is removed with disclosure
+        before validation (``client_field_repairs``)."""
         if (
             sum(
                 v is not None
@@ -639,8 +645,6 @@ class _ChatRequest(_WireModel):
             raise ValueError(
                 "max_tokens, max_completion_tokens and max_output_tokens are mutually exclusive"
             )
-        if self.stream_options is not None and not self.stream:
-            raise ValueError("stream_options requires stream=true")
         if self.top_logprobs is not None and self.logprobs is not True:
             raise ValueError("top_logprobs requires logprobs=true")
         return self
@@ -678,6 +682,8 @@ class _ResponseFunctionCall(_WireModel):
         caller: Optional opaque programmatic-call attribution, preserved verbatim.
         arguments: Required JSON argument text, at most four million characters.
         status: Optional echoed lifecycle marker retained for exact replay.
+        extra_content: Optional echoed vendor block carrying Gemini's thought
+            signature, replayed with the call on Gemini wires.
     """
 
     type: Literal["function_call"]
@@ -688,6 +694,7 @@ class _ResponseFunctionCall(_WireModel):
     caller: JsonObject | None = None
     arguments: str = Field(max_length=4_000_000)
     status: _EchoedItemStatus | None = None
+    extra_content: ToolCallExtraContent | None = None
 
 
 class _ResponseFunctionOutput(_WireModel):

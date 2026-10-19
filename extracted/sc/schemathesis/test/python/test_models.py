@@ -8,7 +8,7 @@ import flask
 import pytest
 import requests
 from fastapi import FastAPI
-from hypothesis import HealthCheck, Phase, given, settings
+from hypothesis import Phase
 from hypothesis import strategies as st
 from hypothesis.vendor.pretty import pretty
 
@@ -21,10 +21,12 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import merge_at
 from schemathesis.core.transport import USER_AGENT, Response
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.schemas import APIOperation
 from schemathesis.specs.openapi.checks import content_type_conformance, response_schema_conformance
 from schemathesis.transport.prepare import get_default_headers
 from test.apps.catalog.graphql.bookstore import books
+from test.utils import run_given
 
 
 @pytest.fixture
@@ -127,7 +129,7 @@ def test_case_repr(swagger_20, kwargs, expected):
 
 
 @pytest.mark.parametrize("override", [False, True])
-@pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"])
+@pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"], ids=["as-is", "trailing-slash"])
 def test_as_transport_kwargs(ctx, override, swagger_20, converter):
     api = ctx.openapi.apps.success()
     base_url = converter(f"{api.base_url}/api")
@@ -293,12 +295,20 @@ def test_call_and_validate(ctx, kwargs):
     api = ctx.openapi.apps.success()
     api_schema = schemathesis.openapi.from_url(api.schema_url)
 
-    @given(case=api_schema["/api/success"]["GET"].as_strategy())
-    @settings(max_examples=1, deadline=None)
+    @run_given(case=api_schema["/api/success"]["GET"].as_strategy(), max_examples=1)
     def test(case):
         case.call_and_validate(**kwargs)
 
-    test()
+
+def test_call_and_validate_negative_case_with_body_override(ctx):
+    api = ctx.openapi.apps.payload()
+    api_schema = schemathesis.openapi.from_url(api.schema_url)
+
+    @run_given(
+        case=api_schema["/api/payload"]["POST"].as_strategy(generation_mode=GenerationMode.NEGATIVE), max_examples=5
+    )
+    def test(case):
+        case.call_and_validate(json={"name": "John"})
 
 
 def test_metadata_has_only_relevant_components(ctx):
@@ -307,17 +317,15 @@ def test_metadata_has_only_relevant_components(ctx):
 
     operation = api_schema["/api/custom_format"]["GET"]
 
-    @given(
+    @run_given(
         case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE)
-        | operation.as_strategy(generation_mode=GenerationMode.NEGATIVE)
+        | operation.as_strategy(generation_mode=GenerationMode.NEGATIVE),
+        max_examples=10,
     )
-    @settings(max_examples=10, deadline=None)
     def test(case):
         # Metadata should only contain components relevant to the API operation
         assert len(case.meta.components) == 1
         assert ParameterLocation.QUERY in case.meta.components
-
-    test()
 
 
 def test_call_and_validate_for_asgi():
@@ -329,13 +337,10 @@ def test_call_and_validate_for_asgi():
 
     api_schema = schemathesis.openapi.from_dict(app.openapi())
 
-    @given(case=api_schema["/users"]["GET"].as_strategy())
-    @settings(max_examples=1, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=api_schema["/users"]["GET"].as_strategy(), max_examples=1)
     def test(case):
         with pytest.raises(IncorrectUsage, match="If you use the ASGI integration"):
             case.call_and_validate()
-
-    test()
 
 
 def test_asgi_call_with_and_without_explicit_base_url():
@@ -366,21 +371,21 @@ def test_call_without_base_url_ignores_malformed_swagger_schemes():
 
 
 def test_validate_response(ctx, response_factory):
-    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    case = schema["/users"]["GET"].Case()
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
     with pytest.raises(FailureGroup):
         case.validate_response(response_factory.requests(status_code=418))
 
 
 def test_validate_response_no_errors(ctx, response_factory):
-    schema = ctx.openapi.load_schema({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    case = schema["/users"]["GET"].Case()
+    operation = ctx.openapi.load_operation("GET /users", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
     assert case.validate_response(response_factory.requests(status_code=200)) is None
 
 
 def test_validate_response_custom_check_raising_while_handling_error(ctx, response_factory):
-    schema = ctx.openapi.load_schema({"/x": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    case = schema["/x"]["GET"].Case()
+    operation = ctx.openapi.load_operation("GET /x", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
 
     def has_id(ctx, response, case):
         try:
@@ -501,27 +506,21 @@ def test_method_lookup_on_path_without_operations(ctx):
 @pytest.mark.hypothesis_nested
 def test_generation_mode_is_available(ctx, mode):
     # When a new case is generated
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"text/plain": {"schema": {"type": "string"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                },
+            "requestBody": {
+                "required": True,
+                "content": {"text/plain": {"schema": {"type": "string"}}},
             },
-        }
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(case=schema["/data"]["POST"].as_strategy(generation_mode=mode))
-    @settings(max_examples=1)
+    @run_given(case=operation.as_strategy(generation_mode=mode), max_examples=1)
     def test(case):
         # Then its generator mode should be available
         assert case.meta.generation.mode == mode
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -548,65 +547,52 @@ def test_disabled_security_parameters_are_not_serialized_into_query(ctx):
     )
     schema.config.generation.update(with_security_parameters=False)
 
-    @given(case=schema["/data"]["GET"].as_strategy())
-    @settings(max_examples=5)
+    @run_given(case=schema["/data"]["GET"].as_strategy(), max_examples=5)
     def test(case):
         assert list(case.query) == ["ids"]
         assert case.query["ids"].count(",") >= 1
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
 def test_negative_multipart_keeps_registered_media_type_for_text_property(ctx):
     schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
         {
-            "/upload": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "multipart/form-data": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"file": {"type": "string"}, "size": {"type": "integer"}},
-                                    "required": ["file", "size"],
-                                },
-                                "encoding": {"file": {"contentType": "image/png"}},
-                            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"file": {"type": "string"}, "size": {"type": "integer"}},
+                            "required": ["file", "size"],
                         },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+                        "encoding": {"file": {"contentType": "image/png"}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(case=schema["/upload"]["POST"].as_strategy(generation_mode=GenerationMode.NEGATIVE))
-    @settings(max_examples=5, suppress_health_check=list(HealthCheck))
-    def test(case):
-        assert case.body["file"] == b"\x89PNG"
-
-    test()
+    bodies = [case.body for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), 200)]
+    # Negative bodies may omit `file` or not be objects at all; where `file` is present, it keeps its media type.
+    assert {body["file"] for body in bodies if isinstance(body, dict) and "file" in body} == {b"\x89PNG"}
 
 
 @pytest.mark.hypothesis_nested
 def test_case_insensitive_headers(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "parameters": [{"name": "X-id", "in": "header", "required": True, "schema": {"type": "string"}}],
-                    "responses": {"200": {"description": "OK"}},
-                },
-            },
-        }
+            "parameters": [{"name": "X-id", "in": "header", "required": True, "schema": {"type": "string"}}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
     # When headers are generated
 
-    @given(case=schema["/data"]["POST"].as_strategy())
-    @settings(max_examples=1)
+    @run_given(case=operation.as_strategy(), max_examples=1)
     def test(case):
         assert "X-id" in case.headers
         # Then they are case-insensitive
@@ -614,24 +600,19 @@ def test_case_insensitive_headers(ctx):
         assert len(case.headers) == 1
         assert case.headers["X-id"] == "foo"
 
-    test()
-
 
 def test_iter_parameters(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "parameters": [
-                        {"name": "X-id", "in": "header", "required": True, "schema": {"type": "string"}},
-                        {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                },
-            },
-        }
+            "parameters": [
+                {"name": "X-id", "in": "header", "required": True, "schema": {"type": "string"}},
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "string"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    params = list(schema["/data"]["POST"].iter_parameters())
+    params = list(operation.iter_parameters())
     assert len(params) == 2
     assert params[0].name == "X-id"
     assert params[1].name == "q"
@@ -640,18 +621,15 @@ def test_iter_parameters(ctx):
 @pytest.mark.parametrize("factory_type", ["httpx", "httpx2", "requests", "wsgi"])
 def test_checks_errors_deduplication(ctx, response_factory, factory_type):
     # See GH-1394
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "responses": {
-                        "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "integer"}}}}
-                    },
-                },
+            "responses": {
+                "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "integer"}}}}
             },
-        }
+        },
     )
-    case = schema["/data"]["GET"].Case()
+    case = operation.Case()
     response = getattr(response_factory, factory_type)(content=b"42", content_type=None)
     # When there are two checks that raise the same failure
     with pytest.raises(FailureGroup) as exc:
@@ -660,8 +638,8 @@ def test_checks_errors_deduplication(ctx, response_factory, factory_type):
 
 
 def test_validate_response_failure_is_catchable_from_public_errors(ctx, response_factory):
-    schema = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})
-    case = schema["/data"]["GET"].Case()
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
+    case = operation.Case()
     with pytest.raises(schemathesis.errors.FailureGroup):
         case.validate_response(response_factory.requests(status_code=500))
 
@@ -672,17 +650,9 @@ def test_operation_hash(openapi_30):
 
 
 def test_operation_and_case_never_equal_foreign_objects(ctx):
-    operation = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})["/data"][
-        "GET"
-    ]
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
     assert operation != "GET /data"
     assert operation.Case() != "GET /data"
-
-
-def test_operation_reference_escapes_path_for_json_pointer(ctx):
-    schema = ctx.openapi.load_schema({"/users/{id}/a~b": {"get": {"responses": {"200": {"description": "OK"}}}}})
-
-    assert schema["/users/{id}/a~b"]["GET"].operation_reference == "#/paths/~1users~1{id}~1a~0b/get"
 
 
 def test_hypothesis_reports_omit_schema_and_parameter_sets(ctx):
@@ -692,9 +662,7 @@ def test_hypothesis_reports_omit_schema_and_parameter_sets(ctx):
 
 
 def test_operation_survives_deepcopy_as_the_same_object(ctx):
-    operation = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})["/data"][
-        "GET"
-    ]
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
     assert copy.deepcopy(operation) is operation  # noqa: TID251
 
 
@@ -880,13 +848,11 @@ def test_call_and_validate_refreshes_expired_graphql_token(ctx):
         def set(self, case, data, ctx):
             case.headers = {**(case.headers or {}), "Authorization": f"Bearer {data}"}
 
-    @given(case=schema["Query"]["hello"].as_strategy())
-    @settings(max_examples=1, phases=[Phase.generate])
+    @run_given(case=schema["Query"]["hello"].as_strategy(), max_examples=1, phases=[Phase.generate])
     def test(case):
+        received.clear()
         case.call_and_validate(app=app, base_url="http://localhost/graphql")
-
-    test()
-    assert received == [f"Bearer {token}" for token in issued[-2:]]
+        assert received == [f"Bearer {token}" for token in issued[-2:]]
 
 
 @pytest.mark.parametrize(
@@ -903,24 +869,21 @@ def test_call_and_validate_refreshes_expired_graphql_token(ctx):
     ],
 )
 def test_get_parameter(ctx, name, location, exists):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data/",
         {
-            "/data/": {
-                "get": {
-                    "parameters": [
-                        {"name": "X-Key", "in": "header", "required": True, "schema": {"type": "string"}},
-                        {"name": "key", "in": "query", "required": True, "schema": {"type": "string"}},
-                    ],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "text/plain": {"schema": {"type": "string"}},
-                            "application/json": {"schema": {"type": "array"}},
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [
+                {"name": "X-Key", "in": "header", "required": True, "schema": {"type": "string"}},
+                {"name": "key", "in": "query", "required": True, "schema": {"type": "string"}},
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "text/plain": {"schema": {"type": "string"}},
+                    "application/json": {"schema": {"type": "array"}},
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "securitySchemes": {
@@ -930,7 +893,7 @@ def test_get_parameter(ctx, name, location, exists):
         security=[{"ApiKeyAuth": []}],
     )
 
-    parameter = schema["/data/"]["GET"].get_parameter(name, location)
+    parameter = operation.get_parameter(name, location)
     assert (parameter is not None) is exists
     if exists:
         assert parameter.name == name
@@ -938,9 +901,7 @@ def test_get_parameter(ctx, name, location, exists):
 
 
 def test_parameter_containers_for_locations_without_parameters(ctx):
-    operation = ctx.openapi.load_schema({"/data": {"get": {"responses": {"200": {"description": "OK"}}}}})["/data"][
-        "GET"
-    ]
+    operation = ctx.openapi.load_operation("GET /data", {"responses": {"200": {"description": "OK"}}})
     with pytest.raises(ValueError, match="`body` is not a parameter location"):
         operation.get_parameter_set(ParameterLocation.BODY)
     assert operation.Case().get_container(ParameterLocation.UNKNOWN) is None

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonpointer
-Version: 3.2.1
+Version: 3.3
 Summary:  Identify specific nodes in a JSON document (RFC 6901) 
 Home-page: https://github.com/stefankoegl/python-json-pointer
 Author: Stefan Kögl

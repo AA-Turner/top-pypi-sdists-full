@@ -84,6 +84,21 @@ def _make_str_enum_type() -> typing.Any:
 A = TypeSchema.from_annotation
 
 
+def test_named_args_round_trip() -> None:
+    payload = TypeSchema("custom.Payload", fallback=TypeSchema("int"))
+    function = TypeSchema(
+        "Callable",
+        named_args={"return": (A(tuple[int, str]),), "params": (payload,)},
+    )
+    schema = TypeSchema("custom.Wrapper", named_args={"members": (function,), "empty": ()})
+    assert TypeSchema.from_json_obj(schema.to_json()) == schema
+    assert function.input_repr() == "Callable[[int], tuple[int, str]]"
+    assert A(Callable[[], int]).to_json()["named_args"]["params"] == []
+    assert "params" not in A(Callable[..., int]).to_json()["named_args"]
+    with pytest.raises(TypeError):
+        TypeSchema.from_json_obj({"type": "int", "named_args": {"member": {"type": "str"}}})
+
+
 # ---------------------------------------------------------------------------
 # Category 1: POD type exact match (check_value)
 # ---------------------------------------------------------------------------
@@ -3488,9 +3503,10 @@ class TestSTLOriginParsing:
     def test_std_function(self) -> None:
         """std::function maps to Callable."""
         s = TypeSchema.from_json_str(
-            '{"type":"std::function","args":[{"type":"int"},{"type":"str"}]}'
+            '{"type":"std::function","args":[{"type":"int"},[{"type":"str"}]]}'
         )
         assert s.origin == "Callable"
+        assert s.to_json()["named_args"]["params"] == [{"type": "str"}]
 
     def test_object_rvalue_ref_origin(self) -> None:
         """ObjectRValueRef maps to Object."""
@@ -3526,6 +3542,15 @@ class TestTypeSchemaAnnotationRendering:
         assert schema.output_repr(_output_ty_map) == "MutableMapping[str, MutableSequence[int]]"
         assert schema.input_repr(_input_ty_map) == "Mapping[str, Sequence[int]]"
         assert schema.repr(_output_ty_map) == schema.output_repr(_output_ty_map)
+
+    def test_named_schema_fallback(self) -> None:
+        schema = TypeSchema.from_json_obj(
+            {
+                "type": "example.PositiveInt",
+                "fallback": {"type": "int"},
+            }
+        )
+        assert schema.output_repr() == "int"
 
     def test_object_convert_type_schema_attr_widens_input_only(self) -> None:
         """__ffi_convert_type_schema__ affects input annotations only."""
@@ -4204,7 +4229,9 @@ class TestFromAnnotationCallable:
 
     def test_no_params(self) -> None:
         """Callable[[], int]."""
-        assert A(Callable[[], int]) == S("Callable", S("int"))
+        assert A(Callable[[], int]) == TypeSchema(
+            "Callable", named_args={"return": (S("int"),), "params": ()}
+        )
 
 
 class TestFromAnnotationList:
@@ -4635,3 +4662,45 @@ class TestSmallStringOptimization:
         b = tvm_ffi.core.Bytes(b"x" * 200)
         cany = A(bytes).convert(b)
         assert cany.type_index == _BYTES_TYPE_INDEX
+
+
+# ---------------------------------------------------------------------------
+# Category 64: parsed type key
+# ---------------------------------------------------------------------------
+class TestParsedTypeKey:
+    """``from_json_*`` keeps the raw key when it folds the origin into another name."""
+
+    def test_folded_key_is_kept(self) -> None:
+        s = TypeSchema.from_json_str('{"type":"ffi.BigInt"}')
+        assert (s.origin, s.type_key) == ("int", "ffi.BigInt")
+        assert s == TypeSchema("int")  # the key takes no part in equality
+        assert repr(s) == "int"
+
+    def test_unfolded_key_is_none(self) -> None:
+        assert TypeSchema.from_json_str('{"type":"int"}').type_key is None
+        assert TypeSchema("int").type_key is None
+
+    def test_nested_key_stays_on_the_leaf(self) -> None:
+        s = TypeSchema.from_json_str('{"type":"Optional","args":[{"type":"ffi.BigInt"}]}')
+        assert s.type_key is None
+        assert s.args[0].type_key == "ffi.BigInt"
+
+    def test_lossless_fold_keeps_no_key(self) -> None:
+        # `ffi.String` -> `str` loses nothing (`str` only ever means a string), so no key is
+        # kept and a `ty-map` entry for the origin is not shadowed by one for the key.
+        s = TypeSchema.from_json_str('{"type":"ffi.String"}')
+        assert (s.origin, s.type_key) == ("str", None)
+
+    def test_from_type_index_agrees_with_json(self) -> None:
+        big_int_index = _object_type_key_to_index("ffi.BigInt")
+        assert big_int_index is not None
+        s = TypeSchema.from_type_index(big_int_index)
+        assert (s.origin, s.type_key) == ("int", "ffi.BigInt")
+        assert TypeSchema.from_type_index(1).type_key is None  # kTVMFFIInt
+
+    def test_to_json_round_trips_the_key(self) -> None:
+        obj = {"type": "Optional", "args": [{"type": "ffi.BigInt"}]}
+        s = TypeSchema.from_json_obj(obj)
+        assert s.to_json() == obj
+        assert TypeSchema.from_json_obj(s.to_json()).args[0].type_key == "ffi.BigInt"
+        assert TypeSchema("int").to_json() == {"type": "int"}

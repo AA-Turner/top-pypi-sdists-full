@@ -79,6 +79,10 @@ class RunOptionsParam(TypedDict, total=False):
   """
   Maximum active training rollouts (per worker for legacy runs).
   """
+  max_active_rollouts: int | None
+  """
+  Maximum active training rollouts per run.
+  """
   execution_timeout_seconds: int | None
   """
   Maximum execution time per training or evaluation rollout, including policy and grading.

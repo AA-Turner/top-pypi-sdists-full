@@ -335,19 +335,25 @@ def test_another_agents_sign_in_marker_is_never_swept(isolate, monkeypatch):
 
 
 def test_the_wizard_sweeps_the_stray_pi_marker_on_every_run(isolate, monkeypatch):
-    """Wired at the top of `probe wizard`, before any action, so a machine
-    that never touches pi in the wizard still gets pi capture back."""
+    """Wired in `probe wizard` before any action (once the run lock is taken,
+    so a run turned away by it writes nothing), so a machine that never
+    touches pi in the wizard still gets pi capture back. A read-only action
+    sweeps it too."""
+    import sys
+
     from typer.testing import CliRunner
 
-    from probe.cli.main import app
+    import probe.cli.main  # noqa: F401
 
+    cli_main = sys.modules["probe.cli.main"]
     monkeypatch.delenv("PROBE_PI_TAP_TOKEN", raising=False)
     calls = []
-    monkeypatch.setattr(capture, "clear_stray_pi_killswitch", lambda: calls.append(1) or True)
+    monkeypatch.setattr(capture, "clear_stray_pi_killswitch", lambda: calls.append("swept") or True)
+    monkeypatch.setattr(cli_main, "_wizard_session", lambda **_: calls.append("action"))
 
-    CliRunner().invoke(app, ["wizard", "--who-records", "bogus"])
+    CliRunner().invoke(cli_main.app, ["wizard", "--action", "diagnose"])
 
-    assert calls == [1]
+    assert calls == ["swept", "action"]
 
 
 def test_killswitch_alone_means_capture_is_not_on(isolate):

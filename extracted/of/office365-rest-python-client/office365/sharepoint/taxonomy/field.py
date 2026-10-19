@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Optional, cast
 
+from office365.runtime.types.odata_property import odata
 from office365.sharepoint.fields.lookup import FieldLookup
 from office365.sharepoint.fields.multi_line_text import FieldMultiLineText
 from office365.sharepoint.taxonomy.create_xml_parameters import (
@@ -60,24 +61,18 @@ class TaxonomyField(FieldLookup):
         )
 
         def _create_taxonomy_field_inner():
-            from office365.sharepoint.lists.list import List
+            # A taxonomy column's ``List`` attribute names the web's hidden
+            # TaxonomyHiddenList -- *not* the list the column is added to. Emitting
+            # the containing list's id here makes SharePoint set the column's
+            # ``LookupList`` to that list, after which every value read fails with
+            # ``SPFieldValidationException`` ("the given guid does not exist in the
+            # term store"). Creating the column without a ``List`` attribute lets
+            # SharePoint bind it to the taxonomy hidden list automatically.
+            def _web_loaded():
+                params.WebId = fields.context.web.id
+                fields.create_field_as_xml(params.schema_xml, return_type)
 
-            if isinstance(fields.parent, List):
-                parent_list = fields.parent
-
-                def _list_loaded():
-                    params.WebId = parent_list.parent_web.id
-                    params.ListId = parent_list.id
-                    fields.create_field_as_xml(params.schema_xml, return_type)
-
-                fields.parent.ensure_properties(["Id", "ParentWeb"]).after_execute(lambda _: _list_loaded())
-            else:
-
-                def _web_loaded():
-                    params.WebId = fields.context.web.id
-                    fields.create_field_as_xml(params.schema_xml, return_type)
-
-                fields.context.web.ensure_property("Id").after_execute(lambda _: _web_loaded())
+            fields.context.web.ensure_property("Id").after_execute(lambda _: _web_loaded())
 
         def _text_field_created(text_field: FieldMultiLineText) -> None:
             params.TextFieldId = text_field.id
@@ -176,6 +171,7 @@ class TaxonomyField(FieldLookup):
         """
         return self.properties.get("TermSetId", None)
 
+    @odata(name="TextField")
     @property
     def text_field_id(self) -> str | None:
         """Gets the GUID that identifies the hidden text field in an item."""
@@ -205,3 +201,8 @@ class TaxonomyField(FieldLookup):
     @property
     def entity_type_name(self) -> str:
         return "SP.Taxonomy.TaxonomyField"
+
+    @property
+    def is_enhanced_image_tagging_enabled(self) -> Optional[bool]:
+        """Gets the IsEnhancedImageTaggingEnabled property"""
+        return self.properties.get("IsEnhancedImageTaggingEnabled", None)

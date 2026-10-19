@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from argparse import (
+    OPTIONAL,
     ArgumentParser,
     ArgumentTypeError,
     BooleanOptionalAction,
@@ -116,12 +117,26 @@ def _json_value_or_file(value: str) -> dict[str, object]:
         raise ArgumentTypeError(msg) from e
 
 
+def _recommend_mode(value: str) -> str:
+    """Accept a recommendation mode, quick or full; the option is documented without a value, which picks by size."""
+    if value not in {"quick", "full"}:
+        msg = f"unknown mode {value!r}; use --recommend-options without a value"
+        raise ArgumentTypeError(msg)
+    return value
+
+
 class SortingHelpFormatter(RawDescriptionHelpFormatter):
     """Help formatter that sorts arguments, adds color to section headers, and preserves epilog formatting."""
 
     def _bold_cyan(self, text: str) -> str:  # noqa: PLR6301
         """Wrap text in ANSI bold cyan escape codes."""
         return f"\x1b[36;1m{text}\x1b[0m"
+
+    def _format_action_invocation(self, action: Action) -> str:
+        """Show an option whose value is optional and has an empty metavar without a value placeholder."""
+        if action.nargs == OPTIONAL and isinstance(action.metavar, str) and not action.metavar:
+            return ", ".join(action.option_strings)
+        return super()._format_action_invocation(action)
 
     def add_arguments(self, actions: Iterable[Action]) -> None:
         """Add arguments sorted by option strings."""
@@ -173,6 +188,7 @@ arg_parser = SuggestingArgumentParser(
     "For detailed usage, see: https://datamodel-code-generator.koxudaxi.dev",
     epilog="Documentation: https://datamodel-code-generator.koxudaxi.dev\n"
     "Agent skill: https://datamodel-code-generator.koxudaxi.dev/coding-agent-skill/\n"
+    "Option recommendations: datamodel-codegen --input SCHEMA --recommend-options (experimental)\n"
     "GitHub: https://github.com/datamodel-code-generator/datamodel-code-generator",
     formatter_class=SortingHelpFormatter,
     add_help=False,
@@ -534,8 +550,9 @@ model_options.add_argument(
 model_options.add_argument(
     "--use-msgspec-nullable-enum-alias",
     help="msgspec.Struct output only: write an enum that lists null as an Enum without the None member plus an "
-    "Enum | None type alias, so that msgspec can decode it. Without it the 0.83.0 form is kept, an Enum with a None "
-    "member, which msgspec cannot decode.",
+    "Enum | None type alias, so that msgspec can decode it. Without it a plain Enum keeps the 0.83.0 None member, "
+    "which msgspec cannot decode; an IntEnum or --use-subclass-enum enum, which cannot hold it, is written without it "
+    "and, as its one type rejects null, without the alias.",
     action="store_true",
     default=None,
 )
@@ -572,7 +589,8 @@ model_options.add_argument(
     "'2.11': Pydantic 2.11+ (uses validate_by_name). "
     "'2.12': Pydantic 2.12+ (supports MISSING sentinel). "
     "'2.14': Pydantic 2.14+ (imports MISSING from pydantic; bytes patterns can select Python's regex engine; "
-    "pydantic_v2.dataclass writes required Field(...) fields before the fields with defaults of the same class).",
+    "pydantic_v2.dataclass writes required Field(...) fields before the fields with defaults of the same class; "
+    "a number schema keeps multipleOf on a timedelta).",
     choices=[v.value for v in TargetPydanticVersion],
     default=None,
 )
@@ -620,7 +638,16 @@ model_options.add_argument(
 )
 model_options.add_argument(
     "--infer-union-variant-names",
-    help="Infer inline oneOf/anyOf branch model names from literal discriminator-style fields",
+    help='Name inline oneOf/anyOf branch models after the value of their tag field (Pet + type: "cat" -> PetCat) '
+    "instead of Pet1, Pet2",
+    action="store_true",
+    default=None,
+)
+model_options.add_argument(
+    "--use-tag-as-union-variant-name",
+    help="Name inline oneOf/anyOf branch models after their tag: what --infer-union-variant-names does, skipping "
+    'tags whose class names collide, plus single-branch unions (type: "exec" -> LocalShellActionExec) and '
+    'single-key branches ({"granular": ...} -> AskForApprovalGranular)',
     action="store_true",
     default=None,
 )
@@ -749,6 +776,16 @@ typing_options.add_argument(
 typing_options.add_argument(
     "--ignore-enum-constraints",
     help="Ignore enum constraints and use the base type (e.g., str, int) instead of generating Enum classes",
+    action="store_true",
+    default=None,
+)
+typing_options.add_argument(
+    "--use-single-value-enum-as-const",
+    help="Treat `enum` with a single value as `const` with that value, which JSON Schema defines as equal: "
+    'oneOf/anyOf branches such as {"type": "string", "enum": ["low"]} merge into one Enum when there are two or more '
+    "and all hold values of one JSON type, otherwise each branch is typed as written, and a schema with one enum "
+    "value is typed Literal[...] instead of a one-member Enum, except one with `nullable: true` and a value other "
+    "than null, which is read as written",
     action="store_true",
     default=None,
 )
@@ -1486,9 +1523,9 @@ general_options.add_argument(
 )
 general_options.add_argument(
     "--output-format-json-schema",
-    choices=["config", "generate-prompt", "generation", "model-metadata", "structured-output"],
+    choices=["config", "generate-prompt", "generation", "model-metadata", "recommend-options", "structured-output"],
     default=None,
-    metavar="{config,generate-prompt,generation,model-metadata,structured-output}",
+    metavar="{config,generate-prompt,generation,model-metadata,recommend-options,structured-output}",
     help="Output JSON Schema for the selected JSON output or JSON configuration format and exit.",
 )
 general_options.add_argument(
@@ -1515,6 +1552,20 @@ general_options.add_argument(
         "Optionally provide your question as an argument. "
         "Pipe to CLI tools (e.g., `| claude -p`, `| codex exec`) "
         "or copy to clipboard (e.g., `| pbcopy`, `| xclip`) for web LLM chats."
+    ),
+)
+general_options.add_argument(
+    "--recommend-options",
+    nargs="?",
+    const=True,
+    type=_recommend_mode,
+    metavar="",
+    default=None,
+    help=(
+        "Analyse the input schema and print the options to add on top of the latest dated preset, with the reasons, "
+        "as a command and a pyproject.toml block, then exit (experimental). Schemas of up to 3000 estimated models "
+        "are also compared by generating the candidate configurations in memory. With --generate-prompt, the prompt "
+        "includes the recommendation instead."
     ),
 )
 general_options.add_argument(

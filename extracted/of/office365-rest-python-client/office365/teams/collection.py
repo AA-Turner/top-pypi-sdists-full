@@ -6,12 +6,15 @@ import requests
 from typing_extensions import Self
 
 from office365.directory.groups.collection import GroupCollection
+from office365.directory.groups.group import Group
 from office365.entity_collection import EntityCollection
+from office365.runtime.odata.literals import escape_odata_string
 from office365.runtime.paths.builder import ODataPathBuilder
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.paths.v4.entity import EntityPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.function import FunctionQuery
+from office365.runtime.types.exceptions import NotFoundException
 from office365.teams.chats.messages.collection import ChatMessageCollection
 from office365.teams.operations.async_operation import TeamsAsyncOperation, wait_for_operation
 from office365.teams.team import Team
@@ -31,6 +34,7 @@ class TeamCollection(EntityCollection[Team]):
         page_size: int | None = None,
         page_loaded: Callable[[Any], None] | None = None,
         progress: "ProgressCallback | None" = None,
+        dedupe_by: str | None = None,
     ) -> Self:
         """List all teams in Microsoft Teams for an organization"""
 
@@ -43,9 +47,44 @@ class TeamCollection(EntityCollection[Team]):
                 page_loaded(self)
 
         self.context.groups.filter("resourceProvisioningOptions/Any(x:x eq 'Team')").get_all(
-            page_size, page_loaded=_init_teams, progress=progress
+            page_size, page_loaded=_init_teams, progress=progress, dedupe_by=dedupe_by
         )
         return self
+
+    def find_by_name(self, display_name: str, *, required: bool = False) -> Team:
+        """Look up a team by its ``displayName``.
+
+        A team is backed by a Microsoft 365 group and ``GET /teams`` does not
+        support ``$filter``, so the lookup goes through
+        ``GET /groups?$filter=resourceProvisioningOptions/Any(x:x eq 'Team') and displayName eq '...'``
+        — the approach Microsoft documents for listing teams. Deferred — run
+        with ``execute_query()``; the returned team is left uninitialized when
+        no team has that name (check
+        :attr:`~office365.runtime.client_object.ClientObject.is_loaded`). Pass
+        ``required=True`` to raise instead.
+
+        Args:
+            display_name (str): The team (group) display name
+            required (bool): Raise ``NotFoundException`` on a miss when ``True``
+        """
+        return_type = Team(self.context)
+        self.add_child(return_type)
+
+        expression = (
+            f"resourceProvisioningOptions/Any(x:x eq 'Team') and displayName eq '{escape_odata_string(display_name)}'"
+        )
+        group = self.context.groups.first_or_none(expression)
+
+        def _populate(group: Group) -> None:
+            # copy_from sets the id property, which anchors the team's resource
+            # path at /teams/{id} (see Entity.set_property).
+            if group.is_loaded:
+                return_type.copy_from(group)
+            elif required:
+                raise NotFoundException(return_type, expression)
+
+        group.after_execute(_populate)
+        return return_type
 
     def get_all_messages(self) -> ChatMessageCollection:
         """Export every channel message across all teams (``GET /teams/getAllMessages``).
@@ -61,11 +100,40 @@ class TeamCollection(EntityCollection[Team]):
         self.context.add_query(qry)
         return return_type
 
+    def _create_payload(
+        self,
+        display_name: str,
+        description: str | None,
+        template: str,
+        owners: list[str] | None,
+    ) -> dict:
+        """Build the ``POST /teams`` body, including owners when supplied.
+
+        Application-context creation must name at least one owner, so pass the
+        user ids (or user principal names) of the intended owners.
+        """
+        payload: dict = {
+            "displayName": display_name,
+            "description": description,
+            "template@odata.bind": f"{self.context.teams_templates.resource_url}('{template}')",
+        }
+        if owners:
+            payload["members"] = [
+                {
+                    "@odata.type": "#microsoft.graph.aadUserConversationMember",
+                    "roles": ["owner"],
+                    "user@odata.bind": f"{self.context.users.resource_url}('{owner}')",
+                }
+                for owner in owners
+            ]
+        return payload
+
     def create(
         self,
         display_name: str,
         description: str | None = None,
         template: str = "standard",
+        owners: list[str] | None = None,
     ) -> TeamsAsyncOperation:
         """Create a new team (async) — returns the ``teamsAsyncOperation``.
 
@@ -79,6 +147,8 @@ class TeamCollection(EntityCollection[Team]):
             display_name (str): The name of the team.
             description (str or None): An optional description for the team. Maximum length: 1024 characters.
             template (str): The team template to create from (default ``"standard"``).
+            owners (list[str] or None): User ids or user principal names to assign as owners.
+                Required when creating in application context.
         """
         return_type = TeamsAsyncOperation(self.context, EntityPath(None, self.resource_path))
 
@@ -88,11 +158,7 @@ class TeamCollection(EntityCollection[Team]):
                 operation_path = ODataPathBuilder.parse_url(loc)
                 return_type._resource_path = operation_path
 
-        payload = {
-            "displayName": display_name,
-            "description": description,
-            "template@odata.bind": f"{self.context.teams_templates.resource_url}('{template}')",
-        }
+        payload = self._create_payload(display_name, description, template, owners)
         qry = CreateEntityQuery(self, payload, return_type)
         self.context.add_query(qry).after_execute(_process_response, include_response=True)
         return return_type
@@ -102,6 +168,7 @@ class TeamCollection(EntityCollection[Team]):
         display_name: str,
         description: str | None = None,
         template: str = "standard",
+        owners: list[str] | None = None,
     ) -> Team:
         """Create a team and wait for provisioning (deferred).
 
@@ -113,6 +180,8 @@ class TeamCollection(EntityCollection[Team]):
             display_name (str): The name of the team.
             description (str or None): An optional description for the team. Maximum length: 1024 characters.
             template (str): The team template to create from (default ``"standard"``).
+            owners (list[str] or None): User ids or user principal names to assign as owners.
+                Required when creating in application context.
         """
         return_type = Team(self.context)
         self.add_child(return_type)
@@ -132,11 +201,7 @@ class TeamCollection(EntityCollection[Team]):
 
             wait_for_operation(operation, success_callback=_on_succeeded)
 
-        payload = {
-            "displayName": display_name,
-            "description": description,
-            "template@odata.bind": f"{self.context.teams_templates.resource_url}('{template}')",
-        }
+        payload = self._create_payload(display_name, description, template, owners)
         qry = CreateEntityQuery(self, payload, return_type)
         self.context.add_query(qry).after_execute(_process_response, include_response=True)
         return return_type

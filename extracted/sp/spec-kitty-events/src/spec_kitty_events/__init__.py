@@ -66,7 +66,7 @@ The offline sync/cutover surfaces (``spec_kitty_events.sync``, ``legacy``,
 lives in ``spec_kitty_events.strict.validate_strict_envelope``.
 """
 
-__version__ = "10.5.1"
+__version__ = "11.0.0"
 
 # Core data models
 from spec_kitty_events.models import (
@@ -168,6 +168,7 @@ from spec_kitty_events.project_lifecycle import (
     HISTORY_ADDED,
     ERROR_LOGGED,
     DEPENDENCY_RESOLVED,
+    REVIEWER_SELF_APPROVAL,
     PROJECT_LIFECYCLE_EVENT_TYPES,
     ARTIFACT_LIFECYCLE_EVENT_TYPES,
     WP_LIFECYCLE_EVENT_TYPES,
@@ -185,6 +186,7 @@ from spec_kitty_events.project_lifecycle import (
     HistoryAddedPayload,
     ErrorLoggedPayload,
     DependencyResolvedPayload,
+    ReviewerSelfApprovalPayload,
 )
 
 # Ops/Invocations bounded moment contracts (E-post-MVP, events#78). Shares
@@ -265,15 +267,6 @@ from spec_kitty_events.zeitgeist_attrs import (
     from_zeitgeist_attrs,
     to_zeitgeist_attrs,
 )
-
-# Machine-readable classification surface for event types that are NOT
-# routed through the SaaS-bound producer path. Empty in this release —
-# every CLI-emitted event audited as of spec-kitty 43305c12c routes
-# through SpecKittyEventEmitter._emit(). The surface is published so
-# downstream consumers (CLI canonical-producer lint, SaaS adapter) can
-# import the set and adjust enforcement without re-shipping a contract.
-# Mission: canonical-producer-contracts-legacy-envelope-01KS7JM3.
-LOCAL_ONLY_EVENT_TYPES: frozenset[str] = frozenset()
 
 # Status state model contracts
 from spec_kitty_events.status import (
@@ -361,7 +354,24 @@ from spec_kitty_events.glossary import (
     GENERATION_BLOCKED_BY_SEMANTIC_CONFLICT,
     GLOSSARY_STRICTNESS_SET,
     GLOSSARY_EVENT_TYPES,
-    SemanticConflictEntry,
+    STEP_CHECKPOINTED,
+    GlossaryActor,
+    GlossaryActorType,
+    GlossaryConflictType,
+    GlossaryFinding,
+    GlossaryNewSense,
+    GlossaryProvenance,
+    GlossaryRecommendedAction,
+    GlossaryResolutionMode,
+    GlossaryScope,
+    GlossarySenseStatus,
+    GlossarySeverity,
+    GlossaryStrictness,
+    GlossaryTermSurface,
+    GlossaryUpdateType,
+    ScopeRef,
+    SenseRef,
+    StepCheckpointedPayload,
     GlossaryScopeActivatedPayload,
     TermCandidateObservedPayload,
     SemanticCheckEvaluatedPayload,
@@ -483,6 +493,9 @@ from spec_kitty_events.decisionpoint import (
     DecisionPointWidenedPayload as DecisionPointWidenedPayload,
     ReducedDecisionPointState as ReducedDecisionPointState,
     reduce_decision_point_events as reduce_decision_point_events,
+    reduce_decision_point_records as reduce_decision_point_records,
+    DECISION_POINT_TERMINAL_REOPEN as DECISION_POINT_TERMINAL_REOPEN,
+    DecisionPointFoldError as DecisionPointFoldError,
 )
 
 # Decision Moment V1 shared models (4.0.0)
@@ -855,7 +868,24 @@ __all__ = [
     "GENERATION_BLOCKED_BY_SEMANTIC_CONFLICT",
     "GLOSSARY_STRICTNESS_SET",
     "GLOSSARY_EVENT_TYPES",
-    "SemanticConflictEntry",
+    "STEP_CHECKPOINTED",
+    "GlossaryActor",
+    "GlossaryActorType",
+    "GlossaryConflictType",
+    "GlossaryFinding",
+    "GlossaryNewSense",
+    "GlossaryProvenance",
+    "GlossaryRecommendedAction",
+    "GlossaryResolutionMode",
+    "GlossaryScope",
+    "GlossarySenseStatus",
+    "GlossarySeverity",
+    "GlossaryStrictness",
+    "GlossaryTermSurface",
+    "GlossaryUpdateType",
+    "ScopeRef",
+    "SenseRef",
+    "StepCheckpointedPayload",
     "GlossaryScopeActivatedPayload",
     "TermCandidateObservedPayload",
     "SemanticCheckEvaluatedPayload",
@@ -966,6 +996,9 @@ __all__ = [
     "DecisionPointWidenedPayload",
     "ReducedDecisionPointState",
     "reduce_decision_point_events",
+    "reduce_decision_point_records",
+    "DECISION_POINT_TERMINAL_REOPEN",
+    "DecisionPointFoldError",
     # Decision Moment V1 shared models (4.0.0)
     "ClosureMessageRef",
     "DefaultChannelRef",
@@ -1053,10 +1086,12 @@ __all__ = [
     "HISTORY_ADDED",
     "ERROR_LOGGED",
     "DEPENDENCY_RESOLVED",
+    "REVIEWER_SELF_APPROVAL",
     "WPAssignedPayload",
     "HistoryAddedPayload",
     "ErrorLoggedPayload",
     "DependencyResolvedPayload",
+    "ReviewerSelfApprovalPayload",
     "MISSION_ORIGIN_BOUND",
     "MissionOriginBoundPayload",
     # Post-mission lifecycle events
@@ -1071,7 +1106,6 @@ __all__ = [
     "BuildRegisteredPayload",
     "BuildHeartbeatPayload",
     # Machine-readable classification surface.
-    "LOCAL_ONLY_EVENT_TYPES",
     # HarnessObservation vocabulary (F1-T1, 7.0.0).
     "HARNESS_OBSERVATION",
     "HARNESS_OBSERVATION_CONTRACT_VERSION",

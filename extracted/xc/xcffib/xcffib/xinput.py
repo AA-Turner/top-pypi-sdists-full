@@ -3503,6 +3503,7 @@ class BarrierReleasePointerInfo(xcffib.Struct):
 
 class DeviceValuatorEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3555,6 +3556,7 @@ class MoreEventsMask:
 
 class DeviceKeyPressEvent(xcffib.Event):
     xge = False
+    event_number = 1
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3639,6 +3641,7 @@ _events[1] = DeviceKeyPressEvent
 
 class DeviceKeyReleaseEvent(xcffib.Event):
     xge = False
+    event_number = 2
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3723,6 +3726,7 @@ _events[2] = DeviceKeyReleaseEvent
 
 class DeviceButtonPressEvent(xcffib.Event):
     xge = False
+    event_number = 3
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3807,6 +3811,7 @@ _events[3] = DeviceButtonPressEvent
 
 class DeviceButtonReleaseEvent(xcffib.Event):
     xge = False
+    event_number = 4
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3891,6 +3896,7 @@ _events[4] = DeviceButtonReleaseEvent
 
 class DeviceMotionNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 5
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3975,6 +3981,7 @@ _events[5] = DeviceMotionNotifyEvent
 
 class DeviceFocusInEvent(xcffib.Event):
     xge = False
+    event_number = 6
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4020,6 +4027,7 @@ _events[6] = DeviceFocusInEvent
 
 class DeviceFocusOutEvent(xcffib.Event):
     xge = False
+    event_number = 7
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4065,6 +4073,7 @@ _events[7] = DeviceFocusOutEvent
 
 class ProximityInEvent(xcffib.Event):
     xge = False
+    event_number = 8
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4149,6 +4158,7 @@ _events[8] = ProximityInEvent
 
 class ProximityOutEvent(xcffib.Event):
     xge = False
+    event_number = 9
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4241,6 +4251,7 @@ class ClassesReportedMask:
 
 class DeviceStateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 10
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4315,6 +4326,7 @@ _events[10] = DeviceStateNotifyEvent
 
 class DeviceMappingNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 11
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4365,6 +4377,7 @@ class ChangeDevice:
 
 class ChangeDeviceNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 12
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4397,6 +4410,7 @@ _events[12] = ChangeDeviceNotifyEvent
 
 class DeviceKeyStateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 13
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4430,6 +4444,7 @@ _events[13] = DeviceKeyStateNotifyEvent
 
 class DeviceButtonStateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 14
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4472,6 +4487,7 @@ class DeviceChange:
 
 class DevicePresenceNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 15
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4511,6 +4527,7 @@ _events[15] = DevicePresenceNotifyEvent
 
 class DevicePropertyNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 16
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4555,6 +4572,7 @@ class ChangeReason:
 
 class DeviceChangedEvent(xcffib.Event):
     xge = True
+    event_number = 1
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4607,6 +4625,7 @@ class KeyEventFlags:
 
 class KeyPressEvent(xcffib.Event):
     xge = True
+    event_number = 2
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4731,6 +4750,7 @@ _events[2] = KeyPressEvent
 
 class KeyReleaseEvent(xcffib.Event):
     xge = True
+    event_number = 3
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4859,6 +4879,7 @@ class PointerEventFlags:
 
 class ButtonPressEvent(xcffib.Event):
     xge = True
+    event_number = 4
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -4983,6 +5004,7 @@ _events[4] = ButtonPressEvent
 
 class ButtonReleaseEvent(xcffib.Event):
     xge = True
+    event_number = 5
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5107,6 +5129,7 @@ _events[5] = ButtonReleaseEvent
 
 class MotionEvent(xcffib.Event):
     xge = True
+    event_number = 6
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5251,6 +5274,7 @@ class NotifyDetail:
 
 class EnterEvent(xcffib.Event):
     xge = True
+    event_number = 7
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5369,6 +5393,7 @@ _events[7] = EnterEvent
 
 class LeaveEvent(xcffib.Event):
     xge = True
+    event_number = 8
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5487,6 +5512,7 @@ _events[8] = LeaveEvent
 
 class FocusInEvent(xcffib.Event):
     xge = True
+    event_number = 9
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5605,6 +5631,7 @@ _events[9] = FocusInEvent
 
 class FocusOutEvent(xcffib.Event):
     xge = True
+    event_number = 10
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5774,6 +5801,7 @@ class HierarchyInfo(xcffib.Struct):
 
 class HierarchyEvent(xcffib.Event):
     xge = True
+    event_number = 11
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5822,6 +5850,7 @@ class PropertyFlag:
 
 class PropertyEvent(xcffib.Event):
     xge = True
+    event_number = 12
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5861,6 +5890,7 @@ _events[12] = PropertyEvent
 
 class RawKeyPressEvent(xcffib.Event):
     xge = True
+    event_number = 13
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -5935,6 +5965,7 @@ _events[13] = RawKeyPressEvent
 
 class RawKeyReleaseEvent(xcffib.Event):
     xge = True
+    event_number = 14
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6009,6 +6040,7 @@ _events[14] = RawKeyReleaseEvent
 
 class RawButtonPressEvent(xcffib.Event):
     xge = True
+    event_number = 15
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6083,6 +6115,7 @@ _events[15] = RawButtonPressEvent
 
 class RawButtonReleaseEvent(xcffib.Event):
     xge = True
+    event_number = 16
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6157,6 +6190,7 @@ _events[16] = RawButtonReleaseEvent
 
 class RawMotionEvent(xcffib.Event):
     xge = True
+    event_number = 17
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6236,6 +6270,7 @@ class TouchEventFlags:
 
 class TouchBeginEvent(xcffib.Event):
     xge = True
+    event_number = 18
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6360,6 +6395,7 @@ _events[18] = TouchBeginEvent
 
 class TouchUpdateEvent(xcffib.Event):
     xge = True
+    event_number = 19
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6484,6 +6520,7 @@ _events[19] = TouchUpdateEvent
 
 class TouchEndEvent(xcffib.Event):
     xge = True
+    event_number = 20
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6612,6 +6649,7 @@ class TouchOwnershipFlags:
 
 class TouchOwnershipEvent(xcffib.Event):
     xge = True
+    event_number = 21
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6670,6 +6708,7 @@ _events[21] = TouchOwnershipEvent
 
 class RawTouchBeginEvent(xcffib.Event):
     xge = True
+    event_number = 22
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6744,6 +6783,7 @@ _events[22] = RawTouchBeginEvent
 
 class RawTouchUpdateEvent(xcffib.Event):
     xge = True
+    event_number = 23
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6818,6 +6858,7 @@ _events[23] = RawTouchUpdateEvent
 
 class RawTouchEndEvent(xcffib.Event):
     xge = True
+    event_number = 24
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6897,6 +6938,7 @@ class BarrierFlags:
 
 class BarrierHitEvent(xcffib.Event):
     xge = True
+    event_number = 25
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -6994,6 +7036,7 @@ _events[25] = BarrierHitEvent
 
 class BarrierLeaveEvent(xcffib.Event):
     xge = True
+    event_number = 26
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -7095,6 +7138,7 @@ class GesturePinchEventFlags:
 
 class GesturePinchBeginEvent(xcffib.Event):
     xge = True
+    event_number = 27
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -7220,6 +7264,7 @@ _events[27] = GesturePinchBeginEvent
 
 class GesturePinchUpdateEvent(xcffib.Event):
     xge = True
+    event_number = 28
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -7345,6 +7390,7 @@ _events[28] = GesturePinchUpdateEvent
 
 class GesturePinchEndEvent(xcffib.Event):
     xge = True
+    event_number = 29
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -7474,6 +7520,7 @@ class GestureSwipeEventFlags:
 
 class GestureSwipeBeginEvent(xcffib.Event):
     xge = True
+    event_number = 30
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -7591,6 +7638,7 @@ _events[30] = GestureSwipeBeginEvent
 
 class GestureSwipeUpdateEvent(xcffib.Event):
     xge = True
+    event_number = 31
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -7708,6 +7756,7 @@ _events[31] = GestureSwipeUpdateEvent
 
 class GestureSwipeEndEvent(xcffib.Event):
     xge = True
+    event_number = 32
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

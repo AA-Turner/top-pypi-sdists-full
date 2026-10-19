@@ -195,3 +195,35 @@ TEST(SpecialVariables, PreviewIsAlwaysFalse) {
     ASSERT_EQ(msgs.size(), 1u) << (msgs.empty() ? "" : msgs[0]);
     EXPECT_EQ(msgs[0], "ECHO: false, true, \"r\"");
 }
+
+// OpenSCAD evaluates a reassigned variable once, at its FIRST assignment,
+// with its LAST value (parser.y's handle_assignment) -- in a module body or
+// a block as at the top level. Checked against OpenSCAD 2026.02.01.
+TEST(Scoping, ReassignedVariableTakesItsLastValueAtItsFirstPosition) {
+    std::vector<std::string> out;
+    evaluateSrc("x = 1;\ny = x * 10;\nx = 2;\necho(y = y);\n"
+                "module m() {\n  u = 1;\n  v = u * 10;\n  u = 2;\n  echo(v = v);\n}\nm();\n"
+                "if (true) { a = 1; b = a + 1; a = 5; echo(b = b); }\n",
+                [&](const std::string& m) { out.push_back(m); });
+    EXPECT_TRUE(anyContains(out, "ECHO: y = 20"));
+    EXPECT_TRUE(anyContains(out, "ECHO: v = 20"));
+    EXPECT_TRUE(anyContains(out, "ECHO: b = 6"));
+    size_t warnings = 0;
+    for (const auto& m : out) warnings += m.find("but was overwritten") != std::string::npos;
+    EXPECT_EQ(warnings, 3u) << "one per reassignment, even though m() could run again";
+}
+
+// #815: BOSL2's attachable() runs its children by index, and children(N)
+// used to skip the child block's assignments, so `last` was unknown.
+TEST(Scoping, IndexedChildrenSeeTheirBlocksAssignments) {
+    std::vector<std::string> out;
+    evaluateSrc("module one() children(0);\n"
+                "module both() { children(1); children([0:1]); }\n"
+                "one() { n = 2; for (i = [0:n]) echo(a = i); }\n"
+                "both() { k = 3; echo(b = k); echo(c = k + 1); }\n",
+                [&](const std::string& m) { out.push_back(m); });
+    EXPECT_TRUE(anyContains(out, "ECHO: a = 2"));
+    EXPECT_TRUE(anyContains(out, "ECHO: b = 3"));
+    EXPECT_TRUE(anyContains(out, "ECHO: c = 4"));
+    EXPECT_FALSE(anyContains(out, "unknown variable"));
+}

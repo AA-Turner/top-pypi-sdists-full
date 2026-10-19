@@ -56,6 +56,7 @@ import difflib
 import hashlib
 import inspect
 import json
+import logging
 import os
 import re
 import shlex
@@ -63,6 +64,7 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass, field
+from html.parser import HTMLParser
 from probe._compat import StrEnum
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -75,6 +77,8 @@ from probe.daemon.store import CUT_SHORT, FAILED_WHILE_RUNNING, UNRECORDED_BITE,
 from probe.sdk.key_refusal import KEY_REFUSED_LINE
 from probe.sdk.write_outcome import was_queued
 from probe.tap_core import secrets
+
+log = logging.getLogger("probe.daemon.tools")
 
 PROBE_TIMEOUT_S = 180.0
 #: One `probe` command, its retries and their waits included, never takes longer
@@ -103,7 +107,8 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: experiments X21), POST /v1/projects/{P}/experiments/{E}/groups, PATCH
 #: /v1/projects|runs|groups|papers|views/{id}, POST
 #: /v1/artifacts/{id}/move, POST /v1/projects/{id}/papers|references, POST
-#: /v1/edges, POST /v1/runs/{id}/views, sub-notes (an experiment's under
+#: /v1/edges, POST /v1/runs/{id}/views, POST /v1/runs/{id}/uses (dataset use,
+#: checkpoint use; an upsert either way), sub-notes (an experiment's under
 #: /v1/projects/{P}/experiments/{E}/sub-notes). NOT here, on purpose:
 #: `artifact add` (presign / PUT / confirm), `notes push` and `notes sync` (their
 #: merge answers are not replayed), every delete, `artifact version-add`,
@@ -129,11 +134,20 @@ IDEMPOTENT_COMMANDS = frozenset({
     "artifact move", "paper add", "paper update", "paper tag",
     "project reference add", "edge add", "views create", "views rename", "views update",
     "notes create", "notes rename", "feedback send",
+    "dataset use", "checkpoint use",
 })
 #: The tools that can write -- run a `probe` write, or a shell command that
 #: changes files. Their calls run one at a time, in the order the model made
 #: them; every other tool only reads, and may run beside the others.
-WRITE_TOOLS: frozenset[str] = frozenset({"shell"})
+WRITE_TOOLS: frozenset[str] = frozenset({"shell", "bash", "edit"})
+#: The program a shell command runs under, as the logbook and the held question
+#: record it (`shell.run`: `/bin/bash --noprofile --norc -c`). Rows written before
+#: 2026-10-18 say `sh`; readers take both (`store.jev_approved`).
+SHELL_ARGV0 = "bash"
+
+
+def shell_argv(command: str) -> list[str]:
+    return [SHELL_ARGV0, "-c", command]
 
 
 SEARCH_LIMIT = 20
@@ -216,6 +230,22 @@ class Deps:
     #: The tally above was read from the store (`SUMMARY_TALLY`): a run paused
     #: after ROUNDS_BEFORE_YIELD carries on in a new bite with new Deps.
     tally_loaded: bool = False
+    #: The watched session's harness (`Worker.session.source`): the reader's MCP
+    #: reads and its feedback name it.
+    harness: str = ""
+    #: Plain code's state of the record (`agent.RunState.status`), for `probe
+    #: daemon session status`; None where there is none (the reader, the audit).
+    record_status: Callable[[], str] | None = None
+    #: A daemon TASK (`probe daemon task`, `agent.run_task`): the child agent a
+    #: writer, reader or audit started for one long read. Its `bash` runs only
+    #: what `reads_only` proves reads (`agent.build_task_agent`), it starts no
+    #: task of its own, and its lookups stay out of the logbook (the task itself
+    #: is one line there).
+    task: bool = False
+    #: Runs `probe daemon task <text>` for the agent whose bash call this is
+    #: (`agent.run_task`, bound to its model, usage and run); None: no task runs
+    #: here (a task's own deps, a command run outside an agent).
+    task_runner: Callable[[str], Any] | None = None
 
 
 def _hold(deps: Deps, *, policy: str, facts: dict, held: dict) -> appr.Request:
@@ -238,13 +268,125 @@ def _writes(argv: list[str]) -> bool:
         return True
 
 
-def _classify(deps: Deps, command: str, cwd: Path, *, piped_input: bool = False) -> Any:
-    """`shell.classify` with this session's folders, in `cwd`."""
-    from probe.daemon import shell as sh
+#: The `probe` commands the daemon answers in its own process that only read
+#: (`local_commands.answer`): run beside other reads. `probe daemon task` is one:
+#: its child agent runs only reads (`agent.build_task_agent`).
+LOCAL_READS = frozenset({("daemon", "session"), ("file", "preview"), ("mcp", "tools"), ("mcp", "call"),
+                         ("daemon", "task")})
 
+
+#: What a task's `bash` answers to anything that is not a read (NEW wording,
+#: tests/fixtures/daemon_prompts/tools/task-replies.NEW.md; `agent.build_task_agent`
+#: refuses it before it runs, and the shell and probe paths refuse it again).
+TASK_READS_ONLY = "not run: a task only reads - {why}."
+#: Why `reads_only` says a call does more than read, in its own words (NEW
+#: wording, tests/fixtures/daemon_prompts/tools/task-replies.NEW.md); a command
+#: the checker would not run at once says the checker's own reason.
+NOT_A_READ = {"unparsed": "it can't be read as a probe command", "writes": "`probe {path}` writes",
+              "unlisted": "`probe {path}` is not on the list of reads that only print",
+              "file": "it writes a file"}
+
+
+def _probe_reads(argv: list[str]) -> str | None:
+    """None when a `probe ...` command only reads and prints (a local read, a help
+    request, or one of READER_PROBE_READS); else why not. A READ-owned command
+    off that list may still write a local file (`metrics plot`, `run reproduce
+    --export`), so it does not count."""
+    if tuple(argv[:2]) in LOCAL_READS:
+        return None
+    try:
+        parsed = precheck.parse(argv)
+    except precheck.ParseError:
+        return NOT_A_READ["unparsed"]
+    if parsed.help:
+        return None
+    if parsed.owner != precheck.READ:
+        return NOT_A_READ["writes"].format(path=parsed.path)
+    if parsed.path not in READER_PROBE_READS:
+        return NOT_A_READ["unlisted"].format(path=parsed.path)
+    return None
+
+
+def _part_reads(verdict: Any) -> str | None:
+    """None when a classified shell command (not a probe command) only reads."""
+    if verdict.refused or not verdict.safe:
+        return scrub(verdict.reason).rstrip(".")
+    if verdict.note_target:
+        return NOT_A_READ["file"]
+    return None
+
+
+def reads_only(deps: Deps, command: str) -> str | None:
+    """None when a `bash` call only reads: nothing it runs writes a file or
+    Probe, asks the researcher or holds a question -- what may run beside other
+    calls (`agent.CallOrder`) and all a task may run (`agent.build_task_agent`).
+    Else why not, in a few words. Proven from the same checks the call then
+    runs through (`shell.classify`, `precheck`); a call it cannot read counts as
+    a write. A compound's parts are read in the folder its `cd` parts lead to
+    (a refused `cd` leaves later parts where they were: a read stays a read)."""
+    command = command.strip()
+    if not command:
+        return None
+    verdict = _classify(deps, command, deps.cwd)
+    if verdict.probe_argv is not None:
+        return _probe_reads(verdict.probe_argv)
+    if verdict.steps is None:
+        return _part_reads(verdict)
+    cwd = deps.cwd
+    for step in verdict.steps:
+        if step.cd is not None:
+            folder = os.path.normpath(os.path.join(str(cwd), step.cd))
+            cwd = Path(folder) if os.path.isdir(folder) else cwd
+            continue
+        if step.probe_argv is not None:
+            why = _probe_reads(step.probe_argv)
+            if why is None and step.filter is not None:
+                why = _part_reads(_classify(deps, step.filter, cwd, piped_input=True))
+        else:
+            why = _part_reads(_classify(deps, step.text, cwd))
+        if why is not None:
+            return why
+    return None
+
+
+def task_deps(deps: Deps) -> Deps:
+    """A task's own deps (`agent.run_task`): the agent's sessions, folders, store,
+    board, key and mode, as that agent's (a reader's task reads as the reader),
+    with nothing of its run's bookkeeping -- no blocks, op ids, counts or tallies
+    -- and no task of its own to start."""
+    from dataclasses import replace
+
+    # `bypass` off: a task never runs what bypass mode would let through (a `cd`
+    # outside the working folders, a filter off the safe list), whatever reads_only said.
+    return replace(deps, task=True, task_runner=None, bypass=False, blocks={}, sent={}, stopped=None,
+                   lost_writes=0, asked=0,
+                   summaries_owed=set(), summaries_pushed=set(), concluded=set(), visuals_state={},
+                   visuals_landed=set(), summaries_owed_asked=True, visuals_owed_asked=True, tally_loaded=True)
+
+
+def _logs_lookups(deps: Deps) -> bool:
+    """The logbook is the writer's: neither the reader's lookups nor a task's
+    (the task is one line of its own) go in it."""
+    return not (deps.reader or deps.task)
+
+
+def _classify(deps: Deps, command: str, cwd: Path, *, piped_input: bool = False) -> Any:
+    """`shell.classify` with this session's folders, in `cwd`. With the `bash`
+    tool set the Probe skills folder is read-only open to the read programs (the
+    writer's and the audit's; it was the `read` tool's), and the reader reads
+    nothing outside the working folders (as its `read` tool never did)."""
+    from probe.daemon import shell as sh
+    from probe.daemon import toolset
+
+    read_dirs: list[Path] = []
+    if toolset.bash_only() and not deps.reader:
+        from probe.daemon.bite import skills_root
+
+        root = skills_root()
+        read_dirs = [root] if root is not None else []
     return sh.classify(command, workdirs=deps.workdirs, home=deps.home, cwd=cwd, protected=deps.protected,
                        write_dirs=deps.write_dirs, piped_input=piped_input, hidden=_off_check(deps, cwd),
-                       off_inside=_off_inside_check(deps))
+                       off_inside=_off_inside_check(deps), read_dirs=read_dirs, inside_only=deps.reader)
 
 
 def _config_checker(deps: Deps, cwd: Path) -> Any:
@@ -708,9 +850,16 @@ async def shell(deps: Deps, command: str, why: str = "") -> str:
     command = command.strip()
     if not command:
         return "empty command"
+    if deps.task:
+        # A task only reads: refused here, before any route a write could take (a
+        # team-note heredoc is held before the shell checks run), whatever its own
+        # `bash` decided. The shell and probe paths refuse it again where it would run.
+        not_read = reads_only(deps, command)
+        if not_read is not None:
+            return TASK_READS_ONLY.format(why=not_read)
     verdict = _classify(deps, command, deps.cwd)
     if verdict.probe_argv is not None:
-        return await run_probe_command(deps, verdict.probe_argv, why=why)
+        return await run_probe_command(deps, verdict.probe_argv, why=why, stdin=verdict.probe_stdin)
     if verdict.steps is not None:
         return await _run_steps(deps, verdict.steps, why)
     auto = deps.bypass and deps.mode_known  # bypass mode: nothing is asked, so nothing is hidden
@@ -737,7 +886,7 @@ async def _shell_command(deps: Deps, command: str, verdict: Any, why: str, cwd: 
     asked = deps.asked
     text, code = await _checked_shell_command(deps, command, verdict, why, cwd, stdin=stdin)
     if (code != 0 and deps.asked == asked and deps.stopped is None and (verdict.note_target or not verdict.safe)
-            and not text.endswith(_SKILLS_ARE_READ)):  # a skill read pointed at the read tool wrote nothing
+            and not text.endswith(skills_are_read())):  # a skill read pointed at the skills wrote nothing
         deps.lost_writes += 1
     return text, code
 
@@ -746,10 +895,19 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
                                  stdin: bytes | None = None) -> tuple[str, int | None]:
     from probe.daemon import shell as sh
 
+    if deps.task and (verdict.refused or verdict.note_target or not verdict.safe):
+        # A task only reads, checked again where the command would run (its own
+        # `bash` refused it already): refused, never asked, never run in bypass mode.
+        return TASK_READS_ONLY.format(why=_part_reads(verdict)), None
+    if deps.reader and not verdict.refused and (verdict.note_target or not verdict.safe):
+        # The reader only reads: what is not a safe read is refused, never asked
+        # (nobody answers the reader) and never run in bypass mode.
+        return READER_READS_ONLY.format(why=scrub(verdict.reason or "it writes a file").rstrip(".")), None
     if verdict.refused:  # never a question, not even in bypass mode (`shell._Never`)
-        deps.store.log_write(bite=deps.bite_id, op_id=_op_id(deps, ["sh", "-c", command]),
-                             argv=["sh", "-c", scrub(command)], head="shell", status="not_run",
-                             reason=verdict.reason)
+        if not deps.reader:
+            deps.store.log_write(bite=deps.bite_id, op_id=_op_id(deps, shell_argv(command)),
+                                 argv=shell_argv(scrub(command)), head="shell", status="not_run",
+                                 reason=verdict.reason)
         return f"not run: {verdict.reason} This is refused in every mode.", None
     if deps.audit and not verdict.safe:
         return f"{AUDIT_REFUSED} ({scrub(verdict.reason).rstrip('.')}).", None
@@ -759,7 +917,8 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
     if verdict.safe:
         result = await sh.run(command, cwd=cwd, watch=lease_watch(deps), stdin=stdin)
         output = _off_scrubbed(deps, result.output, cwd)
-        deps.store.log_lookup(bite=deps.bite_id, tool="shell", query=command, result=output[:2000])
+        if _logs_lookups(deps):  # the logbook is the writer's
+            deps.store.log_lookup(bite=deps.bite_id, tool="shell", query=command, result=output[:2000])
         text = scrub(output)
         return f"[{_shell_status(result)}{' · output cut' if result.truncated else ''}]\n{text}", result.exit_code
     if scrub(command) != command and not auto:
@@ -801,8 +960,8 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
             # each guess was a question for the researcher (14 in 14 days). Refused, not
             # asked: the read tool reads them without anyone's yes. After the notes-write
             # checks above, so a note write keeps the hint that names the shape that runs.
-            return f"not run: {verdict.reason.rstrip('.')}. {_SKILLS_ARE_READ}", None
-    held = {"kind": "shell", "command": command, "cwd": str(cwd), "op_id": _op_id(deps, ["sh", "-c", command])}
+            return f"not run: {verdict.reason.rstrip('.')}. {skills_are_read()}", None
+    held = {"kind": "shell", "command": command, "cwd": str(cwd), "op_id": _op_id(deps, shell_argv(command))}
     # JEV BEFORE THE RESEARCHER (F8, `command_check`): in every mode but bypass,
     # a command the safe list did not clear is put to Jev first; only its yes
     # runs it unasked. Anything else falls through to the question below.
@@ -824,7 +983,7 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
                                         stdin=stdin)
         return (f"[{appr.AUTO} · {_shell_status(result)}]\n{scrub(_off_scrubbed(deps, result.output, cwd))}",
                 result.exit_code)
-    deps.store.log_write(bite=deps.bite_id, op_id=held["op_id"], argv=["sh", "-c", command], head="shell",
+    deps.store.log_write(bite=deps.bite_id, op_id=held["op_id"], argv=shell_argv(command), head="shell",
                          status="held", reason=verdict.reason, request=req.id)
     return (f"held for the researcher (request {req.id}) - {verdict.reason.rstrip('.')}. It runs if they say yes - "
             "the answer shows up in a later bite."), None
@@ -834,6 +993,37 @@ async def _checked_shell_command(deps: Deps, command: str, verdict: Any, why: st
 #: a read pointed at the read tool, never a write that was lost (`_shell_command`).
 _SKILLS_ARE_READ = ("The skills are read with the read tool, by their path in the skills folder: "
                     "`read track-work/reference.md`.")
+#: The same with the `bash` tool set: the skills folder, named (NEW wording,
+#: tests/fixtures/daemon_prompts/tools/bash-replies.NEW.md).
+SKILLS_ARE_CAT = "The skills are in the skills folder: `cat {skills}/track-work/reference.md`."
+#: What the reader's `bash` answers to anything but a read (NEW wording, same file).
+READER_READS_ONLY = "not run: the reader only reads - {why}."
+#: The `probe` reads the reader's `bash` runs (besides the ones the daemon answers
+#: itself: `probe daemon session`, `file preview`, `mcp call|tools`, `feedback
+#: send`): a list, not "every read", so a read that grows an option that writes
+#: (`run reproduce --export`) never reaches it unreviewed. Each prints only.
+READER_PROBE_READS = frozenset({
+    "project get", "project list", "project lineage",
+    "experiment get", "experiment list", "experiment lineage", "experiment edges",
+    "run get", "run list", "run metrics", "run series", "run inputs", "run upstream",
+    "group get", "group list",
+    "notes show", "notes list", "notes team",
+    "paper list", "paper find", "paper citations", "paper edges", "paper graph",
+    "dataset list", "dataset show", "checkpoint list", "source list", "source show", "provenance",
+    "artifact list", "artifact tree", "artifact versions",
+    "metrics grouped", "metrics wide", "series latest", "span get", "span list", "trial get", "trial list",
+    "views list", "views show", "session status",
+})
+
+
+def skills_are_read() -> str:
+    from probe.daemon import toolset
+
+    if not toolset.bash_only():
+        return _SKILLS_ARE_READ
+    from probe.daemon.bite import skills_root
+
+    return SKILLS_ARE_CAT.format(skills=skills_root() or "<skills folder>")
 
 
 def _names_a_skill_folder(command: str) -> bool:
@@ -1219,7 +1409,7 @@ async def _run_shell_write(deps: Deps, command: str, op_id: str, *, head: str, r
     Jev's yeses by it."""
     from probe.daemon import shell as sh
 
-    row = deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["sh", "-c", command], head=head,
+    row = deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=shell_argv(command), head=head,
                                status="running", reason=reason, request=request)
     try:
         result = await sh.run(command, cwd=cwd or deps.cwd, watch=lease_watch(deps), stdin=stdin)
@@ -1305,7 +1495,7 @@ async def _hold_team_note_write(deps: Deps, command: str, verdict: Any, why: str
     own, so the WRITE is the change, and it waits for the researcher's yes."""
     facts = _team_note_write_facts(verdict)
     facts["reason"] = why
-    held = {"kind": "shell", "command": command, "cwd": str(deps.cwd), "op_id": _op_id(deps, ["sh", "-c", command])}
+    held = {"kind": "shell", "command": command, "cwd": str(deps.cwd), "op_id": _op_id(deps, shell_argv(command))}
     req = _hold(deps, policy="team_note.edit", facts=facts, held=held)
     if req.state == appr.DENIED:
         return _already_no(req)
@@ -1314,7 +1504,7 @@ async def _hold_team_note_write(deps: Deps, command: str, verdict: Any, why: str
         if result.exit_code != 0 and deps.stopped is None:
             deps.lost_writes += 1
         return f"[{appr.AUTO} · {_shell_status(result)}]\n{scrub(result.output)}"
-    deps.store.log_write(bite=deps.bite_id, op_id=held["op_id"], argv=["sh", "-c", command], head="team note",
+    deps.store.log_write(bite=deps.bite_id, op_id=held["op_id"], argv=shell_argv(command), head="team note",
                          status="held", reason="a team note change waits for the researcher", request=req.id)
     return (f"held for the researcher (request {req.id}) - the team note reaches every teammate's agent. It is "
             "written if they say yes - then run `probe notes sync`.")
@@ -1417,9 +1607,11 @@ async def _server_has_trash(deps: Deps) -> bool | None:
         raise
 
 
-async def run_probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None) -> str:
-    """A `probe ...` command from the model, through every check (`_probe_command`)."""
-    return (await _probe_command(deps, argv, why=why, cwd=cwd))[0]
+async def run_probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None,
+                            stdin: str | None = None) -> str:
+    """A `probe ...` command from the model, through every check (`_probe_command`).
+    `stdin`: what a quoted heredoc fed it (`shell.PROBE_STDIN_COMMANDS`)."""
+    return (await _probe_command(deps, argv, why=why, cwd=cwd, stdin=stdin))[0]
 
 
 #: What a probe command came to: the text the model reads, and the CLI's own
@@ -1427,25 +1619,40 @@ async def run_probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: 
 Outcome = tuple[str, "ProbeResult | None"]
 
 
-async def _probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None) -> Outcome:
+async def _probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None,
+                         stdin: str | None = None) -> Outcome:
     """The pre-checks, then the real CLI with the daemon's key and an
     Idempotency-Key, in `cwd` (default: the session's folder). A write that
     failed or was not run -- not asked about, and not stopped because this
     process may no longer write -- counts in `Deps.lost_writes`."""
     asked = deps.asked
-    text, result = await _checked_probe_command(deps, argv, why=why, cwd=cwd)
+    text, result = await _checked_probe_command(deps, argv, why=why, cwd=cwd, stdin=stdin)
     if ((result is None or result.code != 0) and deps.asked == asked and deps.stopped is None
             and _writes(argv)):
         deps.lost_writes += 1
     return text, result
 
 
-async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None) -> Outcome:
+async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", cwd: Path | None = None,
+                                 stdin: str | None = None) -> Outcome:
     here = cwd or deps.cwd
     stop = write_refusal(deps)
     if stop is not None:
         return stop, None
+    if deps.task:
+        # A task only reads, checked again here (its own `bash` refused it already),
+        # before the commands the daemon answers itself: `probe draft edit` is one.
+        not_read = _probe_reads(argv)
+        if not_read is not None:
+            return TASK_READS_ONLY.format(why=not_read), None
+    from probe.daemon import local_commands
+
+    local = await local_commands.answer(deps, argv, here, stdin)
+    if local is not None:
+        return local
     if argv[:2] == ["daemon", "override"]:
+        if deps.reader:
+            return READER_READS_ONLY.format(why="an override runs a write"), None
         if deps.audit:
             return f"{AUDIT_REFUSED} (an override is a question).", None
         return await _request_override(deps, argv[2:], why=why)
@@ -1459,6 +1666,10 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
         refusal = audit_probe_refusal(parsed)
         if refusal is not None:
             return refusal, None
+    if deps.reader and not parsed.help and (parsed.owner != precheck.READ or parsed.path not in READER_PROBE_READS):
+        why = f"`probe {parsed.path}` writes" if parsed.owner != precheck.READ else \
+            f"`probe {parsed.path}` is not one of its reads"
+        return READER_READS_ONLY.format(why=why), None
     if parsed.path in SUMMARY_COMMANDS and _mode_seen(deps) == "lane":
         return LANE_SKIP, None
     try:
@@ -1478,12 +1689,16 @@ async def _checked_probe_command(deps: Deps, argv: list[str], *, why: str = "", 
     if block is not None:
         block.cwd = str(here)
         deps.blocks[block.id] = block
+        if deps.reader:
+            return block.message(), None
         deps.store.log_write(bite=deps.bite_id, op_id=op_id, argv=["probe", *argv], head=parsed.path,
                              status="not_run", reason=f"block {block.id}: {block.why}")
         return block.message(), None
     if parsed.owner == precheck.READ:
         result = await _probe_process(deps, argv, op_id, here)
-        deps.store.log_lookup(bite=deps.bite_id, tool="probe", query=shlex.join(argv), result=result.output[:2000])
+        if _logs_lookups(deps):  # the logbook is the writer's
+            deps.store.log_lookup(bite=deps.bite_id, tool="probe", query=shlex.join(argv),
+                                  result=result.output[:2000])
         return f"[exit {result.code}]\n{_cap(scrub(result.output))}", result
     if parsed.path == "notes sync":
         held = await _maybe_hold_team_note_sync(deps, parsed, op_id, why)
@@ -1587,20 +1802,44 @@ def _checkout_key(checkout: str, parsed: precheck.Parsed) -> str:
     return anchors if checkout == "notes checkout" else f"{checkout}|{anchors}"
 
 
-#: The last summary the writer loaded (`probe summary checkout`), for the pin
-#: (`worker.Worker._summary_pin`): {"kind", "label", "version", "text", "path",
-#: "loaded"}; `loaded` is the checkout's version, which the history is searched for.
-SUMMARY_PIN = "summary_pin"
+#: The summaries the writer keeps (ARTIFACT-PAGES P3): what each checkout of
+#: one said, by its anchor flags (`_anchor_key`, as a push must repeat them):
+#: {anchor: {"kind", "label", "path", "version", "edited_by", "edited_at",
+#: "you", "format", "at"}}, `at` the last time the session touched it. The
+#: worker shows them as OUTLINES (`summary_outline`), never their text: a full
+#: page is large, and a writer that edits the draft in place (`edit`) needs
+#: only where things are. Bounded: the `SUMMARY_DRAFTS_KEPT` most recently
+#: touched entities (`_bound_drafts`).
+SUMMARY_DRAFTS = "summary_drafts"
+#: At most this many entities are kept checked out and outlined for the
+#: writer: the most recently touched. A session that touches a seventh drops
+#: the one it touched longest ago (its draft stays on disk; a checkout brings
+#: it back).
+SUMMARY_DRAFTS_KEPT = 6
+
+
+def _drafts(store) -> dict[str, dict]:
+    saved = store.fact(SUMMARY_DRAFTS)
+    return {k: v for k, v in saved.items() if isinstance(v, dict)} if isinstance(saved, dict) else {}
+
+
+def _bound_drafts(drafts: dict[str, dict]) -> dict[str, dict]:
+    """The `SUMMARY_DRAFTS_KEPT` most recently touched, one per draft file."""
+    by_path: dict[str, tuple[str, dict]] = {}
+    for anchor, entry in sorted(drafts.items(), key=lambda kv: float(kv[1].get("at") or 0)):
+        by_path[str(entry.get("path") or anchor)] = (anchor, entry)
+    newest = sorted(by_path.values(), key=lambda kv: float(kv[1].get("at") or 0), reverse=True)
+    return dict(newest[:SUMMARY_DRAFTS_KEPT])
 
 
 def _remember_note(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
     """The file a `notes checkout`, `summary checkout` or `visuals options`
     wrote (the `path` of the JSON it prints on stdout), for the push or `visuals
-    set` with the same flags (`_document_path`); and a summary's text, for the
-    pin."""
+    set` with the same flags (`_document_path`); and what a summary checkout
+    said about the page, for its outline (`SUMMARY_DRAFTS`)."""
     if parsed.path not in _DOCUMENT_FROM.values():
         if parsed.path == "summary push":
-            _pin_after_push(deps, parsed, stdout)
+            _draft_after_push(deps, parsed, stdout)
         return
     try:
         payload = json.loads(stdout or "")
@@ -1611,30 +1850,515 @@ def _remember_note(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
         checkouts = deps.store.fact("checkouts", {}) or {}
         checkouts[_checkout_key(parsed.path, parsed)] = path
         deps.store.set_fact("checkouts", checkouts)
-        if parsed.path == "summary checkout" and isinstance(payload.get("markdown"), str):
-            version = int(payload.get("version") or 0)
-            deps.store.set_fact(SUMMARY_PIN, {
+        if parsed.path == "summary checkout":
+            drafts = _drafts(deps.store)
+            drafts[_anchor_key(parsed)] = {
                 "kind": str(payload.get("target") or ""), "label": str(payload.get("label") or ""),
-                "version": version, "loaded": version, "text": payload["markdown"], "path": path,
-                "anchor": _anchor_key(parsed)})
+                "path": path, "version": int(payload.get("version") or 0),
+                "edited_by": payload.get("edited_by"), "edited_at": payload.get("edited_at"),
+                "you": payload.get("you"), "format": payload.get("format") or "markdown",
+                "at": deps.store.clock()}
+            deps.store.set_fact(SUMMARY_DRAFTS, _bound_drafts(drafts))
 
 
-def _pin_after_push(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
-    """A push that landed on the pinned summary: the pin is now what was pushed
-    (the draft, which is the page's text after a landed push)."""
-    pin = deps.store.fact(SUMMARY_PIN)
-    if not isinstance(pin, dict) or pin.get("anchor") != _anchor_key(parsed):
+def _draft_after_push(deps: Deps, parsed: precheck.Parsed, stdout: str) -> None:
+    """A push that landed: its draft is the page now, at the new version, last
+    edited by this writer."""
+    drafts = _drafts(deps.store)
+    entry = drafts.get(_anchor_key(parsed))
+    if entry is None:
         return
+    payload = _json(stdout)
+    if not (payload and payload.get("pushed")):
+        return
+    drafts[_anchor_key(parsed)] = {
+        **entry, "version": int(payload.get("version") or 0), "edited_by": entry.get("you") or entry.get("edited_by"),
+        "edited_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(deps.store.clock())), "at": deps.store.clock()}
+    deps.store.set_fact(SUMMARY_DRAFTS, _bound_drafts(drafts))
+
+
+# ---------------------------------------------------------------------------
+# Loading the writer's summaries (ARTIFACT-PAGES P3): checked out by the worker
+# before a run, shown as outlines, edited in place.
+# ---------------------------------------------------------------------------
+
+#: The most the worker spends loading summaries before a run, version reads
+#: and checkouts together (review of #3034, finding 5): past it the run goes
+#: on with what is on disk.
+AUTOLOAD_TIMEOUT_S = 20.0
+#: Logbook rows looked at for what the session wrote (newest first).
+_TOUCH_ROWS = 400
+
+
+def _probe_words(argv_json: str) -> list[str] | None:
     try:
-        payload = json.loads(stdout or "")
+        argv = json.loads(argv_json)
     except ValueError:
+        return None
+    if not isinstance(argv, list) or not argv or argv[0] != "probe":
+        return None
+    return [str(a) for a in argv[1:]]
+
+
+def touched_entities(store, *, limit: int = SUMMARY_DRAFTS_KEPT) -> list[tuple[str, str, float]]:
+    """`(kind, ref, at)` of each project and experiment this session's writes
+    landed on or created, newest first, at most `limit`. From the LOGBOOK --
+    the writes the daemon ran, each read by the CLI's own parse of its
+    arguments (`summary_cli.landing`; an experiment created under a project
+    touches both) -- never from the status line's resolver, which collapses an
+    experiment to its project."""
+    from probe.cli import summary_cli
+
+    seen: dict[tuple[str, str], float] = {}
+    rows = store.db.execute("SELECT argv, at FROM writes WHERE status = 'ran' ORDER BY id DESC LIMIT ?",
+                            (_TOUCH_ROWS,))
+    for row in rows:
+        words = _probe_words(row["argv"])
+        if not words:
+            continue
+        found = summary_cli.landing(words)
+        hits = [found] if found else []
+        if found and found[0] == summary_cli.EXPERIMENT:
+            try:
+                parsed = precheck.parse(words)
+            except precheck.ParseError:
+                parsed = None
+            if parsed is not None and parsed.path == "experiment create":
+                parent = next((v for v in precheck._strings(parsed.params.get("project")) if v.strip()), None)
+                if parent:
+                    hits.append((summary_cli.PROJECT, parent))
+        for hit in hits:
+            if hit not in seen:
+                seen[hit] = float(row["at"])
+        if len(seen) >= limit:
+            break
+    return [(k, r, at) for (k, r), at in list(seen.items())[:limit]]
+
+
+def _draft_dirty(path: str) -> bool:
+    """Does the draft hold edits its base copy (the server's text at checkout)
+    lacks? An unreadable one counts as dirty: never replaced."""
+    draft = Path(path)
+    if not draft.exists():
+        return False
+    try:
+        return draft.read_text(encoding="utf-8") != draft.with_suffix(".base").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return True
+
+
+async def _summary_head(deps: Deps, kind: str, ref: str) -> dict | None:
+    """The summary's version and mode (`probe_api.summary_head`), or None when
+    it cannot be read; a replay answers it when it can, else nothing is asked."""
+    from probe.daemon import probe_api
+
+    if deps.replay is not None:
+        ask = getattr(deps.replay, "summary_head", None)
+        return await ask(kind, ref) if ask is not None else None
+    try:
+        return await asyncio.wait_for(probe_api.summary_head(deps.probe_env, kind, ref), probe_api.SCOPE_TIMEOUT_S)
+    except probe_api.KeyRefused:
+        _mark_key_refused(deps)
+        return None
+    except Exception:  # noqa: BLE001 -- unknown: the draft on disk stands
+        return None
+
+
+def _remember_refused(deps: Deps, anchor: str, stdout: str) -> None:
+    """A checkout the CLI refused because the draft holds unpushed edits
+    (`refused` in its JSON): the draft is still the session's to outline."""
+    from probe.cli import summary_cli
+
+    payload = _json(stdout)
+    if not payload or payload.get("refused") != summary_cli.REFUSED_UNPUSHED or not payload.get("path"):
         return
-    if not (isinstance(payload, dict) and payload.get("pushed")):
-        return
-    text = _read(pin.get("path") or "")
-    if text is None:
-        return
-    deps.store.set_fact(SUMMARY_PIN, {**pin, "version": int(payload.get("version") or 0), "text": text})
+    drafts = _drafts(deps.store)
+    entry = drafts.get(anchor) or {}
+    drafts[anchor] = {**entry, "kind": str(payload.get("target") or ""), "label": str(payload.get("label") or ""),
+                      "path": str(payload["path"]), "version": int(payload.get("version") or 0),
+                      "format": payload.get("format") or "markdown", "at": deps.store.clock()}
+    deps.store.set_fact(SUMMARY_DRAFTS, _bound_drafts(drafts))
+
+
+async def autoload_summaries(deps: Deps) -> list[str]:
+    """Before a writer run (no model round): bring the summaries of every
+    project and experiment the session touched (`touched_entities`, at most
+    `SUMMARY_DRAFTS_KEPT`) onto disk as drafts, through the CLI as the
+    writer's own checkout would (`_remember_note` records it). Only what needs
+    it (review of #3034, finding 5): an entity with no draft yet, or whose
+    clean draft's version is no longer the server's (`_summary_head`, one
+    plain read; nothing when that read fails). A draft holding unpushed edits
+    is never replaced -- the worker leaves it, and so does the CLI if asked
+    (`summary_cli.DraftDirty`) -- and its outline says so. Checkouts skip the
+    Metrics-center question (`--no-visuals`); everything together is bounded by
+    `AUTOLOAD_TIMEOUT_S`. Nothing while the team's summaries are the lane's,
+    or Probe refuses the key. Returns the anchors checked out. Never raises."""
+    try:
+        _tally(deps)
+        if deps.reader or deps.audit or deps.summaries_off or _mode_seen(deps) == "lane" or deps.key_refused:
+            return []
+        touched = touched_entities(deps.store)
+        drafts = _drafts(deps.store)
+        for kind, ref, at in touched:
+            anchor = f"{kind}={ref}"
+            if anchor in drafts:
+                drafts[anchor] = {**drafts[anchor], "at": max(float(drafts[anchor].get("at") or 0), at)}
+        deps.store.set_fact(SUMMARY_DRAFTS, _bound_drafts(drafts))
+
+        async def wanted(kind: str, ref: str) -> bool:
+            entry = drafts.get(f"{kind}={ref}")
+            path = str((entry or {}).get("path") or "")
+            if entry is None or not path or not Path(path).exists():
+                return True
+            if _draft_dirty(path):
+                return False
+            head = await _summary_head(deps, kind, ref)
+            return head is not None and int(head.get("version") or 0) != int(entry.get("version") or 0)
+
+        async def one(kind: str, ref: str) -> str | None:
+            anchor = f"{kind}={ref}"
+            if not await wanted(kind, ref):
+                return None
+            argv = ["summary", "checkout", f"--{kind}", ref, "--no-visuals"]
+            result = await run_probe_process(deps, argv, f"autoload:{anchor}:{int(deps.store.clock())}")
+            if result.code != 0:
+                _remember_refused(deps, anchor, result.stdout)
+                log.info("summary autoload of %s did not check out (exit %s)", anchor, result.code)
+                return None
+            parsed = precheck.parse(argv)
+            _remember_note(deps, parsed, result.stdout)
+            note_summary_marks(deps, parsed, argv, result.stdout, result.stderr)
+            return anchor
+
+        done = await asyncio.wait_for(asyncio.gather(*(one(k, r) for k, r, _ in touched)), AUTOLOAD_TIMEOUT_S)
+        drafts = _drafts(deps.store)
+        for kind, ref, at in touched:  # the checkout stamped `at` now: the touch time orders them
+            entry = drafts.get(f"{kind}={ref}")
+            if entry is not None:
+                drafts[f"{kind}={ref}"] = {**entry, "at": at}
+        deps.store.set_fact(SUMMARY_DRAFTS, _bound_drafts(drafts))
+        return [a for a in done if a]
+    except Exception as exc:  # noqa: BLE001 -- loading is a help, never a failed run
+        log.warning("summary autoload failed: %s: %s", type(exc).__name__, exc)
+        return []
+
+
+#: The outline's lines (ARTIFACT-PAGES P3). Wording NEW
+#: (fixtures/daemon_prompts/bite/summary-outline.NEW.md).
+OUTLINE_HEADER = "# Summaries you keep (outline {digest})"
+OUTLINE_ENTITY = "## {kind} {label} · v{version} · {size} characters"
+OUTLINE_DRAFT = "- draft: {path} · push: probe summary push {flags}"
+OUTLINE_EDITED = "- last edited by {who}, {when}"
+OUTLINE_NO_PAGE = "- no page yet"
+OUTLINE_HEADINGS = "- headings: {headings}"
+OUTLINE_OPENS = "- opens: {opening}"
+OUTLINE_SINCE = "- since v{version}: {activity}"
+OUTLINE_QUIET = "- since v{version}: nothing recorded"
+OUTLINE_DIRTY = "- draft has unpushed edits"
+OUTLINE_MISSING = "- draft is gone: probe summary checkout {flags}"
+#: The opening paragraph, at most this many characters.
+OUTLINE_OPENING_CHARS = 400
+#: Headings listed, then "…".
+OUTLINE_HEADINGS_SHOWN = 12
+#: Kinds of activity listed per entity, then "and N more".
+OUTLINE_ACTIVITY_SHOWN = 6
+
+
+class _PageShape(HTMLParser):
+    """An HTML draft's headings and its first paragraph, as plain text: never
+    from inside a script, a style, a diagram, a template or a person's mark."""
+
+    _SKIP = frozenset({"script", "style", "svg", "math", "template"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.headings: list[str] = []
+        self.opening: str | None = None
+        #: Open elements, innermost last: (tag, skipped there).
+        self._stack: list[tuple[str, bool]] = []
+        self._buf: list[str] | None = None
+        self._kind: str | None = None
+
+    def _skipped(self) -> bool:
+        return any(skip for _tag, skip in self._stack)
+
+    def handle_starttag(self, tag, attrs) -> None:
+        if tag in ("br", "hr", "img", "meta", "link", "input", "wbr"):
+            return
+        marked = any((n or "").lower() == "data-owner" for n, _v in attrs)
+        outside = not self._skipped()
+        self._stack.append((tag, tag in self._SKIP or marked))
+        if self._buf is None and outside and not marked and (
+                tag in ("h1", "h2", "h3", "h4", "h5", "h6") or (tag == "p" and self.opening is None)):
+            self._buf, self._kind = [], tag
+
+    def handle_endtag(self, tag) -> None:
+        for i in range(len(self._stack) - 1, -1, -1):
+            if self._stack[i][0] == tag:
+                del self._stack[i:]
+                break
+        if self._buf is not None and tag == self._kind:
+            text = " ".join("".join(self._buf).split())
+            if text:
+                if tag == "p":
+                    self.opening = text
+                else:
+                    self.headings.append(text)
+            self._buf = self._kind = None
+
+    def handle_data(self, data) -> None:
+        if self._buf is not None and not self._skipped():
+            self._buf.append(data)
+
+
+#: A kept block in an HTML draft, markers and the person's html between them.
+_KEPT_BLOCK = re.compile(r"<!--\s*kept:[^>]*-->.*?<!--\s*/kept\s*-->", re.S)
+_KEPT_MARK = re.compile(r"<!--\s*/?kept[^>]*-->")
+_SERIES_BLOCK = re.compile(r"<script\b[^>]*data-probe-series[^>]*>.*?</script>", re.S | re.I)
+
+
+def _shape(text: str, fmt: str) -> tuple[list[str], str | None]:
+    """`(headings, opening paragraph)` of a draft."""
+    if fmt == "html":
+        parser = _PageShape()
+        # A person's kept text is theirs: never the page's opening or headings.
+        parser.feed(_KEPT_MARK.sub("", _KEPT_BLOCK.sub("", _SERIES_BLOCK.sub("", text))))
+        parser.close()
+        return parser.headings, parser.opening
+    headings: list[str] = []
+    opening: str | None = None
+    block: list[str] = []
+    inside_kept = False
+    for line in [*text.splitlines(), ""]:
+        stripped = line.strip()
+        if stripped.startswith("<!-- kept:"):
+            inside_kept = True
+        if inside_kept:
+            inside_kept = not stripped.startswith("<!-- /kept")
+            continue
+        if stripped.startswith("#"):
+            headings.append(stripped.lstrip("#").strip())
+            continue
+        if stripped and opening is None and not stripped.startswith((">", "-", "*", "|", "<!--")):
+            block.append(stripped)
+        elif block and opening is None:
+            opening = " ".join(block)
+    return headings, opening
+
+
+def _clip(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def _since_ts(entry: dict) -> float:
+    when = entry.get("edited_at")
+    if not isinstance(when, str) or not when:
+        return 0.0
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(when.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def _run_names(words: list[str], parsed: precheck.Parsed, output: str | None) -> set[str]:
+    """Every spelling of the run a `run start` made: its `--name`, and the id,
+    slug and name the command printed."""
+    names = {v for v in precheck._strings(parsed.params.get("name")) if v.strip()}
+    try:
+        value, _end = json.JSONDecoder().raw_decode((output or "").lstrip())
+    except ValueError:
+        value = None
+    if isinstance(value, dict):
+        names |= {str(value[k]) for k in ("id", "slug", "name") if value.get(k)}
+        names |= {f"id:{value['id']}"} if value.get("id") else set()
+    return names
+
+
+def entity_activity(store, kind: str, ref: str, since: float) -> list[str]:
+    """What the session's writes did to the entity since `since` (epoch), from
+    the logbook: a conclusion set, a new experiment under a project, a run
+    started under it and how it ended (a run is the entity's when the session
+    started it there), else the command; repeated ones counted. Oldest first.
+    A run the agent's own code ended, with no write of the daemon's, is not in
+    the logbook and is not listed."""
+    from probe.cli import summary_cli
+
+    counts: dict[str, int] = {}
+    runs: set[str] = set()
+    rows = store.db.execute("SELECT argv, at, output FROM writes WHERE status = 'ran' ORDER BY id")
+    for row in rows:
+        words = _probe_words(row["argv"])
+        if not words:
+            continue
+        try:
+            parsed = precheck.parse(words)
+        except precheck.ParseError:
+            continue
+        found = summary_cli.landing(words)
+        first = lambda name: next((v for v in precheck._strings(parsed.params.get(name)) if v.strip()), None)  # noqa: E731
+        if parsed.path == "run start" and found == (kind, ref):
+            runs |= _run_names(words, parsed, row["output"])
+        if float(row["at"]) <= since:
+            continue
+        what: str | None = None
+        if parsed.path == "experiment create" and kind == summary_cli.PROJECT and first("project") == ref:
+            what = f"new experiment {first('slug') or ''}".strip()
+        elif parsed.path in ("run end", "run set") and first("status") and first("run") in runs:
+            what = f"run {first('run')} {first('status')}"
+        elif found == (kind, ref):
+            if parsed.path == "experiment create":
+                what = "created"
+            elif first("conclusion"):
+                what = "conclusion set"
+            elif parsed.path == "run start":
+                what = "run started"
+            else:
+                what = parsed.path
+        if what:
+            counts[what] = counts.get(what, 0) + 1
+    items = [w if n == 1 else f"{w} ×{n}" for w, n in counts.items()]
+    if len(items) > OUTLINE_ACTIVITY_SHOWN:
+        items = [*items[:OUTLINE_ACTIVITY_SHOWN], f"and {len(items) - OUTLINE_ACTIVITY_SHOWN} more"]
+    return items
+
+
+def summary_outline(store) -> str:
+    """The outlines of the summaries the writer keeps (`SUMMARY_DRAFTS`), most
+    recently touched first, or "": per entity its label and kind, version and
+    size, the draft and the push that sends it, who edited it last and when,
+    its headings, its opening paragraph, what the session did to it since that
+    version, and whether the draft holds unpushed edits. Never the page's text.
+    Plain code from the drafts on disk and the logbook."""
+    from probe.cli import summary_cli
+
+    blocks: list[str] = []
+    drafts = _bound_drafts(_drafts(store))
+    for anchor, entry in drafts.items():
+        # The anchor is the checkout's own flags (`_anchor_key`): the push must
+        # repeat them to find the draft (`_document_path`).
+        flags = " ".join(f"--{k} {v}" for k, _, v in (part.partition("=") for part in anchor.split("|")))
+        kind = str(entry.get("kind") or anchor.partition("=")[0])
+        label = str(entry.get("label") or anchor.partition("=")[2])
+        ref = label
+        version = int(entry.get("version") or 0)
+        path = str(entry.get("path") or "")
+        text = _read(path)
+        lines = [OUTLINE_ENTITY.format(kind=kind.capitalize(), label=label, version=version,
+                                       size=len(text) if text is not None else 0)]
+        if text is None:
+            lines.append(OUTLINE_MISSING.format(flags=flags))
+            blocks.append("\n".join(lines))
+            continue
+        lines.append(OUTLINE_DRAFT.format(path=path, flags=flags))
+        if version and entry.get("edited_at"):
+            when = str(entry["edited_at"]).replace("T", " ")[:16]
+            lines.append(OUTLINE_EDITED.format(who=entry.get("edited_by") or "someone", when=when))
+        elif not version:
+            lines.append(OUTLINE_NO_PAGE)
+        headings, opening = _shape(text, str(entry.get("format") or summary_cli.FORMAT_MARKDOWN))
+        if headings:
+            shown = headings[:OUTLINE_HEADINGS_SHOWN] + (["…"] if len(headings) > OUTLINE_HEADINGS_SHOWN else [])
+            lines.append(OUTLINE_HEADINGS.format(headings=" · ".join(_clip(h, 80) for h in shown)))
+        if opening:
+            lines.append(OUTLINE_OPENS.format(opening=_clip(opening, OUTLINE_OPENING_CHARS)))
+        activity = entity_activity(store, kind, ref, _since_ts(entry))
+        lines.append(OUTLINE_SINCE.format(version=version, activity="; ".join(activity)) if activity
+                     else OUTLINE_QUIET.format(version=version))
+        if _draft_dirty(path):
+            lines.append(OUTLINE_DIRTY)
+        blocks.append("\n".join(lines))
+    return scrub("\n\n".join(blocks))
+
+
+def outline_header(block: str) -> str:
+    """The outline's header line, naming the outline by its content: the same
+    outline is shown once; a changed one is shown again (`worker._summary_outline`)."""
+    import hashlib
+
+    return OUTLINE_HEADER.format(digest=hashlib.sha256(block.encode("utf-8")).hexdigest()[:8])
+
+
+# ---------------------------------------------------------------------------
+# edit: an exact find-and-replace in a checked-out draft.
+# ---------------------------------------------------------------------------
+
+#: Lines of context around an edit in its answer.
+EDIT_CONTEXT_LINES = 3
+
+
+def _within(path: Path, root: Path) -> bool:
+    """Is `path` strictly inside `root`? Without case on a file system that
+    ignores it (macOS, Windows: `realpath` keeps the spelling it was given),
+    exactly elsewhere -- on Linux a folder spelled with other case is another
+    folder."""
+    if sys.platform == "darwin" or os.name == "nt":
+        inner, outer = str(path).casefold(), str(root).casefold().rstrip(os.sep)
+        return inner.startswith(outer + os.sep)
+    return path != root and path.is_relative_to(root)
+
+
+def _draft_roots() -> list[Path]:
+    """The folders `edit` may change files in: the note and summary checkouts
+    (`folders.note_dirs`, without the team note, whose every change the
+    researcher sees first)."""
+    from probe.daemon.folders import note_dirs
+
+    return [Path(os.path.realpath(str(d))) for d in note_dirs()[:2]]
+
+
+async def edit_file(deps: Deps, path: str, old: str, new: str) -> str:
+    """Replace the one place `old` appears in a checked-out draft with `new`.
+    Refused: a path outside the note and summary draft folders (or a link
+    out of them), Probe's bookkeeping beside a draft (`.base`, `.meta.json`,
+    `.lock`, `.owner`), an `old` that is empty, missing or not unique. Answers
+    with the changed lines and `EDIT_CONTEXT_LINES` around them. The file's
+    mode is kept (drafts are 0600)."""
+    from probe.daemon import shell as sh
+    from probe.sdk.durable import write_text_atomic
+
+    stop = write_refusal(deps)
+    if stop is not None:
+        return stop
+    raw = (path or "").strip()
+    if not raw or "\0" in raw:
+        return "not edited: give the draft's path"
+    full = Path(os.path.expanduser(raw))
+    full = full if full.is_absolute() else deps.cwd / full
+    real = Path(os.path.realpath(str(full)))
+    roots = _draft_roots()
+    if not any(_within(real, root) for root in roots):
+        return ("not edited: `edit` changes only a checked-out summary or note draft (the path a `probe "
+                f"summary checkout` or `probe notes checkout` printed, under {', '.join(map(str, roots))})")
+    if sh.is_bookkeeping(real.name) or sh.is_bookkeeping(full.name):
+        return "not edited: that file is Probe's own record of the checkout, never edited"
+    if not real.is_file():
+        return f"not edited: {raw} does not exist; check the summary out first"
+    if not old:
+        return "not edited: `old` is empty; copy the exact text to replace from the draft"
+    text = await asyncio.to_thread(real.read_text, encoding="utf-8")
+    count = text.count(old)
+    if count == 0:
+        return (f"not edited: `old` is not in {raw}. `read` the part you mean to change (offset/limit) and "
+                "copy it exactly, spaces and line breaks included")
+    if count > 1:
+        return (f"not edited: `old` appears {count} times in {raw}; include more of the text around it so it "
+                "matches once")
+    at = text.index(old)
+    changed = text[:at] + new + text[at + len(old):]
+    mode = real.stat().st_mode & 0o777
+    await asyncio.to_thread(write_text_atomic, real, changed, mode=mode)
+    first = text.count("\n", 0, at)
+    last = first + new.rstrip("\n").count("\n")
+    lines = changed.split("\n")
+    if lines and lines[-1] == "" and changed.endswith("\n"):
+        lines.pop()  # the file's final newline ends a line; it starts none
+    lo, hi = max(0, first - EDIT_CONTEXT_LINES), min(len(lines), last + EDIT_CONTEXT_LINES + 1)
+    shown = "\n".join(f"{n + 1:>6}\t{lines[n]}" for n in range(lo, hi))
+    answer = scrub(f"edited {raw} (lines {first + 1}-{last + 1}):\n{shown}")
+    deps.store.log_lookup(bite=deps.bite_id, tool="edit", query=str(real), result=answer[:2000])
+    return answer
 
 
 async def _maybe_hold_delete(deps: Deps, parsed: precheck.Parsed, op_id: str, why: str) -> Outcome | None:
@@ -1853,7 +2577,6 @@ async def read_file(deps: Deps, path: str, offset: int | None = None, limit: int
     on the store runs on the event loop; only the file's own reading goes to a
     thread."""
     from probe.daemon import reader
-    from probe.daemon import shell as sh
     from probe.daemon.bite import skills_root
 
     stop = write_refusal(deps)
@@ -1866,10 +2589,7 @@ async def read_file(deps: Deps, path: str, offset: int | None = None, limit: int
         return "not read: the path holds a NUL byte"
     skills = None if deps.reader else skills_root()
     path = _in_skills(path, deps.cwd, skills)
-    refused = sh.read_refusal(path, workdirs=deps.workdirs, home=deps.home, cwd=deps.cwd,
-                              protected=deps.protected, write_dirs=deps.write_dirs,
-                              read_dirs=[skills] if skills is not None else [],
-                              hidden=_off_check(deps, deps.cwd))
+    refused = _read_refusal(deps, path, deps.cwd, skills)
     if refused is not None:
         reason, never = refused
         if never:
@@ -1883,9 +2603,41 @@ async def read_file(deps: Deps, path: str, offset: int | None = None, limit: int
                     "credential-shaped or private one asks the researcher.")
     full = Path(str(deps.home) + path[1:]) if path == "~" or path.startswith("~/") else deps.cwd / path
     text = scrub(await asyncio.to_thread(reader.render, full, offset, limit))
-    if not deps.reader:
+    if _logs_lookups(deps):
         deps.store.log_lookup(bite=deps.bite_id, tool="read", query=path, result=text[:2000])
     return text
+
+
+def _read_refusal(deps: Deps, path: str, cwd: Path, skills: Path | None) -> tuple[str, bool] | None:
+    from probe.daemon import shell as sh
+
+    return sh.read_refusal(path, workdirs=deps.workdirs, home=deps.home, cwd=cwd, protected=deps.protected,
+                           write_dirs=deps.write_dirs, read_dirs=[skills] if skills is not None else [],
+                           hidden=_off_check(deps, cwd))
+
+
+def read_check(deps: Deps, path: str, cwd: Path) -> tuple[str | None, Path]:
+    """`probe file preview`'s door (the `bash` tool set): the read tool's rules
+    for `path` from `cwd` -- a safe `cat`'s inside the working folders, the
+    skills folder read-only (not the reader's), anything but Probe's own key and
+    state in bypass mode (not the reader's). `(refusal, the file)`."""
+    from probe.daemon import local_commands
+    from probe.daemon.bite import skills_root
+
+    path = (path or "").strip()
+    expanded = Path(str(deps.home) + path[1:]) if path == "~" or path.startswith("~/") else cwd / path
+    if not path or "\0" in path:
+        return "not read: give a path", expanded
+    skills = None if deps.reader else skills_root()
+    refused = _read_refusal(deps, path, cwd, skills)
+    if refused is None:
+        return None, expanded
+    reason, never = refused
+    if never:
+        return f"not read: {reason} This is refused in every mode.", expanded
+    if deps.reader or not (deps.bypass and deps.mode_known):
+        return local_commands.PREVIEW_REFUSED.format(reason=reason), expanded
+    return None, expanded
 
 
 def _in_skills(path: str, cwd: Path, skills: Path | None) -> str:
@@ -2002,7 +2754,7 @@ def session_search(deps: Deps, query: str, kind: str | None = None, turn_from: i
     # The writer never sees what arrived in `read only (daemon)`; the reader does.
     hits = deps.store.search(query, kinds=kinds, turn_from=turn_from, turn_to=turn_to, limit=SEARCH_LIMIT,
                              recorded=not deps.reader)
-    if not deps.reader:  # the logbook is the writer's
+    if _logs_lookups(deps):  # the logbook is the writer's
         deps.store.log_lookup(bite=deps.bite_id, tool="session.search", query=query, result=f"{len(hits)} hits")
     if not hits:
         return f"no event matches {query!r}" + (f" (kind {kind})" if kind else "")

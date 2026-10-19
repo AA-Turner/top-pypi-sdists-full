@@ -108,9 +108,11 @@ _ANALYSIS_DEADLINE = timedelta(seconds=300)
 _REACT_DOCTOR_MAX_DURATION = timedelta(seconds=60)
 _REACT_DOCTOR_SMALL_CHANGE_MAX_FILES = 10
 _REACT_DOCTOR_MEDIUM_CHANGE_MAX_FILES = 50
-_REACT_DOCTOR_SOURCE_SUFFIXES = frozenset(
-    {".astro", ".cjs", ".cts", ".htm", ".html", ".js", ".jsx", ".mjs", ".mts", ".ts", ".tsx"}
-)
+# Match the pinned native changed-source filter, independently of global routing.
+# Python $ also accepts a final newline; native JavaScript requires the true end.
+_REACT_DOCTOR_SOURCE_RE: Final = re.compile(r"\.(?:astro|tsx?|jsx?|mts|mjs|[hH][tT][mM][lL])\Z")
+_REACT_DOCTOR_GENERATED_BUNDLE_RE: Final = re.compile(r"\.(?:iife|umd|global|min)\.m?js\Z", re.IGNORECASE | re.ASCII)
+_REACT_DOCTOR_GENERATED_DIRECTORY_RE: Final = re.compile(r"(?:^|/)__generated__/")
 _ESLINT_NODE_OPTIONS: Final = "--max-old-space-size=4096"
 _ESLINT_LARGE_NODE_OPTIONS: Final = "--max-old-space-size=8192"
 _ESLINT_LARGE_HOST_MEMORY: Final = 12 * 1024**3
@@ -352,6 +354,7 @@ def analyze_external(
     upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
     security_selection: RuleSelection | None = None,
     python_type_check: bool = True,
+    eslint: bool = True,
 ) -> tuple[ToolReport, ...]:
     execute = run_process if runner is None else runner
     try:
@@ -438,7 +441,7 @@ def analyze_external(
         from .devops_schema import analyze_source_schemas  # ruff: ignore[import-outside-top-level] -- schema validation is a selected local runtime adapter.
 
         reports.extend(analyze_source_schemas(root=root, paths=tuple(routed.text)))
-    if capabilities is not None and "eslint" not in capabilities:
+    if not eslint or (capabilities is not None and "eslint" not in capabilities):
         eslint_commands = ()
         unowned_eslint = 0
     else:
@@ -3771,7 +3774,7 @@ def _changed_scope_has_no_source(
         candidate = resolved_root / relative_path
         if candidate.is_relative_to(resolved_scope):
             scoped_changed_file_count += 1
-        if candidate.suffix.casefold() not in _REACT_DOCTOR_SOURCE_SUFFIXES:
+        if not _is_react_doctor_source_path(relative_path):
             continue
         # React Doctor attributes a file only to its nearest enclosing project,
         # so an enclosing root project neither owns nor reports it.
@@ -3783,6 +3786,16 @@ def _changed_scope_has_no_source(
         if owner in resolved_projects:
             return False
     return reported_changed_file_count is None or scoped_changed_file_count == reported_changed_file_count
+
+
+def _is_react_doctor_source_path(relative_path: Path) -> bool:
+    # Native filters Git-relative paths; checkout parents are not source paths.
+    path = relative_path.as_posix()
+    return (
+        _REACT_DOCTOR_SOURCE_RE.search(path) is not None
+        and _REACT_DOCTOR_GENERATED_BUNDLE_RE.search(path) is None
+        and _REACT_DOCTOR_GENERATED_DIRECTORY_RE.search(path) is None
+    )
 
 
 def _validate_react_project_set(

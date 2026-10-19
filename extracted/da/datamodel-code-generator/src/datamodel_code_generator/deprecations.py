@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Literal
 from datamodel_code_generator._registry_render import _render_registry_json, _render_registry_table
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 DeprecationKind = Literal["cli-option", "python-api", "config", "behavior", "schema", "dependency"]
 DeprecationStatus = Literal["active", "scheduled"]
@@ -129,7 +129,11 @@ DEPRECATIONS: dict[DeprecationId, Deprecation] = {
         id="format.default-formatters",
         kind="behavior",
         target="Default formatters",
-        message="Default formatters will change to builtin. Set --formatters or --preset explicitly; see --help.",
+        message=(
+            "Default formatters will change to builtin. Set --formatters or --preset explicitly; see --help. "
+            "Run datamodel-codegen with --recommend-options on one schema to pick a preset and options for it "
+            "(experimental)."
+        ),
         warning_since="0.52.0",
         removal_version=None,
         replacement="Set formatters explicitly, for example black and isort or builtin.",
@@ -265,7 +269,7 @@ _CLI_MIGRATION_WARNINGS: ContextVar[set[DeprecationId] | None] = ContextVar("cli
 
 
 @contextmanager
-def cli_migration_warning_scope() -> Iterator[None]:
+def cli_migration_warning_scope() -> Generator[None]:
     """Deduplicate migration notices within one CLI invocation, including batch/watch."""
     token = _CLI_MIGRATION_WARNINGS.set(set())
     try:

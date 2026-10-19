@@ -16,7 +16,7 @@ def test_star_import_exposes_the_documented_names():
 def test_module_metadata():
     assert munkres.__license__ == "Apache-2.0"
     assert munkres.__url__.startswith("https://")
-    assert munkres.__version__.startswith("2.")
+    assert munkres.__version__.startswith("3.")
     assert "Clapper" in munkres.__author__
 
 

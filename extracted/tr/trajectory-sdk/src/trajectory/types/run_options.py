@@ -75,6 +75,9 @@ class RunOptions(BaseModel):
   n_parallel_agents: int | None = None
   """Maximum active training rollouts (per worker for legacy runs)."""
 
+  max_active_rollouts: int | None = None
+  """Maximum active training rollouts per run."""
+
   execution_timeout_seconds: int | None = None
   """
     Maximum execution time per training or evaluation rollout, including policy and grading.

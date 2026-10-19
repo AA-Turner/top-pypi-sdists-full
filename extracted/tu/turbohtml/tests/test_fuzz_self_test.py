@@ -17,7 +17,7 @@ from fuzz.atheris_header import HEADER_SIZE, SEED_HEADER, Header
 from fuzz.atheris_runtime import build_runtime
 
 import turbohtml
-from turbohtml import Html, Markdown, Minify, NodeIterator, _html, parse, parse_xml
+from turbohtml import Html, Markdown, Minify, NodeIterator, _html, detect, parse, parse_xml
 from turbohtml._html import _tree_verify
 from turbohtml.clean import (
     CSSMinify,
@@ -35,9 +35,12 @@ from turbohtml.clean import (
     minify_css_inline,
     minify_js,
 )
+from turbohtml.cssom import StyleDeclaration, StyleSheet, computed_style
+from turbohtml.extract import normalize_url
 from turbohtml.migration.stdlib import HTMLParser
 from turbohtml.rewrite import rewrite
-from turbohtml.transform import Transform
+from turbohtml.transform import Transform, strparam
+from turbohtml.treebuild import parse_into
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -84,6 +87,7 @@ _SANITIZER: Final = Sanitizer(Policy.strict())
 # Elements only: a text node would add a lazy text copy, which these tests do not target. The custom attribute names
 # make every copy intern them again in its own tree.
 _TREE: Final = "<b zq=1><i></i></b><x y=1></x>"
+_LONG_TEXT: Final = "a" * 8192
 # the input, the radio and the option carry enough attributes that adding value, checked or selected outgrows their
 # arena block
 _INPUT: Final = "<input a0=1 a1=1 a2=1>"
@@ -104,12 +108,64 @@ _SELECT: Final = "<select><option value=a a0=1 a1=1></option></select>"
         pytest.param(_INPUT, lambda fragment: setattr(fragment.children[0], "field_value", "v"), id="input-value"),
         pytest.param(_RADIO, lambda fragment: setattr(fragment.children[1], "checked", True), id="radio-checked"),
         pytest.param(_SELECT, lambda fragment: setattr(fragment.children[0], "field_value", "a"), id="select-value"),
+        pytest.param(
+            "<textarea></textarea>",
+            lambda fragment: setattr(fragment.children[0], "field_value", _LONG_TEXT),
+            id="textarea-value",
+        ),
     ],
 )
 def test_dom_construction_allocation_failure_raises_memory_error(
     alloc_sweep: Callable[..., list[str]], markup: str, call: Callable[[turbohtml.Node], object]
 ) -> None:
     assert set(alloc_sweep(call, lambda: turbohtml.parse_fragment(markup))) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_source_location_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(
+            lambda element: cast("turbohtml.Element", element).source_location,
+            lambda: cast("turbohtml.Element", parse("<p a=x b=y>text</p>", source_locations=True).find("p")),
+        )
+    ) == {"MemoryError"}
+
+
+class _AllocationTreeBuilder:
+    @staticmethod
+    def create_document() -> list[object]:
+        return []
+
+    @staticmethod
+    def create_doctype(name: str, public_id: str | None, system_id: str | None) -> list[object]:
+        return [name, public_id, system_id]
+
+    @staticmethod
+    def create_element(name: str, namespace: str, attrs: tuple[tuple[str, str | None], ...]) -> list[object]:
+        return [name, namespace, attrs]
+
+    @staticmethod
+    def create_text(data: str) -> list[object]:
+        return [data]
+
+    @staticmethod
+    def create_comment(data: str) -> list[object]:
+        return [data]
+
+    @staticmethod
+    def create_pi(target: str, data: str) -> list[object]:
+        return [target, data]
+
+    @staticmethod
+    def append(parent: list[object], child: list[object]) -> None:
+        parent.append(child)
+
+
+@pytest.mark.fuzz_build
+def test_treebuild_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(lambda _: parse_into("<!doctype html><?target data><p a=x>text</p>", _AllocationTreeBuilder()))
+    ) == {"MemoryError"}
 
 
 if TYPE_CHECKING:
@@ -425,6 +481,7 @@ def _alloc_css_minify_page() -> turbohtml.Document:
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+
 # only the fuzz-only build (meson -Dfuzzing=true) defines the hook, so the stubs omit it
 _HOOKS: Final = vars(importlib.import_module("turbohtml._html"))
 
@@ -444,7 +501,11 @@ def alloc_sweep() -> Callable[..., list[str]]:
         pytest.fail("fuzz-build tests need the fuzz-only build: meson setup -Dfuzzing=true")
     inject: Final[Callable[[int], tuple[int, bool]]] = _HOOKS["_fuzz_inject_failure"]
 
-    def sweep(call: Callable[[object], object], setup: Callable[[], object] = lambda: None) -> list[str]:
+    def sweep(
+        call: Callable[[object], object],
+        setup: Callable[[], object] = lambda: None,
+        valid: Callable[[object], bool] = lambda _: True,
+    ) -> list[str]:
         argument = setup()
         inject(0)
         call(argument)
@@ -455,13 +516,13 @@ def alloc_sweep() -> Callable[..., list[str]]:
             inject(position)
             try:
                 try:
-                    call(argument)
+                    result = call(argument)
                 finally:
                     _, failed = inject(0)
             except Exception as exc:  # ruff: ignore[blind-except] - the outcome under test is which exception escapes
                 outcome = type(exc).__name__
             else:
-                outcome = "result"
+                outcome = "result" if valid(result) else "wrong result"
             outcomes.append(outcome if failed else f"{outcome} without the injected failure")
         return outcomes
 
@@ -486,6 +547,19 @@ def test_xslt_compilation_allocation_failure_raises_memory_error(alloc_sweep: Ca
 
 
 @pytest.mark.fuzz_build
+def test_xslt_parameter_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    stylesheet = parse_xml(
+        '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+        '<xsl:param name="value"/><xsl:template match="/"><xsl:value-of select="$value"/>'
+        "</xsl:template></xsl:stylesheet>"
+    )
+    transform = Transform(stylesheet)
+    assert set(alloc_sweep(lambda document: transform(document, value=strparam("'")), lambda: parse_xml("<r/>"))) == {
+        "MemoryError"
+    }
+
+
+@pytest.mark.fuzz_build
 def test_xslt_number_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
     stylesheet = parse_xml(
         '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
@@ -493,6 +567,160 @@ def test_xslt_number_allocation_failure_raises_memory_error(alloc_sweep: Callabl
         "</xsl:stylesheet>"
     )
     assert set(alloc_sweep(Transform(stylesheet), lambda: parse_xml("<r><p/><p/></r>"))) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_url_normalization_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(alloc_sweep(lambda _: normalize_url("http://example.com/a"))) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda _: StyleDeclaration.parse("color: red; margin: 0"), id="declarations"),
+        pytest.param(lambda _: StyleSheet("p { color: red; margin: 0 }"), id="stylesheet"),
+    ],
+)
+def test_cssom_allocation_failure_raises_memory_error(
+    alloc_sweep: Callable[..., list[str]], call: Callable[[object], object]
+) -> None:
+    assert set(alloc_sweep(call)) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_detect_rank_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    options: Final = detect.Detection()
+    expected: Final = detect.detect_all(b"\xef\xbb\xbftext", options)
+    outcomes: Final = set(
+        alloc_sweep(
+            lambda _: detect.detect_all(b"\xef\xbb\xbftext", options),
+            valid=lambda result: result == expected,
+        )
+    )
+    assert outcomes <= {"MemoryError", "result"}
+    assert "MemoryError" in outcomes
+
+
+@pytest.mark.fuzz_build
+def test_detect_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(alloc_sweep(lambda _: detect.detect(b"\xef\xbb\xbftext"))) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_detect_stream_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    def detect_stream(_: object) -> detect.EncodingMatch:
+        detector = detect.EncodingDetector()
+        detector.feed(b"\xef\xbb\xbftext")
+        return detector.close()
+
+    assert set(alloc_sweep(detect_stream)) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_structured_data_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(
+            lambda document: cast("turbohtml.Document", document).structured_data(),
+            lambda: parse('<div itemscope typeof="Thing"><meta property="name" content="x"></div>'),
+        )
+    ) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_microdata_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(
+            lambda document: cast("turbohtml.Document", document).microdata(),
+            lambda: parse('<div itemscope><span itemprop="name">x</span></div>'),
+        )
+    ) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_feed_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(
+            lambda document: cast("turbohtml.Document", document).feed(),
+            lambda: parse_xml(
+                '<rss version="2.0"><channel><title>x</title><item><title>y</title></item></channel></rss>'
+            ),
+        )
+    ) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize("annotated", [False, True], ids=["plain", "annotated"])
+def test_text_table_allocation_failure_raises_memory_error(
+    alloc_sweep: Callable[..., list[str]], *, annotated: bool
+) -> None:
+    assert set(
+        alloc_sweep(
+            lambda document: (
+                cast("turbohtml.Document", document).to_annotated_text({"a": ("link",)})
+                if annotated
+                else cast("turbohtml.Document", document).to_text()
+            ),
+            lambda: parse("<table><tr><td>" + "word " * 100 + "</td></tr></table>"),
+        )
+    ) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_foreign_attributes_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(alloc_sweep(lambda _: parse("<svg viewbox='0 0 1 1' data-custom='x'></svg>"))) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+def test_computed_style_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    def setup() -> turbohtml.Element:
+        return cast(
+            "turbohtml.Element", parse("<style>:unknown{color:red}p{color:blue}</style><p>x</p>").select_one("p")
+        )
+
+    assert set(alloc_sweep(computed_style, setup)) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize(
+    "call",
+    [pytest.param(lambda node: node.data, id="data"), pytest.param(lambda node: node.text, id="text")],
+)
+def test_text_access_allocation_failure_raises_memory_error(
+    alloc_sweep: Callable[..., list[str]], call: Callable[[turbohtml.Text], object]
+) -> None:
+    assert set(alloc_sweep(call, lambda: cast("turbohtml.Text", turbohtml.parse_fragment("a" * 8192).children[0]))) == {
+        "MemoryError"
+    }
+
+
+@pytest.mark.fuzz_build
+def test_element_text_assignment_allocation_failure_raises_memory_error(alloc_sweep: Callable[..., list[str]]) -> None:
+    assert set(
+        alloc_sweep(
+            lambda node: setattr(node, "text", _LONG_TEXT),
+            lambda: cast("turbohtml.Element", turbohtml.parse("<style></style>").select_one("style")),
+        )
+    ) == {"MemoryError"}
+
+
+@pytest.mark.fuzz_build
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda node: node.inner_html, id="inner-html"),
+        pytest.param(lambda node: node.inner_xml, id="inner-xml"),
+        pytest.param(lambda node: node.serialize(), id="serialize"),
+        pytest.param(lambda node: node.to_markdown(), id="markdown"),
+        pytest.param(lambda node: node.to_text(), id="text"),
+    ],
+)
+def test_lazy_text_serialization_allocation_failure_raises_memory_error(
+    alloc_sweep: Callable[..., list[str]], call: Callable[[turbohtml.Node], object]
+) -> None:
+    assert set(alloc_sweep(call, lambda: turbohtml.parse_fragment(f"<p>{'text' * 2048}</p>").children[0])) == {
+        "MemoryError"
+    }
 
 
 if TYPE_CHECKING:
@@ -633,7 +861,13 @@ windows = [None, None]
 def inject(position):
     windows[position == 0] = window = hook(position)
     return window
-rejecting_callback(target.run, target.exceptions, lambda: None, inject)(Path(sys.argv[2]).read_bytes())
+rejecting_callback(
+    target.run,
+    target.exceptions,
+    lambda: None,
+    inject,
+    lossy_on_allocation_failure=target.lossy_on_allocation_failure,
+)(Path(sys.argv[2]).read_bytes())
 assert windows[1][1], windows
 """
 

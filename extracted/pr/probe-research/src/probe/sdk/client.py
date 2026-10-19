@@ -3394,15 +3394,27 @@ class Client:
             raise ValueError("name the anchor: project=<ref> or experiment=<ref>")
         return str(project), None
 
-    def get_summary(self, *, project: str | None = None, experiment: str | None = None) -> dict:
+    def get_summary(
+        self,
+        *,
+        project: str | None = None,
+        experiment: str | None = None,
+        format: str | None = None,
+    ) -> dict:
         """``GET …/summary``: the project's or experiment's summary as Markdown
         (``markdown`` is ``""`` with no page), with ``version``, ``edited_at``,
         ``edited_by``, ``via``, ``session_title``, ``you``, ``today`` and the
-        tenant's ``mode`` (``lane`` | ``recorder``)."""
+        tenant's ``mode`` (``lane`` | ``recorder``). ``format="html"`` asks for
+        the full page instead: ``format``, ``html`` (a person's blocks between
+        ``<!-- kept: hN -->`` markers), ``series`` (its chart declarations) and
+        ``chartable`` (what they may name). A server older than full pages
+        ignores the parameter: no ``format`` key comes back, and the answer is
+        Markdown."""
         p, e = self._summary_anchor(project, experiment)
+        params = {"format": format} if format else None
         if e is None:
-            return self.transport.get(f"/v1/projects/{p}/summary")
-        return self.transport.get(f"/v1/projects/{p}/experiments/{e}/summary")
+            return self.transport.get(f"/v1/projects/{p}/summary", params=params)
+        return self.transport.get(f"/v1/projects/{p}/experiments/{e}/summary", params=params)
 
     def list_summary_versions(
         self,
@@ -3692,7 +3704,9 @@ class Client:
         """
         return self.transport.patch(f"/v1/projects/{project_id}", {"workspace_id": workspace_id})
 
-    def delete_project(self, project_id: str, *, recursive: bool = False) -> dict | None:
+    def delete_project(
+        self, project_id: str, *, recursive: bool = False, dry_run: bool = False
+    ) -> dict | None:
         """Move a project, and everything under it, to the server's TRASH.
 
         Experiments, runs, telemetry and files go with it, and the slug is freed.
@@ -3703,14 +3717,20 @@ class Client:
         version pins something in the tree — and 409, carrying the TOTAL
         descendant blast radius, when the project has live subprojects (0148):
         pass ``recursive=True`` to explicitly take the whole subtree with it,
-        in one transaction."""
+        in one transaction. ``dry_run=True`` changes nothing and answers what
+        would go, whose it is and when it last changed."""
         # transport.request, not .delete: the parity guard resolves paths from
         # the AST, and a path mutated by += would read as unreachable. The
         # query rides `params`, keeping the literal template intact.
+        if dry_run:
+            self._require_dry_run_delete()
+        params = {
+            key: "true" for key, wanted in (("recursive", recursive), ("dry_run", dry_run)) if wanted
+        }
         resp = self.transport.request(
             "DELETE",
             f"/v1/projects/{project_id}",
-            params={"recursive": "true"} if recursive else None,
+            params=params or None,
             idempotent=True,
         )
         return resp.json() if resp.content else None
@@ -4686,8 +4706,8 @@ class Client:
     # `experiment=` (an id or slug) for an experiment's page; the reads are
     # `get_summary`, `list_summary_versions` and `get_summary_version` above:
     #
-    #   GET  .../summary                   SummaryOut {markdown, version, you, today, mode, ...}
-    #   PUT  .../summary                   {markdown, expected_version, session_id, directed}
+    #   GET  .../summary[?format=html]     SummaryOut {markdown | html+series+chartable, version, you, today, mode, ...}
+    #   PUT  .../summary                   {markdown | html (+series), expected_version, session_id, directed}
     #   GET  .../summary/versions          {versions, next_before}
     #   GET  .../summary/versions/{v}      one version's Markdown
     #   GET  .../visuals/options           the closed set `visuals set` picks from
@@ -4716,28 +4736,41 @@ class Client:
 
     def put_summary(
         self,
-        markdown: str,
+        markdown: str | None = None,
         *,
         expected_version: int,
         project: str | None = None,
         experiment: str | None = None,
         session_id: str | None = None,
         directed: bool = False,
+        html: str | None = None,
+        series: list | None = None,
     ) -> dict:
-        """Replace the summary: ``{version, markdown}`` (``markdown`` is what a
-        fresh GET now returns). Raises ``ConflictError`` on a 409 whose
-        ``detail.code`` says why: ``version_moved`` (``detail`` carries the
-        head's ``version`` and ``markdown`` to merge onto),
+        """Replace the summary from ``markdown``, or from ``html`` -- the full
+        page as ``get_summary(format="html")`` gave it, its chart declarations
+        in ``series`` or in the draft's ``data-probe-series`` block -- never
+        both: ``{version, markdown}`` (``markdown``, or ``html`` and
+        ``series``, is what a fresh GET in that format now returns). Raises
+        ``ConflictError`` on a 409 whose ``detail.code`` says why:
+        ``version_moved`` (``detail`` carries the head's ``version`` and
+        ``markdown``, or ``html`` and ``series``, to merge onto),
         ``erased_since_checkout`` (check out again: no merge) or
         ``session_erased``; ``ValidationError`` on a 422 (``detail.code`` and
         ``detail.message`` state the limit); ``ServerError`` 503
         ``summary_writer_off`` while the team's pages are the overview lane's."""
+        if (markdown is None) == (html is None):
+            raise ValueError("put_summary takes exactly one of markdown= and html=")
         body: dict[str, Any] = {
-            "markdown": markdown,
             "expected_version": int(expected_version),
             "session_id": session_id,
             "directed": bool(directed),
         }
+        if html is not None:
+            body["html"] = html
+            if series is not None:
+                body["series"] = series
+        else:
+            body = {"markdown": markdown, **body}
         return self._summary_route(
             lambda p: self.transport.request(
                 "PUT", f"/v1/projects/{p}/summary", json_body=body, idempotent=False
@@ -4953,6 +4986,7 @@ class Client:
         project, experiment = self._experiment_ids(experiment_id, project_id)
         params: dict[str, str] = {}
         if dry_run:
+            self._require_dry_run_delete()
             params["dry_run"] = "true"
         if reason:
             params["reason"] = reason
@@ -7487,6 +7521,12 @@ class Client:
         return resp.json() if resp.content else {}
 
     # -- server capabilities (0185) -----------------------------------------
+    def _require_dry_run_delete(self) -> None:
+        """A dry-run delete only on a server with the trash (0261): an older one
+        ignores `?dry_run=true` and the same DELETE removes for good."""
+        if not self.supports_feature("trash"):
+            raise errors.RosError("this Probe server has no trash, so a delete has no dry run")
+
     def supports_feature(self, name: str) -> bool:
         """Whether the connected server declares ``name`` in
         ``GET /v1/server/features``.
@@ -8085,15 +8125,22 @@ class Client:
         return self.transport.get(f"/v1/spans/{span_id}")
 
     # -- lifecycle (delete = move to the trash) -----------------------------
-    def delete_run(self, run_id: str) -> dict | None:
+    def delete_run(self, run_id: str, *, dry_run: bool = False) -> dict | None:
         """Move a run, with its telemetry, to the server's TRASH. Frees its
         natural key.
 
         Spans, metrics, artifacts and lineage go with it. Probe support can
         restore it for 21 days (the returned receipt says until when); after
         that it is deleted for good. A server without the `trash` feature
-        deletes PERMANENTLY and returns None. 404 if the run does not exist."""
-        return self.transport.delete(f"/v1/runs/{run_id}")
+        deletes PERMANENTLY and returns None. 404 if the run does not exist.
+        ``dry_run=True`` changes nothing and answers what would go."""
+        if not dry_run:
+            return self.transport.delete(f"/v1/runs/{run_id}")
+        self._require_dry_run_delete()
+        resp = self.transport.request(
+            "DELETE", f"/v1/runs/{run_id}", params={"dry_run": "true"}, idempotent=True
+        )
+        return resp.json() if resp.content else None
 
     # -- per-file code capture (0193) ----------------------------------------
     def presign_capture_batch(
@@ -8643,41 +8690,10 @@ class Client:
         return self.write("POST", f"/v1/runs/{run_id}/inputs", body, strict=strict)
 
     def run_inputs(self, run_id: str) -> dict:
-        """The files a run read, each with the run and version that wrote those
-        bytes (derived by content hash), and what the recorder could see."""
+        """The files a run read, each with the catalog entries holding those
+        bytes (`stored_as`; `matches` from an older server), and what the
+        recorder could see."""
         return self.transport.get(f"/v1/runs/{run_id}/inputs")
-
-    def correct_run_input(
-        self,
-        run_id: str,
-        path: str,
-        *,
-        content_hash: str | None = None,
-        dismissed: bool | None = None,
-        version_id: str | None = None,
-        writer_run_id: str | None = None,
-        strict: bool | None = None,
-    ) -> dict | None:
-        """Correct one read's derived match: ``dismissed=True`` drops it,
-        ``version_id=`` pins the version really read, ``writer_run_id=`` pins
-        the RUN that wrote it (a write that run only recorded has no version
-        to pin, lineage plan 3), ``dismissed=False`` hands it back to
-        automatic matching. A pin replaces the one before; ``content_hash``
-        picks one read when the path was read more than once. The server
-        refuses a writer that is the reader itself or that it cannot find
-        (422), and one in the trash (410)."""
-        if version_id is not None and writer_run_id is not None:
-            raise ValueError("pin a version or a writer run, not both")
-        body: dict[str, Any] = {"path": path}
-        if content_hash is not None:
-            body["content_hash"] = content_hash
-        if dismissed is not None:
-            body["dismissed"] = dismissed
-        if version_id is not None:
-            body["version_id"] = version_id
-        if writer_run_id is not None:
-            body["writer_run_id"] = writer_run_id
-        return self.write("PATCH", f"/v1/runs/{run_id}/inputs", body, strict=strict)
 
     # -- what runs WROTE (lineage plan 3, server 0285) ------------------------
     def record_run_outputs(
@@ -8713,8 +8729,8 @@ class Client:
 
     def project_lineage(self, project_id: str, *, limit: int | None = None) -> dict:
         """A project's or experiment's OWN lineage (lineage plan 2, L12/L13/L18):
-        its links in and out (stored, then "built on" derived from its runs'
-        reads, ``derived: true``), its ``origin``, and its direct children as
+        its links in and out (stored, then "built on" derived from what its
+        runs used, ``derived: true``), its ``origin``, and its direct children as
         ``nodes``, each with an origin (at most ``limit``, 1-1000; the server's
         default 200). The graph AMONG its runs and files is
         :meth:`experiment_edges`; an experiment's own lineage is

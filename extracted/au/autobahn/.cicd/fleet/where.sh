@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# where.sh - one look at every fleet repository (DEV PC): git settings, state, `just where`.
+#
+#   ./where.sh                 summary table (one row per repository) + problems
+#   ./where.sh --where         ... plus the full `just where` of every repository
+#   ./where.sh --cohort NAME   restrict to one cohort of the fleet
+#   ./where.sh --only a,b      restrict to some repositories
+#
+# Read-only: fetches the remotes, changes nothing else. Per repository it checks
+#   branch / clean / default branch == upstream == exchange     (in sync everywhere?)
+#   core.hooksPath=.ai/.githooks (or .deps/wamp-ai, lib/aidir.sh) (policy hooks enforced?)
+#   gpg.format=x509, gpg.x509.program=gitsign, commit.gpgsign    (maintainer signing ready?)
+#   submodules at their pinned revision, .cicd / .ai pins        (fleet-consistent?)
+#   `.cicd/scripts/community-files.sh check .`                   (managed files unchanged?)
+#   `just where` answers                                         (Way-A recipes available?)
+
+set -uo pipefail
+# shellcheck source=lib/config.sh
+. "$(dirname "$(readlink -f "$0")")/lib/config.sh"
+. "${FLEET_TOOLS_DIR}/lib/aidir.sh"
+
+WHERE=0; COHORT=""; ONLY=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --where) WHERE=1; shift ;;
+        --cohort) COHORT="$2"; shift 2 ;;
+        --only) ONLY="$2"; shift 2 ;;
+        -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) echo "unknown argument: $1" >&2; exit 2 ;;
+    esac
+done
+# The repositories: the fleet's inventory, optionally one cohort of it.
+list_repos() {
+    if [ -n "${COHORT}" ]; then python3 "${FLEET_TOOLS_DIR}/lib/inventory-repos.py" "${FLEET_INVENTORY}" --cohort "${COHORT}"
+    else python3 "${FLEET_TOOLS_DIR}/lib/inventory-repos.py" "${FLEET_INVENTORY}"; fi
+}
+REPOS_TSV="$(list_repos)" || exit 1
+
+cfg() { git -C "$1" config --get "$2" 2>/dev/null || echo "-"; }
+PROBLEMS=()
+printf '%-20s %-9s %-5s %-13s %-6s %-7s %-8s %-8s %-7s %-9s %s\n' \
+    REPO BRANCH CLEAN "MAIN=UP=EXCH" HOOKS SIGNING .cicd .ai SUBMOD COMMUNITY "JUST WHERE"
+while IFS=$'\t' read -r name _slug main _cohorts; do
+    [ -n "${name}" ] || continue
+    if [ -n "${ONLY}" ] && [[ ",${ONLY}," != *",${name},"* ]]; then continue; fi
+    d="${FLEET_WORK_DIR}/${name}"
+    if [ ! -d "${d}/.git" ]; then printf '%-20s (no clone at %s)\n' "${name}" "${d}"; continue; fi
+    for rem in upstream "${EXCHANGE}"; do git -C "${d}" fetch -q "${rem}" 2>/dev/null || true; done
+
+    br="$(git -C "${d}" branch --show-current)"; br="${br:-DETACHED}"
+    [ -z "$(git -C "${d}" status --porcelain)" ] && clean=yes || { clean=NO; PROBLEMS+=("${name}: working tree not clean"); }
+    l="$(git -C "${d}" rev-parse -q --verify "${main}" 2>/dev/null)"
+    u="$(git -C "${d}" rev-parse -q --verify "upstream/${main}" 2>/dev/null)"
+    x="$(git -C "${d}" rev-parse -q --verify "${EXCHANGE}/${main}" 2>/dev/null)"
+    if [ -n "${l}" ] && [ "${l}" = "${u}" ] && [ "${u}" = "${x}" ]; then sync="yes ${l:0:7}"
+    else sync="NO"; PROBLEMS+=("${name}: ${main} ${l:0:7} / upstream ${u:0:7} / ${EXCHANGE} ${x:0:7} differ"); fi
+
+    [ "$(cfg "${d}" core.hooksPath)" = "$(ai_hooks_path "${d}")" ] && [ -d "${d}/$(ai_hooks_path "${d}")" ] && hooks=yes \
+        || { hooks=NO; PROBLEMS+=("${name}: core.hooksPath is '$(cfg "${d}" core.hooksPath)', should be $(ai_hooks_path "${d}") (and exist)"); }
+    if [ "$(cfg "${d}" gpg.format)" = x509 ] && [ "$(cfg "${d}" gpg.x509.program)" = gitsign ] \
+       && [ "$(cfg "${d}" commit.gpgsign)" = true ] && command -v gitsign >/dev/null; then sign=gitsign
+    else sign=NO; PROBLEMS+=("${name}: signing not configured (gpg.format=$(cfg "${d}" gpg.format) gpg.x509.program=$(cfg "${d}" gpg.x509.program) commit.gpgsign=$(cfg "${d}" commit.gpgsign))"); fi
+
+    cicd="$(git -C "${d}" ls-tree "${main}" .cicd 2>/dev/null | awk '{print substr($3,1,7)}')"
+    ai="$(git -C "${d}" ls-tree "${main}" .ai 2>/dev/null | awk '{print substr($3,1,7)}')"
+    [ -z "$(git -C "${d}" submodule status 2>/dev/null | grep -E '^[-+U]')" ] && sub=pinned || { sub=OFF; PROBLEMS+=("${name}: submodules not at their pinned revision (git submodule update --init --recursive)"); }
+    # A tooling source carries no submodules: its pins are in deps.toml, its checkouts in .deps/.
+    if [ -f "${d}/deps.toml" ]; then
+        DEPS_SH="${FLEET_TOOLS_DIR}/../scripts/deps.sh"
+        [ -n "${cicd}" ] || cicd="$(bash "${DEPS_SH}" get --root "${d}" wamp-cicd 2>/dev/null | cut -c1-7 || true)"
+        [ -n "${ai}" ]   || ai="$(bash "${DEPS_SH}" get --root "${d}" wamp-ai 2>/dev/null | cut -c1-7 || true)"
+        bash "${DEPS_SH}" check --root "${d}" >/dev/null 2>&1 || { sub=OFF; PROBLEMS+=("${name}: .deps/ is not what deps.toml says (just deps)"); }
+    fi
+    # The community files check, from wherever this repository has wamp-cicd: the submodule, the
+    # pinned checkout, or - wamp-cicd itself - its own scripts/ and templates/.
+    cf=""
+    for c in .cicd .deps/wamp-cicd .; do
+        if [ -f "${d}/${c}/scripts/community-files.sh" ] && [ -d "${d}/${c}/templates" ]; then cf="${c}/scripts/community-files.sh"; break; fi
+    done
+    if [ -n "${cf}" ]; then
+        (cd "${d}" && bash "${cf}" check . >/dev/null 2>&1) && comm=ok || { comm=DRIFT; PROBLEMS+=("${name}: community files drifted"); }
+    else comm="-"; fi
+    (cd "${d}" && timeout 60 just where >/dev/null 2>&1) && jw=ok || { jw=FAILS; PROBLEMS+=("${name}: 'just where' fails"); }
+
+    printf '%-20s %-9s %-5s %-13s %-6s %-7s %-8s %-8s %-7s %-9s %s\n' \
+        "${name}" "${br}" "${clean}" "${sync}" "${hooks}" "${sign}" "${cicd:--}" "${ai:--}" "${sub}" "${comm}" "${jw}"
+    if [ "${WHERE}" = 1 ]; then (cd "${d}" && just where 2>&1 | sed 's/^/      /'); fi
+done <<<"${REPOS_TSV}"
+
+echo ""
+if [ "${#PROBLEMS[@]}" -eq 0 ]; then echo "OK: no problems"; else printf 'PROBLEM  %s\n' "${PROBLEMS[@]}"; fi

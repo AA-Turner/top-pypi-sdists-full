@@ -112,6 +112,7 @@ def configure(
     guardrail_run_stop: Callable[..., Any] | None = None,
     guardrail_breach: Callable[..., Any] | None = None,
     failure_rate_limits: Callable[..., Any] | None = None,
+    suspension_exempt: Callable[..., Any] | None = None,
 ) -> None:
     """
     Wire host-supplied dependencies. Call once at app startup.
@@ -186,6 +187,13 @@ def configure(
             hands the give-up to a person on its own surface (aidream raises
             a ``platform.assists`` chip). Optional — without it the guard
             still detects and logs, it just cannot reach anyone.
+        suspension_exempt: async ``(task_id) -> str | None``. A task the host
+            names here (with the sentence saying why) is NEVER switched off by
+            a guard: every ceiling still SCREAMS and reaches the
+            ``escalation_sink``, but the task keeps firing. For infrastructure
+            whose silence costs more than its failures — aidream's
+            ``cloud_browser_lease_maintenance``, whose suspension on
+            2026-10-17 ended every Cloud Computer 150 s later.
     """
     global _configured
     _registry["supabase_client"] = supabase_client
@@ -220,6 +228,7 @@ def configure(
     _registry["guardrail_run_stop"] = guardrail_run_stop
     _registry["guardrail_breach"] = guardrail_breach
     _registry["failure_rate_limits"] = failure_rate_limits
+    _registry["suspension_exempt"] = suspension_exempt
     # async () -> int: continuations one scheduled fire may get after its worker
     # goes away (``continuation.py``). aidream reads the knob
     # scheduler.continuation.max_continuations_per_fire; without a resolver the

@@ -7,7 +7,6 @@ Copyright 2023-2026, Levente Hunyadi
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from pysqlsync.base import BaseContext
 from pysqlsync.formation.constraints import ForeignFactory
@@ -54,7 +53,7 @@ class MySQLExplorer(AnsiExplorer):
         )
 
     @override
-    def get_qualified_id(self, namespace: Optional[str], id: str) -> SupportsQualifiedId:
+    def get_qualified_id(self, namespace: str | None, id: str) -> SupportsQualifiedId:
         return PrefixedId(namespace, id)
 
     def split_composite_id(self, name: str) -> SupportsQualifiedId:
@@ -84,25 +83,24 @@ class MySQLExplorer(AnsiExplorer):
             "ORDER BY ordinal_position",
         )
 
-        columns: list[Column] = []
-        for col in column_meta:
-            columns.append(
-                self.factory.column_class(
-                    LocalId(col.column_name),
-                    self.discovery.sql_data_type_from_spec(
-                        type_name=col.data_type,
-                        type_def=col.column_type,
-                        character_maximum_length=col.character_maximum_length,
-                        numeric_precision=col.numeric_precision,
-                        numeric_scale=col.numeric_scale,
-                        datetime_precision=col.datetime_precision,
-                    ),
-                    bool(col.nullable),
-                    default=col.column_default if col.column_default != "NULL" else None,
-                    identity="auto_increment" in col.extra,
-                    description=col.column_comment or None,
-                )
+        columns: list[Column] = [
+            self.factory.column_class(
+                LocalId(col.column_name),
+                self.discovery.sql_data_type_from_spec(
+                    type_name=col.data_type,
+                    type_def=col.column_type,
+                    character_maximum_length=col.character_maximum_length,
+                    numeric_precision=col.numeric_precision,
+                    numeric_scale=col.numeric_scale,
+                    datetime_precision=col.datetime_precision,
+                ),
+                bool(col.nullable),
+                default=col.column_default if col.column_default != "NULL" else None,
+                identity="auto_increment" in col.extra,
+                description=col.column_comment or None,
             )
+            for col in column_meta
+        ]
         return columns
 
     async def get_referential_constraints(self, table_id: SupportsQualifiedId) -> list[ForeignConstraint]:
@@ -137,7 +135,7 @@ class MySQLExplorer(AnsiExplorer):
             )
         return constraints.fetch()
 
-    async def get_table_description(self, table_id: SupportsQualifiedId) -> Optional[str]:
+    async def get_table_description(self, table_id: SupportsQualifiedId) -> str | None:
         return (
             await self.conn.query_one(
                 str,

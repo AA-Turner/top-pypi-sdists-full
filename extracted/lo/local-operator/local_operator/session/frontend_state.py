@@ -1012,6 +1012,34 @@ _FRONTEND_LOCAL_SLASHES = {
     # user is not sitting at — the same rule `/model default` states explicitly
     # when it refuses to run on a follower.
     "settings",
+    # Reads THIS machine's foreign source stores and writes THIS machine's
+    # config/session root; a follower routed here would inspect and import on
+    # the owner's host instead. Same rule `/settings` states for config.yml.
+    "import",
+    # Reads THIS machine's derived code-request index and fetch cache, which
+    # live under the config root the PAGE reads. Routed to the runtime it would
+    # list the runtime host's PR ledger while the user is looking at this
+    # screen — `/import`'s wrong-machine answer, with nothing written.
+    "review",
+    # Reads and WRITES THIS process's live wake scheduler: the rows are the
+    # ones this terminal's runtime armed, and `set_wake_schedules` re-arms them
+    # here. Routed to a follower's runtime it would list and rewrite wakes on
+    # the host the runtime lives on while the user watches this screen — the
+    # wrong-machine answer `/settings` and `/import` refuse, with a mutation
+    # attached. The machine-wide wake index (the desktop's schedules page) is a
+    # different subject and is deliberately not what this page reads.
+    "schedule",
+    # The Library page reads THIS machine's derived asset catalog and writes
+    # THIS machine's metadata database, both under the config root the page
+    # opens. Routed to an authoritative runtime it would paint the runtime
+    # host's catalog while the user is looking at this screen — `/import`'s
+    # wrong-machine answer, with user-edited names and tags attached.
+    "library",
+    # The Librarian's pause/resume/run hooks read and write THIS machine's
+    # state, and `open` switches THIS terminal onto the pinned conversation
+    # (`/resume`'s local half). A follower routed here would pause or organize
+    # the host's library and then try to attach a session nobody is at.
+    "librarian",
     "provider",
     "search",
     "accounts",

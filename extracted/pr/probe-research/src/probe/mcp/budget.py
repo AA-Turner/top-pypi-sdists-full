@@ -169,9 +169,14 @@ class Budget:
     def byte_limit(self) -> int:
         return BYTES_PER_TOKEN * self.token_budget
 
-    def fits_text(self, text: str) -> bool:
-        """Check both exact limits; an over-byte result need not be tokenized."""
-        return len(_utf8(text)) <= self.byte_limit and count_tokens(text) <= self.token_limit
+    def fits_text(self, text: str, *, reserve: int = 0) -> bool:
+        """Check both exact limits; an over-byte result need not be tokenized.
+        `reserve` tokens (and `BYTES_PER_TOKEN` times as many bytes) are kept
+        free: room for what will be added after this measure."""
+        return (
+            len(_utf8(text)) + BYTES_PER_TOKEN * reserve <= self.byte_limit
+            and count_tokens(text) + reserve <= self.token_limit
+        )
 
-    def fits(self, value: Any) -> bool:
-        return self.fits_text(serialize(value))
+    def fits(self, value: Any, *, reserve: int = 0) -> bool:
+        return self.fits_text(serialize(value), reserve=reserve)

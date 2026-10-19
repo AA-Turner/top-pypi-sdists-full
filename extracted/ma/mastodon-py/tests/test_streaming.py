@@ -1,13 +1,45 @@
 import pytest
 import itertools
+from http.client import HTTPConnection as StdlibHTTPConnection
 from mastodon.streaming import StreamListener, CallbackStreamListener
-from mastodon.Mastodon import MastodonMalformedEventError
+from mastodon.Mastodon import MastodonMalformedEventError, MastodonNetworkError, MastodonReadTimeout
 from mastodon import Mastodon
+from requests.exceptions import ChunkedEncodingError, ConnectionError, ReadTimeout
 
 import threading
 import time
 
 import sys
+
+
+def test_sse_stream_handle_join():
+    from unittest.mock import Mock
+    from mastodon import SSEStreamHandle, StreamHandle
+
+    receiving = threading.Event()
+    stopped = threading.Event()
+    connection = Mock(status_code=200)
+    connection.close.side_effect = stopped.set
+
+    def receive(response):
+        receiving.set()
+        assert stopped.wait(timeout=5), 'Stream was not closed'
+
+    listener = Mock(handle_stream=receive)
+    handle = SSEStreamHandle(None, lambda: connection, False, 0, listener)._start()
+    try:
+        assert isinstance(handle, StreamHandle)
+        assert receiving.wait(timeout=5), 'Stream did not start'
+        assert handle.join(timeout=0) is None
+        assert handle.is_alive()
+        handle.close()
+        assert handle.join(timeout=5) is None
+        assert not handle.is_alive()
+        assert not handle.is_receiving()
+    finally:
+        handle.close()
+        handle.join(timeout=5)
+
 
 streaming_is_patched = False
 real_connections = []
@@ -32,36 +64,44 @@ def patch_streaming():
         return
     streaming_is_patched = True
 
-    # We need to unfortunately patch this. This *will* break in future versions, most likely.
-    # But this is the best we can do, I think.
+    import http.client
+
+    close_connections = False
     real_get_response = vcr.stubs.VCRConnection.getresponse
-    def fake_get_response(*args, **kwargs):
-        global close_connections
-        if args[0]._vcr_request.path.startswith("/api/v1/streaming/"):
-            close_connections = False
-            real_connections.append(args[0].real_connection)
-            vcr_connection = args[0]
-            real_connection_real_get_response = vcr_connection.real_connection.getresponse
-            def fakeRealConnectionGetresponse(*args, **kwargs):
-                response_options = vcr_connection.real_connection._response_options
-                vcr_connection.real_connection._response_options = response_options._replace(
-                    preload_content=False
-                )
-                response = real_connection_real_get_response(*args, **kwargs)
-                real_body = b""
-                try:
-                    # Read in an interruptible way so we can stop the stream (which otherwise)
-                    # goes on forever
-                    while close_connections is False:
-                        chunk = response._fp.read1(65536)
-                        real_body += chunk
-                except Exception:
-                    pass
-                response._body = real_body
-                response.read = lambda *args, **kwargs: real_body
-                return response
-            vcr_connection.real_connection.getresponse = fakeRealConnectionGetresponse
-        return real_get_response(*args, **kwargs)
+
+    def fake_get_response(vcr_connection, *args, **kwargs):
+        if not vcr_connection._vcr_request.path.startswith("/api/v1/streaming/"):
+            return real_get_response(vcr_connection, *args, **kwargs)
+
+        connection = vcr_connection.real_connection
+        original_getresponse = connection.getresponse
+
+        def capture_response(*args, **kwargs):
+            response = StdlibHTTPConnection.getresponse(connection)
+            real_connections.append(connection)
+            chunks = []
+            try:
+                while not close_connections:
+                    chunk = response.read1(65536)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+            except (OSError, http.client.HTTPException):
+                if not close_connections:
+                    raise
+            finally:
+                response.close()
+                connection.close()
+            body = b"".join(chunks)
+            response.read = lambda *args, **kwargs: body
+            return response
+
+        connection.getresponse = capture_response
+        try:
+            return real_get_response(vcr_connection, *args, **kwargs)
+        finally:
+            connection.getresponse = original_getresponse
+
     vcr.stubs.VCRConnection.getresponse = fake_get_response
 
 def unpatch_streaming():
@@ -78,10 +118,23 @@ def streaming_close():
     global real_connections
     global close_connections
     close_connections = True
+    import socket
     for connection in real_connections:
-        connection.close()
+        if connection.sock is not None:
+            try:
+                connection.sock.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
     real_connections = []
     
+@pytest.fixture(autouse=True)
+def cleanup_streaming_recording():
+    yield
+    if streaming_is_patched:
+        streaming_close()
+        unpatch_streaming()
+
+
 class Listener(StreamListener):
     def __init__(self):
         self.updates = []
@@ -90,6 +143,10 @@ class Listener(StreamListener):
         self.heartbeats = 0
         self.bla_called = False
         self.do_something_called = False
+        self.aborts = []
+
+    def on_abort(self, err):
+        self.aborts.append(err)
 
     def on_update(self, status):
         self.updates.append(status)
@@ -345,6 +402,36 @@ def test_multiline_payload():
     ])
     assert listener.updates == [{"foo": "bar"}]
 
+
+class RaisingResponse():
+    """A response object whose iter_content immediately raises `exception`."""
+    def __init__(self, exception):
+        self.exception = exception
+
+    def iter_content(self, chunk_size):
+        raise self.exception
+        yield  # pragma: no cover - makes this a generator function
+
+
+@pytest.mark.parametrize("raised,expected", [
+    (ChunkedEncodingError("nope"), MastodonNetworkError),
+    (ReadTimeout("nope"), MastodonReadTimeout),
+    (ConnectionError("nope"), MastodonNetworkError),
+])
+def test_handle_stream_transport_errors(raised, expected):
+    """
+    Transport level errors have to surface as the matching Mastodon.py error, and the
+    same object has to be handed to on_abort. Everything that reaches the caller of
+    handle_stream must also be a MastodonNetworkError, because that is what the
+    auto-reconnect handler in Mastodon.__stream catches to decide to reconnect.
+    """
+    listener = Listener()
+    with pytest.raises(expected) as exc_info:
+        listener.handle_stream(RaisingResponse(raised))
+    assert isinstance(exc_info.value, MastodonNetworkError)
+    assert exc_info.value.__cause__ is raised
+    assert listener.aborts == [exc_info.value]
+
 @pytest.mark.vcr(match_on=['path'])
 def test_stream_user_direct(api, api2, api3, vcr):
     patch_streaming()
@@ -502,3 +589,55 @@ def test_stream_direct(api, api2, vcr):
 @pytest.mark.vcr()
 def test_stream_healthy(api_anonymous):
     assert api_anonymous.stream_healthy()
+
+
+@pytest.mark.vcr(match_on=['method', 'path', 'query'])
+def test_stream_public_only_media(api):
+    media = api.media_post('tests/image.jpg', synchronous=True, file_name='only-media.jpg')
+    updates = []
+    media_updates = []
+    streams = []
+    posted = []
+    patch_streaming()
+    try:
+        for only_media, received in [(False, updates), (True, media_updates)]:
+            stream = api.stream_public(
+                CallbackStreamListener(update_handler=received.append),
+                local=True, only_media=only_media, run_async=True,
+            )
+            streams.append(stream)
+            # Open one connection at a time: VCR temporarily unpatches HTTP
+            # globally while sending a live request. A second concurrent open
+            # during that window could bypass the recorder.
+            deadline = time.monotonic() + 30
+            while len(real_connections) < len(streams) and stream.connection is None:
+                assert time.monotonic() < deadline, 'Public stream did not connect'
+                time.sleep(0.1)
+
+        # VCR buffers live SSE responses until streaming_close(). On replay,
+        # the handles receive the already buffered responses immediately.
+        if real_connections:
+            time.sleep(2)
+
+        posted.append(api.status_post('SSE text-only stream test', visibility='public'))
+        posted.append(api.status_post(
+            'SSE media-only stream test', media_ids=[media], visibility='public',
+        ))
+        if real_connections:
+            time.sleep(20)  # Allow background distribution to both streams.
+        streaming_close()
+        for stream in streams:
+            stream._thread.join(timeout=10)
+            assert not stream.is_alive(), 'SSE recording did not finish'
+
+        assert len(updates) == 2
+        assert {status.id for status in updates} == {status.id for status in posted}
+        assert [status.id for status in media_updates] == [posted[1].id]
+        assert media_updates[0].media_attachments[0].id == media.id
+    finally:
+        streaming_close()
+        for stream in streams:
+            stream.close()
+            stream._thread.join(timeout=5)
+        for status in posted:
+            api.status_delete(status, delete_media=True)

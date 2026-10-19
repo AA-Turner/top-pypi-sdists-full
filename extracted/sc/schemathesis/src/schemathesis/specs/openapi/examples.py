@@ -21,6 +21,7 @@ from schemathesis.core.errors import (
 from schemathesis.core.jsonschema import CANONICALIZE_DRAFT_BY_VALIDATOR, is_valid, make_validator_for
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
+from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.parameters import ContainerName, ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT
@@ -40,7 +41,12 @@ from schemathesis.specs.openapi._hypothesis import (
     openapi_cases,
     snapped_float32_clone,
 )
-from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter, OpenApiParameterSet
+from schemathesis.specs.openapi.adapter.parameters import (
+    OpenApiBody,
+    OpenApiParameter,
+    OpenApiParameterSet,
+    _deep_merge_overlay,
+)
 from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource
 from schemathesis.specs.openapi.formats import format_lengths_for
 
@@ -96,6 +102,8 @@ def _combo_dedup_key(combo: Any) -> str:
 def _get_pool_combos(
     operation: APIOperation,
     extra_data_source: OpenApiExtraDataSource,
+    *,
+    complete_bodies: bool = True,
 ) -> list[dict[str, Any]]:
     """Return pool variants as parameter dicts, merging all locations into each slot."""
     per_location: list[list[dict[str, Any]]] = []
@@ -128,8 +136,11 @@ def _get_pool_combos(
             schema=body_schema,
         )
         if variants:
-            required_fields = set(body_schema.get("required", []))
-            complete_variants = [v for v in variants if all(f in v.overlay for f in required_fields)]
+            required_fields = set(body_schema.get("required", [])) if complete_bodies else set()
+            # Overlays for array items carry single fields, never a complete array body.
+            complete_variants = [
+                v for v in variants if isinstance(v.overlay, dict) and all(f in v.overlay for f in required_fields)
+            ]
             if complete_variants:
                 per_location.append(
                     [{"body": variant.overlay, "media_type": body.media_type} for variant in complete_variants]
@@ -208,18 +219,18 @@ def get_strategies_from_examples(
     schema_combos = list(produce_combinations(schema_examples))
 
     extra_data_source = feedback.extra_data_source
+    # An example can supply the fields a captured body leaves out; the merged body is checked instead.
     pool_combos = (
-        _get_pool_combos(operation, extra_data_source) if isinstance(extra_data_source, OpenApiExtraDataSource) else []
+        _get_pool_combos(operation, extra_data_source, complete_bodies=not schema_combos)
+        if isinstance(extra_data_source, OpenApiExtraDataSource)
+        else []
     )
 
     if schema_combos and pool_combos:
         # Round-robin merge: schema as base, pool wins for overlapping keys.
         n = max(len(schema_combos), len(pool_combos))
         pool_augmented = [
-            merge_kwargs(
-                {k: dict(v) if isinstance(v, dict) else v for k, v in schema_combos[i % len(schema_combos)].items()},
-                pool_combos[i % len(pool_combos)],
-            )
+            _with_pool_values(operation, schema_combos[i % len(schema_combos)], pool_combos[i % len(pool_combos)])
             for i in range(n)
         ]
         # Keep original schema combos; append pool-augmented ones that differ.
@@ -231,7 +242,7 @@ def get_strategies_from_examples(
     elif schema_combos:
         all_combos = schema_combos
     elif pool_combos and fill_missing:
-        all_combos = [{k: dict(v) if isinstance(v, dict) else v for k, v in combo.items()} for combo in pool_combos]
+        all_combos = [_with_complete_pool_body(operation, combo) for combo in pool_combos]
     else:
         all_combos = []
 
@@ -245,6 +256,47 @@ def get_strategies_from_examples(
         ).map(serialize_components)
         for combo in all_combos
     ]
+
+
+def _with_pool_values(operation: OpenApiOperation, combo: dict[str, Any], pool_combo: dict[str, Any]) -> dict[str, Any]:
+    """`combo` with captured values on top; a captured field deep in the body keeps the example's other fields."""
+    result = {key: dict(value) if isinstance(value, dict) else value for key, value in combo.items()}
+    pool_body = pool_combo.get("body")
+    if isinstance(pool_body, dict):
+        example_body = result.get("body")
+        body: dict[str, Any] = cast("dict[str, Any]", deepclone(example_body)) if isinstance(example_body, dict) else {}
+        _deep_merge_overlay(body, pool_body)
+        if _example_is_valid(body, _make_example_validator(_body_schema(operation, pool_combo["media_type"]))):
+            pool_combo = {**pool_combo, "body": body}
+        else:
+            # The captured fields cannot make a conforming body here, so the example's body goes as is.
+            pool_combo = {key: value for key, value in pool_combo.items() if key not in ("body", "media_type")}
+    return merge_kwargs(result, pool_combo)
+
+
+def _body_schema(operation: OpenApiOperation, media_type: str) -> JsonSchema:
+    return next(candidate for candidate in operation.body if candidate.media_type == media_type).validation_schema
+
+
+def _with_complete_pool_body(operation: OpenApiOperation, combo: dict[str, Any]) -> dict[str, Any]:
+    """`combo` with the body fields its captured values leave out drawn from the schema."""
+    result = {key: dict(value) if isinstance(value, dict) else value for key, value in combo.items()}
+    pool_body = result.get("body")
+    if not isinstance(pool_body, dict):
+        return result
+    schema = _body_schema(operation, combo["media_type"])
+    validator = _make_example_validator(schema)
+    if _example_is_valid(pool_body, validator):
+        return result
+    drawn = _draw_object(schema, operation) if isinstance(schema, dict) else None
+    if drawn is not None:
+        _deep_merge_overlay(drawn, pool_body)
+        if _example_is_valid(drawn, validator):
+            result["body"] = drawn
+            return result
+    # Generation fills the body when the captured fields cannot make one that conforms.
+    del result["body"], result["media_type"]
+    return result
 
 
 def _with_defaults(
@@ -706,6 +758,8 @@ def extract_from_schemas(
         resolver = make_root_resolver(schema)
         bundle_storage = schema.get(BUNDLE_STORAGE_KEY)
         for example_keyword, examples_container_keyword in (("example", "examples"), ("x-example", "x-examples")):
+            if not _mentions_any_key(schema, (example_keyword, examples_container_keyword)):
+                continue
             walk = ExampleWalk(
                 operation=operation,
                 example_keyword=example_keyword,
@@ -739,6 +793,9 @@ def _extract_body_examples_from_schemas(
         resolver = make_root_resolver(schema)
         bundle_storage = schema.get(BUNDLE_STORAGE_KEY)
         for example_keyword, examples_container_keyword in (("example", "examples"), ("x-example", "x-examples")):
+            keys = (example_keyword, examples_container_keyword, *(("default",) if defaults_as_examples else ()))
+            if not _mentions_any_key(schema, keys):
+                continue
             walk = ExampleWalk(
                 operation=operation,
                 example_keyword=example_keyword,
@@ -755,6 +812,22 @@ def _extract_body_examples_from_schemas(
             ):
                 if _example_is_valid(value, body_validator):
                     yield BodyExample(value=value, media_type=body.media_type)
+
+
+def _mentions_any_key(schema: dict[str, Any], keys: tuple[str, ...]) -> bool:
+    # The walk follows every path through shared references, which can be exponentially many. The bundled
+    # representation stores each shared subschema once, so a schema without these keys is skipped after one pass.
+    stack: list[object] = [schema]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, (dict, list)):
+            if isinstance(node, dict):
+                if any(key in node for key in keys):
+                    return True
+                stack.extend(node.values())
+            else:
+                stack.extend(node)
+    return False
 
 
 def _make_example_validator(schema: Any, *, snap_float32: bool = True) -> jsonschema_rs.Validator | None:
@@ -813,12 +886,17 @@ def _completed_body_example(
     except ValueError:
         # `is_valid` tolerates a value outside the JSON types, but listing its errors raises on one.
         return None
-    config = operation.schema.config.generation_for(operation=operation, phase="examples")
-    generated = _generate_single_example(validation_schema, config, operation.schema.adapter.jsonschema_validator_cls)
-    if not isinstance(generated, dict):
+    generated = _draw_object(validation_schema, operation)
+    if generated is None:
         return None
     merged = _deep_merge(generated, value)
     return merged if _example_is_valid(merged, validator) else None
+
+
+def _draw_object(validation_schema: dict[str, Any], operation: APIOperation) -> dict[str, Any] | None:
+    config = operation.schema.config.generation_for(operation=operation, phase="examples")
+    generated = _generate_single_example(validation_schema, config, operation.schema.adapter.jsonschema_validator_cls)
+    return generated if isinstance(generated, dict) else None
 
 
 def _example_is_valid(value: object, validator: jsonschema_rs.Validator | None) -> bool:

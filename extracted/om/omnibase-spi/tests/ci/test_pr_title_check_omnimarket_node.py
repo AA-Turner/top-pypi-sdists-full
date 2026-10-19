@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -20,15 +21,11 @@ pytestmark = pytest.mark.unit
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/pr-title-check.yml"
 MANIFEST = ROOT / ".github/required-checks.yaml"
-REQUIREMENTS = ROOT / ".github/pr-title-node/requirements.txt"
+PYPROJECT = ROOT / "pyproject.toml"
+LOCKFILE = ROOT / "uv.lock"
 CONTEXT = "pr-title / check-title"
 NODE_MODULE = "omnimarket.nodes.node_pr_title_check_compute"
-RUNNER = """${{
-  (github.event_name == 'pull_request' &&
-   github.event.pull_request.head.repo.full_name != github.repository)
-  && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-  || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-}}"""
+RUNNER = "ubuntu-latest"
 
 # Decision branches from the previously pinned reusable. Keep this oracle
 # independent of the installed node, including empty-title precedence and the
@@ -90,7 +87,7 @@ def test_workflow_runs_the_pinned_node_with_scoped_checkout() -> None:
     )
     assert steps[0]["with"] == {
         "persist-credentials": False,
-        "sparse-checkout": ".github/pr-title-node/requirements.txt",
+        "sparse-checkout": "pyproject.toml\nuv.lock\n",
         "sparse-checkout-cone-mode": False,
     }
     assert steps[1]["uses"] == (
@@ -104,7 +101,12 @@ def test_workflow_runs_the_pinned_node_with_scoped_checkout() -> None:
     script = steps[2]["run"]
     assert f'"${{venv}}/bin/python" -I -m {NODE_MODULE}' in script
     assert '--no-deps "omnimarket==${OMNIMARKET_VERSION}"' in script
-    assert "--requirements .github/pr-title-node/requirements.txt" in script
+    assert (
+        "uv sync --frozen --only-group pr-title --no-install-project --python 3.12"
+        in script
+    )
+    assert 'UV_PROJECT_ENVIRONMENT="${venv}"' in script
+    assert "--requirements" not in script
     assert "json.dumps" in script
     assert 'os.environ["PR_TITLE"]' in script
     assert 'os.environ["PR_AUTHOR"]' in script
@@ -113,12 +115,12 @@ def test_workflow_runs_the_pinned_node_with_scoped_checkout() -> None:
 
 def test_workflow_keeps_dependency_out_of_validator_keyword_scan() -> None:
     assert "pydantic" not in WORKFLOW.read_text(encoding="utf-8").lower()
-    requirements = [
-        line.strip()
-        for line in REQUIREMENTS.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.startswith("#")
-    ]
-    assert requirements == ["pydantic>=2.11"]
+    project = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    lock = tomllib.loads(LOCKFILE.read_text(encoding="utf-8"))
+    assert project["dependency-groups"]["pr-title"] == ["pydantic>=2.11"]
+    package = next(p for p in lock["package"] if p["name"] == "omnibase-spi")
+    assert package["dev-dependencies"]["pr-title"] == [{"name": "pydantic"}]
+    assert not list(ROOT.rglob("requirements*.txt"))
 
 
 def test_manifest_names_the_local_producer() -> None:
@@ -149,14 +151,17 @@ def installed_node_python(tmp_path_factory: pytest.TempPathFactory) -> Path:
     subprocess.run(
         [
             uv,
-            "pip",
-            "install",
-            "--quiet",
+            "sync",
+            "--project",
+            str(ROOT),
+            "--frozen",
+            "--only-group",
+            "pr-title",
+            "--no-install-project",
             "--python",
-            str(python),
-            "--no-deps",
-            f"omnimarket=={_environment()['OMNIMARKET_VERSION']}",
+            "3.12",
         ],
+        env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(venv)},
         check=True,
         timeout=90,
     )
@@ -168,8 +173,8 @@ def installed_node_python(tmp_path_factory: pytest.TempPathFactory) -> Path:
             "--quiet",
             "--python",
             str(python),
-            "--requirements",
-            str(REQUIREMENTS),
+            "--no-deps",
+            f"omnimarket=={_environment()['OMNIMARKET_VERSION']}",
         ],
         check=True,
         timeout=90,

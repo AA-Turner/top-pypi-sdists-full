@@ -51,6 +51,8 @@ class RecordedRunOptions(BaseModel):
 
   n_parallel_agents: int | None = None
 
+  max_active_rollouts: int | None = None
+
   execution_timeout_seconds: int | None = None
 
   batch_collection_idle_timeout_seconds: int | None = None

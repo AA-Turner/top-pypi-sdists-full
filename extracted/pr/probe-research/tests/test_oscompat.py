@@ -111,6 +111,29 @@ def test_a_second_handle_in_the_same_process_conflicts(tmp_path):
         oscompat.flock(second.fileno(), oscompat.LOCK_UN)
 
 
+def test_shared_takes_never_conflict_with_each_other_on_posix(tmp_path):
+    """`wizard_lock.running` probes with a shared lock so two probes never see
+    each other; an exclusive take still conflicts with one. Windows has no
+    shared lock: there LOCK_SH is the exclusive stand-in, and must not raise
+    anything but the busy answer."""
+    path = tmp_path / "wizard.lock"
+    with open(path, "a+") as first, open(path, "a+") as second, open(path, "a+") as run:
+        oscompat.flock(first.fileno(), oscompat.LOCK_SH | oscompat.LOCK_NB)
+        if os.name == "nt":
+            with pytest.raises(BlockingIOError):
+                oscompat.flock(second.fileno(), oscompat.LOCK_SH | oscompat.LOCK_NB)
+        else:
+            oscompat.flock(second.fileno(), oscompat.LOCK_SH | oscompat.LOCK_NB)
+        with pytest.raises(BlockingIOError):
+            oscompat.flock(run.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        for handle in (first, second):
+            oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
+        oscompat.flock(run.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        with pytest.raises(BlockingIOError):
+            oscompat.flock(first.fileno(), oscompat.LOCK_SH | oscompat.LOCK_NB)
+        oscompat.flock(run.fileno(), oscompat.LOCK_UN)
+
+
 def test_a_blocking_take_waits_for_the_holder_and_then_holds(tmp_path):
     path = tmp_path / "append.lock"
     with open(path, "a+") as holder, open(path, "a+") as waiter:

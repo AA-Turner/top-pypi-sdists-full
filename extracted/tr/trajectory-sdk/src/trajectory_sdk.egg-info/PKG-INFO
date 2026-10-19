@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.22
+Version: 0.9.24
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -58,6 +58,8 @@ separately from API requests. Set `upload_timeout=...` on `push()`, `start_push(
 `start_task_diagnostic()`, or `timeout=...` on `put_files()`. Pass `None` to disable blob store
 timeouts. These apply to individual HTTP operations against the blob store, not the total upload
 duration or signed-URL expiry.
+`push()` and `start_push()` retry each upload request up to `upload_max_retries` times (default
+`32`, within 4.5 minutes of waiting), separately from the client's `max_retries`.
 
 The generated resource methods map directly to the public HTTP API. Benchmark submission
 and file-upload workflows are available from `trajectory.lib`.

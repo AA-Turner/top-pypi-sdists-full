@@ -57,7 +57,7 @@ from anyscale.commands.util import AnyscaleCommand
 from anyscale.commands.workspace_commands_v2 import workspace_cli as workspace_cli_v2
 import anyscale.conf
 from anyscale.errors import handle_uncaught_exception
-import anyscale.telemetry  # IMPORTANT: auto-patches click instrumentation on import
+import anyscale.telemetry
 from anyscale.utils.cli_version_check_util import log_warning_if_version_needs_upgrade
 
 
@@ -229,12 +229,15 @@ ALIASES = {
 
 
 def main() -> Any:
-    """Run the CLI and turn any uncaught exception into a clean error.
+    """Install CLI telemetry, run the CLI, and turn any uncaught exception into a clean error.
 
     Click handles ClickException and Abort itself, and SystemExit derives from
     BaseException. This handler therefore sees only the exceptions that would
     print a traceback.
     """
+    # Patch Click here, not at import, so `import anyscale` never instruments a host
+    # process's own Click commands.
+    anyscale.telemetry.patch_click()
     try:
         return cli()
     except Exception as e:  # noqa: BLE001

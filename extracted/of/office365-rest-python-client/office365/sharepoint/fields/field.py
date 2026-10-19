@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Optional, Type, Union
 
 from typing_extensions import Self
@@ -24,7 +25,7 @@ class Field(Entity):
         return self.internal_name or self.id or self.entity_type_name
 
     @staticmethod
-    def resolve_field_type(type_id_or_name: Union[str, int]) -> Type[Field]:
+    def resolve_field_type(type_id_or_name: Union[str, int, FieldType]) -> Type[Field]:
         from office365.sharepoint.fields.calculated import FieldCalculated
         from office365.sharepoint.fields.choice import FieldChoice
         from office365.sharepoint.fields.computed import FieldComputed
@@ -53,6 +54,8 @@ class Field(Entity):
             FieldType.Note: FieldMultiLineText,
             FieldType.DateTime: FieldDateTime,
         }
+        if isinstance(type_id_or_name, FieldType):
+            return field_known_types.get(type_id_or_name, Field)
         if isinstance(type_id_or_name, int):
             type_enum = parse_enum(FieldType, type_id_or_name)
             if type_enum is not None:
@@ -154,6 +157,21 @@ class Field(Entity):
     def schema_xml(self, val: str):
         """Sets a value that specifies the XML schema that defines the field."""
         self.set_property("SchemaXml", val)
+
+    def schema_xml_for_copy(self) -> Optional[str]:
+        """Return :attr:`schema_xml` prepared for ``CreateFieldAsXml`` on another site.
+
+        A schema copied verbatim carries its origin-specific ``SourceID`` and
+        ``Version`` attributes. SharePoint rejects such a payload with
+        "The object has been updated by another user since it was last
+        fetched" (while still creating the field); removing those attributes
+        lets the copy complete cleanly. Returns ``None`` when the schema is
+        not loaded.
+        """
+        xml = self.schema_xml
+        if xml is None:
+            return None
+        return re.sub(r'\s*(?:SourceID|Version)="[^"]*"', "", xml)
 
     @property
     def type_as_string(self) -> Optional[str]:
@@ -329,3 +347,93 @@ class Field(Entity):
             # (e.g. "TaxonomyFieldType") is the reliable signal
             self.__class__ = self.resolve_field_type(value)  # type: ignore[reportAttributeAccessIssue]
         return self
+
+    @property
+    def autofill_info(self) -> Optional[str]:
+        """Gets the AutofillInfo property"""
+        return self.properties.get("AutofillInfo", None)
+
+    @property
+    def client_validation_message(self) -> Optional[str]:
+        """Gets the ClientValidationMessage property"""
+        return self.properties.get("ClientValidationMessage", None)
+
+    @property
+    def custom_formatter(self) -> Optional[str]:
+        """Gets the CustomFormatter property"""
+        return self.properties.get("CustomFormatter", None)
+
+    @property
+    def description(self) -> Optional[str]:
+        """Gets the Description property"""
+        return self.properties.get("Description", None)
+
+    @property
+    def direction(self) -> Optional[str]:
+        """Gets the Direction property"""
+        return self.properties.get("Direction", None)
+
+    @property
+    def entity_property_name(self) -> Optional[str]:
+        """Gets the EntityPropertyName property"""
+        return self.properties.get("EntityPropertyName", None)
+
+    @property
+    def index_status(self) -> Optional[int]:
+        """Gets the IndexStatus property"""
+        return self.properties.get("IndexStatus", None)
+
+    @property
+    def is_modern(self) -> Optional[bool]:
+        """Gets the IsModern property"""
+        return self.properties.get("IsModern", None)
+
+    @property
+    def pinned_to_filters_pane(self) -> Optional[bool]:
+        """Gets the PinnedToFiltersPane property"""
+        return self.properties.get("PinnedToFiltersPane", None)
+
+    @property
+    def required(self) -> Optional[bool]:
+        """Gets the Required property"""
+        return self.properties.get("Required", None)
+
+    @property
+    def schema_xml_with_resource_tokens(self) -> Optional[str]:
+        """Gets the SchemaXmlWithResourceTokens property"""
+        return self.properties.get("SchemaXmlWithResourceTokens", None)
+
+    @property
+    def scope(self) -> Optional[str]:
+        """Gets the Scope property"""
+        return self.properties.get("Scope", None)
+
+    @property
+    def sealed(self) -> Optional[bool]:
+        """Gets the Sealed property"""
+        return self.properties.get("Sealed", None)
+
+    @property
+    def show_in_filters_pane(self) -> Optional[int]:
+        """Gets the ShowInFiltersPane property"""
+        return self.properties.get("ShowInFiltersPane", None)
+
+    @property
+    def sortable(self) -> Optional[bool]:
+        """Gets the Sortable property"""
+        return self.properties.get("Sortable", None)
+
+    @property
+    def static_name(self) -> Optional[str]:
+        """Gets the StaticName property"""
+        return self.properties.get("StaticName", None)
+
+    @property
+    def validation_formula(self) -> Optional[str]:
+        """Gets the ValidationFormula property"""
+        return self.properties.get("ValidationFormula", None)
+
+    @property
+    def validation_message(self) -> Optional[str]:
+        """Gets the ValidationMessage property"""
+        return self.properties.get("ValidationMessage", None)

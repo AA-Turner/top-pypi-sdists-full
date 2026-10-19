@@ -104,6 +104,7 @@ from anyscale.client.openapi_client.models import (
     UsergroupListResponse,
     UserInfo,
     WorkspaceDataplaneProxiedArtifacts,
+    WorkspaceSshDetails,
     WriteProject,
 )
 from anyscale.client.openapi_client.models.apply_scheduler_config_request import (
@@ -667,15 +668,41 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
-    def terminate_system_cluster(self, cloud_id: str) -> ClusteroperationResponse:
-        return self._internal_api_client.terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post(
-            cloud_id
+    def list_cloud_resources(self, cloud_id: str) -> List[DecoratedCloudResource]:
+        return (
+            self._internal_api_client.get_cloud_resources_api_v2_clouds_cloud_id_resources_get(
+                cloud_id=cloud_id
+            ).results
+            or []
         )
 
     @handle_api_exceptions
-    def describe_system_workload_get_status(self, cloud_id: str) -> str:
+    def terminate_system_cluster(
+        self,
+        cloud_id: str,
+        cloud_resource_id: Optional[str] = None,
+        *,
+        skip_if_nothing_to_terminate: bool = False,
+    ) -> Optional[ClusteroperationResponse]:
+        try:
+            return self._internal_api_client.terminate_system_cluster_api_v2_system_workload_cloud_id_terminate_post(
+                cloud_id, cloud_resource_id=cloud_resource_id
+            )
+        except (ApiException, InternalApiException) as e:
+            # 404: the cloud resource has no system cluster. 409: it's already terminated.
+            if skip_if_nothing_to_terminate and e.status in (404, 409):
+                return None
+            raise e from None
+
+    @handle_api_exceptions
+    def describe_system_workload_get_status(
+        self, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> str:
         res = self._internal_api_client.describe_system_workload_api_v2_system_workload_cloud_id_describe_post(
-            cloud_id, SystemWorkloadName.RAY_OBS_EVENTS_API_SERVICE, start_cluster=False
+            cloud_id,
+            SystemWorkloadName.RAY_OBS_EVENTS_API_SERVICE,
+            start_cluster=False,
+            cloud_resource_id=cloud_resource_id,
         ).result
         return res.status
 
@@ -771,6 +798,12 @@ class AnyscaleClient(AnyscaleClientInterface):
     @handle_api_exceptions
     def archive_compute_config(self, *, compute_config_id):
         self._internal_api_client.archive_compute_template_api_v2_compute_templates_compute_template_id_archive_post(
+            compute_config_id
+        )
+
+    @handle_api_exceptions
+    def unarchive_compute_config(self, *, compute_config_id):
+        self._internal_api_client.unarchive_compute_template_api_v2_compute_templates_compute_template_id_unarchive_post(
             compute_config_id
         )
 
@@ -2291,6 +2324,12 @@ class AnyscaleClient(AnyscaleClientInterface):
                 cluster_id
             ).result
         )
+
+    @handle_api_exceptions
+    def get_kuberay_workspace_ssh_details(self, workspace_id: str) -> WorkspaceSshDetails:
+        return self._internal_api_client.get_workspace_ssh_details_api_v2_kuberay_workloads_workload_id_ssh_details_get(
+            workspace_id
+        ).result
 
     @handle_api_exceptions
     def get_workspace_default_dir_name(self, workspace_id) -> str:

@@ -82,6 +82,18 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def ensure_aware_utc(value: Optional[datetime]) -> Optional[datetime]:
+    """Return ``value`` as a timezone-aware UTC datetime.
+
+    Values created locally (for example when adding a credential) may carry no
+    ``tzinfo``. Comparing such naive datetimes against :func:`datetime.now`
+    (UTC) raises ``TypeError``; treat them as UTC instead.
+    """
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
 def iso(value: Any) -> str:
     """ISO-8601 string for a datetime (second precision); ``""`` for ``None``."""
     if value is None:
@@ -98,6 +110,21 @@ def iso_or_none(value: Any) -> Optional[str]:
     if value is None or value == datetime.min:
         return None
     return value.isoformat(timespec="seconds") if hasattr(value, "isoformat") else (str(value) or None)
+
+
+def iso_z(value: Any) -> Optional[str]:
+    """UTC ISO-8601 string with a ``Z`` suffix (second precision); ``None`` for ``None``.
+
+    SharePoint and Microsoft Graph parse date-time strings on the wire as UTC
+    with a trailing ``Z``; some endpoints (for example ``ShareLink``) reject a
+    numeric offset such as ``+00:00`` as an invalid date. Naive datetimes are
+    assumed to be UTC.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc)
+    return value.replace(tzinfo=None).isoformat(timespec="seconds") + "Z"
 
 
 def _normalize_datetime_string(value: str) -> str:

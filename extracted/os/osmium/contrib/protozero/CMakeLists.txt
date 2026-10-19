@@ -10,7 +10,7 @@ cmake_minimum_required(VERSION 3.10.0 FATAL_ERROR)
 
 #-----------------------------------------------------------------------------
 
-project(protozero VERSION 1.8.1 LANGUAGES CXX C)
+project(protozero VERSION 1.8.2 LANGUAGES CXX C)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -74,7 +74,7 @@ endif()
 #
 #-----------------------------------------------------------------------------
 message(STATUS "Looking for clang-tidy")
-find_program(CLANG_TIDY NAMES clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16 clang-tidy-15)
+find_program(CLANG_TIDY NAMES clang-tidy clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16 clang-tidy-15)
 
 if(CLANG_TIDY AND PROTOBUF_FOUND)
     message(STATUS "Looking for clang-tidy - found ${CLANG_TIDY}")
@@ -128,12 +128,21 @@ endif()
 #
 #-----------------------------------------------------------------------------
 message(STATUS "Looking for iwyu")
-find_program(IWYU_TOOL NAMES iwyu_tool)
+find_program(IWYU_TOOL NAMES iwyu_tool iwyu_tool.py)
 
 if(IWYU_TOOL)
     message(STATUS "Looking for iwyu - found")
+    set(IWYU_EXTRA_ARGS)
+    if(APPLE)
+        # When using iwyu from Homebrew, we must force it to use the Xcode sysroot,
+        # or iwyu would error on missing <TargetConditionals.h> includes.
+        execute_process(COMMAND xcrun --show-sdk-path
+            OUTPUT_VARIABLE IWYU_SDK_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
+        list(APPEND IWYU_EXTRA_ARGS -isysroot ${IWYU_SDK_PATH} -Wno-c2y-extensions)
+    endif()
     add_custom_target(iwyu
-        ${IWYU_TOOL} -p ${CMAKE_BINARY_DIR}
+        ${IWYU_TOOL} -p ${CMAKE_BINARY_DIR} -- ${IWYU_EXTRA_ARGS}
     )
 else()
     message(STATUS "Looking for iwyu - not found")

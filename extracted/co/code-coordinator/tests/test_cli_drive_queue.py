@@ -1093,6 +1093,98 @@ def test_blocked_escalation_command_proposes_a_plain_add_when_pr_is_green_but_un
     assert "remove" not in command
 
 
+# ── #3719: what a refusal park's escalation proposes ────────────────────────
+#
+# `_refusal_park_escalation_command` delegates the mechanical half to
+# `_blocked_escalation_command` (so #2377's open-PR check and #3539's
+# plain-`add` carve-out apply) and prepends `clear-refusal` ONLY when the
+# delegated tail would actually redispatch AND the refusal is a premise one.
+# That branch selector is a substring sniff on the tail, so both of its
+# negative legs are pinned here: a wording change in
+# `existing_pr_relaunch_remedy`/`merge_gate_remedy_command` that silently
+# flipped either direction would otherwise leave the suite green.
+
+
+def test_refusal_park_command_prepends_clear_refusal_for_a_premise_requeue(
+    monkeypatch, config_file,
+):
+    """The positive leg: premise refusal, nothing dispatched out of band, so
+    the tail is the blind requeue — `coord drive`'s `decide()` reads the
+    latest work row's own status, so the requeue must be preceded by the
+    `clear-refusal` that records the premise holds now (#3339)."""
+    from coord.commands.drive_queue import _refusal_park_escalation_command
+    from coord.drive_queue import entry_key
+
+    monkeypatch.setattr(
+        "coord.commands.drive_queue._existing_pr_match",
+        lambda config_path, repo, issue: None,
+    )
+    command = _refusal_park_escalation_command(
+        None, entry_key(REPO, 4219), "refused on the issue's own false premise",
+        "premise", config_path=config_file,
+    )
+
+    assert command.startswith(f"coord drive-queue clear-refusal {REPO} 4219 ")
+    assert command.index("clear-refusal") < command.index("drive-queue remove")
+    assert command.endswith(
+        f"coord drive-queue remove {REPO} 4219 && coord drive-queue add {REPO} 4219"
+    )
+
+
+def test_refusal_park_command_omits_clear_refusal_for_a_policy_refusal(
+    monkeypatch, config_file,
+):
+    """A `refused_policy` verdict (#2234) has no `clear-refusal` equivalent —
+    it is cleared by retargeting the GitHub issue by hand, which no CLI
+    command expresses — so the proposed command is the delegated tail
+    unchanged. #2871's stale-refusal bypass makes that plain requeue
+    genuinely work once the retarget lands."""
+    from coord.commands.drive_queue import _refusal_park_escalation_command
+    from coord.drive_queue import entry_key
+
+    monkeypatch.setattr(
+        "coord.commands.drive_queue._existing_pr_match",
+        lambda config_path, repo, issue: None,
+    )
+    command = _refusal_park_escalation_command(
+        None, entry_key(REPO, 4220), "refused: the deliverable is coordinator-only",
+        "policy", config_path=config_file,
+    )
+
+    assert command == (
+        f"coord drive-queue remove {REPO} 4220 && coord drive-queue add {REPO} 4220"
+    )
+    assert "clear-refusal" not in command
+
+
+def test_refusal_park_command_omits_clear_refusal_when_the_tail_wont_redispatch(
+    monkeypatch, config_file,
+):
+    """#2377's leg, reached through a premise refusal: an out-of-band green PR
+    already exists for this entry, so the tail is `coord merge --only` and
+    nothing is redispatched. Prepending `clear-refusal` there would assert a
+    rechecked premise to unblock a dispatch that is not going to happen."""
+    from coord.commands.drive_queue import _refusal_park_escalation_command
+    from coord.drive_queue import ExistingPrMatch, entry_key
+
+    monkeypatch.setattr(
+        "coord.commands.drive_queue._existing_pr_match",
+        lambda config_path, repo, issue: ExistingPrMatch(
+            number=4321,
+            branch="issue-4219-prereq-landed",
+            url="https://github.com/example/claude-coordinator/pull/4321",
+            all_green=True,
+        ),
+    )
+    command = _refusal_park_escalation_command(
+        None, entry_key(REPO, 4219), "refused on the issue's own false premise",
+        "premise", config_path=config_file,
+    )
+
+    assert command == f"coord merge --only {REPO}#4219"
+    assert "clear-refusal" not in command
+
+
 def test_a_declared_file_is_checked_against_a_live_branchs_real_diff(
     cli, declare, seed, branch_diff,
 ):
@@ -2296,6 +2388,79 @@ def test_clear_refusal_requires_a_nonempty_reason(cli, seed):
     assert "must not be empty" in result.output
 
 
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "<describe why the premise now holds>",
+        "...",
+        "…",
+        "the prerequisite <name it> has landed",
+    ],
+)
+def test_clear_refusal_rejects_a_still_templated_reason(cli, seed, coord_db, reason):
+    """The recorded recheck is "a human's explicit, auditable assertion …
+    never inferred" (`coord/drive.py`'s `decide()`), and `coord drive`
+    dispatches fresh paid work off its mere presence. Several surfaces print
+    the remediation chain WITH a placeholder in the `--reason` — `coord
+    diagnose`'s `refused_premise` finding, the premise park reason, and the
+    #3719 refusal-park escalation's `proposed_command`, which `coord escalate
+    run` shells out blind. Copying one verbatim must fail here rather than
+    record the template text as the assertion."""
+    seed(assignments=[{"issue_number": 1650, "status": "refused_premise"}])
+
+    result = cli("clear-refusal", REPO, "1650", "--reason", reason)
+
+    assert result.exit_code != 0, result.output
+    assert "still the placeholder text" in result.output
+    row = coord_db.execute(
+        "SELECT premise_rechecked_at, premise_rechecked_reason FROM assignments "
+        "WHERE assignment_id = ?",
+        ("a-claude-coordinator-0",),
+    ).fetchone()
+    assert row["premise_rechecked_at"] is None
+    assert row["premise_rechecked_reason"] is None
+
+
+def test_the_refusal_escalations_own_proposed_command_fails_closed(
+    cli, seed, coord_db, monkeypatch, config_file,
+):
+    """`drive_escalations.proposed_command` is executed BLIND: `coord escalate
+    run` shells the whole string out with no confirmation prompt and, unless
+    it exits non-zero, dismisses the escalation as resolved. So the premise
+    remedy's placeholder `--reason` is only safe while `clear-refusal` keeps
+    rejecting it — this reads the placeholder back out of the command the
+    sweep actually proposes and asserts a blind run dies on the FIRST step,
+    before any requeue and with no fabricated recheck recorded."""
+    import shlex
+
+    from coord.commands.drive_queue import _refusal_park_escalation_command
+    from coord.drive_queue import entry_key
+
+    monkeypatch.setattr(
+        "coord.commands.drive_queue._existing_pr_match",
+        lambda config_path, repo, issue: None,
+    )
+    proposed = _refusal_park_escalation_command(
+        None, entry_key(REPO, 1650), "refused on the issue's own false premise",
+        "premise", config_path=config_file,
+    )
+    first_step, _, requeue = proposed.partition(" && ")
+    argv = shlex.split(first_step)
+    assert argv[:4] == ["coord", "drive-queue", "clear-refusal", REPO]
+    assert "drive-queue add" in requeue  # the step that must never be reached
+    reason = argv[argv.index("--reason") + 1]
+
+    seed(assignments=[{"issue_number": 1650, "status": "refused_premise"}])
+    result = cli("clear-refusal", REPO, "1650", "--reason", reason)
+
+    assert result.exit_code != 0, result.output
+    row = coord_db.execute(
+        "SELECT premise_rechecked_at FROM assignments WHERE assignment_id = ?",
+        ("a-claude-coordinator-0",),
+    ).fetchone()
+    assert row["premise_rechecked_at"] is None
+
+
 # ── remove owns the driver it orphans (#3282) ───────────────────────────────
 #
 # Before this fix, `remove` deleted only the queue row: a driver already
@@ -3094,6 +3259,87 @@ def test_a_dead_drives_own_exit_reason_reaches_the_queue_row(
     assert state._get_drive_escalation_local(REPO, 1762) is not None
 
 
+def test_a_premise_refusal_park_escalates_exactly_once(
+    cli, seed, launches, coord_db, monkeypatch,
+):
+    """#3719: a premise refusal (#3164) parks the entry, but unlike a
+    `merge_ci_pending` park it never clears itself — `plan_tick`'s
+    STATE_PARKED pre-pass just `continue`s on it forever (see
+    `test_a_parked_policy_refusal_does_not_auto_resume_next_tick` in
+    tests/test_drive_queue.py). Before this issue, that meant the entry
+    sat parked and invisible until an operator happened to go looking in
+    `coord drive-queue list`. The very tick that first parks it must now
+    also write a `drive_escalations` row naming the human decision needed
+    (confirm the premise now holds) and, as the mechanical half, a
+    `clear-refusal` ahead of the requeue — `coord drive`'s `decide()` keys
+    off the latest work assignment's own status column, so a bare requeue
+    without first clearing the refusal would just die on it again. Because
+    the pre-pass never re-emits a `Reconcile` for an already-parked entry, a
+    second tick must NOT write a second escalation.
+    """
+    from coord.audit import record_audit
+    from coord.models import PREMISE_REFUSAL_MARKER
+    from coord import state as state_module
+
+    calls = []
+    real_record = state_module.record_drive_escalation
+
+    def _spy(*args, **kwargs):
+        calls.append((args, kwargs))
+        return real_record(*args, **kwargs)
+
+    monkeypatch.setattr(state_module, "record_drive_escalation", _spy)
+
+    seed(issues={4219: "open"})
+    cli("add", REPO, "4219")
+    cli("tick")
+
+    reason = (
+        f"drive exited for {REPO}#4219 (exit_code=1): work 721861c90bf3 "
+        "refused on the issue's own false premise rather than doing the "
+        f"dispatched work — the worker did the CORRECT thing (#3164). "
+        f"{PREMISE_REFUSAL_MARKER}"
+    )
+    launched_at = queued(4219)["launched_at"]
+    _backdate(4219, DRIVE_STARTUP_GRACE_SECONDS + 60)
+    record_audit(
+        tier="business", category="drive", event_type="drive_exited",
+        actor="drive", summary=reason, repo=REPO, issue=4219,
+        ts=launched_at + 5,
+    )
+    result = cli("tick")
+    assert result.exit_code == 0, result.output
+
+    entry = queued(4219)
+    assert entry["state"] == "parked"
+    assert entry["attempts"] == 0
+
+    escalation = state._get_drive_escalation_local(REPO, 4219)
+    assert escalation is not None
+    proposed = escalation["proposed_command"]
+    assert "coord drive-queue clear-refusal" in proposed
+    assert "coord drive-queue remove" in proposed
+    assert "coord drive-queue add" in proposed
+    # The clear-refusal must run BEFORE the requeue it precedes, or the
+    # requeue's own redispatch races the still-unset premise-recheck flag.
+    assert proposed.index("clear-refusal") < proposed.index("remove")
+    assert PREMISE_REFUSAL_MARKER in escalation["reason"]
+    assert "refusal=premise" in escalation["gate_readings"]
+    first_created_at = escalation["created_at"]
+    assert len(calls) == 1, calls
+
+    # A second tick: the entry stays parked, no second escalation write.
+    second = cli("tick")
+    assert second.exit_code == 0, second.output
+    assert queued(4219)["state"] == "parked"
+    still = state._get_drive_escalation_local(REPO, 4219)
+    assert still is not None
+    assert still["created_at"] == first_created_at
+    # The actual write call count — not just the preserved `created_at` —
+    # is the assertion that would fail if the sweep re-escalated.
+    assert len(calls) == 1, calls
+
+
 def test_exhausted_ci_stale_escalation_proposes_revalidate_not_a_requeue(
     cli, seed, launches, coord_db, config_file
 ):
@@ -3384,6 +3630,27 @@ def test_a_still_parked_entry_stays_parked_across_a_quiet_tick(
     assert entry["state"] == "parked"
     assert entry["attempts"] == 0
     assert len(launches) == 1, launches  # no second launch attempt
+
+
+def test_a_merge_ci_pending_park_never_escalates(cli, seed, launches, coord_db):
+    """#3719's sweep targets only the two causes a human must decide
+    (policy/premise refusal) — a `merge_ci_pending` park is self-healing
+    (the pre-pass in `plan_tick` resumes it the moment CI reports), so it
+    must never write a `drive_escalations` row, no matter how many quiet
+    ticks it sits through."""
+    seed(issues={1762: "open"})
+    cli("add", REPO, "1762")
+    cli("tick")
+    _seed_ci_pending_merge_row(coord_db, 1762)
+    _backdate(1762, DRIVE_STARTUP_GRACE_SECONDS + 60)
+    cli("tick")
+    assert queued(1762)["state"] == "parked"
+    assert state._get_drive_escalation_local(REPO, 1762) is None
+
+    result = cli("tick")
+    assert result.exit_code == 0, result.output
+    assert queued(1762)["state"] == "parked"
+    assert state._get_drive_escalation_local(REPO, 1762) is None
 
 
 # ── #2158: a park must have an exit that is not the merge it blocks ────────

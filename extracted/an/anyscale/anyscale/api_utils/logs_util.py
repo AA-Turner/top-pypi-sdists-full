@@ -1,4 +1,5 @@
 import asyncio
+import gzip
 import re
 from typing import List, Optional
 
@@ -10,6 +11,13 @@ from anyscale.utils.proxy_util import get_proxy_config
 
 
 CLUSTER_CONNECT_TIMEOUT = 30
+GZIP_MAGIC_BYTES = b"\x1f\x8b"
+
+
+def decode_log_bytes(content: bytes) -> str:
+    if content.startswith(GZIP_MAGIC_BYTES):
+        content = gzip.decompress(content)
+    return content.decode("utf-8", errors="replace")
 
 
 async def _download_logs_concurrently(
@@ -41,7 +49,7 @@ async def _download_log_from_s3_url(
         async with session.get(
             url, headers=headers, proxy=proxy, proxy_headers=proxy_headers
         ) as response:
-            return await response.text(encoding="utf-8", errors="replace")
+            return decode_log_bytes(await response.read())
 
 
 def _download_log_from_s3_url_sync(
@@ -52,7 +60,7 @@ def _download_log_from_s3_url_sync(
     headers = {"Authorization": f"Bearer {bearer_token}"} if bearer_token else {}
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    return response.content.decode("utf-8", errors="replace")
+    return decode_log_bytes(response.content)
 
 
 def _remove_ansi_escape_sequences(s: str) -> str:

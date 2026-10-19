@@ -42,7 +42,8 @@ from pathlib import Path
 # claude_cli.py is itself stdlib-only (shutil/subprocess/dataclasses, see its
 # own docstring), so importing it adds no dependency weight and, critically,
 # no import cycle -- it does not import agent_rules, pi_config, or anything
-# else in this package back. It is imported for exactly one thing: `Result`.
+# else in this package back. It is imported for `Result`, and for the bounded
+# way to run a binary (`claude_cli.capture`, `pi_binary_available`'s sniff).
 # setup.py's install_plugin/uninstall_plugin already return claude_cli.Result,
 # and a later task wires pi's install/remove into the SAME call sites
 # (apply_capture, apply_tracking) that already know how to read `.ok` and
@@ -104,6 +105,13 @@ MIRROR_GIT_SOURCE = f"git:github.com/{MIRROR_REPO}"
 _MIRROR_IDENTITY = ("github.com", MIRROR_REPO.lower())
 
 
+def pi_on_path() -> bool:
+    """Whether a `pi` resolves on PATH at all -- no sniff, no subprocess
+    (`setup.detectable_sources(sniff=False)`). `pi_binary_available` is the
+    answer that tells pi from a two-letter impostor."""
+    return shutil.which("pi") is not None
+
+
 @lru_cache(maxsize=1)
 def pi_binary_available() -> bool:
     """Whether the `pi` binary is on PATH and is really pi.
@@ -152,14 +160,12 @@ def pi_binary_available() -> bool:
     path = shutil.which("pi")
     if path is None:
         return False
+    # `probe status --refresh` bounds the sniff like every agent-CLI call.
+    timeout = claude_cli.call_timeout(3)
+    if timeout <= 0:
+        return False
     try:
-        completed = subprocess.run(  # noqa: S603 - resolved binary, no shell
-            [path, "--help"],
-            capture_output=True,
-            text=True,
-            timeout=3,
-            check=False,
-        )
+        completed = claude_cli.capture([path, "--help"], timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return False
     return completed.returncode == 0 and "coding" in completed.stdout.lower()

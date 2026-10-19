@@ -92,6 +92,42 @@ async function main() {
       waitUntil: "domcontentloaded",
       timeout: remaining(),
     });
+    const reportControls = async (frame, selector) => {
+      try {
+        const state = await frame.evaluate((selector) => {
+          const control = document.querySelector(
+            '[role="combobox"][aria-label="File type"]',
+          );
+          return {
+            selectedFormat: control?.innerText.slice(0, 100),
+            expanded: control?.getAttribute("aria-expanded"),
+            viewport: { width: innerWidth, height: innerHeight },
+            controls: [...document.querySelectorAll(selector)]
+              .slice(0, 20)
+              .map((el) => {
+                const box = el.getBoundingClientRect();
+                return {
+                  label: el.getAttribute("aria-label"),
+                  text: el.innerText.slice(0, 100),
+                  disabled:
+                    Boolean(el.disabled) ||
+                    el.getAttribute("aria-disabled") === "true",
+                  visible: box.width > 0 && box.height > 0,
+                  centerExposed: el.contains(
+                    document.elementFromPoint(
+                      box.x + box.width / 2,
+                      box.y + box.height / 2,
+                    ),
+                  ),
+                };
+              }),
+          };
+        }, selector);
+        console.error("Canva export controls:", JSON.stringify(state));
+      } catch (error) {
+        console.error("Canva menu diagnostics unavailable:", error.message);
+      }
+    };
     const click = async (
       role,
       name,
@@ -122,13 +158,24 @@ async function main() {
                 .trim()
                 .replace(/\s+/g, " ");
               if (
-                role === "option"
-                  ? !text.startsWith(name + " ") && text !== name
-                  : text !== name
+                ![name]
+                  .flat()
+                  .some((label) =>
+                    role === "option"
+                      ? text.startsWith(label + " ") || text === label
+                      : text === label,
+                  )
               )
                 continue;
               if (el.disabled || el.getAttribute("aria-disabled") === "true")
                 continue;
+              const bounds = el.getBoundingClientRect();
+              if (!bounds.width || !bounds.height) continue;
+              el.scrollIntoView({
+                block: "nearest",
+                inline: "nearest",
+                behavior: "instant",
+              });
               const r = el.getBoundingClientRect();
               if (
                 !r.width ||
@@ -159,13 +206,24 @@ async function main() {
           name,
           selector,
         )
-        .catch(() => {
+        .catch(async () => {
+          await reportControls(frame, selector);
           throw new Error(`Canva export control unavailable: ${role} ${name}`);
         });
       const element = handle.asElement();
-      const box = await element.boundingBox();
-      if (!box) throw new Error("Canva export control is not visible");
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      try {
+        // The export tab can stop painting under Xvfb even with focus emulation.
+        // Readiness and scrolling above must not be followed by Locator's RAF /
+        // IntersectionObserver waits. Keep a trusted click at the native point,
+        // which also accounts for controls inside the template iframe.
+        const { x, y } = await element.clickablePoint();
+        await page.mouse.click(x, y);
+      } catch (error) {
+        await reportControls(frame, selector);
+        throw new Error(`Canva export click failed: ${role} ${name}: ${error.message}`);
+      } finally {
+        await handle.dispose();
+      }
     };
     if (
       current.pathname.endsWith("/view") &&
@@ -225,7 +283,14 @@ async function main() {
         click("button", "Open in Editor", frame),
       ]);
     }
-    await click("menuitem", "Share");
+    // Compact layouts label the publish menu differently and also expose a
+    // separate Share control that only changes collaboration permissions.
+    await click(
+      "menuitem",
+      ["Share", "All Publish Options"],
+      page,
+      '[role="menuitem"]:not([aria-label="Share"])',
+    );
     await click("button", "Download");
     await click("combobox", "File type");
     await page
@@ -234,32 +299,7 @@ async function main() {
         timeout: remaining(),
       })
       .catch(async (error) => {
-        try {
-          const state = await page.evaluate(() => {
-            const visible = (el) => {
-              const box = el.getBoundingClientRect();
-              return box.width > 0 && box.height > 0;
-            };
-            const control = document.querySelector(
-              '[role="combobox"][aria-label="File type"]',
-            );
-            return {
-              selectedFormat: control?.innerText.slice(0, 100),
-              expanded: control?.getAttribute("aria-expanded"),
-              visible: control ? visible(control) : false,
-              options: [...document.querySelectorAll('[role="option"]')]
-                .filter(visible)
-                .slice(0, 20)
-                .map((el) => ({
-                  label: el.innerText.slice(0, 100),
-                  disabled: el.getAttribute("aria-disabled"),
-                })),
-            };
-          });
-          console.error("Canva file-type discovery failed:", JSON.stringify(state));
-        } catch (diagnosticError) {
-          console.error("Canva menu diagnostics unavailable:", diagnosticError.message);
-        }
+        await reportControls(page, '[role="option"]');
         throw error;
       });
     const native = await page.evaluate(
@@ -273,7 +313,12 @@ async function main() {
       : ["PDF"];
     for (let index = 0; index < formats.length; index++) {
       if (index) {
-        await click("menuitem", "Share");
+        await click(
+          "menuitem",
+          ["Share", "All Publish Options"],
+          page,
+          '[role="menuitem"]:not([aria-label="Share"])',
+        );
         await click("button", "Download");
         await click("combobox", "File type");
       }

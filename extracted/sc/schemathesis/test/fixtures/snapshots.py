@@ -180,7 +180,7 @@ def _mask_generated(data: str) -> str:
 
 
 def _mask_local_ports(data: str) -> str:
-    return re.sub(r"(https?)://127\.0\.0\.1:[0-9]{3,}", r"\1://127.0.0.1", data)
+    return re.sub(r"(https?)://([^/@\s]+@)?127\.0\.0\.1:[0-9]{3,}", r"\1://\g<2>127.0.0.1", data)
 
 
 def _mask_config_path(data: str) -> str:
@@ -346,15 +346,26 @@ def _mask_reproduce_commands(data: str) -> str:
     # has a varying number of steps. The `st replay <id>` line is masked separately by `replace_test_case_id`.
     lines = []
     seen = False
+    after_warning = False
     for line in data.splitlines():
         if "curl" in line or line.lstrip().startswith("# as "):
             if not seen:
                 lines.append("    <PLACEHOLDER>")
                 seen = True
+        elif line.endswith(CURL_WARNING_SUFFIXES) or CURL_WARNING_MARKER in line:
+            # Warnings describe the masked command's generated values, so they vary with it.
+            after_warning = True
+        elif after_warning and not line.strip():
+            after_warning = False
         else:
             seen = False
+            after_warning = False
             lines.append(line)
     return "\n".join(lines) + "\n"
+
+
+CURL_WARNING_MARKER = "contains non-printable characters. Actual value:"
+CURL_WARNING_SUFFIXES = ("was truncated for shell display.",)
 
 
 TRANSIENT_LINE_PREFIXES = (
@@ -522,11 +533,12 @@ def normalize_connection_errors(data: str) -> str:
         .replace("Errno 104", "Error NUM")
         .replace("Errno 54", "Error NUM")
         .replace("WinError 10061", "Error NUM")
+        .replace("WinError 10054", "Error NUM")
         .replace("Cannot connect to proxy.", "Unable to connect to proxy")
     )
     return data.replace(
         "No connection could be made because the target machine actively refused it", "Connection refused"
-    )
+    ).replace("An existing connection was forcibly closed by the remote host", "Connection reset by peer")
 
 
 @pytest.fixture
@@ -587,13 +599,18 @@ def snapshot_html(snapshot, monkeypatch):
 
         def serialize(self, data, *, exclude=None, include=None, matcher=None):
             data = re.sub(r"<style>.*?</style>", "<style><CSS></style>", data, count=1, flags=re.DOTALL)
+            data = re.sub(r"<script>.*?</script>", "<script><JS></script>", data, flags=re.DOTALL)
             data = data.replace(f"v{SCHEMATHESIS_VERSION}", "v<VERSION>")
             data = normalize_connection_errors(data)
             data = re.sub(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC", "<GENERATED-AT>", data)
             data = re.sub(r"127\.0\.0\.1:\d+", "127.0.0.1:<PORT>", data)
             data = re.sub(r'(Duration</span><span class="m-value">)[^<]+', r"\1<DURATION>", data)
             data = re.sub(r"(Finished in |Stopped by user after )[^<]+", r"\1<DURATION>", data)
-            data = re.sub(r'(class="case-id">)[^<]+', r"\1<CASE-ID>", data)
+            data = re.sub(
+                r'(class="case-id permalink-id" href="#case-)\w+(" title="Link to this case">)[^<]+',
+                r"\1<CASE-ID>\2<CASE-ID>",
+                data,
+            )
             data = re.sub(r'id="case-\w+"', 'id="case-<CASE-ID>"', data)
             data = re.sub(r"st replay \w+", "st replay <CASE-ID>", data)
             data = re.sub(r"X-Schemathesis-TestCaseId: \w+", "X-Schemathesis-TestCaseId: <CASE-ID>", data)

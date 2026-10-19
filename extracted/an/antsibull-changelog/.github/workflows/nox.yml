@@ -26,14 +26,14 @@ jobs:
       matrix:
         include:
           - session: test
-            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14"
+            python-versions: "3.9, 3.10, 3.11, 3.12, 3.13, 3.14, 3.15"
             force-python: ""
             codecov: true
             packages: ""
 
           - session: integration
-            python-versions: "3.14"
-            force-python: "3.14"
+            python-versions: "3.15"
+            force-python: "3.15"
             codecov: true
             packages: ""
 
@@ -45,24 +45,24 @@ jobs:
     name: "Run nox ${{ matrix.session }} session"
     steps:
       - name: Check out antsibull-changelog
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           path: antsibull-changelog
           persist-credentials: false
       - name: Check out dependent project antsibull-docs-parser
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: ansible-community/antsibull-docs-parser
           path: antsibull-docs-parser
           persist-credentials: false
       - name: Check out dependent project antsibull-docutils
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: ansible-community/antsibull-docutils
           path: antsibull-docutils
           persist-credentials: false
       - name: Check out dependent project antsibull-fileutils
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: ansible-community/antsibull-fileutils
           path: antsibull-fileutils
@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo apt-get install -y ${{ matrix.packages }}
       - name: Setup nox
-        uses: wntrblm/nox@2026.04.10
+        uses: wntrblm/nox@a976d7ee04ab7a13634adc1016d4755a1348225f  # 2026.08.17
         with:
           python-versions: "${{ matrix.python-versions }}"
       - name: Run nox

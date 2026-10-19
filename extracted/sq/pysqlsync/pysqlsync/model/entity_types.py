@@ -8,7 +8,7 @@ Copyright 2023-2026, Levente Hunyadi
 
 import dataclasses
 import sys
-from typing import Any, Optional
+from typing import Any
 
 from strong_typing.inspection import DataclassField, DataclassInstance, dataclass_fields
 
@@ -24,7 +24,7 @@ def key_value_fields(cls: type[DataclassInstance], key: str) -> tuple[DataclassF
     """
 
     source_fields = dataclass_fields(cls)
-    key_field: Optional[DataclassField] = None
+    key_field: DataclassField | None = None
     value_fields: list[DataclassField] = []
     for source_field in source_fields:
         if source_field.name == key:
@@ -53,14 +53,14 @@ def make_entity(cls: type[DataclassInstance], key: str) -> type[DataclassInstanc
     target_fields: list[tuple[str, Any, dataclasses.Field[Any]]] = [
         (key_field.name, primary_key_type, dataclasses.field(default=key_field.default))
     ]
-    for value_field in value_fields:
-        target_fields.append(
-            (
-                value_field.name,
-                value_field.type,
-                dataclasses.field(default=value_field.default),
-            )
+    target_fields.extend(
+        (
+            value_field.name,
+            value_field.type,
+            dataclasses.field(default=value_field.default),
         )
+        for value_field in value_fields
+    )
 
     class_name = cls.__name__
     class_module = cls.__module__

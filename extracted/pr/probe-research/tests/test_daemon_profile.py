@@ -254,8 +254,12 @@ def test_a_read_groups_write_is_a_write_the_researcher_can_direct(tmp_path):
 #: `probe` commands the daemon plugin's skills name that the guard refuses, each
 #: with why that is right. Anything else they name must run.
 SKILL_NAMES_REFUSED = {
-    # A write: its refusal names `--directed` and `probe ask --writer`.
-    "probe edge add",
+    # Writes: each refusal names `--directed` and `probe ask --writer`.
+    "probe edge add", "probe dataset use", "probe checkpoint use",
+    # `probe edge remove` (instrument-code: a wrong data link): with the daemon
+    # on it is the daemon's, which removes its own links (`daemon/tools.py`
+    # `_own_link`); the refusal names `/probe inline`.
+    "probe edge",
     # Where the researcher turns the daemon on or off.
     "probe wizard",
 }

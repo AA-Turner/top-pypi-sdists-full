@@ -7,7 +7,12 @@ plugin should install both versions and only selectively show one specific
 version to the correct agent"):
 
     main agent  = SKILL.md front matter + versions/header.main-agent.md + the base
-    writer      = versions/header.writer.md + the base + versions/footer.writer.md
+    writer      = versions/header.writer.md [+ extras] + the base + versions/footer.writer.md
+
+An extra is a piece of the writer's version that only some daemons show
+(`versions/<name>.writer.md`, after the header): `commands`, the `bash` tool
+set's commands, only with that set, and `task` only while tasks are on too
+(`bite.writer_skill`).
 
 `make sync-plugin-skills` writes the main agent's version into the plugins (and
 leaves `versions/` out of them); the daemon's loader (`bite.skills_text`) renders
@@ -41,8 +46,9 @@ def _piece(skill_dir: Path, name: str) -> str:
     return path.read_text(encoding="utf-8").strip() if path.is_file() else ""
 
 
-def render(skill_dir: Path, reader: str) -> str:
-    """The skill as `reader` sees it. A skill without `versions/` is its SKILL.md."""
+def render(skill_dir: Path, reader: str, extras: tuple[str, ...] = ()) -> str:
+    """The skill as `reader` sees it. A skill without `versions/` is its SKILL.md.
+    `extras`: the writer's optional pieces to show, in order, after its header."""
     if reader not in READERS:
         raise ValueError(f"unknown reader {reader!r}: one of {', '.join(READERS)}")
     text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
@@ -53,7 +59,8 @@ def render(skill_dir: Path, reader: str) -> str:
     if reader == MAIN_AGENT:
         header = _piece(skill_dir, f"header.{MAIN_AGENT}.md")
         return front + "\n" + "\n\n".join(p for p in (header, base) if p) + "\n"
-    parts = (_piece(skill_dir, f"header.{WRITER}.md"), base, _piece(skill_dir, f"footer.{WRITER}.md"))
+    parts = (_piece(skill_dir, f"header.{WRITER}.md"), *(_piece(skill_dir, f"{name}.{WRITER}.md") for name in extras),
+             base, _piece(skill_dir, f"footer.{WRITER}.md"))
     return "\n\n".join(p for p in parts if p) + "\n"
 
 

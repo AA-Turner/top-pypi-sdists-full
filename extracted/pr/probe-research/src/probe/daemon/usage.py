@@ -47,6 +47,12 @@ PRICES: dict[str, tuple[float, float, float, float]] = {
 }
 
 
+#: A run's usage keeps its tasks' tokens (`agent.run_task`) under these `details`
+#: keys, beside its own: counted where the run's tokens are reported
+#: (`worker._tokens`), never against the run's token limit.
+TASK_DETAILS = ("task_input_tokens", "task_output_tokens", "task_cache_read_tokens")
+
+
 def price_key(model: str | None) -> str | None:
     """The table's name for a model as a response reports it: provider prefixes
     (`gemini/`, `anthropic:`) and the companion route's `companion-` dropped; a

@@ -8,7 +8,7 @@ from schemathesis.core.errors import InvalidSchema, RefResolutionError
 from schemathesis.core.jsonschema.bundler import BundleError
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
-from schemathesis.core.transforms import encode_pointer
+from schemathesis.core.transforms import decode_pointer, encode_pointer
 from schemathesis.specs.openapi.adapter.parameters import resource_name_from_ref
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.stateful.dependencies import naming
@@ -162,6 +162,8 @@ def iter_resources_from_response(
                 yield primitive_array
                 return None
 
+    current_resolver = response.resolver if response.resolver is not None else resolver
+
     # Handle map-by-id GET responses: `{type: object, additionalProperties: <object>}` with no
     # explicit properties. Keys are the identifiers (Kubernetes pod-statuses, TBA team-statuses).
     if method == "get" and schema_type == "object" and not schema.get("properties"):
@@ -169,10 +171,11 @@ def iter_resources_from_response(
         if isinstance(additional, dict) and (additional.get("type") == "object" or "$ref" in additional):
             map_resource = _resource_from_map_by_id(path=path, resources=resources)
             if map_resource is not None:
+                # The values are what the response declares, not the resource the keys identify.
+                map_resource.response_fields = _declared_fields(additional, current_resolver)
                 yield map_resource
                 return None
 
-    current_resolver = response.resolver if response.resolver is not None else resolver
     parent_ref = schema.get("$ref")
     _, resolved = maybe_resolve_with_resolver(schema, current_resolver, allow_boolean=True)
 
@@ -642,35 +645,182 @@ def remove_unused_resources(operations: OperationMap, resources: ResourceMap) ->
         del resources[resource_name]
 
 
-def _collect_properties(
-    schema: Mapping[str, Any], resolver: Resolver, seen: frozenset[str] = frozenset()
-) -> dict[str, tuple[Resolver, JsonSchema]]:
+Properties: TypeAlias = dict[str, tuple[Resolver, JsonSchema]]
+# Properties behind a reference, with every reference consulted while collecting them.
+PropertiesCache: TypeAlias = dict[tuple[str, str], tuple[Properties, frozenset[str]]]
+
+
+def _collect_properties(schema: Mapping[str, Any], resolver: Resolver) -> Properties:
+    return _collect_inherited_properties(schema, resolver, frozenset(), {})[0]
+
+
+def _collect_inherited_properties(
+    schema: Mapping[str, Any], resolver: Resolver, seen: frozenset[str], cache: PropertiesCache
+) -> tuple[Properties, frozenset[str]]:
     # Properties inherited through `allOf` belong to the resource as much as its own ones.
-    properties: dict[str, tuple[Resolver, JsonSchema]] = {}
+    properties: Properties = {}
     own = schema.get("properties")
     if isinstance(own, dict):
         properties.update((name, (resolver, subschema)) for name, subschema in own.items())
     branches = schema.get("allOf")
     if not isinstance(branches, list):
-        return properties
+        return properties, frozenset()
+    consulted: set[str] = set()
     for branch in branches:
         if not isinstance(branch, dict):
             continue
-        branch_resolver = resolver
         reference = branch.get("$ref")
-        if reference is not None:
-            if not isinstance(reference, str) or reference in seen:
+        if reference is None:
+            branch_properties, branch_consulted = _collect_inherited_properties(branch, resolver, seen, cache)
+        else:
+            if not isinstance(reference, str):
+                continue
+            consulted.add(reference)
+            if reference in seen:
+                continue
+            key = (resolver.base_uri, reference)
+            cached = cache.get(key)
+            # Reusable only when no reference it consulted is on the current path, as the cycle guard would differ
+            if cached is not None and seen.isdisjoint(cached[1]):
+                branch_properties, branch_consulted = cached
+            else:
+                try:
+                    branch_resolver, resolved = maybe_resolve_with_resolver(branch, resolver)
+                except (RefResolutionError, InvalidSchema):
+                    continue
+                branch_properties, branch_consulted = _collect_inherited_properties(
+                    resolved, branch_resolver, seen | {reference}, cache
+                )
+                if seen.isdisjoint(branch_consulted):
+                    cache[key] = (branch_properties, branch_consulted)
+        consulted.update(branch_consulted)
+        for name, entry in branch_properties.items():
+            properties.setdefault(name, entry)
+    return properties, frozenset(consulted)
+
+
+def write_only_fields(response: OpenApiResponse, resolver: Resolver) -> set[str]:
+    """Top-level fields the response declares `writeOnly`, which therefore never appear in it."""
+    schema = response.get_raw_schema()
+    if not isinstance(schema, dict):
+        return set()
+    current_resolver = response.resolver if response.resolver is not None else resolver
+    try:
+        schema_resolver, resolved = maybe_resolve_with_resolver(schema, current_resolver)
+        fields = set()
+        for name, (field_resolver, subschema) in _collect_properties(resolved, schema_resolver).items():
+            if not isinstance(subschema, dict):
+                continue
+            _, field = maybe_resolve_with_resolver(subschema, field_resolver)
+            branches = field.get("allOf")
+            if any(
+                isinstance(node, dict) and node.get("writeOnly") is True
+                for node in (subschema, field, *(branches if isinstance(branches, list) else ()))
+            ):
+                fields.add(name)
+    except (RefResolutionError, InvalidSchema):
+        return set()
+    return fields
+
+
+def declared_field_values(response: OpenApiResponse, pointer: str, field: str, resolver: Resolver) -> list[Any] | None:
+    """Values the response allows for `field` of the object at `pointer`; `None` when it does not list them."""
+    schema = response.get_raw_schema()
+    # Outputs come from the response body, so the schema is an object.
+    assert isinstance(schema, dict)
+    current_resolver = response.resolver if response.resolver is not None else resolver
+    current: Any = schema
+    # References up to the field were resolved when the output was extracted; the field's own are resolved below.
+    for name in [*(decode_pointer(part) for part in pointer.split("/") if part), field]:
+        current_resolver, current = maybe_resolve_with_resolver(current, current_resolver)
+        entry = _collect_properties(current, current_resolver).get(name)
+        # A field declared without a schema (`true`) may hold anything.
+        if entry is None or not isinstance(entry[1], dict):
+            return None
+        current_resolver, current = entry
+    return allowed_values(current, current_resolver)
+
+
+def allowed_values(schema: Mapping[str, Any], resolver: Resolver | None) -> list[Any] | None:
+    """Values `enum` or `const` limit `schema` to that its `type` allows; `None` when it lists none.
+
+    Without a resolver, references are skipped.
+    """
+    values: list[Any] | None = None
+    types: set[str] | None = None
+    nullable = False
+    pending: list[tuple[Resolver | None, Mapping[str, Any]]] = [(resolver, schema)]
+    # `allOf` chains may be recursive.
+    seen: set[int] = set()
+    while pending:
+        current_resolver, node = pending.pop()
+        if "$ref" in node:
+            if current_resolver is None:
                 continue
             try:
-                branch_resolver, branch = maybe_resolve_with_resolver(branch, resolver)
+                current_resolver, node = maybe_resolve_with_resolver(node, current_resolver)
             except (RefResolutionError, InvalidSchema):
                 continue
-            branch_seen = seen | {reference}
-        else:
-            branch_seen = seen
-        for name, entry in _collect_properties(branch, branch_resolver, branch_seen).items():
-            properties.setdefault(name, entry)
-    return properties
+        if id(node) in seen:
+            continue
+        seen.add(id(node))
+        listed = [node["const"]] if "const" in node else node.get("enum")
+        if isinstance(listed, list):
+            values = listed if values is None else [value for value in values if contains_value(listed, value)]
+        declared = node.get("type")
+        if isinstance(declared, (str, list)):
+            node_types = {declared} if isinstance(declared, str) else set(declared)
+            types = node_types if types is None else _intersect_types(types, node_types)
+        if node.get("nullable") is True or node.get("x-nullable") is True:
+            nullable = True
+        branches = node.get("allOf")
+        if isinstance(branches, list):
+            pending.extend((current_resolver, branch) for branch in branches if isinstance(branch, dict))
+    if values is None:
+        return None
+    # `nullable` adds `null` to the type; `enum` still decides whether `null` is allowed.
+    if nullable and types is not None:
+        types = types | {"null"}
+    # A listed value the declared `type` rules out never appears in a valid instance.
+    if types is not None:
+        values = [
+            value
+            for value in values
+            if _json_type(value) in types or (_json_type(value) == "integer" and "number" in types)
+        ]
+    return values
+
+
+def _intersect_types(left: set[str], right: set[str]) -> set[str]:
+    common = left & right
+    # `integer` is a subset of `number`.
+    if ("integer" in left and "number" in right) or ("number" in left and "integer" in right):
+        common.add("integer")
+    return common
+
+
+_JSON_TYPES = {
+    type(None): "null",
+    bool: "boolean",
+    int: "integer",
+    float: "number",
+    str: "string",
+    list: "array",
+    dict: "object",
+}
+
+
+def _json_type(value: Any) -> str:
+    # JSON Schema counts whole floats (`1.0`) as integers.
+    if isinstance(value, float) and value.is_integer():
+        return "integer"
+    # YAML may also load dates and similar values, which no JSON type matches.
+    return _JSON_TYPES.get(type(value), "object")
+
+
+def contains_value(values: list[Any], value: Any) -> bool:
+    # JSON Schema equality: `1` equals `1.0`, but a boolean is never a number.
+    return any(candidate == value and isinstance(candidate, bool) == isinstance(value, bool) for candidate in values)
 
 
 def _declared_fields(schema: Mapping[str, Any], resolver: Resolver) -> frozenset[str] | None:

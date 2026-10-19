@@ -1,4 +1,4 @@
-from typing import Any, cast, ClassVar, Dict, List, Optional, Union
+from typing import Any, cast, ClassVar, Dict, List, Optional, Tuple, Union
 import uuid
 import warnings
 
@@ -75,14 +75,11 @@ TERMINAL_HA_JOB_STATES = [
 # TODO(praneethkaturi): This is a temporary mapping. The backend should accept
 # user-facing JobState values directly instead of requiring conversion to
 # HaJobStates. Once the backend API is updated, this mapping can be removed.
-# Reverse mapping from JobState to HaJobStates for filtering in list operations
+# Reverse mapping from JobState to HaJobStates for filtering in list operations.
+# Key order is user-facing (FILTERABLE_JOB_STATES renders it), so keep it in
+# lifecycle order.
 JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
-    JobState.SUCCEEDED: [HaJobStates.SUCCESS],
-    JobState.FAILED: [
-        HaJobStates.BROKEN,
-        HaJobStates.OUT_OF_RETRIES,
-    ],
-    JobState.TERMINATED: [HaJobStates.TERMINATED],
+    JobState.STARTING: [HaJobStates.PENDING, HaJobStates.AWAITING_CLUSTER_START],
     JobState.RUNNING: [
         HaJobStates.UPDATING,
         HaJobStates.RUNNING,
@@ -90,8 +87,18 @@ JOB_STATE_TO_HA_JOB_STATES: Dict[str, List[str]] = {
         HaJobStates.CLEANING_UP,
         HaJobStates.ERRORED,
     ],
-    JobState.STARTING: [HaJobStates.PENDING, HaJobStates.AWAITING_CLUSTER_START],
+    JobState.SUCCEEDED: [HaJobStates.SUCCESS],
+    JobState.FAILED: [
+        HaJobStates.BROKEN,
+        HaJobStates.OUT_OF_RETRIES,
+    ],
+    JobState.TERMINATED: [HaJobStates.TERMINATED],
 }
+
+# States `anyscale job list --state` advertises and accepts on the --v2 path.
+# Derived from the mapping so the help text and the validator can't drift apart;
+# excludes JobState.UNKNOWN, which maps to nothing and would filter nothing.
+FILTERABLE_JOB_STATES: Tuple[str, ...] = tuple(str(state) for state in JOB_STATE_TO_HA_JOB_STATES)
 
 
 def _normalize_state_filter(states: Optional[List[Union[JobState, str]]]) -> Optional[List[str]]:

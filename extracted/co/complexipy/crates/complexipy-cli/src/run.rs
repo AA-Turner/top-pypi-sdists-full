@@ -1,16 +1,17 @@
 use std::process::ExitCode;
 
-use owo_colors::OwoColorize;
+use owo_colors::{OwoColorize, Stream};
 
 use crate::args::CliArgs;
 use crate::output::messages::{
     diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output,
+    no_active_rule_warning, removable_ignores_output, unknown_rule_warning,
 };
 use crate::output::render::{handle_console_settings, print_invalid_paths, rule};
 use crate::output::{DisplayOptions, StorageOptions, handle_display, handle_results_storage};
-use crate::types::ExitReport;
+use crate::types::{ExitReport, RunConfig};
 use crate::utils::config::resolve_config;
+use crate::utils::fix::run_fix_pass;
 use crate::utils::ignored::{handle_removable_ignores, handle_report_ignored};
 use crate::utils::snapshot::evaluate_snapshot;
 use crate::utils::toml::get_complexipy_toml_config;
@@ -18,6 +19,7 @@ use complexipy_core::diff::{
     compute_diff, compute_staged_diff, has_regressions, resolve_diff_flags,
 };
 use complexipy_core::runner::run_analysis_shared;
+use complexipy_core::{AnalysisOptions, RuleSet, registered_rule_ids};
 
 pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
     let toml_config = get_complexipy_toml_config(invocation_path);
@@ -35,24 +37,63 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         println!("{}", settings.banner);
     }
 
-    let (diff, diff_only) = resolve_diff_flags(config.diff, config.diff_only, config.staged);
+    let (diff, diff_only) =
+        resolve_diff_flags(config.diff.clone(), config.diff_only.clone(), config.staged);
     if !config.quiet && diff_only.is_some() && diff.is_none() {
-        println!("{} {}", "Warning:".yellow(), diff_flags_warning());
+        println!(
+            "{} {}",
+            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow()),
+            diff_flags_warning()
+        );
     }
 
-    let (files_complexities, failed_paths) = match run_analysis_shared(
-        &config.paths,
-        &config.exclude,
-        config.check_script,
-        config.no_ignore,
-        invocation_path,
-    ) {
-        Ok(result) => result,
-        Err(error) => {
-            eprintln!("{}", error);
-            return ExitCode::FAILURE;
+    let known_rules = registered_rule_ids();
+    let (rules, unknown_rules) = RuleSet::resolve(&config.select, &config.ignore, &known_rules);
+    if !config.quiet {
+        let mut warnings: Vec<String> = unknown_rules
+            .iter()
+            .map(|rule_id| unknown_rule_warning(rule_id))
+            .collect();
+        if !rules.has_active_rule(&known_rules) {
+            warnings.push(no_active_rule_warning());
         }
-    };
+        for warning in warnings {
+            eprintln!(
+                "{} {}",
+                "Warning:".if_supports_color(Stream::Stderr, |text| text.yellow()),
+                warning
+            );
+        }
+    }
+    let analysis = analysis_options(&config, rules);
+
+    let (mut files_complexities, failed_paths) =
+        match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
+            Ok(result) => result,
+            Err(error) => {
+                eprintln!("{}", error);
+                return ExitCode::FAILURE;
+            }
+        };
+
+    let mut fix_console = String::new();
+    if config.fix || config.dry_run {
+        let pass = run_fix_pass(
+            &files_complexities,
+            config.dry_run,
+            invocation_path,
+            settings.color_enabled,
+            &analysis,
+            config.max_complexity_allowed,
+        );
+        fix_console = pass.console;
+        if pass.wrote {
+            match run_analysis_shared(&config.paths, &config.exclude, &analysis, invocation_path) {
+                Ok((post_fix, _)) => files_complexities = post_fix,
+                Err(error) => eprintln!("{}", error),
+            }
+        }
+    }
 
     let output_snapshot_path = format!("{}/complexipy-snapshot.json", invocation_path);
     let snap = match evaluate_snapshot(
@@ -77,7 +118,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         show_details: !config.failed,
         max_complexity: config.max_complexity_allowed,
         invocation_path,
-        suggest_refactors: config.suggest_refactors,
+        suggest_refactors: config.suggest_refactors && !config.dry_run,
     }) {
         Ok(saved_lines) => {
             for line in saved_lines {
@@ -103,10 +144,14 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         invocation_path,
         cache_dir: config.cache_dir.as_deref(),
         top: config.top,
-        suggest_refactors: config.suggest_refactors,
+        suggest_refactors: config.suggest_refactors && !config.dry_run,
     });
     if !display_output.is_empty() {
         println!("{}", display_output);
+    }
+
+    if !config.quiet && !fix_console.is_empty() {
+        println!("{}", fix_console);
     }
 
     let (ignored_locations, ignored_json_path) = match handle_report_ignored(
@@ -185,7 +230,7 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
                     if !config.quiet {
                         println!(
                             "{} --staged requires a git repository; skipping the staged diff.",
-                            "Warning:".yellow()
+                            "Warning:".if_supports_color(Stream::Stdout, |text| text.yellow())
                         );
                     }
                     None
@@ -230,6 +275,15 @@ pub fn run_at(cli: CliArgs, invocation_path: &str) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+fn analysis_options(config: &RunConfig, rules: RuleSet) -> AnalysisOptions {
+    AnalysisOptions {
+        check_script: config.check_script,
+        no_ignore: config.no_ignore,
+        with_plans: config.suggest_refactors,
+        rules,
     }
 }
 

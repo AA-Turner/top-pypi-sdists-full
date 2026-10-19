@@ -18,6 +18,7 @@
 #include "json_read.h"
 #include "pvzstd/pvzstd.h"
 #include "threads.h"
+#include "thumbnail.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -31,22 +32,21 @@
 namespace {
 
 constexpr uint64_t kTrailerCountBytes = 8;
-constexpr uint64_t kIndexEntryBytes = 16;
-constexpr char kDsMetadataSuffix[] = "__ds_metadata";
-constexpr char kFileMetadataSuffix[] = "__pyvista_zstd_metadata";
 // The .zvtk-era spelling of the same frame. Accepted so a legacy container
 // reaches the reader at all; which one a file used is reported by name through
 // pvzstd_metadata_name_at, because the caller may want to say so.
 constexpr char kLegacyFileMetadataSuffix[] = "__zvtk_metadata";
-constexpr char kMultiblockSuffix[] = "__multiblock__ds_metadata";
-constexpr char kFieldDataSuffix[] = "__field_data";
-constexpr size_t kUidNChar = 16;
 
-// Lives in detail.h now: the write, append and stream paths narrow file- and
-// caller-supplied lengths into allocations of their own, and one definition is
-// what keeps the four answers the same. Named here so the uses below read as
-// they did.
+// Shared with the write, append and stream paths (detail.h).
+using pvzstd::detail::EndsWith;
 using pvzstd::detail::ExceedsSizeT;
+using pvzstd::detail::kDsMetadataSuffix;
+using pvzstd::detail::kFieldDataSuffix;
+using pvzstd::detail::kFileMetadataSuffix;
+using pvzstd::detail::kIndexEntryBytes;
+using pvzstd::detail::kMultiblockSuffix;
+using pvzstd::detail::kUidNChar;
+using pvzstd::detail::LoadU32;
 
 // The most a zstd frame can expand, per compressed byte. A zstd block covers at
 // most 128 KiB, and the cheapest way to spell one is an RLE block: a 3-byte
@@ -65,17 +65,6 @@ uint64_t LoadU64(const uint8_t *p) {
   return v;
 }
 
-uint32_t LoadU32(const uint8_t *p) {
-  uint32_t v = 0;
-  for (int i = 3; i >= 0; --i) v = (v << 8) | p[static_cast<size_t>(i)];
-  return v;
-}
-
-bool EndsWith(const std::string &s, const char *suffix) {
-  const size_t n = std::strlen(suffix);
-  return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
-}
-
 struct ArrayEntry {
   std::string name;
   std::vector<uint64_t> shape;
@@ -86,14 +75,32 @@ struct ArrayEntry {
   uint64_t payload_end;
 };
 
-// Invert the shuffle filter: on disk it is itemsize planes of n_elem bytes.
-void Unshuffle(const uint8_t *src, uint8_t *dst, uint64_t nbytes, uint64_t itemsize) {
-  const uint64_t n_elem = nbytes / itemsize;
+// Invert the shuffle filter for elements [first, last): on disk it is itemsize
+// planes of n_elem bytes, and each element's bytes come one from every plane,
+// so a range of elements can be restored without the others.
+void UnshuffleRange(const uint8_t *src, uint8_t *dst, uint64_t n_elem, uint64_t itemsize,
+                    uint64_t first, uint64_t last) {
   for (uint64_t plane = 0; plane < itemsize; ++plane) {
     const uint8_t *in = src + plane * n_elem;
     uint8_t *out = dst + plane;
-    for (uint64_t i = 0; i < n_elem; ++i) out[i * itemsize] = in[i];
+    for (uint64_t i = first; i < last; ++i) out[i * itemsize] = in[i];
   }
+}
+
+// Unshuffle on `workers` threads, each taking a run of elements.
+void Unshuffle(const uint8_t *src, uint8_t *dst, uint64_t nbytes, uint64_t itemsize, int workers) {
+  const uint64_t n_elem = nbytes / itemsize;
+  if (workers <= 1 || n_elem < static_cast<uint64_t>(workers)) {
+    UnshuffleRange(src, dst, n_elem, itemsize, 0, n_elem);
+    return;
+  }
+  const uint64_t per =
+      (n_elem + static_cast<uint64_t>(workers) - 1) / static_cast<uint64_t>(workers);
+  pvzstd::detail::ParallelStride(workers, static_cast<uint64_t>(workers), [&](uint64_t w) {
+    const uint64_t first = w * per;
+    const uint64_t last = first + per < n_elem ? first + per : n_elem;
+    if (first < last) UnshuffleRange(src, dst, n_elem, itemsize, first, last);
+  });
 }
 
 // Byte width implied by a numpy dtype string, or 0 when it cannot be read off the
@@ -119,7 +126,7 @@ bool DeclaredSizeAgrees(const std::vector<uint64_t> &shape, const char *dtype, u
   return n == nbytes;
 }
 
-// Total decompressed bytes below which AUTO stays inline. A floor, not a tuned
+// Optimization: total decompressed bytes below which AUTO stays inline. A floor, not a tuned
 // optimum: below it, spawning a thread per frame costs more than it saves, and
 // the crossover is machine-dependent.
 constexpr uint64_t kParallelDecompressFloor = 4ull << 20;
@@ -270,6 +277,10 @@ struct pvzstd_reader {
   // Root dataset's field-data blocks, in metadata order. Empty for MultiBlock.
   std::vector<std::string> field_names;
   std::vector<int64_t> field_indices;  // into `arrays`; -1 if the frame is gone
+  // The thumbnail record, inside the container's bytes; null when it has none.
+  const uint8_t *thumbnail_record = nullptr;
+  pvzstd::detail::ThumbnailRecord thumbnail;
+  bool thumbnail_stale = false;
   // Filled in by pvzstd_array_info_at so the caller sees stable pointers.
   mutable std::vector<uint64_t> scratch_shape;
 };
@@ -298,6 +309,72 @@ size_t DecompressInto(void *dst, size_t dst_capacity, const void *src, size_t sr
   ZSTD_DCtx *const ctx = ThreadDCtx();
   if (ctx == nullptr) return ZSTD_decompress(dst, dst_capacity, src, src_size);
   return ZSTD_decompressDCtx(ctx, dst, dst_capacity, src, src_size);
+}
+
+// One zstd frame of a payload and where its bytes go.
+struct SubFrame {
+  const uint8_t *src;
+  size_t src_size;
+  uint8_t *dst;
+  uint64_t dst_size;
+};
+
+// Split a payload into the zstd frames it concatenates, each placed after the
+// previous one's output. False when the payload is not a run of whole frames
+// whose content sizes are declared and add up to `nbytes`; the one-shot decode
+// then reports what is wrong with it.
+bool SplitSubFrames(const uint8_t *src, uint64_t src_size, uint8_t *dst, uint64_t nbytes,
+                    std::vector<SubFrame> *out) {
+  out->clear();
+  uint64_t off = 0;
+  uint64_t produced = 0;
+  while (off < src_size) {
+    const size_t csize =
+        ZSTD_findFrameCompressedSize(src + off, static_cast<size_t>(src_size - off));
+    if (ZSTD_isError(csize) != 0 || csize == 0) return false;
+    const unsigned long long dsize = ZSTD_getFrameContentSize(src + off, csize);
+    if (dsize == ZSTD_CONTENTSIZE_UNKNOWN || dsize == ZSTD_CONTENTSIZE_ERROR) return false;
+    if (dsize > nbytes - produced) return false;
+    out->push_back(SubFrame{src + off, csize, dst + produced, static_cast<uint64_t>(dsize)});
+    off += csize;
+    produced += dsize;
+  }
+  return produced == nbytes;
+}
+
+pvzstd_status DecompressSubFrame(const SubFrame &sub) {
+  const size_t got =
+      DecompressInto(sub.dst, static_cast<size_t>(sub.dst_size), sub.src, sub.src_size);
+  if (ZSTD_isError(got) != 0) return PVZSTD_E_ZSTD;
+  return got == sub.dst_size ? PVZSTD_OK : PVZSTD_E_FORMAT;
+}
+
+// Decompress a payload into `dst`, its sub-frames in parallel when there are
+// several and `workers` allows. A payload that does not split cleanly goes
+// through the one-shot decode, which accepts concatenated frames too.
+pvzstd_status DecompressPayload(const uint8_t *src, uint64_t src_size, uint8_t *dst,
+                                uint64_t nbytes, int workers) {
+  if (workers > 1) {
+    std::vector<SubFrame> subs;
+    if (SplitSubFrames(src, src_size, dst, nbytes, &subs) && subs.size() > 1) {
+      std::vector<pvzstd_status> results(subs.size(), PVZSTD_OK);
+      const uint64_t count = subs.size();
+      const int pool = count < static_cast<uint64_t>(workers) ? static_cast<int>(count) : workers;
+      pvzstd::detail::ParallelStride(pool, count, [&](uint64_t k) {
+        results[static_cast<size_t>(k)] = DecompressSubFrame(subs[static_cast<size_t>(k)]);
+      });
+      for (const pvzstd_status st : results) {
+        if (st != PVZSTD_OK) return st;
+      }
+      return PVZSTD_OK;
+    }
+  }
+  const size_t got =
+      DecompressInto(dst, static_cast<size_t>(nbytes), src, static_cast<size_t>(src_size));
+  if (ZSTD_isError(got) != 0) return PVZSTD_E_ZSTD;
+  // A mismatch is the signature of a misparsed index: every frame still
+  // decompresses, but each yields a neighbour's payload.
+  return got == nbytes ? PVZSTD_OK : PVZSTD_E_FORMAT;
 }
 
 pvzstd_status DecompressFrame(const uint8_t *src, uint64_t src_size, uint64_t expected,
@@ -373,6 +450,26 @@ pvzstd_status ParseHeader(const std::vector<uint8_t> &buf, ArrayEntry *entry) {
   }
   if (off != size) return PVZSTD_E_FORMAT;
   return PVZSTD_OK;
+}
+
+// Take in the thumbnail pair; a record this build does not read is left out.
+void ReadThumbnail(pvzstd_reader *reader, const ArrayEntry &entry, uint64_t index_off,
+                   uint64_t n_frames) {
+  using pvzstd::detail::kSkippablePrefixBytes;
+  const ContainerBytes &raw = reader->map;
+  const uint64_t frame_len = entry.payload_end - entry.payload_start;
+  if (frame_len < kSkippablePrefixBytes) return;
+  const uint8_t *frame = raw.data() + entry.payload_start;
+  if (LoadU32(frame) != pvzstd::detail::kSkippableMagic) return;
+  const uint64_t record_len = LoadU32(frame + 4);
+  if (record_len != frame_len - kSkippablePrefixBytes) return;
+  const uint8_t *record = frame + kSkippablePrefixBytes;
+  pvzstd::detail::ThumbnailRecord parsed;
+  if (!pvzstd::detail::ParseThumbnailRecord(record, record_len, &parsed)) return;
+  reader->thumbnail_record = record;
+  reader->thumbnail = parsed;
+  reader->thumbnail_stale =
+      pvzstd::detail::IndexCrc(raw.data() + index_off, n_frames) != parsed.data_crc;
 }
 
 // Parse a container out of the bytes the reader already points at, however it
@@ -461,6 +558,13 @@ pvzstd_status ParseContainer(pvzstd_reader *reader, uint32_t *file_version) {
     entry.payload_end = pay_end;
     if (!DeclaredSizeAgrees(entry.shape, entry.dtype, entry.nbytes)) {
       return PVZSTD_E_FORMAT;
+    }
+
+    // Only the fixed raw bytes of the thumbnail pair are taken as one, as by a reader
+    // without zstd; any other pair 0 is an ordinary array whatever its name.
+    if (i == 0 && pvzstd::detail::StartsWithThumbnailPrefix(raw.data(), raw.size())) {
+      ReadThumbnail(reader, entry, index_off, n_frames);
+      continue;
     }
 
     const bool is_ds = EndsWith(entry.name, kDsMetadataSuffix);
@@ -698,9 +802,12 @@ int64_t pvzstd_find_array(const pvzstd_reader *reader, const char *name) try {
   return -1;
 }
 
-pvzstd_status pvzstd_read_array_at(const pvzstd_reader *reader, uint64_t index, void *dst,
-                                   uint64_t dst_size) try {
-  if (reader == nullptr) return PVZSTD_E_INVALID;
+namespace {
+
+// Read one array into `dst`, using up to `workers` threads for a payload stored
+// as several frames and for reversing its filter.
+pvzstd_status ReadArrayInto(const pvzstd_reader *reader, uint64_t index, void *dst,
+                            uint64_t dst_size, int workers) try {
   if (index >= reader->arrays.size()) return PVZSTD_E_RANGE;
   const ArrayEntry &e = reader->arrays[static_cast<size_t>(index)];
   if (dst_size < e.nbytes) return PVZSTD_E_RANGE;
@@ -711,10 +818,7 @@ pvzstd_status pvzstd_read_array_at(const pvzstd_reader *reader, uint64_t index, 
   const uint64_t src_size = e.payload_end - e.payload_start;
 
   if (e.filter_id == PVZSTD_FILTER_NONE) {
-    const size_t got =
-        DecompressInto(dst, static_cast<size_t>(dst_size), src, static_cast<size_t>(src_size));
-    if (ZSTD_isError(got) != 0) return PVZSTD_E_ZSTD;
-    return got == e.nbytes ? PVZSTD_OK : PVZSTD_E_FORMAT;
+    return DecompressPayload(src, src_size, static_cast<uint8_t *>(dst), e.nbytes, workers);
   }
 
   if (e.filter_id != PVZSTD_FILTER_SHUFFLE) return PVZSTD_E_FILTER;
@@ -722,11 +826,33 @@ pvzstd_status pvzstd_read_array_at(const pvzstd_reader *reader, uint64_t index, 
   const uint64_t itemsize = DtypeItemsize(e.dtype);
   if (itemsize == 0 || (e.nbytes % itemsize) != 0) return PVZSTD_E_FORMAT;
 
-  std::vector<uint8_t> filtered;
-  const pvzstd_status st = DecompressFrame(src, src_size, e.nbytes, &filtered);
+  // See DecompressFrame: the size is refused here, where the allocation is made.
+  if (ExceedsSizeT(e.nbytes)) return PVZSTD_E_FORMAT;
+  std::vector<uint8_t> filtered(static_cast<size_t>(e.nbytes));
+  const pvzstd_status st = DecompressPayload(src, src_size, filtered.data(), e.nbytes, workers);
   if (st != PVZSTD_OK) return st;
-  Unshuffle(filtered.data(), static_cast<uint8_t *>(dst), e.nbytes, itemsize);
+  Unshuffle(filtered.data(), static_cast<uint8_t *>(dst), e.nbytes, itemsize, workers);
   return PVZSTD_OK;
+} catch (...) {
+  // Runs on ParallelStride workers, which cannot answer a throw.
+  return PVZSTD_E_NOMEM;
+}
+
+// Threads for one array read on its own: every core once the payload is large
+// enough for them to matter, as PVZSTD_THREADS_AUTO decides for a batch.
+int WorkersFor(uint64_t nbytes) {
+  if (!pvzstd::detail::kHasThreads || nbytes < kParallelDecompressFloor) return 1;
+  return pvzstd::detail::HardwareWorkers();
+}
+
+}  // namespace
+
+pvzstd_status pvzstd_read_array_at(const pvzstd_reader *reader, uint64_t index, void *dst,
+                                   uint64_t dst_size) try {
+  if (reader == nullptr) return PVZSTD_E_INVALID;
+  if (index >= reader->arrays.size()) return PVZSTD_E_RANGE;
+  const uint64_t nbytes = reader->arrays[static_cast<size_t>(index)].nbytes;
+  return ReadArrayInto(reader, index, dst, dst_size, WorkersFor(nbytes));
 } catch (...) {
   return PVZSTD_E_NOMEM;
 }
@@ -757,15 +883,24 @@ pvzstd_status pvzstd_read_arrays(const pvzstd_reader *reader, const uint64_t *in
     // signed count, which is the opposite of what the two share an ABI to say.
     workers = pvzstd::detail::HardwareWorkers();
   }
-  // In uint64: count is unbounded, and narrowing it to int first could land on a
-  // negative and silently drop this call to a single worker.
-  if (count < static_cast<uint64_t>(workers)) workers = static_cast<int>(count);
+  // Optimization: fewer arrays than workers leaves cores idle, so each array then gets a
+  // share of them for its own sub-frames. In uint64: count is unbounded, and
+  // narrowing it to int first could land on a negative and silently drop this
+  // call to a single worker.
+  int inner = 1;
+  if (count < static_cast<uint64_t>(workers)) {
+    inner = workers / static_cast<int>(count);
+    workers = static_cast<int>(count);
+  }
   // Same work in the same order, so a clamp rather than an error.
-  if (!pvzstd::detail::kHasThreads) workers = 1;
+  if (!pvzstd::detail::kHasThreads) {
+    workers = 1;
+    inner = 1;
+  }
 
   if (workers <= 1) {
     for (uint64_t i = 0; i < count; ++i) {
-      const pvzstd_status st = pvzstd_read_array_at(reader, indices[i], dsts[i], dst_sizes[i]);
+      const pvzstd_status st = ReadArrayInto(reader, indices[i], dsts[i], dst_sizes[i], inner);
       if (st != PVZSTD_OK) {
         if (failed_slot != nullptr) *failed_slot = i;
         return st;
@@ -778,7 +913,7 @@ pvzstd_status pvzstd_read_arrays(const pvzstd_reader *reader, const uint64_t *in
   std::vector<pvzstd_status> results(static_cast<size_t>(count), PVZSTD_OK);
   pvzstd::detail::ParallelStride(workers, count, [&](uint64_t i) {
     results[static_cast<size_t>(i)] =
-        pvzstd_read_array_at(reader, indices[i], dsts[i], dst_sizes[i]);
+        ReadArrayInto(reader, indices[i], dsts[i], dst_sizes[i], inner);
   });
 
   for (uint64_t i = 0; i < count; ++i) {
@@ -888,5 +1023,19 @@ const char *pvzstd_status_message(pvzstd_status status) {
 }
 
 uint32_t pvzstd_abi_version(void) { return PVZSTD_ABI_VERSION; }
+
+pvzstd_status pvzstd_thumbnail(const pvzstd_reader *reader, pvzstd_thumbnail_info *out) try {
+  if (reader == nullptr || out == nullptr) return PVZSTD_E_INVALID;
+  *out = pvzstd_thumbnail_info{};
+  if (reader->thumbnail_record == nullptr) return PVZSTD_OK;
+  out->png = reader->thumbnail_record + reader->thumbnail.png_offset;
+  out->nbytes = reader->thumbnail.png_nbytes;
+  out->width = reader->thumbnail.width;
+  out->height = reader->thumbnail.height;
+  out->stale = reader->thumbnail_stale ? 1 : 0;
+  return PVZSTD_OK;
+} catch (...) {
+  return PVZSTD_E_NOMEM;
+}
 
 }  // extern "C"

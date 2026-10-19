@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
 import threading
 
 import pytest
 import requests
-from hypothesis import HealthCheck, given, settings
 from hypothesis.vendor.pretty import pretty
 
 from schemathesis.config import GenerationConfig
@@ -12,6 +15,7 @@ from schemathesis.core import deserialization
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation.feedback import FeedbackSources
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.meta import TestPhase
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.generation.value import GeneratedValue
@@ -23,9 +27,10 @@ from schemathesis.resources.repository import (
     ResourceRepository,
 )
 from schemathesis.specs.openapi._hypothesis import openapi_cases
-from schemathesis.specs.openapi.extra_data_source import ParameterRequirement
+from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource, ParameterRequirement
 from schemathesis.specs.openapi.semantic_pool import SemanticValueIndex
 from schemathesis.specs.openapi.stateful.dependencies.models import InputSlot, ResourceDefinition
+from test.utils import objects_at, run_given
 
 USER_RESOURCE = "User"
 POST_USERS = "POST /users"
@@ -250,18 +255,14 @@ def test_seed_input_values_skips_empty_buckets():
 
 
 def test_record_request_ignores_unusable_slots(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /users/{user_id}",
         {
-            "/users/{user_id}": {
-                "post": {
-                    "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
-                    "requestBody": {"content": {"application/json": {"schema": {}}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "user_id", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "requestBody": {"content": {"application/json": {"schema": {}}}},
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/users/{user_id}"]["POST"]
     user = ResourceDefinition.inferred_from_parameter("User", "id")
     slots = [
         InputSlot(
@@ -798,6 +799,110 @@ def test_captured_variants_filter_values_invalid_for_destination(ctx):
     # Each variant carries provenance back to the producing operation.
     assert variants[0].draws[0].source_operation == "POST /items"
     assert variants[0].draws[0].parameter_name == "itemId"
+
+
+def test_top_level_body_requirement_takes_precedence_over_nested_requirement(ctx):
+    repository = ResourceRepository(
+        [
+            ResourceDescriptor(
+                resource_name="Item",
+                operation="POST /sources",
+                status_code="201",
+                pointer="",
+                cardinality=Cardinality.ONE,
+            )
+        ]
+    )
+    repository.record_response(
+        operation="POST /sources",
+        status_code=201,
+        payload={"groupId": {"ownerId": "top"}, "ownerId": "nested"},
+    )
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "groupId": {
+                                    "type": "object",
+                                    "properties": {"ownerId": {"type": "string"}},
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            "responses": {"201": {"description": "OK"}},
+        },
+    )
+    data_source = OpenApiExtraDataSource(
+        repository=repository,
+        requirements={
+            (operation.label, ParameterLocation.BODY, "groupId"): ParameterRequirement("Item", "groupId"),
+            (operation.label, ParameterLocation.BODY, "groupId/ownerId"): ParameterRequirement("Item", "ownerId"),
+        },
+    )
+
+    variants = data_source.get_captured_variants(
+        operation=operation,
+        location=ParameterLocation.BODY,
+        schema=operation.body[0].optimized_schema,
+    )
+
+    assert [variant.overlay for variant in variants] == [{"groupId": {"ownerId": "top"}}]
+
+
+def test_unresolved_nested_body_requirement_is_ignored(ctx):
+    repository = ResourceRepository(
+        [
+            ResourceDescriptor(
+                resource_name="Item",
+                operation="POST /sources",
+                status_code="201",
+                pointer="",
+                cardinality=Cardinality.ONE,
+            )
+        ]
+    )
+    repository.record_response(operation="POST /sources", status_code=201, payload={"id": "captured"})
+    operation = ctx.openapi.load_operation(
+        "POST /items",
+        {
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "nested": {
+                                    "type": "object",
+                                    "properties": {"present": {"type": "string"}},
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+            "responses": {"201": {"description": "OK"}},
+        },
+    )
+    data_source = OpenApiExtraDataSource(
+        repository=repository,
+        requirements={(operation.label, ParameterLocation.BODY, "nested/missing"): ParameterRequirement("Item", "id")},
+    )
+
+    assert (
+        data_source.get_captured_variants(
+            operation=operation,
+            location=ParameterLocation.BODY,
+            schema=operation.body[0].optimized_schema,
+        )
+        is None
+    )
 
 
 def test_data_source_provides_captured_variants(user_schema_builder):
@@ -1570,14 +1675,7 @@ def test_negative_aware_strategy_with_captured_values(ctx):
         operation, config, GenerationMode.NEGATIVE, extra_data_source=data_source
     )
 
-    results = []
-
-    @given(strategy)
-    @settings(max_examples=20, database=None, suppress_health_check=list(HealthCheck))
-    def collect_samples(value):
-        results.append(value)
-
-    collect_samples()
+    results = generate_many(strategy, 20)
 
     assert all(isinstance(r, GeneratedValue) for r in results)
 
@@ -1646,19 +1744,90 @@ def test_pool_overlay_keeps_required_fields_for_body_without_type_object(ctx):
 
     strategy = body.get_strategy(operation, config, GenerationMode.POSITIVE, extra_data_source=data_source)
 
-    @given(strategy)
-    @settings(max_examples=200, database=None, deadline=None)
+    @run_given(strategy, max_examples=200)
     def t(value):
         if isinstance(value, dict):
             for required in ("clientId", "clientSecret"):
                 assert required in value, f"required field {required!r} missing from POSITIVE body: {value!r}"
 
-    t()
+
+_SHIPPING = {
+    "type": "object",
+    "properties": {"location_id": {"type": "integer"}, "note": {"type": "string"}},
+    # Generation always includes `note`, so a merge that replaces the whole object drops it.
+    "required": ["note"],
+}
+_SHIPPING_REF = {"$ref": "#/components/schemas/Shipping"}
+_COMPOSED_SHIPPING = {
+    "allOf": [
+        {"$ref": "#/components/schemas/Note"},
+        {"type": "object", "properties": {"location_id": {"type": "integer"}}},
+    ]
+}
+_PICKUP = {
+    "type": "object",
+    "properties": {"code": {"type": "integer"}},
+    "required": ["code"],
+    "additionalProperties": False,
+}
+_SHIPPING_OR_PICKUP = {"oneOf": [_SHIPPING_REF, _PICKUP]}
 
 
-def test_nested_body_pool_overlay_lands_pool_values(ctx):
-    # End-to-end via the body strategy: when a body has a nested object holding a foreign-key
-    # field the pool can satisfy, the pool value must reach the wire under the right path.
+def _with_shipping(shipping):
+    return {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "shipping": shipping},
+        "required": ["shipping"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("body", "path"),
+    [
+        (_with_shipping(_SHIPPING), ("shipping",)),
+        (_with_shipping(_SHIPPING_REF), ("shipping",)),
+        (_with_shipping({"type": "array", "minItems": 1, "items": _SHIPPING}), ("shipping", "*")),
+        (_with_shipping({"type": "array", "minItems": 1, "items": _SHIPPING_REF}), ("shipping", "*")),
+        (_with_shipping({"$ref": "#/components/schemas/Shipments"}), ("shipping", "*")),
+        (
+            _with_shipping(
+                {
+                    "type": "object",
+                    "required": ["parts"],
+                    "properties": {"parts": {"type": "array", "minItems": 1, "items": _SHIPPING_REF}},
+                }
+            ),
+            ("shipping", "parts", "*"),
+        ),
+        ({"type": "array", "minItems": 1, "items": _SHIPPING}, ("*",)),
+        ({"type": "array", "minItems": 1, "items": _SHIPPING_REF}, ("*",)),
+        ({"$ref": "#/components/schemas/Shipments"}, ("*",)),
+        (_with_shipping(_COMPOSED_SHIPPING), ("shipping",)),
+        (_with_shipping({"$ref": "#/components/schemas/ComposedShipping"}), ("shipping",)),
+        (_with_shipping({"anyOf": [_SHIPPING]}), ("shipping",)),
+        (_with_shipping(_SHIPPING_OR_PICKUP), ("shipping",)),
+        (_with_shipping({"type": "array", "minItems": 1, "items": _COMPOSED_SHIPPING}), ("shipping", "*")),
+        (_with_shipping({"type": "array", "minItems": 1, "items": _SHIPPING_OR_PICKUP}), ("shipping", "*")),
+    ],
+    ids=[
+        "inline-object",
+        "ref-object",
+        "array",
+        "array-of-refs",
+        "ref-to-array",
+        "array-in-object",
+        "top-level-array",
+        "top-level-array-of-refs",
+        "top-level-ref-to-array",
+        "all-of",
+        "ref-to-all-of",
+        "any-of",
+        "one-of",
+        "array-of-all-of",
+        "array-of-one-of",
+    ],
+)
+def test_nested_body_pool_overlay_lands_pool_values(ctx, body, path):
     schema = ctx.openapi.load_schema(
         {
             "/locations": {
@@ -1684,25 +1853,78 @@ def test_nested_body_pool_overlay_lands_pool_values(ctx):
                     "operationId": "createDepartment",
                     "requestBody": {
                         "required": True,
+                        "content": {"application/json": {"schema": body}},
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "Shipping": _SHIPPING,
+                "Shipments": {"type": "array", "minItems": 1, "items": _SHIPPING_REF},
+                "Note": {"type": "object", "properties": {"note": {"type": "string"}}, "required": ["note"]},
+                "ComposedShipping": _COMPOSED_SHIPPING,
+            }
+        },
+    )
+    data_source = schema.create_extra_data_source()
+
+    pooled_ids = {7340001, 7340002, 7340003}
+    for i in pooled_ids:
+        data_source.repository.record_response(operation="POST /locations", status_code=201, payload={"id": i})
+
+    operation = schema["/departments"]["POST"]
+    body = operation.body[0]
+    strategy = body.get_strategy(operation, GenerationConfig(), GenerationMode.POSITIVE, extra_data_source=data_source)
+
+    pool_hits = []
+    partial_hits = []
+    invalid = []
+
+    # The violating draw is rare, so fewer examples would let a regression pass.
+    @run_given(strategy, max_examples=100)
+    def collect(value):
+        if isinstance(value, GeneratedValue):
+            value = value.value
+        objects = objects_at(value, path)
+        landed = [isinstance(item, dict) and item.get("location_id") in pooled_ids for item in objects]
+        if landed and all(landed):
+            pool_hits.append(objects)
+        elif any(landed):
+            partial_hits.append(objects)
+        if landed and not body.is_valid(value):
+            invalid.append(value)
+
+    assert pool_hits, "Pool's Location.id values never landed in the body"
+    assert not invalid, f"Overlay made POSITIVE bodies invalid: {invalid[:3]!r}"
+    assert not partial_hits, f"Pool value reached only some array items: {partial_hits[:3]!r}"
+    dropped = [objects for objects in pool_hits if not all("note" in item for item in objects)]
+    assert not dropped, f"Overlay dropped the generated `note` sibling: {dropped[:3]!r}"
+
+
+def test_top_level_array_body_variant_combines_item_fields(ctx):
+    owner = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    schema = ctx.openapi.load_schema(
+        {
+            "/groups": {"post": {"responses": {"201": {"content": {"application/json": {"schema": owner}}}}}},
+            "/owners": {"post": {"responses": {"201": {"content": {"application/json": {"schema": owner}}}}}},
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "name": {"type": "string"},
-                                        "shipping": {
-                                            "type": "object",
-                                            "properties": {
-                                                "location_id": {"type": "integer"},
-                                                "note": {"type": "string"},
-                                            },
-                                            # `note` is required so random nested generation always
-                                            # includes it; under deep-merge the overlay must keep
-                                            # it in place when it injects `location_id`.
-                                            "required": ["note"],
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "groupId": {"type": "string"},
+                                            "ownerId": {"type": "string"},
                                         },
                                     },
-                                    "required": ["shipping"],
                                 }
                             }
                         },
@@ -1713,47 +1935,14 @@ def test_nested_body_pool_overlay_lands_pool_values(ctx):
         }
     )
     data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(operation="POST /groups", status_code=201, payload={"id": "G-1"})
+    data_source.repository.record_response(operation="POST /owners", status_code=201, payload={"id": "O-1"})
 
-    pooled_ids = {1, 2, 3}
-    for i in pooled_ids:
-        data_source.repository.record_response(operation="POST /locations", status_code=201, payload={"id": i})
-
-    operation = schema["/departments"]["POST"]
-    body = operation.body[0]
-    config = GenerationConfig()
-    strategy = body.get_strategy(operation, config, GenerationMode.POSITIVE, extra_data_source=data_source)
-
-    pool_hits_with_note = 0
-    pool_hits = 0
-
-    @given(strategy)
-    # The violating draw is rare, so fewer examples would let a regression pass.
-    @settings(max_examples=100, database=None, deadline=None)
-    def collect(value):
-        nonlocal pool_hits_with_note, pool_hits
-        # Hybrid strategy wraps in `GeneratedValue` when picking from the pool so the engine
-        # can attribute provenance; tests that compose the strategy directly unwrap here.
-        if isinstance(value, GeneratedValue):
-            value = value.value
-        if not isinstance(value, dict):
-            return
-        shipping = value.get("shipping")
-        if not isinstance(shipping, dict):
-            return
-        if shipping.get("location_id") in pooled_ids:
-            pool_hits += 1
-            if "note" in shipping:
-                pool_hits_with_note += 1
-
-    collect()
-
-    assert pool_hits > 0, "Pool's Location.id values never landed under shipping.location_id"
-    # Deep-merge guard: when the overlay injects location_id, the generated `note`
-    # sibling (required by the nested schema) must survive the merge.
-    assert pool_hits_with_note == pool_hits, (
-        f"{pool_hits - pool_hits_with_note} of {pool_hits} pool-overlaid bodies dropped the "
-        "generated `note` sibling — nested overlay replaced the whole `shipping` object."
+    operation = schema["/items"]["POST"]
+    variants = data_source.get_captured_variants(
+        operation=operation, location=ParameterLocation.BODY, schema=operation.body[0].optimized_schema
     )
+    assert [variant.overlay for variant in variants] == [[{"groupId": "G-1", "ownerId": "O-1"}]]
 
 
 def test_positive_form_urlencoded_body_pool_overlay_survives_form_prep(ctx):
@@ -1817,8 +2006,7 @@ def test_positive_form_urlencoded_body_pool_overlay_survives_form_prep(ctx):
     # rewrites. With the pre-fix code, captured-variant draws were filtered out here.
     form_pool_hits = 0
 
-    @given(cases_strategy)
-    @settings(max_examples=200, database=None, deadline=None)
+    @run_given(cases_strategy, max_examples=200)
     def collect(case):
         nonlocal form_pool_hits
         if case.media_type != "application/x-www-form-urlencoded":
@@ -1826,7 +2014,6 @@ def test_positive_form_urlencoded_body_pool_overlay_survives_form_prep(ctx):
         if isinstance(case.body, dict) and case.body.get("user_id") in pooled_ids:
             form_pool_hits += 1
 
-    collect()
     assert form_pool_hits > 0, "pool-derived user_id never survived the form-urlencoded prep step"
 
 
@@ -1886,14 +2073,7 @@ def test_negative_aware_strategy_with_captured_values_body(ctx):
 
     strategy = body.get_strategy(operation, config, GenerationMode.NEGATIVE, extra_data_source=data_source)
 
-    results = []
-
-    @given(strategy)
-    @settings(max_examples=20, database=None, suppress_health_check=list(HealthCheck))
-    def collect_samples(value):
-        results.append(value)
-
-    collect_samples()
+    results = generate_many(strategy, 20)
 
     assert all(isinstance(r, GeneratedValue) for r in results)
 
@@ -2172,7 +2352,8 @@ def test_correlated_and_per_slot_share_rotation_state(user_schema_builder):
     assert next_pick != drawn_id
 
 
-def test_pool_overlay_respects_max_properties(ctx):
+@pytest.mark.parametrize("mode", [GenerationMode.POSITIVE, GenerationMode.NEGATIVE], ids=["positive", "negative"])
+def test_pool_overlay_respects_max_properties(ctx, mode):
     # Injecting a captured value adds a key, and the body it lands in may already be at capacity.
     schema = ctx.openapi.load_schema(
         {
@@ -2230,17 +2411,19 @@ def test_pool_overlay_respects_max_properties(ctx):
 
     operation = schema["/posts"]["POST"]
     config = GenerationConfig()
-    strategy = operation.body[0].get_strategy(operation, config, GenerationMode.POSITIVE, extra_data_source=data_source)
+    strategy = operation.body[0].get_strategy(operation, config, mode, extra_data_source=data_source)
 
     pool_hits = 0
     oversized = []
 
-    @given(strategy)
     # The violating draw is rare, so fewer examples would let a regression pass.
-    @settings(max_examples=200, database=None, deadline=None)
+    @run_given(strategy, max_examples=200)
     def collect(value):
         nonlocal pool_hits
         if isinstance(value, GeneratedValue):
+            # A mutated draw is a negative case, where exceeding `maxProperties` is allowed.
+            if value.meta is not None:
+                return
             value = value.value
         if not isinstance(value, dict):
             return
@@ -2248,8 +2431,6 @@ def test_pool_overlay_respects_max_properties(ctx):
             pool_hits += 1
         if len(value) > 2:
             oversized.append(value)
-
-    collect()
 
     assert pool_hits > 0, "Pool's Category.categoryId values never landed in the body"
     assert not oversized, f"`maxProperties` exceeded: {oversized[0]!r}"
@@ -2288,3 +2469,100 @@ def test_pool_draw_names_the_identity_that_produced_the_resource(user_schema_bui
     picked = data_source.pick_correlated_values(operation=schema["/users/{user_id}"]["GET"])
 
     assert [draw.source_identity for draw in picked.draws] == ["alice"]
+
+
+CORRELATED_PICKS_SCRIPT = """
+import json, sys
+import schemathesis
+schema = schemathesis.openapi.from_dict(json.load(sys.stdin))
+data_source = schema.create_extra_data_source()
+post = schema["/accounts/{accountId}/templates/{templateId}"]["POST"]
+get = schema["/accounts/{accountId}/templates/{templateId}"]["GET"]
+for account, template in [("a1", "t1"), ("a1", "t2"), ("a2", "t1")]:
+    case = post.Case(path_parameters={"accountId": account, "templateId": template})
+    data_source.record_request(operation=post, case=case, status_code=201)
+print(json.dumps([list(data_source.pick_correlated_values(operation=get).values.values()) for _ in range(4)]))
+"""
+
+
+def test_correlated_picks_identical_across_hash_seeds(ctx):
+    parameters = [
+        {"name": name, "in": "path", "required": True, "schema": {"type": "string"}}
+        for name in ("accountId", "templateId")
+    ]
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/accounts/{accountId}/templates/{templateId}": {
+                "post": {"parameters": parameters, "responses": {"201": {"description": "Created"}}},
+                "get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}},
+            }
+        }
+    )
+    outputs = {
+        subprocess.run(
+            [sys.executable, "-c", CORRELATED_PICKS_SCRIPT],
+            input=json.dumps(raw_schema),
+            capture_output=True,
+            text=True,
+            check=True,
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        ).stdout
+        for seed in range(8)
+    }
+    assert [json.loads(output) for output in outputs] == [[["a1", "t1"], ["a2", "t1"], ["a1", "t1"], ["a1", "t2"]]]
+
+
+def test_negative_aware_strategy_keeps_schema_examples_intact(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/projects": {
+                "post": {
+                    "operationId": "createProject",
+                    "responses": {
+                        "201": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "string"}}}
+                                }
+                            },
+                            "links": {
+                                "CreateTask": {
+                                    "operationId": "createTask",
+                                    "parameters": {"project_id": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/tasks": {
+                "post": {
+                    "operationId": "createTask",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"project_id": {"type": "string"}},
+                                    "required": ["project_id"],
+                                },
+                                "example": {"project_id": "declared"},
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {"201": {"description": "Created"}},
+                }
+            },
+        }
+    )
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(operation="POST /projects", status_code=201, payload={"id": "captured"})
+    operation = schema["/tasks"]["POST"]
+    config = GenerationConfig()
+    body = operation.body[0]
+
+    generate_many(body.get_strategy(operation, config, GenerationMode.NEGATIVE, extra_data_source=data_source), 100)
+
+    positive = generate_many(body.get_strategy(operation, config, GenerationMode.POSITIVE), 100)
+    assert {"project_id": "captured"} not in positive

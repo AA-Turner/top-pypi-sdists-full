@@ -6,7 +6,7 @@ from itertools import product
 import jsonschema_rs
 import pytest
 from flask import jsonify
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import HealthCheck, assume, example, given, settings
 from hypothesis import strategies as st
 
 try:
@@ -36,6 +36,7 @@ from schemathesis.engine import from_schema
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.hypothesis import examples
 from schemathesis.specs.openapi.converter import update_pattern_in_schema
+from test.utils import run_given
 
 
 @pytest.mark.parametrize(
@@ -305,6 +306,11 @@ from schemathesis.specs.openapi.converter import update_pattern_in_schema
         # A group holding anything but one quantifiable item has no single place for the budget to land.
         ("^(a|bb)$", 2, 2, "^(a|bb)$"),
         ("^([a-z][0-9]*)$", 3, 3, "^([a-z][0-9]*)$"),
+        # Lookarounds right after `^` take no characters, so the budget lands on what follows them.
+        ("^(?!aws:)[a-z]*$", 1, 128, "^(?!aws:)[a-z]{1,128}$"),
+        ("^(?!aws:)(?=x)[a-z]*$", 1, None, "^(?!aws:)(?=x)[a-z]{1,}$"),
+        ("^(?!a)[a-z]+-[0-9]*$", 4, 4, "^(?!a)[a-z]{1}-[0-9]{2}$"),
+        ("^(?!aws:)$", 1, None, "^(?!aws:)$"),
     ],
 )
 def test_update_quantifier(pattern, min_length, max_length, expected):
@@ -482,6 +488,12 @@ PIN_CASES = [
     (SPLIT_UUID, 47),
 ]
 
+IOTTWINMAKER_ARN = r".*(^arn:((aws)|(aws-cn)|(aws-us-gov)):s3:::)([a-zA-Z0-9_-]+$).*"
+FSX_ARN = (
+    r"^arn:(?=[^:]+:fsx:[^:]+:\d{12}:)((|(?=[a-z0-9-.]{1,63})(?!\d{1,3}(\.\d{1,3}){3})"
+    r"(?![^:]*-{2})(?![^:]*-\.)(?![^:]*\.-)[a-z0-9].*(?<!-)):){4}(?!/).{0,1024}$"
+)
+
 
 @pytest.mark.parametrize(("pattern", "length"), PIN_CASES)
 def test_pin_pattern_length(pattern, length):
@@ -533,6 +545,15 @@ def test_pin_pattern_length_leaves_possessive_repeats_alone():
     # A possessive run keeps what it took, so a count the following part could otherwise share
     # would let strings through that the pattern turns down.
     assert pin_pattern_length("^[a-z]++[a-z]$", 5, 5) == "^[a-z]++[a-z]$"
+
+
+@pytest.mark.parametrize(
+    ("pattern", "length"),
+    [(IOTTWINMAKER_ARN, 1024), (FSX_ARN, 8), (FSX_ARN, 512)],
+    ids=["anchors", "lookarounds-minimum", "lookarounds-maximum"],
+)
+def test_pin_pattern_length_declines_when_zero_width_checks_reject_the_pinned_shape(pattern, length):
+    assert pin_pattern_length(pattern, length, length) == pattern
 
 
 @pytest.mark.parametrize(
@@ -1377,23 +1398,19 @@ def test_is_valid_jsonschema_rs_regex(pattern, expected):
 def test_pattern_the_validator_cannot_compile_is_dropped(ctx):
     # Such a pattern constrains nothing during validation, and keeping it would only stop the rest
     # of the schema from being modeled.
-    schema = ctx.openapi.build_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "q",
-                            "in": "query",
-                            "schema": {"type": "string", "pattern": "[A-Z]{,3}", "maxLength": 5},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "q",
+                    "in": "query",
+                    "schema": {"type": "string", "pattern": "[A-Z]{,3}", "maxLength": 5},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schemathesis.openapi.from_dict(schema)["/items"]["GET"]
     parameter = next(iter(operation.query))
 
     assert "pattern" not in parameter.optimized_schema
@@ -1403,19 +1420,15 @@ def test_pattern_the_validator_cannot_compile_is_dropped(ctx):
 @pytest.mark.parametrize("pattern", [r"^(?P<major>\d+)$", r"^(?<major>\d+)$"], ids=["python", "ecma"])
 def test_named_group_pattern_is_kept(ctx, pattern):
     # A group name only one engine reads would leave the pattern refused where the schema is validated.
-    schema = ctx.openapi.build_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "pattern": pattern}}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "pattern": pattern}}
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schemathesis.openapi.from_dict(schema)["/items"]["GET"]
     assert next(iter(operation.query)).optimized_schema["pattern"] == r"^(\d+)$"
     assert examples.generate_one(operation.as_strategy()).query["q"].isdigit()
 
@@ -1447,19 +1460,15 @@ LETTERS = r"^[a-zA-Z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]+$"
     ],
 )
 def test_pcre_class_syntax_is_translated_or_dropped(ctx, pattern, expected):
-    schema = ctx.openapi.build_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "pattern": pattern}}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {"name": "q", "in": "query", "required": True, "schema": {"type": "string", "pattern": pattern}}
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schemathesis.openapi.from_dict(schema)["/items"]["GET"]
     assert next(iter(operation.query)).optimized_schema.get("pattern") == expected
 
 
@@ -1476,24 +1485,20 @@ def test_quantifier_rewrite_the_validator_cannot_compile_is_not_taken():
 @pytest.mark.parametrize("length_keyword", ["minLength", "maxLength"], ids=["min", "max"])
 def test_huge_length_is_not_folded_into_pattern(ctx, length_keyword):
     length = 9223372036854775807
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "q",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "string", "pattern": "^a+$", length_keyword: length},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "q",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string", "pattern": "^a+$", length_keyword: length},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/items"]["GET"]
 
     assert next(iter(operation.query)).optimized_schema == {
         "type": "string",
@@ -1545,9 +1550,25 @@ BRUTE_FORCE_PATTERNS = [
     r"^(?:(?:ab|abab)+|(?:ba|baba)+)$",
     r"^(?:b|(a)\1)$",
     r"^(?>a+)*$",
+    r"a*(^ab)(b+$)a*",
+    r"^a(?=b)(|b)a+$",
 ]
 BRUTE_FORCE_ALPHABET = "ab"
 BRUTE_FORCE_MAX_LENGTH = 9
+
+SMALL_REGEX_BODIES = st.recursive(
+    st.sampled_from(("a", "b", "[ab]", ".", "(?=a)", "(?=b)", "(?!a)", "^", "$", r"\b")),
+    lambda children: st.one_of(
+        children.map(lambda child: f"(?:{child})"),
+        st.tuples(children, children).map(lambda parts: "".join(parts)),
+        st.tuples(children, children).map(lambda parts: f"(?:{parts[0]}|{parts[1]})"),
+        st.tuples(children, st.sampled_from(("*", "+", "?", "{1,2}"))).map(lambda parts: f"(?:{parts[0]}){parts[1]}"),
+    ),
+    max_leaves=5,
+)
+SMALL_REGEX_PATTERNS = st.tuples(st.sampled_from(("", "^")), SMALL_REGEX_BODIES, st.sampled_from(("", "$", r"\Z"))).map(
+    lambda parts: "".join(parts)
+)
 
 
 def _strings_of_length(length):
@@ -1582,6 +1603,27 @@ def test_pinned_pattern_admits_only_original_matches_of_the_pinned_length(patter
         for text in admitted:
             assert len(text) == length, (pattern, length, text)
             assert original.fullmatch(text), (pattern, length, text)
+
+
+@example(pattern=r"^a(?=b)(|b)a+$", length=2)
+@example(pattern=r"(?:(?=a))+", length=0)
+@example(pattern=r"a(?:^)+", length=1)
+@example(pattern=r"(?:(?!b))+.", length=1)
+@settings(max_examples=50, suppress_health_check=list(HealthCheck), deadline=None)
+@given(pattern=SMALL_REGEX_PATTERNS, length=st.integers(min_value=0, max_value=8))
+def test_pinned_generated_pattern_is_a_non_empty_subset(pattern, length):
+    pinned = pin_pattern_length(pattern, length, length)
+    if pinned == pattern:
+        return
+    admitted = {
+        text
+        for size in range(BRUTE_FORCE_MAX_LENGTH + 1)
+        for text in _strings_of_length(size)
+        if re.fullmatch(pinned, text)
+    }
+    assert admitted, (pattern, length, pinned)
+    assert {len(text) for text in admitted} == {length}
+    assert all(re.fullmatch(pattern, text) for text in admitted)
 
 
 @pytest.mark.parametrize("pattern", BRUTE_FORCE_PATTERNS)
@@ -1662,26 +1704,19 @@ def test_unreadable_pattern_rules_nothing_out(pattern):
     ],
 )
 def test_length_bounds_beside_a_pattern(ctx, parameter_schema, expected):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": parameter_schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "q", "in": "query", "required": True, "schema": parameter_schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/items"]["GET"]
     assert next(iter(operation.query)).optimized_schema == expected
     validator = jsonschema_rs.validator_for(parameter_schema)
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=10, database=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(), max_examples=10)
     def check(case):
         assert validator.is_valid(case.query["q"]), case.query
-
-    check()
 
 
 @pytest.mark.parametrize(

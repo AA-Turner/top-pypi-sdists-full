@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from time import sleep
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, NoReturn, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, NoReturn, TypedDict, cast
 from zipfile import ZipFile
 
 from packaging.requirements import Requirement
@@ -211,13 +211,16 @@ class Frontend(ABC):
 
         :param folder: the python project folder
         :return: the frontend creation args
-        :raises ValueError: if ``build-system`` is not a table, or one of its keys has a type PEP-518 rules out
+        :raises ValueError: if ``build-system`` is not a table, one of its keys has a type PEP-518 rules out, or a
+            ``backend-path`` entry does not resolve inside the project (PEP-517 in-tree backends)
 
         E.g., to create a frontend from a python project folder:
 
         .. code:: python
 
-            frontend = Frontend(*Frontend.create_args_from_folder(project_folder))
+            from pyproject_api import SubprocessFrontend
+
+            frontend = SubprocessFrontend(*SubprocessFrontend.create_args_from_folder(project_folder)[:-1])
         """
         folder = folder.absolute()
         py_project_toml = folder / "pyproject.toml"
@@ -228,7 +231,9 @@ class Frontend(ABC):
                 msg = f"build-system must be a table, got {build_system!r}"
                 raise ValueError(msg)
             if "backend-path" in build_system:
-                backend_paths: tuple[Path, ...] = tuple(folder / p for p in _str_list(build_system, "backend-path"))
+                backend_paths: tuple[Path, ...] = tuple(
+                    _in_tree_path(folder, entry) for entry in _str_list(build_system, "backend-path")
+                )
             else:
                 backend_paths = ()
             if "requires" in build_system:
@@ -343,9 +348,16 @@ class Frontend(ABC):
         return MetadataForBuildWheelResult(metadata_directory / basename, out, err)
 
     def _check_metadata_dir(self, metadata_directory: Path) -> None:
-        if metadata_directory.resolve() == self._root.resolve():
-            msg = f"the project root and the metadata directory can't be the same {self._root}"
-            raise RuntimeError(msg)
+        metadata_path: Final[Path] = metadata_directory.resolve()
+        project_root: Final[Path] = self._root.resolve()
+        if metadata_path == project_root:
+            same_root_message: Final[str] = (
+                f"the project root and the metadata directory can't be the same {self._root}"
+            )
+            raise RuntimeError(same_root_message)
+        if metadata_path in project_root.parents:
+            ancestor_message: Final[str] = f"the metadata directory can't contain the project root {self._root}"
+            raise RuntimeError(ancestor_message)
         if metadata_directory.exists():  # start with fresh
             ensure_empty_dir(metadata_directory)
         metadata_directory.mkdir(parents=True, exist_ok=True)
@@ -537,6 +549,19 @@ def _str_list(build_system: dict[str, Any], key: str) -> list[str]:
         msg = f"build-system.{key} must be a list of strings, got {value!r}"
         raise ValueError(msg)
     return value
+
+
+def _in_tree_path(folder: Path, entry: str) -> Path:
+    path = folder / entry
+    # Python 3.15 on Windows resolves a path containing NUL instead of raising
+    try:
+        inside = "\0" not in entry and not Path(entry).is_absolute() and path.resolve().is_relative_to(folder.resolve())
+    except (OSError, RuntimeError):  # RuntimeError: symlink loop before Python 3.13
+        inside = False
+    if not inside:
+        msg = f"build-system.backend-path entry {entry!r} must be a relative path inside the project {folder}"
+        raise ValueError(msg)
+    return path
 
 
 __all__ = [

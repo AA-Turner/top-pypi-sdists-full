@@ -25,6 +25,12 @@ pub use tvm_ffi_sys::TVMFFITypeIndex as TypeIndex;
 /// Object related ABI handling
 use tvm_ffi_sys::{TVMFFIAny, TVMFFIGetTypeInfo, TVMFFIObject, COMBINED_REF_COUNT_BOTH_ONE};
 
+/// Held while `#[derive(Object)]` with `#[type_register]` registers a type, so
+/// that registrations from Rust do not race each other: the runtime does not
+/// lock its type table and leaves that to callers.
+#[doc(hidden)]
+pub static TYPE_REGISTRATION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// Object type is by default the TVMFFIObject
 #[repr(C)]
 pub struct Object {
@@ -307,9 +313,10 @@ pub trait ObjectRefCast: ObjectRefCore + AnyCompatible {
 
 impl<T: ObjectRefCore + AnyCompatible> ObjectRefCast for T {}
 
-/// Base class for ObjectRef
+/// A generic managed reference to a TVM-FFI object.
 ///
-/// This class is used to store the data of the ObjectRef
+/// Holds an `ObjectArc<Object>` that manages the underlying object's lifetime
+/// through reference counting.
 #[repr(C)]
 #[derive(ObjectRef, Clone)]
 pub struct ObjectRef {
@@ -417,6 +424,14 @@ pub mod unsafe_ {
         }
     }
 
+    /// Layout of a `T` followed by `count` extra items, kept at least one word past the
+    /// header: once a weak reference outlives the data, the deleter stores `count` there.
+    pub(crate) fn extra_items_layout<T, U>(count: usize) -> std::alloc::Layout {
+        let size = std::mem::size_of::<T>() + count * std::mem::size_of::<U>();
+        let min_size = std::mem::size_of::<TVMFFIObject>() + std::mem::size_of::<u64>();
+        std::alloc::Layout::from_size_align(size.max(min_size), std::mem::align_of::<T>()).unwrap()
+    }
+
     pub(crate) unsafe extern "C" fn object_deleter_for_new_with_extra_items<T, U>(
         ptr: *mut c_void,
         flags: i32,
@@ -427,27 +442,25 @@ pub mod unsafe_ {
         if flags == kTVMFFIObjectDeleterFlagBitMaskBoth as i32 {
             let extra_items_count = T::extra_items_count(&(*obj));
             std::ptr::drop_in_place(obj);
-            let layout = std::alloc::Layout::from_size_align(
-                std::mem::size_of::<T>() + extra_items_count * std::mem::size_of::<U>(),
-                std::mem::align_of::<T>(),
-            )
-            .unwrap();
-            std::alloc::dealloc(ptr as *mut u8, layout);
+            std::alloc::dealloc(
+                ptr as *mut u8,
+                extra_items_layout::<T, U>(extra_items_count),
+            );
         } else {
-            assert_eq!(std::mem::size_of::<T>() % std::mem::size_of::<u64>(), 0);
+            // Weak references keep using the header, so the weak phase finds the item
+            // count in the first word after it.
+            let count_slot = (ptr as *mut u8).add(std::mem::size_of::<TVMFFIObject>()) as *mut u64;
             if flags & kTVMFFIObjectDeleterFlagBitMaskStrong as i32 != 0 {
                 let extra_items_count = T::extra_items_count(&(*obj));
                 std::ptr::drop_in_place(obj);
-                std::ptr::write(obj as *mut u64, extra_items_count as u64);
+                std::ptr::write(count_slot, extra_items_count as u64);
             }
             if flags & kTVMFFIObjectDeleterFlagBitMaskWeak as i32 != 0 {
-                let extra_items_count = std::ptr::read(obj as *mut u64) as usize;
-                let layout = std::alloc::Layout::from_size_align(
-                    std::mem::size_of::<T>() + extra_items_count * std::mem::size_of::<U>(),
-                    std::mem::align_of::<T>(),
-                )
-                .unwrap();
-                std::alloc::dealloc(ptr as *mut u8, layout);
+                let extra_items_count = std::ptr::read(count_slot) as usize;
+                std::alloc::dealloc(
+                    ptr as *mut u8,
+                    extra_items_layout::<T, U>(extra_items_count),
+                );
             }
         }
     }
@@ -519,11 +532,7 @@ impl<T: ObjectCore> ObjectArc<T> {
             assert_eq!(std::mem::align_of::<T>() % std::mem::align_of::<U>(), 0);
             assert_eq!(std::mem::size_of::<T>() % std::mem::align_of::<U>(), 0);
             let extra_items_count = T::extra_items_count(&data);
-            let layout = std::alloc::Layout::from_size_align(
-                std::mem::size_of::<T>() + extra_items_count * std::mem::size_of::<U>(),
-                std::mem::align_of::<T>(),
-            )
-            .unwrap();
+            let layout = unsafe_::extra_items_layout::<T, U>(extra_items_count);
             let raw_data_ptr = std::alloc::alloc(layout);
             if raw_data_ptr.is_null() {
                 std::alloc::handle_alloc_error(layout);

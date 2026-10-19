@@ -229,7 +229,10 @@ class RequestsTransport(BaseTransport["requests.Session"]):
             kwargs["headers"] = headers
 
         data = self._build_request_data(case, kwargs)
-        if max_redirects == 0:
+        # Unless redirects are configured, a documented redirect is the response under test, not its target.
+        if max_redirects == 0 or (
+            max_redirects is None and any(code.startswith("3") for code in case.operation.responses.status_codes)
+        ):
             data.setdefault("allow_redirects", False)
 
         current_session_headers: MutableMapping[str, Any] = {}
@@ -499,8 +502,9 @@ def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
         if main not in ("*", "multipart") or sub not in ("*", "form-data", "mixed"):
             continue
         for name in body.definition.get("encoding", {}):
-            content_type = selected.get(name) or body.get_property_content_type(name)
-            if isinstance(content_type, str):
+            # Without a recorded choice, a part is sent with the first listed media type.
+            content_type = selected.get(name) or next(iter(body.get_property_content_types(name)), None)
+            if content_type is not None:
                 result[name] = content_type
         # Default nested-object / array form-parts to JSON so the wire payload is parsable.
         schema_node = body.definition.get("schema")

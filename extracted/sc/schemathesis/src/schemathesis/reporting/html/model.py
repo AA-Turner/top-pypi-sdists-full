@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from schemathesis.core.failures import Severity
 from schemathesis.engine import Status, StopReason
 from schemathesis.engine.run import INTERNAL_PHASES, PhaseName
 
@@ -62,7 +63,9 @@ class ErrorEntry:
 
 @dataclass(slots=True)
 class FailureEntry:
+    code: str
     title: str
+    severity: Severity
     # One per violation; same-title violations on one response share an entry.
     messages: list[str]
 
@@ -128,7 +131,7 @@ class OperationStatus(StrEnum):
 class OperationRow:
     label: str
     status: OperationStatus
-    # Distinct failure titles; the run keeps one failure per kind per operation, so titles do not repeat.
+    # Distinct failure titles, most severe first; the run keeps one failure per kind per operation.
     failures: list[str]
     cases: int
     # Why the operation errored or was skipped.
@@ -141,6 +144,11 @@ class OperationRow:
     warnings: list[WarningBlock] = field(default_factory=list)
     # Titles of the failures the baseline suppressed.
     known_failures: list[str] = field(default_factory=list)
+
+    @property
+    def severity(self) -> Severity:
+        # Rows without failures are only ordered among themselves, so their value never decides anything.
+        return min((failure.severity for case in self.failing_cases for failure in case.failures), default=Severity.LOW)
 
     @property
     def method(self) -> str:
@@ -214,8 +222,6 @@ class ReportData:
     def untested_operations(self) -> int:
         return max(self.selected_operations - self.tested_operations - self.errored_operations, 0)
 
-    # ponytail: a run that stopped early reports every untested operation as not run, including any
-    # excluded on purpose; phase-level skip reasons cannot tell the two apart.
     @property
     def not_run_operations(self) -> int:
         return self.untested_operations if self.stop_reason is not StopReason.COMPLETED else 0

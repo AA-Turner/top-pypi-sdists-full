@@ -145,6 +145,7 @@ class SdlcAssetType(str, Enum):
     PRISMACLOUDSECURITY = 'PrismaCloudSecurity'
     CYTRIX = 'Cytrix'
     INVICTIPLATFORM = 'InvictiPlatform'
+    VELA = 'Vela'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -274,6 +274,261 @@ class BatchOutputPayload(BaseModel):
     jobs: list[BatchJobPayload]
 
 
+RecommendOptionValue: TypeAlias = bool | str | list[str]
+
+
+class RecommendInputPayload(BaseModel):
+    """The input a recommendation read and whether its schema rules could analyse it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["file", "url", "stdin", "directory", "input-model"]
+    input_file_type: str | None = Field(description="The configured or detected input file type.")
+    document: str | None = Field(
+        description="The schema format and version, such as OpenAPI 3.1.0; null when not analysed."
+    )
+    analysed: bool
+
+
+class RecommendContextPayload(BaseModel):
+    """The output model type and target Python version the recommendation chose presets for."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    output_model_type: str
+    target_python_version: str
+
+
+class RecommendNameChangePayload(BaseModel):
+    """One class that two candidates name differently at the same schema location."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    location: str = Field(
+        description=(
+            "Where the class comes from, for people: the document path, then each inline step after '>'. It is not a "
+            "JSON Pointer and cannot be used as a --model-name-map key."
+        )
+    )
+    before: str
+    after: str
+
+
+class RecommendNameChangesPayload(BaseModel):
+    """How the class names of two candidates differ, matching classes by schema location."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    matched: int = Field(description="Locations with one class in both candidates.")
+    renamed: int
+    renumbered: int = Field(description="Renamed classes whose names differ only in digits.")
+    removed: int = Field(description="Locations with a class only before.")
+    added: int = Field(description="Locations with a class only after.")
+    examples: list[RecommendNameChangePayload] = Field(
+        description="Renamed classes from the largest families of numbered names before, then by location."
+    )
+
+
+class RecommendNameMetricsPayload(BaseModel):
+    """Counts over the class names one candidate generates; problems counts each class once."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    types: int = Field(description="Generated classes.")
+    component: int
+    inline: int
+    operation: int
+    readable: int
+    numbered: int
+    statuscode: int
+    generic: int
+    long: int = Field(description="Names longer than 40 characters that are not a component key.")
+    doubled: int = Field(description="Names repeating a word the schema does not repeat.")
+    doubled_from_spec: int
+    other_problems: int = Field(description="Problem names that are neither numbered nor doubled.")
+    displaced: int = Field(description="Components whose name another class took.")
+    inline_like_component: int
+    union_variants: int
+    union_variants_parent_numbered: int
+    union_variants_numbered: int
+    median_length: int
+    max_length: int
+    problems: int
+    problems_percent: float
+
+
+class RecommendNameStabilityPayload(BaseModel):
+    """How one candidate's class names move between --diff-against and the input."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    fingerprints_matched: int = Field(description="Classes matched by a unique set of at least two field names.")
+    fingerprints_renamed: int
+    fingerprints_renumbered: int
+    locations: RecommendNameChangesPayload
+
+
+class RecommendCandidatePayload(BaseModel):
+    """One compared configuration and the class names it generates, or the error that rejected it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    preset: str | None = Field(description="The preset the candidate starts from; null for the configuration as set.")
+    set: dict[str, RecommendOptionValue] = Field(description="Options added on top of the preset, as config values.")
+    arguments: list[str]
+    selectable: bool = Field(description="False for the configuration as set without the recommended preset.")
+    error: str | None
+    dropped_constraint_warnings: int | None = Field(
+        description=(
+            "Fields that dcg warns the candidate generates without some of their constraints; ranked after the class "
+            "names. Null when the candidate was rejected."
+        )
+    )
+    metrics: RecommendNameMetricsPayload | None
+    stability: RecommendNameStabilityPayload | None
+
+
+class RecommendTrialPayload(BaseModel):
+    """The candidates full mode generated and compared, and the one it selected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    metrics_version: int
+    candidates: list[RecommendCandidatePayload]
+    ranking: list[str] = Field(description="Candidate labels, best first.")
+    selected: str | None = Field(description="The best selectable candidate; null when every one was rejected.")
+    current: str = Field(description="The candidate that runs the configuration as set.")
+    migration: RecommendNameChangesPayload | None = Field(
+        description="Class names the selected candidate changes from the current one."
+    )
+    dropped: int = Field(description="Candidates beyond the limit of eight that were not generated.")
+    remeasured: int = Field(
+        description=(
+            "The last candidates: the selected configuration without or with one option, generated to measure each "
+            "option on it when it is not the rules' recommendation; never selected."
+        )
+    )
+
+
+class RecommendOptionTrialPayload(BaseModel):
+    """The candidates without and with one option, and the class names it changes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    before: str = Field(description="Label of the candidate without the option.")
+    after: str = Field(description="Label of the candidate with the option.")
+    changes: RecommendNameChangesPayload
+
+
+class RecommendOptionPayload(BaseModel):
+    """One rule outcome: the config values it sets, the CLI arguments for them, and why."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rule: str
+    decision: str
+    set: dict[str, RecommendOptionValue] = Field(description="Config fields and values, as pyproject.toml spells them.")
+    arguments: list[str] = Field(
+        description="The CLI arguments of the values; for not_recommended, the options the rule advises against."
+    )
+    reason: str
+    contested_reason: str | None = Field(
+        description="Why the schema also argues against the values; set only for consider entries."
+    )
+    caveats: list[str]
+    evidence: list[str]
+    trial: RecommendOptionTrialPayload | None = Field(
+        description=(
+            "What full mode measured for the option; null in quick mode, or when a candidate it needs was rejected "
+            "or left out."
+        )
+    )
+
+
+class RecommendBaselinePayload(BaseModel):
+    """The dated preset the recommendation starts from."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    preset: str
+    family: str
+    configured: bool = Field(description="Whether the configuration already selects this preset.")
+    covers: list[RecommendOptionPayload] = Field(description="Rule outcomes the preset already sets.")
+
+
+class RecommendDisagreementPayload(BaseModel):
+    """A configured value the recommendation keeps although the rules suggest another value."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: str
+    kind: Literal["explicit", "preset", "newer-preset"] = Field(
+        description=(
+            "explicit: the configuration sets the field; preset: the configured preset sets it and no option "
+            "undoes it; newer-preset: a newer dated preset of the same family exists."
+        )
+    )
+    configured: Any
+    recommended: Any
+    rule: str | None
+
+
+class RecommendOptionsPayload(BaseModel):
+    """Structured JSON payload emitted by --recommend-options --output-format json (experimental)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1]
+    format: Literal["json"]
+    kind: Literal["recommend-options"]
+    mode: Literal["quick", "full"]
+    rules_revision: str
+    calibrated_presets: str
+    input: RecommendInputPayload
+    context: RecommendContextPayload
+    signals: dict[str, int]
+    facts: dict[str, str]
+    baseline: RecommendBaselinePayload
+    recommendations: list[RecommendOptionPayload]
+    left_out: list[RecommendOptionPayload] = Field(
+        description="Options the rules recommend that the candidate full mode selected does not take."
+    )
+    consider: list[RecommendOptionPayload]
+    validation: list[RecommendOptionPayload] = Field(
+        description=(
+            "Options for checks the schema declares that the models leave out by default; the user decides, and they "
+            "are never in arguments or config."
+        )
+    )
+    policy: list[RecommendOptionPayload] = Field(
+        description=(
+            "Options that depend on what input the project accepts rather than on the schema, such as strict types; "
+            "never in arguments or config."
+        )
+    )
+    not_recommended: list[RecommendOptionPayload]
+    disagreements: list[RecommendDisagreementPayload]
+    trial: RecommendTrialPayload | None = Field(description="The candidates full mode compared; null in quick mode.")
+    notes: list[str]
+    arguments: list[str] = Field(
+        description=(
+            "The recommended command's arguments, without the program name; empty when there is no command to run, "
+            "such as for a Swagger 2.0 document typed as OpenAPI."
+        )
+    )
+    config: dict[str, Any] | None = Field(
+        description=(
+            "The pyproject.toml keys to write, nested under their table; null when they stay on the command line or "
+            "there is no command to run."
+        )
+    )
+    config_complete: bool = Field(
+        description="Whether config is a complete table, or only the keys to add or change in an existing one."
+    )
+    content: str
+
+
 CommandOutputPayload: TypeAlias = (
     PyprojectConfigOutputPayload | CliCommandOutputPayload | DeprecationsOutputPayload | ExperimentalOutputPayload
 )
@@ -285,7 +540,8 @@ StructuredOutputPayload: TypeAlias = Annotated[
     | ExperimentalOutputPayload
     | CheckOutputPayload
     | BatchOutputPayload
-    | PromptPayload,
+    | PromptPayload
+    | RecommendOptionsPayload,
     Field(discriminator="kind"),
 ]
 
@@ -415,5 +671,15 @@ def structured_output_json_schema() -> str:
             _STRUCTURED_OUTPUT_ADAPTER.json_schema(mode="serialization"),
             title="StructuredOutputPayload",
             description="Schema for all structured JSON outputs emitted by the CLI.",
+        )
+    )
+
+
+def recommend_options_json_schema() -> str:
+    return _dump_json(
+        _schema_with_metadata(
+            RecommendOptionsPayload.model_json_schema(mode="serialization"),
+            title="RecommendOptionsPayload",
+            description="Structured JSON payload emitted by --recommend-options --output-format json.",
         )
     )

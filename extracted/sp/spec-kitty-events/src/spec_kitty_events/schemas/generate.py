@@ -34,6 +34,7 @@ from spec_kitty_events.project_lifecycle import (
     PlanCompletedPayload,
     PlanStartedPayload,
     ProjectInitializedPayload,
+    ReviewerSelfApprovalPayload,
     SpecifyCompletedPayload,
     SpecifyStartedPayload,
     TasksCompletedPayload,
@@ -66,7 +67,6 @@ from spec_kitty_events.collaboration import (
     SessionLinkedPayload,
 )
 from spec_kitty_events.glossary import (
-    SemanticConflictEntry,
     GlossaryScopeActivatedPayload,
     TermCandidateObservedPayload,
     GlossarySenseUpdatedPayload,
@@ -75,6 +75,7 @@ from spec_kitty_events.glossary import (
     GlossaryClarificationRequestedPayload,
     GlossaryClarificationResolvedPayload,
     GenerationBlockedBySemanticConflictPayload,
+    StepCheckpointedPayload,
 )
 from spec_kitty_events.mission_next import (
     RuntimeActorIdentity,
@@ -205,6 +206,9 @@ PYDANTIC_MODELS: List[tuple[str, Type[BaseModel]]] = [
     ("tasks_started_payload", TasksStartedPayload),
     ("tasks_completed_payload", TasksCompletedPayload),
     ("wp_created_payload", WPCreatedPayload),
+    # Reviewer self-approval fallback (mission
+    # mission-lifecycle-reconciliation-01M574ET, WP01)
+    ("reviewer_self_approval_payload", ReviewerSelfApprovalPayload),
     # Collaboration identity models (V1: ParticipantIdentity gains external_refs)
     ("participant_identity", ParticipantIdentity),
     ("participant_external_refs", ParticipantExternalRefs),
@@ -226,7 +230,6 @@ PYDANTIC_MODELS: List[tuple[str, Type[BaseModel]]] = [
     ("decision_captured_payload", DecisionCapturedPayload),
     ("session_linked_payload", SessionLinkedPayload),
     # Glossary semantic integrity models
-    ("semantic_conflict_entry", SemanticConflictEntry),
     ("glossary_scope_activated_payload", GlossaryScopeActivatedPayload),
     ("term_candidate_observed_payload", TermCandidateObservedPayload),
     ("glossary_sense_updated_payload", GlossarySenseUpdatedPayload),
@@ -235,6 +238,7 @@ PYDANTIC_MODELS: List[tuple[str, Type[BaseModel]]] = [
     ("glossary_clarification_requested_payload", GlossaryClarificationRequestedPayload),
     ("glossary_clarification_resolved_payload", GlossaryClarificationResolvedPayload),
     ("generation_blocked_by_semantic_conflict_payload", GenerationBlockedBySemanticConflictPayload),
+    ("step_checkpointed_payload", StepCheckpointedPayload),
     # Mission-next runtime models
     ("runtime_actor_identity", RuntimeActorIdentity),
     ("mission_run_started_payload", MissionRunStartedPayload),

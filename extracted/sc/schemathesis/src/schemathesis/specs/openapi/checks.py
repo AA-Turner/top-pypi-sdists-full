@@ -84,14 +84,18 @@ def is_unexpected_http_status_case(case: Case) -> bool:
     return coverage_scenario(case) in REQUEST_SHAPE_PROBES
 
 
+def _is_openapi(case: Case) -> bool:
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
+
+    return isinstance(case.operation.schema, OpenApiSchema)
+
+
 def requires_openapi_schema(func: CheckFunction) -> CheckFunction:
     """Skip the check if the operation does not belong to an OpenAPI schema."""
 
     @wraps(func)
     def wrapper(ctx: CheckContext, response: Response, case: Case) -> bool | None:
-        from schemathesis.specs.openapi.schemas import OpenApiSchema
-
-        if not isinstance(case.operation.schema, OpenApiSchema):
+        if not _is_openapi(case):
             return True
         return func(ctx, response, case)
 
@@ -288,7 +292,6 @@ def _coerce_header_value(value: str, schema: dict[str, Any]) -> Any:
 
 
 @schemathesis.check
-@requires_openapi_schema
 @skips_on_unexpected_http_status
 def response_schema_conformance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
     return case.operation.validate_response(response, case=case)
@@ -314,9 +317,15 @@ def _declared_parameters_are_valid(case: Case, location: ParameterLocation) -> b
     if _has_serialization_sensitive_types(schema, container):
         # Arrays and objects are rewritten on the wire, so post-serialization validity is unknowable.
         return False
-    declared = {name: item for name, item in value.items() if name in container}
+    validator_cls = case.operation.schema.adapter.jsonschema_validator_cls
+    properties = schema.get("properties", {})
     try:
-        return make_validator(schema, case.operation.schema.adapter.jsonschema_validator_cls).is_valid(declared)
+        declared = {
+            name: _boolean_from_wire_spelling(item, properties.get(name, {}), validator_cls)
+            for name, item in value.items()
+            if name in container
+        }
+        return make_validator(schema, validator_cls).is_valid(declared)
     except Exception:
         # Schema the validator cannot read (e.g. a pattern valid in Python but not ECMA 262).
         return False
@@ -826,11 +835,34 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
     return has_negative
 
 
+# Transport keyword arguments that replace the generated request body.
+_BODY_TRANSPORT_KWARGS = ("json", "data", "content", "files")
+
+
+def _negative_body_replaced_by_caller(ctx: CheckContext, case: Case) -> bool:
+    """Whether the caller sent its own body, so the only invalid part of the case never reached the server."""
+    if not ctx._transport_kwargs or not any(key in ctx._transport_kwargs for key in _BODY_TRANSPORT_KWARGS):
+        return False
+    meta = case.meta
+    assert meta is not None
+    return not any(
+        component.mode.is_negative
+        for location, component in meta.components.items()
+        if location != ParameterLocation.BODY
+    )
+
+
 @schemathesis.check
-@requires_openapi_schema
+def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -> bool | None:
+    if not _is_openapi(case):
+        case.operation.schema.evaluate_negative_data(case, response)
+        return None
+    return _openapi_negative_data_rejection(ctx, response, case)
+
+
 @skips_on_unexpected_http_status
 @requires_case_meta
-def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -> bool | None:
+def _openapi_negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -> bool | None:
     meta = case.meta
     assert meta is not None
 
@@ -847,6 +879,7 @@ def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -
         and not _type_mutations_become_valid_after_serialization(case)
         and not _path_array_becomes_valid_after_serialization(case)
         and not _non_body_negative_values_match_schema(response, case)
+        and not _negative_body_replaced_by_caller(ctx, case)
     ):
         extra_info = ""
         phase = meta.phase
@@ -1038,10 +1071,16 @@ def _grants_credentials(operation: APIOperation) -> bool:
 
 
 @schemathesis.check
-@requires_openapi_schema
+def positive_data_acceptance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
+    if not _is_openapi(case):
+        case.operation.schema.evaluate_positive_data(case, response)
+        return None
+    return _openapi_positive_data_acceptance(ctx, response, case)
+
+
 @skips_on_unexpected_http_status
 @requires_case_meta
-def positive_data_acceptance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
+def _openapi_positive_data_acceptance(ctx: CheckContext, response: Response, case: Case) -> bool | None:
     meta = case.meta
     assert meta is not None
 
@@ -1080,7 +1119,7 @@ def missing_required_header(ctx: CheckContext, response: Response, case: Case) -
         and data.scenario == CoverageScenario.MISSING_PARAMETER
     ):
         if data.parameter.lower() == "authorization":
-            expected_statuses = {401}
+            expected_statuses = frozenset({401})
         else:
             config = ctx.config.missing_required_header
             expected_statuses = expand_status_codes(config.expected_statuses or [])
@@ -1088,12 +1127,13 @@ def missing_required_header(ctx: CheckContext, response: Response, case: Case) -
             # A drawn identifier rarely exists, so the server can reject the request before reading headers.
             if response.status_code == 404 and _targets_generated_resource(ctx, case.operation):
                 return None
-            allowed = ", ".join(map(str, expected_statuses))
+            sorted_statuses = sorted(expected_statuses)
+            allowed = ", ".join(map(str, sorted_statuses))
             raise MissingHeaderNotRejected(
                 operation=f"{case.method} {case.path}",
                 header_name=data.parameter,
                 status_code=response.status_code,
-                expected_statuses=list(expected_statuses),
+                expected_statuses=sorted_statuses,
                 message=f"Got {response.status_code} when missing required '{data.parameter}' header, expected {allowed}",
             )
     return None
@@ -1240,6 +1280,14 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
                     _negates_declared_parameter(mutation, location, schema) for mutation in phase_data.mutations
                 ):
                     return False
+                # Coverage negates one parameter at a time; a scalar one reaches the wire as generated.
+                if (
+                    isinstance(phase_data, CoveragePhaseData)
+                    and phase_data.parameter_location == location
+                    and phase_data.parameter in container
+                    and not _allows_container_type(schema.get("properties", {}).get(phase_data.parameter, {}))
+                ):
+                    return False
                 continue
 
             properties = schema.get("properties", {})
@@ -1375,7 +1423,7 @@ def _created_a_resource(*, parent: Case, parent_response: Response, case: Case) 
     """
     if len(parent.path.rstrip("/").split("/")) < len(case.path.rstrip("/").split("/")):
         return True
-    return parent_response.status_code == 201 or "Location" in parent_response.headers
+    return parent_response.status_code == 201 or "location" in parent_response.headers
 
 
 def _stale_cache_hint(response: Response) -> str:
@@ -1501,7 +1549,7 @@ def ensure_resource_availability(ctx: CheckContext, response: Response, case: Ca
 
     # Look for any successful DELETE operations on this resource across all recorded cases,
     # not just the current root's subtree.
-    if ctx._recorder is not None and resource_was_deleted(ctx._recorder, case):
+    if ctx._recorder is not None and resource_was_deleted(ctx._recorder, case, created_by=parent.id):
         # Resource was properly deleted, 404 is expected
         return None
 
@@ -1764,16 +1812,17 @@ def _is_prefix_operation(lhs: ResourcePath, rhs: ResourcePath) -> bool:
     return True
 
 
-def resource_was_deleted(recorder: RecordedScenario, case: Case) -> bool:
+def resource_was_deleted(recorder: RecordedScenario, case: Case, *, created_by: str | None = None) -> bool:
     """Return True if a successful prior request in the scenario removed this case's resource.
 
     A DELETE covers every path below the one it targets. Any other unsafe verb may be a removal
     spelled with the wrong method, so it only counts against the resource's own URI. Used to
-    suppress false positives in checks and in link-calibration observations.
+    suppress false positives in checks and in link-calibration observations. The request that created
+    the resource is not a removal of it.
     """
     case_path = ResourcePath(case.path, case.path_parameters or {})
     for prior_case in recorder.find_all_cases():
-        if prior_case.id == case.id:
+        if prior_case.id in (case.id, created_by):
             continue
         method = prior_case.operation.method.upper()
         if method in SAFE_METHODS:

@@ -20,7 +20,7 @@ keywords = [
     "linear assignment", "optimization", "matching", "operations research",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
@@ -72,6 +72,13 @@ dev = [
 package-dir = { "" = "src" }
 include-package-data = false
 
+[[tool.setuptools.ext-modules]]
+name = "munkres._lapc"
+sources = ["src/munkres/_native/lapmodule.c"]
+# Portable flags: no -march=native (wheels must run on any CPU) and no -ffast-math (IEEE NaN semantics kept).
+extra-compile-args = ["-O3", "-fno-trapping-math", "-fno-math-errno", "-funroll-loops"]
+optional = true   # if the C compiler is missing the package still installs and runs in pure Python
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
@@ -120,13 +127,19 @@ src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "S", "UP", "SIM", "N", "C4", "PL", "RET", "PIE", "RUF", "PT"]
-ignore = ["PLR0912", "PLR0913", "PLR0915", "PLR2004", "RUF002", "RUF003"]
+ignore = [
+    "PLR0912", "PLR0913", "PLR0915", "PLR0917", "PLR2004", "RUF002", "RUF003",
+    "E501",     # line length is enforced by `ruff format`; remaining long lines are strings and comments
+    "PLC0415",  # deliberate lazy imports: keep `import munkres` fast and avoid import cycles
+    "N806",     # algorithm code keeps the textbook names (C, U, V, M) for matrices and potentials
+    "PLW0603",  # module-level state is intentional for the native-kernel status and circuit breaker
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Test names embed issue IDs (test_B15_...), hence N802; random/pickle are fine in tests.
-"tests/*" = ["S101", "S603", "S607", "S311", "S301", "S110", "E501", "PLC0415", "B905", "PT006", "PT011", "PT012", "PT017", "PT018", "RUF005", "N802", "N818", "UP031", "UP032", "C408", "SIM105"]
+"tests/*" = ["B023", "B017", "B008", "E731", "E741", "S112", "RUF059", "RUF007", "S101", "S603", "S607", "S311", "S301", "S110", "E501", "PLC0415", "B905", "PT006", "PT011", "PT012", "PT017", "PT018", "RUF005", "N802", "N818", "UP031", "UP032", "C408", "SIM105"]
 "examples/*" = ["S101", "S311", "T201", "E501", "PLC0415", "E402", "PLW0108"]
-"benchmarks/*" = ["S101", "S311", "T201", "E501", "PLC0415", "PLR0914"]
+"benchmarks/*" = ["B023", "B905", "S101", "S311", "T201", "E501", "PLC0415", "PLR0914"]
 "tools/*" = ["S101", "RUF005", "S311", "S603", "S607", "S110", "E501", "PLC0415", "T201", "SIM115", "SIM105", "PLW1510", "UP031", "UP032"]
 
 [tool.codespell]

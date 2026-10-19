@@ -696,6 +696,25 @@ class Pin(Input):
     pinned: StrictBool
 
 
+class TagCategory(Input):
+    id: str | None = None
+    name: str = Field(
+        description="Trimmed unique category name, 1..24 characters; Untagged is reserved."
+    )
+
+
+class TagRegistry(Input):
+    tags: list[TagCategory] = Field(max_length=32)
+
+
+class TagAssignment(Input):
+    tags: list[str] = Field(
+        max_length=8,
+        description="Existing assignment order is preserved; new tags append in this order.",
+    )
+    primary: str | None
+
+
 class Archive(Input):
     """The ARCHIVE state the caller wants this session to be in.
 
@@ -3619,6 +3638,30 @@ async def child_attachment(
 
 
 @router.get(
+    "/v1/desktop/sessions/{session_id}/children/{child_id}/attachments/{digest}/waveform",
+)
+async def child_attachment_waveform(
+    session_id: str, child_id: str, digest: AttachmentDigest, request: Request
+):
+    """Waveform peaks of an attachment referenced by a CHILD transcript's rows.
+
+    The child twin of :func:`attachment_waveform`, sharing its payload, gates
+    and headers; the containment proof (``_contained_child_dir``) runs before
+    the store is touched, so this is the same membership gate the child byte
+    route is rather than a partition. A child's audio artifacts register in
+    the same content-addressed store as the parent's, so a surface that
+    renders a subagent's generated audio reaches it exactly as it reaches
+    the parent's.
+    """
+    async with errors(request):
+        payload = await host(request).child_attachment_waveform(session_id, child_id, digest)
+    return JSONResponse(
+        payload,
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
+    )
+
+
+@router.get(
     "/v1/desktop/sessions/{session_id}/attachments/{digest}",
     # The image's own mime type is the response type, so the published contract
     # must not claim the CRUD JSON envelope its neighbours return. Declaring the
@@ -3698,6 +3741,42 @@ async def attachment(session_id: str, digest: AttachmentDigest, request: Request
         # re-deciding that for itself. `tunnels/gateway.py` sets the same
         # header on this repo's other byte-serving surface.
         headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/v1/desktop/sessions/{session_id}/attachments/{digest}/waveform")
+async def attachment_waveform(session_id: str, digest: AttachmentDigest, request: Request):
+    """Precomputed waveform peaks for one attachment: ``{version, bars, peaks}``.
+
+    The audio surfaces' waveform source. Peaks are computed ONCE at artifact
+    creation (``session.attachments.cache_media`` -> ``audiogen.peaks``: 240
+    max-abs bars at 8 kHz mono, 0..1) and stored as the ``<digest>.peaks.json``
+    sidecar beside the bytes. A missing legacy sidecar gets a bounded server
+    repair off the event loop (8 MiB input, one decoder, 10-second deadline);
+    successful repairs persist and failed attempts are cached. A render loop
+    never decodes media. The server contract's v1 result carries no ``waveform`` field, so
+    the sidecar is the default source and remains the source when a future
+    server lane ships its own peaks.
+
+    Shape and gates mirror the byte route beside it: the digest is the
+    traversal gate (declared in the path — FastAPI refuses a non-matching
+    shape before the handler runs, and trailing ``/waveform`` makes the two
+    routes unambiguously distinct), the session id is the same existence
+    check, and a digest held by another device answers the same 409
+    ``attachment_on_peer`` the byte route does. A digest with no sidecar is an
+    ordinary 404 when bounded recovery is unavailable or fails — and the
+    surface paints its no-waveform state,
+    exactly as a missing image degrades to a placeholder.
+
+    ``no-store`` rides along with ``nosniff`` for the family's reason:
+    everything under ``/v1/desktop/`` is bearer-gated session data, and a
+    shared cache must not retain one user's media metadata.
+    """
+    async with errors(request):
+        payload = await host(request).attachment_waveform(session_id, digest)
+    return JSONResponse(
+        payload,
+        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"},
     )
 
 
@@ -4351,6 +4430,34 @@ async def notified(session_id: str, body: Notified, request: Request):
         await _refuse_remote_write(request, session_id, noun="notification")
         claimed = await host(request).claim_notification(session_id, body.completion_token)
         return reply({"claimed": claimed})
+
+
+@router.get("/v1/desktop/tags", response_model=CRUDResponse[dict[str, Any]])
+async def tags(request: Request):
+    async with errors(request):
+        return reply(await host(request).tags())
+
+
+@router.put("/v1/desktop/tags", response_model=CRUDResponse[dict[str, Any]])
+async def replace_tags(body: TagRegistry, request: Request):
+    # Desired state is retry-safe and admits no work, so no receipt is needed.
+    async with errors(request):
+        try:
+            return reply(
+                await host(request).replace_tags([(tag.id, tag.name) for tag in body.tags])
+            )
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+
+@router.put("/v1/desktop/sessions/{session_id}/tags", response_model=CRUDResponse[dict[str, Any]])
+async def session_tags(session_id: str, body: TagAssignment, request: Request):
+    async with errors(request):
+        await _refuse_remote_write(request, session_id, noun="tag assignment")
+        try:
+            return reply(await host(request).set_tags(session_id, body.tags, body.primary))
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
 
 
 @router.post("/v1/desktop/sessions/{session_id}/pin", response_model=CRUDResponse[PinState])

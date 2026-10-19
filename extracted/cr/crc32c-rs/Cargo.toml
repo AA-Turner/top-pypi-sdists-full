@@ -1,6 +1,6 @@
 [package]
 name = "crc32c-rs"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2024"
 license = "Unlicense"
 repository = "https://github.com/lava-sh/crc32c-rs"
@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = {
-    version = "=0.29.3",
+    version = "=0.30.1",
     features = ["nightly"]
 }
 

@@ -68,7 +68,7 @@ class HarWriter:
             else:
                 post_data = None
             if interaction.response is not None:
-                content_type = interaction.response.headers.get("Content-Type", [""])[0]
+                content_type = interaction.response.headers.get("content-type", [""])[0]
                 content = harfile.Content(
                     size=interaction.response.body_size or 0,
                     mimeType=content_type,
@@ -91,11 +91,11 @@ class HarWriter:
                     httpVersion=http_version,
                     statusText=interaction.response.message,
                     headers=[harfile.Record(name=name, value=values[0]) for name, values in resp_headers.items()],
-                    cookies=_extract_cookies(resp_headers.get("Set-Cookie", [])),
+                    cookies=_extract_cookies(resp_headers.get("set-cookie", [])),
                     content=content,
                     headersSize=_headers_size(resp_headers),
                     bodySize=interaction.response.body_size or 0,
-                    redirectURL=resp_headers.get("Location", [""])[0],
+                    redirectURL=resp_headers.get("location", [""])[0],
                 )
                 time = round(interaction.response.elapsed * 1000, 2)
             else:
@@ -164,7 +164,7 @@ def _headers_size(headers: Headers) -> int:
 
 
 def _extract_cookies(headers: list[str]) -> list[harfile.Cookie]:
-    return [cookie for items in headers for item in items for cookie in _cookie_to_har(item)]
+    return [cookie for header in headers for cookie in _cookie_to_har(header)]
 
 
 def _cookie_to_har(cookie: str) -> Iterator[harfile.Cookie]:

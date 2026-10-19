@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Generator, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, cast
@@ -28,7 +29,7 @@ from schemathesis.filters import FilterUsage
 from schemathesis.hooks import HookContext, dispatch_before_init_operation, dispatch_before_process_path
 from schemathesis.schemas import APIOperation, OperationDefinition
 from schemathesis.specs.openapi.adapter import OpenApiResponses
-from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter, OpenApiParameterSet
+from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter, OpenApiParameterSet
 from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters, has_optional_auth
 from schemathesis.specs.openapi.adapter.servers import resolve_operation_base_url
 from schemathesis.specs.openapi.utils import parse_spec_version
@@ -40,6 +41,16 @@ if TYPE_CHECKING:
     from schemathesis.specs.openapi.types import OperationObject
 
 SCHEMA_PARSING_ERRORS = (KeyError, RefResolutionError, InvalidSchema)
+
+
+def _is_utf8_encodable(value: str) -> bool:
+    # Lone surrogates have no UTF-8 form, so such a path can not be sent over the wire.
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
 
 _V3_1 = version.parse("3.1")
 
@@ -87,7 +98,7 @@ def _named_after_placeholder(parameters: list[OperationParameter], path: str) ->
         for parameter in parameters
         if parameter.definition.get("in") == "path" and parameter is not target
     }
-    unclaimed = get_template_fields(path) - claimed
+    unclaimed = [name for name in get_template_fields(path) if name not in claimed]
     if len(unclaimed) != 1:
         return parameters
     recovered = OpenApiParameter.from_definition(
@@ -105,13 +116,27 @@ class _FilterContext:
     operation: APIOperation
 
 
+class RawSchemaVersion:
+    """Bumped whenever the raw schema changes; shared by a schema and its clones, which share the raw schema."""
+
+    __slots__ = ("value",)
+
+    def __init__(self) -> None:
+        self.value = 0
+
+
 class OperationLoader:
     """OpenAPI operation iteration, construction, and the statistic walk over `paths`."""
 
-    __slots__ = ("schema", "_filter_context")
+    __slots__ = ("schema", "_filter_context", "_built", "_built_at", "_lock")
 
     def __init__(self, schema: OpenApiSchema) -> None:
         self.schema = schema
+        # Every lookup returns the same operation, so its hooks run once and its caches outlive phases.
+        self._built: dict[tuple[str, str, str], APIOperation] = {}
+        self._built_at = schema.raw_schema_version.value
+        # Re-entrant: hooks run during a build may look up other operations.
+        self._lock = threading.RLock()
         # Filter hot path mutates the shared operation's identity fields instead of allocating a fresh one per call.
         # `method` is a placeholder that gets overwritten on every `_should_skip` call.
         filter_operation: APIOperation = APIOperation(
@@ -145,12 +170,15 @@ class OperationLoader:
         serves_schema_document = self._serves_schema_document
         iter_parameters = self._iter_parameters
         make_operation = self.make_operation
+        cached = self.cached
         root_resolver = schema.root_resolver
         for path, path_item in paths.items():
             if _is_specification_extension(path):
                 continue
             method = None
             try:
+                if not _is_utf8_encodable(path):
+                    raise InvalidSchema("Path is not valid UTF-8", path=path)
                 dispatch_before_process_path(schema, context, path, path_item)
                 if isinstance(path_item, dict) and "$ref" in path_item:
                     path_resolver, path_item = resolve_reference(root_resolver, path_item["$ref"])
@@ -169,16 +197,18 @@ class OperationLoader:
                             continue
                         if serves_schema_document(path, method, entry):
                             continue
-                        parameters = iter_parameters(entry, shared_parameters, resolver=path_resolver)
-                        operation = make_operation(
-                            path,
-                            method,
-                            parameters,
-                            entry,
-                            scope,
-                            resolver=path_resolver,
-                            path_item=path_item,
-                        )
+                        operation = cached(scope, path, method)
+                        if operation is None:
+                            parameters = iter_parameters(entry, shared_parameters, resolver=path_resolver)
+                            operation = make_operation(
+                                path,
+                                method,
+                                parameters,
+                                entry,
+                                scope,
+                                resolver=path_resolver,
+                                path_item=path_item,
+                            )
                         yield Ok(operation)
                     except SCHEMA_PARSING_ERRORS as exc:
                         yield self._into_err(exc, path, method)
@@ -354,7 +384,12 @@ class OperationLoader:
         """Whether this operation served the schema document, and so stays out unless a filter selects it."""
         schema = self.schema
         document_path = schema._schema_document_path
-        if document_path is None or method != "get" or schema.get_full_path(path).rstrip("/") != document_path:
+        if (
+            document_path is None
+            or method != "get"
+            or not _is_utf8_encodable(path)
+            or schema.get_full_path(path).rstrip("/") != document_path
+        ):
             return False
         context = self._filter_context
         operation = context.operation
@@ -396,6 +431,7 @@ class OperationLoader:
             resolver=schema.root_resolver if resolver is None else resolver,
             scope=scope,
             adapter=schema.adapter,
+            cache=schema.response_schema_cache,
         )
 
     def _parse_security(self, definition: OperationObject) -> OpenApiSecurityParameters:
@@ -410,6 +446,34 @@ class OperationLoader:
         )
 
     def make_operation(
+        self,
+        path: str,
+        method: HttpMethodSchema,
+        parameters: ParsedParameters,
+        definition: OperationObject,
+        scope: str,
+        resolver: Resolver | None = None,
+        path_item: Mapping[str, Any] | None = None,
+    ) -> APIOperation:
+        __tracebackhide__ = True
+        with self._lock:
+            cached = self.cached(scope, path, method)
+            if cached is None:
+                cached = self._built[(scope, path, method)] = self._build_operation(
+                    path, method, parameters, definition, scope, resolver=resolver, path_item=path_item
+                )
+            return cached
+
+    def cached(self, scope: str, path: str, method: str) -> APIOperation | None:
+        """The operation built earlier, so callers can skip parsing its parameters."""
+        with self._lock:
+            version = self.schema.raw_schema_version.value
+            if self._built_at != version:
+                self._built.clear()
+                self._built_at = version
+            return self._built.get((scope, path, method))
+
+    def _build_operation(
         self,
         path: str,
         method: HttpMethodSchema,
@@ -453,10 +517,10 @@ class OperationLoader:
         )
         for parameter in _named_after_placeholder(parameters.items, path):
             operation.add_parameter(parameter)
-        missing_parameter_names = get_template_fields(operation.path) - {
-            parameter.name for parameter in operation.path_parameters
-        }
-        for name in missing_parameter_names:
+        declared_parameter_names = {parameter.name for parameter in operation.path_parameters}
+        for name in get_template_fields(operation.path):
+            if name in declared_parameter_names:
+                continue
             operation.add_parameter(
                 schema.adapter.build_path_parameter({"name": name, INJECTED_PATH_PARAMETER_KEY: True})
             )
@@ -477,7 +541,16 @@ class OperationLoader:
                     OpenApiParameter.from_definition(definition=dict(param), name_to_uri={}, adapter=schema.adapter)
                 )
         dispatch_before_init_operation(schema, HookContext(operation=operation), operation)
+        # After the hooks: a body they converted keeps its own copies, so their changes stay with this operation.
+        for body in operation.body:
+            if isinstance(body, OpenApiBody):
+                body.share_converted_schemas(schema.request_body_schema_cache)
         return operation
+
+    def clear_cache(self) -> None:
+        """Forget operations built by this schema and its clones after the raw schema changed under them."""
+        with self._lock:
+            self.schema.raw_schema_version.value += 1
 
     def _into_err(self, error: Exception, path: str | None, method: str | None) -> Err[InvalidSchema]:
         __tracebackhide__ = True

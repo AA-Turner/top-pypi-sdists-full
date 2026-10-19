@@ -66,13 +66,8 @@ def arithmetic_only_registry():
     """
     registry = ExtensionRegistry(load_default_extensions=False)
     registry.register_extension_yaml(
-        next(
-            iter(
-                importlib_resources.files("substrait_extensions.extensions").glob(
-                    "functions_arithmetic.yaml"
-                )
-            )
-        )
+        importlib_resources.files("substrait_extensions.extensions")
+        / "functions_arithmetic.yaml"
     )
     return registry
 
@@ -289,10 +284,9 @@ class TestCollector:
             function_reference(ARITHMETIC, "add:i64_i64")
 
     def test_nested_scope_defers_to_the_owner(self):
-        with build_scope() as (outer, outer_owns):
-            with build_scope() as (inner, inner_owns):
-                assert outer_owns and not inner_owns
-                assert inner is outer
+        with build_scope() as (outer, outer_owns), build_scope() as (inner, inner_owns):
+            assert outer_owns and not inner_owns
+            assert inner is outer
 
 
 class TestPlanLocalAnchors:

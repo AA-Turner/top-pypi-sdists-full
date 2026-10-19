@@ -46,6 +46,15 @@ FHIRErrorCodes = Literal[
     "model_field_validation.missing",
 ]
 
+# Global ``model_config`` overrides for all FHIR models.
+# ``FHIRAbstractModel.set_global_model_config(...)`` mutates
+# ``FHIRAbstractModel.model_config`` in place; because pydantic merges base
+# class configs fresh for every subclass, the overrides automatically apply
+# to all models defined/imported afterwards, while a ``model_config``
+# declared explicitly on a subclass keeps precedence for its own keys.
+# Keys must be valid ``pydantic.ConfigDict`` keys.
+_global_model_config_snapshot: typing.Optional[typing.Dict[str, typing.Any]] = None
+
 
 class FHIRAbstractModel(BaseModel):
     """Abstract base model class for all FHIR elements."""
@@ -172,7 +181,7 @@ class FHIRAbstractModel(BaseModel):
         # FHIR custom
         exclude_comments: bool = False,
         summary_only: bool = False,
-        **pydantic_kwargs,
+        **pydantic_kwargs: typing.Any,
     ) -> str:
         """Usage docs: https://docs.pydantic.dev/2.7/concepts/serialization/#modelmodel_dump_json
 
@@ -231,7 +240,7 @@ class FHIRAbstractModel(BaseModel):
         # FHIR custom
         exclude_comments: bool = False,
         summary_only: bool = False,
-        **pydantic_kwargs,
+        **pydantic_kwargs: typing.Any,
     ) -> str:
         """
         Generates a YAML representation of the model using PyYAML.
@@ -271,7 +280,7 @@ class FHIRAbstractModel(BaseModel):
         # FHIR custom
         exclude_comments: bool = False,
         summary_only: bool = False,
-        **pydantic_kwargs,
+        **pydantic_kwargs: typing.Any,
     ) -> str:
         """
         Generates a YAML representation of the model using PyYAML.
@@ -312,7 +321,7 @@ class FHIRAbstractModel(BaseModel):
         # our custom
         exclude_comments: bool = False,
         summary_only: bool = False,
-        **pydantic_kwargs,
+        **pydantic_kwargs: typing.Any,
     ) -> typing.Dict[str, typing.Any]:
         """Usage docs: https://docs.pydantic.dev/2.7/concepts/serialization/#modelmodel_dump
 
@@ -372,7 +381,7 @@ class FHIRAbstractModel(BaseModel):
         # FHIR custom
         exclude_comments: bool = False,
         summary_only: bool = False,
-        **pydantic_kwargs,
+        **pydantic_kwargs: typing.Any,
     ) -> typing.Dict[str, typing.Any]:
         warnings.warn(
             "The `dict` method is deprecated; use `model_dump` instead.",
@@ -394,7 +403,7 @@ class FHIRAbstractModel(BaseModel):
         # FHIR custom
         exclude_comments: bool = False,
         summary_only: bool = False,
-        **pydantic_kwargs,
+        **pydantic_kwargs: typing.Any,
     ) -> str:
         warnings.warn(
             "The `json` method is deprecated; use `model_dump_json` instead.",
@@ -512,6 +521,9 @@ class FHIRAbstractModel(BaseModel):
                 value = self._serialize_non_primitive_value(value, serialize, info)
             else:
                 value = self._serialize_primitive_value(value, field_info)
+            if info.exclude_none and isinstance(value, list) and len(value) == 0:
+                # FHIR elements are never empty, an empty list is omitted like None
+                value = None
             if value is not None or (info.exclude_none is False and value is None):
                 yield dict_key, value
 
@@ -778,3 +790,47 @@ class FHIRAbstractModel(BaseModel):
     model_config = ConfigDict(
         extra="forbid", validate_assignment=True, populate_by_name=True
     )
+
+    @classmethod
+    def set_global_model_config(cls, **overrides: typing.Any) -> None:
+        """Set ``model_config`` overrides applied globally to all FHIR models.
+
+        For example, ``FHIRAbstractModel.set_global_model_config(extra="ignore")``
+        makes every subsequently defined (or imported) model ignore unknown
+         fields without subclassing each generated resource. Must be called
+        before the model classes are defined, i.e. before importing e.g.
+        ``fhir.resources`` models; models that are already defined keep the
+        config they were created with. A ``model_config`` declared explicitly
+        on a subclass keeps precedence over the global overrides for the keys
+        it sets. Keys must be valid ``pydantic.ConfigDict`` keys.
+        """
+        global _global_model_config_snapshot
+        if _global_model_config_snapshot is None:
+            _global_model_config_snapshot = dict(FHIRAbstractModel.model_config)
+        # ``ConfigDict`` is a ``TypedDict`` to mypy, so cast to a plain dict
+        # before mutating it (it is a plain dict at runtime).
+        global_config = typing.cast(
+            typing.Dict[str, typing.Any], FHIRAbstractModel.model_config
+        )
+        global_config.update(overrides)
+
+    @classmethod
+    def get_global_model_config(cls) -> typing.Dict[str, typing.Any]:
+        """Return the ``model_config`` currently in effect globally."""
+        return dict(FHIRAbstractModel.model_config)
+
+    @classmethod
+    def reset_global_model_config(cls) -> None:
+        """Restore the default global ``model_config``.
+
+        Only affects models defined/imported afterward; models that are
+        already defined keep the config they were created with.
+        """
+        global _global_model_config_snapshot
+        if _global_model_config_snapshot is not None:
+            global_config = typing.cast(
+                typing.Dict[str, typing.Any], FHIRAbstractModel.model_config
+            )
+            global_config.clear()
+            global_config.update(_global_model_config_snapshot)
+            _global_model_config_snapshot = None

@@ -168,7 +168,7 @@ def test_transport_examples_and_errors():
     plan = transport([30 // 10, 2], [2, 3], [[1, 5], [4, 2]])
     assert plan.flows == {(0, 0): 2, (0, 1): 1, (1, 1): 2} and plan.total_cost == 2 + 5 + 4
     assert transport([0, 0], [1], [[1], [1]]).shipped == 0
-    assert transport([2], [2], [[D]] if False else [[1]]).total_cost == 2
+    assert transport([2], [2], [[1]]).total_cost == 2
     with pytest.raises(UnsolvableMatrix, match="forbidden routes"):
         transport([1, 1], [2], [[D], [D]])
     for bad in ([-1, 2], [1.5, 2], [True, 1]):

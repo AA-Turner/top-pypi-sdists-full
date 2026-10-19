@@ -14,8 +14,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from schemathesis.core.result import Ok, Result
-from schemathesis.core.transport import USER_AGENT
+from schemathesis.core.transport import DEFAULT_RESPONSE_TIMEOUT, USER_AGENT
 from schemathesis.engine import Status, events
+from schemathesis.engine.errors import never_reached_server
 from schemathesis.transport.prepare import get_default_headers
 
 if TYPE_CHECKING:
@@ -177,7 +178,7 @@ PROBES = (NullByteInHeader, UnsafePathDecoder)
 
 def send(probe: Probe, ctx: EngineContext) -> ProbeRun:
     """Send the probe to the application."""
-    from requests import PreparedRequest, Request, RequestException
+    from requests import PreparedRequest, ReadTimeout, Request, RequestException
     from requests.exceptions import MissingSchema
     from urllib3.exceptions import InsecureRequestWarning
 
@@ -192,15 +193,17 @@ def send(probe: Probe, ctx: EngineContext) -> ProbeRun:
             request.headers.setdefault(header, value)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", InsecureRequestWarning)
-            response = session.send(request, timeout=ctx.config.request_timeout or 2)
+            response = session.send(request, timeout=ctx.config.request_timeout or DEFAULT_RESPONSE_TIMEOUT)
     except MissingSchema:
         # In-process ASGI/WSGI testing will have local URLs and requires extra handling
         # which is not currently implemented
         return ProbeRun(probe, ProbeOutcome.SKIP, None, None, None)
     except RequestException as exc:
-        # Consider any network errors as a failed probe
         req = exc.request if isinstance(exc.request, PreparedRequest) else None
-        return ProbeRun(probe, ProbeOutcome.FAILURE, req, None, exc)
+        # A slow or unreachable server says nothing about the capability; other network errors mean it was rejected
+        inconclusive = isinstance(exc, ReadTimeout) or never_reached_server(exc)
+        outcome = ProbeOutcome.SKIP if inconclusive else ProbeOutcome.FAILURE
+        return ProbeRun(probe, outcome, req, None, exc)
     finally:
         session.close()
     result_type = probe.analyze_response(response)

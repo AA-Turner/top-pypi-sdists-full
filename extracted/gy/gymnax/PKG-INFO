@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gymnax
-Version: 1.0.0
+Version: 1.0.1
 Summary: JAX-native reinforcement-learning environments
 Author-email: Robert Tjarko Lange <robertlange0@gmail.com>
 License-Expression: Apache-2.0
@@ -9,14 +9,17 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: jax<0.7,>=0.6
-Requires-Dist: flax
-Requires-Dist: gymnasium<1.2,>=1.1
+Requires-Dist: jax<0.12,>=0.6; python_version < "3.14"
+Requires-Dist: jax<0.12,>=0.8.1; python_version >= "3.14"
+Requires-Dist: flax; python_version < "3.14"
+Requires-Dist: flax>=0.12.3; python_version >= "3.14"
+Requires-Dist: gymnasium<1.4,>=1.1
 Requires-Dist: matplotlib
 Requires-Dist: seaborn
 Provides-Extra: dev
@@ -31,7 +34,8 @@ Requires-Dist: flax; extra == "test"
 Requires-Dist: brax; extra == "test"
 Requires-Dist: minatar; extra == "test"
 Provides-Extra: visualize
-Requires-Dist: gymnasium[classic-control]<1.2,>=1.1; extra == "visualize"
+Requires-Dist: gymnasium[classic-control]<1.4,>=1.1; python_version < "3.14" and extra == "visualize"
+Requires-Dist: gymnasium[classic-control]<1.4,>=1.3; python_version >= "3.14" and extra == "visualize"
 Dynamic: license-file
 
 <h1 align="center">
@@ -48,6 +52,18 @@ Dynamic: license-file
 </p>
 
 Are you fed up with slow CPU-based RL environment processes? Do you want to leverage massive vectorization for high-throughput RL experiments? `gymnax` brings the power of `jit` and `vmap`/`pmap` to the classic gym API. It supports a range of different environments including [classic control](https://github.com/openai/gym/tree/master/gym/envs/classic_control), [bsuite](https://github.com/deepmind/bsuite), [MinAtar](https://github.com/kenjyoung/MinAtar/) and a collection of classic/meta RL tasks. `gymnax` allows explicit functional control of environment settings (random seed or hyperparameters), which enables accelerated & parallelized rollouts for different configurations (e.g. for meta RL). By executing both environment and policy on the accelerator, it facilitates the Anakin sub-architecture proposed in the Podracer paper [(Hessel et al., 2021)](https://arxiv.org/pdf/2104.06272.pdf) and highly distributed evolutionary optimization (using e.g. [`evosax`](https://github.com/RobertTLange/evosax)). We provide training & checkpoints for both PPO & ES in [`gymnax-blines`](https://github.com/RobertTLange/gymnax-blines). Get started here 👉 [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RobertTLange/gymnax/blob/main/examples/00_getting_started.ipynb).
+
+## Upgrading to Gymnax 1.0
+
+> [!IMPORTANT]
+> **Gymnax 1.0 has a breaking step API.**
+>
+> - `env.step(...)` now returns `(observation, state, reward, terminated, truncated, info)`, replacing the former five-value return with `done`.
+> - For episode control, use `done = terminated | truncated`. For value bootstrapping, only `terminated` means zero continuation value.
+> - Terminal steps auto-reset; use `info["final_observation"]` for the pre-reset terminal observation.
+> - Custom environments should implement `observe(key, state, action, params)`.
+>
+> Existing five-value callers can use `gymnax.wrappers.LegacyStepAPIWrapper` while migrating. See the [API and compatibility RFC](docs/api_rfc.md) for details.
 
 ## Basic `gymnax` API Usage 🍲
 
@@ -82,10 +98,42 @@ bootstrap_mask = 1.0 - info["terminated"].astype(jnp.float32)
 `spaces.Discrete(n, dtype=...)` uses `int32` actions by default. `int64` is
 available only when JAX x64 mode is enabled; other dtypes are unsupported.
 
-Gymnax 1.0 returns separate `terminated` and `truncated` values. Use
-`terminated | truncated` for reset control flow. Existing five-value callers can
-wrap an environment with `LegacyStepAPIWrapper`; see the
-[API and compatibility RFC](docs/api_rfc.md) for the migration details.
+## Differentiable transitions
+
+Built-in environments detach transition observations and states by default.
+Continuous-control applications can opt into JAX gradients without changing
+the original environment:
+
+```python
+env, env_params = gymnax.make("Pendulum-v1")
+differentiable_env = env.with_transition_gradients()
+obs, state = differentiable_env.reset(key_reset, env_params)
+
+def next_angular_velocity(action):
+    return differentiable_env.step(key_step, state, action, env_params)[1].theta_dot
+
+action = jnp.array([0.5])
+transition_gradient = jax.grad(next_angular_velocity)(action)
+```
+
+`with_transition_gradients()` returns a configured copy, leaving `env`
+unchanged. It is supported by `Pendulum-v1`, `MountainCarContinuous-v0`,
+`PointRobot-misc`, `Reacher-misc`, and `Swimmer-misc`. Configure the environment
+before applying wrappers. Discrete-action environments such as `CartPole-v1`
+reject this opt-in because action derivatives are not part of their contract.
+
+These are local, pathwise derivatives of the JAX program for a fixed random
+key. Clipping boundaries, comparisons, terminal decisions, and discrete events
+are not smooth; PointRobot's goal-triggered respawn is also discontinuous.
+Differentiate floating-point state leaves rather than the complete state PyTree,
+which includes integer bookkeeping such as `time`.
+
+Automatic reset behavior is unchanged. On a terminal or truncated step, the
+returned observation and state belong to the reset episode and therefore do not
+carry the completed transition's action gradient. The gradient remains available
+through `info["final_observation"]`; use `step_env` when the raw, non-autoreset
+next state is required. Reward gradients are unaffected by the opt-in and remain
+available wherever the reward implementation is differentiable.
 
 ## Implemented Accelerated Environments 🏎️
 
@@ -143,8 +191,12 @@ In order to use JAX on your accelerators, you can find more details in the [JAX 
 
 ## Supported versions
 
-Gymnax supports CPython 3.10–3.13, JAX and JAXlib 0.6.x, and Gymnasium 1.1.x.
-Other dependency versions may work, but are not part of the tested support matrix.
+Gymnax supports CPython 3.10–3.14, JAX and JAXlib 0.6–0.11, and Gymnasium 1.1–1.3.
+On CPython 3.14 the window narrows to JAX 0.8.1+ and Flax 0.12.3+; the
+`visualize` extra additionally requires Gymnasium 1.3+ for its Python 3.14
+renderer. These constraints are declared with environment markers, so
+unsupported combinations fail to resolve rather than failing at import. Other
+dependency versions may work, but are not part of the tested support matrix.
 
 ## Examples 📖
 * 📓 [Environment API](examples/00_getting_started.ipynb) - Get started with the basic `gymnax` API.
@@ -325,7 +377,7 @@ If you use `gymnax` in your research, please cite it as follows:
   author = {Robert Tjarko Lange},
   title = {{gymnax}: A {JAX}-based Reinforcement Learning Environment Library},
   url = {http://github.com/RobertTLange/gymnax},
-  version = {1.0.0},
+  version = {1.0.1},
   year = {2026},
 }
 ```

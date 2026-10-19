@@ -172,11 +172,21 @@ def test_B08_numpy_rectangular():
 def test_B08_pad_matrix_does_not_mutate_numpy():
     arr = np.array([[1, 2], [3, 4], [5, 6]])
     before = arr.copy()
-    try:
-        Munkres().pad_matrix(arr, 7)
-    except Exception:
-        pass
-    assert (arr == before).all()
+    padded = Munkres().pad_matrix(
+        arr, 7
+    )  # must succeed: an exception here is a failure, not a pass
+    assert (arr == before).all(), "pad_matrix mutated the caller's array"
+    assert arr.shape == before.shape
+    assert padded == [[1, 2, 7], [3, 4, 7], [5, 6, 7]], (
+        "padding must keep the data and fill with the pad value"
+    )
+    assert isinstance(padded, list) and padded is not arr, "result must be a new object"
+
+
+@pytest.mark.regression
+def test_B08_pad_matrix_wide_input_pads_rows():
+    padded = Munkres().pad_matrix([[1, 2, 3]], 0)
+    assert padded == [[1, 2, 3], [0, 0, 0], [0, 0, 0]]
 
 
 # ---------------------------------------------------------------------------

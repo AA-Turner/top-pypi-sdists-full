@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from flask import Flask, jsonify
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given, settings
 from hypothesis.errors import Unsatisfiable
 from jsonschema_rs import Draft4Validator
 from werkzeug.exceptions import InternalServerError
@@ -17,10 +17,11 @@ from schemathesis.core.jsonschema import Bundler
 from schemathesis.core.jsonschema.resolver import load_file_uri, make_root_resolver, resolve_reference
 from schemathesis.core.result import Ok
 from schemathesis.core.transforms import get_template_fields
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.specs.openapi.definitions import OPENAPI_30, OPENAPI_31, SWAGGER_20
 from schemathesis.specs.openapi.stateful import dependencies
-from test.utils import as_param, get_schema_path, integer
+from test.utils import as_param, get_schema_path, integer, run_given
 
 USER_REFERENCE = {"$ref": "#/components/schemas/User"}
 ELIDABLE_SCHEMA = {"description": "Test", "type": "object", "properties": {"foo": {"type": "integer"}}}
@@ -29,48 +30,36 @@ ALL_OF_ROOT = {"allOf": [USER_REFERENCE, {"description": "Test"}], "type": "obje
 
 @pytest.mark.hypothesis_nested
 def test_request_body_schema_reference_to_plain_name_anchor(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /pets",
         {
-            "/pets": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#petName"}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "#petName"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
         components={"schemas": {"Name": {"$anchor": "petName", "type": "string"}}},
     )
-    operation = schema["/pets"]["POST"]
 
     assert [body.media_type for body in operation.body] == ["application/json"]
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=3)
+    @run_given(case=operation.as_strategy(), max_examples=3)
     def test(case):
         assert isinstance(case.body, str)
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
 def test_request_body_reference_into_fragment_of_declared_id(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {"schema": {"$ref": "https://example.invalid/text.json#/$defs/Code"}}
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "https://example.invalid/text.json#/$defs/Code"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
         components={
@@ -83,12 +72,9 @@ def test_request_body_reference_into_fragment_of_declared_id(ctx):
         },
     )
 
-    @given(case=schema["/items"]["POST"].as_strategy())
-    @settings(max_examples=3)
+    @run_given(case=operation.as_strategy(), max_examples=3)
     def test(case):
         assert case.body == "alpha"
-
-    test()
 
 
 def build_schema_with_recursion(schema, definition):
@@ -166,16 +152,13 @@ def test_drop_recursive_references_from_the_last_resolution_level(ctx, definitio
 
     validator = Draft4Validator({**USER_REFERENCE, "components": raw_schema["components"]})
 
-    @given(case=schema["/users"]["POST"].as_strategy())
-    @settings(max_examples=25, suppress_health_check=[HealthCheck.too_slow, HealthCheck.filter_too_much], deadline=None)
+    @run_given(case=schema["/users"]["POST"].as_strategy(), max_examples=25)
     def test(case):
         # Generated payload should be valid for the original schema (with references)
         try:
             validator.validate(case.body)
         except RecursionError:
             pass
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -225,37 +208,27 @@ def test_recursion_asserting_nothing(ctx):
     raw_schema = ctx.openapi.build_schema({})
     build_schema_with_recursion(raw_schema, USER_REFERENCE)
     schema = schemathesis.openapi.from_dict(raw_schema)
-    drawn = []
-
-    @given(case=schema["/users"]["POST"].as_strategy())
-    @settings(max_examples=1, deadline=None)
-    def test(case):
-        drawn.append(case.body)
-
-    test()
+    drawn = [case.body for case in generate_many(schema["/users"]["POST"].as_strategy(), 1)]
     assert drawn
 
 
 def test_nested_recursive_references(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /folders",
         {
-            "/folders": {
-                "post": {
-                    "description": "Test",
-                    "summary": "Test",
-                    "requestBody": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/editFolder",
-                                }
-                            }
-                        },
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "Test"}},
-                }
-            }
+            "description": "Test",
+            "summary": "Test",
+            "requestBody": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/editFolder",
+                        }
+                    }
+                },
+                "required": True,
+            },
+            "responses": {"200": {"description": "Test"}},
         },
         components={
             "schemas": {
@@ -292,12 +265,9 @@ def test_nested_recursive_references(ctx):
         },
     )
 
-    @given(case=schema["/folders"]["POST"].as_strategy())
-    @settings(max_examples=1)
+    @run_given(case=operation.as_strategy(), max_examples=1)
     def test(case):
         pass
-
-    test()
 
 
 def test_simple_dereference(testdir):
@@ -1239,12 +1209,9 @@ def test_bundling_cache_with_shared_references(ctx):
 
     operation = next(schema.get_all_operations()).ok()
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=3)
+    @run_given(case=operation.as_strategy(), max_examples=3)
     def test(case):
         pass
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -1476,17 +1443,14 @@ def test_nested_external_refs_in_array_items_for_stateful(ctx):
 
 @pytest.mark.hypothesis_nested
 def test_prefix_items_with_ref(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "PATCH /v1/customers/",
         {
-            "/v1/customers/": {
-                "patch": {
-                    "requestBody": {
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CustomerUpdate"}}},
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CustomerUpdate"}}},
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
         components={
@@ -1512,16 +1476,13 @@ def test_prefix_items_with_ref(ctx):
         },
     )
 
-    @given(case=schema["/v1/customers/"]["PATCH"].as_strategy())
-    @settings(max_examples=50)
+    @run_given(case=operation.as_strategy(), max_examples=50)
     def test(case):
         key = case.body.get("key")
         if key is not None:
             assert isinstance(key, list)
             assert len(key) == 2
             assert isinstance(key[0], str)
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -1573,28 +1534,22 @@ def test_prefix_items_with_ref(ctx):
 def test_embedded_schema_dialect_declaration(ctx, version, body_schema):
     # Generation schemas are rewritten into Draft 4/7 shapes, so a `$schema` left over from an
     # embedded JSON Schema resource makes them meta-validate against a dialect they no longer match.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {
-                        "content": {"application/json": {"schema": body_schema}},
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "content": {"application/json": {"schema": body_schema}},
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version=version,
         components={"schemas": {"Scalar": {"type": "string"}}},
     )
 
-    @given(case=schema["/items"]["POST"].as_strategy())
-    @settings(max_examples=5, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(), max_examples=5)
     def test(case):
         assert isinstance(case.body, dict)
-
-    test()
 
 
 def test_external_path_items_reparsed_after_document_eviction(ctx):
@@ -1629,7 +1584,7 @@ def test_external_path_items_reparsed_after_document_eviction(ctx):
             assert isinstance(result, Ok)
             operation = result.ok()
             names = {parameter.name for parameter in operation.path_parameters}
-            if names != get_template_fields(operation.path):
+            if names != set(get_template_fields(operation.path)):
                 corrupted.append((operation.label, sorted(names)))
         # Eviction is size-driven, so drop the cached documents outright to reach the same state
         # without a spec large enough to overflow it.
@@ -1671,14 +1626,7 @@ def test_top_level_body_ref_siblings(ctx, version, accepts_body_without_extra):
         },
     )
     body = schema["/items"]["POST"].body[0]
-    bodies = []
-
-    @given(case=schema["/items"]["POST"].as_strategy())
-    @settings(max_examples=10, database=None)
-    def test(case):
-        bodies.append(case.body)
-
-    test()
+    bodies = [case.body for case in generate_many(schema["/items"]["POST"].as_strategy(), 10)]
 
     assert body.is_valid({"a": "x"}) is accepts_body_without_extra
     assert [value for value in bodies if not body.is_valid(value)] == []

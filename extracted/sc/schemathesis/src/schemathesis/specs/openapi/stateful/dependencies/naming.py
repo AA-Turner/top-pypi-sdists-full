@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import re
 from collections.abc import Collection, Mapping
 from functools import lru_cache
 
@@ -141,6 +142,7 @@ def from_parameter(parameter: str, path: str, *, body_field: bool = False) -> st
         "_guid",
         "_uuid",
         "_id",
+        "_pk",
         "_slug",
         "_name",
         "_arn",
@@ -574,6 +576,19 @@ def find_matching_field(*, parameter: str, resource: str, fields: list[str]) -> 
     return None
 
 
+def parameter_names_resource_field(*, parameter: str, field: str, resource: str) -> bool:
+    """Whether the part of `parameter` before `field` names `resource` or its trailing words."""
+    parameter_normalized = normalize_for_matching(parameter)
+    field_normalized = normalize_for_matching(field)
+    if not parameter_normalized.endswith(field_normalized):
+        return True
+    hint = parameter_normalized[: -len(field_normalized)]
+    if not hint:
+        return True
+    words = [word.lower() for word in re.findall(r"[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z0-9]+|[A-Z]+", resource)]
+    return any("".join(words[start:]) == hint for start in range(len(words)))
+
+
 def _field_normalized_as(fields: list[str], expected: str) -> str | None:
     for field in fields:
         if normalize_for_matching(field) == expected:
@@ -698,6 +713,9 @@ def _split_parameter_name(parameter_name: str) -> tuple[str, str]:
 
     if parameter_name.endswith("_id") and len(parameter_name) > 3:
         return parameter_name[:-3], "_id"
+
+    if parameter_name.endswith("_pk") and len(parameter_name) > 3:
+        return parameter_name[:-3], "_pk"
 
     if parameter_name.endswith("_guid") and len(parameter_name) > 5:
         return parameter_name[:-5], "_guid"

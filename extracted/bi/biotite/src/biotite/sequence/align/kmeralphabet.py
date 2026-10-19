@@ -1,7 +1,3 @@
-# This source code is part of the Biotite package and is distributed
-# under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
-# information.
-
 from __future__ import annotations
 
 __name__ = "biotite.sequence.align"
@@ -128,7 +124,7 @@ class KmerAlphabet(Alphabet[tuple[S, ...]]):
 
     Encode all overlapping k-mers using spacing:
 
-    >>> base_alphabet = ProteinSequence.alphabet
+    >>> base_alphabet = ProteinSequence.alphabet_ambiguous
     >>> kmer_alphabet = KmerAlphabet(base_alphabet, 3, spacing="1101")
     >>> sequence = ProteinSequence("BIQTITE")
     >>> kmer_codes = kmer_alphabet.create_kmers(sequence.code)

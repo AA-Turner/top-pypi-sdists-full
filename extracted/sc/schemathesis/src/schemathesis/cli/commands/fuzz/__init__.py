@@ -7,7 +7,6 @@ from typing import IO, Any
 import click
 
 from schemathesis.checks import load_all_checks
-from schemathesis.cli.commands.fuzz import executor
 from schemathesis.cli.commands.run.filters import with_filters
 from schemathesis.cli.constants import COLOR_OPTIONS_INVALID_USAGE_MESSAGE
 from schemathesis.cli.core import ensure_color, resolve_color
@@ -53,6 +52,7 @@ from schemathesis.cli.options import (
     REPORT_JUNIT_PATH,
     REPORT_NDJSON_PATH,
     REPORT_PRESERVE_BYTES,
+    REPORT_PYTEST_PATH,
     REPORT_VCR_PATH,
     REPORT_WFC_PATH,
     REQUEST_CERT,
@@ -138,6 +138,7 @@ load_all_checks()
 @grouped_option(*REPORT_NDJSON_PATH.args, **REPORT_NDJSON_PATH.kwargs)
 @grouped_option(*REPORT_JSON_PATH.args, **REPORT_JSON_PATH.kwargs)
 @grouped_option(*REPORT_WFC_PATH.args, **REPORT_WFC_PATH.kwargs)
+@grouped_option(*REPORT_PYTEST_PATH.args, **REPORT_PYTEST_PATH.kwargs)
 @grouped_option(*REPORT_ALLURE_PATH.args, **REPORT_ALLURE_PATH.kwargs)
 @grouped_option(*REPORT_HTML_PATH.args, **REPORT_HTML_PATH.kwargs)
 @grouped_option(*REPORT_PRESERVE_BYTES.args, **REPORT_PRESERVE_BYTES.kwargs)
@@ -216,6 +217,7 @@ def fuzz(
     report_ndjson_path: IO[str] | None = None,
     report_json_path: IO[str] | None = None,
     report_wfc_path: IO[str] | None = None,
+    report_pytest_path: IO[str] | None = None,
     report_allure_path: str | None = None,
     report_html_path: str | None = None,
     report_preserve_bytes: bool | None = None,
@@ -276,6 +278,7 @@ def fuzz(
         ndjson_path=report_ndjson_path.name if report_ndjson_path else None,
         json_path=report_json_path.name if report_json_path else None,
         wfc_path=report_wfc_path.name if report_wfc_path else None,
+        pytest_path=report_pytest_path.name if report_pytest_path else None,
         allure_path=report_allure_path,
         html_path=report_html_path,
         directory=Path(report_directory),
@@ -347,6 +350,8 @@ def fuzz(
     # `[fuzz] max-time` narrows the budget for this command; the root key applies to both commands.
     configured = project.fuzz.max_time if project.fuzz.max_time is not None else project.max_time
     fuzz_config = FuzzConfig(max_time=max_time if max_time is not None else configured)
+
+    from schemathesis.cli.commands.fuzz import executor
 
     executor.execute(
         location=location,

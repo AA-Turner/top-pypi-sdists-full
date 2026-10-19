@@ -589,7 +589,9 @@ class WorkloadSDK(BaseSDK):
         connections = []
         for connection_id in connection_ids:
             connection = self.client.get_databricks_connection(connection_id)
-            connections.append(self.get_connection_config_from_connection(connection))
+            config = self._connection_config_if_known(connection)
+            if config is not None:
+                connections.append(config)
 
         return connections
 
@@ -606,7 +608,19 @@ class WorkloadSDK(BaseSDK):
 
         connections = []
         for decorated_conn in decorated_connections:
-            connection = decorated_conn.connection
-            connections.append(self.get_connection_config_from_connection(connection))
+            config = self._connection_config_if_known(decorated_conn.connection)
+            if config is not None:
+                connections.append(config)
 
         return connections
+
+    def _connection_config_if_known(self, connection: Any) -> Optional[ConnectionConfig]:
+        """Skip a connection type this CLI doesn't know, so status still works when the
+        backend gains one before the CLI is upgraded."""
+        if connection.connection_type not in _CONNECTION_METHOD_TO_CONNECTION_TYPE:
+            self.logger.warning(
+                f"Skipping connection '{connection.name}' of type "
+                f"'{connection.connection_type}', which this CLI version does not support."
+            )
+            return None
+        return self.get_connection_config_from_connection(connection)

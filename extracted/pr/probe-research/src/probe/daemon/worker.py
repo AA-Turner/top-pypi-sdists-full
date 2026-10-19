@@ -99,7 +99,7 @@ from probe._shared import telemetry
 from pathlib import Path
 from typing import Callable
 
-from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools
+from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools, toolset
 from probe.daemon import alerts
 from probe.daemon import scope
 from probe.daemon import requests as requests_mod
@@ -182,14 +182,14 @@ LEAN_COMPACTIONS_SEEN = "lean_compactions_seen"
 ROUNDS_BEFORE_YIELD = BITE_REQUESTS
 #: "<conversation id>:<compactions>" the agent memory index was last shown after.
 INDEX_AFTER_COMPACTION = "index_after_compaction"
-#: The pin (writer-owns-summary §3.5): the last summary the writer loaded
-#: (`tools.SUMMARY_PIN`), shown once at the start of the next run's new message
-#: when lean trimming or a compaction dropped the tool result that showed it.
-#: Approved wording (fixtures/daemon_prompts/bite/summary-pin-header.PROPOSED.md).
-SUMMARY_PIN_HEADER = "# Summary of {label} you loaded (v{version})"
-#: The most of a pinned summary shown (a person's blocks can make a page long):
-#: the shell's own output cap.
-SUMMARY_PIN_CHARS = 20_000
+#: The summaries the writer keeps (ARTIFACT-PAGES P3, replacing the §3.5 pin
+#: of one summary's whole text): before each run the worker checks out every
+#: project and experiment the session wrote to or created (`tools.
+#: autoload_summaries`, at most `tools.SUMMARY_DRAFTS_KEPT`), and the next
+#: message starts with their OUTLINES (`tools.summary_outline`) -- where each
+#: draft is, its headings, its opening, what happened since -- never their
+#: text: the writer `read`s a part and `edit`s it in place. Shown once per
+#: change (the header names the outline's digest), never a per-request tail.
 #: Conversation mode: after this many compactions the next bite starts fresh from disk.
 COMPACTIONS_BEFORE_FRESH = 8
 #: The state of the record (conversation mode) lists at most this many writes.
@@ -1256,7 +1256,7 @@ class Worker:
             probe_env={**probe_env(self.session.session_id),
                        **forwarded_session(self.session.source, self.session.session_id)},
             bypass=bypass, mode_known=known, bite_id=bite_id,
-            protected=folders.protected_paths(), replay=self.replay, **extra)
+            protected=folders.protected_paths(), replay=self.replay, harness=self.session.source, **extra)
 
     def context_line(self) -> str:
         files = self.adapter.context_files(self.session.cwd, self.session.home)
@@ -1297,6 +1297,7 @@ class Worker:
         history = None
         indexed = None
         if self.mode == Mode.CONVERSATION:
+            await self._autoload_summaries(workdirs)
             indexed = await self._index_new_events(shrink)
             conversation, history, built = self._next_in_conversation(
                 trigger, shrink, events_text=indexed.text if indexed is not None else None,
@@ -1472,9 +1473,9 @@ class Worker:
                     # holds none of the lean runs' writes (review, Codex High).
                     block, built.writes_mark = self._writes_since()
                     built.prompt = f"{block}\n\n{built.prompt}"
-                pin = self._summary_pin(history)
-                if pin:
-                    built.prompt = f"{pin}\n\n{built.prompt}"
+                outline = self._summary_outline(history)
+                if outline:
+                    built.prompt = f"{outline}\n\n{built.prompt}"
                 mark = f"{live['id']}:{live['compactions']}"
                 if live["compactions"] and self.store.fact(INDEX_AFTER_COMPACTION) != mark:
                     # A compaction summarised the first message away, and the agent memory
@@ -1492,33 +1493,33 @@ class Worker:
                                memory=self.memory_block())
         if built is None:
             return None, None, None
-        pin = self._summary_pin(None)
-        if pin:  # a fresh start from disk keeps no tool result: the last loaded summary rides its first message
-            built.prompt = f"{pin}\n\n{built.prompt}"
+        outline = self._summary_outline(None)
+        if outline:  # a fresh start from disk shows no earlier outline: it rides its first message
+            built.prompt = f"{outline}\n\n{built.prompt}"
         if live is not None:  # opened, but its first run never finished: open it again with today's facts
             self.store.set_conversation_instructions(live["id"], built.instructions, fingerprint)
             return live["id"], None, built
         return self.store.start_conversation(built.instructions, fingerprint), None, built
 
-    def _summary_pin(self, history) -> str:
-        """The last summary the writer loaded (`probe summary checkout`, kept by
-        `tools._remember_note`), as `SUMMARY_PIN_HEADER` and its text, when the
-        conversation no longer shows it: neither the checkout's tool result
-        (lean history drops every finished run's tool traffic; a compaction
-        clears old results) nor an earlier pin of this version is in `history`.
-        "" otherwise: once per drop, never a per-request tail (append-only)."""
-        pin = self.store.fact(tools.SUMMARY_PIN)
-        if not isinstance(pin, dict) or not isinstance(pin.get("text"), str) or not pin.get("label"):
+    def _summary_outline(self, history) -> str:
+        """The outlines of the summaries the writer keeps (`tools.summary_outline`)
+        under their header, when the conversation does not show this exact
+        outline already (its header names its digest): once per change, never a
+        per-request tail (append-only). "" with nothing kept."""
+        block = tools.summary_outline(self.store)
+        if not block:
             return ""
-        header = SUMMARY_PIN_HEADER.format(label=pin["label"], version=int(pin.get("version") or 0))
-        if history and _shows_summary(history, header, pin):
+        header = tools.outline_header(block)
+        if history and _shows_text(history, header):
             return ""
-        # Scrubbed like the checkout's own tool result was: a credential quoted in a
-        # person's block must not come back verbatim once that result is gone.
-        text = tools.scrub(pin["text"])
-        if len(text) > SUMMARY_PIN_CHARS:
-            text = tools._cap(text, SUMMARY_PIN_CHARS)
-        return f"{header}\n\n{text}" if text.strip() else f"{header}\n\n(empty)"
+        return f"{header}\n\n{block}"
+
+    async def _autoload_summaries(self, workdirs: list[Path] | None) -> None:
+        """Before a writer run: check out what the session touched
+        (`tools.autoload_summaries`). Never while Probe refuses the key."""
+        if self.probe_refused_key:
+            return
+        await tools.autoload_summaries(self.deps(None, workdirs))
 
     def _fingerprint(self) -> str:
         """What a saved conversation is bound to: this session's id (a store reached
@@ -1637,7 +1638,9 @@ class Worker:
         remembered. `shown`: the events (first, last seq) the current run's prompt
         shows -- queued until it finishes, but not unseen."""
         lines = ["<state-of-the-record>",
-                 "From your logbook and the question board, as of now (`session` op=status).",
+                 toolset.pick("From your logbook and the question board, as of now (`session` op=status).",
+                              # NEW wording (fixtures/daemon_prompts/bite/bash-markers.NEW.md)
+                              "From your logbook and the question board, as of now (`probe daemon session status`)."),
                  "Recorded, newest first:"]
         filed = self.store.filed(STATE_FILED_LINES, skip_heads=("notes checkout",))
         lines += [f"- {' '.join(json.loads(r['argv']))[:240]}" for r in filed] or ["- nothing yet"]
@@ -2147,7 +2150,7 @@ class Worker:
             result = await sh.run(held["command"], cwd=Path(held.get("cwd") or self.session.cwd),
                                   watch=tools.lease_watch(deps))
             status = f"stopped: {result.stopped}" if result.stopped else "ran"
-            self.store.log_write(bite=None, op_id=held["op_id"], argv=["sh", "-c", held["command"]], head="shell",
+            self.store.log_write(bite=None, op_id=held["op_id"], argv=tools.shell_argv(held["command"]), head="shell",
                                  status=status, reason=f"yes to {req.id}", output=result.output,
                                  exit_code=result.exit_code, request=req.id)
             why = result.stopped or ("it did not finish in time" if result.exit_code is None else None)
@@ -2513,24 +2516,14 @@ def _lean(messages) -> list:
     return out
 
 
-def _shows_summary(history, header: str, pin: dict) -> bool:
-    """Does the conversation still show the pinned summary? Its checkout's tool
-    result (the draft's path with the loaded version, in the JSON the checkout
-    printed), or a pin of this version already sent (its header)."""
-    import re
-
-    from pydantic_ai.messages import ToolReturnPart
-
-    path = str(pin.get("path") or "")
-    loaded = re.compile(rf'"version":\s*{int(pin.get("loaded") or 0)}\b')
+def _shows_text(history, text: str) -> bool:
+    """Does any message part of the conversation carry `text`?"""
     for message in history:
         for part in getattr(message, "parts", ()):
             content = getattr(part, "content", None)
-            text = content if isinstance(content, str) else (
+            shown = content if isinstance(content, str) else (
                 json.dumps(content, default=str) if content is not None else "")
-            if header in text:
-                return True
-            if isinstance(part, ToolReturnPart) and path and path in text and loaded.search(text):
+            if text in shown:
                 return True
     return False
 
@@ -2566,9 +2559,16 @@ def _new_usage():
 
 
 def _tokens(usage) -> tuple[int, int, int]:
-    """`(input, output, cached)` tokens of a run's usage (zeros for none)."""
-    return (int(getattr(usage, "input_tokens", 0) or 0), int(getattr(usage, "output_tokens", 0) or 0),
-            int(getattr(usage, "cache_read_tokens", 0) or 0))
+    """`(input, output, cached)` tokens of a run's usage (zeros for none), its
+    tasks' included (`usage.TASK_DETAILS`, kept beside the run's own so they never
+    count against its token limit)."""
+    from probe.daemon.usage import TASK_DETAILS
+
+    details = getattr(usage, "details", None) or {}
+    tasks = [int(details.get(key, 0) or 0) for key in TASK_DETAILS]
+    return (int(getattr(usage, "input_tokens", 0) or 0) + tasks[0],
+            int(getattr(usage, "output_tokens", 0) or 0) + tasks[1],
+            int(getattr(usage, "cache_read_tokens", 0) or 0) + tasks[2])
 
 
 def probe_env(session_id: str) -> dict[str, str]:

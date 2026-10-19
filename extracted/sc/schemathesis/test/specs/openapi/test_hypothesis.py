@@ -16,12 +16,12 @@ from schemathesis.config import GenerationConfig
 from schemathesis.core.jsonschema.resolver import load_file
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation import GenerationMode
-from schemathesis.openapi.generation import filters
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.openapi.generation.filters import is_valid_header
 from schemathesis.specs.openapi import _hypothesis, formats
 from schemathesis.specs.openapi._hypothesis import make_positive_strategy
 from schemathesis.specs.openapi.diagnostics import find_slow_parameter, find_unsatisfiable_parameter
-from test.utils import assert_requests_call, to_float32
+from test.utils import assert_requests_call, run_given, to_float32
 
 
 @pytest.fixture
@@ -62,15 +62,12 @@ def test_explicit_attributes(operation, values, expected):
     # When some Case's attribute is passed explicitly to the case strategy
     strategy = operation.as_strategy(**values)
 
-    @given(strategy)
-    @settings(max_examples=1)
+    @run_given(strategy, max_examples=1)
     def test(case):
         # Then it should appear in the final result
         for attr_name, expected_values in expected.items():
             value = getattr(case, attr_name)
             assert value == expected_values
-
-    test()
 
 
 @pytest.fixture
@@ -118,73 +115,58 @@ def test_missed_ref(ctx, deeply_nested_schema):
     # When not resolved references are present in the schema during constructing a strategy
     schema = ctx.openapi.load_schema(deeply_nested_schema["paths"], components=deeply_nested_schema["components"])
 
-    @given(schema["/data"]["GET"].as_strategy())
-    @settings(max_examples=10)
+    @run_given(schema["/data"]["GET"].as_strategy(), max_examples=10)
     def test(case):
         # Then the reference should be correctly resolved
         assert isinstance(case.query["key"], str)
-
-    test()
 
 
 @pytest.mark.parametrize("location", ["query", "header"])
 def test_required_array_parameter_is_non_empty(ctx, location):
     # An empty array for a required parameter serializes to nothing, dropping the parameter
     # from the wire and violating `required: true`.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": location,
-                            "name": "ids",
-                            "required": True,
-                            "schema": {"type": "array", "items": {"type": "integer"}},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "in": location,
+                    "name": "ids",
+                    "required": True,
+                    "schema": {"type": "array", "items": {"type": "integer"}},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
     container = {"query": "query", "header": "headers"}[location]
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=15)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=15)
     def test(case):
         assert getattr(case, container).get("ids"), "Required array parameter generated as empty or absent"
-
-    test()
 
 
 def test_allow_empty_value_false_excludes_empty_string(ctx):
     # `allowEmptyValue: false` forbids sending `?name=`, so an empty string is not a positive value.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "name",
-                            "required": True,
-                            "allowEmptyValue": False,
-                            "schema": {"type": "string"},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "name",
+                    "required": True,
+                    "allowEmptyValue": False,
+                    "schema": {"type": "string"},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=25)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=25)
     def test(case):
         assert case.query["name"] != "", "Empty value generated for `allowEmptyValue: false`"
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -194,125 +176,95 @@ def test_allow_empty_value_false_excludes_empty_string(ctx):
 )
 def test_optional_null_query_parameter_is_omitted(ctx, parameter_schema):
     # No mainstream framework reads `?limit=null` as a JSON null; absence is how a query string says "no value".
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "limit", "required": False, "schema": parameter_schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"in": "query", "name": "limit", "required": False, "schema": parameter_schema}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         assert case.query.get("limit") != "null"
 
-    test()
-
 
 def test_required_null_query_parameter_is_sent(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "limit", "required": True, "schema": {"type": "null"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"in": "query", "name": "limit", "required": True, "schema": {"type": "null"}}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=5)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=5)
     def test(case):
         assert case.query == {"limit": "null"}
 
-    test()
-
 
 def test_optional_false_query_parameter_is_sent(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [{"in": "query", "name": "flag", "required": False, "schema": {"enum": [False]}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"in": "query", "name": "flag", "required": False, "schema": {"enum": [False]}}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
     seen = []
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         if case.query not in seen:
             seen.append(case.query)
-
-    test()
 
     assert sorted(seen, key=len) == [{}, {"flag": "false"}]
 
 
 def test_null_inside_query_array_is_sent(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "ids",
-                            "required": False,
-                            "schema": {"type": "array", "items": {"type": "null"}, "minItems": 1, "maxItems": 1},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "ids",
+                    "required": False,
+                    "schema": {"type": "array", "items": {"type": "null"}, "minItems": 1, "maxItems": 1},
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
     seen = []
 
-    @given(schema["/data"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         if case.query not in seen:
             seen.append(case.query)
-
-    test()
 
     assert sorted(seen, key=len) == [{}, {"ids": ["null"]}]
 
 
 def test_null_path_parameter_is_sent(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data/{key}",
         {
-            "/data/{key}": {
-                "get": {
-                    "parameters": [{"in": "path", "name": "key", "required": True, "schema": {"type": "null"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"in": "path", "name": "key", "required": True, "schema": {"type": "null"}}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/data/{key}"]["GET"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=5)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=5)
     def test(case):
         assert case.path_parameters == {"key": "null"}
-
-    test()
 
 
 def test_inlined_definitions(deeply_nested_schema):
@@ -323,36 +275,28 @@ def test_inlined_definitions(deeply_nested_schema):
 
     schema = schemathesis.openapi.from_dict(deeply_nested_schema)
 
-    @given(schema["/data"]["GET"].as_strategy())
-    @settings(max_examples=1)
+    @run_given(schema["/data"]["GET"].as_strategy(), max_examples=1)
     def test(case):
         # Then the referenced schema should be properly transformed to the JSON Schema form
         assume(case.query["key"] == "null")
 
-    test()
-
 
 def test_nullable_recursive_reference(ctx):
     # Wrapping a nullable reference in `anyOf` must keep the storage its `$ref` points at.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /nodes",
         {
-            "/nodes": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {"schema": {"$ref": "#/components/schemas/Node", "nullable": True}}
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Node", "nullable": True}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "schemas": {"Node": {"type": "object", "properties": {"child": {"$ref": "#/components/schemas/Node"}}}}
         },
     )
-    strategy = schema["/nodes"]["POST"].as_strategy()
+    strategy = operation.as_strategy()
 
     assert find(strategy, lambda case: case.body is None).body is None
     assert find(strategy, lambda case: isinstance(case.body, dict)).body == {}
@@ -384,13 +328,10 @@ def test_contains_no_item_can_match_with_zero_min_contains(ctx):
     schema = _tags_body_schema(ctx, body)
     validator = jsonschema_rs.validator_for(body)
 
-    @given(case=schema["/tags"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=schema["/tags"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         assert validator.is_valid(case.body), case.body
         assert all(isinstance(item, int) for item in case.body), case.body
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -404,12 +345,9 @@ def test_contains_contradicting_items_leaves_only_other_branch(ctx):
     }
     schema = _tags_body_schema(ctx, body)
 
-    @given(case=schema["/tags"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=schema["/tags"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         assert case.body is None, case.body
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -422,26 +360,20 @@ def test_contains_over_recursive_reference_keeps_items_valid(ctx):
         "items": {"not": {"type": "null"}},
     }
     components = {"schemas": {"L": {"type": "array", "items": {"$ref": "#/components/schemas/L"}}}}
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /tags",
         {
-            "/tags": {
-                "post": {
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": body}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {"required": True, "content": {"application/json": {"schema": body}}},
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
         components=components,
     )
     validator = jsonschema_rs.validator_for({**body, "components": components})
 
-    @given(case=schema["/tags"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         assert validator.is_valid(case.body), case.body
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -462,12 +394,10 @@ def test_valid_headers():
         Draft4Validator,
     )
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(headers):
         # Then headers are always valid
         assert is_valid_header(headers)
-
-    test()
 
 
 @pytest.mark.parametrize("spec_required", [True, False], ids=["spec-required", "spec-optional"])
@@ -475,28 +405,24 @@ def test_header_schema_dedupes_case_insensitive_duplicates(ctx, spec_required):
     # HTTP header names are case-insensitive; the merged headers schema must collapse
     # spec parameter and security-scheme entries that differ only by case, and the
     # canonical first-seen casing must end up `required` whenever any duplicate is required.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /v2/",
         {
-            "/v2/": {
-                "post": {
-                    "parameters": [
-                        {
-                            "name": "authorization",
-                            "in": "header",
-                            "required": spec_required,
-                            "schema": {"type": "string"},
-                        }
-                    ],
-                    "security": [{"Bearer": []}],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "authorization",
+                    "in": "header",
+                    "required": spec_required,
+                    "schema": {"type": "string"},
                 }
-            }
+            ],
+            "security": [{"Bearer": []}],
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "securitySchemes": {"Bearer": {"type": "http", "scheme": "bearer"}},
         },
     )
-    operation = schema["/v2/"]["POST"]
     properties = operation.headers.schema["properties"]
     required = operation.headers.schema.get("required", [])
     seen = {name.lower() for name in properties}
@@ -528,13 +454,25 @@ def test_configure_headers():
         Draft4Validator,
     )
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(headers):
         # Then headers are always valid
         assert is_valid_header(headers)
         assert set(headers["X-Foo"]) - {"A", "B", "C"} == set()
 
-    test()
+
+def test_format_values_follow_codec_changed_after_generation():
+    schema = {
+        "type": "object",
+        "properties": {"q": {"type": "string", "format": "json-pointer"}},
+        "required": ["q"],
+        "additionalProperties": False,
+    }
+    config = GenerationConfig()
+    generate_many(make_positive_strategy(schema, "GET /x", ParameterLocation.QUERY, None, config, Draft4Validator), 1)
+    config.update(codec="ascii")
+    strategy = make_positive_strategy(schema, "GET /y", ParameterLocation.QUERY, None, config, Draft4Validator)
+    assert [value["q"] for value in generate_many(strategy, 50) if not value["q"].isascii()] == []
 
 
 def test_as_strategy_keeps_passed_headers_unchanged(ctx):
@@ -544,12 +482,9 @@ def test_as_strategy_keeps_passed_headers_unchanged(ctx):
     strategy = schema["/x"]["GET"].as_strategy(headers=headers)
     assert headers == {"X-Caller": "local"}
 
-    @given(strategy)
-    @settings(max_examples=1)
+    @run_given(strategy, max_examples=1)
     def test(case):
         assert case.headers == {"X-Caller": "local", "X-Configured": "global"}
-
-    test()
 
 
 CONSTRAINED_HEADER_SCHEMAS = [
@@ -592,13 +527,10 @@ def test_constrained_headers_are_valid(subschema):
         Draft4Validator,
     )
 
-    @given(strategy)
-    @settings(max_examples=25, deadline=None)
+    @run_given(strategy, max_examples=25)
     def test(headers):
         for value in _strings_in(headers["X-Foo"]):
             assert is_valid_header({"X-Foo": value}), repr(value)
-
-    test()
 
 
 def test_header_length_floor_is_reachable():
@@ -618,13 +550,10 @@ def test_header_length_floor_is_reachable():
         Draft4Validator,
     )
 
-    @given(strategy)
-    @settings(max_examples=25, deadline=None)
+    @run_given(strategy, max_examples=25)
     def test(headers):
         assert len(headers["X-Foo"]) >= 40, headers
         assert is_valid_header(headers), headers
-
-    test()
 
 
 def test_header_values_never_start_with_whitespace():
@@ -633,6 +562,30 @@ def test_header_values_never_start_with_whitespace():
         find(
             formats.header_values(exclude_characters=formats.INVALID_HEADER_CHARS),
             lambda value: value[:1].strip() != value[:1],
+            # The excluded value is rare, so a small budget would pass without looking.
+            settings=settings(max_examples=1000, database=None),
+        )
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [{"type": "string"}, {"type": "string", "minLength": 3, "maxLength": 3}],
+    ids=["plain", "length-bounds"],
+)
+@pytest.mark.hypothesis_nested
+def test_positive_header_values_never_end_with_whitespace(ctx, schema):
+    # Servers strip trailing whitespace from header values, so the received value breaks length bounds.
+    operation = ctx.openapi.load_operation(
+        "GET /h",
+        {
+            "parameters": [{"name": "X-A", "in": "header", "required": True, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    with pytest.raises(NoSuchExample):
+        find(
+            operation.as_strategy(generation_mode=GenerationMode.POSITIVE),
+            lambda case: case.headers["X-A"][-1:].strip() != case.headers["X-A"][-1:],
             # The excluded value is rare, so a small budget would pass without looking.
             settings=settings(max_examples=1000, database=None),
         )
@@ -648,24 +601,18 @@ COOKIE_OCTETS = frozenset(chr(code) for code in range(0x21, 0x7F)) - frozenset('
 )
 @pytest.mark.hypothesis_nested
 def test_cookie_values_use_cookie_octets(ctx, schema):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /c",
         {
-            "/c": {
-                "get": {
-                    "parameters": [{"name": "c", "in": "cookie", "required": True, "schema": schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/c"]["GET"]
+            "parameters": [{"name": "c", "in": "cookie", "required": True, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
 
     # Enough draws to reach separators, quotes and whitespace that servers strip or split on.
-    @given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=30, deadline=None, database=None)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=30)
     def test(case):
         assert set(case.cookies["c"]) <= COOKIE_OCTETS, repr(case.cookies["c"])
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -675,24 +622,18 @@ def test_cookie_values_use_cookie_octets(ctx, schema):
 )
 @pytest.mark.hypothesis_nested
 def test_cookie_values_keep_declared_literals(ctx, schema, expected):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /c",
         {
-            "/c": {
-                "get": {
-                    "parameters": [{"name": "c", "in": "cookie", "required": True, "schema": schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"name": "c", "in": "cookie", "required": True, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
-    )["/c"]["GET"]
+    )
 
-    @given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=5, deadline=None, database=None)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=5)
     def test(case):
         assert case.cookies == {"c": expected}
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -713,12 +654,10 @@ def test_no_much_filtering_in_headers():
         Draft4Validator,
     )
 
-    @given(strategy)
+    @run_given(strategy, max_examples=100)
     def test(_):
         # Then there should be no failed health checks
         pass
-
-    test()
 
 
 @pytest.fixture
@@ -796,13 +735,10 @@ def test_inline_remote_refs(testdir, deeply_nested_schema, setup, check):
     original = jsonschema_rs.canonical.json.to_string(deeply_nested_schema)
     schema = schemathesis.openapi.from_dict(deeply_nested_schema)
 
-    @given(schema["/data"]["GET"].as_strategy())
-    @settings(max_examples=1)
+    @run_given(schema["/data"]["GET"].as_strategy(), max_examples=1)
     def test(case):
         # Then the referenced schema should be resolved and the right value generated
         assert check(case.query["key"])
-
-    test()
 
     # And the original schema is not mutated
     assert jsonschema_rs.canonical.json.to_string(deeply_nested_schema) == original
@@ -826,97 +762,51 @@ def make_header_param(**kwargs):
     }
 
 
-def test_header_filtration_not_needed(ctx, mocker):
-    # When schema contains a simple header
-    mocked = mocker.spy(filters, "is_valid_header")
-    schema = ctx.openapi.load_schema(make_header_param())
-
-    @given(schema["/data"]["GET"].as_strategy())
-    def test(case):
-        assert is_valid_header(case.headers)
-
-    test()
-
-    # Then header filter should not be used
-    mocked.assert_not_called()
-
-
-def test_header_filtration_needed(ctx, mocker):
-    # When schema contains a header with a custom format
-    mocked = mocker.spy(filters, "is_valid_header")
-    schema = ctx.openapi.load_schema(make_header_param(format="date"))
-
-    @given(schema["/data"]["GET"].as_strategy())
-    @settings(max_examples=1)
-    def test(_):
-        pass
-
-    test()
-
-    # Then header filter should be used
-    mocked.assert_called()
-
-
 @pytest.mark.parametrize("subschema", [True, False], ids=["true", "false"])
 def test_boolean_header_schema(ctx, subschema):
     # Open API 3.1 lets a parameter be written as a boolean, which claims every value or none.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [{"name": "key", "in": "header", "schema": subschema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"name": "key", "in": "header", "schema": subschema}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    @given(schema["/data"]["GET"].as_strategy())
-    @settings(max_examples=5)
+    @run_given(operation.as_strategy(), max_examples=5)
     def test(case):
         assert is_valid_header(case.headers)
 
-    test()
 
-
-def test_missing_header_filter(ctx, mocker):
+def test_missing_header_filter(ctx):
     # Regression. See GH-1142
-    mocked = mocker.spy(filters, "is_valid_header")
     # When some header parameters have the `format` keyword
     # And some don't
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "key1",
-                            "in": "header",
-                            "required": True,
-                            "schema": {"type": "string", "format": "uuid"},
-                        },
-                        {
-                            "name": "key2",
-                            "in": "header",
-                            "required": True,
-                            "schema": {"type": "string"},
-                        },
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "name": "key1",
+                    "in": "header",
+                    "required": True,
+                    "schema": {"type": "string", "format": "uuid"},
+                },
+                {
+                    "name": "key2",
+                    "in": "header",
+                    "required": True,
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/data"]["GET"].as_strategy())
+    @run_given(operation.as_strategy(), max_examples=100)
     def test(case):
         assert is_valid_header(case.headers)
-
-    test()
-
-    # Then header filter should be used
-    mocked.assert_called()
 
 
 def test_serializing_shared_header_parameters(ctx):
@@ -934,11 +824,9 @@ def test_serializing_shared_header_parameters(ctx):
         version="2.0",
     )
 
-    @given(schema["/data"]["GET"].as_strategy())
+    @run_given(schema["/data"]["GET"].as_strategy(), max_examples=100)
     def test(case):
         assert is_valid_header(case.headers)
-
-    test()
 
 
 FORM_BODY = {
@@ -979,13 +867,10 @@ def test_declared_content_type_header_matches_the_sent_body(ctx, app_runner, con
 
     schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
 
-    @given(case=schema["/items"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=schema["/items"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         form = case.body if case.media_type in ("application/x-www-form-urlencoded", "multipart/form-data") else {}
         assert case.call().json() == {"mimetype": case.media_type, "form": form}
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -997,77 +882,66 @@ def test_declared_content_type_header_matches_the_sent_body(ctx, app_runner, con
     ids=["media-type-excluded", "one-media-type-admitted"],
 )
 def test_declared_content_type_header_keeps_values_its_schema_admits(ctx, header_schema, expected):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "parameters": [{"in": "header", "name": "Content-Type", "required": True, "schema": header_schema}],
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {"schema": {"type": "object"}},
-                            "text/plain": {"schema": {"type": "string"}},
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"in": "header", "name": "Content-Type", "required": True, "schema": header_schema}],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {"schema": {"type": "object"}},
+                    "text/plain": {"schema": {"type": "string"}},
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
     seen = set()
 
-    @given(case=schema["/items"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def test(case):
         if case.media_type == "text/plain" or "application/xml" in expected:
             seen.add(case.headers["Content-Type"])
 
-    test()
     assert seen == expected
 
 
 def test_filter_urlencoded(ctx):
     # When API schema allows for inputs that can't be serialized to `application/x-www-form-urlencoded`
     # Then such examples should be filtered out during generation
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /test",
         {
-            "/test": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/x-www-form-urlencoded": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "properties": {
-                                            "value": {
-                                                "enum": ["A"],
-                                            },
-                                            "key": {
-                                                "enum": ["B"],
-                                            },
-                                        },
-                                        "required": ["key", "value"],
-                                        # Additional properties are allowed
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/x-www-form-urlencoded": {
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "properties": {
+                                    "value": {
+                                        "enum": ["A"],
                                     },
-                                    "maxItems": 3,
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
+                                    "key": {
+                                        "enum": ["B"],
+                                    },
+                                },
+                                "required": ["key", "value"],
+                                # Additional properties are allowed
+                            },
+                            "maxItems": 3,
+                        }
+                    }
                 },
-            }
-        }
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(schema["/test"]["POST"].as_strategy())
-    @settings(phases=[Phase.generate], max_examples=15, deadline=None)
+    @run_given(operation.as_strategy(), max_examples=15, phases=[Phase.generate])
     def test(case):
         assert_requests_call(case)
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -1097,28 +971,24 @@ def test_unregister_string_format_invalid():
 
 @pytest.mark.hypothesis_nested
 def test_email_format_passes_jsonschema_rs_validation(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /users",
         {
-            "/users": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {"email": {"type": "string", "format": "email"}},
-                                    "required": ["email"],
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"email": {"type": "string", "format": "email"}},
+                            "required": ["email"],
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/users"]["POST"]
     validator = Draft4Validator({"type": "string", "format": "email"})
 
     @given(case=operation.as_strategy())
@@ -1135,24 +1005,20 @@ def test_builtin_format_override(ctx):
     # When a built-in format is overridden with a custom strategy
     today = date.today()
     schemathesis.openapi.format("date", st.dates(max_value=today).map(str))
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /events",
         {
-            "/events": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "start_date",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "string", "format": "date"},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "start_date",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string", "format": "date"},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/events"]["GET"]
 
     @given(case=operation.as_strategy())
     @settings(max_examples=20, deadline=None)
@@ -1170,55 +1036,44 @@ def test_custom_format_path_value_with_slash_is_accepted_when_explicit(ctx):
     # See GH-3571
     format_name = "ip-network-explicit-gh3571"
     schemathesis.openapi.format(format_name, st.sampled_from(["192.168.1.0/24"]))
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /blocks/{block}",
         {
-            "/blocks/{block}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "block",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "format": format_name},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "block",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "format": format_name},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/blocks/{block}"]["GET"]
 
-    @given(case=operation.as_strategy())
-    @settings(max_examples=1, deadline=None)
+    @run_given(case=operation.as_strategy(), max_examples=1)
     def inner(case):
         assert case.path_parameters["block"] == "192.168.1.0%2F24"
-
-    inner()
 
 
 @pytest.mark.hypothesis_nested
 def test_custom_format_path_value_that_cannot_be_url_encoded_is_rejected(ctx):
     format_name = "lone-surrogate-path"
     schemathesis.openapi.format(format_name, st.just("a\ud800"))
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /blocks/{block}",
         {
-            "/blocks/{block}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "block",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "format": format_name},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "block",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "format": format_name},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/blocks/{block}"]["GET"]
 
     @given(case=operation.as_strategy())
     @settings(max_examples=1, deadline=None)
@@ -1231,25 +1086,21 @@ def test_custom_format_path_value_that_cannot_be_url_encoded_is_rejected(ctx):
 
 @pytest.mark.hypothesis_nested
 def test_path_example_without_slash_does_not_allow_encoded_slash(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /blocks/{block}",
         {
-            "/blocks/{block}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "block",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "pattern": "^[0-9]+/[0-9]+$"},
-                            "example": "foo",
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "block",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "pattern": "^[0-9]+/[0-9]+$"},
+                    "example": "foo",
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/blocks/{block}"]["GET"]
     strategy = _hypothesis.get_parameters_strategy(
         operation,
         GenerationMode.POSITIVE,
@@ -1269,25 +1120,21 @@ def test_path_example_without_slash_does_not_allow_encoded_slash(ctx):
 
 @pytest.mark.hypothesis_nested
 def test_path_example_with_slash_allows_encoded_slash(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /blocks/{block}",
         {
-            "/blocks/{block}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "block",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "pattern": r"^[0-9.]+/[0-9]+$"},
-                            "example": "192.168.1.0/24",
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "block",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "pattern": r"^[0-9.]+/[0-9]+$"},
+                    "example": "192.168.1.0/24",
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/blocks/{block}"]["GET"]
     strategy = _hypothesis.get_parameters_strategy(
         operation,
         GenerationMode.POSITIVE,
@@ -1296,34 +1143,27 @@ def test_path_example_with_slash_allows_encoded_slash(ctx):
         mix_examples=False,
     )
 
-    @given(value=strategy)
-    @settings(max_examples=10, deadline=None)
+    @run_given(value=strategy, max_examples=10)
     def inner(value):
         assert "%2F" in value["block"]
-
-    inner()
 
 
 @pytest.mark.hypothesis_nested
 def test_path_parameters_encoded_braces_are_filtered(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /blocks/{block}",
         {
-            "/blocks/{block}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "block",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "pattern": "^[{}]$"},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "block",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string", "pattern": "^[{}]$"},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/blocks/{block}"]["GET"]
     strategy = _hypothesis.get_parameters_strategy(
         operation,
         GenerationMode.POSITIVE,
@@ -1352,27 +1192,16 @@ def test_path_parameters_encoded_braces_are_filtered(ctx):
 )
 def test_positive_bias_keeps_path_integer_within_bounds(ctx, item_schema):
     # Positive-ID bias flips negatives via abs(); abs(int32 min) = int32 max + 1 must not exceed the declared max.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items/{item_id}",
         {
-            "/items/{item_id}": {
-                "get": {
-                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": item_schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": item_schema}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
-    operation = schema["/items/{item_id}"]["GET"]
-    values = []
-
-    @given(case=operation.as_strategy())
     # High count: the flip only overshoots when the exact int32 minimum is drawn, a rare boundary draw.
-    @settings(max_examples=1000, deadline=None, derandomize=True, suppress_health_check=list(HealthCheck))
-    def inner(case):
-        values.append(int(case.path_parameters["item_id"]))
-
-    inner()
+    values = [int(case.path_parameters["item_id"]) for case in generate_many(operation.as_strategy(), 1000)]
     out_of_range = [value for value in values if value > 2147483647 or value < -2147483648]
     assert not out_of_range, f"Out-of-range path integers: {sorted(set(out_of_range))}"
 
@@ -1389,27 +1218,19 @@ def test_positive_bias_keeps_path_integer_within_bounds(ctx, item_schema):
     ids=["enum", "multipleOf", "exclusiveMaximum", "not"],
 )
 def test_positive_bias_keeps_path_integer_schema_valid(ctx, item_schema):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items/{item_id}",
         {
-            "/items/{item_id}": {
-                "get": {
-                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": item_schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": item_schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    operation = schema["/items/{item_id}"]["GET"]
     validator = Draft4Validator(item_schema)
-    values = []
-
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
     # Enough draws for the probabilistic positive-ID bias to fire on a non-positive value at least once.
-    @settings(max_examples=20, deadline=None, derandomize=True, suppress_health_check=list(HealthCheck))
-    def inner(case):
-        values.append(case.path_parameters["item_id"])
-
-    inner()
+    values = [
+        case.path_parameters["item_id"]
+        for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), 20)
+    ]
     assert [value for value in values if not validator.is_valid(value)] == []
 
 
@@ -1499,8 +1320,7 @@ def test_path_string_sanitized_when_decoder_strict(ctx):
     schema.adapt_to_path_decoder_rejection()
     operation = schema["/products/{productName}"]["GET"]
 
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=30, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=30)
     def inner(case):
         value = case.path_parameters["productName"]
         upper = value.upper()
@@ -1508,68 +1328,52 @@ def test_path_string_sanitized_when_decoder_strict(ctx):
         assert "%7F" not in upper, value
         assert not any(f"%{i:02X}" in upper for i in range(0x20)), value
 
-    inner()
-
 
 @pytest.mark.hypothesis_nested
 def test_float_format_snapping_preserves_literal_const(ctx):
     # A literal value that happens to be shaped like a float schema must not be rewritten as if it were one.
     literal = {"format": "float", "exclusiveMinimum": 0}
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /route",
         {
-            "/route": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": {"const": literal}}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"const": literal}}},
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
-    operation = schema["/route"]["POST"]
 
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=5, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=5)
     def inner(case):
         assert case.body == literal, case.body
-
-    inner()
 
 
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize("bound", [1e39, 10**1000], ids=["float", "integer"])
 def test_float_format_bound_outside_single_precision_range(ctx, bound):
     # An exclusive bound beyond the float32 range must clamp to a representable value, not crash strategy preparation.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /route",
         {
-            "/route": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "f",
-                            "in": "query",
-                            "schema": {"type": "number", "format": "float", "exclusiveMaximum": bound},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "f",
+                    "in": "query",
+                    "schema": {"type": "number", "format": "float", "exclusiveMaximum": bound},
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
-    operation = schema["/route"]["GET"]
 
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=5, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=5)
     def inner(case):
         value = case.query.get("f")
         if value is not None:
             assert to_float32(float(value)) < 1e39, value
-
-    inner()
 
 
 def test_float_format_snapping_skips_negation():
@@ -1601,20 +1405,16 @@ def test_float_format_snapping_number_integer_union():
 def test_float_format_openapi_30_boolean_exclusive_bounds(ctx, schema, sign):
     # OpenAPI 3.0 spells exclusive bounds as a boolean modifier: a `true` on a `format: float` bound must
     # hold after float32 narrowing, and a `true` with no companion `minimum`/`maximum` must still generate.
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /route",
         {
-            "/route": {
-                "get": {
-                    "parameters": [{"name": "f", "in": "query", "required": True, "schema": schema}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/route"]["GET"]
+            "parameters": [{"name": "f", "in": "query", "required": True, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
     produced = []
 
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=15, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=15)
     def inner(case):
         value = case.query.get("f")
         if value is None:
@@ -1626,7 +1426,6 @@ def test_float_format_openapi_30_boolean_exclusive_bounds(ctx, schema, sign):
         elif sign < 0:
             assert narrowed < 0, value
 
-    inner()
     assert produced
 
 
@@ -1634,34 +1433,27 @@ def test_float_format_openapi_30_boolean_exclusive_bounds(ctx, schema, sign):
 def test_float_format_on_integer_type_keeps_bound(ctx):
     # `format: float` on an integer schema is contradictory; snapping must not erase its bound and let
     # generation drift below it.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /route",
         {
-            "/route": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "f",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "integer", "format": "float", "exclusiveMinimum": 1000},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "f",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "integer", "format": "float", "exclusiveMinimum": 1000},
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
-    operation = schema["/route"]["GET"]
 
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def inner(case):
         value = case.query.get("f")
         if value is not None:
             assert int(value) > 1000, value
-
-    inner()
 
 
 @pytest.mark.hypothesis_nested
@@ -1669,34 +1461,27 @@ def test_float_format_on_integer_type_keeps_bound(ctx):
 def test_float_format_collapsing_example_not_mixed_into_strategy(ctx, key):
     # A spec example valid as float64 but collapsing to 0 in float32 must not be mixed into positive generation.
     value = [5e-324] if key == "examples" else 5e-324
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /route",
         {
-            "/route": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "f",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "number", "format": "float", "exclusiveMinimum": 0, key: value},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "f",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "number", "format": "float", "exclusiveMinimum": 0, key: value},
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
-    operation = schema["/route"]["GET"]
 
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=50, deadline=None, suppress_health_check=list(HealthCheck))
+    @run_given(case=operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=50)
     def inner(case):
         value = case.query.get("f")
         if value is not None:
             assert to_float32(float(value)) > 0, value
-
-    inner()
 
 
 @pytest.mark.parametrize("name", ["const", "enum", "default", "example", "examples", "if", "not"])
@@ -1777,36 +1562,33 @@ def test_float_format_snapping_dependency_named_like_keyword():
 
 
 def test_unsatisfiable_parameter_is_the_one_the_engine_cannot_draw(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "parameters": [
-                        {
-                            "in": "query",
-                            "name": "choice",
-                            "required": True,
-                            "schema": {
-                                "oneOf": [
-                                    {"type": "object", "properties": {"a": {"type": "string"}}},
-                                    {"type": "object", "properties": {"b": {"type": "string"}}},
-                                ]
-                            },
-                        },
-                        {
-                            "in": "query",
-                            "name": "impossible",
-                            "required": True,
-                            "schema": {"type": "string", "minLength": 5, "maxLength": 2},
-                        },
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "parameters": [
+                {
+                    "in": "query",
+                    "name": "choice",
+                    "required": True,
+                    "schema": {
+                        "oneOf": [
+                            {"type": "object", "properties": {"a": {"type": "string"}}},
+                            {"type": "object", "properties": {"b": {"type": "string"}}},
+                        ]
+                    },
+                },
+                {
+                    "in": "query",
+                    "name": "impossible",
+                    "required": True,
+                    "schema": {"type": "string", "minLength": 5, "maxLength": 2},
+                },
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    found = find_unsatisfiable_parameter(schema["/data"]["GET"])
+    found = find_unsatisfiable_parameter(operation)
 
     assert found is not None
     assert found.name == "impossible"
@@ -1814,31 +1596,28 @@ def test_unsatisfiable_parameter_is_the_one_the_engine_cannot_draw(ctx):
 
 def test_slow_parameter_probe_survives_a_parameter_that_cannot_build(ctx):
     # A strategy failing at build time must not escape the error-reporting probe
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {"type": "integer"},
-                                    "contains": {"const": 7},
-                                    "minContains": 5000000,
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "contains": {"const": 7},
+                            "minContains": 5000000,
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    found = find_slow_parameter(schema["/data"]["POST"], HealthCheck.too_slow)
+    found = find_slow_parameter(operation, HealthCheck.too_slow)
 
     assert found is not None
     assert found.name == "application/json"
@@ -1846,31 +1625,28 @@ def test_slow_parameter_probe_survives_a_parameter_that_cannot_build(ctx):
 
 def test_unsatisfiable_probe_survives_a_parameter_that_cannot_build(ctx):
     # A strategy failing at build time must not escape the error-reporting probe
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /data",
         {
-            "/data": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {"type": "integer"},
-                                    "contains": {"const": 7},
-                                    "minContains": 5000000,
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "contains": {"const": 7},
+                            "minContains": 5000000,
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
     )
 
-    found = find_unsatisfiable_parameter(schema["/data"]["POST"])
+    found = find_unsatisfiable_parameter(operation)
 
     assert found is not None
     assert found.name == "application/json"

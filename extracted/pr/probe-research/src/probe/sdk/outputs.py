@@ -530,7 +530,12 @@ def _walk(
                     if own is not None and own.top(entry.path[cut:].replace(os.sep, "/")) is not None:
                         continue
                     if entry.is_dir(follow_symlinks=False):
-                        if entry.name not in SKIP_DIRS and entry.path not in excluded and entry.path not in pseudo:
+                        if (
+                            entry.name not in SKIP_DIRS
+                            and entry.path not in excluded
+                            and entry.path not in pseudo
+                            and not _snapshot.is_tagged_cache_dir(entry.path)
+                        ):
                             if (ignore is not None and ignore.ignored(entry.path, is_dir=True, capture_root=root)) or config.closed(
                                 entry.path
                             ):

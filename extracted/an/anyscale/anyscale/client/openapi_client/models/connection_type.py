@@ -29,8 +29,9 @@ class ConnectionType(object):
     allowed enum values
     """
     DATABRICKS_U2M = "databricks_U2M"
+    DATABRICKS_FEDERATED = "databricks_federated"
 
-    allowable_values = [DATABRICKS_U2M]  # noqa: E501
+    allowable_values = [DATABRICKS_U2M, DATABRICKS_FEDERATED]  # noqa: E501
 
     """
     Attributes:

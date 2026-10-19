@@ -32,7 +32,7 @@ from datamodel_code_generator.parser.base import Source, dump_templates
 from datamodel_code_generator.parser.graphql import GraphQLParser
 from datamodel_code_generator.parser.jsonschema import JsonSchemaParser
 from datamodel_code_generator.parser.openapi import OpenAPIParser
-from tests.conftest import assert_output, assert_warnings_contain, create_assert_file_content
+from tests.conftest import assert_output, assert_warnings_contain, create_assert_file_content, stored_expected
 from tests.main.conftest import (
     DATA_PATH,
     InputFileTypeLiteral,
@@ -91,7 +91,7 @@ ERROR_CASES: tuple[tuple[str, InputFileTypeLiteral, str], ...] = (
     ("required_as_string.json", "jsonschema", "Error at schema path 'required_as_string.json'"),
     ("enum_as_dict.json", "jsonschema", "Error at schema path 'enum_as_dict.json'"),
     ("missing_external_ref.json", "jsonschema", "$ref file not found:"),
-    ("malformed_external_ref.json", "jsonschema", "truncated_external.json"),
+    ("malformed_external_ref.json", "jsonschema", "truncated_jsonschema.json"),
     ("empty_jsonschema.json", "jsonschema", "Models not found in the input data"),
 )
 
@@ -252,10 +252,7 @@ def test_output_path_can_write_inside_input_directory(
     metadata = None
     if metadata_location is not None:
         metadata = (input_path if metadata_location == "inside" else tmp_path) / "model_map.json"
-    expected_directory = tmp_path / "expected"
-    expected_directory.mkdir()
-    shutil.copyfile(DATA_PATH / "expected" / "main" / "person.py", expected_directory / "person.py")
-    shutil.copyfile(EXPECTED_MALFORMED_PATH / "directory_input_init.py", expected_directory / "__init__.py")
+    expected_directory = EXPECTED_MALFORMED_PATH / "directory_input"
     for run in range(2):
         match entrypoint:
             case "api":
@@ -426,10 +423,7 @@ def test_directory_input_excludes_metadata_symlink_spellings(tmp_path: Path, tar
     output_path = tmp_path / "generated"
     metadata = input_path / "model_map.json"
     metadata.symlink_to((input_path if target_inside else tmp_path) / "metadata.json")
-    expected_directory = tmp_path / "expected"
-    expected_directory.mkdir()
-    shutil.copyfile(DATA_PATH / "expected" / "main" / "person.py", expected_directory / "person.py")
-    shutil.copyfile(EXPECTED_MALFORMED_PATH / "directory_input_init.py", expected_directory / "__init__.py")
+    expected_directory = EXPECTED_MALFORMED_PATH / "directory_input"
     for _ in range(2):
         run_main_and_assert(
             input_path=input_path,
@@ -495,7 +489,7 @@ def test_directory_auto_input_does_not_infer_from_generated_files(
     """A directory containing only previous output has no schema to infer."""
     source_path = tmp_path / "schemas"
     source_path.mkdir()
-    shutil.copyfile(DATA_PATH / "expected" / "main" / "person.py", source_path / "person.py")
+    shutil.copyfile(stored_expected(DATA_PATH / "expected" / "main" / "person.py"), source_path / "person.py")
     run_main_and_assert(
         input_path=source_path,
         output_path=source_path,
@@ -548,7 +542,7 @@ def test_modular_output_file_is_a_clean_cli_error(tmp_path: Path, capsys: pytest
         expected_exit=Exit.ERROR,
         capsys=capsys,
         expected_stderr="Modular references require an output directory, not a file\n",
-        copy_files=[(existing_file, output_path)],
+        copy_files=[(stored_expected(existing_file), output_path)],
     )
     assert_output(output_path.read_text(encoding="utf-8"), existing_file)
 
@@ -567,7 +561,7 @@ def test_modular_output_below_a_file_keeps_the_filesystem_error(
         expected_exit=Exit.ERROR,
         capsys=capsys,
         expected_stderr_contains=TRACEBACK_HEADER,
-        copy_files=[(DATA_PATH / "expected" / "main" / "person.py", occupied_path)],
+        copy_files=[(stored_expected(DATA_PATH / "expected" / "main" / "person.py"), occupied_path)],
     )
 
 
@@ -949,9 +943,12 @@ def test_malformed_input_error_messages(
     output_file: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Known malformed inputs emit concise diagnostics and a non-zero exit code."""
+    """Known malformed inputs emit concise diagnostics and a non-zero exit code; an empty input needs no fixture."""
+    input_path = MALFORMED_DATA_PATH / fixture_name
+    if fixture_name == "empty_jsonschema.json":
+        (input_path := output_file.parent / fixture_name).write_text("", encoding="utf-8")
     run_main_and_assert(
-        input_path=MALFORMED_DATA_PATH / fixture_name,
+        input_path=input_path,
         output_path=output_file,
         input_file_type=input_file_type,
         expected_exit=Exit.ERROR,
@@ -1452,7 +1449,7 @@ def test_external_ref_parse_error_has_format_and_source_context() -> None:
     """External JSON/YAML decoding failures are translated at the reference-load boundary."""
     with pytest.raises(
         InvalidFileFormatError,
-        match=r"Invalid file format for jsonschema at .+truncated_external\.json",
+        match=r"Invalid file format for jsonschema at .+truncated_jsonschema\.json",
     ):
         generate(
             MALFORMED_DATA_PATH / "malformed_external_ref.json",

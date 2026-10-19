@@ -540,7 +540,7 @@ class BaseSchema(Mapping):
 
     def get_coverage_capabilities(self) -> CoverageCapabilities:
         """Return spec-specific data the coverage phase asks of a schema."""
-        return CoverageCapabilities(format_strategies={}, update_pattern=None, validator_cls=None)
+        return CoverageCapabilities(update_pattern=None, validator_cls=None)
 
     def record_runtime_observations(
         self,
@@ -638,6 +638,10 @@ class BaseSchema(Mapping):
         # `quote` — decoding it would turn an escaped reserved character such as `%3F` into a live delimiter.
         return unquote(urljoin(base_url.replace("%", "%25"), quote(path)))
 
+    def build_url_template(self, case: Case, base_url: str) -> str:
+        """Construct the request URL like `build_request_url`, keeping path parameters as `{name}` placeholders."""
+        return f"{base_url.rstrip('/')}{case.path}"
+
     def prepare_request_body(self, case: Case) -> Body:
         """Apply spec-specific transformations to a generated body before sending."""
         return case.body
@@ -648,7 +652,19 @@ class BaseSchema(Mapping):
         Default no-op; specs whose errors aren't fully captured by HTTP status (e.g. GraphQL 200 + errors body) override.
         """
 
-    def classify_call_outcome(self, response: Response) -> CallOutcome:
+    def evaluate_negative_data(self, case: Case, response: Response) -> None:
+        """Raise a Failure if the schema's own conventions show that invalid data was accepted.
+
+        Default no-op; OpenAPI judges by status code in `negative_data_rejection` itself.
+        """
+
+    def evaluate_positive_data(self, case: Case, response: Response) -> None:
+        """Raise a Failure if the schema's own conventions show that valid data was rejected.
+
+        Default no-op; OpenAPI judges by status code in `positive_data_acceptance` itself.
+        """
+
+    def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome:
         """Decide what the API did with a request carrying positive test data.
 
         Status codes carry the answer by default; specs that respond 200 regardless of the outcome
@@ -657,6 +673,11 @@ class BaseSchema(Mapping):
         status_code = response.status_code
         if 200 <= status_code < 300:
             return CallOutcome.ACCEPTED
+        # A documented redirect serves the request; an undocumented one is usually a login page.
+        if 300 <= status_code < 400:
+            documented = case.operation.responses.status_codes
+            if str(status_code) in documented or "3XX" in documented:
+                return CallOutcome.ACCEPTED
         if is_uninformative_status(status_code):
             return CallOutcome.UNINFORMATIVE
         if status_code == 404:
@@ -1077,8 +1098,3 @@ class APIOperation(Generic[P, R, S, SchemaT]):
             multipart_content_types=multipart_content_types,
             meta=_meta,
         )
-
-    @property
-    def operation_reference(self) -> str:
-        path = self.path.replace("~", "~0").replace("/", "~1")
-        return f"#/paths/{path}/{self.method}"

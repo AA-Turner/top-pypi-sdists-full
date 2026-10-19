@@ -65,6 +65,16 @@ class TestHTMLChunkResolver(unittest.TestCase):
       resolver.output, expected, 'WBR tags should not be inserted if in NOBR.'
     )
 
+  def test_unmatched_end_tag_preserves_skip_state(self) -> None:
+    resolver = html_processor.HTMLChunkResolver(['abc', 'def', 'ghi'], '<wbr>')
+    resolver.feed('<nobr>abc</span>def</nobr>ghi')
+    self.assertEqual(resolver.output, '<nobr>abc</span>def</nobr><wbr>ghi')
+
+  def test_unmatched_end_tag_preserves_parent_stack(self) -> None:
+    resolver = html_processor.HTMLChunkResolver(['abc', 'def', 'ghi'], '<wbr>')
+    resolver.feed('<div><nobr>abc</span>def</div>ghi')
+    self.assertEqual(resolver.output, '<div><nobr>abc</span>def</div><wbr>ghi')
+
   def test_after_nobr(self) -> None:
     input = '<p>ab<nobr>xy</nobr>abcdef</p>'
     expected = '<p>ab<nobr>xy</nobr>abc<wbr>def</p>'
@@ -185,4 +195,18 @@ class TestResolve(unittest.TestCase):
     html = '<code>abc<br></br>def</code>ghijkl'
     result = html_processor.resolve(chunks, html)
     expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><code>abc<br></br>def</code>\u200bghi\u200bjkl</span>'
+    self.assertEqual(result, expected)
+
+  def test_with_sep_char_in_skip_node(self) -> None:
+    chunks = ['abc▁def']
+    html = '<p>abc<code>▁</code>def</p>'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><p>abc<code>▁</code>def</p></span>'
+    self.assertEqual(result, expected)
+
+  def test_with_sep_char_at_chunk_boundary(self) -> None:
+    chunks = ['今日は', '▁天気です。']
+    html = '<p>今日は▁天気です。</p>'
+    result = html_processor.resolve(chunks, html)
+    expected = '<span style="word-break: keep-all; overflow-wrap: anywhere;"><p>今日は\u200b▁天気です。</p></span>'
     self.assertEqual(result, expected)

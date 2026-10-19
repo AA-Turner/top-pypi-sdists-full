@@ -18,8 +18,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 
+from office365.migration.base import normalize_puid
 from office365.migration.package.manifest_xml import (
     LOOKUP_LIST_MAP_NS,
     REQUIREMENTS_NS,
@@ -55,6 +57,15 @@ __all__ = ["DEFAULT_NAMESPACE", "Package", "PackageBuilder"]
 def _normalize(path: str) -> str:
     """Normalize a library-relative path (no leading/trailing slash, ``/`` separators)."""
     return path.replace("\\", "/").strip("/")
+
+
+def _is_decimal(value: str) -> bool:
+    """Whether ``value`` is a base-10 integer string (the API's ``PermMask`` format)."""
+    try:
+        int(value, 10)
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def _append_shared_with(item: ManifestObject, events: list[SharedWithEvent]) -> None:
@@ -173,12 +184,16 @@ class PackageBuilder:
         self,
         path: str,
         *,
-        time_created: str | None = None,
-        time_last_modified: str | None = None,
+        time_created: datetime | str | None = None,
+        time_last_modified: datetime | str | None = None,
         author: str | None = None,
         editor: str | None = None,
     ) -> str:
-        """Add a folder (and any missing parents); returns its GUID."""
+        """Add a folder (and any missing parents); returns its GUID.
+
+        ``author``/``editor`` are ``UserGroup.xml`` integer ids (from
+        :meth:`add_user`), not login names.
+        """
         path = _normalize(path)
         if path in self._folders:
             return self._folders[path]
@@ -216,8 +231,8 @@ class PackageBuilder:
         path: str,
         content: bytes,
         *,
-        time_created: str | None = None,
-        time_last_modified: str | None = None,
+        time_created: datetime | str | None = None,
+        time_last_modified: datetime | str | None = None,
         version: str = "1.0",
         versions: list[tuple[str, bytes]] | None = None,
         list_item_int_id: int | None = None,
@@ -233,10 +248,15 @@ class PackageBuilder:
             path: Library-relative path.
             content: The current version's bytes.
             version: The current version label (e.g. ``"1.0"``).
-            versions: Older versions as ``(version, content)`` pairs.
+            versions: Older versions as ``(version, content)`` pairs, **oldest
+                first**. The current version (``content``/``version``) is appended
+                automatically: the Migration API builds history from ``<Versions>``
+                and promotes its last entry to the current version (the outer
+                ``File`` blob is ignored once ``<Versions>`` is present).
             list_item_int_id: Optional list-item integer id to preserve.
-            author: Original author (a login name in ``UserGroup.xml``).
-            editor: Last modified by (a login name in ``UserGroup.xml``).
+            author: Original author — the ``UserGroup.xml`` **integer id** (from
+                :meth:`add_user`), not a login name.
+            editor: Last modified by — likewise a ``UserGroup.xml`` integer id.
         """
         path = _normalize(path)
         parent_id = self._parent_id(path)
@@ -245,7 +265,12 @@ class PackageBuilder:
         self._content[file_id] = content
         self._list_item_int_id += 1
         version_rows: list[ManifestElement] = []
-        for older_version, older_content in versions or []:
+        older_versions = list(versions or [])
+        if older_versions:
+            # The API promotes the LAST <Versions> entry to current and ignores the
+            # outer File blob, so the current version must be listed last.
+            older_versions.append((version, content))
+        for older_version, older_content in older_versions:
             blob = f"{file_id}.{older_version}"
             self._content[blob] = older_content
             version_rows.append(
@@ -305,6 +330,8 @@ class PackageBuilder:
                 version=version,
                 time_created=time_created,
                 time_last_modified=time_last_modified,
+                author=author,
+                editor=editor,
                 fields=fields if fields is not None else {"Title": PurePosixPath(path).name},
                 shared_with=shared_with,
             )
@@ -319,7 +346,17 @@ class PackageBuilder:
         system_id: str | None = None,
         is_site_admin: bool = False,
     ) -> int:
-        """Register a user in ``UserGroup.xml``; returns its integer id."""
+        """Register a user in ``UserGroup.xml``; returns its integer id.
+
+        ``system_id`` (when given) must be the user's PUID
+        (``UserInfo.UserId.NameId``, a 16-character hex string); the service
+        rejects a GUID, a claims login, or the app principal with a
+        ``System.FormatException`` that fails the job. A ``0x`` prefix or stray
+        whitespace is stripped, so only the digits reach ``SystemId``.
+        """
+        puid = normalize_puid(system_id)
+        if system_id is not None and puid is None:
+            raise ValueError(f"system_id must be a PUID (16-char hex), got {system_id!r}")
         user_id = self._next_principal_id()
         self._user_group_map.add_user(
             User(
@@ -327,7 +364,7 @@ class PackageBuilder:
                 name=name or login,
                 login=login,
                 email=email,
-                system_id=system_id,
+                system_id=puid,
                 is_site_admin=is_site_admin,
             )
         )
@@ -359,7 +396,18 @@ class PackageBuilder:
         role_order: str | None = None,
         role_type: str | None = None,
     ) -> None:
-        """Register a permission level (a ``DeploymentRoles`` ``<Role>``)."""
+        """Register a permission level (a ``DeploymentRoles`` ``<Role>``).
+
+        ``perm_mask`` must be a **decimal** integer string (e.g. ``"756052856929"``):
+        the service parses ``PermMask`` as a decimal, and a hex ``"0x..."`` mask
+        fails the ingestion job with a ``FormatException``. Use a non-system
+        ``role_id`` (below ``1073741824``); a system id is rejected by the service
+        with "Updates to system roles is not allowed". The service matches a role
+        by ``title`` against the target's existing permission levels, so reusing an
+        existing title updates that level rather than creating a duplicate.
+        """
+        if not _is_decimal(perm_mask):
+            raise ValueError(f"perm_mask must be a decimal integer string, got {perm_mask!r}")
         if any(role.id == role_id for role in self._roles):
             return
         self._roles.append(Role(role_id, title, perm_mask, hidden, description, role_order, role_type))
@@ -410,8 +458,10 @@ class PackageBuilder:
         name: str | None = None,
         int_id: int | None = None,
         version: str = "1.0",
-        time_created: str | None = None,
-        time_last_modified: str | None = None,
+        time_created: datetime | str | None = None,
+        time_last_modified: datetime | str | None = None,
+        author: str | None = None,
+        editor: str | None = None,
         fields: dict[str, str] | None = None,
         shared_with: list[SharedWithEvent] | None = None,
     ) -> str:
@@ -419,6 +469,7 @@ class PackageBuilder:
 
         ``doc_id`` links the item to its ``SPFile`` (``DocType=File``); ``fields``
         are the item's field values (the serializer requires a ``<Fields>`` member).
+        ``author``/``editor`` are ``UserGroup.xml`` integer ids, not login names.
         """
         existing = self._list_items.get(file_url)
         if existing is not None:
@@ -447,6 +498,8 @@ class PackageBuilder:
                 "ParentWebUrl": self._web_url,
                 "TimeCreated": time_created,
                 "TimeLastModified": time_last_modified,
+                "Author": author,
+                "ModifiedBy": editor,
                 "FileUrl": file_url,
                 "DocType": "File",
                 "ParentFolderId": parent_folder_id or self._root_folder_id,
@@ -467,6 +520,19 @@ class PackageBuilder:
         self._manifest.add(item)
         self._list_items[file_url] = item
         return item_id
+
+    def object_id(self, path: str) -> str | None:
+        """The manifest GUID of a file/folder already added (``None`` if absent)."""
+        key = _normalize(path)
+        return self._files.get(key) or self._folders.get(key)
+
+    def item_url(self, path: str) -> str:
+        """The website-relative URL of an item path (mirrors the manifest's ``Url``)."""
+        return self._url(_normalize(path))
+
+    def set_include_security(self, value: str) -> None:
+        """Set ``ExportSettings/@IncludeSecurity`` (e.g. ``"All"`` to carry ACLs)."""
+        self._export.include_security = value
 
     def build(self) -> Package:
         """Render the manifest documents and freeze the content blobs."""

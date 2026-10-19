@@ -379,7 +379,7 @@ def jev_approved(since: float, limit: int, *, session_id: str | None = None) -> 
                 words = None
             jev = reason_of_jev[status].fullmatch(reason) if isinstance(reason, str) else None
             if (jev is None or not isinstance(at, (int, float)) or not isinstance(words, list) or len(words) != 3
-                    or words[:2] != ["sh", "-c"] or not isinstance(words[2], str)
+                    or words[:2] not in (["sh", "-c"], ["bash", "-c"]) or not isinstance(words[2], str)
                     or not (exit_code is None or isinstance(exit_code, int))):
                 damaged += 1  # the shape filter passed it: something wrote it another way
                 continue
@@ -521,9 +521,11 @@ def scrub(text: str) -> str:
 #: order; any other short scalar argument follows them.
 SUMMARY_KEYS = ("url", "file_path", "path", "notebook_path", "pattern", "query", "glob", "description",
                 "prompt")
-#: Arguments that are the content a call carries, not what it points at.
+#: Arguments that are the content a call carries, not what it points at
+#: (`old` / `new`: the daemon writer's own `edit`, and any harness tool
+#: spelled the same way).
 _CONTENT_KEYS = frozenset({"content", "new_string", "old_string", "edits", "new_source", "body", "text",
-                           "todos", "plan"})
+                           "todos", "plan", "old", "new"})
 SUMMARY_VALUE_CHARS = 200
 SUMMARY_CHARS = 600
 
@@ -553,7 +555,10 @@ def _cap(text: str) -> str:
     if len(text) <= MAX_STORED_CHARS:
         return text
     half = MAX_STORED_CHARS // 2
-    return f"{text[:half]}\n[... {len(text) - MAX_STORED_CHARS:,} characters not stored; session op=open reads them ...]\n{text[-half:]}"
+    from probe.daemon import toolset
+
+    how = toolset.pick("session op=open", "probe daemon session open")  # NEW (bite/bash-markers.NEW.md)
+    return f"{text[:half]}\n[... {len(text) - MAX_STORED_CHARS:,} characters not stored; {how} reads them ...]\n{text[-half:]}"
 
 
 @dataclass

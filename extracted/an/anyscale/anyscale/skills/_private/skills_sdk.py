@@ -8,7 +8,7 @@ import os
 import shutil
 import tarfile
 import tempfile
-from typing import Any, Callable, Dict, List, Optional, overload, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, overload, Set, Tuple, Union
 
 import requests
 
@@ -36,6 +36,28 @@ METADATA_DIR = os.path.join("~", ".anyscale", "skills")
 INSTALLED_METADATA_FILE = "installed.json"
 
 _MANAGED_BY_TAG = "anyscale-skills"
+
+# Every command string we ship or have ever shipped. v0.1.0-v0.3.0 baked a plain
+# $HOME path, v0.4.0 switched to the env-var form, and the script is being renamed
+# main.sh -> anyscale-main.sh. Append on every future change -- an untagged group
+# whose command is absent here is duplicated, not replaced.
+_PUBLISHED_HOOK_COMMANDS = frozenset(
+    {
+        '"$HOME/.claude/hooks/main.sh" pre-tool',
+        '"$HOME/.cursor/hooks/main.sh" pre-tool',
+        '"$HOME/.codex/hooks/main.sh" pre-tool',
+        '"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/main.sh" pre-tool',
+        '"${CURSOR_CONFIG_DIR:-$HOME/.cursor}/hooks/main.sh" pre-tool',
+        '"${CODEX_HOME:-$HOME/.codex}/hooks/main.sh" pre-tool',
+        '"${COPILOT_HOME:-$HOME/.copilot}/hooks/main.sh" pre-tool-copilot',
+        '"${KIRO_HOME:-$HOME/.kiro}/hooks/main.sh" pre-tool-kiro',
+        '"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/anyscale-main.sh" pre-tool',
+        '"${CURSOR_CONFIG_DIR:-$HOME/.cursor}/hooks/anyscale-main.sh" pre-tool',
+        '"${CODEX_HOME:-$HOME/.codex}/hooks/anyscale-main.sh" pre-tool',
+        '"${COPILOT_HOME:-$HOME/.copilot}/hooks/anyscale-main.sh" pre-tool-copilot',
+        '"${KIRO_HOME:-$HOME/.kiro}/hooks/anyscale-main.sh" pre-tool-kiro',
+    }
+)
 
 # A platform's "hooks" value: Kiro's flat list of hook objects, or the event-keyed
 # mapping every other platform uses.
@@ -179,29 +201,79 @@ def _skills_filter(member: tarfile.TarInfo, dest_path: str) -> tarfile.TarInfo:
     return member
 
 
-def _drop_managed(entries: List[Any]) -> List[Any]:
-    """Drop the hook entries a previous install of ours wrote."""
+def _group_commands(group: dict) -> List[str]:
+    """Commands in a hook group -- nested for claude-code/cursor/codex, flat
+    under `bash` for copilot, under `action` for kiro.
+    """
+    commands: List[str] = []
+    nested = group.get("hooks")
+    if isinstance(nested, list):
+        commands.extend(
+            entry["command"]
+            for entry in nested
+            if isinstance(entry, dict) and isinstance(entry.get("command"), str)
+        )
+    if isinstance(group.get("bash"), str):
+        commands.append(group["bash"])
+    action = group.get("action")
+    if isinstance(action, dict) and isinstance(action.get("command"), str):
+        commands.append(action["command"])
+    return commands
+
+
+def _is_managed_group(group: dict, bundle_commands: Set[str]) -> bool:
+    """Whether this CLI installed the given hook group.
+
+    The tag alone is not enough: some agents drop keys they don't know when
+    re-serializing their settings, orphaning the group. Without the tag, every
+    command in the group must be ours, so a user hook added to the same group
+    keeps it. Commands are matched whole, so a user hook can only collide by
+    being byte-identical to ours.
+    """
+    if group.get("_managed_by") == _MANAGED_BY_TAG:
+        return True
+    commands = _group_commands(group)
+    return bool(commands) and all(
+        command in bundle_commands or command in _PUBLISHED_HOOK_COMMANDS for command in commands
+    )
+
+
+def _drop_managed(entries: List[Any], bundle_commands: Set[str]) -> List[Any]:
+    """Drop the hook entries a previous install of ours wrote, tagged or not."""
     return [
         entry
         for entry in entries
-        if not (isinstance(entry, dict) and entry.get("_managed_by") == _MANAGED_BY_TAG)
+        if not (isinstance(entry, dict) and _is_managed_group(entry, bundle_commands))
     ]
 
 
-@overload
-def _strip_managed_hooks(hooks: List[Any]) -> List[Any]: ...
-
-
-@overload
-def _strip_managed_hooks(hooks: Dict[str, Any]) -> Dict[str, Any]: ...
-
-
-def _strip_managed_hooks(hooks: HooksConfig) -> HooksConfig:
-    """Remove hook entries tagged with _managed_by, preserving the config's shape."""
+def _hook_entries(hooks: HooksConfig) -> List[Any]:
+    """Every hook entry in a config, whichever shape it takes."""
     if isinstance(hooks, list):
-        return _drop_managed(hooks)
+        return hooks
+    return [entry for entries in hooks.values() if isinstance(entries, list) for entry in entries]
+
+
+@overload
+def _strip_managed_hooks(hooks: List[Any], bundle_hooks: HooksConfig) -> List[Any]: ...
+
+
+@overload
+def _strip_managed_hooks(hooks: Dict[str, Any], bundle_hooks: HooksConfig) -> Dict[str, Any]: ...
+
+
+def _strip_managed_hooks(hooks: HooksConfig, bundle_hooks: HooksConfig) -> HooksConfig:
+    """Remove every hook entry this CLI installed, tagged or not, keeping the config's shape."""
+    bundle_commands = {
+        command
+        for entry in _hook_entries(bundle_hooks)
+        if isinstance(entry, dict)
+        for command in _group_commands(entry)
+    }
+    if isinstance(hooks, list):
+        return _drop_managed(hooks, bundle_commands)
     return {
-        event: _drop_managed(entries) if isinstance(entries, list) else entries
+        event: _drop_managed(entries, bundle_commands) if isinstance(entries, list) else entries
         for event, entries in hooks.items()
     }
 
@@ -215,10 +287,10 @@ def _merge_hooks_config(existing_path: str, bundle_path: str) -> None:
     current = existing.get("hooks")
 
     if isinstance(bundle_hooks, list):
-        kept = _strip_managed_hooks(current) if isinstance(current, list) else []
+        kept = _strip_managed_hooks(current, bundle_hooks) if isinstance(current, list) else []
         merged_hooks: HooksConfig = [*kept, *bundle_hooks]
     else:
-        by_event = _strip_managed_hooks(current) if isinstance(current, dict) else {}
+        by_event = _strip_managed_hooks(current, bundle_hooks) if isinstance(current, dict) else {}
         for event, entries in bundle_hooks.items():
             by_event.setdefault(event, []).extend(entries)
         merged_hooks = by_event

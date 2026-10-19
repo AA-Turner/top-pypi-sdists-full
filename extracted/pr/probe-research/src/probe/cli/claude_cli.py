@@ -22,9 +22,15 @@ number.
 
 from __future__ import annotations
 
+import os
 import shutil
+import signal
 import subprocess
-from dataclasses import dataclass
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 
 #: Reading local plugin state. No network, so a slow one is a wedged process.
 LIST_TIMEOUT_S = 20.0
@@ -71,17 +77,91 @@ def available() -> bool:
     return shutil.which("claude") is not None
 
 
-def run(args: list[str], *, timeout: float) -> Result:
-    """Run `claude <args>` with output captured and stdin closed."""
-    command = " ".join(["claude", *args])
-    binary = shutil.which("claude")
-    if not binary:
-        return Result(
-            ok=False, detail="`claude` not found on PATH", reachable=False, command=command
-        )
+@dataclass
+class _Bound:
+    timeout: float
+    #: When the block's time runs out (`time.monotonic`): ONE budget for every
+    #: call in it, not one per call.
+    deadline: float
+    #: Binaries that timed out inside the block: not asked again in it.
+    hung: set[str] = field(default_factory=set)
+
+
+_bound: ContextVar[_Bound | None] = ContextVar("probe_agent_cli_bound", default=None)
+
+
+@contextmanager
+def bounded(timeout: float) -> Iterator[None]:
+    """Every agent-CLI call in the block ends within `timeout` seconds of the
+    block's start -- one budget shared by all of them -- a binary that timed out
+    once is not run again inside it, and a call that times out is killed with
+    its whole process group.
+
+    For a read a person waits on (`probe status --refresh`): the call sites keep
+    their own, longer allowances for the wizard. A hung binary stays hung for
+    the few seconds one status read takes, so asking it a second question
+    (`plugin list`, then `--version`) would only cost a second timeout. Covers
+    `run` here, Codex's in `plugin_cli.run`, the version probe in
+    `backfill.agent_version` and pi's `--help` sniff. A thread started inside
+    the block shares its budget only when it runs in a copy of this context
+    (`contextvars.copy_context`).
+
+    The group: an agent CLI can be a wrapper that starts the real binary as its
+    child (npm's `codex` is node starting the native one), and killing the
+    wrapper alone leaves that child running. Inside the block each call starts
+    its own process group (POSIX) and a timeout kills the group. Only inside it:
+    a wizard's `claude plugin install` stays in the terminal's group, where a
+    Ctrl-C reaches it as SIGINT rather than as a kill.
+    """
+    token = _bound.set(_Bound(timeout, time.monotonic() + timeout))
     try:
-        completed = subprocess.run(  # noqa: S603 - fixed binary, no shell
-            [binary, *args],
+        yield
+    finally:
+        _bound.reset(token)
+
+
+def call_timeout(timeout: float) -> float:
+    """`timeout`, or what is left of the enclosing `bounded` block's budget when
+    that is shorter (0 once it has run out)."""
+    bound = _bound.get()
+    if bound is None:
+        return timeout
+    return min(timeout, max(0.0, bound.deadline - time.monotonic()))
+
+
+def already_hung(binary: str) -> bool:
+    """Whether `binary` timed out earlier in the enclosing `bounded` block."""
+    bound = _bound.get()
+    return bound is not None and binary in bound.hung
+
+
+def timed_out(binary: str) -> None:
+    """Remember, for the enclosing `bounded` block, that `binary` timed out."""
+    bound = _bound.get()
+    if bound is not None:
+        bound.hung.add(binary)
+
+
+def seconds(value: float) -> str:
+    """A duration as a message says it: `20s`, `1s`, `0.5s` -- never `0s` for
+    half a second, as `:.0f` printed it."""
+    return f"{max(round(value, 1), 0.1):g}s"
+
+
+#: `Result.detail` for a call `bounded` skipped.
+SKIPPED_HUNG = "not run: it timed out earlier in this check"
+#: `Result.detail` for a call the `bounded` block had no time left for.
+OUT_OF_TIME = "not run: the check ran out of time"
+
+
+def capture(argv: list[str], *, timeout: float) -> subprocess.CompletedProcess:
+    """`subprocess.run` with output captured as text and stdin closed: the one
+    way every agent-CLI call here starts its process. Inside `bounded` the
+    child leads a process group of its own and a timeout kills the whole group
+    (see `bounded`). Raises what `subprocess.run` raises."""
+    if _bound.get() is None or os.name == "nt":
+        return subprocess.run(  # noqa: S603 - the callers pass a resolved binary, no shell
+            argv,
             capture_output=True,
             text=True,
             # See the module docstring: without this the child inherits the
@@ -90,11 +170,59 @@ def run(args: list[str], *, timeout: float) -> Result:
             timeout=timeout,
             check=False,
         )
+    with subprocess.Popen(  # noqa: S603 - the callers pass a resolved binary, no shell
+        argv,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    ) as process:
+        try:
+            out, err = process.communicate(timeout=timeout)
+        except BaseException:  # a timeout, or the caller's own interrupt
+            _kill_group(process)
+            process.wait()
+            raise
+    return subprocess.CompletedProcess(argv, process.returncode, out, err)
+
+
+def _kill_group(process: subprocess.Popen) -> None:
+    """SIGKILL the group `process` leads, and so every child it started."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    except OSError:
+        process.kill()
+
+
+def run(args: list[str], *, timeout: float) -> Result:
+    """Run `claude <args>` with output captured and stdin closed."""
+    command = " ".join(["claude", *args])
+    binary = shutil.which("claude")
+    if not binary:
+        return Result(
+            ok=False, detail="`claude` not found on PATH", reachable=False, command=command
+        )
+    return run_binary(binary, args, timeout=timeout, command=command)
+
+
+def run_binary(binary: str, args: list[str], *, timeout: float, command: str) -> Result:
+    """`binary <args>` as a `Result`: what `run` here and `plugin_cli.run` share."""
+    if already_hung(binary):
+        return Result(ok=False, detail=SKIPPED_HUNG, reachable=False, command=command)
+    timeout = call_timeout(timeout)
+    if timeout <= 0:
+        return Result(ok=False, detail=OUT_OF_TIME, reachable=False, command=command)
+    try:
+        completed = capture([binary, *args], timeout=timeout)
     except subprocess.TimeoutExpired:
+        timed_out(binary)
         # Distinct from a non-zero exit: nothing ran to completion, so the
         # caller cannot conclude anything about the state on disk.
         return Result(
-            ok=False, detail=f"timed out after {timeout:.0f}s", reachable=False, command=command
+            ok=False, detail=f"timed out after {seconds(timeout)}", reachable=False, command=command
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return Result(ok=False, detail=str(exc), reachable=False, command=command)

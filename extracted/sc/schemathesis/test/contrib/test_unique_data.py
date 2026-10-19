@@ -1,10 +1,9 @@
 import platform
 
 import pytest
-from hypothesis import HealthCheck, given, settings
 
 from schemathesis.generation import GenerationMode
-from test.utils import flaky
+from test.utils import run_given
 
 
 @pytest.fixture(
@@ -108,7 +107,7 @@ def run(ctx, cli, unique_hook, schema, base_url, hypothesis_max_examples, *args)
 
 
 @pytest.mark.skipif(platform.system() == "Windows", reason="Fails on Windows")
-@flaky(max_runs=3, min_passes=1)
+@pytest.mark.flaky(reruns=2)
 def test_cli(ctx, unique_hook, raw_schema, cli, hypothesis_max_examples, snapshot_cli):
     api = ctx.openapi.apps.success()
     assert run(ctx, cli, unique_hook, raw_schema, f"{api.base_url}/api", hypothesis_max_examples) == snapshot_cli
@@ -227,41 +226,35 @@ def test_positive_multipart_not_reported_as_negative(ctx, cli, snapshot_cli):
 
 
 def test_hash_keeps_positive_multipart_case(ctx):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
         {
-            "/upload": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {
-                            "multipart/form-data": {
-                                "schema": {
-                                    "type": "object",
-                                    "additionalProperties": False,
-                                    "properties": {
-                                        "data": {"type": "string", "format": "binary"},
-                                        "price": {"type": "number"},
-                                    },
-                                    "required": ["data", "price"],
-                                }
-                            }
-                        },
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/upload"]["POST"]
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "data": {"type": "string", "format": "binary"},
+                                "price": {"type": "number"},
+                            },
+                            "required": ["data", "price"],
+                        }
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
 
-    @given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE))
-    @settings(max_examples=10, suppress_health_check=list(HealthCheck), deadline=None)
+    @run_given(operation.as_strategy(generation_mode=GenerationMode.POSITIVE), max_examples=10)
     def check(case):
         body = dict(case.body)
         hash(case)
         assert (case.body, case.meta.generation.mode) == (body, GenerationMode.POSITIVE)
         assert [type(value) for value in case.body.values()] == [type(value) for value in body.values()]
-
-    check()
 
 
 def test_sensitive_parameter_values_are_distinct_inputs(ctx, cli):

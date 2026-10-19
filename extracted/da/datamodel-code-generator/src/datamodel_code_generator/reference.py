@@ -11,6 +11,7 @@ import re
 import stat
 from collections import defaultdict
 from contextlib import contextmanager
+from contextvars import ContextVar
 from enum import Enum, auto
 from functools import cached_property, lru_cache
 from itertools import zip_longest
@@ -793,6 +794,22 @@ def _contains_symlink(path: Path) -> bool:
     return False
 
 
+_UNMATCHED_MODEL_NAME_KEYS_REPORTED: ContextVar[bool] = ContextVar("unmatched_model_name_keys_reported", default=True)
+
+
+@contextmanager
+def unmatched_model_name_keys_unreported() -> Generator[None, None, None]:
+    """Leave the ``--model-name-map`` keys that match no model unreported by the generations run inside.
+
+    A comparison generates its baseline input inside, so the keys are reported for the current input alone.
+    """
+    token = _UNMATCHED_MODEL_NAME_KEYS_REPORTED.set(False)
+    try:
+        yield
+    finally:
+        _UNMATCHED_MODEL_NAME_KEYS_REPORTED.reset(token)
+
+
 class ModelResolver:  # noqa: PLR0904
     """Manages model references, class names, and field name resolution.
 
@@ -908,10 +925,13 @@ class ModelResolver:  # noqa: PLR0904
         self._yielding_names: dict[str, _YieldingName] = {}
         self._yielding_name_start_hints: dict[tuple[str, str, str, str], int] = {}
         self._matched_model_name_keys: set[str] = set()
+        self._found_model_name_keys: set[str] = set()
         self.assigned_yielding_names: Mapping[str, tuple[str, str | None]] = {}
         self.final_yielding_names: dict[str, tuple[str, str | None]] = {}
         self.yielding_name_changes: set[str] = set()
         self._new_references_yield = False
+        self._paths_named_past_parent: set[tuple[str, ...]] = set()
+        self._model_name_map_paths: set[str] = set()
 
         # Default value overrides from external JSON file
         self.default_value_overrides: Mapping[str, Any] = (
@@ -971,10 +991,13 @@ class ModelResolver:  # noqa: PLR0904
         self.__dict__.setdefault("_yielding_names", {})
         self.__dict__.setdefault("_yielding_name_start_hints", {})
         self.__dict__.setdefault("_matched_model_name_keys", set())
+        self.__dict__.setdefault("_found_model_name_keys", set())
         self.__dict__.setdefault("assigned_yielding_names", {})
         self.__dict__.setdefault("final_yielding_names", {})
         self.__dict__.setdefault("yielding_name_changes", set())
         self.__dict__.setdefault("_new_references_yield", False)
+        self.__dict__.setdefault("_paths_named_past_parent", set())
+        self.__dict__.setdefault("_model_name_map_paths", set())
         for name, value in slot_state.items():
             setattr(self, name, value)
 
@@ -1001,7 +1024,8 @@ class ModelResolver:  # noqa: PLR0904
     ) -> str | None:
         """Return an explicit model rename for a source path or generated name.
 
-        A yielding reference matches only by path: its generated name is not final until parsing ends.
+        A yielding reference matches only by path: its generated name is not final until parsing ends. The first
+        matching candidate wins, and every matching key counts as found.
         """
         if not self.model_name_map:
             return None
@@ -1009,12 +1033,20 @@ class ModelResolver:  # noqa: PLR0904
         _, separator, fragment = path.partition("#")
         paths = (path, f"#{fragment}") if separator else (path,)
         names = (generated_name, original_name) if match_names else ()
+        mapped_name: str | None = None
         for candidate in (*paths, *names):
-            if (mapped_name := self.model_name_map.get(candidate)) is not None:
+            if (value := self.model_name_map.get(candidate)) is None:
+                continue
+            self._found_model_name_keys.add(candidate)
+            if mapped_name is None:
+                mapped_name = value
                 if candidate in names:
                     self._matched_model_name_keys.add(candidate)
-                return mapped_name
-        return None
+        return mapped_name
+
+    def unmatched_model_name_keys(self) -> set[str]:
+        """Return the ``--model-name-map`` keys that matched no model."""
+        return set(self.model_name_map) - self._found_model_name_keys
 
     def _ensure_model_name_map_value(
         self,
@@ -1040,7 +1072,8 @@ class ModelResolver:  # noqa: PLR0904
         if conflict_reason:
             msg = (
                 f"--model-name-map maps {redact_reference(path)!r} to {mapped_name!r}, "
-                f"but that model name is {conflict_reason}"
+                f"but that model name is {conflict_reason}\n"
+                "Hint: --emit-model-metadata lists the generated class names and their schema locations."
             )
             raise Error(msg)
 
@@ -1059,6 +1092,8 @@ class ModelResolver:  # noqa: PLR0904
             return class_name
 
         self._ensure_model_name_map_value(path, class_name.name, mapped_name, reserved_name)
+        if mapped_name != class_name.name:
+            self._model_name_map_paths.add(path)
         return ClassName(name=mapped_name, duplicate_name=None)
 
     def _reset_for_reuse(self, exclude_names: set[str]) -> None:
@@ -1104,6 +1139,7 @@ class ModelResolver:  # noqa: PLR0904
                 mapped_name := self.model_name_map.get(name)
             ) is not None:
                 self._ensure_model_name_map_value(reference.path, name, mapped_name, name)
+                self._found_model_name_keys.add(name)
                 reference.name = mapped_name
                 reference.duplicate_name = None
                 self._update_reference_name(name, mapped_name)
@@ -1469,15 +1505,31 @@ class ModelResolver:  # noqa: PLR0904
         self._update_reference_name(None, reference.name, unique=use_unique)
         return reference
 
+    def named_after(self, path: str, original_name: str) -> bool:
+        """Return whether the reference at ``path`` is named from ``original_name`` and not by ``--model-name-map``."""
+        return (
+            (reference := self.references.get(path)) is not None
+            and reference.original_name == original_name
+            and path not in self._model_name_map_paths
+        )
+
+    def name_past_parent(self, path: Sequence[str]) -> None:
+        """Prefix the models under ``path`` as if the model that holds ``path`` were not in their path."""
+        self._paths_named_past_parent.add(tuple(path))
+
     def _find_parent_reference(self, path: Sequence[str]) -> Reference | None:
         """Find the closest parent reference for a given path.
 
-        Traverses up the path hierarchy to find the first existing parent reference.
+        Traverses up the path hierarchy to find the first existing parent reference, passing over one whose child
+        on the way is named past it.
         Returns None if no parent reference is found.
         """
         parent_path = list(path[:-1])
         while parent_path:
-            if parent_reference := self.references.get(self.join_path(tuple(parent_path))):
+            if (parent_reference := self.references.get(self.join_path(tuple(parent_path)))) and (
+                not self._paths_named_past_parent
+                or tuple(path[: len(parent_path) + 1]) not in self._paths_named_past_parent
+            ):
                 return parent_reference
             parent_path = parent_path[:-1]
         return None
@@ -1669,11 +1721,18 @@ class ModelResolver:  # noqa: PLR0904
 
     def delete(self, path: Sequence[str] | str) -> None:
         """Delete a reference by path if it exists, together with the name it yields."""
-        resolved = self.resolve_ref(path)
-        if (reference := self.references.pop(resolved, None)) is not None:
-            if self.is_yielding(reference):
-                del self._yielding_names[reference.name]
-            self._remove_reference_name(reference.name)
+        if (reference := self.references.pop(self.resolve_ref(path), None)) is not None:
+            self._release_reference_name(reference)
+
+    def delete_names(self, names: AbstractSet[str]) -> None:
+        """Delete the references holding any of ``names``, whatever paths they were added under."""
+        for path in [path for path, reference in self.references.items() if reference.name in names]:
+            self._release_reference_name(self.references.pop(path))
+
+    def _release_reference_name(self, reference: Reference) -> None:
+        if self.is_yielding(reference):
+            del self._yielding_names[reference.name]
+        self._remove_reference_name(reference.name)
 
     def default_class_name_generator(self, name: str) -> str:
         """Generate a valid class name from a string."""

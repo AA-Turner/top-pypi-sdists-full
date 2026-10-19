@@ -59,6 +59,14 @@ _SEVERITY_ORDER = {Severity.CRITICAL: 0, Severity.HIGH: 1, Severity.MEDIUM: 2, S
 class Failure(AssertionError):
     """API check failure."""
 
+    # Stable identity in reports; a code is never renumbered or reused.
+    # The hundreds digit says what went wrong, never the protocol: 1 response, 2 request handling, 3 stateful,
+    # 4 auth, 9 custom. A protocol-specific failure gets the next free code in its group.
+    code: ClassVar[str] = "ST901"
+    # Checks that report this failure.
+    checks: ClassVar[tuple[str, ...]] = ()
+    kind_title: ClassVar[str] = "Custom check failed"
+
     __slots__ = ("operation", "title", "message", "case_id", "severity")
     # Whether rerunning as the identity that sent the request reproduces the failure.
     reproducible_by_identity: ClassVar[bool] = True
@@ -93,6 +101,7 @@ class Failure(AssertionError):
         """Wire representation shared by the NDJSON report and cross-worker transport."""
         return {
             "type": self.__class__.__name__,
+            "code": self.code,
             "operation": self.operation,
             "title": self.title,
             "message": self.message,
@@ -166,6 +175,10 @@ def get_origin(exception: BaseException, seen: tuple[BaseException, ...] = ()) -
 
 
 class CustomFailure(Failure):
+    code = "ST901"
+    checks = ()
+    kind_title = "Custom check failed"
+
     __slots__ = ("operation", "title", "message", "exception", "case_id", "severity", "origin")
 
     def __init__(
@@ -195,6 +208,10 @@ class CustomFailure(Failure):
 class ResponseTimeExceeded(Failure):
     """Response took longer than expected."""
 
+    code = "ST112"
+    checks = ("max_response_time",)
+    kind_title = "Response time limit exceeded"
+
     __slots__ = ("operation", "elapsed", "deadline", "title", "message", "case_id", "severity")
 
     def __init__(
@@ -204,13 +221,13 @@ class ResponseTimeExceeded(Failure):
         elapsed: float,
         deadline: float,
         message: str,
-        title: str = "Response time limit exceeded",
+        title: str | None = None,
         case_id: str | None = None,
     ) -> None:
         self.operation = operation
         self.elapsed = elapsed
         self.deadline = deadline
-        self.title = title
+        self.title = title if title is not None else self.kind_title
         self.message = message
         self.case_id = case_id
         self.severity = Severity.LOW
@@ -228,6 +245,10 @@ def is_reproducible_failure(failure: Failure) -> bool:
 class ServerError(Failure):
     """Server responded with an error."""
 
+    code = "ST101"
+    checks = ("not_a_server_error",)
+    kind_title = "Server error"
+
     __slots__ = ("operation", "status_code", "title", "message", "case_id", "severity")
 
     def __init__(
@@ -235,13 +256,13 @@ class ServerError(Failure):
         *,
         operation: str,
         status_code: int,
-        title: str = "Server error",
+        title: str | None = None,
         message: str = "",
         case_id: str | None = None,
     ) -> None:
         self.operation = operation
         self.status_code = status_code
-        self.title = title
+        self.title = title if title is not None else self.kind_title
         self.message = message
         self.case_id = case_id
         self.severity = Severity.CRITICAL
@@ -254,13 +275,17 @@ class ServerError(Failure):
 class ContentTypeServerError(ServerError):
     """Server failed on a request whose `Content-Type` is malformed or not accepted by the operation."""
 
+    code = "ST102"
+    checks = ("not_a_server_error",)
+    kind_title = "Server error on undeclared request Content-Type"
+
     __slots__ = ()
 
     def __init__(self, *, operation: str, status_code: int, message: str, case_id: str | None = None) -> None:
         super().__init__(
             operation=operation,
             status_code=status_code,
-            title="Server error on unexpected Content-Type",
+            title=self.kind_title,
             message=message,
             case_id=case_id,
         )
@@ -268,6 +293,10 @@ class ContentTypeServerError(ServerError):
 
 class MalformedJson(Failure):
     """Failed to deserialize JSON."""
+
+    code = "ST109"
+    checks = ("response_schema_conformance",)
+    kind_title = "JSON deserialization error"
 
     __slots__ = (
         "operation",
@@ -292,7 +321,7 @@ class MalformedJson(Failure):
         lineno: int,
         colno: int,
         message: str,
-        title: str = "JSON deserialization error",
+        title: str | None = None,
         case_id: str | None = None,
     ) -> None:
         self.operation = operation
@@ -302,7 +331,7 @@ class MalformedJson(Failure):
         self.lineno = lineno
         self.colno = colno
         self.message = message
-        self.title = title
+        self.title = title if title is not None else self.kind_title
         self.case_id = case_id
         self.severity = Severity.MEDIUM
 
@@ -327,6 +356,10 @@ class MalformedJson(Failure):
 class AcceptedNegativeData(Failure):
     """Response with negative data was accepted."""
 
+    code = "ST201"
+    checks = ("negative_data_rejection",)
+    kind_title = "Schema-violating request accepted"
+
     __slots__ = ("operation", "message", "status_code", "expected_statuses", "title", "case_id", "severity")
 
     def __init__(
@@ -336,14 +369,14 @@ class AcceptedNegativeData(Failure):
         message: str,
         status_code: int,
         expected_statuses: list[str],
-        title: str = "API accepted schema-violating request",
+        title: str | None = None,
         case_id: str | None = None,
     ) -> None:
         self.operation = operation
         self.message = message
         self.status_code = status_code
         self.expected_statuses = expected_statuses
-        self.title = title
+        self.title = title if title is not None else self.kind_title
         self.case_id = case_id
         self.severity = Severity.MEDIUM
 
@@ -429,7 +462,7 @@ def format_failures(
 
     for title, group in group_failures(failures):
         suffix = f" ({len(group)} violations)" if len(group) > 1 else ""
-        output += formatter(MessageBlock.FAILURE, f"\n- {title}{suffix}")
+        output += formatter(MessageBlock.FAILURE, f"\n- {group[0].code} {title}{suffix}")
         for failure in group:
             if failure.message:
                 output += "\n\n"

@@ -30,8 +30,22 @@ from geocif import geocif_runner as gc
 from geocif import logger as log
 from geocif import utils as ut
 
-# Shared fixed palette for model/experiment colors
-_FIXED_PALETTE = [tuple(c) for c in plt.cm.tab20.colors]
+# Shared fixed palette for model/experiment colors: ten distinct hues (the
+# first eight match yield_outlook's model-comparison palette), then tab20's
+# light shades. Plain tab20 order paired each hue with its own light shade,
+# so neighbouring models (CatBoost/Cubist, Kumo/TabPFN) read as one colour.
+_FIXED_PALETTE = [
+    (0.122, 0.467, 0.706, 1.0),  # steel blue
+    (0.839, 0.153, 0.157, 1.0),  # brick red
+    (0.173, 0.627, 0.173, 1.0),  # forest green
+    (0.580, 0.404, 0.741, 1.0),  # muted purple
+    (1.000, 0.498, 0.055, 1.0),  # orange
+    (0.549, 0.337, 0.294, 1.0),  # brown
+    (0.890, 0.467, 0.761, 1.0),  # pink
+    (0.498, 0.498, 0.498, 1.0),  # grey
+    (0.737, 0.741, 0.133, 1.0),  # olive
+    (0.090, 0.745, 0.812, 1.0),  # cyan
+] + [tuple(c) + (1.0,) for c in plt.cm.tab20.colors[1::2]]
 
 
 def _fmt(name: str) -> str:
@@ -157,6 +171,10 @@ def _get_best_models_from_exp0(parser, model_experiment):
     """
     exp_list = [("models", "model_comparison", "", "str", model_experiment)]
     df = _load_experiment_results(parser, exp_list)
+    # The DB can also hold cid_* ablation rows (labelled "cids" whatever the
+    # list), whose param_value is a CID name, not a model.
+    if not df.empty:
+        df = df[df["experiment"] == "models"]
     if df.empty:
         countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
         return {c: model_experiment[0] for c in countries}
@@ -639,6 +657,8 @@ def analyze_model_ranking(parser, logger, metric="rmse", n_bootstrap=200):
     # Load model comparison results
     model_exp_list = [("models", "model_comparison", "", "str", [])]
     df = _load_experiment_results(parser, model_exp_list)
+    if not df.empty:
+        df = df[df["experiment"] == "models"]  # drop cid_* ablation rows
     if df.empty:
         logger.warning("No model comparison results found for ranking analysis")
         return
@@ -1157,7 +1177,7 @@ def _compute_production_pct(df_raw, country):
     obs_col, _ = _get_obs_pred_cols(df_raw[df_raw["Country"] == country])
     if not obs_col:
         return {}
-    from .viz import diagnostics as diag
+    from geocif.viz import diagnostics as diag
     return diag.compute_production_pct(df_raw, country, obs_col=obs_col)
 
 

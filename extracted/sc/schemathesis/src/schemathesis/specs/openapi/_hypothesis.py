@@ -193,6 +193,10 @@ def openapi_cases(
             error_feedback=feedback.error_feedback,
             mix_examples=mix_examples,
             constants_value_source=feedback.constants_value_source,
+            # Configured auth overwrites these on the wire, so drawing them only repeats the same request.
+            exclude=feedback.auth_headers
+            if location == ParameterLocation.HEADER and generation_mode.is_positive
+            else frozenset(),
         )
         for location, explicit in (
             (ParameterLocation.PATH, path_parameters),
@@ -270,7 +274,15 @@ def openapi_cases(
         app=operation.app,
     )
     supplied = _supplied_parameters(headers, query, cookies, pool_draws)
+    log = feedback.auth_header_log if generation_mode.is_positive and operation.headers else None
+    declared = [parameter.name for parameter in operation.headers] if log is not None else []
+    before = {name: instance.headers.get(name) for name in declared}
     auths.set_on_generated_case(instance, auth_context, auth_storage, supplied)
+    if log is not None:
+        # Auth may replace the container with a plain dict, so look names up case-insensitively.
+        after = CaseInsensitiveDict(instance.headers)
+        written = {name for name in declared if name in after and after[name] is not before[name]}
+        log.record(operation.label, written=written, kept=set(declared) - written)
     return instance
 
 
@@ -546,23 +558,6 @@ class FormBodyWithContentTypes:
     content_types: dict[str, str]  # property_name -> selected content type
 
 
-def _form_property_value(value: GeneratedValue | dict[str, Any], key: str) -> Any:
-    """Reduce a `{key: value}` overlay result to its single value, keeping any constants provenance."""
-    if isinstance(value, GeneratedValue):
-        inner = value.value[key]
-        if value.constants_draws:
-            return GeneratedValue(
-                inner,
-                value.meta,
-                value.pool_draws,
-                value.semantic_draws,
-                value.dictionary_draws,
-                value.constants_draws,
-            )
-        return inner
-    return value[key]
-
-
 def _body_required_per_feedback(operation: APIOperation, error_feedback: ErrorFeedbackStore | None) -> bool:
     """Return True when the server reported the body itself as missing for this operation."""
     if error_feedback is None:
@@ -622,15 +617,7 @@ def _build_form_strategy_with_encoding(
     property_content_type_selections: dict[str, list[str]] = {}
 
     for property_name in properties:
-        raw_content_type = parameter.get_property_content_type(property_name)
-
-        # contentType can be a string (or comma-separated list) or an array of strings per the spec
-        content_types: list[str] = []
-        if isinstance(raw_content_type, str):
-            content_types = [ct.strip() for ct in raw_content_type.split(",")]
-        elif isinstance(raw_content_type, list):
-            content_types = [ct.strip() for ct in raw_content_type if isinstance(ct, str)]
-
+        content_types = parameter.get_property_content_types(property_name)
         if content_types:
             if generation_mode.is_negative and is_binary_format(properties[property_name]):
                 continue
@@ -652,83 +639,59 @@ def _build_form_strategy_with_encoding(
     if not property_with_content_type_strategies and not property_content_type_selections:
         return None
 
-    # Build strategies for properties
-    property_strategies = {}
-    for property_name, subschema in properties.items():
-        if property_name in property_with_content_type_strategies:
-            # This property has custom content type - will be handled separately
-            continue
-        else:
-            strategy_factory = GENERATOR_MODE_TO_STRATEGY_FACTORY[generation_mode]
-            strategy = strategy_factory(
-                subschema,
-                operation.label,
-                ParameterLocation.BODY,
-                parameter.media_type,
-                generation_config,
-                operation.schema.adapter.jsonschema_validator_cls,
-            )
-            if constants_value_source is not None and generation_mode.is_positive:
-                strategy = build_constants_overlay_strategy(
-                    st.fixed_dictionaries({property_name: strategy}),
-                    source=constants_value_source,
-                    schema_properties={property_name: subschema},
-                    validator_cls=operation.schema.adapter.jsonschema_validator_cls,
-                    location="body",
-                    generation_config=generation_config,
-                ).map(lambda value, key=property_name: _form_property_value(value, key))
-            property_strategies[property_name] = strategy
-
-    # Build fixed dictionary strategy with optional properties
-    required = set(schema.get("required", []))
-    required_strategies = {k: v for k, v in property_strategies.items() if k in required}
-    optional_strategies = {k: _JUST_NOT_SET | v for k, v in property_strategies.items() if k not in required}
+    # Encoded properties take their values from the media type strategy; whether they are present, and every other
+    # property and object-level keyword, still follows the schema.
+    base_schema = {
+        **schema,
+        "properties": {
+            name: {} if name in property_with_content_type_strategies else subschema
+            for name, subschema in properties.items()
+        },
+    }
+    validator_cls = operation.schema.adapter.jsonschema_validator_cls
+    body_strategy = GENERATOR_MODE_TO_STRATEGY_FACTORY[generation_mode](
+        base_schema,
+        operation.label,
+        ParameterLocation.BODY,
+        parameter.media_type,
+        generation_config,
+        validator_cls,
+    )
+    if constants_value_source is not None and generation_mode.is_positive:
+        body_strategy = build_constants_overlay_strategy(
+            body_strategy,
+            source=constants_value_source,
+            schema_properties={
+                name: subschema
+                for name, subschema in properties.items()
+                if name not in property_with_content_type_strategies
+            },
+            validator_cls=validator_cls,
+            location="body",
+            generation_config=generation_config,
+            container_schema=base_schema,
+        )
 
     @st.composite  # type: ignore[untyped-decorator]
-    def build_body(draw: st.DrawFn) -> FormBodyWithContentTypes | GeneratedValue:
-        body: dict[str, Any] = {}
+    def build_body(draw: st.DrawFn) -> object:
+        generated = draw(body_strategy)
+        value = generated.value if isinstance(generated, GeneratedValue) else generated
+        # Negative bodies may not be objects at all, and then there are no parts to encode.
+        if not isinstance(value, dict):
+            return generated
+        body = dict(value)
         selected_content_types: dict[str, str] = {}
-        constants_draws: list[ConstantDraw] = []
-
-        def _take(strategy: st.SearchStrategy) -> Any:
-            result = draw(strategy)
-            if isinstance(result, GeneratedValue):
-                constants_draws.extend(result.constants_draws)
-                return result.value
-            return result
-
-        # Generate required properties
-        for key, strategy in required_strategies.items():
-            body[key] = _take(strategy)
-        # Generate optional properties, filtering out NOT_SET
-        for key, strategy in optional_strategies.items():
-            value = _take(strategy)
-            if value is not NOT_SET:
-                body[key] = value
-
-        # Generate properties with content type strategies (respecting optional)
-        for property_name, ct_strategy in property_with_content_type_strategies.items():
-            if property_name in required:
-                # Required - always generate
-                content_type, data = draw(ct_strategy)
+        for property_name, content_type_strategy in property_with_content_type_strategies.items():
+            if property_name in body:
+                content_type, data = draw(content_type_strategy)
                 body[property_name] = data
                 selected_content_types[property_name] = content_type
-            else:
-                # Optional - may omit
-                should_include = draw(st.booleans())
-                if should_include:
-                    content_type, data = draw(ct_strategy)
-                    body[property_name] = data
-                    selected_content_types[property_name] = content_type
-
-        # For properties with comma-separated content types (but no custom strategy),
-        # randomly select one of the content types
+        # Properties with several content types but no registered strategy get one of those content types
         for property_name, content_type_list in property_content_type_selections.items():
             selected_content_types[property_name] = draw(st.sampled_from(content_type_list))
-
         result = FormBodyWithContentTypes(body=body, content_types=selected_content_types)
-        if constants_draws:
-            return GeneratedValue(result, None, (), (), (), tuple(constants_draws))
+        if isinstance(generated, GeneratedValue):
+            return generated.map_value(lambda _: result)
         return result
 
     return build_body()
@@ -791,6 +754,7 @@ def get_parameters_value(
     mix_examples: bool = True,
     error_feedback: ErrorFeedbackStore | None = None,
     constants_value_source: ConstantsPool | None = None,
+    exclude: frozenset[str] = frozenset(),
 ) -> GeneratedValue:
     """Get the final value for the specified location.
 
@@ -803,6 +767,7 @@ def get_parameters_value(
             generation_mode,
             location,
             generation_config,
+            exclude=exclude,
             extra_data_source=extra_data_source,
             mix_examples=mix_examples,
             error_feedback=error_feedback,
@@ -819,7 +784,7 @@ def get_parameters_value(
         generation_mode,
         location,
         generation_config,
-        exclude=value.keys(),
+        exclude=value.keys() | exclude,
         extra_data_source=extra_data_source,
         error_feedback=error_feedback,
         mix_examples=mix_examples,
@@ -941,6 +906,7 @@ def generate_parameter(
     mix_examples: bool = True,
     error_feedback: ErrorFeedbackStore | None = None,
     constants_value_source: ConstantsPool | None = None,
+    exclude: frozenset[str] = frozenset(),
 ) -> ValueContainer:
     """Generate a value for a parameter.
 
@@ -966,6 +932,7 @@ def generate_parameter(
         error_feedback=error_feedback,
         mix_examples=mix_examples,
         constants_value_source=constants_value_source,
+        exclude=exclude,
     )
     value = generated.value
     if value is not None and location == ParameterLocation.PATH:
@@ -1137,8 +1104,15 @@ def jsonify_query_parameters(value: dict[str, Any], optional: frozenset[str]) ->
     }
 
 
+def _custom_formats_cache_key(
+    generation_config: GenerationConfig, mode: GenerationMode
+) -> tuple[str | None, bool, str | None, GenerationMode]:
+    # Keyed by the settings the strategies depend on, so an updated or different config never reuses another's entry.
+    return (generation_config.exclude_header_characters, generation_config.allow_x00, generation_config.codec, mode)
+
+
 def _build_custom_formats(generation_config: GenerationConfig, mode: GenerationMode) -> dict[str, st.SearchStrategy]:
-    cache_key = (id(generation_config), mode)
+    cache_key = _custom_formats_cache_key(generation_config, mode)
     cached = custom_formats_cache.get(cache_key)
     if cached is not MISSING:
         return cached
@@ -1351,7 +1325,7 @@ def _build_header_formats(generation_config: GenerationConfig, mode: GenerationM
     Leaving the plain header-value generator in would hand every plain string an opaque strategy
     that no length or pattern keyword can steer.
     """
-    cache_key = (id(generation_config), mode, "header")
+    cache_key = (*_custom_formats_cache_key(generation_config, mode), "header")
     cached = custom_formats_cache.get(cache_key)
     if cached is not MISSING:
         return cached

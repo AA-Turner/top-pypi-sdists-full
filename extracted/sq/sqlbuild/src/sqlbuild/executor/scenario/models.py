@@ -21,6 +21,7 @@ from sqlbuild.executor.scenario.classes.prepared_scenario_schemas import Prepare
 from sqlbuild.executor.scenario.classes.scenario_interrupts import ScenarioInterrupts
 from sqlbuild.executor.scenario.types import ScenarioLocalRunStatus, ScenarioSnapshotState
 from sqlbuild.executor.scheduling.types import ExecutionStatus
+from sqlbuild.runtime.execution_limits.models import RunItemTimeouts
 
 
 @dataclass(frozen=True)
@@ -134,6 +135,15 @@ class ScenarioLocalReplaySource:
     lexical_syntax: SqlLexicalSyntax
     capture_adapter: str | None = None
     capture_dialect: str | None = None
+
+
+@dataclass(frozen=True)
+class ScenarioTestSettings:
+    """Cleanup, concurrency and time-limit settings for one warehouse scenario test run."""
+
+    retain: bool
+    concurrency: int = 1
+    timeouts: RunItemTimeouts | None = None
 
 
 @dataclass(frozen=True)
@@ -300,14 +310,15 @@ class ScenarioCleanupExecutionResult:
 
 @dataclass(frozen=True)
 class ScenarioExpectedExpectationExecutionResult:
-    """Outcome of comparing one scenario model relation to expected SQL."""
+    """Outcome of comparing one scenario model relation to expected SQL; no counts if not run."""
 
     scenario_name: str
     model_name: str
     status: ExecutionStatus
-    actual_row_count: int = 0
-    expected_row_count: int = 0
-    mismatched_row_count: int = 0
+    actual_row_count: int | None = None
+    expected_row_count: int | None = None
+    mismatched_row_count: int | None = None
+    missing_row_count: int | None = None
     error_code: str | None = None
     error_help: str | None = None
     error_message: str | None = None
@@ -315,12 +326,12 @@ class ScenarioExpectedExpectationExecutionResult:
 
 @dataclass(frozen=True)
 class ScenarioAssertionExpectationExecutionResult:
-    """Outcome of executing one zero-row scenario assertion."""
+    """Outcome of executing one zero-row scenario assertion; no count if it did not run."""
 
     scenario_name: str
     name: str
     status: ExecutionStatus
-    failing_row_count: int = 0
+    failing_row_count: int | None = None
     sample_rows: tuple[tuple[object, ...], ...] = field(default_factory=tuple)
     error_code: str | None = None
     error_help: str | None = None

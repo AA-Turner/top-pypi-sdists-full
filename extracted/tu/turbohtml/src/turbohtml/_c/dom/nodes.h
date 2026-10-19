@@ -516,21 +516,6 @@ static inline PyObject *node_wrap(module_state *state, PyObject *handle, th_node
     return result;
 }
 
-static inline th_node *preorder_next(th_node *current, th_node *root) {
-    if (current->first_child != NULL) {
-        return current->first_child;
-    }
-    /* current can be NULL here if the cursor node was detached (extract()) mid-walk:
-       its parent chain no longer reaches root, so end the walk instead of dereferencing. */
-    while (current != NULL && current != root) {
-        if (current->next_sibling != NULL) {
-            return current->next_sibling;
-        }
-        current = current->parent;
-    }
-    return NULL;
-}
-
 /* The node before this one in document order: the deepest last descendant of the
    previous sibling, else the parent. */
 static inline th_node *previous_element(th_node *node) {
@@ -548,6 +533,19 @@ static inline th_node *previous_element(th_node *node) {
    the nearest ancestor's next sibling, or NULL at the end of the document. */
 static inline th_node *subtree_next(th_node *node) {
     while (node != NULL) {
+        if (node->next_sibling != NULL) {
+            return node->next_sibling;
+        }
+        node = node->parent;
+    }
+    return NULL;
+}
+
+/* The next node after node's whole subtree in document order, bounded to root's
+   subtree (NULL once the walk leaves root). Like subtree_next but stopping at
+   root, so pruning one node's subtree never escapes into the rest of the tree. */
+static inline th_node *subtree_after(th_node *node, th_node *root) {
+    while (node != root) {
         if (node->next_sibling != NULL) {
             return node->next_sibling;
         }

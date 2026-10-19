@@ -1,9 +1,9 @@
 """Inferencing connections between API operations.
 
-The current implementation extracts information from the `Location` header and
-generates OpenAPI links for exact and prefix matches.
+The current implementation extracts information from the `Location` header and same-origin URLs in
+response bodies, and generates OpenAPI links for exact and prefix matches.
 
-When a `Location` header points to `/users/123`, the inference:
+When a `Location` header (or a body field) points to `/users/123`, the inference:
 
     1. Finds the exact match: `GET /users/{userId}`
     2. Finds prefix matches: `GET /users/{userId}/posts`, `GET /users/{userId}/posts/{postId}`
@@ -19,14 +19,14 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from werkzeug.exceptions import MethodNotAllowed, NotFound
-from werkzeug.routing import Map, MapAdapter, Rule
+from werkzeug.routing import Map, MapAdapter, RequestRedirect, Rule
 
-from schemathesis.core.adapter import ResponsesContainer
 from schemathesis.core.transforms import encode_pointer
 from schemathesis.specs.openapi.stateful.links import SCHEMATHESIS_LINK_EXTENSION
 
 if TYPE_CHECKING:
-    from schemathesis.engine.observations import LocationHeaderEntry
+    from schemathesis.engine.observations import BodyUrlEntry, LocationHeaderEntry
+    from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 
@@ -70,9 +70,11 @@ class MatchList:
 
 @dataclass(slots=True)
 class LinkInferencer:
-    """Infer OpenAPI links from Location headers for stateful testing."""
+    """Infer OpenAPI links from observed URLs for stateful testing."""
 
     _adapter: MapAdapter
+    # Rule argument names to OpenAPI path parameter names, per operation
+    _parameter_names: dict[OperationReference, dict[str, str]]
     # All API operations for prefix matching
     _operations: list[OperationReference]
     _base_url: str | None
@@ -84,6 +86,7 @@ class LinkInferencer:
         # NOTE: Use `matchit` for routing in the future
         rules = []
         operations = []
+        parameter_names: dict[OperationReference, dict[str, str]] = {}
         for method, path, definition in schema._operations.iter_operations():
             operation_id = definition.get("operationId")
             operation: OperationById | OperationByRef
@@ -95,12 +98,17 @@ class LinkInferencer:
 
             operations.append(operation)
 
-            # Replace `{parameter}` with `<parameter>` as angle brackets are used for parameters in werkzeug
-            path = re.sub(r"\{([^}]+)\}", r"<\1>", path)
-            rules.append(Rule(path, endpoint=operation, methods=[method.upper()]))
+            # Werkzeug accepts only identifier-like argument names, while OpenAPI allows e.g. `item-id`
+            parts = re.split(r"\{([^}]+)\}", path)
+            parameter_names[operation] = {
+                f"parameter_{index}": part for index, part in enumerate(parts) if index % 2 == 1
+            }
+            rule = "".join(f"<parameter_{index}>" if index % 2 == 1 else part for index, part in enumerate(parts))
+            rules.append(Rule(rule, endpoint=operation, methods=[method.upper()]))
 
         return cls(
             _adapter=Map(rules).bind("", ""),
+            _parameter_names=parameter_names,
             _operations=operations,
             _base_url=schema.config.base_url,
             _base_path=schema.base_path,
@@ -110,13 +118,15 @@ class LinkInferencer:
     def match(self, path: str) -> tuple[OperationReference, Mapping[str, str]] | None:
         """Match path to API operation and extract path parameters."""
         try:
-            return self._adapter.match(path)
-        except (NotFound, MethodNotAllowed):
+            operation, arguments = self._adapter.match(path)
+        except (NotFound, MethodNotAllowed, RequestRedirect):
             return None
+        names = self._parameter_names[operation]
+        return operation, {names[argument]: value for argument, value in arguments.items()}
 
-    def _build_links_from_matches(self, matches: MatchList) -> list[dict]:
+    def _build_links_from_matches(self, matches: MatchList, expression: str) -> list[dict]:
         """Build links from already-found matches."""
-        exact = self._build_link_from_match(matches.exact, matches.parameters)
+        exact = self._build_link_from_match(matches.exact, matches.parameters, expression)
         parameters = exact["parameters"]
         links = [exact]
         for inexact in matches.inexact:
@@ -155,22 +165,25 @@ class LinkInferencer:
         return matches
 
     def _build_link_from_match(
-        self, operation: OperationById | OperationByRef, path_parameters: Mapping[str, Any]
+        self, operation: OperationById | OperationByRef, path_parameters: Mapping[str, Any], expression: str
     ) -> dict:
         link = operation.to_link_base()
 
-        # Build regex expressions to extract path parameters
+        # The observed value may be an absolute URL and may or may not carry the base path
+        prefix = "^(?:https?://[^/]+)?"
+        base_path = self._base_path.rstrip("/")
+        if base_path:
+            prefix += f"(?:{re.escape(base_path)})?"
+        # Literal path parts at even indices, parameter names at odd ones
+        parts = re.split(r"\{([^}]+)\}", operation.path)
         parameters = {}
         for name in path_parameters:
-            # Replace the target parameter with capture group and others with non-slash matcher
-            pattern = operation.path
-            for candidate in path_parameters:
-                if candidate == name:
-                    pattern = pattern.replace(f"{{{candidate}}}", "(.+)")
-                else:
-                    pattern = pattern.replace(f"{{{candidate}}}", "[^/]+")
-
-            parameters[name] = f"$response.header.Location#regex:{pattern}"
+            # Capture the target parameter up to the next segment, query or fragment
+            pattern = "".join(
+                re.escape(part) if index % 2 == 0 else "([^/?#]+)" if part == name else "[^/]+"
+                for index, part in enumerate(parts)
+            )
+            parameters[name] = f"{expression}#regex:{prefix}{pattern}"
 
         link["parameters"] = parameters
 
@@ -204,14 +217,14 @@ class LinkInferencer:
     def _strip_base_path_from_location(self, path: str) -> str | None:
         """Strip base path from location path if it starts with base path."""
         base_path = self._base_path.rstrip("/")
-        if not path.startswith(base_path):
+        if path != base_path and not path.startswith(f"{base_path}/"):
             return None
 
         # Strip the base path to get relative path
         relative_path = path[len(base_path) :]
         return relative_path if relative_path.startswith("/") else "/" + relative_path
 
-    def inject_links(self, responses: ResponsesContainer, entries: list[LocationHeaderEntry]) -> int:
+    def inject_links(self, operation: APIOperation, entries: list[LocationHeaderEntry] | list[BodyUrlEntry]) -> int:
         # To avoid unnecessary work, we need to skip entries that we know will produce already inferred links
         seen: set[SeenLinkKey] = set()
         injected = 0
@@ -233,15 +246,22 @@ class LinkInferencer:
                 continue
             seen.add(key)
             # Find the right bucket for the response status or create a new one
-            response = responses.find_by_status_code(entry.status_code)
+            response = operation.responses.find_by_status_code(entry.status_code)
             links: dict[str, dict[str, dict]]
             if response is None:
                 links = {}
-                responses.add(str(entry.status_code), {self._links_keyword: links})
+                definition = {self._links_keyword: links}
+                status_code = str(entry.status_code)
+                operation.definition.raw.setdefault("responses", {})[status_code] = definition
+                operation.responses.add(status_code, definition)
             else:
                 links = response.definition.setdefault(self._links_keyword, {})
 
-            for idx, link in enumerate(self._build_links_from_matches(matches)):
-                links[f"X-Inferred-Link-{idx}"] = link
+            for link in self._build_links_from_matches(matches, entry.expression):
+                # Inference runs again on every `--max-time` cycle with the same observations
+                if link in links.values():
+                    continue
+                # Several observed URLs may land in the same response, so names must not collide
+                links[f"X-Inferred-Link-{len(links)}"] = link
                 injected += 1
         return injected

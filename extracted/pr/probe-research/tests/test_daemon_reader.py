@@ -180,7 +180,9 @@ def test_every_approved_reads_file_is_pinned_here():
             "agent-facing/ask-inline.NEW.md",
             "skills/track-work/RENDERED.main-agent.md", "skills/track-work/RENDERED.writer.md",
             # pinned in test_daemon_reader_gate.py
-            "gate/gate-instructions.NEW.md", "gate/final_result.NEW.md"}
+            "gate/gate-instructions.NEW.md", "gate/final_result.NEW.md",
+            # the `bash` tool set: pinned in test_daemon_bash_tools.py
+            "tools/bash.NEW.md", "bash-text.NEW.md"}
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md")} == used
 
 

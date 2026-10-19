@@ -91,15 +91,16 @@ def test_client_install(
     dependency_kind = (
         "pydantic" if backend.startswith("pydantic") else "msgspec" if backend.startswith("msgspec") else "stdlib"
     )
-    notice = (EXPECTED / f"{profile}-{dependency_kind}-dependencies.txt").read_text(encoding="utf-8")
+    notice_profile = "all" if profile == "all" else "api-key"
     run_main_and_assert(
         input_path=source,
         output_path=Path("publication_client_models.py"),
         input_file_type="openapi",
         extra_args=arguments,
         capsys=capsys,
-        expected_stderr=notice,
     )
+    notice = capsys.readouterr().err
+    assert_output(notice, EXPECTED / f"{notice_profile}-{dependency_kind}-dependencies.txt")
     command = shlex.split(notice.splitlines()[1])
     subprocess.run(
         [*command, "--no-sync", "--resolution", "lowest-direct", "--python", sys.executable],

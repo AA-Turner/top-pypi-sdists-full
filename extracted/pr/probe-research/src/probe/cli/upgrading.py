@@ -17,14 +17,14 @@ import dataclasses
 import os
 import time
 from collections.abc import Callable
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 
 from probe import __version__
 # `update_report` is imported HERE, at the top, for the same reason updater.py
 # imports its whole call graph eagerly (H8): it runs after `uv tool upgrade` has
 # replaced the installed tree, when a first import would read the new files.
-from probe.cli import autoupdate, plugin_cli, update_report, updater, versions
+from probe.cli import autoupdate, plugin_cli, update_report, updater, versions, wizard_lock
 from probe.cli.capabilities import agent_source
 from probe.harness import get_registry
 
@@ -64,8 +64,10 @@ def perform_update(
     ``trigger`` is what asked for this run, for the server's update report
     (`update_report`); omitted, the spawner's `PROBE_AUTOUPDATE_TRIGGER`, else
     a person. It changes nothing about the update itself.
+
+    Raises `wizard_lock.Busy`, having changed nothing and recorded the skip,
+    while another Probe setup holds the device.
     """
-    lines: list[str] = []
     trigger = trigger or update_report.trigger_from_env(update_report.Trigger.MANUAL)
 
     # WAIT FOR THE PROCESS THAT SPAWNED US, if it named itself.
@@ -82,9 +84,38 @@ def perform_update(
         except (TypeError, ValueError):
             pass
 
-    # THE RUN-LOCK CHECK IS UNCONDITIONAL, and deliberately outside the block
-    # above. It used to sit inside it, which meant it only ran for spawns that
-    # named a parent -- and the plugin's SessionStart hook does not: it runs
+    # ONE SETUP AT A TIME (`wizard_lock`), and only after the wait: the process
+    # that spawned us can be a `probe wizard`, which holds the lock until it
+    # exits. The wizard's own Update action holds it already and goes through.
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(wizard_lock.held())
+        except wizard_lock.Busy:
+            autoupdate.record_skip(
+                autoupdate.SKIP_SETUP_RUNNING,
+                available=updater.cli_latest(manifest) if manifest else None,
+                trigger=trigger.value,
+            )
+            raise
+        return _perform_update(
+            base_url=base_url, include_plugin=include_plugin, force=force, manifest=manifest, trigger=trigger
+        )
+
+
+def _perform_update(
+    *,
+    base_url: str,
+    include_plugin: bool,
+    force: bool,
+    manifest: dict | None,
+    trigger: update_report.Trigger,
+) -> UpdateOutcome:
+    """`perform_update` once its spawner has exited and the wizard lock is held."""
+    lines: list[str] = []
+
+    # THE RUN-LOCK CHECK IS UNCONDITIONAL, and deliberately outside the wait in
+    # `perform_update`. It used to sit inside it, which meant it only ran for
+    # spawns that named a parent -- and the plugin's SessionStart hook does not: it runs
     # `probe wizard --action update --yes`, which lands here with no parent pid
     # and would have upgraded straight through a live training run. The hook is
     # the OLDEST caller of this function, so scoping the check to the new one

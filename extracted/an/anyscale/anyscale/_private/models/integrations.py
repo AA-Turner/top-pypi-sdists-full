@@ -19,10 +19,12 @@ class _ConnectionMethodType:
     """Internal connection method type strings (not user-facing)."""
 
     DATABRICKS_U2M = "databricks_U2M"
+    DATABRICKS_FEDERATED = "databricks_federated"
 
 
 _CONNECTION_METHOD_TO_CONNECTION_TYPE: Dict[str, ConnectionType] = {
     _ConnectionMethodType.DATABRICKS_U2M: ConnectionType.DATABRICKS,  # type: ignore[dict-item]
+    _ConnectionMethodType.DATABRICKS_FEDERATED: ConnectionType.DATABRICKS,  # type: ignore[dict-item]
 }
 
 

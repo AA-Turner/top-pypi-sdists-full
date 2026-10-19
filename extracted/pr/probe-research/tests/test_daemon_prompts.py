@@ -42,12 +42,19 @@ def template(text: str) -> re.Pattern:
 
 def test_every_approved_file_is_used_here():
     used = {"job/record-session.PROPOSED.md", "tools/shell.PROPOSED.md", "tools/read.PROPOSED.md",
-            "tools/session.NEW.md", "tools/final_result.PROPOSED.md", "compaction/summary-prompt.PROPOSED.md",
-            "compaction/earlier-turns.md", "loop/loop-stop.PROPOSED.md", "loop/retries-spent.NEW.md"}
+            "tools/session.NEW.md", "tools/edit.NEW.md", "tools/final_result.PROPOSED.md",
+            "compaction/summary-prompt.PROPOSED.md", "compaction/earlier-turns.md", "loop/loop-stop.PROPOSED.md",
+            "loop/retries-spent.NEW.md", "bite/summary-outline.NEW.md",
+            # the `bash` tool set: pinned in test_daemon_bash_tools.py
+            "tools/bash-command-map.NEW.md", "tools/audit-command-map.NEW.md", "tools/draft-edit.NEW.md",
+            "tools/bash-replies.NEW.md", "job/record-session-bash.NEW.md", "bite/bash-markers.NEW.md",
+            # parallel calls and tasks: pinned in test_daemon_bash_tools.py
+            "tools/parallel.NEW.md", "tools/task-command.NEW.md", "tools/task-instructions.NEW.md",
+            "tools/task-command-map.NEW.md", "tools/task-replies.NEW.md", "tools/parallel-replies.NEW.md"}
     used |= {f"bite/{p.name}" for p in (FIXTURES / "bite").glob("*.PROPOSED.md")}
     # `reads/` (the daemon's reader) is pinned in test_daemon_reads_prompts.py.
     assert {str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.md") if p.relative_to(FIXTURES).parts[0] != "reads"} == used
-    assert len(used) == 25
+    assert len(used) == 38
 
 
 # ---------------------------------------------------------------------------
@@ -72,8 +79,9 @@ def test_the_instructions_carry_the_researchers_skills_verbatim():
     from probe import skill_versions
 
     for name in bite_mod.SHARED_SKILLS:
-        # The WRITER's version of each (track-work: its header + the base + its footer).
-        skill = skill_versions.render(bite_mod.skills_root() / name, skill_versions.WRITER)
+        # The WRITER's version of each (track-work: its header, its commands with
+        # the bash tool set, the base, its footer).
+        skill = bite_mod.writer_skill(bite_mod.skills_root() / name)
         skill = skill_versions.split_front_matter(skill)[1].strip()
         assert f"# Skill: {name}\n\n{skill}" in text, name
         assert text.index(f"# Skill: {name}") > at, "in order, after the job"
@@ -105,7 +113,8 @@ def test_the_tool_descriptions_are_the_approved_text(monkeypatch):
     assert tools["shell"].description == body("tools/shell.PROPOSED.md")
     assert tools["read"].description == body("tools/read.PROPOSED.md")
     assert tools["session"].description == body("tools/session.NEW.md")
-    for name in ("shell", "read", "session"):
+    assert tools["edit"].description == body("tools/edit.NEW.md")
+    for name in ("shell", "read", "session", "edit"):
         props = tools[name].parameters_json_schema["properties"]
         assert all("description" not in p for p in props.values()), f"{name}: no text but the approved"
     ends, fields = body("tools/final_result.PROPOSED.md").split("\n\nsummary: ")
@@ -141,11 +150,16 @@ def _store(tmp_path) -> store_mod.Store:
     return store_mod.Store(tmp_path / "s.sqlite", clock=time.time)
 
 
-def test_the_summary_pin_header_is_the_approved_text():
-    pytest.importorskip("pydantic_ai")
-    from probe.daemon import worker as worker_mod
+def test_the_summary_outline_lines_are_the_drafted_text():
+    """ARTIFACT-PAGES P3 replaced the summary pin (its approved header went with
+    it) by an outline per summary; its lines are NEW wording, pinned here until
+    approved."""
+    from probe.daemon import tools
 
-    assert worker_mod.SUMMARY_PIN_HEADER == body("bite/summary-pin-header.PROPOSED.md")
+    names = ("OUTLINE_HEADER", "OUTLINE_ENTITY", "OUTLINE_DRAFT", "OUTLINE_EDITED", "OUTLINE_NO_PAGE",
+             "OUTLINE_HEADINGS", "OUTLINE_OPENS", "OUTLINE_SINCE", "OUTLINE_QUIET", "OUTLINE_DIRTY",
+             "OUTLINE_MISSING")
+    assert "\n".join(getattr(tools, n) for n in names) == body("bite/summary-outline.NEW.md")
 
 
 def test_the_bite_constants_are_the_approved_text():

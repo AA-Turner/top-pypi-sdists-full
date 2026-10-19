@@ -58,3 +58,24 @@ def test_the_drop_in_still_attaches_to_the_release():
     text = (WORKFLOWS / ATTACHES_ONLY).read_text()
     assert "softprops/action-gh-release" in text
     assert "files: momwire-eznec-windows.zip" in text
+
+
+def test_the_linux_executable_attaches_to_the_release():
+    """momwire#1512's Linux artifact rides the same release, as an attach
+    only: built and gated on every run, attached on a pushed tag."""
+    text = (WORKFLOWS / "standalone.yml").read_text()
+    assert "softprops/action-gh-release" in text
+    assert "files: momwire-nec5-linux-x86_64.tar.gz" in text
+    assert 'tags: ["v*"]' in text
+
+
+def test_the_windows_and_macos_executables_attach_to_the_release():
+    """The preview assets (0.79.0): the Windows zip and the macOS tarball
+    ride the same release as attaches only, beside the Linux tarball and
+    under the names README.md gives them."""
+    text = (WORKFLOWS / "standalone.yml").read_text()
+    assert "files: momwire-nec5-windows-x64.zip" in text
+    assert "files: momwire-nec5-macos-arm64.tar.gz" in text
+    readme = (WORKFLOWS.parent.parent / "README.md").read_text(encoding="utf-8")
+    for name in ("momwire-nec5-windows-x64.zip", "momwire-nec5-macos-arm64.tar.gz"):
+        assert name in readme

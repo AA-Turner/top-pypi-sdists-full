@@ -16,11 +16,14 @@ from anyscale.compute_config.commands import (
     _GET_EXAMPLE,
     _LIST_ARG_DOCSTRINGS,
     _LIST_EXAMPLE,
+    _UNARCHIVE_ARG_DOCSTRINGS,
+    _UNARCHIVE_EXAMPLE,
     archive as archive,
     create as create,
     get as get,
     get_default as get_default,
     list as list,  # noqa: A004
+    unarchive as unarchive,
 )
 from anyscale.compute_config.models import (
     ComputeConfig as ComputeConfig,
@@ -87,7 +90,9 @@ class ComputeConfigSDK:
         doc_py_example=_ARCHIVE_EXAMPLE,
         arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
     )
-    def archive(self, name: str, *, _id: Optional[str] = None):  # noqa: F811
+    def archive(  # noqa: F811
+        self, name: str, *, cloud: Optional[str] = None, _id: Optional[str] = None
+    ):
         """Archive a compute config and all of its versions.
 
         The name can contain an optional version, e.g., 'name:version'.
@@ -101,6 +106,26 @@ class ComputeConfigSDK:
         return self._private_sdk.archive_compute_config(
             name=name or None,
             id=_id,
+            cloud=cloud,
+        )
+
+    @sdk_docs(
+        doc_py_example=_UNARCHIVE_EXAMPLE,
+        arg_docstrings=_UNARCHIVE_ARG_DOCSTRINGS,
+        hidden=True,
+    )
+    def unarchive(  # noqa: F811
+        self, name: str, *, cloud: Optional[str] = None, _id: Optional[str] = None
+    ):
+        """Unarchive a compute config and all of its archived versions.
+
+        The name can contain an optional version, e.g., 'name:version'.
+        Archived versions in the same cloud are restored, so the name can be used again.
+        """
+        return self._private_sdk.unarchive_compute_config(
+            name=name or None,
+            id=_id,
+            cloud=cloud,
         )
 
     @sdk_docs(

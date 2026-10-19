@@ -48,6 +48,7 @@ from tests.conftest import (
     assert_output,
     create_assert_file_content,
     freeze_time,
+    stored_expected,
     validate_generated_code,
 )
 
@@ -237,7 +238,7 @@ def test_main_fail_on_multi_module_stdout(input_path: Path, capsys: pytest.Captu
         expected_exit=Exit.ERROR,
         capsys=capsys,
         expected_stdout_path=EXPECTED_EMPTY_OUTPUT_PATH,
-        expected_stderr=(EXPECTED_MAIN_KR_PATH / "multi_module_stdout" / "error.txt").read_text(),
+        expected_stderr_path=EXPECTED_MAIN_KR_PATH / "multi_module_stdout" / "error.txt",
     )
 
 
@@ -302,7 +303,7 @@ def test_single_module_mapping_text_stdout(capsys: pytest.CaptureFixture[str]) -
     """Preserve valid text stdout for a generated mapping with one module."""
     expected_path = EXPECTED_MAIN_KR_PATH / "single_module_mapping" / "output.py"
     _write_generated_result(
-        {("model.py",): expected_path.read_text().removesuffix("\n")},
+        {("model.py",): stored_expected(expected_path).read_text().removesuffix("\n")},
         None,
         fail_on_multi_module_stdout=True,
     )
@@ -2554,7 +2555,7 @@ def test_pyproject_jobs_rejects_output_ancestor_swap_between_validation_and_publ
     input_path.write_text((OPEN_API_DATA_PATH / "modular.yaml").read_text(encoding="utf-8"), encoding="utf-8")
     output_root.mkdir()
     attacker_root.mkdir()
-    stale_output = (EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py").read_text(encoding="utf-8")
+    stale_output = stored_expected(EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py").read_text(encoding="utf-8")
     (output_root / "keep.py").write_text(stale_output, encoding="utf-8")
     (attacker_root / "models.py").write_text(stale_output, encoding="utf-8")
     (tmp_path / "pyproject.toml").write_text(
@@ -2703,7 +2704,7 @@ def test_pyproject_jobs_failed_replacement_discards_unchanged_symlink_backup(
     output_link = tmp_path / "output.py"
     staged_file.write_text("generated\n", encoding="utf-8")
     original_target.write_text(
-        (EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py").read_text(encoding="utf-8"), encoding="utf-8"
+        stored_expected(EXPECTED_MAIN_KR_PATH / "jobs" / "stale.py").read_text(encoding="utf-8"), encoding="utf-8"
     )
     output_link.symlink_to(original_target)
 
@@ -3888,7 +3889,7 @@ headers, or other metadata to generated files.""",
     input_schema="jsonschema/no_alias.json",
     cli_args=["--custom-file-header", "# Copyright 2024 MyCompany"],
     golden_output="main_kr/custom_file_header/with_option.py",
-    comparison_output="main_kr/custom_file_header/without_option.py",
+    comparison_output="main_kr/no_alias/without_option.py",
 )
 @freeze_time("2019-07-26")
 def test_custom_file_header(output_file: Path) -> None:
@@ -3905,6 +3906,18 @@ def test_custom_file_header(output_file: Path) -> None:
         assert_func=assert_file_content,
         expected_file=EXPECTED_MAIN_KR_PATH / "custom_file_header" / "with_option.py",
         extra_args=["--custom-file-header", "# Copyright 2024 MyCompany"],
+    )
+
+
+@freeze_time("2019-07-26")
+def test_no_alias_without_option(output_file: Path) -> None:
+    """Generate the output the --no-alias, --use-serialization-alias and --custom-file-header docs compare with."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "no_alias.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=EXPECTED_MAIN_KR_PATH / "no_alias" / "without_option.py",
     )
 
 
@@ -4176,13 +4189,14 @@ def test_custom_formatters_kwargs_option(output_file: Path) -> None:
     configuration to user-defined formatter modules.
     """
     # Simple test - the option is accepted. Full usage requires custom formatter module.
+    (kwargs := output_file.parent / "formatter_kwargs.json").write_text("{}", encoding="utf-8")
     run_main_and_assert(
         input_path=JSON_SCHEMA_DATA_PATH / "pet_simple.json",
         output_path=output_file,
         input_file_type="jsonschema",
         assert_func=assert_file_content,
         expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
-        extra_args=["--custom-formatters-kwargs", str(DATA_PATH / "config" / "formatter_kwargs.json")],
+        extra_args=["--custom-formatters-kwargs", str(kwargs)],
     )
 
 
@@ -4195,10 +4209,7 @@ def test_custom_formatters_kwargs_inline_json_option(output_file: Path) -> None:
         input_file_type="jsonschema",
         assert_func=assert_file_content,
         expected_file=EXPECTED_MAIN_KR_PATH / "input_output" / "output.py",
-        extra_args=[
-            "--custom-formatters-kwargs",
-            (DATA_PATH / "config" / "formatter_kwargs.json").read_text(encoding="utf-8"),
-        ],
+        extra_args=["--custom-formatters-kwargs", "{}"],
     )
 
 
@@ -4481,7 +4492,7 @@ testing without project configuration.""",
     input_schema="jsonschema/ignore_pyproject_example.json",
     cli_args=["--ignore-pyproject"],
     golden_output="main_kr/ignore_pyproject/output.py",
-    comparison_output="main_kr/ignore_pyproject/without_option.py",
+    comparison_output="main_kr/pyproject_profile/with_profile.py",
 )
 @freeze_time("2019-07-26")
 def test_ignore_pyproject_cli_doc(output_file: Path, tmp_path: Path) -> None:
@@ -4781,8 +4792,8 @@ def test_output_format_json_schema_generate_prompt(capsys: pytest.CaptureFixture
 
 def test_output_format_json_schema_validates_generate_prompt_json() -> None:
     """Test prompt JSON output conforms to its emitted JSON Schema."""
-    schema = json.loads((EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_schema.txt").read_text())
-    payload = json.loads((EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt").read_text())
+    schema = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_schema.txt").read_text())
+    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt").read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 
@@ -4845,8 +4856,8 @@ def test_output_format_json_schema_config(capsys: pytest.CaptureFixture[str]) ->
 
 def test_output_format_json_schema_validates_generation_json() -> None:
     """Test generation JSON output conforms to its emitted JSON Schema."""
-    schema = json.loads((EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_schema.txt").read_text())
-    payload = json.loads((EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_stdout.txt").read_text())
+    schema = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_schema.txt").read_text())
+    payload = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "generation_stdout.txt").read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 
@@ -4955,16 +4966,16 @@ def test_output_format_json_normalizes_multiple_generation_output_paths(output_f
 )
 def test_output_format_json_schema_validates_structured_json(payload_name: str) -> None:
     """Test structured JSON outputs conform to their emitted JSON Schema."""
-    schema = json.loads((EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt").read_text())
-    payload = json.loads((EXPECTED_OUTPUT_FORMAT_JSON_PATH / payload_name).read_text())
+    schema = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt").read_text())
+    payload = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / payload_name).read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 
 
 def test_output_format_json_schema_validates_prompt_json_as_structured_output() -> None:
     """Test prompt JSON output also conforms to the structured-output JSON Schema."""
-    schema = json.loads((EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt").read_text())
-    payload = json.loads((EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt").read_text())
+    schema = json.loads(stored_expected(EXPECTED_OUTPUT_FORMAT_JSON_PATH / "structured_output_schema.txt").read_text())
+    payload = json.loads(stored_expected(EXPECTED_MAIN_KR_PATH / "generate_prompt" / "json_output.txt").read_text())
 
     jsonschema.validate(instance=payload, schema=schema)
 

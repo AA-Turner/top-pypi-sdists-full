@@ -2,7 +2,7 @@
 from render.public_api.api.build_sources.list_builds_in_build_source import (
     Any as Any,
     AuthenticatedClient as AuthenticatedClient,
-    Build as Build,
+    BuildWithCursor as BuildWithCursor,
     Client as Client,
     Error as Error,
     HTTPStatus as HTTPStatus,

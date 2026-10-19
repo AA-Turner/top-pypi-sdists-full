@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-monty
-Version: 1.1.0
+Version: 1.2.0
 Summary: Monty, the Python sandbox: bindings plus the worker binary
 Project-URL: Homepage, https://github.com/pydantic/monty
 Project-URL: Source, https://github.com/pydantic/monty
@@ -26,8 +26,8 @@ Classifier: Programming Language :: Python :: Implementation
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-monty-client==1.1.0
-Requires-Dist: pydantic-monty-runtime==1.1.0
+Requires-Dist: pydantic-monty-client==1.2.0
+Requires-Dist: pydantic-monty-runtime==1.2.0
 Provides-Extra: opentelemetry
 Requires-Dist: pydantic-monty-client[opentelemetry]; extra == 'opentelemetry'
 Description-Content-Type: text/markdown
@@ -158,6 +158,31 @@ with Monty() as pool:
         )
     print(result)
     #> 11
+```
+
+### Host modules
+
+`external_modules` on `checkout()` maps import names to `ExternalModule` values containing the module's public items
+and a `.pyi` stub, for every feed of the session.
+Callables become host functions.
+Type checking fetches the stub when a feed first imports the module.
+
+```python
+from pydantic_monty import ExternalModule, Monty
+
+
+def add(a: int, b: int) -> int:
+    return a + b
+
+
+tools = ExternalModule({'add': add}, stubs='def add(a: int, b: int) -> int: ...\n')
+modules = {'tools': tools}
+code = 'from tools import add\nadd(1, 2)'
+
+with Monty() as pool:
+    with pool.checkout(external_modules=modules) as session:
+        print(session.feed_run(code))
+        #> 3
 ```
 
 ### Host objects and classes

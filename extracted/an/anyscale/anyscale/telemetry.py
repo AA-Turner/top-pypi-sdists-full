@@ -1,9 +1,13 @@
 """
 Telemetry for Anyscale CLI commands.
 
-Patches Click to capture execution metrics for _leaf_ commands,
-including command path, flags, timing, and errors. Emits via
+`patch_click()` patches Click to capture execution metrics for _leaf_
+commands, including command path, flags, timing, and errors. Emits via
 HTTP POST (best-effort) or debug print.
+
+Only the CLI entry point (`anyscale.scripts.main`) calls `patch_click()`.
+Importing this module or the SDK installs no patch and emits nothing, so
+a process that only uses the SDK never instruments its own Click commands.
 
 Supports session-based distributed tracing for interactive commands:
 - Each command gets a unique trace_id for backend correlation
@@ -35,7 +39,8 @@ SAMPLE_RATE = float(os.getenv("ANYSCALE_TELEMETRY_SAMPLE_RATE", "1.0"))
 TELEMETRY_DEBUG = os.getenv("ANYSCALE_DEBUG") == "1"
 
 # ContextVar automatically propagates into asyncio tasks if you ever go async.
-# (Each CLI invocation gets its own interpreter, so this never crosses commands.)
+# Set only on the CLI path (the patch from main() and the interactive list
+# helpers), which runs one interpreter per invocation.
 _trace_id_var: ContextVar[Optional[str]] = ContextVar("_trace_id_var", default=None)
 _session_id_var: ContextVar[Optional[str]] = ContextVar("_session_id_var", default=None)
 _skip_click_patch_var: ContextVar[bool] = ContextVar("_skip_click_patch_var", default=False)
@@ -366,8 +371,13 @@ def _exit_code_for_exception(e: BaseException) -> int:
     return exit_code
 
 
-def _patch_click() -> None:
-    """Monkey-patch Click so that each leaf command emits telemetry."""
+def patch_click() -> None:
+    """Monkey-patch Click so that each leaf command emits telemetry.
+
+    Called by the `anyscale` CLI entry point (`anyscale.scripts.main`), never
+    on import. Idempotent. The patch is process-wide and stays installed, so
+    every Click command the process runs afterwards is instrumented.
+    """
     try:
         if getattr(click, "_anyscale_telemetry_patched", False):
             return
@@ -423,7 +433,3 @@ def _patch_click() -> None:
     except Exception:  # noqa: BLE001
         # If patching fails, telemetry just won't work - don't crash the CLI
         pass
-
-
-# Auto-patch on import
-_patch_click()

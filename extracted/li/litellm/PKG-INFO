@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.105.1
+Version: 1.106.0
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: filelock>=3.16.1,<4.0
 Requires-Dist: httpx[http2]>=0.28.0,<1.0
@@ -16,11 +16,13 @@ Requires-Dist: huggingface-hub>=0.34.0,<2.0
 Requires-Dist: click>=8.0.0,<9.0
 Requires-Dist: jinja2>=3.1.6,<4.0
 Requires-Dist: aiohttp>=3.14.2,<4.0
+Requires-Dist: async-timeout>=4.0.3,<6.0 ; python_full_version < '3.11'
 Requires-Dist: pydantic>=2.11.0,<3.0.0 ; python_full_version < '3.14'
 Requires-Dist: pydantic>=2.12.0,<3.0.0 ; python_full_version >= '3.14'
 Requires-Dist: pydantic-settings>=2.14.1,<3.0
 Requires-Dist: jsonschema>=4.0.0,<5.0
 Requires-Dist: boto3>=1.43.1,<2.0
+Requires-Dist: typing-extensions>=4.13.0,<5.0
 Requires-Dist: aws-sdk-bedrock-runtime[awscrt]>=0.10.0,<0.12.0 ; python_full_version >= '3.12' and extra == 'bedrock-realtime'
 Requires-Dist: diskcache>=5.6.3,<6.0 ; extra == 'caching'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'cli'
@@ -69,8 +71,8 @@ Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=2.2.0,<3 ; extra == 'proxy'
 Requires-Dist: httpx2>=2.5.0,<3 ; extra == 'proxy'
 Requires-Dist: pydantic>=2.12.0,<3 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.105 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.73 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.108 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.76 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.5,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'
@@ -223,6 +225,24 @@ Managing LLM calls across providers gets complicated fast — different SDKs, au
 ```shell
 uv add litellm
 ```
+
+An independent `litellm-core` distribution provides the Python SDK with the same
+`import litellm` API and runtime dependencies. It has no optional extras, CLI entry
+points, or bundled dashboard. Install one SDK distribution per environment because
+`litellm` and `litellm-core` own overlapping Python files. Use `litellm` for the
+proxy, CLI, and optional extras
+
+Build and install core from this checkout while its release integration is pending:
+
+```shell
+python scripts/build_core_distribution.py --out-dir dist/core
+python -m pip install dist/core/litellm_core-*.whl
+```
+
+The builder requires Git, `uv` and the Rust build toolchain. It reads the release version
+from the root `pyproject.toml`, leaves source files unchanged, and produces a wheel
+and a self-contained sdist in `dist/core`. Run installation in a fresh environment
+without `litellm`
 
 ```python
 from litellm import completion
@@ -535,7 +555,7 @@ Set `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY` and every model call th
 | [Vercel AI Gateway (`vercel_ai_gateway`)](https://docs.litellm.ai/docs/providers/vercel_ai_gateway) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [VLLM (`vllm`)](https://docs.litellm.ai/docs/providers/vllm) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Volcengine (`volcengine`)](https://docs.litellm.ai/docs/providers/volcano) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
-| [Voyage AI (`voyage`)](https://docs.litellm.ai/docs/providers/voyage) |  |  |  | ✅ |  |  |  |  |  |  |
+| [VoyageAI by MongoDB (`voyage`)](https://docs.litellm.ai/docs/providers/voyage) |  |  |  | ✅ |  |  |  |  |  |  |
 | [WandB Inference (`wandb`)](https://docs.litellm.ai/docs/providers/wandb_inference) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Watsonx Text (`watsonx_text`)](https://docs.litellm.ai/docs/providers/watsonx) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [xAI (`xai`)](https://docs.litellm.ai/docs/providers/xai) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |

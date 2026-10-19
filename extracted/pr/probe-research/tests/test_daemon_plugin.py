@@ -186,7 +186,8 @@ def test_every_inline_file_exists_and_is_not_empty():
     agent is sent to files that do not exist -- it then records nothing."""
     inline = LEAN / "inline"
     names = sorted(p.name for p in inline.iterdir() if p.is_dir())
-    assert names == ["audit-team-note", "edit-notes", "overview-visuals", "track-work", "write-summary"], names
+    assert names == ["artifact-design", "artifact-diagramming", "audit-team-note", "edit-notes", "overview-charts",
+                     "overview-contract", "overview-page", "overview-visuals", "track-work", "write-summary"], names
     for slug in names:
         skill = inline / slug / "SKILL.md"
         assert skill.is_file() and skill.stat().st_size > 500, f"{slug} is missing or truncated"

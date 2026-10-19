@@ -17,7 +17,7 @@ from functools import cached_property, lru_cache
 from itertools import accumulate, takewhile
 from pathlib import Path
 from threading import RLock
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, Optional, TypeVar, cast
 from warnings import warn
 
 from pydantic import ConfigDict, Field
@@ -81,6 +81,9 @@ _NESTED_MODEL_DEFAULT_FACTORY_ORDER_KEY = "_nested_model_default_factory_order"
 _NESTED_MODEL_DEFAULT_FACTORY_RECURSIVE_PATHS_KEY = "_nested_model_default_factory_recursive_paths"
 _NESTED_MODEL_REQUIRED_CONSTRUCTOR_FIELDS_KEY = "_nested_model_required_constructor_fields"
 _REQUIRED_INHERITED_DEFAULT_FACTORY_KEY = "_required_inherited_default_factory"
+_UNTAKEN_CONSTRAINTS_KEY = "_untaken_constraints"
+_MEMBER_UNTAKEN_CONSTRAINTS_KEY = "_member_untaken_constraints"
+_OVERRIDDEN_CONSTRAINTS_KEY = "_overridden_constraints"
 _RUNTIME_EXPRESSION_IMPORTS_FIELD_KEY = "_runtime_expression_imports"
 _EXTRA_TEMPLATE_DATA_MAPPING_ERROR = "extra template data must be a dictionary"
 _EXTRA_TEMPLATE_DATA_KEY_ERROR = "extra template data keys must be strings"
@@ -625,6 +628,68 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
     def dropped_constraints_warning(self) -> str | None:
         """Return a warning naming the constraints the output model leaves out on this field's type, if any."""
         return None
+
+    def _generated_without_constraints(self, reason: str, count: int) -> str:
+        """Return the dropped constraints warning for ``reason``, naming the model and field that leave them out."""
+        return (
+            f"{reason}; {self._constraint_owner} is generated without "
+            f"{'this constraint' if count == 1 else 'these constraints'}."
+        )
+
+    @property
+    def _constraint_owner(self) -> str:
+        """Return the model and field that a constraint warning names; the field of a root model is its model."""
+        owner = getattr(self.parent, "class_name", "")
+        return f"{owner}.{self.name}" if self.name and not getattr(self.parent, "IS_ROOT_MODEL", False) else owner
+
+    @property
+    def untaken_constraints(self) -> tuple[dict[str, Any], dict[str, str]]:
+        """Return the declared number constraints the field is generated without, and the target taking some of them.
+
+        They are the field's own and those of the members, items and values that collapsing inlines into its type. The
+        second mapping names, for a constraint an explicit later target model version takes, that version.
+        """
+        own = self.__dict__.get(_UNTAKEN_CONSTRAINTS_KEY) or ({}, {})
+        if (member := self.__dict__.get(_MEMBER_UNTAKEN_CONSTRAINTS_KEY)) is None:
+            return own
+        return {**member[0], **own[0]}, {**member[1], **own[1]}
+
+    def record_untaken_constraints(self, untaken: dict[str, Any], minimums: dict[str, str]) -> None:
+        """Remember the declared number constraints of this field that its type does not take, to warn about them."""
+        self.__dict__[_UNTAKEN_CONSTRAINTS_KEY] = (untaken, minimums)
+
+    def pop_untaken_constraints(self) -> dict[str, Any]:
+        """Forget the remembered untaken constraints, and return those this field declares itself."""
+        self.__dict__.pop(_MEMBER_UNTAKEN_CONSTRAINTS_KEY, None)
+        return own[0] if (own := self.__dict__.pop(_UNTAKEN_CONSTRAINTS_KEY, None)) else {}
+
+    def inherit_untaken_constraints(self, source: DataModelFieldBase, *, whole_type: bool) -> None:
+        """Take over the untaken constraints of a root field that collapsing inlines into this field's type.
+
+        A root inlined as the ``whole_type`` declares this field's own constraints; one inlined as a member, an item or
+        a value of the type declares those of that part, which this field only warns about.
+        """
+        if whole_type:
+            self._merge_untaken_constraints(_UNTAKEN_CONSTRAINTS_KEY, source.__dict__.get(_UNTAKEN_CONSTRAINTS_KEY))
+            inherited = source.__dict__.get(_MEMBER_UNTAKEN_CONSTRAINTS_KEY)
+        else:
+            inherited = source.untaken_constraints
+        self._merge_untaken_constraints(_MEMBER_UNTAKEN_CONSTRAINTS_KEY, inherited)
+
+    def _merge_untaken_constraints(self, key: str, inherited: tuple[dict[str, Any], dict[str, str]] | None) -> None:
+        """Add ``inherited`` untaken constraints under ``key``, keeping those this field already remembers there."""
+        if inherited and inherited[0]:
+            untaken, minimums = self.__dict__.get(key) or ({}, {})
+            self.__dict__[key] = ({**inherited[0], **untaken}, {**inherited[1], **minimums})
+
+    @property
+    def overridden_constraints(self) -> tuple[str, int] | None:
+        """Return the type ``--type-overrides`` replaces on the field and how many constraints leave with it, if any."""
+        return self.__dict__.get(_OVERRIDDEN_CONSTRAINTS_KEY)
+
+    def record_overridden_constraints(self, replaced: str, count: int) -> None:
+        """Remember that ``--type-overrides`` replaces the type hint ``replaced`` and ``count`` constraints with it."""
+        self.__dict__[_OVERRIDDEN_CONSTRAINTS_KEY] = (replaced, count)
 
     def unconstrain_union_members(self) -> None:
         """Write union members without the constraints the output model cannot check on one member alone."""
@@ -1858,6 +1923,18 @@ class BaseClassDataType(DataType):
 UNDEFINED: Any = object()
 
 
+class BaseLayoutView(NamedTuple):
+    """How the layouts of generated bases look before the processing of each module changes them.
+
+    ``is_slot`` accepts the fields that keep a slot whatever that processing does, ``layout_model`` gives the model
+    whose layout a model may take from it, and ``is_opaque`` tells the models whose layout the generator does not know.
+    """
+
+    is_slot: Callable[[DataModelFieldBase], bool]
+    layout_model: Callable[[DataModel], DataModel]
+    is_opaque: Callable[[DataModel], bool]
+
+
 def _has_field_assignment(field: DataModelFieldBase) -> bool:
     """Return whether a standard model field renders with an assignment."""
     return (bool(field.field) and not field.use_annotated) or not (
@@ -1965,6 +2042,7 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     REQUIRES_FIELD_DEPENDENCY_ORDERING: ClassVar[bool] = False
     REQUIRES_TAGGED_UNION_DISCRIMINATOR: ClassVar[bool] = False
     REQUIRES_UNIQUE_FIELD_ALIASES: ClassVar[bool] = False
+    FLATTENS_CONFLICTING_BASE_LAYOUTS: ClassVar[bool] = False
     REQUIRES_ADDITIONAL_PROPERTIES_REFERENCE_CLASSES: ClassVar[bool] = False
     SUPPORTS_TYPED_DICT_TOTAL_FALSE: ClassVar[bool] = False
     SUPPORTS_DESERIALIZED_DEFAULT_VALUES: ClassVar[bool] = True
@@ -2041,6 +2119,37 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     def has_keyword_only_definition(self) -> bool:  # noqa: PLR6301
         """Return whether the model already makes inherited fields keyword-only."""
         return False
+
+    def flatten_conflicting_base_layouts(self, view: BaseLayoutView, flatten: Callable[[DataModel], None]) -> None:
+        """Flatten the model where the output cannot combine the layouts of its generated bases, as msgspec cannot."""
+
+    def flatten_base_layouts(
+        self, adopt_field: Callable[[DataModelFieldBase, bool], DataModelFieldBase]
+    ) -> list[DataModelFieldBase]:
+        """Return the fields that declare the model without its generated bases.
+
+        Each base gives its fields after those of its own bases, in declaration order, and the model its fields last.
+        A name keeps its first position and the field declared last, and is required where any declaration requires
+        it, as allOf merges the properties of its parts. ``adopt_field`` makes a field one of the model, required or
+        not.
+        """
+        fields: dict[object, DataModelFieldBase] = {}
+        required: dict[object, bool] = {}
+        visited: set[int] = set()
+
+        def collect(model: DataModel) -> None:
+            if id(model) in visited:
+                return
+            visited.add(id(model))
+            for base in _find_base_classes(model):
+                collect(base)
+            for field in model.fields:
+                key = id(field) if field.name is None else field.name
+                fields[key] = field
+                required[key] = required.get(key, False) or field.required
+
+        collect(self)
+        return [adopt_field(field, required[key]) for key, field in fields.items()]
 
     def orders_required_assignments_before_defaults(self) -> bool:  # noqa: PLR6301
         """Return whether required fields written as assignments must precede the fields with defaults."""
@@ -2718,6 +2827,18 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
     def schema_runtime_validation(self) -> _runtime_validation.SchemaRuntimeValidation | None:
         """Return executable schema rules already prepared by this output model."""
         return self._internal_template_data.get("schema_runtime_validation")
+
+    @property
+    def schema_runtime_validation_references(self) -> tuple[Reference, ...]:
+        """Return the other models that runtime rules name, which the class body evaluates when it runs."""
+        if not (runtime_validation := self.schema_runtime_validation):
+            return ()
+        return tuple(
+            reference
+            for rule_data_type in runtime_validation.data_types
+            for data_type in rule_data_type.all_data_types
+            if (reference := data_type.reference) is not None and reference.path != self.path
+        )
 
     @property
     def has_runtime_object_validation(self) -> bool:

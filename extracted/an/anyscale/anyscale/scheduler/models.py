@@ -135,6 +135,56 @@ class PreemptionPolicyWithinResourceQueue(ModelEnum):
         return _validate_lowercase_enum(cls, value)
 
 
+class PreemptionPolicyReclaimWithinCohort(ModelEnum):
+    """Whether this queue may evict workloads on cohort peers that are borrowing its quota."""
+
+    NEVER = "never"
+    LOWER_PRIORITY = "lower_priority"
+    ANY = "any"
+
+    __docstrings__: ClassVar[Dict[str, str]] = _docs_by_name_and_value(
+        [
+            ("NEVER", "never", "Never reclaim; wait for borrowers to finish."),
+            (
+                "LOWER_PRIORITY",
+                "lower_priority",
+                "Reclaim by preempting strictly lower-priority borrowers on peer queues.",
+            ),
+            (
+                "ANY",
+                "any",
+                "Reclaim by preempting borrowers on peer queues regardless of priority.",
+            ),
+        ]
+    )
+
+    @classmethod
+    def validate(cls, value) -> "PreemptionPolicyReclaimWithinCohort":
+        return _validate_lowercase_enum(cls, value)
+
+
+class PreemptionPolicyBorrowWithinCohort(ModelEnum):
+    """Whether this queue may evict workloads on cohort peers in order to borrow."""
+
+    NEVER = "never"
+    LOWER_PRIORITY = "lower_priority"
+
+    __docstrings__: ClassVar[Dict[str, str]] = _docs_by_name_and_value(
+        [
+            ("NEVER", "never", "Only borrow quota that is idle; never preempt to borrow."),
+            (
+                "LOWER_PRIORITY",
+                "lower_priority",
+                "Preempt strictly lower-priority workloads on peer queues to borrow their quota.",
+            ),
+        ]
+    )
+
+    @classmethod
+    def validate(cls, value) -> "PreemptionPolicyBorrowWithinCohort":
+        return _validate_lowercase_enum(cls, value)
+
+
 # --- Shared helpers ---
 
 
@@ -255,7 +305,7 @@ from anyscale.scheduler.models import ResourceFlavor, MatchExpression, Operator
 flavor = ResourceFlavor(
     name="spot",
     selector=[
-        MatchExpression(key="market", operator=Operator.IN, values=["spot"]),
+        MatchExpression(key="market-type", operator=Operator.IN, values=["SPOT"]),
     ],
 )
 """
@@ -328,6 +378,40 @@ quota = ResourceQuotaSpec(name="gpu", nominal_quota=64)
 
     def _validate_nominal_quota(self, nominal_quota: Optional[float]):
         _validate_non_negative_quota("nominal_quota", nominal_quota)
+
+    lending_limit: Optional[float] = field(
+        default=None,
+        metadata={
+            "docstring": "How much of the nominal quota cohort peers may borrow while this queue "
+            "is not using it. Must be <= nominal_quota. Omit to lend all unused nominal quota. "
+            "Only valid on a queue with a cohort_name."
+        },
+    )
+
+    def _validate_lending_limit(self, lending_limit: Optional[float]):
+        _validate_non_negative_quota("lending_limit", lending_limit)
+        if (
+            lending_limit is not None
+            and self.nominal_quota is not None
+            and lending_limit > self.nominal_quota
+        ):
+            raise ValueError(
+                f"'lending_limit' ({lending_limit}) must be <= 'nominal_quota' ({self.nominal_quota})."
+            )
+
+    borrowing_limit: Optional[float] = field(
+        default=None,
+        metadata={
+            "docstring": "How far above the nominal quota this queue may go by borrowing unused "
+            "quota from cohort peers. Omit for no limit. Only valid on a queue with a cohort_name."
+        },
+    )
+
+    def _validate_borrowing_limit(self, borrowing_limit: Optional[float]):
+        _validate_non_negative_quota("borrowing_limit", borrowing_limit)
+
+    def has_cohort_limits(self) -> bool:
+        return self.lending_limit is not None or self.borrowing_limit is not None
 
     @classmethod
     def from_api_dict(cls, d: Dict[str, Any]) -> "ResourceQuotaSpec":
@@ -446,11 +530,13 @@ class PreemptionPolicy(ModelBase):
     __doc_py_example__ = """\
 from anyscale.scheduler.models import (
     PreemptionPolicy,
+    PreemptionPolicyReclaimWithinCohort,
     PreemptionPolicyWithinResourceQueue,
 )
 
 policy = PreemptionPolicy(
     within_resource_queue=PreemptionPolicyWithinResourceQueue.LOWER_PRIORITY,
+    reclaim_within_cohort=PreemptionPolicyReclaimWithinCohort.LOWER_PRIORITY,
 )
 """
 
@@ -468,6 +554,52 @@ policy = PreemptionPolicy(
             return None
         return PreemptionPolicyWithinResourceQueue.validate(within_resource_queue)
 
+    reclaim_within_cohort: Optional[PreemptionPolicyReclaimWithinCohort] = field(
+        default=None,
+        metadata={
+            "docstring": "Whether this queue may preempt workloads on cohort peers that are above "
+            "their nominal quota, to take back its own nominal. Only meaningful on a queue with "
+            "a cohort_name."
+        },
+    )
+
+    def _validate_reclaim_within_cohort(
+        self, reclaim_within_cohort: Optional[PreemptionPolicyReclaimWithinCohort]
+    ) -> Optional[PreemptionPolicyReclaimWithinCohort]:
+        if reclaim_within_cohort is None:
+            return None
+        return PreemptionPolicyReclaimWithinCohort.validate(reclaim_within_cohort)
+
+    borrow_within_cohort: Optional[PreemptionPolicyBorrowWithinCohort] = field(
+        default=None,
+        metadata={
+            "docstring": "Whether this queue may preempt lower-priority workloads on cohort peers "
+            "that are above their nominal quota, in order to borrow. Requires "
+            "reclaim_within_cohort to be lower_priority or any. Only meaningful on a queue with "
+            "a cohort_name."
+        },
+    )
+
+    def _validate_borrow_within_cohort(
+        self, borrow_within_cohort: Optional[PreemptionPolicyBorrowWithinCohort]
+    ) -> Optional[PreemptionPolicyBorrowWithinCohort]:
+        if borrow_within_cohort is None:
+            return None
+        borrow = PreemptionPolicyBorrowWithinCohort.validate(borrow_within_cohort)
+        if (
+            borrow is not PreemptionPolicyBorrowWithinCohort.NEVER
+            and self.reclaim_within_cohort
+            in (
+                None,
+                PreemptionPolicyReclaimWithinCohort.NEVER,
+            )
+        ):
+            raise ValueError(
+                "'borrow_within_cohort' requires 'reclaim_within_cohort' to be "
+                "'lower_priority' or 'any'."
+            )
+        return borrow
+
     @classmethod
     def from_api_dict(cls, d: Dict[str, Any]) -> "PreemptionPolicy":
         return cls(**_filter_known(cls, d))
@@ -475,7 +607,8 @@ policy = PreemptionPolicy(
 
 @dataclass(frozen=True)
 class ResourceQueue(ModelBase):
-    """A queue requests are routed to. Carries optional preemption and per-flavor quotas."""
+    """A queue requests are routed to. Carries optional preemption, per-flavor quotas, and an
+    optional cohort for borrowing quota between queues."""
 
     __doc_py_example__ = """\
 from anyscale.scheduler.models import ResourceQueue
@@ -516,6 +649,35 @@ queue = ResourceQueue(name="research")
         self, resource_groups: Optional[List[ResourceGroup]]
     ) -> Optional[List[ResourceGroup]]:
         return _coerce_list("resource_groups", resource_groups, ResourceGroup)
+
+    cohort_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Queues sharing a cohort_name pool their unused nominal quota: a queue "
+            "at its nominal may borrow a peer's idle quota, and the peer reclaims it per its "
+            "preemption policy. Requires resource_groups."
+        },
+    )
+
+    def _validate_cohort_name(self, cohort_name: Optional[str]):
+        if cohort_name is not None:
+            if not isinstance(cohort_name, str) or not cohort_name.strip():
+                raise ValueError("'cohort_name' must be a non-empty string.")
+            if not self.resource_groups:
+                raise ValueError(
+                    f"Resource queue '{self.name}' has no resource_groups (passthrough) and "
+                    "cannot declare a cohort_name."
+                )
+            return
+        for group in self.resource_groups or []:
+            for flavor in group.flavors or []:
+                for spec in flavor.resources or []:
+                    if spec.has_cohort_limits():
+                        raise ValueError(
+                            f"Resource queue '{self.name}', flavor '{flavor.name}', resource "
+                            f"'{spec.name}': lending_limit and borrowing_limit require a "
+                            "cohort_name on the queue."
+                        )
 
     @classmethod
     def from_api_dict(cls, d: Dict[str, Any]) -> "ResourceQueue":
@@ -679,9 +841,9 @@ anyscale.scheduler.apply_config(config)
 resource_flavors:
   - name: spot
     selector:
-      - key: market
+      - key: market-type
         operator: in
-        values: [spot]
+        values: [SPOT]
 resource_queues:
   - name: research
     preemption:

@@ -29,7 +29,7 @@ python-boundary = "sqlbuild-python"
 polyglot-floor = "sqlbuild-analysis"
 
 [workspace.package]
-version = "0.157.2"
+version = "0.158.2"
 edition = "2024"
 license = "Apache-2.0"
 publish = false
@@ -92,7 +92,6 @@ sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }
 sqlbuild-sqltext = { path = "crates/sqlbuild-sqltext" }
 sqlbuild-state = { path = "crates/sqlbuild-state" }
 stacker = "0.1"
-sqlparser = { version = "0.58", features = ["visitor"] }
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 tempfile = "3"
 toml = "0.9"

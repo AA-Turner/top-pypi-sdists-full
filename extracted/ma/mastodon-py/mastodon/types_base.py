@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import dateutil
 import dateutil.parser
 from collections import OrderedDict
+from functools import lru_cache
 from mastodon.compat import PurePath
 import sys
 import json
@@ -13,7 +14,8 @@ import copy
 # A type representing a file name as a PurePath or string, or a file-like object, for convenience
 PathOrFile = Union[str, PurePath, IO[bytes]]
 
-BASE62_ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+BASE62_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+
 def base62_to_int(base62: str) -> int:
     """
     internal helper for *oma compat: convert a base62 string to an int since
@@ -41,6 +43,39 @@ def int_to_base62(val: int) -> str:
         val, digit = divmod(val, 62)
         base62.append(BASE62_ALPHABET[digit])
     return ''.join(reversed(base62))
+
+def _pleroma_id_to_int(value: str) -> Optional[int]:
+    if not 18 <= len(value) <= 22:
+        return None
+
+    try:
+        flake = base62_to_int(value)
+    except ValueError:
+        return None
+    if flake >= 2 ** 128:
+        return None
+
+    timestamp_ms = flake >> 64
+    latest_plausible_timestamp_ms = int(datetime.now().timestamp() * 1000) + 24 * 60 * 60 * 1000
+    if timestamp_ms <= 0 or timestamp_ms > latest_plausible_timestamp_ms:
+        return None
+
+    return flake
+
+def _pleroma_id_to_datetime(value: str) -> Optional[datetime]:
+    flake = _pleroma_id_to_int(value)
+    if flake is None:
+        return None
+
+    try:
+        return datetime.fromtimestamp((flake >> 64) / 1000)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+def _datetime_to_id(value: datetime, assume_pleroma: bool) -> Union[int, str]:
+    if assume_pleroma:
+        return int_to_base62(int(value.timestamp() * 1000) << 64)
+    return (int(value.timestamp()) << 16) * 1000
 
 
 PrimitiveIdType = Union[str, int]
@@ -115,12 +150,19 @@ class MaybeSnowflakeIdType(str):
     3) Halfway transparently convert to and from datetime with the correct format for the server we're talking to
     """
     def __new__(cls, value, *args, **kwargs):
+        if isinstance(value, cls):
+            value = str(value)
+        elif isinstance(value, datetime):
+            assume_pleroma = kwargs.get("assume_pleroma", args[0] if args else False)
+            value = _datetime_to_id(value, assume_pleroma)
         try:
             return super(cls, cls).__new__(cls, value)
         except:
             return object.__new__(cls)
 
     def __init__(self, val: Union[PrimitiveIdType, datetime], assume_pleroma: bool = False):
+        if isinstance(val, MaybeSnowflakeIdType):
+            val = str(val)
         try:
             super(MaybeSnowflakeIdType, self).__init__()
         except:
@@ -128,12 +170,11 @@ class MaybeSnowflakeIdType(str):
         if isinstance(val, (int, str)):
             self.__val = val
         elif isinstance(val, datetime):
-            self.__val = (int(val.timestamp()) << 16) * 1000
-            if assume_pleroma:
-                self.__val = int_to_base62(self.__val)
+            self.__val = _datetime_to_id(val, assume_pleroma)
         else:
             raise TypeError(f"Expected int or str, got {type(val).__name__}")
         self.assume_pleroma = assume_pleroma
+        self.__order_value = self.__get_order_value(self.__val, assume_pleroma)
         
     def to_datetime(self) -> Optional[datetime]:
         """
@@ -142,24 +183,21 @@ class MaybeSnowflakeIdType(str):
         snowflake IDs, so it can in fact return None.
         """
         val = self.__val
+        if isinstance(val, str):
+            if self.assume_pleroma:
+                pleroma_datetime = _pleroma_id_to_datetime(val)
+                if pleroma_datetime is not None:
+                    return pleroma_datetime
+            try:
+                val = int(val)
+            except ValueError:
+                return _pleroma_id_to_datetime(val)
+
+        timestamp_s = (int(val) // 1000) >> 16
         try:
-            # Pleroma ID compat. First, try to just cast to int. If that fails *or*
-            # if we are told to assume Pleroma, try to convert from base62.
-            if isinstance(self.__val, str):
-                try_base62 = False
-                try:
-                    val = int(self.__val)
-                except:
-                    try_base62 = True
-                if try_base62 or self.assume_pleroma:
-                    val = base62_to_int(self.__val)
-        except:
+            return datetime.fromtimestamp(timestamp_s)
+        except (OverflowError, OSError, ValueError):
             return None
-        
-        # TODO: This matches the masto approach, whether this matches the
-        # Pleroma approach is to be verified.
-        timestamp_s = int(int(val) / 1000) >> 16
-        return datetime.fromtimestamp(timestamp_s)
 
     def __str__(self) -> str:
         """
@@ -177,6 +215,50 @@ class MaybeSnowflakeIdType(str):
         if isinstance(self.__val, str):
             return int(self.__val)
         return self.__val
+
+    @staticmethod
+    def __get_order_value(value, assume_pleroma: bool = False) -> Optional[Tuple[int, int]]:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value, 0
+        if isinstance(value, str):
+            if assume_pleroma:
+                pleroma_value = _pleroma_id_to_int(value)
+                if pleroma_value is not None:
+                    return divmod(pleroma_value, 2 ** 48)
+            try:
+                numeric_value = int(value)
+            except ValueError:
+                pleroma_value = _pleroma_id_to_int(value)
+                if pleroma_value is not None:
+                    return divmod(pleroma_value, 2 ** 48)
+                return None
+            if str(numeric_value) == value:
+                return numeric_value, 0
+        return None
+
+    @staticmethod
+    def __comparison_value(other) -> Tuple[int, int]:
+        if isinstance(other, MaybeSnowflakeIdType):
+            value = other.__order_value
+        else:
+            value = MaybeSnowflakeIdType.__get_order_value(other)
+        if value is not None:
+            return value
+        raise TypeError(f"ID {other!r} is not comparable with IDs")
+
+    def __lt__(self, other) -> bool:
+        return self.__comparison_value(self) < self.__comparison_value(other)
+
+    def __le__(self, other) -> bool:
+        return self.__comparison_value(self) <= self.__comparison_value(other)
+
+    def __gt__(self, other) -> bool:
+        return self.__comparison_value(self) > self.__comparison_value(other)
+
+    def __ge__(self, other) -> bool:
+        return self.__comparison_value(self) >= self.__comparison_value(other)
     
     def __repr__(self) -> str:
         """
@@ -189,7 +271,7 @@ if sys.version_info < (3, 9):
     def resolve_type(t):
         # I'm sorry about this, but I cannot think of another way to make this work properly in versions below 3.9 that
         # cannot resolve forward references in a sane way
-        from mastodon.return_types import Account, AccountField, Role, CredentialAccountSource, \
+        from mastodon.return_types import Account, AccountField, Role, CredentialAccountSource, CredentialAccountState, \
             Status, Quote, ShallowQuote, QuoteApproval, StatusEdit, FilterResult, \
             StatusMention, ScheduledStatus, ScheduledStatusParams, Poll, PollOption, Conversation, \
             Tag, TagHistory, CustomEmoji, Application, Relationship, Filter, \
@@ -200,16 +282,20 @@ if sys.version_info < (3, 9):
             InstanceVapidKey, InstanceURLsV2, InstanceThumbnail, InstanceThumbnailVersions, InstanceStatistics, InstanceUsage, \
             InstanceUsageUsers, RuleTranslation, Rule, InstanceRegistrations, InstanceContact, InstanceAccountConfiguration, \
             InstanceStatusConfiguration, InstanceTranslationConfiguration, InstanceMediaConfiguration, InstancePollConfiguration, InstanceTimelinesAccessConfiguration, InstanceTimelinesAccessFeedConfiguration, \
-            InstanceAnnualReportCampaign, Nodeinfo, NodeinfoSoftware, NodeinfoServices, NodeinfoUsage, NodeinfoUsageUsers, \
-            NodeinfoMetadata, Activity, Report, AdminReport, WebPushSubscription, WebPushSubscriptionAlerts, \
-            PushNotification, Preferences, FeaturedTag, Marker, Announcement, Reaction, \
-            StreamReaction, FamiliarFollowers, AdminAccount, AdminIp, AdminMeasure, AdminMeasureData, \
-            AdminDimension, AdminDimensionData, AdminRetention, AdminCohort, AdminDomainBlock, AdminCanonicalEmailBlock, \
-            AdminDomainAllow, AdminEmailDomainBlock, AdminEmailDomainBlockHistory, AdminIpBlock, DomainBlock, ExtendedDescription, \
-            FilterKeyword, FilterStatus, IdentityProof, StatusSource, Suggestion, Translation, \
-            AccountCreationError, AccountCreationErrorDetails, AccountCreationErrorDetailsField, NotificationPolicy, NotificationPolicySummary, RelationshipSeveranceEvent, \
-            GroupedNotificationsResults, PartialAccountWithAvatar, NotificationGroup, AccountWarning, UnreadNotificationsCount, Appeal, \
-            NotificationRequest, SupportedLocale, OAuthServerInfo, OAuthUserInfo, TermsOfService, AsyncRefresh
+            Nodeinfo, NodeinfoSoftware, NodeinfoServices, NodeinfoUsage, NodeinfoUsageUsers, NodeinfoMetadata, \
+            Activity, Report, AdminReport, WebPushSubscription, WebPushSubscriptionAlerts, PushNotification, \
+            Preferences, FeaturedTag, Marker, Announcement, Reaction, StreamReaction, \
+            FamiliarFollowers, AdminAccount, AdminIp, AdminMeasure, AdminMeasureData, AdminDimension, \
+            AdminDimensionData, AdminRetention, AdminCohort, AdminDomainBlock, AdminCanonicalEmailBlock, AdminDomainAllow, \
+            AdminEmailDomainBlock, AdminEmailDomainBlockHistory, AdminIpBlock, DomainBlock, ExtendedDescription, FilterKeyword, \
+            FilterStatus, IdentityProof, StatusSource, Suggestion, Translation, AccountCreationError, \
+            AccountCreationErrorDetails, AccountCreationErrorDetailsField, NotificationPolicy, NotificationPolicySummary, RelationshipSeveranceEvent, GroupedNotificationsResults, \
+            PartialAccountWithAvatar, NotificationGroup, AccountWarning, UnreadNotificationsCount, Appeal, NotificationRequest, \
+            SupportedLocale, OAuthServerInfo, OAuthUserInfo, TermsOfService, AsyncRefresh, Profile, \
+            ProfileField, ShallowTag, FeatureApproval, WrappedCollection, Collections, CollectionWithAccounts, \
+            WrappedCollectionItem, NotificationFallback, AnnualReportEvent, AnnualReportState, AnnualReport, WrappedAnnualReports, \
+            AnnualReportDataV2, AnnualReportDataV1, AnnualReportTopStatusesV2, AnnualReportTopStatusesV1, AnnualReportTimeSeriesEntryV2, AnnualReportTimeSeriesEntryV1, \
+            AnnualReportTypeDistribution, AnnualReportNameAndCount, AnnualReportAccountAndCount, AnnualReportPercentiles
         if isinstance(t, ForwardRef):
             try:
                 t = t._evaluate(globals(), locals(), frozenset())
@@ -272,6 +358,44 @@ def real_issubclass(type1, type2orig):
         valid_types = [type2]
     return issubclass(type1, tuple(valid_types))
 
+_UNION_DISCRIMINATORS = {
+    "MediaAttachment": "type",
+    "AnnualReport": "schema_version",
+}
+
+_UNION_SPECIALIZATIONS = {
+    "MediaAttachment": {
+        "image": "MediaAttachmentImageMetadata",
+        "video": "MediaAttachmentVideoMetadata",
+        "audio": "MediaAttachmentAudioMetadata",
+        "gifv": "MediaAttachmentVideoMetadata",
+    },
+    "AnnualReport": {
+        1: "AnnualReportDataV1",
+        2: "AnnualReportDataV2",
+        "1": "AnnualReportDataV1",
+        "2": "AnnualReportDataV2",
+    },
+}
+
+_UNION_SPECIALIZATION_DEFAULTS = {
+    "AnnualReport": "AttribAccessDict",
+}
+
+
+def _specialized_union_type(t, union_specializer):
+    entity_name, discriminator = union_specializer
+    specialized_type_name = _UNION_SPECIALIZATIONS.get(entity_name, {}).get(
+        discriminator,
+        _UNION_SPECIALIZATION_DEFAULTS.get(entity_name),
+    )
+    if specialized_type_name is None:
+        return None
+    return next(
+        (union_type for union_type in t.__args__ if union_type.__name__ == specialized_type_name),
+        None,
+    )
+
 # Helper functions for typecasting attempts
 def try_cast(t, value, retry = True, union_specializer = None):
     """
@@ -293,6 +417,8 @@ def try_cast(t, value, retry = True, union_specializer = None):
             return value
     try:
         if real_issubclass(t, AttribAccessDict):
+            if isinstance(value, get_type_class(t)):
+                return value
             if union_specializer is not None:
                 value["__union_specializer"] = union_specializer
             value = t(**value)
@@ -390,13 +516,7 @@ def try_cast_recurse(t, value, union_specializer=None):
                 value = orig_type(value_cast)
             elif orig_type is Union:
                 if union_specializer is not None:
-                    from mastodon.return_types import MediaAttachmentImageMetadata, MediaAttachmentVideoMetadata, MediaAttachmentAudioMetadata
-                    real_type = {
-                        "image": MediaAttachmentImageMetadata,
-                        "video": MediaAttachmentVideoMetadata,
-                        "audio": MediaAttachmentAudioMetadata,
-                        "gifv": MediaAttachmentVideoMetadata,
-                    }.get(union_specializer, None)
+                    real_type = _specialized_union_type(t, union_specializer)
                 if isinstance(value, dict) and "quoted_status_id" in value:
                     from mastodon.return_types import ShallowQuote
                     real_type = ShallowQuote
@@ -467,8 +587,13 @@ class Entity():
         def remove_renamed_fields(obj):
             if isinstance(obj, dict):
                 if hasattr(obj.__class__, "_rename_map"):
-                    for field in getattr(obj.__class__, "_rename_map").values():
-                        if field in obj:
+                    for alias, field in getattr(obj.__class__, "_rename_map").items():
+                        # Keep the wire name for fields that collide with dict methods.
+                        if callable(getattr(obj.__class__, field, None)):
+                            if alias in obj:
+                                OrderedDict.__setitem__(obj, field, obj[alias])
+                                del obj[alias]
+                        elif field in obj:
                             del obj[field]
                 for key in obj:
                     remove_renamed_fields(obj[key])
@@ -570,10 +695,10 @@ a datetime (which will get converted to a snowflake id).
 T = TypeVar('T')
 class PaginatableList(List[T], Entity):
     """
-    This is a list with pagination information attached.
+    This is a list with cursor-based or offset-based pagination information attached.
 
     It is returned by the API when a list of items is requested, and the response contains
-    a Link header with pagination information.
+    a Link header with pagination information, or an endpoint supports offset pagination.
     """
     _pagination_next: Optional[PaginationInfo]
     _pagination_prev: Optional[PaginationInfo]
@@ -603,6 +728,16 @@ try:
 except:
     OrderedStrDict = OrderedDict
 
+@lru_cache(maxsize=1024)
+def _cached_type_hints(obj):
+    return get_type_hints(obj)
+
+def _get_cached_type_hints(obj):
+    try:
+        return _cached_type_hints(obj)
+    except Exception:
+        return {}
+
 class AttribAccessDict(OrderedStrDict, Entity):
     """
     Base return object class for Mastodon.py.
@@ -614,38 +749,58 @@ class AttribAccessDict(OrderedStrDict, Entity):
     backward compatibility as well as compatibility with other implementations of the Mastodon API.
 
     This class can ALSO have pagination information attached, for paginating lists *inside* the object,
-    because that's what Mastodon 4.3.0 does for groupee notifications. This is special cased in the class
-    definition, though.
+    such as grouped notifications, typed search results, and Collections. Navigation
+    metadata is stored as private attributes, separate from API response fields.
     """
+    _pagination_next = None
+    _pagination_prev = None
+
     def __init__(self, **kwargs):
         """
         Constructor that calls through to dict constructor and then sets attributes for all keys.
         """
         super(AttribAccessDict, self).__init__()
+
+        # Set type for directly constructed instances of AttribAccessDict and subclasses
+        super(AttribAccessDict, self).__setattr__("_mastopy_type", type(self).__name__)
         if "__union_specializer" in kwargs:
-            self.__union_specializer = kwargs["__union_specializer"]
-            del kwargs["__union_specializer"]
+            union_specializer = kwargs.pop("__union_specializer")
+        else:
+            entity_name = type(self).__name__
+            discriminator = _UNION_DISCRIMINATORS.get(entity_name)
+            union_specializer = None
+            if discriminator is not None:
+                union_specializer = (entity_name, kwargs.get(discriminator))
+        if union_specializer is not None:
+            super(AttribAccessDict, self).__setattr__(
+                "_AttribAccessDict__union_specializer",
+                union_specializer,
+            )
         if "__annotations__" in self.__class__.__dict__:
             for attr, _ in self.__class__.__annotations__.items():
-                attr_name = attr
-                if hasattr(self.__class__, "_rename_map"):
-                    attr_name = getattr(self.__class__, "_rename_map").get(attr, attr)
-                    if attr_name in kwargs:
-                        self[attr] = kwargs[attr_name]
-                        assert not attr in kwargs, f"Duplicate attribute {attr}"
+                attr_name = getattr(self.__class__, "_rename_map", {}).get(attr, attr)
+                if attr_name != attr and attr_name in kwargs and attr in kwargs:
+                    raise AssertionError(f"Duplicate attribute {attr}")
+                if attr_name in kwargs:
+                    self[attr] = kwargs[attr_name]
                 elif attr in kwargs:
                     self[attr] = kwargs[attr]
                 else:
                     self[attr] = None
         for attr in kwargs:
             if not attr in self:
-                self[attr] = kwargs[attr]
+                rename_map = getattr(self.__class__, "_rename_map", {})
+                alias = next((alias for alias, field in rename_map.items() if field == attr), None)
+                if alias in self:
+                    super(AttribAccessDict, self).__setitem__(attr, self[alias])
+                else:
+                    self[attr] = kwargs[attr]
                 
     def __getattribute__(self, attr):
         """
         Override to force access of normal attributes to go through __getattr__
         """
-        if attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "_async_refresh", "__class__"]:
+        if attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "_async_refresh", "_pagination_next", "_pagination_prev", "__class__"]:
             return super(AttribAccessDict, self).__getattribute__(attr)
         if attr in self.__class__.__annotations__:
             return self.__getattr__(attr)
@@ -680,8 +835,8 @@ class AttribAccessDict(OrderedStrDict, Entity):
         """
         Attribute setter that calls through to dict setter but will throw if attribute is not in dict
         """
-        if attr in self or attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "_async_refresh"]:
-            if attr in ["_mastopy_type", "_async_refresh"]:
+        if attr in self or attr in ["_AttribAccessDict__union_specializer", "_mastopy_type", "_async_refresh", "_pagination_next", "_pagination_prev"]:
+            if attr in ["_mastopy_type", "_async_refresh", "_pagination_next", "_pagination_prev"]:
                 super(AttribAccessDict, self).__setattr__(attr, val)
             else:
                 self[attr] = val
@@ -698,25 +853,15 @@ class AttribAccessDict(OrderedStrDict, Entity):
         # If we're already an AttribAccessDict subclass, skip all the casting
         if not isinstance(val, AttribAccessDict):
             # Collate type hints that we may have
-            type_hints = {}
-            try:
-                type_hints = get_type_hints(self.__class__)
-            except:
-                pass
-            init_hints = {}
-            try:
-                init_hints = get_type_hints(self.__class__.__init__)
-            except:
-                pass
-            type_hints.update(init_hints)
+            type_hints = dict(_get_cached_type_hints(self.__class__))
+            type_hints.update(_get_cached_type_hints(self.__class__.__init__))
 
-            # Ugly hack: We have to specialize unions by hand because you can't just guess by content generally
-            # Note for developers: This means type MUST be set before meta. fortunately, we can enforce this via
-            # the type hints (assuming that the order of annotations is not changed, which python does not guarantee,
-            # if it ever does: we'll have to add another hack to the constructor)
-            from mastodon.return_types import MediaAttachment
-            if type(self) == MediaAttachment and key == "type":
-                self.__union_specializer = val
+            entity_name = type(self).__name__
+            if _UNION_DISCRIMINATORS.get(entity_name) == key:
+                super(AttribAccessDict, self).__setattr__(
+                    "_AttribAccessDict__union_specializer",
+                    (entity_name, val),
+                )
 
             # Do we have a union specializer attribute?
             union_specializer = None
@@ -734,12 +879,10 @@ class AttribAccessDict(OrderedStrDict, Entity):
                     val = try_cast_recurse(EntityList, val, union_specializer)
 
         # Finally, call out to setattr and setitem proper
-        super(AttribAccessDict, self).__setattr__(key, val)
+        # API fields must not replace methods such as items(), used by repr and deepcopy.
+        if not callable(getattr(self.__class__, key, None)):
+            super(AttribAccessDict, self).__setattr__(key, val)
         super(AttribAccessDict, self).__setitem__(key, val)
-
-        # Remove union specializer if we have one
-        if "_AttribAccessDict__union_specializer" in self:
-            del self["_AttribAccessDict__union_specializer"]
 
     def __eq__(self, other):
         """
@@ -757,6 +900,12 @@ class AttribAccessDict(OrderedStrDict, Entity):
             except Exception as e:
                 pass
         return False
+
+class EmptyResponse(AttribAccessDict):
+    """
+    Type for endpoints that may return a successful response with no body,
+    but with metadata attached.
+    """
 
 WebpushCryptoParamsPubkey = Dict[str, str]
 """A type containing the parameters for a encrypting webpush data. Considered opaque / implementation detail."""

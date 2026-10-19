@@ -66,7 +66,7 @@ def run_target(  # noqa: PLR0913, PLR0917
     except Exception as error:  # noqa: BLE001
         from datamodel_code_generator._target_selection import keyed  # noqa: PLC0415
 
-        _failure(keyed(error, config), encoding=config.encoding)
+        _failure(keyed(error, config), namespace, config)
         return _ERROR
 
 
@@ -161,6 +161,7 @@ def _run(  # noqa: PLR0913, PLR0917
         prepare_target,
     )
     from datamodel_code_generator._target_selection import target_of  # noqa: PLC0415
+    from datamodel_code_generator.reference import unmatched_model_name_keys_unreported  # ruff: ignore[import-outside-top-level]
 
     lockfile = _target_lockfile(config, pyproject_path)
     generator, target = target_of(config, partial(_base, config, namespace, pyproject_path))
@@ -183,7 +184,8 @@ def _run(  # noqa: PLR0913, PLR0917
         return _DIFF if comparison.differences else _OK
     if config.diff_against is not None:
         effective = effective.model_copy(update={"input_filename": "<input>"})
-        baseline = plan_target(config.diff_against, model_config=effective, config=target, generator=generator)
+        with unmatched_model_name_keys_unreported():
+            baseline = plan_target(config.diff_against, model_config=effective, config=target, generator=generator)
         current = plan_target(
             source, model_config=effective, config=target, generator=generator, timestamp=baseline.timestamp
         )
@@ -570,13 +572,15 @@ def _base(config: Any, namespace: Namespace, pyproject_path: Path | None, field:
     return Path.cwd() if pyproject_path is None or getattr(namespace, field) is not None else pyproject_path.parent
 
 
-def _failure(error: Exception, *, encoding: str = "utf-8") -> None:
+def _failure(error: Exception, namespace: Namespace, config: Any) -> None:
     """Preserve model CLI error hints and unexpected-error tracebacks."""
     message = str(error)
     if isinstance(error, InvalidClassNameError):
-        message = f"{error} You have to set `--class-name` option"
+        from datamodel_code_generator.__main__ import _invalid_class_name_message  # noqa: PLC0415
+
+        message = _invalid_class_name_message(error, namespace, config.class_name)
     elif isinstance(error, UnicodeDecodeError):
-        message = f"Unable to decode input using encoding {encoding!r}: {error}"
+        message = f"Unable to decode input using encoding {config.encoding!r}: {error}"
     elif not isinstance(error, (Error, OSError)):
         from datamodel_code_generator.remote_lock import RemoteLockError  # noqa: PLC0415
 

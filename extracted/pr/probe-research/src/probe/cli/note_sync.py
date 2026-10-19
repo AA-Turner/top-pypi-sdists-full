@@ -205,6 +205,7 @@ def merge_into_file(
     # It is not hypothetical: `brief()` is `body.strip()`, and every base copy
     # written from a brief before this release is on disk stripped. Those
     # machines would each hit one spurious conflict on their first merge.
+    on_disk = current
     base, current, theirs = (one_trailing_newline(s) for s in (base, current, theirs))
     try:
         result = (merge or merge3)(base, current, theirs, theirs_version=theirs_version)
@@ -212,7 +213,9 @@ def merge_into_file(
         # THE FILE IS LEFT EXACTLY AS IT IS. Its edits are unsent, not lost, and
         # the next reconcile tries again against a fresher head.
         return Merged(detail=f"could not merge the {label} locally ({exc}); left as it is")
-    if read_text(where.document) != current:
+    # Against the file as it was read, not its newline-normalized copy: a file
+    # with no final newline (an HTML summary draft) otherwise reads as moved.
+    if read_text(where.document) != on_disk:
         # It moved again inside the lock's own window. Writing now would drop
         # whatever arrived; the next reconcile merges from a newer base.
         return Merged(detail="file changed while merging; next reconcile will merge it")

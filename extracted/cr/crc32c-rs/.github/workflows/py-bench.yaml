@@ -1,0 +1,96 @@
+name: "Python Benchmark"
+
+on:
+  workflow_call:
+    inputs:
+      runners:
+        description: "JSON array of runner labels"
+        required: true
+        type: string
+
+env:
+  FORCE_COLOR: "1"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    name: "${{ matrix.runner }}"
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.15"]
+        runner: ${{ fromJSON(inputs.runners) }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: github.event_name == 'pull_request' && github.run_attempt == 1
+        with:
+          lookup-only: false # zizmor: ignore[cache-poisoning]
+          shared-key: ${{ matrix.runner }}-${{ matrix.python-version }}
+
+      - name: "Create and activate .venv"
+        shell: bash
+        env:
+          MATRIX_RUNNER: ${{ matrix.runner }}
+        run: |
+          PY="${{ matrix.python-version }}"
+          if [[ "${MATRIX_RUNNER}" == "windows-11-arm" ]]; then
+            PY="${PY}-aarch64"
+          fi
+
+          uv venv .venv --python "$PY"
+
+          if [[ "${MATRIX_RUNNER}" == windows-* ]]; then
+            echo ".venv/Scripts" >> "$GITHUB_PATH"
+            echo "PYO3_PYTHON=.venv/Scripts/python" >> "$GITHUB_ENV"
+            echo "UV_LINK_MODE=copy" >> "$GITHUB_ENV"
+          else
+            echo ".venv/bin" >> "$GITHUB_PATH"
+            echo "PYO3_PYTHON=.venv/bin/python3" >> "$GITHUB_ENV"
+          fi
+
+      - name: "Install dependencies"
+        run: uv pip install --group maturin --group bench
+
+      - name: "Run maturin"
+        run: maturin build --release --out wheels --features mimalloc
+
+      - name: "Install built wheel"
+        run: uv pip install crc32c-rs --no-index --find-links wheels
+
+      - name: "Run Python benchmark"
+        shell: bash
+        env:
+          PYTHONWARNINGS: "ignore::RuntimeWarning:google_crc32c"
+          MATRIX_RUNNER: ${{ matrix.runner }}
+        run: |
+          if [[ "${MATRIX_RUNNER}" == windows-* ]]; then
+            source .venv/Scripts/activate
+          else
+            source .venv/bin/activate
+          fi
+
+          cd benchmarks/python
+          python run.py -o results.json --quiet --inherit-environ=PYTHONWARNINGS
+          python md_table.py results.json
+
+      - name: "Extract benchmark section"
+        shell: bash
+        run: |
+          awk '/<!-- BEGIN BENCHMARK -->/{f=1;next} f' benchmarks/python/README.md > "${{ runner.temp }}/bench.md"
+
+      - name: "Sticky PR comment"
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: "bench-${{ matrix.runner }}"
+          path: ${{ runner.temp }}/bench.md

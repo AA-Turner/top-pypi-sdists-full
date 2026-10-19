@@ -106,7 +106,7 @@ def test_negative_metadata_required_property(ctx, cli, app_runner):
         "--continue-on-failure",
         exit_code=ExitCode.TESTS_FAILED,
     )
-    assert "API accepted schema-violating request" in result.stdout
+    assert "Schema-violating request accepted" in result.stdout
     assert "Invalid component: in body" in result.stdout
 
 
@@ -176,6 +176,40 @@ def test_text_plain_with_query_negative_still_fails(ctx, cli, snapshot_cli):
             "--seed=3",
         )
         == snapshot_cli
+    )
+
+
+# High example count: a negated body with only valid declared query values is a rare draw.
+def test_text_plain_with_valid_boolean_query_not_reported(ctx, cli, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/endpoint": {
+                "post": {
+                    "parameters": [{"in": "query", "name": "q", "required": False, "schema": {"type": "boolean"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {"text/plain": {"schema": {"type": "string"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}, "400": {"description": "Bad"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/endpoint", methods=["POST"])
+    def endpoint():
+        values = request.args.getlist("q")
+        if len(values) > 1 or (values and values[0] not in ("true", "false")):
+            return jsonify({}), 400
+        return jsonify({}), 200
+
+    cli.run_and_assert(
+        app_runner.openapi_url(app),
+        "--checks=negative_data_rejection",
+        "--phases=fuzzing",
+        "--max-examples=100",
+        "--seed=1",
+        exit_code=ExitCode.OK,
     )
 
 
@@ -287,7 +321,7 @@ def before_call(context, case, **kwargs):
         "--continue-on-failure",
         hooks=module,
     )
-    assert "API accepted schema-violating request" not in result.stdout, result.stdout
+    assert "Schema-violating request accepted" not in result.stdout, result.stdout
     assert result.exit_code == ExitCode.OK, result.stdout
 
 
@@ -382,7 +416,7 @@ def before_call(context, case, kwargs):
         "--max-examples=10",
         hooks=module,
     )
-    assert "API accepted schema-violating request" not in result.stdout, result.stdout
+    assert "Schema-violating request accepted" not in result.stdout, result.stdout
     assert result.exit_code == ExitCode.OK, result.stdout
 
 
@@ -453,4 +487,4 @@ def before_call(context, case, kwargs):
         "--max-examples=10",
         hooks=module,
     )
-    assert ("API accepted schema-violating request" in result.stdout) is accepted_invalid, result.stdout
+    assert ("Schema-violating request accepted" in result.stdout) is accepted_invalid, result.stdout

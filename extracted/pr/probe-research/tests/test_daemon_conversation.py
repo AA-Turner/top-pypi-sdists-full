@@ -507,7 +507,7 @@ def test_compaction_keeps_the_instructions_and_the_status_stays_one_call_away(tm
     assert "You are the Probe daemon" in (info.instructions or "")
     assert "<state-of-the-record>" not in everything
     tools_offered = {t.name for t in info.function_tools}
-    assert tools_offered == {"shell", "read", "session"}, tools_offered
+    assert tools_offered == {"shell", "read", "session", "edit"}, tools_offered
     status = w.state_of_record()
     assert "<state-of-the-record>" in status and f"probe run tag {RUN} svm" in status
     assert _live(w)["compactions"] >= 1
@@ -1087,8 +1087,9 @@ def test_reads_are_parallel_and_the_read_tool_calls_the_reader(tmp_path, monkeyp
     assert "contents of a.csv" in returned and "contents of b.py" in returned
 
 
-def test_the_shell_is_the_one_write_tool():
-    assert agent_mod.write_tools() == tools.WRITE_TOOLS == frozenset({"shell"})
+def test_the_shell_and_edit_are_the_write_tools():
+    """`edit` (ARTIFACT-PAGES P3) changes a checked-out draft: it runs alone, like the shell."""
+    assert agent_mod.write_tools() == tools.WRITE_TOOLS == frozenset({"shell", "bash", "edit"})
 
 
 # ---------------------------------------------------------------------------
@@ -1268,7 +1269,7 @@ def test_a_paused_history_resumes_as_a_valid_request_on_the_real_client(tmp_path
 # ---------------------------------------------------------------------------
 
 
-def test_the_model_is_offered_shell_read_and_session_and_the_output_tool_only(tmp_path, monkeypatch):
+def test_the_model_is_offered_shell_read_edit_and_session_and_the_output_tool_only(tmp_path, monkeypatch):
     seen = {}
 
     def look(messages, info):
@@ -1281,7 +1282,7 @@ def test_the_model_is_offered_shell_read_and_session_and_the_output_tool_only(tm
         w = _worker(tmp_path / mode, model=FunctionModel(script), replay=Replay(), mode=mode, monkeypatch=monkeypatch)
         w.read_new()
         assert asyncio.run(w.run_bite("turn end")) is True
-        assert seen == {"tools": ["read", "session", "shell"], "output": ["final_result"]}, (mode, seen)
+        assert seen == {"tools": ["edit", "read", "session", "shell"], "output": ["final_result"]}, (mode, seen)
 
 
 def test_with_a_key_the_probe_mcp_is_the_one_other_toolset(monkeypatch):
@@ -1292,7 +1293,7 @@ def test_with_a_key_the_probe_mcp_is_the_one_other_toolset(monkeypatch):
     monkeypatch.setattr(worker_mod, "probe_env", lambda sid: {"PROBE_TOKEN": "k", "PROBE_BASE_URL": "http://x"})
     agent = agent_mod.build_agent("instructions", model=FunctionModel(Script()),
                                   state=agent_mod.RunState(conversation=True, status=lambda: "state"))
-    assert set(agent._function_toolset.tools) == {"shell", "read", "session"}
+    assert set(agent._function_toolset.tools) == {"shell", "read", "session", "edit"}
     caps = agent._root_capability.capabilities
     assert [c.id for c in caps if isinstance(c, MCP)] == ["probe"]
     names = {type(c).__name__ for c in caps}

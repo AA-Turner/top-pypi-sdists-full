@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator
-from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from schemathesis.core import media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
@@ -13,6 +13,7 @@ from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema, get_type
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.specs.openapi.adapter.parameters import resource_name_from_ref
+from schemathesis.specs.openapi.converter import is_read_only
 from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.models import (
     CanonicalizationCache,
@@ -28,7 +29,11 @@ from schemathesis.specs.openapi.stateful.dependencies.models import (
 )
 from schemathesis.specs.openapi.stateful.dependencies.resources import (
     ResponseResourceCache,
+    allowed_values,
     cached_resources_from_responses,
+    contains_value,
+    declared_field_values,
+    write_only_fields,
 )
 
 if TYPE_CHECKING:
@@ -44,11 +49,12 @@ def extract_inputs(
     resolver: Resolver,
     canonicalization_cache: CanonicalizationCache,
     response_resource_cache: ResponseResourceCache,
-    deferred_nested_fks: list[tuple[str, str, str]] | None = None,
+    nested_fk_cache: NestedFKCache,
+    deferred_nested_fks: list[tuple[str, str, str]],
     deferred_named_scalars: list[tuple[str, str, JsonSchema]] | None = None,
     deferred_body_fields: list[tuple[str, JsonSchema]] | None = None,
     deferred_field_named_path_parameters: list[tuple[str, str]] | None = None,
-    deferred_writable_body_fields: dict[str, JsonSchema] | None = None,
+    deferred_writable_body_fields: dict[str, JsonSchema],
     candidate_resource_names: frozenset[str] = frozenset(),
 ) -> Iterator[InputSlot]:
     """Extract resource dependencies for an API operation from its input parameters.
@@ -78,7 +84,7 @@ def extract_inputs(
         input_slot = _resolve_parameter_dependency(
             parameter_name=param.name,
             parameter_schema=_parameter_schema(param),
-            parameter_types=_parameter_types(param),
+            parameter_types=parameter_types(param),
             parameter_location=param.location,
             operation=operation,
             resources=resources,
@@ -116,6 +122,7 @@ def extract_inputs(
             operation=operation,
             resources=resources,
             known_dependencies=known_dependencies,
+            nested_fk_cache=nested_fk_cache,
             updated_resource=updated_resource,
             deferred_nested_fks=deferred_nested_fks,
             deferred_named_scalars=deferred_named_scalars,
@@ -132,7 +139,7 @@ def _parameter_schema(parameter: OpenApiParameter) -> JsonSchema:
         return {}
 
 
-def _parameter_types(parameter: OpenApiParameter) -> list[str]:
+def parameter_types(parameter: OpenApiParameter) -> list[str]:
     try:
         return get_type(parameter.raw_schema)
     except InvalidSchema:
@@ -362,6 +369,25 @@ def _flatten_composition(schema: dict[str, Any], bundled: dict[str, Any]) -> tup
     return properties, required
 
 
+def assigns_identifier(operation: APIOperation, resource_name: str) -> bool:
+    """Whether the request body declares a `readOnly` identifier of `resource_name`, which the server sets."""
+    for body in operation.body:
+        schema = body.raw_schema
+        if not isinstance(schema, dict):
+            continue
+        bundled = schema.get(BUNDLE_STORAGE_KEY, {})
+        properties, _ = _flatten_composition(maybe_resolve_bundled(schema), bundled)
+        for name, subschema in properties.items():
+            lower = name.lower()
+            if (
+                (lower == "id" or lower.endswith(("_id", "-id")) or name.endswith(("Id", "ID")))
+                and naming.from_parameter(name, operation.path, body_field=True) == resource_name
+                and is_read_only(subschema, bundled)
+            ):
+                return True
+    return False
+
+
 _SCALAR_TYPES = frozenset({"string", "integer", "number"})
 
 
@@ -375,11 +401,12 @@ def _resolve_body_dependencies(
     operation: APIOperation,
     resources: ResourceMap,
     known_dependencies: set[str],
+    nested_fk_cache: NestedFKCache,
     updated_resource: str | None = None,
-    deferred_nested_fks: list[tuple[str, str, str]] | None = None,
+    deferred_nested_fks: list[tuple[str, str, str]],
     deferred_named_scalars: list[tuple[str, str, JsonSchema]] | None = None,
     deferred_body_fields: list[tuple[str, JsonSchema]] | None = None,
-    deferred_writable_body_fields: dict[str, JsonSchema] | None = None,
+    deferred_writable_body_fields: dict[str, JsonSchema],
     candidate_resource_names: frozenset[str] = frozenset(),
 ) -> Iterator[InputSlot]:
     schema = body.raw_schema
@@ -416,15 +443,12 @@ def _resolve_body_dependencies(
     # Inspect each property that could be a part of some other resource.
     # Flatten composition keywords first so bodies whose top level is allOf/oneOf/anyOf still surface their fields.
     properties, required = _flatten_composition(resolved, bundled)
-    if not properties:
-        return
     path = operation.path
     for property_name, subschema in properties.items():
         # Generation never sends `readOnly` fields, so a link must not either.
-        if deferred_writable_body_fields is not None and not (
-            isinstance(subschema, dict) and subschema.get("readOnly")
-        ):
-            deferred_writable_body_fields[property_name] = subschema
+        if is_read_only(subschema, bundled):
+            continue
+        deferred_writable_body_fields[property_name] = subschema
         if deferred_body_fields is not None and property_name in required and _is_scalar(subschema):
             deferred_body_fields.append((property_name, subschema))
         resource_name = naming.from_parameter(property_name, path, body_field=True)
@@ -500,16 +524,35 @@ def _resolve_body_dependencies(
         )
 
     # Recursively find nested FK fields in request body
-    yield from _extract_nested_body_fk_fields(resolved, resources, bundled, path="", deferred=deferred_nested_fks)
+    scan = NestedFKScan(
+        bundled=bundled, name_to_uri=body.name_to_uri, by_reference=nested_fk_cache, by_schema={}, flattened={}
+    )
+    yield from _extract_nested_body_fk_fields(resolved, resources, scan, deferred=deferred_nested_fks)
+
+
+# FK fields behind a bundled reference, by the reference's original URI and the remaining depth.
+NestedFKCache: TypeAlias = dict[tuple[str, int], list[tuple[str, str, str]]]
+
+
+@dataclass(slots=True)
+class NestedFKScan:
+    """Scan of one request body for nested FK fields."""
+
+    bundled: dict[str, Any]
+    name_to_uri: dict[str, str]
+    # Bodies bundle the same references separately, yet find the same FK fields behind them.
+    by_reference: NestedFKCache
+    # Bodies reuse the same schemas at many places; each is scanned once per remaining depth.
+    by_schema: dict[tuple[int, int], list[tuple[str, str, str]]]
+    # Flattened writable properties, once whatever the remaining depth.
+    flattened: dict[int, dict[str, Any]]
 
 
 def _extract_nested_body_fk_fields(
     schema: dict[str, Any],
     resources: ResourceMap,
-    bundled: dict[str, Any],
-    path: str,
-    max_depth: int = 5,
-    deferred: list[tuple[str, str, str]] | None = None,
+    scan: NestedFKScan,
+    deferred: list[tuple[str, str, str]],
 ) -> Iterator[InputSlot]:
     """Recursively extract FK fields from nested request body schemas.
 
@@ -520,62 +563,86 @@ def _extract_nested_body_fk_fields(
     When the FK target resource isn't yet registered, the lookup is appended to
     `deferred` so the caller can replay it once every operation has been scanned.
     """
-    if max_depth <= 0:
-        return
-
-    properties, _ = _flatten_composition(schema, bundled)
+    items = schema.get("items")
+    if isinstance(items, dict):
+        # Items of a top-level array body carry FK fields like nested array items: `[{"groupId": ...}]`.
+        properties: dict[str, Any] = {"0": items}
+    else:
+        properties, _ = _flatten_composition(schema, scan.bundled)
     for property_name, subschema in properties.items():
-        if isinstance(subschema, dict):
-            current_path = f"{path}/{property_name}" if path else property_name
-            yield from _extract_container_fk_fields(subschema, resources, bundled, current_path, max_depth, deferred)
+        if not isinstance(subschema, dict) or is_read_only(subschema, scan.bundled):
+            continue
+        for suffix, target_resource_name, target_field in _container_fk_fields(subschema, scan, 5):
+            nested_path = property_name + suffix
+            resource = resources.get(target_resource_name)
+            if resource is not None:
+                yield InputSlot(
+                    resource=resource,
+                    resource_field=target_field,
+                    parameter_name=nested_path,
+                    parameter_location=ParameterLocation.BODY,
+                )
+            else:
+                deferred.append((target_resource_name, target_field, nested_path))
 
 
-def _extract_container_fk_fields(
-    schema: dict[str, Any],
-    resources: ResourceMap,
-    bundled: dict[str, Any],
-    path: str,
-    max_depth: int,
-    deferred: list[tuple[str, str, str]] | None,
-) -> Iterator[InputSlot]:
+def _container_fk_fields(schema: dict[str, Any], scan: NestedFKScan, max_depth: int) -> list[tuple[str, str, str]]:
+    """FK fields under `schema` as `(path suffix, target resource, target field)`."""
+    key = (id(schema), max_depth)
+    cached = scan.by_schema.get(key)
+    if cached is not None:
+        return cached
+    fields: list[tuple[str, str, str]] = []
+    scan.by_schema[key] = fields
     reference = schema.get("$ref")
     if isinstance(reference, str):
-        target = bundled.get(reference.rsplit("/", 1)[-1])
+        bundled_name = reference.rsplit("/", 1)[-1]
+        target = scan.bundled.get(bundled_name)
+        uri = scan.name_to_uri.get(bundled_name)
+        # A bare reference finds the same FK fields in every body that bundles its target.
+        if len(schema) == 1 and uri is not None and isinstance(target, dict):
+            shared = scan.by_reference.setdefault((uri, max_depth), fields)
+            if shared is not fields:
+                scan.by_schema[key] = shared
+                return shared
         if isinstance(target, dict) and target.get("type") == "array":
             # Each followed reference spends depth, so an array whose items point back at it terminates.
             if max_depth <= 1:
-                return
+                return fields
             schema = target
             max_depth -= 1
     if schema.get("type") == "array":
         items = schema.get("items")
         if isinstance(items, dict):
-            yield from _extract_container_fk_fields(items, resources, bundled, f"{path}/0", max_depth, deferred)
-        return
+            fields.extend(
+                (f"/0{suffix}", resource, field)
+                for suffix, resource, field in _container_fk_fields(items, scan, max_depth)
+            )
+        return fields
 
     # Composition branches may carry the actual object shape, so flatten before treating as object.
-    properties, _ = _flatten_composition(schema, bundled)
-    for name, subschema in properties.items():
-        if not isinstance(subschema, dict):
-            continue
+    properties = scan.flattened.get(id(schema))
+    if properties is None:
+        properties = scan.flattened[id(schema)] = {
+            name: subschema
+            for name, subschema in _flatten_composition(schema, scan.bundled)[0].items()
+            if isinstance(subschema, dict) and not is_read_only(subschema, scan.bundled)
+        }
+    for name in properties:
         fk_info = infer_fk_target(name)
         if fk_info is None:
             continue
-        nested_path = f"{path}/{name}"
         target_resource_name, target_field, _ = fk_info
-        resource = resources.get(target_resource_name)
-        if resource is not None:
-            yield InputSlot(
-                resource=resource,
-                resource_field=target_field,
-                parameter_name=nested_path,
-                parameter_location=ParameterLocation.BODY,
-            )
-        elif deferred is not None:
-            deferred.append((target_resource_name, target_field, nested_path))
+        fields.append((f"/{name}", target_resource_name, target_field))
 
-    if properties:
-        yield from _extract_nested_body_fk_fields(schema, resources, bundled, path, max_depth - 1, deferred=deferred)
+    if max_depth > 1:
+        for name, subschema in properties.items():
+            if isinstance(subschema, dict):
+                fields.extend(
+                    (f"/{name}{suffix}", resource, field)
+                    for suffix, resource, field in _container_fk_fields(subschema, scan, max_depth - 1)
+                )
+    return fields
 
 
 def rebind_inherited_suffix_matches(operations: OperationMap, resources: ResourceMap) -> None:
@@ -653,12 +720,12 @@ def _prefer_string_identifier(
     return field
 
 
-def update_input_field_bindings(resource_name: str, operations: OperationMap) -> None:
+def update_input_field_bindings(resource_names: set[str], operations: OperationMap) -> None:
     """Update input slots field bindings after resource definition was upgraded.
 
     When a resource's fields change (e.g., `User` upgraded from `["userId"]` to `["id", "email"]`),
     existing input slots may reference stale field names. This re-evaluates field matching
-    for all operations using this resource.
+    for all operations using these resources.
 
     Example:
         `DELETE /users/{userId}` created `InputSlot(resource_field="userId")`
@@ -666,17 +733,17 @@ def update_input_field_bindings(resource_name: str, operations: OperationMap) ->
         This updates DELETE's `InputSlot` to use `resource_field="id"`
 
     """
-    # Re-evaluate field matching for all operations referencing this resource
+    # Re-evaluate field matching for all operations referencing these resources
     for operation in operations.values():
         for input_slot in operation.inputs:
-            # Skip inputs not using this resource
-            if input_slot.resource.name != resource_name or isinstance(input_slot.parameter_name, int):
+            # Skip inputs not using these resources
+            if input_slot.resource.name not in resource_names or isinstance(input_slot.parameter_name, int):
                 continue
 
             # Re-match parameter to upgraded resource fields
             new_field = naming.find_matching_field(
                 parameter=input_slot.parameter_name,
-                resource=resource_name,
+                resource=input_slot.resource.name,
                 fields=input_slot.resource.fields,
             )
             if new_field is not None:
@@ -686,6 +753,11 @@ def update_input_field_bindings(resource_name: str, operations: OperationMap) ->
 def merge_related_resources(operations: OperationMap, resources: ResourceMap) -> None:
     """Merge parameter-inferred resources with schema-defined resources from related operations."""
     candidates = find_producer_consumer_candidates(operations)
+    returned_by: dict[tuple[str, str], set[str]] = {}
+    for label, node in operations.items():
+        base_path = _extract_base_path(node.path)
+        for output in node.outputs:
+            returned_by.setdefault((base_path, output.resource.name), set()).add(label)
 
     for producer_name, consumer_name in candidates:
         producer = operations[producer_name]
@@ -693,6 +765,11 @@ def merge_related_resources(operations: OperationMap, resources: ResourceMap) ->
 
         # Try to upgrade each input slot
         for input_slot in consumer.inputs:
+            # A fieldless resource its own collection returns is real (a polymorphic listing), not a path-named stub.
+            if input_slot.resource.source == DefinitionSource.SCHEMA_WITHOUT_PROPERTIES and returned_by.get(
+                (_extract_base_path(consumer.path), input_slot.resource.name), set()
+            ) - {consumer_name}:
+                continue
             result = try_merge_input_resource(input_slot, producer.outputs, resources)
 
             if result is not None:
@@ -777,14 +854,17 @@ def rebind_body_fields_to_unique_producers(
                 )
 
 
-def bind_echoed_body_fields(operations: OperationMap, writable_body_fields: dict[str, dict[str, JsonSchema]]) -> None:
+def bind_echoed_body_fields(
+    schema: OpenApiSchema, operations: OperationMap, writable_body_fields: dict[str, dict[str, JsonSchema]]
+) -> None:
     """Bind update body fields to what the item `GET` returns but creation cannot set, e.g. a `version` token."""
     labels = {(node.method.lower(), node.path): label for label, node in operations.items()}
     for label, fields in writable_body_fields.items():
         update = operations[label]
         if update.method.lower() not in ("put", "patch") or naming.trailing_path_parameter(update.path) is None:
             continue
-        reader = operations.get(labels.get(("get", update.path), ""))
+        reader_label = labels.get(("get", update.path), "")
+        reader = operations.get(reader_label)
         if reader is None:
             continue
         # Only creation tells client-set fields apart from server-set ones; client-set fields keep generated values.
@@ -805,6 +885,7 @@ def bind_echoed_body_fields(operations: OperationMap, writable_body_fields: dict
                     or not _is_scalar(field_schema)
                     or field not in output.response_fields
                     or not output.resource.types.get(field, set()) & set(get_type(field_schema))
+                    or not _accepts_read_values(schema, reader_label, output, field, field_schema)
                 ):
                     continue
                 update.inputs.append(
@@ -817,6 +898,22 @@ def bind_echoed_body_fields(operations: OperationMap, writable_body_fields: dict
                     )
                 )
                 bound.add(field)
+
+
+def _accepts_read_values(
+    schema: OpenApiSchema, reader_label: str, output: OutputSlot, field: str, field_schema: dict[str, Any]
+) -> bool:
+    # A read `state` may hold values an update rejects, e.g. `running` when only `success` or `failed` can be set.
+    accepted = allowed_values(field_schema, None)
+    if accepted is None:
+        return True
+    reader = schema.find_operation_by_label(reader_label)
+    assert reader is not None
+    response = reader.responses.get(output.status_code)
+    # The output was extracted from this response.
+    assert response is not None
+    read = declared_field_values(response, output.pointer, field, schema.root_resolver)
+    return read is None or all(contains_value(accepted, value) for value in read)
 
 
 def _has_resource_prefix(field: str, resource_name: str) -> bool:
@@ -973,11 +1070,15 @@ def disambiguate_path_suffix_matches(operations: OperationMap, resources: Resour
             input_slot.resource_field = input_slot.parameter_name
 
 
-def bind_item_parameters_to_collections(operations: OperationMap) -> None:
+def bind_item_parameters_to_collections(
+    operations: OperationMap, path_parameter_types: dict[str, dict[str, list[str]]]
+) -> None:
     """Bind `/things/{id}` path parameters to the resource `GET /things` lists when nothing else can supply the id."""
     listed: dict[str, dict[str, ResourceDefinition]] = {}
     # Collection names each resource is listed under; a shape listed by `/groups` and `/domains` alike is generic.
     listed_under: dict[str, set[str]] = {}
+    # Collection paths each resource is listed under; `/apis/{api}/comments` and `/domains/{domain}/comments` differ
+    listed_at: dict[str, set[str]] = {}
     producers: dict[str, list[tuple[OperationNode, OutputSlot]]] = {}
     # `(resource, field)` pairs that `*_id` fields of produced resources point to
     fed: set[tuple[str, str]] = set()
@@ -990,7 +1091,9 @@ def bind_item_parameters_to_collections(operations: OperationMap) -> None:
                 collection = operation.path.rstrip("/")
                 listed.setdefault(collection, {})[output.resource.name] = output.resource
                 listed_under.setdefault(output.resource.name, set()).add(collection.rsplit("/", 1)[-1])
+                listed_at.setdefault(output.resource.name, set()).add(re.sub(r"\{[^}]*\}", "{}", collection))
 
+    listed_identifiers: list[tuple[OperationNode, InputSlot]] = []
     for operation in operations.values():
         segments = operation.path.split("/")
         for input_slot in operation.inputs:
@@ -1003,12 +1106,50 @@ def bind_item_parameters_to_collections(operations: OperationMap) -> None:
             index = segments.index(placeholder)
             if index < 2 or segments[index - 1].startswith("{"):
                 continue
+            # `{warehouse}` under `/warehouses` names a listed warehouse, so a slot nothing can fill takes its identifier
+            # `/apis/{api}/{version}` keys one resource by two segments, which no single listed field matches
+            names_collection = (
+                (
+                    input_slot.resource.name not in producers
+                    or input_slot.resource_field not in input_slot.resource.fields
+                )
+                and not (index + 1 < len(segments) and segments[index + 1].startswith("{"))
+                and naming.normalize_for_matching(parameter_name)
+                == naming.normalize_for_matching(naming.to_singular(segments[index - 1]))
+            )
             candidates = [
-                resource
+                (resource, field)
                 for resource in listed.get("/".join(segments[:index]), {}).values()
-                if parameter_name in resource.fields and len(listed_under[resource.name]) == 1
+                if len(listed_under[resource.name]) == 1
+                and (
+                    field := _listed_field(
+                        resource,
+                        parameter_name,
+                        names_collection=names_collection and len(listed_at[resource.name]) == 1,
+                        parameter_types=path_parameter_types.get(
+                            f"{operation.method.upper()} {operation.path}", {}
+                        ).get(parameter_name, []),
+                    )
+                )
+                is not None
             ]
-            if len(candidates) != 1 or candidates[0].name == input_slot.resource.name:
+            if len(candidates) != 1 or candidates[0][0].name == input_slot.resource.name:
+                continue
+            candidate, field = candidates[0]
+            if field != parameter_name:
+                # The current slot stays: foreign keys of other responses may still fill it
+                listed_identifiers.append(
+                    (
+                        operation,
+                        InputSlot(
+                            resource=candidate,
+                            resource_field=field,
+                            parameter_name=parameter_name,
+                            parameter_location=ParameterLocation.PATH,
+                            is_listed_identifier=True,
+                        ),
+                    )
+                )
                 continue
             current = input_slot.resource.name
             if input_slot.resource_field is not None and (current, input_slot.resource_field) in fed:
@@ -1023,9 +1164,8 @@ def bind_item_parameters_to_collections(operations: OperationMap) -> None:
                 for producer, _ in current_producers
             ):
                 continue
-            candidate = candidates[0]
             input_slot.resource = candidate
-            input_slot.resource_field = parameter_name
+            input_slot.resource_field = field
             input_slot.is_suffix_matched = False
             # `POST /things/{id}` still creates what the listing lists
             for producer, output in current_producers:
@@ -1034,6 +1174,36 @@ def bind_item_parameters_to_collections(operations: OperationMap) -> None:
                     for existing in producer.outputs
                 ):
                     producer.outputs.append(replace(output, resource=candidate))
+
+    for operation, slot in listed_identifiers:
+        operation.inputs.append(slot)
+
+
+def _listed_field(
+    resource: ResourceDefinition, parameter_name: str, *, names_collection: bool, parameter_types: list[str]
+) -> str | None:
+    if parameter_name in resource.fields:
+        return parameter_name
+    if names_collection:
+        for identifier in ("id", "slug", "key", "name"):
+            if identifier in resource.fields and _is_segment_identifier(resource, identifier, parameter_types):
+                return identifier
+    return None
+
+
+def _is_segment_identifier(resource: ResourceDefinition, identifier: str, parameter_types: list[str]) -> bool:
+    # The value must fit the parameter, and full resource paths are not segments: an ARM resource's `id` (next to
+    # `name` and `type`) and an AIP resource's `name` (next to `displayName`) spell the whole path
+    accepted = set(parameter_types or ["string"])
+    if "integer" in accepted:
+        accepted.add("number")
+    if not accepted & resource.types.get(identifier, accepted):
+        return False
+    if identifier == "id":
+        return not {"name", "type"} <= set(resource.fields)
+    if identifier == "name":
+        return "displayName" not in resource.fields
+    return True
 
 
 def align_created_identifiers(operations: OperationMap) -> None:
@@ -1149,6 +1319,72 @@ def bind_id_fields_to_returned_resources(operations: OperationMap) -> None:
             input_slot.is_suffix_matched = False
 
 
+def bind_parent_keys_to_item_fields(schema: OpenApiSchema, operations: OperationMap) -> None:
+    """Fill `{warehouseId}` of `/warehouses/{warehouseId}/shipments/{id}` from `Shipment.warehouseId` if unproduced."""
+    produced = _produced_resource_names(operations)
+    for label, operation in operations.items():
+        item_parameter = naming.trailing_path_parameter(operation.path)
+        if item_parameter is None:
+            continue
+        item = next(
+            (
+                input_slot.resource
+                for input_slot in operation.inputs
+                if input_slot.parameter_location == ParameterLocation.PATH
+                and input_slot.parameter_name == item_parameter
+            ),
+            None,
+        )
+        if item is None or item.source < DefinitionSource.SCHEMA_WITH_PROPERTIES:
+            continue
+        declared = schema.find_operation_by_label(label)
+        assert declared is not None
+        path_parameters = {
+            parameter.name: parameter
+            for parameter in declared.iter_parameters()
+            if parameter.location == ParameterLocation.PATH
+        }
+        # A `writeOnly` field is never in the item a response returns.
+        unreadable = {
+            field
+            for response in declared.responses.iter_successful_responses()
+            for field in write_only_fields(response, schema.root_resolver)
+        }
+        for input_slot in operation.inputs:
+            parameter_name = input_slot.parameter_name
+            if (
+                input_slot.parameter_location == ParameterLocation.PATH
+                and parameter_name != item_parameter
+                and isinstance(parameter_name, str)
+                and parameter_name in item.fields
+                and input_slot.resource.source == DefinitionSource.PARAMETER_INFERENCE
+                and input_slot.resource.name not in produced
+                and parameter_name in path_parameters
+                and parameter_name not in unreadable
+                # A path segment takes one scalar of the declared type, not a list or a nested object.
+                and _fits_path_parameter(item.types.get(parameter_name, set()), path_parameters[parameter_name])
+            ):
+                input_slot.resource = item
+                input_slot.resource_field = parameter_name
+                input_slot.is_parent_key = True
+
+
+def _fits_path_parameter(field_types: set[str], parameter: OpenApiParameter) -> bool:
+    if not field_types & _SCALAR_TYPES:
+        return False
+    declared_types = parameter_types(parameter)
+    if field_types & set(declared_types):
+        return True
+    # A plain string segment carries a number as is; a `format` or `pattern` (`uuid`) rules numbers out.
+    parameter_schema = _parameter_schema(parameter)
+    return (
+        declared_types == ["string"]
+        and isinstance(parameter_schema, dict)
+        and "format" not in parameter_schema
+        and "pattern" not in parameter_schema
+    )
+
+
 def _module_of(path: str) -> str:
     stripped = naming.strip_version_prefix(path).lstrip("/")
     head, _, _ = stripped.partition("/")
@@ -1170,9 +1406,9 @@ def try_merge_input_resource(
     """Try to upgrade an input's resource to a producer's resource."""
     consumer_resource = input_slot.resource
 
-    # Only upgrade parameter-inferred resources (low confidence) or suffix-matched inputs
+    # Only upgrade resources without declared fields (low confidence) or suffix-matched inputs
     # Suffix-matched inputs may have matched a less specific resource (e.g., "Blog post" instead of "Blog post public")
-    if consumer_resource.source != DefinitionSource.PARAMETER_INFERENCE and not input_slot.is_suffix_matched:
+    if consumer_resource.source >= DefinitionSource.SCHEMA_WITH_PROPERTIES and not input_slot.is_suffix_matched:
         return None
 
     # Try each producer output

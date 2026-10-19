@@ -13,7 +13,7 @@ from decimal import Decimal
 from fractions import Fraction
 from functools import cache, partial
 from hashlib import blake2b
-from itertools import combinations, count, islice
+from itertools import count, islice
 from math import ceil, floor, inf, isinf, nextafter, ulp
 
 from schemathesis.core.jsonschema import (
@@ -408,6 +408,11 @@ def cached_draw(session: GenerationSession, strategy: st.SearchStrategy) -> Any:
             outcome = (examples.generate_one(strategy), None)
         except Unsatisfiable as exc:
             outcome = (None, exc)
+        except InvalidArgument as exc:
+            # A size past what Hypothesis draws, e.g. a pattern quantifier asking for 100000 characters, has no value.
+            if "larger than Hypothesis supports" not in str(exc):
+                raise
+            outcome = (None, Unsatisfiable(str(exc)))
         session.draw_outcomes[strategy] = outcome
     value, failure = outcome
     if failure is not None:
@@ -743,20 +748,51 @@ class CoverageContext:
 
     def _distinct_array(self, schema: JsonSchemaObject, length: int) -> list[JsonValue]:
         """An array of this many distinct elements, gathered from many small draws rather than drawn whole."""
-        batch: st.SearchStrategy[list[JsonValue]] = self._strategy_for(
-            {**schema, "type": "array", "minItems": MAX_DRAWN_ARRAY_ITEMS, "maxItems": MAX_DRAWN_ARRAY_ITEMS}
-        )
+        batch_schema = {**schema, "type": "array", "minItems": MAX_DRAWN_ARRAY_ITEMS, "maxItems": MAX_DRAWN_ARRAY_ITEMS}
+        # Lengths around one boundary differ only in how many elements they take, so they share one set.
+        try:
+            cache_key: tuple | None = (
+                self.schema_key(batch_schema),
+                self.session.token_for(self.custom_formats),
+                self.session.token_for(self.update_pattern),
+                self.validator_cls,
+            )
+        except (TypeError, ValueError):
+            cache_key = None
+        cached = MISSING if cache_key is None else self.session.distinct_elements.get(cache_key)
+        # Draw again only when the set is too short for this floor yet met the one it was drawn for.
+        if isinstance(cached, tuple) and (len(cached[0]) >= length or len(cached[0]) < cached[1]):
+            elements = cached[0]
+        else:
+            elements = self._draw_distinct(self._strategy_for(batch_schema), length)
+            if cache_key is not None:
+                self.session.distinct_elements[cache_key] = (elements, length)
+        if len(elements) < length:
+            raise Unsatisfiable
+        # A shared element would let one caller's edit show up in another array.
+        return [deepclone(element) if isinstance(element, (dict, list)) else element for element in elements[:length]]
+
+    def _draw_distinct(self, batch: st.SearchStrategy[list[JsonValue]], length: int) -> list[JsonValue]:
+        """Up to this many distinct elements from batches of draws; fewer when the domain runs out."""
+        needed = -(-length // MAX_DRAWN_ARRAY_ITEMS)
+        # Draws overlap, so twice the batches the floor needs to start with.
+        budget = 2 * needed
         elements: dict[object, JsonValue] = {}
-        # Draws overlap, so twice the batches the floor needs; a domain too small for it runs out before then.
-        batches: list[list[JsonValue]] = examples.generate_many(
-            batch, max_examples=2 * -(-length // MAX_DRAWN_ARRAY_ITEMS)
-        )
-        for drawn in batches:
-            for element in drawn:
-                elements.setdefault(json_identity(element), element)
-                if len(elements) == length:
-                    return list(elements.values())
-        raise Unsatisfiable
+        while True:
+            batches: list[list[JsonValue]] = examples.generate_many(batch, max_examples=budget)
+            elements = {}
+            for drawn in batches:
+                for element in drawn:
+                    elements.setdefault(json_identity(element), element)
+            # Fewer batches than asked for means the domain ran out.
+            if len(elements) >= length or len(batches) < budget or not elements:
+                break
+            # Short of the floor: draw again, as many batches as the yield so far suggests it takes. Past four
+            # times the batches the floor needs, the domain is running out and more draws would not reach it.
+            budget = -(-budget * length * 3 // (2 * len(elements)))
+            if budget > 4 * needed:
+                break
+        return list(elements.values())
 
     def _tiled_array(self, schema: JsonSchemaObject, length: int) -> list:
         """An array of this length, repeated from a one-element draw rather than drawn whole."""
@@ -1007,7 +1043,8 @@ class CoverageContext:
     def _try_enum(self, schema: JsonSchemaObject) -> Any:
         if "enum" not in schema:
             return NOT_SET
-        enum_values = [v for v in schema["enum"] if _is_valid_with_formats(v, schema, self)]
+        judge = _judge(schema, self)
+        enum_values = [v for v in schema["enum"] if judge is None or judge(v)]
         if not enum_values:
             raise Unsatisfiable
         return cached_draw(self.session, st.sampled_from(enum_values))
@@ -1016,6 +1053,7 @@ class CoverageContext:
         if not ("pattern" in schema and "string" in get_type(schema)):
             return NOT_SET
         pattern = schema["pattern"]
+        fmt = schema.get("format")
         try:
             re.compile(pattern)
         except re.error:
@@ -1036,6 +1074,16 @@ class CoverageContext:
             doomed = min_length is not None and min_length > pattern_min
             if doomed and pattern_length_is_unreachable(pattern, min_length, max_length):
                 raise Unsatisfiable
+            # A length-aware format generator can supply a boundary value without the rejection
+            # search that broad character classes need. Check one candidate against the original
+            # schema; a restrictive pattern still gets its own generator below.
+            lengths = format_lengths_for(self.custom_formats).get(fmt or "")
+            if lengths is not None and lengths.within is not None and fmt in VALIDATED_FORMATS:
+                strategy = lengths.within(min_length or 0, max_length if max_length is not None else inf)
+                if strategy is not None:
+                    candidate = cached_draw(self.session, strategy)
+                    if _is_strictly_valid(candidate, schema, self):
+                        return candidate
             updated = pattern
             if self.update_pattern is not None:
                 updated = self.update_pattern(pattern, min_length, max_length)
@@ -1049,7 +1097,6 @@ class CoverageContext:
             pattern = updated
         if min_length is not None and min_length > MAX_GENERATED_PATTERN_LENGTH:
             return self._long_string_matching(schema, min_length)
-        fmt = schema.get("format")
         validated = fmt if fmt in VALIDATED_FORMATS else None
         # Spelling the length into the pattern fixes the shape of every match, so a format the
         # first match fails is one no redraw satisfies; checking once beats searching for it.
@@ -1107,7 +1154,8 @@ class CoverageContext:
         items = schema["items"]
         min_items = schema.get("minItems", 0)
         if "enum" in items:
-            enum_values = [v for v in items["enum"] if _is_valid_with_formats(v, items, self)]
+            judge = _judge(items, self)
+            enum_values = [v for v in items["enum"] if judge is None or judge(v)]
             if not enum_values:
                 # Nothing matches, so only an empty array can conform.
                 if min_items:
@@ -1156,7 +1204,38 @@ class CoverageContext:
                         stack.enter_context(self.expand(reference, counters=self.generating))
                     return self.generate_from_schema(merged)
             schema = inlined
+        pinned = self._with_spec_values_pinned(schema)
+        if pinned is not schema:
+            try:
+                return self.generate_from(self._strategy_for(pinned))
+            except Unsatisfiable:
+                # Pinned values can clash with keywords about the whole value, like `uniqueItems`.
+                pass
         return self.generate_from(self._strategy_for(schema))
+
+    def _with_spec_values_pinned(self, schema: JsonSchemaObject) -> JsonSchemaObject:
+        """`schema` with each property and `items` schema below it narrowed to its declared example when one fits."""
+        updated = schema
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            pinned = {name: self._pinned_to_spec_value(sub) for name, sub in properties.items()}
+            if any(pinned[name] is not sub for name, sub in properties.items()):
+                updated = {**updated, "properties": pinned}
+        items = schema.get("items")
+        if isinstance(items, dict):
+            pinned_items = self._pinned_to_spec_value(items)
+            if pinned_items is not items:
+                updated = {**updated, "items": pinned_items}
+        return updated
+
+    def _pinned_to_spec_value(self, schema: JsonSchema) -> JsonSchema:
+        if not isinstance(schema, dict):
+            return schema
+        value = self._try_spec_value(schema)
+        # Binary values cannot be drawn from, so such a schema keeps generating its own.
+        if value is NOT_SET or contains_binary(value):
+            return self._with_spec_values_pinned(schema)
+        return {"enum": [value]}
 
     def _strategy_for(self, schema: JsonSchema) -> st.SearchStrategy:
         if isinstance(schema, dict) and "examples" in schema:
@@ -1319,7 +1398,14 @@ class HashSet:
         return _to_hashable_key(value) in self._data
 
     def insert(self, value: Any) -> bool:
+        return self._insert_key(_to_hashable_key(value))
+
+    def insert_unless_in(self, other: HashSet, value: Any) -> bool:
+        """Insert the value unless `other` already holds it; the key is built once for both sets."""
         key = _to_hashable_key(value)
+        return key not in other._data and self._insert_key(key)
+
+    def _insert_key(self, key: tuple) -> bool:
         before = len(self._data)
         self._data.add(key)
         return len(self._data) > before
@@ -1921,8 +2007,9 @@ def _cover_positive_for_type(
     enum = schema.get("enum", NOT_SET)
     const = schema.get("const", NOT_SET)
     if enum is not NOT_SET:
+        judge = _judge(schema, ctx)
         for value in enum:
-            if _is_valid_with_formats(value, schema, ctx) and _is_representable(value, ctx, declared=True):
+            if (judge is None or judge(value)) and _is_representable(value, ctx, declared=True):
                 yield PositiveValue(value, scenario=CoverageScenario.ENUM_VALUE, description="Enum value")
     elif const is not NOT_SET:
         if _is_valid_with_formats(const, schema, ctx) and _is_representable(const, ctx, declared=True):
@@ -2776,13 +2863,22 @@ def drop_negatives_any_draft_admits(
     """Negatives a judge of any draft rejects; a value one reading admits is a valid request under it."""
     judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
     for value in values:
-        if (
-            value.generation_mode == GenerationMode.NEGATIVE
-            and not contains_binary(value.value)
-            and any(judge.is_valid(value.value) for judge in judges)
-        ):
+        if value.generation_mode == GenerationMode.NEGATIVE and _admitted_by_any(judges, value.value):
             continue
         yield value
+
+
+def _admitted_by_any(judges: list[jsonschema_rs.Validator], value: Any) -> bool:
+    """Whether a judge admits the value; a binary payload is never judged."""
+    # Validation stops at the first violation, so judging first spares most values a full walk for binary payloads.
+    try:
+        admitted = any(judge.is_valid(value) for judge in judges)
+    except ValueError:
+        # Binary a judge reaches cannot be validated.
+        if contains_binary(value):
+            return False
+        raise
+    return admitted and not contains_binary(value)
 
 
 def _branch_drafts(schemas: list[JsonSchema], ctx: CoverageContext) -> dict[type, None]:
@@ -3503,7 +3599,8 @@ def _positive_array(
         # Ensure there is enough items to pass `minItems` if it is specified
         length = min_items or 1
         item_schema = schema["items"]
-        enum_values = [v for v in item_schema["enum"] if _is_valid_with_formats(v, item_schema, ctx)]
+        judge = _judge(item_schema, ctx)
+        enum_values = [v for v in item_schema["enum"] if judge is None or judge(v)]
         if schema.get("uniqueItems") and length > 1:
             for i, variant in enumerate(enum_values):
                 others = [enum_values[j] for j in range(len(enum_values)) if j != i]
@@ -3683,9 +3780,9 @@ def _iter_positive_object(
                 )
 
 
-def select_combinations(optional: list[str]) -> Iterator[tuple[str, ...]]:
+def select_combinations(optional: list[str]) -> Iterator[frozenset[str]]:
     for size in range(2, len(optional)):
-        yield next(combinations(optional, size))
+        yield frozenset(optional[:size])
 
 
 # `enum`/`const` without a sibling `type` (e.g. `canonicalish` strips `type` from `{type: string, enum: [...]}`
@@ -3787,8 +3884,12 @@ def _negative_properties(
     for key, sub_schema in properties.items():
         validator: jsonschema_rs.Validator | None = None
         # Draft 4 ignores siblings of `$ref`, so generation against `{$ref, sibling}` may yield
-        # values the body validator silently accepts; filter those out below.
-        sub_has_ref = isinstance(sub_schema, dict) and "$ref" in sub_schema
+        # values the body validator silently accepts; filter those out below. Annotations constrain nothing.
+        sub_has_ref = (
+            isinstance(sub_schema, dict)
+            and "$ref" in sub_schema
+            and any(key != "$ref" and key not in ANNOTATION_KEYWORDS for key in sub_schema)
+        )
         if isinstance(sub_schema, dict):
             # Cache by (sub_schema, bundle) identity — same pair recurs across operations.
             def _builder(s: dict = sub_schema, b: dict | None = bundle) -> JsonSchema:
@@ -4059,18 +4160,34 @@ def _negative_multiple_of(
         )
 
 
+def _sent_text_judge(ctx: CoverageContext, schema: JsonSchemaObject) -> Callable[[Any], bool]:
+    """Whether the server reads an array value's single text as valid, e.g. a path array joined with commas."""
+    # A body array stays an array, and a query array travels as repeated parameters the server reads as one list.
+    if ctx.location in (ParameterLocation.BODY, ParameterLocation.QUERY):
+        return lambda value: False
+    judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
+    types = parameter_types(schema)
+
+    def is_valid(instance: Any) -> bool:
+        return _admitted_by_any(judges, instance)
+
+    return lambda value: any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(value))
+
+
 def _negative_unique_items(
     ctx: CoverageContext, schema: JsonSchemaObject, unique_items: Any, seen: HashSet
 ) -> Generator[GeneratedValue, None, None]:
     if not unique_items:
         return
+    reads_back_valid = _sent_text_judge(ctx, schema)
     unique = jsonify(ctx.generate_from_schema({**schema, "type": "array", "minItems": 1, "maxItems": 1}))
-    yield NegativeValue(
-        unique + unique,
-        scenario=CoverageScenario.NON_UNIQUE_ITEMS,
-        description="Non-unique items",
-        location=ctx.current_path,
-    )
+    if not reads_back_valid(unique + unique):
+        yield NegativeValue(
+            unique + unique,
+            scenario=CoverageScenario.NON_UNIQUE_ITEMS,
+            description="Non-unique items",
+            location=ctx.current_path,
+        )
     # When the declared type forbids arrays (e.g. Kubernetes paints `uniqueItems: true`
     # onto every scalar query parameter), also emit a 2-element unique-array case so
     # the uniqueItems-valid branch is exercised alongside the duplicate above. Schemas
@@ -4090,7 +4207,7 @@ def _negative_unique_items(
             pair = jsonify(ctx.generate_from_schema(pair_schema))
         except (InvalidArgument, Unsatisfiable):
             return
-        if isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1]:
+        if isinstance(pair, list) and len(pair) == 2 and pair[0] != pair[1] and not reads_back_valid(pair):
             yield NegativeValue(
                 pair,
                 scenario=CoverageScenario.UNIQUE_ITEMS_ARRAY,
@@ -4122,6 +4239,56 @@ def _violates_hostname(value: object, session: GenerationSession, validator_cls:
     return value == "" or not conforms_to_format(session, value, "hostname", validator_cls)
 
 
+# Values valid for the format, and near misses a regex tailored to it rejects
+_FORMAT_PROBES = {
+    "uuid": (
+        (
+            "123e4567-e89b-12d3-a456-426614174000",
+            "123e4567-e89b-42d3-a456-426614174000",
+            "0190a6f4-e89b-72d3-a456-426614174000",
+        ),
+        (
+            "123e4567e-89b-42d3-a456-426614174000",
+            "g23e4567-e89b-42d3-a456-426614174000",
+            "123e4567e89b-42d3-a456-426614174000",
+            "x123e4567-e89b-42d3-a456-426614174000",
+            "123e4567-e89b-42d3-a456-426614174000x",
+        ),
+    ),
+    "date": (
+        ("2024-01-31", "2024-02-29"),
+        (
+            "2024-13-01",
+            "2024-00-10",
+            "2024-01-00",
+            "2024-01-32",
+            "2024-04-31",
+            "2023-02-29",
+            "2024-1-01",
+            "x2024-01-31",
+            "2024-01-31x",
+        ),
+    ),
+}
+
+
+# Keywords that describe a value without changing what is drawn for it
+_UNDRAWN_KEYWORDS = ANNOTATION_KEYWORDS - _DATA_KEYWORDS
+
+
+@cache
+def _pattern_implies_format(pattern: str, format: str) -> bool:
+    """Whether every value matching `pattern` is valid for `format`, so no value can break only the format."""
+    probes = _FORMAT_PROBES.get(format)
+    if probes is None:
+        return False
+    matches = make_validator_for({"pattern": pattern}).is_valid
+    valid, near = probes
+    return any(matches(value) or matches(value.upper()) for value in valid) and not any(
+        matches(value) or matches(value.upper()) for value in near
+    )
+
+
 def _negative_format(
     ctx: CoverageContext, schema: JsonSchemaObject, format: str
 ) -> Generator[GeneratedValue, None, None]:
@@ -4137,6 +4304,9 @@ def _negative_format(
     validator_cls = ctx.validator_cls
     if format not in VALIDATED_FORMATS_BY_DRAFT.get(validator_cls, frozenset()):
         return
+    pattern = schema.get("pattern")
+    if isinstance(pattern, str) and _pattern_implies_format(pattern, format):
+        raise Unsatisfiable
     # Drawing under the format and filtering for values that violate it can never succeed
     without_format = {k: v for k, v in schema.items() if k != "format"}
     without_format["type"] = "string"
@@ -4146,7 +4316,8 @@ def _negative_format(
     # Negative-format draws can spend seconds on JS-style `/.../`-wrapped patterns; cache by
     # the structural inputs so the same shape across 100s of operations runs Hypothesis once.
     try:
-        cache_key = ("negative_format", ctx.schema_key(without_format), format, validator_cls)
+        shape = {k: v for k, v in without_format.items() if k not in _UNDRAWN_KEYWORDS and not k.startswith("x-")}
+        cache_key = ("negative_format", ctx.schema_key(shape), format, validator_cls)
     except (TypeError, ValueError):
         cache_key = None
     if cache_key is not None:

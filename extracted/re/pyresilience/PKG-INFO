@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pyresilience
-Version: 0.4.0
+Version: 0.4.1
 Summary: Unified resilience patterns for Python — retry, circuit breaker, timeout, fallback, bulkhead, rate limiter, and cache in one decorator.
 Project-URL: Homepage, https://github.com/AhsanSheraz/pyresilience
 Project-URL: Repository, https://github.com/AhsanSheraz/pyresilience
@@ -43,7 +43,7 @@ Description-Content-Type: text/markdown
 <p align="center">
   <a href="https://github.com/AhsanSheraz/pyresilience/actions/workflows/ci.yml"><img src="https://github.com/AhsanSheraz/pyresilience/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://codecov.io/gh/AhsanSheraz/pyresilience"><img src="https://codecov.io/gh/AhsanSheraz/pyresilience/graph/badge.svg?token=egEaq767Fi" alt="Coverage"></a>
-  <a href="https://pypi.org/project/pyresilience/"><img src="https://img.shields.io/pypi/v/pyresilience.svg?t=20260319" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/pyresilience/"><img src="https://img.shields.io/pypi/v/pyresilience.svg?t=20260612" alt="PyPI version"></a>
   <a href="https://pypi.org/project/pyresilience/"><img src="https://img.shields.io/pypi/pyversions/pyresilience.svg" alt="Python versions"></a>
   <a href="https://pypi.org/project/pyresilience/"><img src="https://img.shields.io/pypi/dm/pyresilience.svg" alt="Downloads"></a>
   <a href="https://github.com/AhsanSheraz/pyresilience/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/pyresilience.svg" alt="License"></a>

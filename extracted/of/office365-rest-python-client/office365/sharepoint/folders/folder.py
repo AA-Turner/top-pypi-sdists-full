@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Callable, Iterable, List, Optional, Tuple, Union
+from uuid import UUID
 
 from typing_extensions import Self
 
@@ -23,7 +25,9 @@ from office365.sharepoint.permissions.base_permissions import BasePermissions
 from office365.sharepoint.principal.users.user import User
 from office365.sharepoint.sharing.document_manager import DocumentSharingManager
 from office365.sharepoint.sharing.links.share_response import ShareLinkResponse
-from office365.sharepoint.sharing.object_sharing_information import ObjectSharingInformation
+from office365.sharepoint.sharing.object_sharing_information import (
+    ObjectSharingInformation,
+)
 from office365.sharepoint.sharing.user_role_assignment import UserRoleAssignment
 from office365.sharepoint.sharing.user_sharing_result import UserSharingResult
 from office365.sharepoint.storagemetrics.storage_metrics import StorageMetrics
@@ -35,6 +39,7 @@ from office365.sharepoint.utilities.move_copy_util import MoveCopyUtil
 if TYPE_CHECKING:
     from office365.runtime.converters.dataframe import DataFrameResult
     from office365.sharepoint.files.collection import FileCollection
+    from office365.sharepoint.files.download_operation import DownloadOperation
     from office365.sharepoint.files.file import File
     from office365.sharepoint.folders.collection import FolderCollection
 
@@ -97,6 +102,47 @@ class Folder(Entity):
     ):
         """Deprecated alias of :meth:`download_folder_as_zip`."""
         return self.download_folder_as_zip(download_file, after_file_downloaded, recursive, include_versions, progress)
+
+    def download(
+        self,
+        target_dir: Union[str, Path],
+        *,
+        recursive: bool = True,
+        overwrite: bool = False,
+        resume: bool = False,
+        progress: Optional[ProgressCallback] = None,
+    ) -> "DownloadOperation":
+        """Download this folder's files into a local directory, concurrently.
+
+        Enumerates the folder (paged, optionally recursive) preserving the
+        relative tree under ``target_dir``, then downloads the files with
+        bounded concurrency and per-file retry. Returns a deferred
+        :class:`~office365.sharepoint.files.download_operation.DownloadOperation`;
+        drive it with ``execute_query()`` or ``await execute_query_async()``.
+
+        Unlike :meth:`download_folder_as_zip`, this writes loose files (no zip)
+        and never requires the caller to open or close destination streams.
+
+        Args:
+            target_dir: Local directory to write files into (created as needed).
+            recursive: Recurse into subfolders (default ``True``).
+            overwrite: When ``False`` (default) existing files are skipped, so a
+              re-run resumes where it left off.
+            resume: When ``True``, an existing but incomplete destination is
+              completed by fetching only the missing byte range, instead of
+              being skipped.
+            progress: Optional hook invoked with ``Progress`` snapshots
+              (``stage="scanning"`` while enumerating, ``"downloading"`` while
+              transferring).
+
+        Returns:
+            A deferred bulk-download operation.
+        """
+        from office365.sharepoint.files.download_operation import DownloadOperation
+
+        return DownloadOperation.for_folder(
+            self, target_dir, recursive=recursive, overwrite=overwrite, resume=resume, progress=progress
+        )
 
     def upload_folder(
         self,
@@ -342,6 +388,7 @@ class Folder(Entity):
         expiration: Optional[datetime] = None,
         role: Optional[int] = None,
         password: Optional[str] = None,
+        share_id: Optional[str] = None,
     ) -> ClientResult[ShareLinkResponse]:
         """Creates a tokenized sharing link for a folder based on the specified parameters and optionally
         sends an email to the people that are listed in the specified parameters.
@@ -359,7 +406,7 @@ class Folder(Entity):
                 protection.
         """
         return self.list_item_all_fields.share_link(
-            link_kind=link_kind, expiration=expiration, role=role, password=password
+            link_kind=link_kind, expiration=expiration, role=role, password=password, share_id=share_id
         )
 
     def unshare_link(self, link_kind: int, share_id: Optional[str] = None) -> Self:
@@ -372,11 +419,17 @@ class Folder(Entity):
         """
         return self.list_item_all_fields.unshare_link(link_kind, share_id)  # type: ignore[returnType]
 
-    def recycle(self) -> ClientResult[str]:
-        """Moves the folder to the Recycle Bin and returns the identifier of the new Recycle Bin item."""
+    def recycle(self, ignore_missing: bool = False) -> ClientResult[str]:
+        """Moves the folder to the Recycle Bin and returns the identifier of the new Recycle Bin item.
+
+        Args:
+            ignore_missing (bool): When True, recycling a folder that no longer
+                exists (HTTP 404) succeeds instead of raising.
+        """
         return_type = ClientResult(self.context, str())
         qry = ServiceOperationQuery(self, "Recycle", None, None, None, return_type)
         self.context.add_query(qry)
+        self._tolerate_missing(ignore_missing)
         return return_type
 
     def recycle_with_parameters(self, parameters: FolderDeleteParameters) -> ClientResult[str]:
@@ -462,6 +515,67 @@ class Folder(Entity):
         if len(parts) > 1:
             folder = self.ensure_folder("/".join(parts[:-1]))
         return folder.files.upload_content(content, parts[-1], chunk_size, progress)
+
+    def ensure_file(
+        self,
+        relative_path: str,
+        content: Union[str, bytes] = b"",
+        *,
+        on_conflict: str = "skip",
+        chunk_size: int = _DEFAULT_CHUNK_SIZE,
+    ) -> File:
+        """Ensure a file exists under this folder, uploading content when needed.
+
+        The file counterpart of :meth:`ensure_folder`: missing parent folders are
+        created (via :meth:`ensure_folder`), then the leaf file is resolved —
+        reusing the existing file or uploading ``content`` when absent. Fully
+        deferred; run the chain with ``execute_query()`` and the returned file
+        addresses the target:
+
+            >>> folder.ensure_file("2026/Q1/report.txt", "hello").execute_query()
+
+        Args:
+            relative_path (str): File name, or a path relative to this folder,
+              e.g. ``"report.txt"`` or ``"2026/Q1/report.txt"``.
+            content (str or bytes): File content; ``str`` is encoded as UTF-8.
+            on_conflict (str): Behaviour when the file already exists. ``"skip"``
+              (default) keeps it untouched, so a re-run is a no-op and
+              ``content`` is never sent; ``"replace"`` overwrites it.
+            chunk_size (int): Simple-upload threshold / session chunk size (bytes).
+
+        Returns:
+            File: The target file (existing or newly uploaded).
+        """
+        from office365.runtime.paths.v3.entity import EntityPath
+        from office365.runtime.queries.get_or_create import get_or_create
+        from office365.sharepoint.files.file import File
+
+        if on_conflict not in ("skip", "replace"):
+            raise ValueError(f"on_conflict must be 'skip' or 'replace', got {on_conflict!r}")
+        parts = [part for part in relative_path.replace("\\", "/").split("/") if part]
+        if not parts:
+            raise ValueError("Path is empty")
+        name = parts[-1]
+        data = content.encode("utf-8") if isinstance(content, str) else content
+        parent = self.ensure_folder("/".join(parts[:-1])) if len(parts) > 1 else self
+        files = parent.files
+        return_type = File(self.context, EntityPath(name, files.resource_path))
+
+        def _create_query():
+            if len(data) <= chunk_size:
+                return files._build_upload_query(return_type, name, data, overwrite=True)
+            return files._build_upload_session_query(return_type, name, io.BytesIO(data), len(data), chunk_size)
+
+        if on_conflict == "replace":
+            self.context.add_query(_create_query())
+            return return_type
+        get_or_create(
+            find=return_type.get,
+            create_query=_create_query,
+            return_type=return_type,
+            on_conflict="skip",
+        )
+        return return_type
 
     def write_dataframe(
         self,
@@ -791,3 +905,58 @@ class Folder(Entity):
             elif name == "ServerRelativePath":
                 self._resource_path = self.context.web.get_folder_by_server_relative_path(value).resource_path
         return self
+
+    @property
+    def exists_allow_throw_for_policy_failures(self) -> Optional[bool]:
+        """Gets the ExistsAllowThrowForPolicyFailures property"""
+        return self.properties.get("ExistsAllowThrowForPolicyFailures", None)
+
+    @property
+    def exists_with_exception(self) -> Optional[bool]:
+        """Gets the ExistsWithException property"""
+        return self.properties.get("ExistsWithException", None)
+
+    @property
+    def item_count(self) -> Optional[int]:
+        """Gets the ItemCount property"""
+        return self.properties.get("ItemCount", None)
+
+    def add_sub_folder(self, leaf_name: str) -> Self:
+        """AddSubFolder operation.
+
+        Args:
+            leaf_name (str):
+                leafName parameter
+        """
+        qry = ServiceOperationQuery(self, "AddSubFolder", None, {"leafName": leaf_name}, None, None)
+        self.context.add_query(qry)
+        return self
+
+    def add_sub_folder_using_path(self, decoded_url: str) -> Self:
+        """AddSubFolderUsingPath operation.
+
+        Args:
+            decoded_url (str):
+                DecodedUrl parameter
+        """
+        qry = ServiceOperationQuery(self, "AddSubFolderUsingPath", None, {"DecodedUrl": decoded_url}, None, None)
+        self.context.add_query(qry)
+        return self
+
+    def delete_with_parameters(self, parameters: FolderDeleteParameters) -> Self:
+        """DeleteWithParameters operation.
+
+        Args:
+            parameters (FolderDeleteParameters):
+                parameters parameter
+        """
+        qry = ServiceOperationQuery(self, "DeleteWithParameters", None, {"parameters": parameters}, None, None)
+        self.context.add_query(qry)
+        return self
+
+    def start_delete(self) -> ClientResult[UUID]:
+        """StartDelete operation."""
+        return_type = ClientResult(self.context, UUID(int=0))
+        qry = ServiceOperationQuery(self, "StartDelete", None, {}, None, return_type)
+        self.context.add_query(qry)
+        return return_type

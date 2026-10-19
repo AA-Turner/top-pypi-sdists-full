@@ -192,6 +192,9 @@ class Capabilities:
     #: which case "not installed" is an unanswered question, not a finding, and
     #: nothing may report a failed install on the strength of it.
     plugins_verified: bool = True
+    #: Why the plugin list could not be read, when it could not: the agent CLI's
+    #: own answer (a timeout, a missing binary) or an unreadable install record.
+    plugins_error: str | None = None
 
     capture_token_sources: tuple[TokenSource, ...] = ()
     #: True/False when the backend accepted/rejected the resolved credential;
@@ -338,6 +341,24 @@ class Capabilities:
                 self.auto_update_enabled,
                 self.agent_rules_installed,
                 self.last_update_attempt is not None,
+            )
+        )
+
+    @property
+    def agent_configured(self) -> bool:
+        """Whether Probe was set up for THIS agent: its plugins, its capture
+        pairing (or killswitch) or its rules. `configured` without the device's
+        own evidence (the sign-in, the updater), which every agent's snapshot
+        shares: a signed-in device does not make pi, never set up, "configured"
+        (`probe status`)."""
+        return any(
+            (
+                self.tracking_plugin_installed,
+                self.capture_plugin_installed,
+                self.legacy_capture_plugin_installed,
+                bool(self.capture_token_sources),
+                self.capture_killswitched,
+                self.agent_rules_installed,
             )
         )
 
@@ -983,7 +1004,10 @@ def fetch_device_state(
 
 
 def start_device_state(
-    request: DeviceStateRequest, *, warm_manifest_on_fallback: bool = False
+    request: DeviceStateRequest,
+    *,
+    warm_manifest_on_fallback: bool = False,
+    deadline: float | None = None,
 ) -> DeviceStateResolver:
     """Send the call on a daemon thread and return its resolver at once.
 
@@ -991,9 +1015,11 @@ def start_device_state(
     readers gave up on is nobody's, and must not write the version cache after
     them either. A daemon thread, not an executor: an executor's workers are
     joined at interpreter exit, so quitting the wizard while a call was pending
-    would wait out its timeout."""
+    would wait out its timeout. `deadline` (`time.monotonic`) makes it sooner
+    than the call's own budget (`probe status --refresh --timeout`)."""
     future: Future = Future()
-    deadline = time.monotonic() + DEVICE_STATE_TIMEOUT_S + DEVICE_STATE_GRACE_S
+    own = time.monotonic() + DEVICE_STATE_TIMEOUT_S + DEVICE_STATE_GRACE_S
+    deadline = own if deadline is None else min(own, deadline)
 
     def run() -> None:
         try:
@@ -1123,6 +1149,9 @@ class PluginState:
 
     names: frozenset[str] = frozenset()
     verified: bool = True
+    #: Why it could not look, when it could not (None when it did, or when
+    #: there is no list to read, as for pi).
+    error: str | None = None
 
     def __contains__(self, name: str) -> bool:
         return name in self.names
@@ -1141,8 +1170,13 @@ class PluginState:
         return [name for name in wanted if name not in self.names]
 
 
-def installed_plugins(*, source: str | None = None) -> PluginState:
+def installed_plugins(*, source: str | None = None, local: bool = False) -> PluginState:
     """Plugin names the selected coding agent reports as installed.
+
+    `local` reads the record the agent's own `plugin list` reads instead of
+    running it (`probe status` without --refresh): Claude Code's install ledger,
+    Codex's config.toml (`_local_plugins`). pi, Kimi Code and a cloud agent
+    are file reads either way.
 
     ``verified=False`` when its CLI is absent (normal on a GPU pod and never
     an error) or the query could not complete.
@@ -1191,9 +1225,11 @@ def installed_plugins(*, source: str | None = None) -> PluginState:
         if not merged.tracking_off:
             names.add(tracking_plugin_name(selected))
         return PluginState(names=frozenset(names), verified=False)
+    if local and selected in LOCAL_PLUGIN_RECORDS:
+        return _local_plugins(selected)
     result = plugin_cli.list_plugins(selected)
     if not result.reachable:
-        return PluginState(verified=False)
+        return PluginState(verified=False, error=result.detail or None)
     names: set[str] = set()
     for line in result.detail.splitlines():
         # `probe-research` is a PREFIX of `probe-research-tap`, so a line naming
@@ -1212,7 +1248,80 @@ def installed_plugins(*, source: str | None = None) -> PluginState:
             names.add(TRACKING_PLUGIN_NAME)
     # A non-zero exit with readable output still tells us what IS installed, but
     # not reliably what is not -- so parse it and decline to call it verified.
-    return PluginState(names=frozenset(names), verified=result.ok)
+    return PluginState(
+        names=frozenset(names), verified=result.ok, error=None if result.ok else (result.detail or None)
+    )
+
+
+def claude_plugin_ledger() -> Path:
+    """Claude Code's install ledger, `installed_plugins.json`: the record its
+    `plugin list` reads: `PROBE_INSTALLED_PLUGINS_JSON` first, then
+    `CLAUDE_CONFIG_DIR`, then `~/.claude`. The one answer: `versions.py` grades
+    the plugin's version off the same file."""
+    override = (os.environ.get("PROBE_INSTALLED_PLUGINS_JSON") or "").strip()
+    if override:
+        return Path(override)
+    home = (os.environ.get("CLAUDE_CONFIG_DIR") or "").strip()
+    return (Path(home).expanduser() if home else Path.home() / ".claude") / "plugins" / "installed_plugins.json"
+
+
+def _claude_ledger_ids() -> list[str]:
+    """Every `<plugin>@<marketplace>` the ledger holds an install for. A missing
+    ledger is Claude Code with nothing installed; an unreadable one raises."""
+    try:
+        raw = json.loads(claude_plugin_ledger().read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    plugins = raw.get("plugins") if isinstance(raw, dict) else None
+    if not isinstance(plugins, dict):
+        raise ValueError("no `plugins` table")
+    return [key for key, entries in plugins.items() if isinstance(key, str) and entries]
+
+
+def _codex_plugin_ids() -> list[str]:
+    """Every `[plugins."<plugin>@<marketplace>"]` table in Codex's config.toml,
+    which `codex plugin add` writes and `codex plugin list` reads (enabled or
+    not, as the list shows them). A missing file is Codex with nothing added."""
+    from probe._compat import tomllib
+    from probe.cli import codex_config
+
+    try:
+        parsed = tomllib.loads(codex_config.config_path().read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    plugins = parsed.get("plugins")
+    return [key for key in plugins if isinstance(key, str)] if isinstance(plugins, dict) else []
+
+
+#: The agents whose `plugin list` is a subprocess, and the file it reads.
+LOCAL_PLUGIN_RECORDS = {plugin_cli.CLAUDE: _claude_ledger_ids, plugin_cli.CODEX: _codex_plugin_ids}
+
+
+def _local_plugins(source: str) -> PluginState:
+    """`installed_plugins` from the agent's own record, with no subprocess.
+
+    Mirrors the CLI path on purpose: no binary on PATH reads unverified, as
+    `plugin list` would (so the default and --refresh status agree), and an
+    unreadable record reads unverified with the reason, never as "nothing
+    installed". Names are matched whole, so the tap and the daemon plugin never
+    read as the tracking plugin they contain."""
+    if not plugin_cli.available(source):
+        return PluginState(verified=False, error=f"`{plugin_cli.binary_name(source)}` not found on PATH")
+    try:
+        ids = LOCAL_PLUGIN_RECORDS[source]()
+    except Exception as exc:  # noqa: BLE001 - an unreadable record is "could not look"
+        return PluginState(verified=False, error=f"could not read its plugin record ({type(exc).__name__}: {exc})")
+    tap_name = capture_plugin_name(source)
+    known = {tap_name, DAEMON_PLUGIN_NAME, TRACKING_PLUGIN_NAME}
+    names: set[str] = set()
+    for plugin_id in ids:
+        if source == plugin_cli.CODEX and plugin_id == LEGACY_CODEX_TAP_PLUGIN_ID:
+            names.add(LEGACY_CODEX_TAP_PLUGIN_ID)
+            continue
+        name = plugin_id.split("@", 1)[0]
+        if name in known:
+            names.add(name)
+    return PluginState(names=frozenset(names), verified=True)
 
 
 def capture_device_id(source: str | None = None) -> str | None:
@@ -1325,19 +1434,28 @@ MCP_RESOLVERS = _mcp_resolvers()
 
 #: The API's verdict on this device's read token, for this process:
 #: (token, "ok" | "rejected" | "unreachable"), or None when nobody asked.
-#: Only `probe doctor` and the wizard ask (`refresh_mcp_token_verdict`), so a
-#: status read anywhere else never touches the network.
+#: Only `probe doctor`, the wizard (`refresh_mcp_token_verdict`) and `probe
+#: status --refresh` (`ask_mcp_token_verdict`, recorded only when it answers in
+#: time) ask, so a status read anywhere else never touches the network.
 _MCP_TOKEN_VERDICT: tuple[str, str] | None = None
 
 
 def refresh_mcp_token_verdict() -> str | None:
     """Ask the API once whether the read token is still accepted (`/v1/me`, the
     check `probe mcp status` makes). None when there is no token to ask about."""
-    global _MCP_TOKEN_VERDICT
     token = cli_mcp_token()
     if not token:
-        _MCP_TOKEN_VERDICT = None
+        record_mcp_token_verdict(None, None)
         return None
+    state = ask_mcp_token_verdict(token)
+    record_mcp_token_verdict(token, state)
+    return state
+
+
+def ask_mcp_token_verdict(token: str) -> str:
+    """The API's verdict on `token` -- ok | rejected | unreachable -- recording
+    nothing. Split from `refresh_mcp_token_verdict` so a caller that bounds the
+    wait (`probe status --refresh`) records only an answer that came in time."""
     from probe.cli.main import _verify
     from probe.sdk.config import resolve
 
@@ -1345,8 +1463,13 @@ def refresh_mcp_token_verdict() -> str | None:
         state, _identity = _verify(token, resolve().base_url)
     except Exception:  # noqa: BLE001 - a failed check is "unknown", never "rejected"
         state = "unreachable"
-    _MCP_TOKEN_VERDICT = (token, state)
     return state
+
+
+def record_mcp_token_verdict(token: str | None, state: str | None) -> None:
+    """What this process's `check_mcp` reads as the API's verdict on `token`."""
+    global _MCP_TOKEN_VERDICT
+    _MCP_TOKEN_VERDICT = (token, state) if token and state else None
 
 
 def mcp_token_rejected() -> bool:

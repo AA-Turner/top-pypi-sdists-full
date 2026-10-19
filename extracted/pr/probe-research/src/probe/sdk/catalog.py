@@ -255,6 +255,67 @@ def ref_of(value: Any) -> str | None:
     return None
 
 
+#: `@latest` after a dataset name or id.
+_DATASET_LATEST = "latest"
+#: `@step<N>` after a checkpoint's run: one save.
+_CHECKPOINT_STEP = re.compile(r"^step[0-9]+$")
+#: `@latest`, `@best` and `@best:<callback>` after a checkpoint's run.
+_CHECKPOINT_MOVING = ("latest", "best")
+#: The fixed forms a refusal or a warning points to.
+FIXED_REF_FORMS = "`dataset:<name>@<N>`, `checkpoint:<run>@step<N>`, `source:<key>@<revision>`"
+
+
+def is_moving_ref(ref: Any) -> bool:
+    """Does `ref` name whatever is newest when the use is RECORDED, not one
+    version? A dataset with no version or `@latest`, a checkpoint by `@latest`
+    / `@best[:<callback>]`, and a source key with no `@<revision>` (the server
+    picks its newest revision). The server resolves a ref when the use reaches
+    it, so a link made later -- by the agent, or replayed from the outbox --
+    could name a newer version or save than the run used (D16, D17). A form
+    this cannot read is left to the server to refuse."""
+    raw = ref_of(ref) or ""
+    kind, sep, body = raw.partition(":")
+    kind, body = kind.strip().lower(), body.strip()
+    if not sep or not body:
+        return False
+    _, at, selector = body.rpartition("@")
+    selector = selector.strip().lower()
+    if kind == "dataset":
+        return not at or selector == _DATASET_LATEST
+    if kind == "checkpoint":
+        if not at or _CHECKPOINT_STEP.fullmatch(selector):
+            return False
+        return selector.partition(":")[0] in _CHECKPOINT_MOVING
+    if kind == "source":
+        return not at and not _UUID.fullmatch(body)
+    return False
+
+
+def moving_ref_refusal(ref: str) -> str:
+    """Why the CLI will not record `ref`, and the command that lists the fixed
+    refs to use instead."""
+    kind, _, body = ref.partition(":")
+    kind = kind.strip().lower()
+    head = body.rpartition("@")[0] or body
+    if kind == "checkpoint":
+        run = head or "RUN"
+        return (
+            f"{ref} names whichever save is newest or best when the link is made, not the one the run used. "
+            f"Name the save: checkpoint:{run}@step<N> or checkpoint:<id> (`probe checkpoint list --run {run}` "
+            "lists them)."
+        )
+    if kind == "source":
+        return (
+            f"{ref} names whichever revision is newest when the link is made, not the one the run used. "
+            f"Name the revision: source:{body}@<revision> or source:<id> (`probe source list` lists them)."
+        )
+    name = head or "NAME"
+    return (
+        f"{ref} names whichever version is newest when the link is made, not the one the run used. "
+        f"Name the version: dataset:{name}@<N> (`probe dataset show dataset:{name}` lists them)."
+    )
+
+
 def _role(role: Any) -> str:
     try:
         return Role(str(role)).value
@@ -431,16 +492,69 @@ def catalog_available(client: "Client") -> bool | None:
     return answer
 
 
-def _send(client: "Client", path: str, body: dict, *, what: str) -> dict | None:
+#: Why a moving ref is never queued, said once in every warning about it.
+_NOT_QUEUED = "sent later, a moving ref could name a newer version than this run used"
+
+
+def could_succeed_later(exc: BaseException) -> bool:
+    """A failure the outbox would queue: no answer, or a server error."""
+    return isinstance(exc, (errors.TransportError, errors.ServerError))
+
+
+def _may_have_landed(exc: BaseException | None) -> bool:
+    """The request left and only its answer was lost (a read timeout, a
+    dropped connection, our deadline cut after sending): the server may have
+    applied it. Never true of a connect failure or a deadline that cut before
+    sending (`transport.py` sets `unreachable` for the first)."""
+    if not isinstance(exc, errors.TransportError) or exc.unreachable:
+        return False
+    return not isinstance(exc, errors.DeadlineExceeded) or exc.sent
+
+
+def warn_not_queued(client: Any, what: str, exc: BaseException | None = None) -> None:
+    """Once per call site and ref (``what`` names the ref): a write naming a
+    moving ref that could not be sent now, and so is not recorded (D17).
+    ``exc`` is None when what failed was the manifest the write waits behind."""
+    from .offline import OfflineClient
+
+    if isinstance(client, OfflineClient):
+        text = (
+            f"probe: {what}: not recorded: an offline run needs a fixed ref ({FIXED_REF_FORMS}), because "
+            f"`probe sync` sends it later, and {_NOT_QUEUED}."
+        )
+    elif _may_have_landed(exc):
+        text = (
+            f"probe: {what}: Probe did not answer in time, so it may or may not be recorded. It was not "
+            f"queued: {_NOT_QUEUED}. Name a fixed ref ({FIXED_REF_FORMS}) to be sure."
+        )
+    else:
+        lead = describe(exc, what) if exc is not None else (
+            f"probe: {what}: Probe could not take the dataset's manifest now; nothing was recorded."
+        )
+        text = f"{lead} It was not queued: {_NOT_QUEUED}. Call it again, or name a fixed ref ({FIXED_REF_FORMS})."
+    _warn_once(f"moving:{what}:{type(exc).__name__}", text)
+
+
+def _send(client: "Client", path: str, body: dict, *, what: str, queue: bool = True) -> dict | None:
     """One small catalog write from a training thread: sent now, within
     `REQUEST_SECONDS`; a refusal warns once, a failure that could still succeed
-    is queued in the outbox (the SDK's ordinary fail-open path)."""
+    is queued in the outbox (the SDK's ordinary fail-open path).
+
+    ``queue=False`` (a use naming a moving ref, D17): such a failure is NOT
+    queued. Replayed later, the server would resolve the ref then, maybe to a
+    newer version than the run used, and the link would still read as seen in
+    the code."""
     from .transport import deadline_scope
 
     try:
         with deadline_scope(time.monotonic() + REQUEST_SECONDS):
-            return client.write("POST", path, body, sync=True, raise_permanent=True)
+            if queue:
+                return client.write("POST", path, body, sync=True, raise_permanent=True)
+            return client.write("POST", path, body, sync=True, strict=True)
     except errors.RosError as exc:
+        if not queue and could_succeed_later(exc):
+            warn_not_queued(client, what, exc)
+            return None
         _warn_failure(exc, what)
     except Exception as exc:  # noqa: BLE001 - never into the job
         _warn_failure(exc, what)
@@ -681,7 +795,8 @@ def use(run: "Run", target: Any, *, role: str = Role.TRAIN.value, share: Any = N
     """`POST /v1/runs/{run}/uses`: the run used ``target`` (a dataset version,
     a source or a checkpoint) for ``role``. The server pins the version a bare
     `dataset:<name>` means NOW, so a later version never rewrites what this run
-    used. Never raises."""
+    used; for the same reason a moving ref is never queued (see `_send`).
+    Never raises."""
     label = f"{what}({ref_of(target) or getattr(target, 'name', None) or target!r})"
     try:
         if isinstance(target, DatasetRef) and target.pending and not target.ref:
@@ -698,7 +813,7 @@ def use(run: "Run", target: Any, *, role: str = Role.TRAIN.value, share: Any = N
         body: dict[str, Any] = {"target": ref, "roles": [_role(role)], "provenance": OBSERVED}
         if share is not None:
             body["share"] = check_share(share)
-        return _send(run._client, f"/v1/runs/{run.id}/uses", body, what=label)
+        return _send(run._client, f"/v1/runs/{run.id}/uses", body, what=label, queue=not is_moving_ref(ref))
     except Exception as exc:  # noqa: BLE001
         _warn_failure(exc, label)
         return None
@@ -706,11 +821,14 @@ def use(run: "Run", target: Any, *, role: str = Role.TRAIN.value, share: Any = N
 
 def use_mixture(run: "Run", parts: Mapping[Any, Any], *, role: str = Role.TRAIN.value) -> dict | None:
     """One batch to `/uses` that REPLACES the run's shares for ``role`` (V12):
-    `{ref: share}`, shares summing to 1. Never raises."""
+    `{ref: share}`, shares summing to 1. Never raises. A mixture naming any
+    moving ref is never queued (see `_send`)."""
     label = "use_mixture"
     try:
-        body = {"mixture": mixture_parts(parts), "role": _role(role), "provenance": OBSERVED}
-        return _send(run._client, f"/v1/runs/{run.id}/uses", body, what=label)
+        wire = mixture_parts(parts)
+        body = {"mixture": wire, "role": _role(role), "provenance": OBSERVED}
+        queue = not any(is_moving_ref(p["target"]) for p in wire)
+        return _send(run._client, f"/v1/runs/{run.id}/uses", body, what=label, queue=queue)
     except Exception as exc:  # noqa: BLE001
         _warn_failure(exc, label)
         return None
@@ -1700,6 +1818,10 @@ def _log_dataset(
     client = run._client
     check_name(name)
     parts = composition_parts(composition) if composition else None
+    # A registration naming a moving ref is never queued: replayed later, the
+    # server would resolve the ref then (D17).
+    sources = list(sources or ())
+    queue = not any(is_moving_ref(ref) for ref in [*(p["target"] for p in parts or ()), *sources])
     if catalog_available(client) is False:
         raise errors.NotFoundError("Not Found", status=404, detail="Not Found")
     from . import inputs
@@ -1720,7 +1842,7 @@ def _log_dataset(
         body = registration_body(
             name, hosted={"manifest_hash": prepared.content_hash, "run_id": run.id}, **common
         )
-        _register_bounded(client, body, out, wait=wait, what=what, after=None)
+        _register_bounded(client, body, out, wait=wait, what=what, after=None, queue=queue)
         return
     queued = prepared.manifest is not None and not _ship_manifest(client, prepared)
     if not register:
@@ -1734,6 +1856,11 @@ def _log_dataset(
         return
     body = registration_body(name, run_file=run_file_spec(run.id, name, prepared), **common)
     if queued:
+        if not queue:
+            out.pending = False
+            out._done.set()
+            warn_not_queued(client, what)
+            return
         # The manifest waits in the outbox: the registration that needs it
         # waits right behind it, never ahead of it.
         _queue_registration(client, body, out, what=what)
@@ -1747,7 +1874,7 @@ def _log_dataset(
             out.artifact_id = str(row["id"])
             upload_preview(_run_sender(run), prepared, out.artifact_id)
 
-    _register_bounded(client, body, out, wait=wait, what=what, after=after)
+    _register_bounded(client, body, out, wait=wait, what=what, after=after, queue=queue)
 
 
 def _ship_manifest(client: "Client", prepared: Prepared) -> bool:
@@ -1804,11 +1931,12 @@ def _record_run_file(run: "Run", name: str, prepared: Prepared) -> dict | None:
 
 
 def _register_bounded(
-    client: "Client", body: dict, out: DatasetRef, *, wait: float, what: str, after: Any
+    client: "Client", body: dict, out: DatasetRef, *, wait: float, what: str, after: Any, queue: bool = True
 ) -> None:
     """Send the registration on a thread and wait at most ``wait`` seconds for
     it; past that ``out`` is returned pending and filled when it lands. A
-    failure that could succeed later is queued in the outbox."""
+    failure that could succeed later is queued in the outbox, unless
+    ``queue`` is False (the body names a moving ref, D17)."""
 
     def work() -> None:
         from .transport import deadline_scope
@@ -1817,7 +1945,10 @@ def _register_bounded(
             # One bound for the registration AND what follows it (finding the
             # run file, the preview upload).
             with deadline_scope(time.monotonic() + REGISTER_DEADLINE_SECONDS):
-                answer = client.write("POST", "/v1/catalog/datasets", body, sync=True, raise_permanent=True)
+                if queue:
+                    answer = client.write("POST", "/v1/catalog/datasets", body, sync=True, raise_permanent=True)
+                else:
+                    answer = client.write("POST", "/v1/catalog/datasets", body, sync=True, strict=True)
                 if isinstance(answer, dict):
                     out._fill(answer)
                     if callable(after):
@@ -1826,7 +1957,10 @@ def _register_bounded(
                     out.pending = True  # queued in the outbox: delivered later, never filled here
         except Exception as exc:  # noqa: BLE001
             out.pending = False
-            _warn_failure(exc, what)
+            if not queue and could_succeed_later(exc):
+                warn_not_queued(client, what, exc)
+            else:
+                _warn_failure(exc, what)
         finally:
             out._done.set()
 

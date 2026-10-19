@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
 import ssl
+import struct
 import subprocess
 import sys
 import threading
@@ -16,7 +18,7 @@ import pytest
 import requests
 import trustme
 import uvicorn
-from werkzeug.serving import make_server
+from werkzeug.serving import BaseWSGIServer, make_server
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -24,6 +26,37 @@ if TYPE_CHECKING:
 
 
 COVERAGE_ENV_VARS = ("COVERAGE_PROCESS_START", "COVERAGE_FILE")
+# Every live server keeps a thread, and free-threaded builds hold megabytes per thread, so servers stop with their test.
+_SERVERS: list[BaseWSGIServer | uvicorn.Server] = []
+
+
+def _serve(server: BaseWSGIServer) -> int:
+    _SERVERS.append(server)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server.server_port
+
+
+def _shutdown(server: BaseWSGIServer) -> None:
+    server.shutdown()
+    server.server_close()
+
+
+def _stop(server: BaseWSGIServer | uvicorn.Server) -> None:
+    if isinstance(server, uvicorn.Server):
+        server.should_exit = True
+    else:
+        # `shutdown` waits up to the server's poll interval; doing it in the background keeps teardown instant.
+        threading.Thread(target=_shutdown, args=(server,), daemon=True).start()
+
+
+@pytest.fixture(autouse=True)
+def stop_test_servers():
+    # Servers from wider-scoped fixtures were registered before this point and keep running.
+    started = len(_SERVERS)
+    yield
+    for server in _SERVERS[started:]:
+        _stop(server)
+    del _SERVERS[started:]
 
 
 def unused_port() -> int:
@@ -140,18 +173,56 @@ def run_flask_app(app: Flask, port: int | None = None, timeout: float = 5.0, wai
     if port is not None or not wait:
         return run(app.run, port=port, timeout=timeout, wait=wait)
     # Binding port 0 inside the server leaves no window for another socket to take a pre-picked port.
-    server = make_server("127.0.0.1", 0, app, threaded=True)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server.server_port
+    return _serve(make_server("127.0.0.1", 0, app, threaded=True))
 
 
 def run_https_flask_app(app: Flask) -> int:
     """Start `app` over HTTPS with a certificate from an untrusted CA, so only unverified clients get through."""
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     trustme.CA().issue_cert("127.0.0.1").configure_cert(context)
-    server = make_server("127.0.0.1", 0, app, threaded=True, ssl_context=context)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server.server_port
+    return _serve(make_server("127.0.0.1", 0, app, threaded=True, ssl_context=context))
+
+
+def run_client_cert_flask_app(app: Flask, ca: trustme.CA) -> int:
+    """Start `app` over HTTPS with a certificate from `ca`, accepting only clients presenting a certificate from it."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ca.issue_cert("127.0.0.1").configure_cert(context)
+    ca.configure_trust(context)
+    context.verify_mode = ssl.CERT_REQUIRED
+    return _serve(make_server("127.0.0.1", 0, app, threaded=True, ssl_context=context))
+
+
+def run_resetting_server() -> int:
+    """Start a server that resets every connection, so requests fail at once without a response on every platform."""
+    listener = socket.create_server(("127.0.0.1", 0))
+
+    def read_request(connection: socket.socket) -> None:
+        data = b""
+        while b"\r\n\r\n" not in data:
+            chunk = connection.recv(65536)
+            if not chunk:
+                return
+            data += chunk
+        head, _, body = data.partition(b"\r\n\r\n")
+        length = re.search(rb"(?im)^content-length:\s*(\d+)", head)
+        remaining = int(length.group(1)) - len(body) if length else 0
+        while remaining > 0:
+            chunk = connection.recv(65536)
+            if not chunk:
+                return
+            remaining -= len(chunk)
+
+    def serve() -> None:
+        while True:
+            connection, _ = listener.accept()
+            # Resetting only once the whole request arrived makes the client see the same error every time.
+            read_request(connection)
+            # A zero linger timeout makes `close` send RST instead of FIN.
+            connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            connection.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    return listener.getsockname()[1]
 
 
 def openapi_url(app: Flask, *, path: str = "/openapi.json", wait: bool = True) -> str:
@@ -171,6 +242,7 @@ def run_asgi_app(app: ASGIApp, port: int | None = None, timeout: float = 5.0, wa
         sockets.append(sock)
     config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error", lifespan="off")
     server = uvicorn.Server(config)
+    _SERVERS.append(server)
     thread = threading.Thread(target=server.run, kwargs={"sockets": sockets or None}, daemon=True)
     thread.start()
     if wait:
@@ -182,6 +254,8 @@ def run_asgi_app(app: ASGIApp, port: int | None = None, timeout: float = 5.0, wa
 class AppRunner:
     run_flask_app: Callable[..., int]
     run_https_flask_app: Callable[[Flask], int]
+    run_client_cert_flask_app: Callable[[Flask, trustme.CA], int]
+    run_resetting_server: Callable[[], int]
     run_asgi_app: Callable[..., int]
     unused_port: Callable[[], int]
     openapi_url: Callable[..., str]
@@ -192,6 +266,8 @@ def app_runner():
     return AppRunner(
         run_flask_app=run_flask_app,
         run_https_flask_app=run_https_flask_app,
+        run_client_cert_flask_app=run_client_cert_flask_app,
+        run_resetting_server=run_resetting_server,
         run_asgi_app=run_asgi_app,
         unused_port=unused_port,
         openapi_url=openapi_url,

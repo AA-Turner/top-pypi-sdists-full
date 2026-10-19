@@ -387,8 +387,9 @@ static int css_classify_component(const Py_UCS4 *data, Py_ssize_t len) {
    points, or NULL on allocation failure. */
 static Py_UCS4 *css_strip_comments(const Py_UCS4 *src, Py_ssize_t len, Py_ssize_t *out_len) {
     Py_UCS4 *out = PyMem_Malloc((size_t)(len + 1) * sizeof(Py_UCS4));
-    if (out == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
-        return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
+    if (out == NULL) {    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        PyErr_NoMemory(); /* GCOVR_EXCL_LINE: allocation-failure path */
+        return NULL;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     Py_ssize_t write = 0;
     Py_ssize_t pos = 0;
@@ -1098,10 +1099,14 @@ PyObject *turbohtml_css_parse_rules(PyObject *module, PyObject *text) {
     }
     for (Py_ssize_t index = 0; index < rule_count; index++) {
         PyObject *selector = css_slice_str(rules[index].selector, rules[index].selector_len);
+        if (selector == NULL) {                /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            Py_DECREF(result);                 /* GCOVR_EXCL_LINE: allocation-failure path */
+            css_free_rules(rules, rule_count); /* GCOVR_EXCL_LINE: allocation-failure path */
+            PyMem_Free(clean);                 /* GCOVR_EXCL_LINE: allocation-failure path */
+            return NULL;                       /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
         PyObject *decls = css_decls_to_tuple(rules[index].decls, rules[index].decl_count);
-        /* both slices come from the same rule and fail only on allocation */
-        PyObject *rule =
-            selector != NULL && decls != NULL ? PyTuple_Pack(2, selector, decls) : NULL; /* GCOVR_EXCL_BR_LINE */
+        PyObject *rule = decls == NULL ? NULL : PyTuple_Pack(2, selector, decls); /* GCOVR_EXCL_BR_LINE: allocation */
         Py_XDECREF(selector);
         Py_XDECREF(decls);
         if (rule == NULL) {                    /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
@@ -1630,6 +1635,15 @@ static css_sheet *css_collect_sheets(module_state *state, th_tree *tree, th_node
             compiled[rule] = selector_compile(state->selector_error, tree, selector);
             Py_DECREF(selector);
             if (compiled[rule] == NULL) {
+                if (!PyErr_ExceptionMatches(state->selector_error)) { /* GCOVR_EXCL_BR_LINE: allocation failure */
+                    for (Py_ssize_t done = 0; done < rule; done++) {  /* GCOVR_EXCL_LINE: allocation failure */
+                        selector_free(compiled[done]);                /* GCOVR_EXCL_LINE: allocation failure */
+                    } /* GCOVR_EXCL_LINE: allocation failure */
+                    PyMem_Free(compiled);              /* GCOVR_EXCL_LINE: allocation failure */
+                    css_free_rules(rules, rule_count); /* GCOVR_EXCL_LINE: allocation failure */
+                    PyMem_Free(clean);                 /* GCOVR_EXCL_LINE: allocation failure */
+                    goto fail;                         /* GCOVR_EXCL_LINE: allocation failure */
+                }
                 /* an unsupported or invalid selector list drops its rule (it matches nothing) */
                 PyErr_Clear();
             } else {

@@ -14,12 +14,10 @@
 """HTML processor."""
 
 import html
+import itertools
 import json
 import os
-import queue
 from html.parser import HTMLParser
-
-from .utils import SEP
 
 HTMLAttr = list[tuple[str, str | None]]
 PARENT_CSS_STYLE = 'word-break: keep-all; overflow-wrap: anywhere;'
@@ -93,11 +91,12 @@ class HTMLChunkResolver(HTMLParser):
       separator (str): The separator string.
     """
     super().__init__()
-    self.chunks_joined = SEP.join(chunks)
+    self.text = ''.join(chunks)
+    self.boundaries = set(itertools.accumulate(len(c) for c in chunks[:-1]))
     self.separator = separator
     self.to_skip = False
     self.scan_index = 0
-    self.element_stack: queue.LifoQueue[ElementState] = queue.LifoQueue()
+    self.element_stack: list[ElementState] = []
     self._output: list[str] = []
 
   @property
@@ -112,34 +111,32 @@ class HTMLChunkResolver(HTMLParser):
       else:
         attr_pairs.append(f' {attr[0]}="{html.escape(attr[1])}"')
     encoded_attrs = ''.join(attr_pairs)
-    self.element_stack.put(ElementState(tag, self.to_skip))
+    self.element_stack.append(ElementState(tag, self.to_skip))
     if tag.upper() in SKIP_NODES:
-      if (
-        not self.to_skip
-        and self.scan_index < len(self.chunks_joined)
-        and self.chunks_joined[self.scan_index] == SEP
-      ):
-        self.scan_index += 1
+      if not self.to_skip and self.scan_index in self.boundaries:
+        self.boundaries.remove(self.scan_index)
         self._output.append(self.separator)
       self.to_skip = True
     self._output.append(f'<{tag}{encoded_attrs}>')
     if tag in VOID_ELEMENTS:
       # Void elements like `<input>` have no end tag, so restore the state now.
-      self.to_skip = self.element_stack.get_nowait().to_skip
+      self.to_skip = self.element_stack.pop().to_skip
 
   def handle_startendtag(self, tag: str, attrs: HTMLAttr) -> None:
     # Self-closing tags like `<br/>` have no end tag, so don't output one.
     self.handle_starttag(tag, attrs)
     self._output[-1] = self._output[-1][:-1] + '/>'
     if tag not in VOID_ELEMENTS:
-      self.to_skip = self.element_stack.get_nowait().to_skip
+      self.to_skip = self.element_stack.pop().to_skip
 
   def handle_endtag(self, tag: str) -> None:
     self._output.append(f'</{tag}>')
     if tag in VOID_ELEMENTS:
       return
-    while not self.element_stack.empty():
-      state = self.element_stack.get_nowait()
+    if not any(state.tag == tag for state in self.element_stack):
+      return
+    while self.element_stack:
+      state = self.element_stack.pop()
       if state.tag == tag:
         self.to_skip = state.to_skip
         break
@@ -152,13 +149,12 @@ class HTMLChunkResolver(HTMLParser):
 
   def handle_data(self, data: str) -> None:
     for char in data:
-      if char != self.chunks_joined[self.scan_index]:
+      if self.scan_index in self.boundaries:
         prev_was_whitespace = (
-          self.scan_index > 0 and self.chunks_joined[self.scan_index - 1].isspace()
+          self.scan_index > 0 and self.text[self.scan_index - 1].isspace()
         )
         if not self.to_skip and not char.isspace() and not prev_was_whitespace:
           self._output.append(self.separator)
-        self.scan_index += 1
       # Re-escape text that `HTMLParser` unescaped, except in raw text elements.
       self._output.append(
         html.escape(char, quote=False)

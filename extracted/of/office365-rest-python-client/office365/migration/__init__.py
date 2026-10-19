@@ -33,20 +33,30 @@ from office365.migration.base import (
     ExportFormat,
     ItemStatus,
     MigrationItem,
-    MigrationMode,
     MigrationOptions,
     MigrationPhase,
     MigrationStats,
+    conflict_to_on_conflict,
 )
 from office365.migration.checkpoint import Checkpoint
+from office365.migration.delta import DeltaReport, MovedItem, compute_delta
+from office365.migration.fidelity import FidelityReport, FidelityStatus, describe_fidelity
 from office365.migration.job import MigrationJob
+from office365.migration.logging import (
+    JsonLogFormatter,
+    ProgressReporter,
+    configure_json_logging,
+    log_event,
+)
 from office365.migration.manifest import Manifest
+from office365.migration.map import ContentTypeMap
 from office365.migration.report import MigrationReport, build_report, export_reports
 from office365.migration.runner import MigrationRunner
 from office365.migration.server_job import MigrationServerJob
 from office365.migration.session import MigrationSession, SessionTask
 from office365.migration.settings import MigrationSettings
 from office365.migration.tasks import MigrationTask
+from office365.migration.throttling import ThrottleMonitor
 from office365.migration.validators import VerificationReport, verify
 
 if TYPE_CHECKING:
@@ -81,12 +91,15 @@ __all__ = [
     "AssessmentReport",
     "Checkpoint",
     "ConflictResolution",
+    "ContentTypeMap",
+    "DeltaReport",
     "ExportFormat",
+    "FidelityReport",
     "ItemStatus",
+    "JsonLogFormatter",
     "Manifest",
     "MigrationItem",
     "MigrationJob",
-    "MigrationMode",
     "MigrationOptions",
     "MigrationPhase",
     "MigrationReport",
@@ -96,12 +109,21 @@ __all__ = [
     "MigrationSettings",
     "MigrationStats",
     "MigrationTask",
+    "ProgressReporter",
+    "MovedItem",
     "ScanContainer",
     "ScanDefinition",
     "ScanReport",
     "SessionTask",
+    "ThrottleMonitor",
     "VerificationReport",
     "build_report",
+    "compute_delta",
+    "configure_json_logging",
+    "conflict_to_on_conflict",
+    "describe_fidelity",
+    "log_event",
+    "FidelityStatus",
     "export_reports",
     "scan_pairs",
     "verify",

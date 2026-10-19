@@ -1,9 +1,7 @@
-from typing import Optional, Union
-
 from substrait_extensions.extensions import simple_extensions as se
 
 
-def build_deprecation_status(d: Optional[dict]) -> Optional[se.DeprecationStatus]:
+def build_deprecation_status(d: dict | None) -> se.DeprecationStatus | None:
     if d is None:
         return None
     return se.DeprecationStatus(
@@ -13,7 +11,7 @@ def build_deprecation_status(d: Optional[dict]) -> Optional[se.DeprecationStatus
     )
 
 
-def build_arg(d: dict) -> Union[se.ValueArg, se.TypeArg, se.EnumerationArg]:
+def build_arg(d: dict) -> se.ValueArg | se.TypeArg | se.EnumerationArg:
     if "value" in d:
         return se.ValueArg(
             value=d["value"],
@@ -172,6 +170,7 @@ def build_type_variation(d: dict) -> se.TypeVariation:
 def build_simple_extensions(d: dict) -> se.SimpleExtensions:
     return se.SimpleExtensions(
         urn=d["urn"],
+        description=d.get("description"),
         metadata=d.get("metadata"),
         dependencies=d.get("dependencies"),
         types=[build_type_model(t) for t in d["types"]] if "types" in d else None,

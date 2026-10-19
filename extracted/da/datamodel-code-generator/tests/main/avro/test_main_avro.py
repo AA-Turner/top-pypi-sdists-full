@@ -944,9 +944,7 @@ def test_avro_namespace_reference_precedence(output_file: Path, entrypoint: str)
         expected_error_type="missing",
         expected_attribute_path=("chosen", "local_value"),
         expected_attribute_value=3,
-        expected_repr=(AVRO_DATA_PATH.parent / "expected/main/avro/namespace_reference_precedence.txt")
-        .read_text(encoding="utf-8")
-        .strip(),
+        expected_repr_path=AVRO_DATA_PATH.parent / "expected/main/avro/namespace_reference_precedence.txt",
     )
 
 
@@ -961,6 +959,19 @@ def test_main_avro_official_spec_long_list(output_file: Path) -> None:
         expected_file=_expected_file("official_long_list.py"),
         extra_args=get_current_version_args(),
         force_exec_validation=True,
+    )
+
+
+@_SKIP_BLACK
+def test_main_avro_single_value_enum_as_const_keeps_converted_enums(output_file: Path) -> None:
+    """Keep one-symbol Avro enums as Enum classes, as Avro is converted rather than read as a JSON Schema document."""
+    run_main_and_assert(
+        input_path=AVRO_DATA_PATH / "spec_matrix.avsc",
+        output_path=output_file,
+        input_file_type="avro",
+        assert_func=assert_file_content,
+        expected_file=_expected_file("spec_matrix.py"),
+        extra_args=get_current_version_args("--use-field-description", "--use-single-value-enum-as-const"),
     )
 
 

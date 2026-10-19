@@ -55,14 +55,18 @@ match schema_output_name:
         sys.stdout.write(f"{structured_output_json_schema()}\n")
         sys.exit(0)
 
-# Fast path for Agent Skill installation (avoid importing generation dependencies)
-if any(arg == "--install-skill" or arg.startswith("--install-skill=") for arg in sys.argv[1:]):  # pragma: no cover
+# Fast path for Agent Skill installation (avoid importing generation dependencies); --recommend-options (any
+# abbreviation starts with --rec) rejects --install-skill and runs --generate-prompt with its report in _main, so these
+# fast paths step aside
+if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
+    arg == "--install-skill" or arg.startswith("--install-skill=") for arg in sys.argv[1:]
+):  # pragma: no cover
     from datamodel_code_generator._agent_skill_cli import run_agent_skill_installer
 
     sys.exit(run_agent_skill_installer(sys.argv[1:]))
 
 # Fast path for prompt helper outputs
-if any(
+if not any(arg.startswith("--rec") for arg in sys.argv[1:]) and any(
     arg.startswith(("--generate-prompt", "--output-format-json-schema=")) or arg == "--output-format-json-schema"
     for arg in sys.argv[1:]
 ):  # pragma: no cover
@@ -107,6 +111,7 @@ if any(
 import difflib
 import json
 import os
+import re
 import shlex
 import shutil
 import signal
@@ -126,6 +131,7 @@ from datamodel_code_generator import (
     Error,
     InputFileType,
     InvalidClassNameError,
+    NamingHintWarning,
     ReuseScope,
     _validate_generation_path_conflicts,
     enable_debug_message,
@@ -166,8 +172,10 @@ def __getattr__(name: str) -> Any:
 if TYPE_CHECKING:
     from argparse import Namespace
     from collections import defaultdict
+    from collections.abc import Callable
     from urllib.parse import ParseResult
 
+    from datamodel_code_generator._naming_hint import NamingHint
     from datamodel_code_generator._publication import (
         PublicationAnchor as _PublicationAnchor,
     )
@@ -196,6 +204,7 @@ EXCLUDED_CONFIG_OPTIONS: frozenset[str] = frozenset({
     "generate_pyproject_config",
     "generate_cli_command",
     "generate_prompt",
+    "recommend_options",
     "ignore_pyproject",
     "install_skill",
     "skill_scope",
@@ -218,10 +227,12 @@ EXCLUDED_CONFIG_OPTIONS: frozenset[str] = frozenset({
 
 SENSITIVE_COMMAND_OPTIONS: frozenset[str] = frozenset({"--http-headers", "--http-query-parameters"})
 REDACTED_COMMAND_ARGUMENT = "<redacted>"
+_TOML_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
 BATCH_UNSAFE_CLI_FIELDS: frozenset[str] = frozenset({"input", "input_model", "output", "url"})
 BATCH_COMMAND_ONLY_CONFIG_FIELDS: frozenset[str] = frozenset({"list_deprecations", "list_experimental"})
 BATCH_CONFIG_CONTEXT_FIELDS: frozenset[str] = frozenset({"use_annotated", "use_specialized_enum"})
 BATCH_OUTER_CONFIG_FIELDS: frozenset[str] = frozenset({"watch", "watch_delay"})
+_NAMING_FIELDS: frozenset[str] = frozenset({"model_name_map", "naming_strategy", "parent_scoped_naming"})
 
 
 class Exit(IntEnum):
@@ -312,6 +323,7 @@ def _create_config(
         for name in _PYPROJECT_JSON_CONFIG_FIELDS
         if isinstance(value := cli_config_args.get(name, pyproject_config.get(name)), str | Path)
     }
+    config._naming_chosen = not _NAMING_FIELDS.isdisjoint({*pyproject_config, *cli_config_args})  # noqa: SLF001
     return config
 
 
@@ -1102,22 +1114,29 @@ def _format_toml_value(value: TomlValue) -> str:
     return f"[{', '.join(formatted_items)}]"
 
 
+def _cli_config_values(args: Namespace) -> dict[str, TomlValue]:
+    """Return the configuration values of CLI arguments, keyed by field name."""
+    return {
+        key: _pyproject_toml_value(key, value)
+        for key, value in sorted(vars(args).items())
+        if value is not None and key not in EXCLUDED_CONFIG_OPTIONS
+    }
+
+
 def _pyproject_config_data(args: Namespace) -> dict[str, TomlValue]:
     """Return pyproject.toml configuration data from CLI arguments."""
-    config_data: dict[str, TomlValue] = {}
-    args_dict: dict[str, object] = vars(args)
-    for key, value in sorted(args_dict.items()):
-        if value is None:
-            continue
-        if key in EXCLUDED_CONFIG_OPTIONS:
-            continue
-
-        config_data[key.replace("_", "-")] = _pyproject_toml_value(key, value)
-    return config_data
+    return {key.replace("_", "-"): value for key, value in _cli_config_values(args).items()}
 
 
-def _format_pyproject_config(config_data: Mapping[str, TomlValue]) -> str:
-    lines: list[str] = ["[tool.datamodel-codegen]"]
+def _toml_key(key: str) -> str:
+    """Return a TOML key: bare when it uses only ASCII letters, digits, hyphens, and underscores, otherwise quoted."""
+    return key if _TOML_BARE_KEY.fullmatch(key) else json.dumps(key, ensure_ascii=False)
+
+
+def _format_pyproject_config(
+    config_data: Mapping[str, TomlValue], table: tuple[str, ...] = ("tool", "datamodel-codegen")
+) -> str:
+    lines: list[str] = [f"[{'.'.join(_toml_key(key) for key in table)}]"]
     for key, value in config_data.items():
         lines.append(f"{key} = {_format_toml_value(value)}")
     return "\n".join(lines) + "\n"
@@ -1532,6 +1551,198 @@ def _write_comparison_output(
     sys.stdout.write(comparison.content)
 
 
+def _recommend_options_conflict(args: Namespace) -> str | None:
+    """Return the first option that cannot be combined with --recommend-options."""
+    conflicts = (
+        (args.check, "--check"),
+        (args.watch, "--watch"),
+        (args.diff_against is not None and args.recommend_options == "quick", "--diff-against in quick mode"),
+        (args.all_jobs, "--all-jobs"),
+        (len(args.job or ()) > 1, "more than one --job"),
+        (args.generate_pyproject_config, "--generate-pyproject-config"),
+        (args.generate_cli_command, "--generate-cli-command"),
+        (args.install_skill is not None, "--install-skill"),
+        (args.list_deprecations is not None, "--list-deprecations"),
+        (args.list_experimental is not None, "--list-experimental"),
+    )
+    return next((option for conflict, option in conflicts if conflict), None)
+
+
+def _invalid_class_name_message(error: InvalidClassNameError, args: Namespace, class_name: str | None) -> str:
+    """Return the CLI message of an invalid class name with a hint at its fix.
+
+    A name that --class-name sets is fixed there, as the recommender keeps it; a name from the schema gets the
+    --recommend-options hint where the command takes that option.
+    """
+    message = f"{error} You have to set `--class-name` option"
+    if error.class_name == class_name:
+        return f"{message}\nHint: --class-name sets this name; change it to a valid Python class name or remove it."
+    if _recommend_options_conflict(args) is not None:
+        return message
+    return (
+        f"{message}\nHint: add --recommend-options to this command to get a class name and naming options for this "
+        "schema (experimental)."
+    )
+
+
+def _cli_arguments(config: Mapping[str, TomlValue]) -> list[str]:
+    """Return the CLI arguments for configuration values keyed by field name, as an argument list."""
+    arguments: list[str] = []
+    for key, value in sorted(config.items()):
+        option = f"--{key.replace('_', '-')}"
+        match value:
+            case bool():
+                negative = _negative_boolean_options().get(key)
+                arguments.extend([option] if value else [negative] if negative else [])
+            case list() | tuple():
+                arguments.extend([option, *(str(item) for item in value)])
+            case _:
+                arguments.extend([option, str(value)])
+    return arguments
+
+
+def _recommend_lock_observer(config: Config, pyproject_path: Path | None) -> Any:
+    """Return the remote lock check for a URL input, as generation applies it; the lock is never written."""
+    plan = _remote_lock_plan(config, pyproject_path)
+    if config.url is None or not plan.active:
+        return None
+    from datamodel_code_generator.remote_lock import RemoteReferenceLock  # noqa: PLC0415
+
+    return RemoteReferenceLock.open(
+        plan.path, update=plan.policy == "update", locked=plan.policy == "locked"
+    ).record_response
+
+
+def _recommend_generation_config(config: Config, namespace: Namespace) -> Callable[[Mapping[str, Any]], Config]:
+    """Return a function giving the config a generation run takes for the command's config with updates applied.
+
+    The updates are applied like ``--preset`` applies its values; the rest is prepared as the command's own run with
+    its output format prepares it, to stdout or to ``--output``, which stays a virtual path that selects the layout.
+    """
+    import copy  # noqa: PLC0415
+
+    prepared: list[tuple[Config, defaultdict[str, dict[str, Any]] | None]] = []
+
+    def generation_config(updates: Mapping[str, Any]) -> Config:
+        if not prepared:
+            base = config.model_copy()
+            if base.url and base.allow_remote_refs is None:
+                base.allow_remote_refs = True
+            prepared.append((base, _template_data(base)))
+        base, extra_template_data = prepared[0]
+        run_config = base.model_copy()
+        for name, value in updates.items():
+            setattr(run_config, name, value)
+        run_config.repair_invalid_dotted_stdout = _repairs_invalid_dotted_stdout(
+            run_config, namespace, run_config.output
+        )
+        return _generation_config(
+            run_config,
+            output=run_config.output,
+            extra_template_data=copy.deepcopy(extra_template_data),
+            aliases=run_config.aliases,
+            serialization_aliases=run_config.serialization_aliases,
+            command_line=None,
+            custom_formatters_kwargs=None,
+            settings_path=run_config.output,
+            validators=run_config.validators,
+            default_value_overrides=run_config.default_values,
+        )
+
+    return generation_config
+
+
+def _run_recommend_options(  # noqa: PLR0913
+    args: Namespace,
+    config: Config,
+    pyproject_config: Mapping[str, Any],
+    cli_config_args: Mapping[str, _RawConfigValue],
+    pyproject_path: Path | None,
+    *,
+    table: tuple[str, ...] = ("tool", "datamodel-codegen"),
+    selector: tuple[str, ...] = (),
+) -> Exit:
+    """Print option recommendations for the resolved configuration (experimental).
+
+    A server or client target is checked and its implied settings applied as for generation, so the recommendation
+    starts from the preset the target can use. With --generate-prompt, the prompt embeds the recommendation instead.
+    """
+    from datamodel_code_generator._recommend import RecommendRequest, recommend_options  # noqa: PLC0415
+    from datamodel_code_generator._recommend._report import (  # noqa: PLC0415
+        recommendation_payload,
+        render_json,
+        render_text,
+    )
+    from datamodel_code_generator.base_config import (  # noqa: PLC0415
+        _flag,
+        _selected_target,
+        _target_options_error,
+        implied_target_settings,
+    )
+    from datamodel_code_generator.remote_lock import RemoteLockError  # noqa: PLC0415
+
+    if (target := _selected_target(config)) is not None:
+        if (error := _target_options_error(config)) is not None:
+            print(f"Error: {error}", file=sys.stderr)  # noqa: T201
+            return Exit.ERROR
+        config = config.model_copy(update=implied_target_settings(config, config.model_fields_set))
+
+    preset_on_command_line = "preset" in cli_config_args
+    explicit = set(cli_config_args) if preset_on_command_line else {*pyproject_config, *cli_config_args}
+    explicit.discard("preset")
+    try:
+        recommendation = recommend_options(
+            RecommendRequest(
+                config=config,
+                explicit_fields=frozenset(explicit),
+                cli_values=_cli_config_values(args),
+                has_project_config=bool(pyproject_config),
+                preset_on_command_line=preset_on_command_line,
+                read_stdin=sys.stdin.read,
+                generation_config=_recommend_generation_config(config, args),
+                table=table,
+                selector=selector,
+                mode=args.recommend_options if isinstance(args.recommend_options, str) else None,
+                response_observer=_recommend_lock_observer(config, pyproject_path),
+                target=None if target is None else _flag(target[0]),
+            )
+        )
+    except (Error, RemoteLockError) as e:
+        print(str(e), file=sys.stderr)  # noqa: T201
+        return Exit.ERROR
+    arguments = (
+        [*recommendation.command_selector, *_cli_arguments(recommendation.command_values)]
+        if recommendation.runnable
+        else []
+    )
+    command = shlex.join(["datamodel-codegen", *arguments]) if recommendation.runnable else None
+    pyproject = (
+        None
+        if recommendation.config_values is None
+        else _format_pyproject_config(
+            {key.replace("_", "-"): value for key, value in sorted(recommendation.config_values.items())},
+            recommendation.table,
+        )
+    )
+    content = render_text(recommendation, command=command, pyproject=pyproject)
+    if args.generate_prompt is not None:
+        from datamodel_code_generator.prompt import generate_prompt  # noqa: PLC0415
+
+        payload = recommendation_payload(recommendation, content=content, arguments=arguments)
+        print(generate_prompt(args, arg_parser.format_help(), arg_parser, recommendation=payload))  # noqa: T201
+    elif args.output_format == "json":
+        print(render_json(recommendation, content=content, arguments=arguments))  # noqa: T201
+    else:
+        print(content, end="")  # noqa: T201
+    return Exit.OK
+
+
+def _recommend_options_json_schema() -> str:
+    from datamodel_code_generator._structured_output import recommend_options_json_schema  # noqa: PLC0415
+
+    return recommend_options_json_schema()
+
+
 def _generation_output_json_schema() -> str:
     from datamodel_code_generator._structured_output import generation_output_json_schema  # noqa: PLC0415
 
@@ -1807,6 +2018,37 @@ def _apply_model_run_options(config: Config, namespace: Namespace, pyproject_con
     return None
 
 
+def _collect_naming_hint(config: Config, namespace: Namespace) -> NamingHint | None:
+    """Collect the class names of the generation run that follows for the naming hint, unless the run silences it.
+
+    An explicit naming strategy or model name map, a check, an input diff, JSON output, and disabled warnings silence
+    the hint, and so does a command that --recommend-options refuses, such as one with --watch or --all-jobs; the
+    invocation shows it at most once.
+    """
+    from datamodel_code_generator._naming_hint import collect_class_names  # noqa: PLC0415
+
+    return collect_class_names(
+        wanted=not (
+            config._naming_chosen  # noqa: SLF001
+            or config.check
+            or config.diff_against is not None
+            or namespace.output_format == "json"
+            or config.disable_warnings
+            or _recommend_options_conflict(namespace) is not None
+        )
+    )
+
+
+def _warn_naming_hint(hint: NamingHint | None) -> None:
+    """Point to --recommend-options when many class names of a successful generation are numbered collisions.
+
+    A filter that turns warnings into errors drops the hint instead of failing a run that succeeded.
+    """
+    if hint is not None and (message := hint.message()) is not None:
+        with suppress(NamingHintWarning):
+            warnings.warn(message, NamingHintWarning, stacklevel=2)
+
+
 def _run_target(  # noqa: PLR0913, PLR0917
     args: Sequence[str],
     namespace: Namespace,
@@ -1826,7 +2068,11 @@ def _run_target(  # noqa: PLR0913, PLR0917
     """
     from datamodel_code_generator._target_cli import run_target  # noqa: PLC0415
 
-    return Exit(run_target(args, namespace, config, pyproject_path, batch, lock, job, implied or {}, announced or {}))
+    hint = _collect_naming_hint(config, namespace)
+    result = Exit(run_target(args, namespace, config, pyproject_path, batch, lock, job, implied or {}, announced or {}))
+    if result is Exit.OK:
+        _warn_naming_hint(hint)
+    return result
 
 
 def _staging_directory_for(target: Path) -> tempfile.TemporaryDirectory[str]:
@@ -2457,6 +2703,27 @@ def _diff_against_validation_error(config: Config, namespace: Namespace) -> str 
     return next((message for is_incompatible, message in incompatible_options if is_incompatible), None)
 
 
+def _repairs_invalid_dotted_stdout(config: Config, namespace: Namespace, output: Path | None) -> bool:
+    """Return whether a run printing text to stdout repairs dotted module names it cannot print as modules."""
+    return (
+        output is None
+        and namespace.output_format != "json"
+        and namespace.fail_on_multi_module_stdout is not True
+        and config.treat_dot_as_module is None
+        and not config.strict_dotted_module_names
+        and config.module_split_mode is None
+        and not config.generate_schema_validators
+        and not config.use_generic_base_class
+        and getattr(config, "custom_class_name_generator", None) is None
+        and config.custom_template_dir is None
+        and not config.custom_formatters
+        and config.custom_file_header is None
+        and config.custom_file_header_path is None
+        and config.extra_template_data is None
+        and not config.additional_imports
+    )
+
+
 def _watch_and_regenerate(
     args: Sequence[str],
     config: Config,
@@ -2510,6 +2777,10 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
 
     arg_parser.parse_args(args, namespace=namespace)
 
+    if namespace.recommend_options is not None and (conflict := _recommend_options_conflict(namespace)):
+        print(f"Error: --recommend-options cannot be used with {conflict}", file=sys.stderr)  # noqa: T201
+        return Exit.ERROR
+
     if (agent := namespace.install_skill) is not None:
         from datamodel_code_generator._agent_skill_cli import install_agent_skill_command  # noqa: PLC0415
 
@@ -2549,6 +2820,9 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
     if namespace.output_format_json_schema == "structured-output":
         print(_structured_output_json_schema())  # noqa: T201
         return Exit.OK
+    if namespace.output_format_json_schema == "recommend-options":
+        print(_recommend_options_json_schema())  # noqa: T201
+        return Exit.OK
 
     if namespace.generate_pyproject_config:
         config_data = _pyproject_config_data(namespace)
@@ -2565,7 +2839,7 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             print(config_output)  # noqa: T201
         return Exit.OK
 
-    if namespace.generate_prompt is not None:
+    if namespace.generate_prompt is not None and namespace.recommend_options is None:
         from datamodel_code_generator.prompt import generate_prompt  # noqa: PLC0415
 
         help_text = arg_parser.format_help()
@@ -2581,6 +2855,17 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
                 _record_raw_batch_watch_dependencies(namespace, dependencies)
             print(str(e), file=sys.stderr)  # noqa: T201
             return Exit.ERROR
+        if namespace.recommend_options is not None:
+            (job_plan,) = batch_plan.jobs
+            return _run_recommend_options(
+                namespace,
+                job_plan.config,
+                job_plan.raw_config,
+                job_plan.cli_config_args,
+                job_plan.pyproject_path,
+                table=("tool", "datamodel-codegen", "jobs", job_plan.name),
+                selector=("--job", job_plan.name),
+            )
         if not batch_plan.watch:
             return _run_jobs(args, batch_plan.jobs)
         if any(plan.config.check for plan in batch_plan.jobs):
@@ -2728,6 +3013,19 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             file=sys.stderr,
         )
         return Exit.ERROR
+
+    if namespace.recommend_options is not None:
+        return _run_recommend_options(
+            namespace,
+            config,
+            pyproject_config,
+            cli_config_args,
+            pyproject_path,
+            selector=() if namespace.profile is None else ("--profile", namespace.profile),
+            table=("tool", "datamodel-codegen")
+            if namespace.profile is None
+            else ("tool", "datamodel-codegen", "profiles", namespace.profile),
+        )
 
     if config.url and config.allow_remote_refs is None:
         config.allow_remote_refs = True
@@ -2922,24 +3220,8 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
         is_directory_output = False
         compare_output = None
 
-    repair_invalid_dotted_stdout = (
-        generate_output is None
-        and namespace.output_format != "json"
-        and namespace.fail_on_multi_module_stdout is not True
-        and config.treat_dot_as_module is None
-        and not config.strict_dotted_module_names
-        and config.module_split_mode is None
-        and not config.generate_schema_validators
-        and not config.use_generic_base_class
-        and getattr(config, "custom_class_name_generator", None) is None
-        and config.custom_template_dir is None
-        and not config.custom_formatters
-        and config.custom_file_header is None
-        and config.custom_file_header_path is None
-        and config.extra_template_data is None
-        and not config.additional_imports
-    )
-    config.repair_invalid_dotted_stdout = repair_invalid_dotted_stdout
+    config.repair_invalid_dotted_stdout = _repairs_invalid_dotted_stdout(config, namespace, generate_output)
+    naming_hint = _collect_naming_hint(config, namespace)
 
     def cleanup_and_return(exit_code: Exit) -> Exit:
         if temp_context is not None:
@@ -2977,6 +3259,8 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
             )
 
         if compare_output is not None:
+            from datamodel_code_generator.reference import unmatched_model_name_keys_unreported  # ruff: ignore[import-outside-top-level]
+
             comparison_context = GenerationRunContext(
                 generation_timestamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
                 config=config,
@@ -2989,7 +3273,8 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
                 validators=validators_config,
                 default_value_overrides=default_value_overrides,
             )
-            comparison_context.run(cast("Path", config.diff_against), compare_output, input_filename="<input>")
+            with unmatched_model_name_keys_unreported():
+                comparison_context.run(cast("Path", config.diff_against), compare_output, input_filename="<input>")
             result = comparison_context.run(input_, generate_output, input_filename="<input>")
         elif watch_dependencies is None:
             result = run_generate_from_config(
@@ -3023,7 +3308,7 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
                     logical_output=_batch_original_output,
                 )
     except InvalidClassNameError as e:
-        print(f"{e} You have to set `--class-name` option", file=sys.stderr)  # noqa: T201
+        print(_invalid_class_name_message(e, namespace, config.class_name), file=sys.stderr)  # noqa: T201
         return cleanup_and_return(Exit.ERROR)
     except UnicodeDecodeError as e:
         print(f"Unable to decode input using encoding {config.encoding!r}: {e}", file=sys.stderr)  # noqa: T201
@@ -3112,6 +3397,7 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
         _write_comparison_output(comparison, namespace.output_format)
         return cleanup_and_return(Exit.DIFF if comparison.differences else Exit.OK)
 
+    _warn_naming_hint(naming_hint)
     if config.watch and start_watch:
         return cleanup_and_return(_watch_and_regenerate(args, config, watch_dependencies))
 
@@ -3120,11 +3406,12 @@ def _main(  # noqa: PLR0911, PLR0912, PLR0914, PLR0915
 
 def main(args: Sequence[str] | None = None) -> Exit:
     """Execute datamodel code generation from command-line arguments."""
+    from datamodel_code_generator._naming_hint import naming_hint_scope  # ruff: ignore[import-outside-top-level]
     from datamodel_code_generator.deprecations import (  # ruff: ignore[import-outside-top-level]
         cli_migration_warning_scope,
     )
 
-    with cli_migration_warning_scope():
+    with cli_migration_warning_scope(), naming_hint_scope():
         return _main(args, start_watch=True)
 
 

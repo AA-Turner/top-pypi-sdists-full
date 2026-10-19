@@ -3,7 +3,7 @@
 //! The classifier receives committed-tree facts and optional blob bytes only.
 //! It performs no filesystem, configuration, or Git discovery.
 
-#![allow(dead_code)] // The dependent snapshot phase is the first production caller.
+use serde::{Deserialize, Serialize};
 
 use crate::project_stats::wire::{
     ProjectStatsExclusionReasonWire as ExclusionReason,
@@ -19,7 +19,8 @@ use crate::source_language::{
 pub(crate) const MAX_CLASSIFIED_BLOB_BYTES: u64 = 8 * 1024 * 1024;
 const SHEBANG_PREFIX_BYTES: usize = 8 * 1024;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum AttributeState {
     Enabled,
     Disabled,
@@ -49,7 +50,7 @@ impl std::fmt::Display for AttributeParseError {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct CommittedAttributes {
     pub generated: AttributeState,
     pub vendored: AttributeState,
@@ -66,14 +67,16 @@ impl Default for CommittedAttributes {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum SkippedEntry {
     Symlink,
     Gitlink,
     UnsupportedMode,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum Classification {
     Included {
         role: Role,
@@ -86,6 +89,24 @@ pub(crate) enum Classification {
     Skipped(SkippedEntry),
 }
 
+/// Blob-derived facts the classifier needs, without retaining file bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct BlobEvidence {
+    pub has_nul: bool,
+    pub is_lfs_pointer: bool,
+    pub shebang_language: Option<String>,
+}
+
+impl BlobEvidence {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
+        Self {
+            has_nul: bytes.contains(&0),
+            is_lfs_pointer: is_lfs_pointer(bytes),
+            shebang_language: shebang_language(bytes),
+        }
+    }
+}
+
 /// Classify one `ls-tree` entry. Blob evidence may be omitted before the
 /// snapshot reader decides whether a candidate needs content inspection.
 pub(crate) fn classify_file(
@@ -94,6 +115,23 @@ pub(crate) fn classify_file(
     size: u64,
     attributes: CommittedAttributes,
     blob: Option<&[u8]>,
+) -> Classification {
+    classify_file_evidenced(
+        path,
+        mode,
+        size,
+        attributes,
+        blob.map(BlobEvidence::from_bytes).as_ref(),
+    )
+}
+
+/// Classify using cached blob facts so a renamed path can reuse an OID.
+pub(crate) fn classify_file_evidenced(
+    path: &[u8],
+    mode: u32,
+    size: u64,
+    attributes: CommittedAttributes,
+    evidence: Option<&BlobEvidence>,
 ) -> Classification {
     match mode {
         0o120000 => return Classification::Skipped(SkippedEntry::Symlink),
@@ -105,11 +143,11 @@ pub(crate) fn classify_file(
     if size > MAX_CLASSIFIED_BLOB_BYTES {
         return excluded(Exclusion::Generated, ExclusionReason::Oversize);
     }
-    if let Some(bytes) = blob {
-        if bytes.contains(&0) {
+    if let Some(evidence) = evidence {
+        if evidence.has_nul {
             return excluded(Exclusion::Binary, ExclusionReason::NulByte);
         }
-        if is_lfs_pointer(bytes) {
+        if evidence.is_lfs_pointer {
             return excluded(Exclusion::Binary, ExclusionReason::LfsPointer);
         }
     }
@@ -135,7 +173,17 @@ pub(crate) fn classify_file(
         );
     }
 
-    if is_agent_context(path) {
+    if is_agent_instruction(path) {
+        return included(Role::AgentContext, None);
+    }
+
+    let language = detected_language(path, evidence);
+    if is_agent_context_directory(path)
+        && (attributes.documentation == AttributeState::Enabled
+            || is_prose_path(path)
+            || is_config_data_path(path)
+            || language.is_none())
+    {
         return included(Role::AgentContext, None);
     }
 
@@ -143,8 +191,11 @@ pub(crate) fn classify_file(
         return included(Role::Docs, None);
     }
 
-    let prose = is_prose_path(path);
-    if prose {
+    if is_config_data_path(path) {
+        return included(Role::ConfigData, None);
+    }
+
+    if is_prose_path(path) {
         return if attributes.documentation == AttributeState::Disabled {
             included(Role::Other, None)
         } else {
@@ -152,20 +203,14 @@ pub(crate) fn classify_file(
         };
     }
 
-    if is_config_data_path(path) {
-        return included(Role::ConfigData, None);
-    }
-
-    let language = detected_language(path, blob);
     if let Some(language) = language {
         if is_test_path(path) {
-            included(Role::Tests, Some(language))
-        } else {
-            included(Role::Source, Some(language))
+            return included(Role::Tests, Some(language));
         }
-    } else {
-        included(Role::Other, None)
+        return included(Role::Source, Some(language));
     }
+
+    included(Role::Other, None)
 }
 
 fn excluded(kind: Exclusion, reason: ExclusionReason) -> Classification {
@@ -190,15 +235,12 @@ fn is_generated_path(path: &[u8]) -> bool {
         matches!(
             part.as_slice(),
             b"generated"
-                | b"gen"
                 | b"autogenerated"
-                | b"snapshot"
                 | b"snapshots"
                 | b"golden"
                 | b"goldens"
                 | b"__snapshots__"
                 | b"dist"
-                | b"target"
         )
     }) {
         return true;
@@ -234,7 +276,7 @@ fn is_vendored_path(path: &[u8]) -> bool {
     })
 }
 
-fn is_agent_context(path: &[u8]) -> bool {
+fn is_agent_context_directory(path: &[u8]) -> bool {
     let components = path_components(path);
     if components.windows(2).any(|parts| {
         parts[0] == b"sase" && (parts[1] == b"memory" || parts[1] == b"macros")
@@ -244,6 +286,11 @@ fn is_agent_context(path: &[u8]) -> bool {
     if components.iter().any(|part| part.as_slice() == b"skills") {
         return true;
     }
+    false
+}
+
+fn is_agent_instruction(path: &[u8]) -> bool {
+    let components = path_components(path);
     let Some(name) = components.last() else {
         return false;
     };
@@ -316,27 +363,34 @@ fn is_config_data_path(path: &[u8]) -> bool {
             | b"go.sum"
             | b"dockerfile"
             | b"makefile"
+            | b"cmakelists.txt"
             | b".editorconfig"
-    ) || has_extension(
-        name,
-        &[
-            b"json",
-            b"json5",
-            b"jsonc",
-            b"yaml",
-            b"yml",
-            b"toml",
-            b"ini",
-            b"cfg",
-            b"conf",
-            b"properties",
-            b"xml",
-            b"csv",
-            b"tsv",
-            b"ipynb",
-            b"lock",
-        ],
-    )
+    ) || is_requirements_or_constraints(name)
+        || has_extension(
+            name,
+            &[
+                b"json",
+                b"json5",
+                b"jsonc",
+                b"yaml",
+                b"yml",
+                b"toml",
+                b"ini",
+                b"cfg",
+                b"conf",
+                b"properties",
+                b"xml",
+                b"csv",
+                b"tsv",
+                b"ipynb",
+                b"lock",
+            ],
+        )
+}
+
+fn is_requirements_or_constraints(name: &[u8]) -> bool {
+    (name.starts_with(b"requirements") || name.starts_with(b"constraints"))
+        && name.ends_with(b".txt")
 }
 
 fn is_test_path(path: &[u8]) -> bool {
@@ -388,7 +442,10 @@ fn has_extension(name: &[u8], extensions: &[&[u8]]) -> bool {
     extensions.iter().any(|candidate| *candidate == extension)
 }
 
-fn detected_language(path: &[u8], blob: Option<&[u8]>) -> Option<String> {
+fn detected_language(
+    path: &[u8],
+    evidence: Option<&BlobEvidence>,
+) -> Option<String> {
     let filename = filename_hint(path)?;
     let detected = resolve_source_language(&SourceLanguageRequestWire {
         schema_version: SOURCE_LANGUAGE_WIRE_SCHEMA_VERSION,
@@ -409,7 +466,7 @@ fn detected_language(path: &[u8], blob: Option<&[u8]>) -> Option<String> {
     if !(unknown_extension || extensionless) {
         return None;
     }
-    blob.and_then(shebang_language)
+    evidence.and_then(|facts| facts.shebang_language.clone())
 }
 
 fn filename_hint(path: &[u8]) -> Option<String> {

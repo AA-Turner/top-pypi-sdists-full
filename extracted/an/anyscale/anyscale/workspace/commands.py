@@ -243,6 +243,9 @@ def generate_ssh_config_file(
     """Generate an SSH config file for a workspace.
 
     Returns the hostname and path to the generated config file.
+
+    Generate one per session rather than saving and reusing the file: a saved config
+    stops working.
     """
     return _private_sdk.generate_ssh_config_file(  # type: ignore
         name=name,

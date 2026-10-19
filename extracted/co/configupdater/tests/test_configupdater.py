@@ -1,6 +1,8 @@
 import configparser
 import copy
 import os.path
+import subprocess
+import sys
 from configparser import ConfigParser
 from io import StringIO
 from textwrap import dedent
@@ -69,19 +71,107 @@ def test_update_file_issue_68(tmp_path):
     # allow_no_value = False
     file = tmp_path / "file.cfg"
     file.write_text("[section]")
-    cfg = ConfigUpdater(allow_no_value=False).read_file(open(file))
+    with open(file) as fp:
+        cfg = ConfigUpdater(allow_no_value=False).read_file(fp)
     cfg.set("section", "option")
-    with pytest.warns(NoneValueDisallowed):
+    with pytest.warns(
+        NoneValueDisallowed, match="<option = None>, the option is omitted"
+    ):
         # A warning is issued, but the method will not fail
         cfg.update_file()
     assert file.read_text().strip() == "[section]"
 
     # allow_no_value = True
     file.write_text("[section]")
-    cfg = ConfigUpdater(allow_no_value=True).read_file(open(file))
+    with open(file) as fp:
+        cfg = ConfigUpdater(allow_no_value=True).read_file(fp)
     cfg.set("section", "option")
     cfg.update_file()
     assert file.read_text().strip() == "[section]\noption"
+
+
+NON_ASCII_CFG = """\
+[metadata]
+author = Jürgen Weiß
+description = Ça va, señor?
+"""
+NON_ASCII_UPDATED = NON_ASCII_CFG.replace("Ça va", "Grüß Gott")
+
+
+# utf-16 differs from every locale encoding, latin-1 at least from UTF-8
+@pytest.mark.parametrize("encoding", ["latin-1", "utf-16"])
+def test_update_file_keeps_encoding_of_read(tmp_path, encoding):
+    file = tmp_path / "file.cfg"
+    file.write_text(NON_ASCII_CFG, encoding=encoding)
+    updater = ConfigUpdater().read(file, encoding=encoding)
+    assert str(updater) == NON_ASCII_CFG
+
+    updater["metadata"]["description"] = "Grüß Gott, señor?"
+    updater.update_file()
+    assert file.read_text(encoding=encoding) == NON_ASCII_UPDATED
+
+    clone = copy.deepcopy(updater)
+    file.write_text(NON_ASCII_CFG, encoding=encoding)
+    clone.update_file()
+    assert file.read_text(encoding=encoding) == NON_ASCII_UPDATED
+
+
+@pytest.mark.parametrize("encoding", ["latin-1", "utf-16"])
+def test_update_file_keeps_encoding_of_read_file(tmp_path, encoding):
+    file = tmp_path / "file.cfg"
+    file.write_text(NON_ASCII_CFG, encoding=encoding)
+    with open(file, encoding=encoding) as fp:
+        updater = ConfigUpdater().read_file(fp)
+    updater["metadata"]["description"] = "Grüß Gott, señor?"
+    updater.update_file()
+    assert file.read_text(encoding=encoding) == NON_ASCII_UPDATED
+
+
+def test_update_file_after_read_string_keeps_file_and_encoding(tmp_path):
+    file = tmp_path / "file.cfg"
+    file.write_text("[section]\n", encoding="utf-16")
+    updater = ConfigUpdater().read(file, encoding="utf-16")
+    updater.read_string(NON_ASCII_CFG)
+    updater.read_file(StringIO(NON_ASCII_UPDATED))  # no `name`, nothing changes
+    updater.update_file()
+    assert file.read_text(encoding="utf-16") == NON_ASCII_UPDATED
+
+
+def test_encoding_warning_points_to_caller(tmp_path):
+    # `-X warn_default_encoding` (PEP 597) cannot be enabled in a running interpreter
+    file = tmp_path / "file.cfg"
+    file.write_text("[section]\n")
+    script = tmp_path / "script.py"
+    script.write_text(
+        dedent(
+            """\
+            import configparser, sys, warnings
+            from configupdater import ConfigUpdater, Parser
+
+            class NamedLines(list):  # has a name, but no encoding
+                name = sys.argv[1]
+
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                configparser.ConfigParser().read(sys.argv[1])  # line 9
+                Parser().read(sys.argv[1])  # line 10
+                updater = ConfigUpdater().read(sys.argv[1])  # line 11
+                updater.update_file()  # no warning, the encoding is known
+                updater.read_file(NamedLines(["[section]\\n"]))
+                updater.update_file()  # line 14
+            for w in caught:
+                print(w.category.__name__, w.filename, w.lineno, sep="|")
+            """
+        )
+    )
+    result = subprocess.run(
+        [sys.executable, "-X", "warn_default_encoding", str(script), str(file)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    caught = [line.split("|") for line in result.stdout.splitlines()]
+    assert caught == [["EncodingWarning", str(script), str(n)] for n in (9, 10, 11, 14)]
 
 
 def test_str(setup_cfg_path, setup_cfg):
@@ -136,16 +226,16 @@ def test_iter_section(setup_cfg_path):
     updater.read(setup_cfg_path)
     # iter_blocks will give us everything, iter_sections just the section objects and
     # __iter__ should work as iter_blocks
-    assert len([block for block in updater.iter_blocks()]) == 14
-    assert len([block for block in updater.iter_sections()]) == 12
-    assert len([entry for entry in updater]) == 12
+    assert len([*updater.iter_blocks()]) == 14
+    assert len([*updater.iter_sections()]) == 12
+    assert len([*updater]) == 12
 
 
 def test_iter_items_section(setup_cfg_path):
     updater = ConfigUpdater()
     updater.read(setup_cfg_path)
 
-    result = list(k for k, v in updater["metadata"].items())
+    result = [k for k, v in updater["metadata"].items()]
     assert result == [
         "name",
         "description",
@@ -220,9 +310,9 @@ def test_iter_option(setup_cfg_path):
     section = updater["metadata"]
     # iter_blocks will give us everything, iter_options just the option objects and
     # __iter__ should work as iter_blocks
-    assert len([entry for entry in section.iter_blocks()]) == 12
-    assert len([entry for entry in section.iter_options()]) == 9
-    assert len([entry for entry in section]) == 9
+    assert len([*section.iter_blocks()]) == 12
+    assert len([*section.iter_options()]) == 9
+    assert len([*section]) == 9
 
 
 def test_get_options(setup_cfg_path):
@@ -244,7 +334,7 @@ def test_get_options(setup_cfg_path):
 def test_items(setup_cfg_path):
     updater = ConfigUpdater()
     updater.read(setup_cfg_path)
-    sect_names, sects = zip(*updater.items())
+    sect_names, sects = zip(*updater.items(), strict=True)
     exp_sect_namess = [
         "metadata",
         "options",
@@ -260,12 +350,12 @@ def test_items(setup_cfg_path):
         "pyscaffold",
     ]
     assert list(sect_names) == exp_sect_namess
-    assert all([isinstance(s, Section) for s in sects])
+    assert all(isinstance(s, Section) for s in sects)
 
-    opt_names, opts = zip(*updater.items("devpi:upload"))
+    opt_names, opts = zip(*updater.items("devpi:upload"), strict=True)
     exp_opt_names = ["no-vcs", "formats"]
     assert list(opt_names) == exp_opt_names
-    assert all([isinstance(o, Option) for o in opts])
+    assert all(isinstance(o, Option) for o in opts)
 
 
 def test_get_method(setup_cfg_path):
@@ -374,7 +464,7 @@ def test_set_option():
     assert updater["default"]["key"] is new_option
     new_option = copy.deepcopy(updater["default"]["key"])
     new_option.key = "wrong_key"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="does not equal option key"):
         updater["default"]["key"] = new_option
 
 
@@ -502,11 +592,32 @@ key2
 def test_add_before_after_option():
     updater = ConfigUpdater(allow_no_value=True)
     updater.read_string(test4_cfg_in)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="only be added inside a section"):
         updater["section"].add_before.option("key0", 0)
     updater["section"]["key1"].add_before.option("key0", 0)
     updater["section"]["key1"].add_after.option("key2")
     assert str(updater) == test4_cfg_out
+
+
+def test_add_option_with_delimiter_and_spaces():
+    updater = ConfigUpdater(delimiters=("=", ":"), space_around_delimiters=False)
+    updater.read_string("[section]\nkey1=1\n")
+    builder = updater["section"]["key1"].add_after
+    builder.option("key2", "2", delimiter=":")
+    builder.option("key3", "3", space_around_delimiters=True)
+    builder.option("key4", "4")
+    assert str(updater) == "[section]\nkey1=1\nkey2:2\nkey3 = 3\nkey4=4\n"
+    parser = ConfigParser(delimiters=("=", ":"))
+    parser.read_string(str(updater))
+    assert dict(parser["section"]) == {
+        "key1": "1",
+        "key2": "2",
+        "key3": "3",
+        "key4": "4",
+    }
+    # Other keyword arguments of Option make no sense here and used to be ignored
+    with pytest.raises(TypeError, match="unexpected keyword argument 'line'"):
+        builder.option("key5", "5", line="key5 = 5\n")
 
 
 test5_cfg_in = """
@@ -574,13 +685,13 @@ key0 = 0
 def test_add_before_after_section():
     updater = ConfigUpdater()
     updater.read_string(test6_cfg_in)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="only be added at section level"):
         updater["section2"]["key1"].add_before.section("section1")
     updater["section2"].add_before.section("section1")
     updater["section1"]["key1"] = 42
     updater["section2"].add_after.space(1).section("section3")
     assert str(updater) == test6_cfg_out
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="must be a string or Section"):
         updater["section2"].add_before.section(updater["section2"]["key1"])
     updater.read_string(test6_cfg_in)
     sect_updater = ConfigUpdater()
@@ -621,8 +732,17 @@ def test_add_section():
     updater.add_section("section2")
     updater["section2"]["key1"] = 1
     assert str(updater) == test7_cfg_out
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="must be a string or Section"):
         updater.add_section(updater["section2"]["key1"])
+
+
+def test_add_section_no_trailing_newline():
+    updater = ConfigUpdater()
+    updater.read_string("[section1]\noption1 = value1\noption2 = value2")
+    updater.add_section("section2")
+    result = str(updater)
+    assert "value2\n[section2]" in result
+    assert "value2[section2]" not in result
 
 
 test6_cfg_out_overwritten = """
@@ -638,11 +758,11 @@ def test_set_item_section():
     updater = ConfigUpdater()
     sect_updater = ConfigUpdater()
     updater.read_string(test6_cfg_in)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="must be of type Section"):
         updater["section"] = "newsection"
     sect_updater.read_string(test6_cfg_in)
     section = sect_updater["section0"]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="does not equal option key"):
         updater["new_section"] = section
     section.name = "new_section"
     updater["new_section"] = section.detach()
@@ -745,7 +865,7 @@ def test_eq(setup_cfg_path):
 
 test12_cfg_in = """
 [section]
-opiton = 42
+option = 42
 """
 
 
@@ -758,7 +878,7 @@ option = 42
 def test_rename_option_key():
     updater = ConfigUpdater()
     updater.read_string(test12_cfg_in)
-    updater["section"]["opiton"].key = "option"
+    updater["section"]["option"].key = "option"
 
 
 test13_cfg_in = """
@@ -809,37 +929,37 @@ def test_read_file_with_string():
 
 test15_cfg_in = """
 [section]
-OptionA = 2
+Option = 2
 """
 
 
 def test_read_mixed_case_options():
     updater = ConfigUpdater()
     updater.read_string(test15_cfg_in)
-    assert updater.has_option("section", "OptionA")
-    assert updater.has_option("section", "optiona")
-    assert updater["section"]["OptionA"].value == "2"
-    assert updater["section"]["optiona"].value == "2"
+    assert updater.has_option("section", "Option")
+    assert updater.has_option("section", "option")
+    assert updater["section"]["Option"].value == "2"
+    assert updater["section"]["option"].value == "2"
 
 
 test16_cfg_in = """
 [section]
-OptionA = 2
+Option1 = 2
 """
 
 
 test16_cfg_out = """
 [section]
-OptionA = 4
-OptionB = 6
+Option1 = 4
+Option2 = 6
 """
 
 
 def test_update_mixed_case_options():
     updater = ConfigUpdater()
     updater.read_string(test16_cfg_in)
-    updater["section"]["optiona"].value = "4"
-    updater["section"]["OptionB"] = "6"
+    updater["section"]["option1"].value = "4"
+    updater["section"]["Option2"] = "6"
     assert str(updater) == test16_cfg_out
 
 
@@ -1005,8 +1125,8 @@ def test_empty_lines_in_values_support():
     assert [v for v in value if v] == ["a", "b", "c", "d"]
 
     assert test21_cfg_in == str(updater)
+    updater = ConfigUpdater(empty_lines_in_values=False)
     with pytest.raises(ParsingError):
-        updater = ConfigUpdater(empty_lines_in_values=False)
         updater.read_string(test21_cfg_in)
 
 
@@ -1089,7 +1209,7 @@ def test_add_detached_section_option_objects():
     assert not updater.has_section("sec2")
     assert not sec2.has_container()
     with pytest.raises(NotAttachedError):
-        sec2.container
+        _ = sec2.container
 
     new_sec2 = Section("new-sec2")
     new_opt = Option(key="new-key", value="new-value")
@@ -1616,3 +1736,93 @@ def test_parsing_of_brackets_in_section_names_comments():
     updater = ConfigUpdater(inline_comment_prefixes=("#", ";"))
     updater.read_string(cfg)
     assert updater.sections() == ["section-A", "section-B"]
+
+
+@pytest.mark.parametrize("container_kind", ["document", "section"])
+@pytest.mark.parametrize("block_kind", ["space", "comment"])
+@pytest.mark.parametrize("operation", ["navigate", "detach", "before", "after"])
+def test_edit_equal_blocks_by_identity(container_kind, block_kind, operation):
+    updater = ConfigUpdater()
+    if container_kind == "document":
+        for name in ["a", "b", "c"]:
+            updater.add_section(name)
+        container = updater
+    else:
+        updater.read_string("[section]\na = 1\nb = 2\nc = 3\n")
+        container = updater["section"]
+    left, middle, right = (container[name] for name in ["a", "b", "c"])
+    for anchor in [middle, right]:
+        if block_kind == "space":
+            anchor.add_before.space()
+        else:
+            anchor.add_before.comment("same comment")
+    first, second = container.structure[1], container.structure[3]
+    assert first is not second
+    assert first == second
+
+    if operation == "navigate":
+        assert second.container_idx == 3
+        assert second.previous_block is middle
+        assert second.next_block is right
+        expected = [left, first, middle, second, right]
+    elif operation == "detach":
+        assert second.detach() is second
+        assert not second.has_container()
+        expected = [left, first, middle, right]
+    else:
+        builder = second.add_before if operation == "before" else second.add_after
+        builder.comment("marker")
+        marker = next(b for b in container.structure if str(b) == "# marker\n")
+        expected = [left, first, middle]
+        expected += [marker, second] if operation == "before" else [second, marker]
+        expected.append(right)
+
+    assert len(container.structure) == len(expected)
+    assert all(
+        actual is wanted
+        for actual, wanted in zip(container.structure, expected, strict=True)
+    )
+    assert all(block.container is container for block in container.structure)
+    parser = ConfigParser()
+    parser.read_string(str(updater))
+    assert parser.sections() == updater.sections()
+
+
+@pytest.mark.parametrize("block_type", [Space, Comment])
+def test_container_idx_errors_for_missing_blocks(block_type):
+    with pytest.raises(NotAttachedError):
+        _ = block_type().container_idx
+    with pytest.raises(ValueError, match="is not in the container"):
+        _ = block_type(container=ConfigUpdater()).container_idx
+
+
+def _message_under_python_OO(error, code):
+    # ``python -OO`` strips docstrings, which the messages must not depend on
+    script = (
+        "import warnings, configupdater\n"
+        "warnings.simplefilter('error')\n"
+        "try:\n"
+        f"    {code}\n"
+        f"except configupdater.{error.__name__} as ex:\n"
+        "    print(ex, end='')\n"
+    )
+    cmd = [sys.executable, "-OO", "-c", script]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+@pytest.mark.parametrize(
+    "error", [NotAttachedError, AlreadyAttachedError, AssignMultilineValueError]
+)
+def test_error_messages_without_docstrings(error):
+    code = f"raise configupdater.{error.__name__}(configupdater.Option('key'))"
+    assert _message_under_python_OO(error, code) == str(error(Option("key")))
+
+
+def test_none_value_disallowed_message_without_docstrings():
+    with pytest.warns(NoneValueDisallowed) as record:
+        NoneValueDisallowed.warn("key")
+    code = "configupdater.NoneValueDisallowed.warn('key')"
+    message = _message_under_python_OO(NoneValueDisallowed, code)
+    assert message == str(record[0].message)

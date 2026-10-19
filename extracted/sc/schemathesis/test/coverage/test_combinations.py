@@ -2464,6 +2464,47 @@ def test_generate_from_schema_pattern_length_incompatible(pctx, schema):
         pctx.generate_from_schema(schema)
 
 
+@pytest.mark.parametrize("update_pattern", [None, update_quantifier])
+@pytest.mark.parametrize(
+    ("fmt", "pattern", "length"),
+    [("email", r"^[^@]+@[^@]+\.[^@]+$", length) for length in [63, 64, 253, 254]]
+    + [("uri", r"^https?://.+$", 100), ("date-time", r"^.+T.+$", 26)],
+)
+def test_bounded_format_pattern_keeps_exact_length(ctx_factory, update_pattern, fmt, pattern, length):
+    ctx = ctx_factory(update_pattern=update_pattern)
+    schema = {
+        "type": "string",
+        "format": fmt,
+        "pattern": pattern,
+        "minLength": length,
+        "maxLength": length,
+    }
+    value = ctx.generate_from_schema(schema)
+    assert len(value) == length
+    assert_conform([value], schema)
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    [
+        ({"type": "string", "format": "email", "pattern": r"^ab@example\.com$", "maxLength": 14}, "ab@example.com"),
+        # The URI generator cannot supply such a short value at all.
+        ({"type": "string", "format": "uri", "pattern": "^a:b$", "maxLength": 3}, "a:b"),
+        ({"type": "string", "format": "binary", "pattern": "^ab+$", "maxLength": 5}, "ab"),
+    ],
+)
+def test_bounded_format_candidate_rejected_by_pattern_uses_regex(pctx, schema, expected):
+    # The length-aware email generator uses a one-character local part, so the
+    # literal pattern must still get a chance to supply its only valid value.
+    assert pctx.generate_from_schema(schema) == expected
+
+
+def test_bounded_pattern_does_not_use_builtin_for_custom_format(pctx):
+    pctx.custom_formats = {**pctx.custom_formats, "email": st.just("custom@example.com")}
+    schema = {"type": "string", "format": "email", "pattern": r"^[^@]+@[^@]+\.[^@]+$", "maxLength": 254}
+    assert pctx.generate_from_schema(schema) == "0@0.0"
+
+
 def test_positive_string_skips_infeasible_boundary_lengths(pctx):
     # Pattern minimum match is ~30 chars; minLength=1 boundary variant (exact len=1) is
     # structurally impossible and must be skipped instead of timing out in Hypothesis.
@@ -3489,6 +3530,29 @@ def test_negative_pattern_with_min_length_past_the_buffer_is_skipped(nctx):
     assert_not_conform(values, schema)
 
 
+QUANTIFIERS_PAST_THE_BUFFER = pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "string", "pattern": "^[a-z]{100000,200000}$"},
+        {"type": "string", "pattern": "^(a{40000})?$"},
+        {"type": "object", "patternProperties": {"^a{40000}$": {"type": "integer"}}},
+    ],
+    ids=["quantifier", "optional-group", "pattern-properties"],
+)
+
+
+@QUANTIFIERS_PAST_THE_BUFFER
+def test_positive_pattern_with_quantifier_past_the_buffer(pctx, schema):
+    assert_conform(cover_schema(pctx, schema), schema)
+
+
+@QUANTIFIERS_PAST_THE_BUFFER
+def test_negative_pattern_with_quantifier_past_the_buffer(nctx, schema):
+    values = cover_schema(nctx, schema)
+    assert values
+    assert_not_conform(values, schema)
+
+
 # Past 2**53 the next multiple may have no float spelling; as an integer it is exact.
 def test_positive_number_multiples_past_float_precision_are_exact(pctx):
     schema = {"type": "number", "multipleOf": 3, "minimum": 9996036847180748.0}
@@ -4296,6 +4360,38 @@ def test_one_of_negative_is_not_valid_for_a_sibling_under_a_newer_draft(ctx_fact
     assert [value for value in values if any(judge.is_valid(value) for judge in judges)] == []
 
 
+def test_body_negative_admitted_as_an_integer_by_a_newer_draft_is_dropped(ctx_factory):
+    schema = {"type": "integer"}
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE], root_schema=schema)
+    generated = GeneratedValue.with_negative(
+        2.0,
+        scenario=CoverageScenario.INCORRECT_TYPE,
+        description="Incorrect type",
+        location="body",
+    )
+
+    assert list(_schema.drop_negatives_any_draft_admits(ctx, schema, iter([generated]))) == []
+
+
+def test_body_binary_negative_reaching_a_validator_is_kept(ctx_factory):
+    schema = {
+        "type": "object",
+        "properties": {"file": {"type": "string", "format": "binary"}},
+        "required": ["file"],
+    }
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE], root_schema=schema)
+    generated = GeneratedValue.with_negative(
+        {"file": b"content"},
+        scenario=CoverageScenario.INCORRECT_TYPE,
+        description="Incorrect type",
+        location="body",
+    )
+
+    assert [value.value for value in _schema.drop_negatives_any_draft_admits(ctx, schema, iter([generated]))] == [
+        {"file": b"content"}
+    ]
+
+
 # A value beyond a negated large ceiling needs more elements than one draw holds.
 def test_positive_array_beyond_a_negated_large_ceiling(pctx):
     schema = {"type": "array", "not": {"maxItems": 8000}}
@@ -4322,6 +4418,30 @@ def test_positive_unique_array_with_a_large_floor(ctx_factory, items):
     values = cover_schema(ctx, schema)
     assert values, schema
     assert_conform(values, schema)
+
+
+# Draws keep repeating small scalars, so a large floor of distinct ones takes more draws than the floor alone.
+def test_positive_unique_uuid_array_with_a_large_floor(ctx_factory):
+    schema = {"type": "array", "items": {"type": "string", "format": "uuid"}, "uniqueItems": True, "minItems": 1000}
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    values = cover_schema(ctx, schema)
+    assert values, schema
+    assert_conform(values, schema)
+
+
+def test_distinct_array_with_an_uncacheable_annotation(ctx_factory):
+    schema = {
+        "type": "array",
+        "items": {"type": "integer"},
+        "examples": [b"not-json"],
+        "uniqueItems": True,
+        "minItems": 65,
+    }
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+
+    values = ctx._distinct_array(schema, 65)
+
+    assert (len(values), len(set(values))) == (65, 65)
 
 
 @pytest.mark.parametrize("items", UNIQUE_ARRAY_ITEMS, ids=["object", "any"])

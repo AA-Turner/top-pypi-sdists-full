@@ -1,9 +1,10 @@
 import re
 
 import pytest
-from hypothesis import HealthCheck, given, settings
+from hypothesis import given, settings
 
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.specs.openapi.headers import (
     KNOWN_HEADER_FORMATS,
     get_header_format_strategies,
@@ -12,6 +13,7 @@ from schemathesis.specs.openapi.headers import (
     range_slightly_invalid_values,
     range_values,
 )
+from test.utils import run_given
 
 ETAG_RE = re.compile(r'^(\*|(W/)?"[^"]*")(,\s*(\*|(W/)?"[^"]*"))*$')
 HTTP_DATE_RE = re.compile(r"^\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT$")
@@ -42,15 +44,8 @@ def test_range_values_grammar(value):
 
 
 def test_range_slightly_invalid_values_all_patterns():
-    values = []
-
-    @given(range_slightly_invalid_values())
     # Every expected variant must appear at least once, which takes many draws.
-    @settings(max_examples=100)
-    def inner(value):
-        values.append(value)
-
-    inner()
+    values = generate_many(range_slightly_invalid_values(), 100)
 
     assert any(
         re.match(r"^bytes=(\d+)-(\d+)$", v) and int(v[6:].split("-")[0]) > int(v[6:].split("-")[1]) for v in values
@@ -80,8 +75,7 @@ def test_known_header_formats_lookup(name, expected):
 def test_positive_mode_range_always_valid():
     strategies = get_header_format_strategies(GenerationMode.POSITIVE)
 
-    @given(strategies["_range_header"])
-    @settings(max_examples=50)
+    @run_given(strategies["_range_header"], max_examples=50)
     def inner(value):
         assert VALID_RANGE_RE.match(value), f"Positive mode produced invalid Range: {value!r}"
         for spec in value[6:].split(","):
@@ -89,20 +83,11 @@ def test_positive_mode_range_always_valid():
                 first, last = spec.split("-")
                 assert int(first) <= int(last)
 
-    inner()
-
 
 def test_negative_mode_range_has_three_tiers():
     strategies = get_header_format_strategies(GenerationMode.NEGATIVE)
-    values = []
-
-    @given(strategies["_range_header"])
     # Every expected variant must appear at least once, which takes many draws.
-    @settings(max_examples=200, suppress_health_check=list(HealthCheck))
-    def inner(value):
-        values.append(value)
-
-    inner()
+    values = generate_many(strategies["_range_header"], 200)
 
     assert any(VALID_RANGE_RE.match(v) for v in values), "Expected valid structured Range values"
     assert any(v.startswith("bytes=-1-") or v.startswith("invalid=") for v in values), (
@@ -119,26 +104,20 @@ def test_negative_mode_range_has_three_tiers():
     ids=["if-match", "if-modified-since"],
 )
 def test_negative_cases_keep_structured_values_for_known_headers(ctx, name, pattern):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {"name": name, "in": "header", "required": True, "schema": {"type": "string"}},
-                        {"name": "X-Count", "in": "header", "required": True, "schema": {"type": "integer"}},
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/items"]["GET"]
-    values = []
-
-    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
-    @settings(max_examples=10, suppress_health_check=list(HealthCheck), deadline=None)
-    def inner(case):
-        values.append(case.headers.get(name))
-
-    inner()
+            "parameters": [
+                {"name": name, "in": "header", "required": True, "schema": {"type": "string"}},
+                {"name": "X-Count", "in": "header", "required": True, "schema": {"type": "integer"}},
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    # Only about half the cases carry a structured value, so fewer draws can miss all of them.
+    values = [
+        case.headers.get(name)
+        for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), 30)
+    ]
 
     assert any(value is not None and pattern.match(value) for value in values)

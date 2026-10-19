@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Mastodon.py
-Version: 2.2.2
+Version: 2.3.3
 Summary: Python wrapper for the Mastodon API
 Author-email: Lorenz Diener <lorenzd+mastodonpypypi@gmail.com>
 License: MIT
@@ -21,6 +21,8 @@ Requires-Dist: decorator>=4.0.0
 Provides-Extra: webpush
 Requires-Dist: http_ece>=1.0.5; extra == "webpush"
 Requires-Dist: cryptography>=1.6.0; extra == "webpush"
+Provides-Extra: websocket-streaming
+Requires-Dist: websocket-client>=1.0.0; extra == "websocket-streaming"
 Provides-Extra: blurhash
 Requires-Dist: blurhash>=1.1.4; extra == "blurhash"
 Provides-Extra: grapheme
@@ -52,7 +54,7 @@ Dynamic: license-file
 Mastodon.py
 ===========
 Python wrapper for the Mastodon ( https://github.com/mastodon/mastodon/ ) API.
-Feature complete for public API as of Mastodon version 4.5.8 and easy to get started with:
+Feature complete for public API as of Mastodon version 4.7.3 and easy to get started with:
 
 .. code-block:: python
 

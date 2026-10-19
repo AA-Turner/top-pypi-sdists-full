@@ -21,7 +21,7 @@ from office365.directory.certificates.auth_configuration import (
     CertificateBasedAuthConfiguration,
 )
 from office365.directory.directory import Directory
-from office365.directory.domains.domain import Domain
+from office365.directory.domains.collection import DomainCollection
 from office365.directory.extensions.schema import SchemaExtension
 from office365.directory.groups.collection import GroupCollection
 from office365.directory.groups.lifecycle_policy import GroupLifecyclePolicy
@@ -31,7 +31,7 @@ from office365.directory.identities.provider import IdentityProvider
 from office365.directory.identitygovernance.governance import IdentityGovernance
 from office365.directory.internal.paths.me import MePath
 from office365.directory.invitations.collection import InvitationCollection
-from office365.directory.licenses.subscribed_sku import SubscribedSku
+from office365.directory.licenses.collection import SubscribedSkuCollection
 from office365.directory.objects.collection import DirectoryObjectCollection
 from office365.directory.permissions.grants.oauth2_collection import OAuth2PermissionGrantCollection
 from office365.directory.permissions.grants.resource_specific import (
@@ -42,7 +42,6 @@ from office365.directory.protection.information import InformationProtection
 from office365.directory.protection.root import IdentityProtectionRoot
 from office365.directory.rolemanagement.management import RoleManagement
 from office365.directory.rolemanagement.roles.collection import DirectoryRoleCollection
-from office365.directory.security.security import Security
 from office365.directory.serviceprincipals.collection import ServicePrincipalCollection
 from office365.directory.tenantinformation.relationship import TenantRelationship
 from office365.directory.users.collection import UserCollection
@@ -60,18 +59,22 @@ from office365.onedrive.drives.collection import DriveCollection
 from office365.onedrive.shares.collection import SharesCollection
 from office365.onedrive.sites.sites_with_root import SitesWithRoot
 from office365.onedrive.storage.storage import Storage
-from office365.outlook.calendar.place import Place
+from office365.outlook.calendar.place_collection import PlaceCollection
 from office365.outlook.calendar.rooms.list import RoomList
 from office365.planner.planner import Planner
 from office365.reports.root import ReportRoot
+from office365.runtime.auth.certificate import CertificateData
 from office365.runtime.client_runtime_context import ClientRuntimeContext
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.v4.batch_request import DEFAULT_MAX_BATCH_BYTES, ODataV4BatchRequest
 from office365.runtime.odata.v4.json_format import V4JsonFormat
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.transport.base import NoTimeoutType
+from office365.runtime.transport.requests_transport import DEFAULT_POOL_CONNECTIONS, DEFAULT_POOL_MAXSIZE
 from office365.search.entity import SearchEntity
 from office365.search.external.connection import ExternalConnection
 from office365.search.external.external import External
+from office365.security.security import Security
 from office365.subscriptions.collection import SubscriptionCollection
 from office365.teams.apps.catalog import AppCatalogs
 from office365.teams.chats.collection import ChatCollection
@@ -126,19 +129,41 @@ class GraphClient(ClientRuntimeContext):
         self._directory: Optional[Directory] = None
         self._authority = authority
 
-    def with_certificate(self, client_id: str, thumbprint: str, private_key: str) -> Self:
+    def with_certificate(
+        self,
+        client_id: str,
+        thumbprint: str | None = None,
+        private_key: str | None = None,
+        *,
+        public_certificate: CertificateData | None = None,
+        passphrase: str | None = None,
+        use_sni: bool = False,
+    ) -> Self:
         """
         Initialize with client certificate authentication
 
         Args:
             client_id: Application client ID
-            thumbprint: Certificate thumbprint
+            thumbprint: Certificate thumbprint (optional when ``public_certificate`` is given)
             private_key: Private key content
+            public_certificate: Certificate (DER/PEM bytes, inline PEM text, or a
+                path) used to derive the thumbprint or, with ``use_sni``, for
+                subject name/issuer authentication
+            passphrase: Private key passphrase
+            use_sni: Use subject name/issuer authentication (requires the optional
+                ``cryptography`` package)
 
         Returns:
             self: Supports method chaining
         """
-        self.pending_request().with_certificate(client_id, thumbprint, private_key)
+        self.pending_request().with_certificate(
+            client_id,
+            thumbprint,
+            private_key,
+            public_certificate=public_certificate,
+            passphrase=passphrase,
+            use_sni=use_sni,
+        )
         return self
 
     def with_client_secret(self, client_id: str, client_secret: str) -> Self:
@@ -325,9 +350,13 @@ class GraphClient(ClientRuntimeContext):
     def with_transport(
         self,
         proxies: dict[str, str] | None = None,
-        verify: bool | str = True,
-        timeout: int | tuple[int, int] | None = None,
+        verify: bool | str | None = None,
+        timeout: float | tuple[float, float | None] | NoTimeoutType | None = None,
         session: Session | None = None,
+        *,
+        pool_connections: int = DEFAULT_POOL_CONNECTIONS,
+        pool_maxsize: int = DEFAULT_POOL_MAXSIZE,
+        pool_block: bool = False,
     ) -> Self:
         """Configure the HTTP transport (proxy, SSL, timeout, custom session).
 
@@ -338,10 +367,20 @@ class GraphClient(ClientRuntimeContext):
 
         Args:
             proxies: Proxy URLs (e.g. ``{"https": "http://proxy:8080"}``)
-            verify: SSL verification — ``True``, ``False``, or a CA bundle path
-            timeout: Request timeout in seconds
+            verify: SSL verification — ``True``, ``False``, or a CA bundle path.
+                ``None`` (default) defers to the session/environment default.
+            timeout: Request timeout — a number or a ``(connect, read)`` tuple.
+                When ``None`` the bundled default (10 s connect, unbounded read)
+                applies; pass
+                :data:`~office365.runtime.transport.base.NO_TIMEOUT` to disable.
             session: Custom ``requests.Session`` with pre-configured adapters
                    (e.g. for NTLM/SSPI auth, custom TLS, connection pooling)
+            pool_connections: Host connection pools kept per session (ignored
+                when ``session`` is supplied)
+            pool_maxsize: Maximum connections per host pool (ignored when
+                ``session`` is supplied)
+            pool_block: Block when a pool is full instead of discarding the
+                connection (ignored when ``session`` is supplied)
 
         Returns:
             Self: Supports method chaining
@@ -351,6 +390,9 @@ class GraphClient(ClientRuntimeContext):
             verify=verify,
             timeout=timeout,
             session=session,
+            pool_connections=pool_connections,
+            pool_maxsize=pool_maxsize,
+            pool_block=pool_block,
         )
         return self
 
@@ -436,11 +478,70 @@ class GraphClient(ClientRuntimeContext):
         self._execute_batches_in_parallel(batches, concurrency, success_callback)
         return self
 
+    async def execute_batch_async(
+        self,
+        items_per_batch: int = 20,
+        success_callback: Optional[Callable[[List[Any]], None]] = None,
+        concurrency: int = 1,
+        max_batch_bytes: Optional[int] = None,
+        sequential: bool = False,
+    ) -> Self:
+        """Async counterpart of :meth:`execute_batch`.
+
+        Pending queries are split exactly like the synchronous method, but each
+        batch's HTTP round-trip runs off the event loop, so the loop is never
+        blocked and independent batches overlap when ``concurrency`` > 1.
+        ``sequential=True`` chains sub-requests with ``dependsOn`` just as the
+        synchronous method does.
+
+        Args:
+            items_per_batch: Maximum items per batch (default: 20)
+            success_callback: Optional callback for successful requests
+            concurrency: Maximum number of concurrent batch requests (default 1)
+            max_batch_bytes: Maximum estimated batch payload size (default ~3 MB)
+            sequential: Chain sub-requests with ``dependsOn`` (Graph v4 only).
+
+        Raises:
+            ValueError: When ``sequential`` is combined with ``concurrency > 1``.
+        """
+        if sequential and concurrency > 1:
+            raise ValueError("sequential=True requires concurrency=1 (Graph sequences within a batch only)")
+        max_bytes = DEFAULT_MAX_BATCH_BYTES if max_batch_bytes is None else max_batch_bytes
+        batches = self._split_batches(items_per_batch, max_bytes)
+        if sequential:
+            for batch in batches:
+                batch.sequential = True
+        self.pending_request()
+        await self._run_batches_async(batches, concurrency, success_callback)
+        return self
+
     def _execute_batch(self, batch_qry: "BatchQuery") -> list[Any]:
         """Execute a single batch unit on a worker thread (with per-request retry)."""
         batch_request = ODataV4BatchRequest("", V4JsonFormat())
         batch_request.beforeExecute += self.pending_request().authenticate_request
         batch_request.execute_query_with_retry(batch_qry)
+        return batch_qry.return_types
+
+    async def _execute_batch_async(self, batch_qry: "BatchQuery") -> list[Any]:
+        """Execute a single batch unit through the async transport.
+
+        Unlike the base implementation (which offloads the whole synchronous
+        batch to a worker thread), this awaits the v4 batch's own async retry
+        loop, so a native async transport configured on the context is used and
+        independent batches truly overlap.
+        """
+        pending = self.pending_request()
+        batch_request = ODataV4BatchRequest("", V4JsonFormat())
+        batch_request.beforeExecute += pending.authenticate_request
+        batch_request._async_authenticate = pending._async_authenticate
+        if pending._auth_context.is_async_token_callback:
+            # Batch payloads authenticate each sub-request synchronously during
+            # ``build_request``; acquire (and cache) the token on the loop first so
+            # that build can reuse it.
+            await pending._auth_context.acquire_token_async()
+        if pending.has_async_transport:
+            batch_request.with_async_transport(pending.async_transport)
+        await batch_request.execute_query_with_retry_async(batch_qry)
         return batch_qry.return_types
 
     def pending_request(self) -> GraphRequest:
@@ -489,9 +590,9 @@ class GraphClient(ClientRuntimeContext):
         return UserCollection(self, ResourcePath("users"))
 
     @property
-    def domains(self) -> EntityCollection[Domain]:
-        """Alias to domains"""
-        return EntityCollection(self, Domain, ResourcePath("domains"))
+    def domains(self) -> DomainCollection:
+        """Get the tenant domains. Use ``ensure("contoso.com")`` for an idempotent add."""
+        return DomainCollection(self, ResourcePath("domains"))
 
     @property
     def groups(self) -> GroupCollection:
@@ -624,9 +725,9 @@ class GraphClient(ClientRuntimeContext):
         return EntityCollection(self, Organization, ResourcePath("organization"))
 
     @property
-    def subscribed_skus(self) -> EntityCollection[SubscribedSku]:
+    def subscribed_skus(self) -> SubscribedSkuCollection:
         """Get the list of commercial subscriptions that an organization has acquired"""
-        return EntityCollection(self, SubscribedSku, ResourcePath("subscribedSkus"))
+        return SubscribedSkuCollection(self, ResourcePath("subscribedSkus"))
 
     @property
     def group_lifecycle_policies(self) -> EntityCollection[GroupLifecyclePolicy]:
@@ -690,9 +791,9 @@ class GraphClient(ClientRuntimeContext):
         return AuditLogRoot(self, ResourcePath("auditLogs"))
 
     @property
-    def places(self) -> EntityCollection[Place]:
+    def places(self) -> PlaceCollection:
         """Gets all places in a tenant"""
-        return EntityCollection(self, Place, ResourcePath("places"))
+        return PlaceCollection(self, ResourcePath("places"))
 
     @property
     def oauth2_permission_grants(self) -> OAuth2PermissionGrantCollection:
@@ -805,21 +906,15 @@ class GraphClient(ClientRuntimeContext):
 
         return _check(self, scope, app_id)
 
-    def has_application_permissions(self, scope: str, app_id: str) -> ClientResult[bool]:
+    def has_application_permissions(self, scope: str, app_id: str) -> bool:
         """Check if an app has an application permission on Microsoft Graph.
 
         Args:
             scope (str): Permission scope name (e.g. 'Mail.Read')
             app_id (str): Application (client) ID of the app to check
         """
-        return_type = ClientResult[bool](self)
-
-        def _verify(result: ClientResult[AppRoleCollection]) -> None:
-            has_perms = any(role.value == scope for role in result.value)
-            return_type.set_property("__value", has_perms)
-
-        self.get_application_permissions(app_id).after_execute(_verify)
-        return return_type
+        granted = self.get_application_permissions(app_id).execute_query().value
+        return any(role.value == scope for role in granted)
 
     def grant_delegated_permissions(self, app_id: str, scope: AppRole | str) -> Self:
         """Grants a delegated permission on Microsoft Graph (AllPrincipals).
@@ -830,7 +925,9 @@ class GraphClient(ClientRuntimeContext):
         """
         from office365.directory.permissions.resource_name import ResourceName
 
-        self.service_principals.get_by_name(ResourceName.Graph).grant_delegated_permissions(app_id, scope)
+        self.service_principals.find_by_name(ResourceName.Graph, required=True).grant_delegated_permissions(
+            app_id, scope
+        )
         return self
 
     def get_delegated_permissions(self, app_id: str) -> ClientResult[StringCollection]:
@@ -841,7 +938,7 @@ class GraphClient(ClientRuntimeContext):
         """
         from office365.directory.permissions.resource_name import ResourceName
 
-        return self.service_principals.get_by_name(ResourceName.Graph).get_delegated_permissions(app_id)
+        return self.service_principals.find_by_name(ResourceName.Graph, required=True).get_delegated_permissions(app_id)
 
     def grant_application_permissions(self, app_id: str, app_role: AppRole | str) -> Self:
         """Grants an application permission on Microsoft Graph.
@@ -852,7 +949,9 @@ class GraphClient(ClientRuntimeContext):
         """
         from office365.directory.permissions.resource_name import ResourceName
 
-        self.service_principals.get_by_name(ResourceName.Graph).grant_application_permissions(app_id, app_role)
+        self.service_principals.find_by_name(ResourceName.Graph, required=True).grant_application_permissions(
+            app_id, app_role
+        )
         return self
 
     def get_application_permissions(self, app_id: str) -> ClientResult[AppRoleCollection]:
@@ -863,7 +962,9 @@ class GraphClient(ClientRuntimeContext):
         """
         from office365.directory.permissions.resource_name import ResourceName
 
-        return self.service_principals.get_by_name(ResourceName.Graph).get_application_permissions(app_id)
+        return self.service_principals.find_by_name(ResourceName.Graph, required=True).get_application_permissions(
+            app_id
+        )
 
     def revoke_delegated_permissions(self, client_id: str, scope: str) -> Self:
         """Revokes a delegated permission on Microsoft Graph.
@@ -874,7 +975,9 @@ class GraphClient(ClientRuntimeContext):
         """
         from office365.directory.permissions.resource_name import ResourceName
 
-        self.service_principals.get_by_name(ResourceName.Graph).revoke_delegated_permissions(client_id, scope)
+        self.service_principals.find_by_name(ResourceName.Graph, required=True).revoke_delegated_permissions(
+            client_id, scope
+        )
         return self
 
     def revoke_application_permissions(self, app_id: str, app_role: AppRole | str) -> Self:
@@ -886,5 +989,7 @@ class GraphClient(ClientRuntimeContext):
         """
         from office365.directory.permissions.resource_name import ResourceName
 
-        self.service_principals.get_by_name(ResourceName.Graph).revoke_application_permissions(app_id, app_role)
+        self.service_principals.find_by_name(ResourceName.Graph, required=True).revoke_application_permissions(
+            app_id, app_role
+        )
         return self

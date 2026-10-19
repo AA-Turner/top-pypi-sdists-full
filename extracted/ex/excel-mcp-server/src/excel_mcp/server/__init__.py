@@ -7,8 +7,10 @@ from excel_mcp.config import Settings
 from excel_mcp.paths import PathPolicy
 from excel_mcp.server import (
     annotation_tools,
+    csv_tools,
     data_tools,
     format_tools,
+    formula_tools,
     image_tools,
     object_tools,
     pivot_tools,
@@ -18,13 +20,16 @@ from excel_mcp.server import (
     vba_write_tools,
     workbook_tools,
 )
+from excel_mcp.server.areas import tool_names
 from excel_mcp.server.registry import ToolRegistry
 from excel_mcp.workspace import Workspace
 
 TOOL_MODULES = (
     workbook_tools,
+    csv_tools,
     sheet_tools,
     data_tools,
+    formula_tools,
     format_tools,
     object_tools,
     pivot_tools,
@@ -36,18 +41,19 @@ TOOL_MODULES = (
 
 
 def create_server(settings: Settings) -> MCPServer:
+    only = tool_names(settings.tool_areas)
     paths = PathPolicy(settings.allowed_dirs)
     workspace = Workspace(paths, settings.limits, allow_macro_workbooks=settings.allow_vba_write)
     server = MCPServer(
         "excel-mcp-server",
         title="Excel MCP Server",
         description="Create, read and edit Excel workbooks without Microsoft Excel.",
-        instructions=_instructions(settings, paths),
+        instructions=_instructions(settings, paths, only),
         website_url="https://github.com/haris-musa/excel-mcp-server",
         version=__version__,
         log_level=settings.log_level,
     )
-    tools = ToolRegistry(server, settings.read_only)
+    tools = ToolRegistry(server, settings.read_only, only)
     for module in TOOL_MODULES:
         module.register(tools, workspace)
     if settings.allow_vba_write:
@@ -55,7 +61,7 @@ def create_server(settings: Settings) -> MCPServer:
     return server
 
 
-def _instructions(settings: Settings, paths: PathPolicy) -> str:
+def _instructions(settings: Settings, paths: PathPolicy, only: frozenset[str] | None) -> str:
     if paths.confined:
         location = (
             f"Workbooks live in {paths.allowed_dirs[0]}; use paths relative to it, "
@@ -72,7 +78,7 @@ def _instructions(settings: Settings, paths: PathPolicy) -> str:
     ]
     if settings.read_only:
         lines.append("The server is read-only: workbooks can be inspected but not changed.")
-    elif settings.allow_vba_write:
+    elif settings.allow_vba_write and (only is None or "write_vba_module" in only):
         lines.append(
             "VBA writing is enabled. Macros are only stored, never run: tell the user to "
             "review macro code before enabling macros in Excel."

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import string
 import sys
 import warnings
 from collections.abc import Callable
@@ -480,7 +481,6 @@ except ImportError:
     import sre_constants as sre
     import sre_parse
 
-ANCHOR = sre.AT
 REPEATS: tuple[int, ...]
 POSSESSIVE_REPEATS: tuple[int, ...]
 if hasattr(sre, "POSSESSIVE_REPEAT"):
@@ -879,6 +879,17 @@ _AT_END: _Node = (sre.AT, sre.AT_END)
 def _transform(parsed: list[_Node], min_length: int | None, max_length: int | None) -> list[_Node] | None:
     """Top-level transformer. Dispatches by pattern structure."""
     nodes = list(parsed)
+    lookarounds = 0
+    if nodes and nodes[0] == _AT_BEGINNING:
+        while 1 + lookarounds < len(nodes) and nodes[1 + lookarounds][0] in (sre.ASSERT, sre.ASSERT_NOT):
+            lookarounds += 1
+    if lookarounds:
+        # Lookarounds right after `^` consume nothing, so the length budget goes to what follows them;
+        # they stay in place and keep ruling out what they rule out.
+        transformed = _transform([nodes[0], *nodes[1 + lookarounds :]], min_length, max_length)
+        if transformed is None:
+            return None
+        return [transformed[0], *nodes[1 : 1 + lookarounds], *transformed[1:]]
     match _classify_structure(nodes):
         # For cases without full anchoring: JSON Schema `pattern` is a substring match,
         # so `{1,50}` alone doesn't reject strings longer than 50 chars. Add the missing
@@ -1764,8 +1775,11 @@ def _restrict_repeat(value: _RepeatValue, length: int, limit: int) -> list[_Node
         return [] if inner == 0 and min_repeat == 0 else None
     lowest = (inner & -inner).bit_length() - 1
     highest = inner.bit_length() - 1
+    # Repetitions that match no characters add nothing to the text, so dropping them is exact unless
+    # they carry anchors or lookarounds that still have to hold.
+    if lowest == 0 and min_repeat > 0 and _is_position_dependent(body):
+        return None
     if length == 0:
-        # Repetitions that match no characters add nothing to the text, so dropping them is exact.
         return [] if min_repeat == 0 or lowest == 0 else None
     # Only a body whose reachable lengths run without gaps lets a budget be split evenly across
     # repetitions; anything else needs a search this walk deliberately does not do.
@@ -1783,6 +1797,29 @@ def _restrict_repeat(value: _RepeatValue, length: int, limit: int) -> list[_Node
             return None
         parts.append((sre.MAX_REPEAT, (piece_count, piece_count, piece)))
     return parts
+
+
+# Characters tried, in order, for each position of a witness string.
+_WITNESS_CHARACTERS = string.ascii_lowercase + string.printable
+
+
+def _witness(nodes: list[_Node]) -> str:
+    """One string spelled by pinned nodes, skipping zero-width checks; a class no tried character fits leaves it short."""
+    parts = []
+    for node in nodes:
+        op, value = node
+        if op == LITERAL:
+            parts.append(chr(value))
+        elif op in (NOT_LITERAL, IN, sre.ANY):
+            compiled = re.compile(_serialize([node]))
+            parts.append(next((character for character in _WITNESS_CHARACTERS if compiled.fullmatch(character)), ""))
+        elif op == sre.SUBPATTERN:
+            parts.append(_witness(list(value[3])))
+        elif op == sre.BRANCH:
+            parts.append(_witness(list(value[1][0])))
+        elif op in REPEATS:
+            parts.append(_witness(list(value[2])) * value[0])
+    return "".join(parts)
 
 
 @lru_cache(maxsize=256)
@@ -1808,7 +1845,10 @@ def pin_pattern_length(pattern: str, min_length: int | None, max_length: int | N
         if restricted is None:
             return pattern
         updated = _serialize(restricted, global_flags=parsed.state.flags & ~_DEFAULT_FLAGS)
-        re.compile(updated)
+        compiled = re.compile(updated)
+        # Anchors and lookarounds may reject every string of the pinned shape, so keep it only once one passes.
+        if _is_position_dependent(nodes) and compiled.fullmatch(_witness(restricted)) is None:
+            return pattern
         return updated
     except (re.error, InternalError):
         return pattern

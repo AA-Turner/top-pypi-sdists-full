@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curies
-Version: 0.15.3
+Version: 0.15.4
 Summary: Idiomatic conversion between URIs and compact URIs (CURIEs)
 Keywords: snekpack,cookiecutter,semantic web,compact uniform resource identifiers,uniform resource identifiers,curies,IRIs,URIs
 Author: Charles Tapley Hoyt
@@ -22,7 +22,6 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Typing :: Typed
-Requires-Dist: pystow>=0.9.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: typing-extensions
 Requires-Dist: fastapi ; extra == 'fastapi'
@@ -36,6 +35,7 @@ Requires-Dist: pandas ; extra == 'pandas'
 Requires-Dist: rdflib ; extra == 'rdflib'
 Requires-Dist: sqlalchemy ; extra == 'sqlalchemy'
 Requires-Dist: sqlmodel ; extra == 'sqlmodel'
+Requires-Dist: pystow>=0.10.2 ; extra == 'triples-io'
 Maintainer: Charles Tapley Hoyt
 Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
 Requires-Python: >=3.11
@@ -50,6 +50,7 @@ Provides-Extra: pandas
 Provides-Extra: rdflib
 Provides-Extra: sqlalchemy
 Provides-Extra: sqlmodel
+Provides-Extra: triples-io
 Description-Content-Type: text/markdown
 
 <!--

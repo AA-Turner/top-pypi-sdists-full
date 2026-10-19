@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, cast
 
 import pydantic
 import pytest
-from inline_snapshot import external_file
 
 from datamodel_code_generator import (
     AllExportsCollisionStrategy,
@@ -21,6 +20,7 @@ from datamodel_code_generator import (
     DataModelType,
     Error,
     InputFileType,
+    LiteralType,
     clear_dynamic_models_cache,
     generate,
     generate_dynamic_models,
@@ -93,7 +93,7 @@ def assert_dynamic_models(
             actual[name] = {"__name__": model.__name__, "data": model_dump}
             continue
         actual[name] = model_dump
-    assert actual == external_file(expected_path)
+    assert_output(actual, expected_path)
 
 
 @pytest.fixture(autouse=True)
@@ -863,6 +863,28 @@ def test_force_optional_discriminator_literals() -> None:
             "Payment": {"kind": "cash", "received_amount": 50},
         },
         EXPECTED_PATH / "force_optional_discriminator_literals.json",
+        config=config,
+    )
+
+
+def test_optional_literal_discriminator_tags() -> None:
+    """Accept payloads without an optional one-value Literal tag, which Pydantic models fill with the tag value."""
+    schema = load_yaml_dict_from_path(OPEN_API_DATA_PATH / "discriminator_optional_literal.yaml", "utf-8")
+    config = GenerateConfig(
+        input_file_type=InputFileType.OpenAPI,
+        output_model_type=DataModelType.PydanticV2BaseModel,
+        enum_field_as_literal=LiteralType.One,
+    )
+    assert_dynamic_models(
+        schema,
+        {
+            "Track": {"name": "a"},
+            "Chapter": {},
+            "CardPayment": {},
+            "Queue": {"current": {"type": "track", "name": "a"}},
+            "Payment": {"kind": "voucher", "code": "x"},
+        },
+        EXPECTED_PATH / "optional_literal_discriminator_tags.json",
         config=config,
     )
 

@@ -22,6 +22,7 @@ import sys
 import json
 import argparse
 import os
+import stat
 import re
 from importlib import import_module
 from pathlib import Path
@@ -84,16 +85,13 @@ def should_skip_plugin_dir(plugin_dir: Path) -> bool:
     return name in SKIP_DIRS or name.startswith(".") or name.endswith("_env")
 
 
-def should_skip_source_path(source_path: Path, plugin_dir: Path) -> bool:
-    """Ignore cache/build artifacts nested under otherwise indexable directories."""
-    for part in source_path.relative_to(plugin_dir).parts[:-1]:
-        if (
-            part.startswith(".")
-            or part in SKIP_NESTED_DIRS
-            or part.endswith(SKIP_NESTED_SUFFIXES)
-        ):
-            return True
-    return False
+def should_skip_nested_dir(name: str) -> bool:
+    """Prune runtime/build artifacts before descending into their directories."""
+    return (
+        name.startswith(".")
+        or name in SKIP_NESTED_DIRS
+        or name.endswith(SKIP_NESTED_SUFFIXES)
+    )
 
 
 def find_indexable_content() -> list[tuple[str, str]]:
@@ -111,26 +109,63 @@ def find_indexable_content() -> list[tuple[str, str]]:
         return results
 
     for plugin_dir in sorted(snap_dir.iterdir()):
-        if not plugin_dir.is_dir():
-            continue
-
         extractor = plugin_dir.name
         if should_skip_plugin_dir(plugin_dir):
             continue
+        # The boundary is the snapshot, not this plugin: response-file aliases
+        # are valid inputs. Private .persona state is excluded even inside it.
+        # Validate root aliases before walking, or indexing could copy secrets
+        # into search results even when replay rejects the source.
+        plugin_stat = plugin_dir.lstat()
+        resolved_plugin = plugin_dir
+        if stat.S_ISLNK(plugin_stat.st_mode):
+            resolved_plugin = plugin_dir.resolve()
+            if not resolved_plugin.is_relative_to(snap_dir) or any(
+                part.casefold() == ".persona"
+                for part in resolved_plugin.relative_to(snap_dir).parts
+            ):
+                continue
+            if not resolved_plugin.is_dir():
+                continue
+        elif not stat.S_ISDIR(plugin_stat.st_mode):
+            continue
 
-        for ext in INDEXABLE_EXTENSIONS:
-            for match in plugin_dir.rglob(f"*{ext}"):
-                if not match.is_file():
-                    continue
-                if should_skip_source_path(match, plugin_dir):
+        # Match rglob's symlink behavior: follow a plugin-root alias and file
+        # aliases, but never recurse through nested directory symlinks. The
+        # per-file fast path below relies on keeping followlinks=False.
+        for directory, dirnames, filenames in os.walk(plugin_dir, followlinks=False):
+            dirnames[:] = [
+                name for name in dirnames if not should_skip_nested_dir(name)
+            ]
+            for filename in filenames:
+                match = Path(directory) / filename
+                if not filename.endswith(tuple(INDEXABLE_EXTENSIONS)):
                     continue
                 if any(match.name.endswith(s) for s in EXECUTOR_ARTIFACT_SUFFIXES):
                     continue
-                if match.stat().st_size == 0:
+                # os.walk does not follow nested directory links. Only root
+                # aliases and file links need resolution; ordinary files reuse
+                # one lstat for their type and size on slow archive storage.
+                # stat would hide the link itself; resolving every normal file
+                # would repeat metadata reads for every ancestor directory.
+                resolved = resolved_plugin / match.relative_to(plugin_dir)
+                try:
+                    source_stat = resolved.lstat()
+                    if stat.S_ISLNK(source_stat.st_mode):
+                        resolved = resolved.resolve()
+                        if not resolved.is_relative_to(snap_dir) or any(
+                            part.casefold() == ".persona"
+                            for part in resolved.relative_to(snap_dir).parts
+                        ):
+                            continue
+                        source_stat = resolved.stat()
+                except (OSError, RuntimeError):
+                    continue
+                if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
                     continue
 
                 try:
-                    content = match.read_text(encoding="utf-8", errors="ignore")
+                    content = resolved.read_text(encoding="utf-8", errors="ignore")
                     if not content.strip():
                         continue
                     if match.suffix.lower() in (".html", ".htm"):
@@ -274,6 +309,12 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                 )
                 if boundary is not None:
                     end = boundary
+            chunk = content[start:end]
+            # Sonic rejects text that trims to empty. PDF extraction can leave
+            # blank runs spanning entire chunks; these carry no search terms.
+            if not chunk.strip():
+                start = end
+                continue
             # A server closing an overflowing connection can yield an empty
             # response without raising in sonic-client. Only OK proves that
             # this chunk was indexed; otherwise we must not report success.
@@ -282,7 +323,7 @@ def index_in_sonic(snapshot_id: str, texts: list[str], config: Any) -> None:
                     collection,
                     bucket,
                     snapshot_id,
-                    escape_sonic_backslashes(content[start:end]),
+                    escape_sonic_backslashes(chunk),
                 )
                 is not True
             ):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: boto_session_manager
-Version: 2.1.0
+Version: 2.1.1
 Summary: A boto3 session manager: cached clients, typed client properties for 400+ AWS services, assume role with auto-refresh, and AWS CLI credential handoff.
 Author-email: Sanhe Hu <husanhe@gmail.com>
 Maintainer-email: Sanhe Hu <husanhe@gmail.com>

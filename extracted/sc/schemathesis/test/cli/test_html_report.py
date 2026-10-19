@@ -4,6 +4,7 @@ import re
 import sys
 import threading
 import time
+from html import escape, unescape
 from types import SimpleNamespace
 
 import pytest
@@ -11,6 +12,7 @@ from flask import Response, jsonify, request
 from hypothesis import strategies as st
 
 import schemathesis
+from schemathesis.checks import CHECKS
 from schemathesis.cli.constants import ExitCode
 from schemathesis.engine import events
 from schemathesis.graphql import nodes
@@ -24,6 +26,7 @@ from schemathesis.reporting.html.timeline import (
     Lane,
     Marker,
     axis_ticks,
+    curve_path,
     lane_ticks,
     mark_classes,
     phase_blocks,
@@ -161,7 +164,7 @@ def assert_operation_counts_match(html):
 def assert_top_failures_match(html):
     shown = len(re.findall(r'<span class="tf-n">\d+</span>', html))
     more = count_of(r'<a class="tf-more"[^>]*>\+(\d+) more</a>', html)
-    ops = re.search(r'<section class="ops"[^>]*>.*?</table></section>', html, flags=re.DOTALL)
+    ops = re.search(r'<section class="ops[^"]*"[^>]*>.*?</table></section>', html, flags=re.DOTALL)
     cards = re.findall(r'<article class="case"[^>]*>.*?</article>', ops.group(0) if ops else "", flags=re.DOTALL)
     kinds = {title for card in cards for title in re.findall(r'<h4 class="finding-title">([^<]+)', card)}
     assert shown + more == len(kinds), (shown, more, sorted(kinds))
@@ -489,10 +492,29 @@ def test_html_report_operations_table(ctx, cli, app_runner, report_dir, snapshot
     assert html == snapshot_html
 
 
+def test_html_report_permalinks(ctx, cli, report_dir):
+    api = ctx.openapi.apps.success_and_failure()
+    html = run_with_report(cli, report_dir, api.schema_url, exit_code=ExitCode.FAILURES)
+    assert re.findall(
+        r'<tr class="op-row[^"]*" id="([^"]+)">.*?<a class="permalink" href="#([^"]+)" ([^>]*)>#</a>', html
+    ) == [
+        ("op-get-api-failure", "op-get-api-failure", 'aria-label="Copy link to GET /api/failure"'),
+        ("op-get-api-success", "op-get-api-success", 'aria-label="Copy link to GET /api/success"'),
+    ]
+    cards = re.findall(
+        r'<article class="case" id="case-(\w+)"[^>]*>.*?<a class="case-id permalink-id" href="#case-(\w+)"[^>]*>(\w+)</a>',
+        html,
+        flags=re.DOTALL,
+    )
+    assert cards
+    assert all(article == href == text for article, href, text in cards)
+    assert '<div id="nav-live" class="vh" role="status" aria-live="polite"></div>' in html
+
+
 def top_failures_items(html):
     tf_list = re.search(r'<ul class="tf-list">(.*?)</ul>', html).group(1)
     return re.findall(
-        r'<li>(?:<span class="tf-n">\d+</span><span class="tf-name"[^>]*>([^<]+)</span>|<a[^>]*>([^<]+)</a>)</li>',
+        r'<li>(?:<span class="tf-n">\d+</span><(?:span|a) class="tf-name"[^>]*>([^<]+)</(?:span|a)>|<a[^>]*>([^<]+)</a>)</li>',
         tf_list,
     )
 
@@ -503,16 +525,16 @@ def top_failures_items(html):
         (
             False,
             [
-                "Missing required headers",
+                "Missing required response headers",
                 "Server error",
                 "Undocumented Content-Type",
-                "Undocumented HTTP status code",
+                "Undocumented status code",
             ],
         ),
         (
             True,
             [
-                "Missing required headers",
+                "Missing required response headers",
                 "Response violates schema",
                 "Server error",
                 "+2 more",
@@ -620,6 +642,88 @@ def test_html_report_large_api(ctx, cli, app_runner, report_dir, snapshot_html):
     assert run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES) == snapshot_html
 
 
+def test_html_report_filter_bar(ctx, cli, app_runner, report_dir, snapshot_html):
+    ok = {"responses": {"200": {"description": "OK"}}}
+    paths = {"/api/items/{index}": {"get": ok}}
+    paths["/api/failure"] = {"post": ok}
+    paths["/api/secret"] = {"get": ok}
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/api/items/<index>")
+    def item(index):
+        return "{}"
+
+    @app.route("/api/failure", methods=["POST"])
+    def failure():
+        return "", 500
+
+    @app.route("/api/secret")
+    def secret():
+        return jsonify({"detail": "Not authenticated"}), 401
+
+    html = run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES)
+    assert filter_controls(html) == {
+        "fields": ["fb-q", "fb-k", "fb-m"],
+        "methods": ["get", "post"],
+        "announced": ["fb-count"],
+    }
+    assert html == snapshot_html
+
+
+def filter_controls(html):
+    bar = re.search(r'<div class="filter-bar[^>]*>.*?</p></div>', html, flags=re.DOTALL).group(0)
+    return {
+        "fields": re.findall(r'<(?:input|select|div)[^>]* id="(fb-[^"]+)"', bar),
+        "methods": re.findall(r'data-m="([^"]+)"', bar),
+        "announced": re.findall(r'<[^>]* id="(fb-[^"]+)"[^>]* role="status"', bar),
+    }
+
+
+@pytest.fixture
+def checks_with_similar_names():
+    @schemathesis.check
+    def bad_body(ctx, response, case):
+        raise AssertionError("bad")
+
+    @schemathesis.check
+    def bad__body(ctx, response, case):
+        raise AssertionError("bad")
+
+    yield
+    CHECKS.unregister("bad_body")
+    CHECKS.unregister("bad__body")
+
+
+@pytest.mark.usefixtures("checks_with_similar_names")
+def test_html_report_failure_kinds_with_similar_titles(ctx, cli, report_dir):
+    api = ctx.openapi.apps.success()
+    html = run_with_report(cli, report_dir, api.schema_url, exit_code=ExitCode.FAILURES)
+    slugs = re.findall(r'data-slug="([^"]+)"', html)
+    assert sorted(slugs) == ["custom-check-failed-bad-body", "custom-check-failed-bad-body-2"]
+    assert sorted(re.findall(r'href="#kind=([^"]+)"', html)) == sorted(slugs)
+
+
+# Methods the schema does not declare stay out of the method toggles.
+def test_html_report_filter_bar_methods_from_schema(ctx, cli, app_runner, report_dir):
+    paths = {"/api/items/{index}": {"get": {"responses": {"200": {"description": "OK"}}}}}
+    app, _ = ctx.openapi.make_flask_app(paths)
+
+    @app.route("/api/items/<index>", methods=["GET", "TRACE"])
+    def item(index):
+        return jsonify({})
+
+    html = run_with_report(
+        cli,
+        report_dir,
+        app_runner.openapi_url(app),
+        "--checks=unsupported_method",
+        phases="coverage",
+        exit_code=ExitCode.FAILURES,
+    )
+    assert "TRACE" in html
+    assert filter_controls(html) == {"fields": ["fb-q", "fb-k", "fb-m"], "methods": ["get"], "announced": ["fb-count"]}
+
+
 def test_html_report_operations_in_natural_order(ctx, cli, app_runner, report_dir):
     ok = {"responses": {"200": {"description": "OK"}}}
     paths = {f"/number/{index}": {"get": ok} for index in (12, 4, 0, 16, 8)}
@@ -643,6 +747,51 @@ def test_html_report_operations_in_natural_order(ctx, cli, app_runner, report_di
         "op-get-number-8",
         "op-get-number-12",
         "op-get-number-16",
+    ]
+
+
+def failed_rows(html):
+    return [
+        (anchor, [first, *re.findall(r"<li>([^<]+)</li>", rest)])
+        for anchor, first, rest in re.findall(
+            r'<tr class="op-row row-failed[^"]*" id="([^"]+)">.*?<span class="failure-title">([^<]+)</span>(.*?)</td>',
+            html,
+        )
+    ]
+
+
+def test_html_report_failures_ordered_by_severity(ctx, cli, app_runner, report_dir):
+    header = {"X-Token": {"required": True, "schema": {"type": "string"}}}
+    json_body = {"application/json": {"schema": {"type": "object"}}}
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/array": {
+                "get": {"responses": {"200": {"description": "OK", "headers": header, "content": json_body}}}
+            },
+            "/api/crash": {"get": {"responses": {"200": {"description": "OK"}}}},
+            "/api/text": {
+                "get": {"responses": {"200": {"description": "OK", "headers": header, "content": json_body}}}
+            },
+        }
+    )
+
+    @app.route("/api/array")
+    def array():
+        return jsonify([])
+
+    @app.route("/api/crash")
+    def crash():
+        return "", 500
+
+    @app.route("/api/text")
+    def text():
+        return Response("plain", content_type="text/plain")
+
+    html = run_with_report(cli, report_dir, app_runner.openapi_url(app), exit_code=ExitCode.FAILURES)
+    assert failed_rows(html) == [
+        ("op-get-api-crash", ["Server error", "Undocumented status code"]),
+        ("op-get-api-array", ["Response violates schema", "Missing required response headers"]),
+        ("op-get-api-text", ["Missing required response headers", "Undocumented Content-Type"]),
     ]
 
 
@@ -731,6 +880,41 @@ def test_html_report_failure_details(ctx, cli, app_runner, report_dir, snapshot_
     assert html == snapshot_html
 
 
+def test_html_report_schema_violation_message_truncates_large_value(ctx, cli, app_runner, report_dir):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/items": {
+                "get": {
+                    "responses": {
+                        "200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}
+                    }
+                }
+            },
+        }
+    )
+
+    @app.route("/api/items")
+    def items():
+        return jsonify([{"id": index, "name": f"item-{index}"} for index in range(1000)])
+
+    result = cli.run_and_assert(
+        app_runner.openapi_url(app),
+        "--max-examples=1",
+        "--phases=fuzzing",
+        "--checks=response_schema_conformance",
+        f"--report-html-path={report_dir}",
+        exit_code=ExitCode.FAILURES,
+    )
+    expected = (
+        '[{"id":0,"name":"item-0"},{"id":1,"name":"item-1"},{"id":2,"name":"item-2"}, ... is not of type "object"'
+    )
+    assert [line.strip() for line in result.stdout.splitlines() if line.endswith('is not of type "object"')] == [
+        expected
+    ]
+    messages = re.findall(r'<pre class="msg">([^<]*)</pre>', read_report(report_dir))
+    assert [message.split("\n", 1)[0] for message in messages] == [escape(expected)]
+
+
 # Under an unknown shell, curl commands for invalid bodies end with warning lines.
 def test_html_report_stateful_failure(ctx, cli, app_runner, report_dir, snapshot_html, monkeypatch):
     monkeypatch.setenv("SHELL", "/bin/unknown")
@@ -796,6 +980,102 @@ def test_html_report_stateful_failure(ctx, cli, app_runner, report_dir, snapshot
     )
     assert html == snapshot_html
     assert "until first failure" not in html
+
+
+def copied_texts(html):
+    # A copy button copies the value shown next to it; in a reproduction, its commands and then the replay command.
+    copied = {
+        label: unescape(re.sub(r"<[^>]+>", "", value))
+        for value, label in re.findall(
+            r'<span class="tv-text">(.*?)</span><button type="button" class="copy-btn" aria-label="Copy ([^"]+)">', html
+        )
+    }
+    for content, replay in re.findall(
+        r'<div class="repro">(.*?)<button[^>]*>Copy</button></div>(?:<p class="replay">or <code>(.*?)</code></p>)?',
+        html,
+        flags=re.DOTALL,
+    ):
+        commands = re.findall(r'<pre class="cmd" tabindex="0">(.*?)</pre>', content, flags=re.DOTALL)
+        text = "\n".join(unescape(command) for command in commands)
+        copied.setdefault("reproduction", []).append(text + f"\n\n{unescape(replay)}" if replay else text)
+    return copied
+
+
+def test_html_report_copy_buttons_copy_shown_text(ctx, cli, app_runner, report_dir, monkeypatch):
+    note = "X-Note: a&b  <c>\"d'e"
+    monkeypatch.setattr(sys, "argv", ["/venv/bin/st", "run", "--header", note])
+    name = "a&b<c>\"d'e"
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/api/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"name": {"type": "string", "enum": [name]}},
+                                    "required": ["name"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "links": {
+                                "GetItem": {
+                                    "operationId": "getItem",
+                                    "parameters": {"item_id": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/api/items/{item_id}": {
+                "get": {
+                    "operationId": "getItem",
+                    "parameters": [{"name": "item_id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+
+    @app.route("/api/items", methods=["POST"])
+    def create_item():
+        return jsonify({"id": 1}), 201
+
+    @app.route("/api/items/<int:item_id>")
+    def get_item(item_id):
+        return "", 500
+
+    base_url = app_runner.openapi_url(app, path="")
+    html = run_with_report(
+        cli,
+        report_dir,
+        f"{base_url}/openapi.json",
+        "--checks=not_a_server_error",
+        "--mode=positive",
+        phases="stateful",
+        exit_code=ExitCode.FAILURES,
+    )
+    replay = re.search(r'<p class="replay">or <code>(st replay \w+)</code></p>', html).group(1)
+    assert "data-copy" not in html
+    assert copied_texts(html) == {
+        "base URL": f"{base_url}/",
+        "spec": f"{base_url}/openapi.json",
+        "command": f"st run --header {note}",
+        "seed": "42",
+        "reproduction": [
+            f"curl -X POST -H 'Content-Type: application/json' -d '{{\"name\": \"a&b<c>\\\"d'\"'\"'e\"}}' "
+            f"{base_url}/api/items\n"
+            f"curl -X GET {base_url}/api/items/1\n\n{replay}"
+        ],
+    }
 
 
 def test_html_report_error_details(ctx, cli, report_dir, snapshot_html):
@@ -1062,6 +1342,37 @@ def test_timeline_ticks_hidden_when_too_many_to_draw():
     assert lane_ticks(lanes, 100.0) == [[], []]
 
 
+def curve_points(path):
+    points = []
+    x, y = 0.0, 100.0
+    for command, value in re.findall(r"([HV])([\d.]+)", path.removeprefix("M0,100")):
+        if command == "H":
+            x = float(value)
+        else:
+            y = float(value)
+            points.extend((x, y))
+    return points
+
+
+def test_timeline_curve_merges_failures_drawn_at_one_point():
+    markers = [marker(10.0), marker(10.00001), marker(20.0)]
+    assert curve_path(markers, 100.0) == "M0,100H100V38.7H200V8H1000"
+
+
+def test_timeline_curve_skips_steps_too_small_to_draw():
+    markers = [marker(10.0), marker(20.0), marker(30.0, count=9998)]
+    assert curve_path(markers, 100.0) == "M0,100H300V8H1000"
+
+
+# Each drawn step shows the count at the end of its stretch, so the curve never rises before a failure is found.
+def test_timeline_curve_keeps_its_shape_for_many_failures():
+    markers = [marker(index * 0.1) for index in range(1000)]
+    expected = [0.0, 99.9]
+    for step in range(1, 501):
+        expected.extend((2.0 * step, 100 - min(2 * step + 1, 1000) / 1000 * 92))
+    assert curve_points(curve_path(markers, 100.0)) == pytest.approx(expected, abs=0.051)
+
+
 def test_timeline_blocks_split_only_where_another_phase_ran():
     spans = [
         PhaseSpan("Fuzzing", 0.0, 1.0),
@@ -1291,6 +1602,27 @@ def test_html_report_caveat_counts_affecting_warnings(ctx, cli, app_runner, repo
         "--mode=positive",
     )
     assert re.findall(r'<a class="hs-caveat"[^>]*>([^<]*)</a>', html) == ["2 warnings affect results"]
+
+
+def test_html_report_long_warning_shows_first_operations(ctx, cli, app_runner, report_dir):
+    app, _ = ctx.openapi.make_flask_app(
+        {f"/api/users/{name}": {"get": {"responses": {"200": {"description": "OK"}}}} for name in "abcdefghijkl"}
+    )
+
+    @app.route("/api/users/<name>")
+    def users(name):
+        return jsonify({"detail": "Unauthorized"}), 401
+
+    html = run_with_report(
+        cli, report_dir, app_runner.openapi_url(app), "--checks=not_a_server_error", "--mode=positive"
+    )
+    warning = re.search(r'<details id="w-authentication-failed".*?</details></li>', html, flags=re.DOTALL).group(0)
+    shown, hidden = warning.split('<details class="fails w-more">')
+    path = r'<span class="path">/api/users/(\w)</span>'
+    assert re.findall(path, shown) == list("abcdefghij")
+    assert re.findall(path, hidden) == ["k", "l"]
+    assert '<span class="m-closed">+2 more</span>' in hidden
+    assert html.index('<section class="target-block">') < html.index('<section class="warnings"')
 
 
 # An unrecognised entrypoint hides the Command row instead of showing an uncopyable placeholder.

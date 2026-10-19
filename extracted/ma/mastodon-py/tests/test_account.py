@@ -127,8 +127,10 @@ def test_account_update_credentials(api):
         display_name='John Lennon',
         note='I walk funny',
         avatar = "tests/image.jpg",
+        avatar_description="John Lennon (me) doing a funny walk",
         header = image,
         header_mime_type = "image/jpeg",
+        header_description="John Lennon doing a funny walk with my funny hat",
         fields = [
             ("bread", "toasty."),
             ("lasagna", "no!!!"),
@@ -143,6 +145,8 @@ def test_account_update_credentials(api):
     assert account.id
     assert account["display_name"] == 'John Lennon'
     assert re.sub("<.*?>", " ", account["note"]).strip() == 'I walk funny'
+    assert account.avatar_description == "John Lennon (me) doing a funny walk"
+    assert account.header_description == "John Lennon doing a funny walk with my funny hat"
     assert account["fields"][0].name == "bread"
     assert account["fields"][0].value == "toasty."
     assert account["fields"][1].name == "lasagna"
@@ -150,24 +154,59 @@ def test_account_update_credentials(api):
     assert "example.com" in account.source["attribution_domains"]
     assert "another-example.com" in account.source["attribution_domains"]
 
-    api.account_delete_avatar()
-    api.account_delete_header()
+    account = api.account_delete_avatar()
+    assert account.id
+    assert account.avatar.endswith("/avatars/original/missing.png")
+
+    account = api.account_delete_header()
+    assert account.id
+    assert account.header.endswith("/headers/original/missing.png")
+
+
+@pytest.mark.vcr()
+def test_account_statuses_exclude_direct(api, api2):
+    public_status = api.status_post("Public account status", visibility="public")
+    mentioned_account = api2.account_verify_credentials()
+    direct_status = api.status_post(
+        f"@{mentioned_account.acct} Direct account status",
+        visibility="direct",
+    )
+
+    try:
+        statuses = api.account_statuses(api.account_verify_credentials(), exclude_direct=True)
+        status_ids = [status.id for status in statuses]
+        assert public_status.id in status_ids
+        assert direct_status.id not in status_ids
+    finally:
+        api.status_delete(public_status)
+        api.status_delete(direct_status)
+
 
 @pytest.mark.vcr(match_on=['path'])
 def test_account_update_credentials_source_and_privacy(api):
-    account = api.account_update_credentials(
-        hide_collections=True,
-        indexable=True,
-        default_privacy='unlisted',
-        default_sensitive=True,
-        default_language='en',
-    )
-    assert account
-    assert account.hide_collections == True
-    assert account.indexable == True
-    assert account.source.privacy == 'unlisted'
-    assert account.source.sensitive == True
-    assert account.source.language == 'en'
+    original = api.account_verify_credentials()
+    try:
+        account = api.account_update_credentials(
+            hide_collections=True,
+            indexable=True,
+            default_privacy='unlisted',
+            default_sensitive=True,
+            default_language='en',
+        )
+        assert account
+        assert account.hide_collections == True
+        assert account.indexable == True
+        assert account.source.privacy == 'unlisted'
+        assert account.source.sensitive == True
+        assert account.source.language == 'en'
+    finally:
+        api.account_update_credentials(
+            hide_collections=original.hide_collections,
+            indexable=original.indexable,
+            default_privacy=original.source.privacy,
+            default_sensitive=original.source.sensitive,
+            default_language=original.source.language or "",
+        )
 
 @pytest.mark.vcr(match_on=['path'])
 def test_account_update_credentials_quote_policy(api, api2):
@@ -343,17 +382,19 @@ def test_preferences(api):
 
 @pytest.mark.vcr()
 def test_suggested_tags(api):
-    status = None
+    statuses = []
     try:
-        status = api.status_post("cool free #ringtones")
+        statuses.append(api.status_post("cool free #ringtones"))
+        statuses.append(api.status_post("even more cool free #ringtones"))
         time.sleep(2)
-        
+
         suggests = api.featured_tag_suggestions()
-        assert suggests
-        assert len(suggests) > 0
+        assert any(tag.name == "ringtones" for tag in suggests)
     finally:
-        api.status_delete(status)
+        for status in statuses:
+            api.status_delete(status)
     
+
 @pytest.mark.vcr()
 def test_featured_tags(api):
     featured_tag = None

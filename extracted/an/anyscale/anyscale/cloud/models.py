@@ -263,6 +263,7 @@ class ObjectStorage(ModelBase):
     __doc_yaml_example__ = """\
 object_storage:
   bucket_name: s3://my-bucket
+  s3_addressing_style: PATH_STYLE
 """
 
     bucket_name: Optional[str] = field(
@@ -281,6 +282,12 @@ object_storage:
         default=None,
         metadata={
             "docstring": "The cloud storage endpoint, used to override the default cloud storage scheme's endpoint. For example, for S3, this will be passed to the AWS_ENDPOINT_URL environment variable."
+        },
+    )
+    s3_addressing_style: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The addressing style used by Vector's S3 log sinks: PATH_STYLE or VIRTUAL_HOSTED_STYLE. This does not configure other S3 clients."
         },
     )
 

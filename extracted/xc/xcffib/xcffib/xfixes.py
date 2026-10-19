@@ -57,6 +57,7 @@ class SelectionEventMask:
 
 class SelectionNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -119,6 +120,7 @@ class CursorNotifyMask:
 
 class CursorNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 1
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

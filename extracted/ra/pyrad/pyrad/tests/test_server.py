@@ -13,10 +13,15 @@ from pyrad.server import Server
 from pyrad.server import ServerPacketError
 from pyrad.packet import AccessRequest
 from pyrad.packet import AccountingRequest
+from pyrad.packet import AccountingResponse
+from pyrad.packet import AcctPacket
+from pyrad.packet import CoAPacket
+from pyrad.packet import CoARequest
+from pyrad.packet import DisconnectRequest
 
 
 class TrivialObject:
-    """dummy objec"""
+    """dummy object"""
 
 
 class RemoteHostTests(unittest.TestCase):
@@ -102,6 +107,30 @@ class SocketTests(unittest.TestCase):
         self.assertEqual(self.server.acctfds[0].address,
                          ('2001:db8:123::1', 1813))
 
+    def testBindCoA(self):
+        self.server.coa_enabled = True
+        self.server.BindToAddress('192.168.13.13')
+        self.assertEqual(self.server.coafds[0].address, ('192.168.13.13', 3799))
+
+    def testBindUnknownAddress(self):
+        def getaddrinfo(*args):
+            raise socket.gaierror
+        orggetaddrinfo = socket.getaddrinfo
+        socket.getaddrinfo = getaddrinfo
+        try:
+            self.server.BindToAddress('unknown.invalid')
+        finally:
+            socket.getaddrinfo = orggetaddrinfo
+        self.assertEqual(self.server.authfds, [])
+
+    def testPrepareSocketCoAFds(self):
+        self.server._poll = MockPoll()
+        self.server._fdmap = {}
+        self.server.coa_enabled = True
+        self.server.coafds = [MockFd(12)]
+        self.server._PrepareSockets()
+        self.assertEqual(self.server._realcoafds, [12])
+
     def testGrabPacket(self):
         def gen(data):
             res = TrivialObject()
@@ -115,6 +144,25 @@ class SocketTests(unittest.TestCase):
         self.assertTrue(pkt.fd is fd)
         self.assertTrue(pkt.source is fd.source)
         self.assertTrue(pkt.data is fd.data)
+
+    def testGrabPacketDecodeError(self):
+        def gen(data):
+            raise AttributeError('boom')
+
+        with self.assertRaises(PacketError) as cm:
+            self.server._GrabPacket(gen, MockFd())
+        self.assertIn('AttributeError: boom', str(cm.exception))
+
+    def testGrabPacketPacketError(self):
+        # a PacketError is passed on unchanged
+        error = PacketError('corrupt')
+
+        def gen(data):
+            raise error
+
+        with self.assertRaises(PacketError) as cm:
+            self.server._GrabPacket(gen, MockFd())
+        self.assertIs(cm.exception, error)
 
     def testPrepareSocketNoFds(self):
         self.server._poll = MockPoll()
@@ -155,6 +203,7 @@ class AuthPacketHandlingTests(unittest.TestCase):
         self.packet = TrivialObject()
         self.packet.code = AccessRequest
         self.packet.source = ('host', 'port')
+        self.packet.message_authenticator = None
 
     def testHandleAuthPacketUnknownHost(self):
         self.packet.source = ('stranger', 'port')
@@ -188,7 +237,7 @@ class AuthPacketHandlingTests(unittest.TestCase):
 
 class AcctPacketHandlingTests(unittest.TestCase):
     def setUp(self):
-        self.server = Server()
+        self.server = Server(enable_pkt_verify=False)
         self.server.hosts['host'] = TrivialObject()
         self.server.hosts['host'].secret = 'supersecret'
         self.packet = TrivialObject()
@@ -223,6 +272,128 @@ class AcctPacketHandlingTests(unittest.TestCase):
         self.assertTrue(self.server.handled is self.packet)
 
         Server.HandleAcctPacket = hap
+
+
+class CoaPacketHandlingTests(unittest.TestCase):
+    def setUp(self):
+        self.server = Server(enable_pkt_verify=False)
+        self.server.hosts['0.0.0.0'] = TrivialObject()
+        self.server.hosts['0.0.0.0'].secret = 'supersecret'
+        self.packet = TrivialObject()
+        self.packet.source = ('host', 'port')
+        self.handled = []
+        self.server.HandleCoaPacket = lambda pkt: self.handled.append(('coa', pkt))
+        self.server.HandleDisconnectPacket = lambda pkt: self.handled.append(('disconnect', pkt))
+
+    def testHandleCoaPacket(self):
+        self.packet.code = CoARequest
+        self.server._HandleCoaPacket(self.packet)
+        self.assertEqual(self.handled, [('coa', self.packet)])
+        # the secret of the default host is used for unknown hosts
+        self.assertEqual(self.packet.secret, 'supersecret')
+
+    def testHandleDisconnectPacket(self):
+        self.packet.code = DisconnectRequest
+        self.server._HandleCoaPacket(self.packet)
+        self.assertEqual(self.handled, [('disconnect', self.packet)])
+
+    def testHandleCoaPacketWrongPort(self):
+        self.packet.code = AccessRequest
+        self.assertRaises(ServerPacketError, self.server._HandleCoaPacket, self.packet)
+        self.assertEqual(self.handled, [])
+
+
+class PacketVerificationTests(unittest.TestCase):
+    """Accounting, CoA and Disconnect requests must be signed with the
+    shared secret (RFC 2866 section 3, RFC 5176 section 3.5)."""
+
+    def setUp(self):
+        self.server = Server(hosts={'127.0.0.1': RemoteHost('127.0.0.1', b'secret', 'localhost')})
+        self.handled = []
+        self.server.HandleAcctPacket = self.handled.append
+        self.server.HandleCoaPacket = self.handled.append
+        self.server.HandleDisconnectPacket = self.handled.append
+
+    def receive(self, handler, create, req):
+        pkt = create(packet=req.RequestPacket())
+        pkt.source = ('127.0.0.1', 1813)
+        handler(pkt)
+
+    def acct(self, req):
+        self.receive(self.server._HandleAcctPacket, self.server.CreateAcctPacket, req)
+
+    def coa(self, req):
+        self.receive(self.server._HandleCoaPacket, self.server.CreateCoAPacket, req)
+
+    def testValidRequests(self):
+        self.acct(AcctPacket(secret=b'secret'))
+        self.coa(CoAPacket(secret=b'secret'))
+        self.coa(CoAPacket(code=DisconnectRequest, secret=b'secret'))
+        self.assertEqual(len(self.handled), 3)
+
+    def testInvalidAcctRequest(self):
+        self.assertRaises(PacketError, self.acct, AcctPacket(secret=b'wrong'))
+        self.assertEqual(self.handled, [])
+
+    def testInvalidCoARequest(self):
+        self.assertRaises(PacketError, self.coa, CoAPacket(secret=b'wrong'))
+        self.assertRaises(PacketError, self.coa,
+                          CoAPacket(code=DisconnectRequest, secret=b'wrong'))
+        self.assertEqual(self.handled, [])
+
+    def testAccountingResponseOnAcctPort(self):
+        reply = AcctPacket(code=AccountingResponse, secret=b'secret',
+                           authenticator=16 * b'\x00')
+        pkt = self.server.CreateAcctPacket(packet=reply.ReplyPacket())
+        pkt.source = ('127.0.0.1', 1813)
+        self.assertRaises(ServerPacketError, self.server._HandleAcctPacket, pkt)
+        self.assertEqual(self.handled, [])
+
+    def testVerificationDisabled(self):
+        self.server.enable_pkt_verify = False
+        self.acct(AcctPacket(secret=b'wrong'))
+        self.coa(CoAPacket(secret=b'wrong'))
+        self.assertEqual(len(self.handled), 2)
+
+
+class MappedAddressTests(unittest.TestCase):
+    """A server bound to '::' (dual stack) sees IPv4 clients with an
+    IPv4-mapped IPv6 source address."""
+
+    def setUp(self):
+        self.server = Server(enable_pkt_verify=False)
+        self.server.hosts['127.0.0.1'] = RemoteHost('127.0.0.1', b'secret', 'v4')
+        self.packet = TrivialObject()
+        self.packet.code = AccountingRequest
+        self.packet.source = ('::ffff:127.0.0.1', 1813, 0, 0)
+        self.server.HandleAcctPacket = lambda pkt: None
+
+    def testMappedAddressUsesIPv4Host(self):
+        self.server._HandleAcctPacket(self.packet)
+        self.assertEqual(self.packet.secret, b'secret')
+        # the source is kept as received, it is needed to send the reply
+        self.assertEqual(self.packet.source, ('::ffff:127.0.0.1', 1813, 0, 0))
+
+    def testMappedAddressIsNotDefaultHost(self):
+        self.server.hosts['0.0.0.0'] = RemoteHost('0.0.0.0', b'default', 'default')
+        self.server._HandleAcctPacket(self.packet)
+        self.assertEqual(self.packet.secret, b'secret')
+
+    def testExactMatchWins(self):
+        self.server.hosts['::ffff:127.0.0.1'] = RemoteHost(
+            '::ffff:127.0.0.1', b'mapped', 'mapped')
+        self.server._HandleAcctPacket(self.packet)
+        self.assertEqual(self.packet.secret, b'mapped')
+
+    def testUnknownMappedAddress(self):
+        self.packet.source = ('::ffff:192.0.2.1', 1813, 0, 0)
+        self.assertRaises(ServerPacketError, self.server._HandleAcctPacket, self.packet)
+
+    def testIPv6Address(self):
+        self.server.hosts['::1'] = RemoteHost('::1', b'v6', 'v6')
+        self.packet.source = ('::1', 1813, 0, 0)
+        self.server._HandleAcctPacket(self.packet)
+        self.assertEqual(self.packet.secret, b'v6')
 
 
 class OtherTests(unittest.TestCase):
@@ -270,6 +441,23 @@ class OtherTests(unittest.TestCase):
                          ['_GrabPacket', '_HandleAcctPacket'])
         self.assertEqual(self.server.called[0][1][1], fd)
 
+    def testCoaProcessInput(self):
+        fd = MockFd(1)
+        self.server._realauthfds = []
+        self.server._realacctfds = []
+        self.server.coa_enabled = True
+        MockClassMethod(Server, '_GrabPacket')
+        MockClassMethod(Server, '_HandleCoaPacket')
+
+        self.server._ProcessInput(fd)
+        self.assertEqual([x[0] for x in self.server.called],
+                         ['_GrabPacket', '_HandleCoaPacket'])
+
+    def testUnknownProcessInput(self):
+        self.server._realauthfds = []
+        self.server._realacctfds = []
+        self.assertRaises(ServerPacketError, self.server._ProcessInput, MockFd(1))
+
 
 class ServerRunTests(unittest.TestCase):
     def setUp(self):
@@ -309,6 +497,15 @@ class ServerRunTests(unittest.TestCase):
         self.server.authfds = [MockFd()]
         MockPoll.results = [(0, select.POLLIN)]
         self.assertRaises(MockFinished, self.server.Run)
+
+    def testRunIgnoresHandlerErrors(self):
+        def RaiseError(self, fd):
+            raise ValueError
+        MockClassMethod(Server, '_ProcessInput', RaiseError)
+        self.server.authfds = [MockFd()]
+        MockPoll.results = [(0, select.POLLIN)]
+        with self.assertLogs('pyrad', 'ERROR'):
+            self.assertRaises(MockFinished, self.server.Run)
 
     def testRunRunsProcessInput(self):
         MockClassMethod(Server, '_ProcessInput')

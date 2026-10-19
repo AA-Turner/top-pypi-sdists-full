@@ -197,6 +197,20 @@ _HAVE_POINT_COLUMNS_ACCEL = _nipa is not None and bool(
     getattr(_nipa, "point_columns_1224", False)
 )
 
+# momwire#1441 step 3: the column rule's Bessel pairs and spectral factors run
+# four nodes at a time, the same floats as the scalar walk
+# (tests/test_somm_lanes_1441.py). False passes `lanes=False`, the reference;
+# tests flip it, nothing else should.
+_SIX_COLUMNS_LANES = True
+
+
+def _columns_lanes_kw():
+    """`near_interface_six_columns`' lanes switch, for a binding that has it."""
+    if _SIX_COLUMNS_LANES or not hasattr(_nia, "six_columns_lanes_1441"):
+        return {}
+    return {"lanes": False}
+
+
 # The tests' handle on the dispatch — parity gates drive BOTH machines inside
 # one process. `MOMWIRE_NEAR_INTERFACE_FORCE_NUMPY` is the whole-run switch (a
 # timing comparison, a bisect); `monkeypatch.setattr(ni, "_FORCE_NUMPY", True)`
@@ -355,6 +369,42 @@ def _ray_integral(f_core, factor, lam0, direction, scale, rtol):
         t_lo = t_hi
         step *= 2.0
     raise RuntimeError("rotated tail did not go quiet inside the panel budget")
+
+
+def six_point_served(eps_t, k2, rho, z, zp, rtol=1e-10, lam_mult=_LAM_MULT):
+    """`six_point` through its C++ twin when it is built, else the numpy walk.
+
+    The twin is the same walk, term for term, with different rounding (1e-15
+    relative). It is what every other designed evaluation here takes when
+    built (`designed_tables`' point route, the memo fill). The crossing
+    corner's V reads it too (momwire#1517 step 4), so that a C++ caller can
+    reproduce it bit for bit: a process with no Python has the twin and
+    nothing else.
+    """
+    if not _use_near_interface_accel():
+        return six_point(eps_t, k2, rho, z, zp, rtol=rtol, lam_mult=lam_mult)
+    k_p = float(k2)
+    k_m = k_medium(complex(eps_t), k_p)
+    rho, z, zp = float(rho), float(z), float(zp)
+    if not (z >= 0.0 and zp <= 0.0):
+        raise ValueError(f"need z >= 0 >= zp, got {(z, zp)!r}")
+    if rho < 0.0 or (z - zp) + rho <= 0.0:
+        raise ValueError(f"need R > 0, got rho={rho!r}, s={z - zp!r}")
+    return np.asarray(
+        _nia.near_interface_six_batch(
+            k_p,
+            k_m,
+            np.array([rho]),
+            np.array([z]),
+            np.array([zp]),
+            float(rtol),
+            float(lam_mult),
+            _ADAPT_DEPTH,
+            _DETOUR,
+            _GX,
+            _GW,
+        )
+    )[0]
 
 
 def six_point(eps_t, k2, rho, z, zp, rtol=1e-10, lam_mult=_LAM_MULT):
@@ -2155,6 +2205,7 @@ def _column_twin(
         _GW,
         cancel_flag=_cancel.ptr(),
         cache=column_cache,
+        **_columns_lanes_kw(),
     )
     if permuted:
         pos = np.empty(member_order.size, dtype=np.intp)
@@ -3275,6 +3326,7 @@ def _designed_tables_reference(
                     _GX,
                     _GW,
                     cancel_flag=_cancel.ptr(),
+                    **_columns_lanes_kw(),
                 )
                 placed = fresh_pos[member_order]
             block[placed] = vals

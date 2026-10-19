@@ -32,10 +32,10 @@ from schemathesis.core.jsonschema import (
     make_validator_for,
     matches_pattern,
 )
-from schemathesis.core.jsonschema.patterns import normalize_regex, pattern_length_bounds
+from schemathesis.core.jsonschema.patterns import normalize_regex, pattern_length_bounds, update_quantifier
 from schemathesis.core.output import truncate_json
 from schemathesis.core.transforms import deepclone
-from schemathesis.core.validation import has_leading_whitespace
+from schemathesis.core.validation import has_surrounding_whitespace
 from schemathesis.generation.jsonschema.context import Alphabet, StrategyContext
 from schemathesis.transport.serialization import Binary, contains_binary
 
@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
     from decimal import Decimal
 
+    from hypothesis.internal.conjecture.data import ConjectureData
     from hypothesis.strategies import SearchStrategy
 
     from schemathesis.core.jsonschema.types import JsonValue
@@ -976,13 +977,18 @@ def _object(view: jsonschema_rs.canonical.ObjectView, ctx: StrategyContext) -> S
     value_for = _value_source(view, unnamed, ctx)
     # A key can be required without `properties` saying anything about its value.
     required = {key: entries[key] if key in entries else value_for(key) for key in view.required}
-    optional = {key: entry for key, entry in entries.items() if key not in view.required}
+    # A property no value satisfies can only be absent, so it is never picked.
+    optional = {
+        key: entry
+        for key, entry in entries.items()
+        if key not in view.required and view.properties[key].kind is not canonical.CanonicalKind.FALSE
+    }
     known = set(view.properties) | set(view.required)
     names = None if view.property_names is None else _closed_names(view.property_names)
     if names is not None:
         # A closed name set admits nothing else, so its names are the only optional keys.
         # Sorted: set iteration order is not stable across processes, and draw order decides replays.
-        optional.update({name: value_for(name) for name in sorted(names - set(required) - set(optional))})
+        optional.update({name: value_for(name) for name in sorted(names - set(required) - set(entries))})
         extra = None
     else:
         free_names = _free_names(view, ctx).filter(lambda key: key not in known)
@@ -1123,21 +1129,35 @@ def _with_violations(
     return result
 
 
+class _Collected(st.SearchStrategy):
+    """Free keys and their values, between `low` and `high` of them."""
+
+    # A self-referential schema reaches these entries from inside them. Emptiness is answered with
+    # the rest of the cycle rather than forced while building, which would enter the cycle again.
+
+    def __init__(self, entries: SearchStrategy[tuple[str, JsonValue]], low: int, high: int) -> None:
+        super().__init__()
+        self.entries = entries
+        self.low = low
+        self.collected = st.lists(entries, unique_by=lambda entry: entry[0], min_size=low, max_size=high).map(dict)
+
+    def calc_is_empty(self, recur: Callable[[SearchStrategy], bool]) -> bool:
+        # No key can be spelled; the floor decides whether that is fatal or only means no extras.
+        return bool(self.low) and recur(self.entries)
+
+    def do_draw(self, data: ConjectureData) -> dict[str, JsonValue]:
+        if self.entries.is_empty:
+            return {}
+        return data.draw(self.collected)
+
+
 def _collect(
     entries: SearchStrategy[tuple[str, JsonValue]], low: int, high: int
 ) -> SearchStrategy[dict[str, JsonValue]]:
-    def resolved() -> SearchStrategy[dict[str, JsonValue]]:
-        if _floor(low) is None:
-            # No object can be that wide.
-            return st.nothing()
-        if entries.is_empty:
-            # No key can be spelled; the floor decides whether that is fatal or only means no extras.
-            return st.nothing() if low else st.just({})
-        return st.lists(entries, unique_by=lambda entry: entry[0], min_size=low, max_size=high).map(dict)
-
-    # `is_empty` forces the entries, and a self-referential schema is still being built here, so the
-    # choice waits for the first draw.
-    return st.deferred(resolved)
+    if _floor(low) is None:
+        # No object can be that wide.
+        return st.nothing()
+    return _Collected(entries, low, high)
 
 
 def _free_names(view: jsonschema_rs.canonical.ObjectView, ctx: StrategyContext) -> SearchStrategy[str]:
@@ -1586,8 +1606,8 @@ def _padded_text(
     strategy = st.tuples(
         st.integers(min_length, ceiling), _text(ctx, characters=characters, max_size=_PADDED_TEXT_HEAD), characters
     ).map(lambda parts: (parts[1] + parts[2] * parts[0])[: parts[0]])
-    # An empty head leaves the padding character opening the value.
-    return _leading_whitespace_check(strategy, ctx.alphabet)
+    # The padding character closes the value, and opens it after an empty head.
+    return _surrounding_whitespace_check(strategy, ctx.alphabet)
 
 
 def _content_string(view: jsonschema_rs.canonical.StringView, ctx: StrategyContext) -> SearchStrategy[JsonValue]:
@@ -1652,6 +1672,11 @@ def _pattern_driven(
     """Values drawn from one pattern and filtered by the remaining ones."""
     compiled = _compiled_pattern(pattern)
     assert compiled is not None
+    # A length floor left to the filter rejects the short matches drawn, which are most matches inside an array;
+    # spelled into the pattern, it is drawn to.
+    folded = update_quantifier(compiled.pattern, view.min_length, view.max_length)
+    if folded != compiled.pattern:
+        compiled = re.compile(folded, compiled.flags)
     # Python `re` reads the pattern differently from the validator, so the validator decides what the draw is worth.
     strategy = _from_pattern(compiled, ctx).filter(_facet_check("pattern", pattern))
     if "$" in pattern:
@@ -1760,7 +1785,7 @@ def _anything(ctx: StrategyContext) -> SearchStrategy[JsonValue]:
 def _anything_for(alphabet: Alphabet) -> SearchStrategy[JsonValue]:
     # Arbitrary JSON value; containers bounded to keep draws cheap. Assembling the recursive strategy
     # costs far more than every other lifter combined, and it depends only on the alphabet.
-    text = _leading_whitespace_check(st.text(alphabet=alphabet.as_strategy()), alphabet)
+    text = _surrounding_whitespace_check(st.text(alphabet=alphabet.as_strategy()), alphabet)
     return st.recursive(
         st.none()
         | st.booleans()
@@ -1774,14 +1799,14 @@ def _anything_for(alphabet: Alphabet) -> SearchStrategy[JsonValue]:
 
 def _text(ctx: StrategyContext, *, characters: SearchStrategy[str] | None = None, **kwargs: int) -> SearchStrategy[str]:
     strategy = st.text(alphabet=characters if characters is not None else ctx.alphabet.as_strategy(), **kwargs)
-    return _leading_whitespace_check(strategy, ctx.alphabet)
+    return _surrounding_whitespace_check(strategy, ctx.alphabet)
 
 
-def _leading_whitespace_check(strategy: SearchStrategy[str], alphabet: Alphabet) -> SearchStrategy[str]:
-    """Reject an opening whitespace character, close to the draw that produced it."""
-    if alphabet.allow_leading_whitespace:
+def _surrounding_whitespace_check(strategy: SearchStrategy[str], alphabet: Alphabet) -> SearchStrategy[str]:
+    """Reject an opening or closing whitespace character, close to the draw that produced it."""
+    if alphabet.allow_surrounding_whitespace:
         return strategy
-    return strategy.filter(lambda value: not has_leading_whitespace(value))
+    return strategy.filter(lambda value: not has_surrounding_whitespace(value))
 
 
 # What each JSON type name admits. `True == 1` in Python, but `true` is not a JSON number, and a

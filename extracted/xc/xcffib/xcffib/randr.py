@@ -842,6 +842,7 @@ class GetProviderPropertyCookie(xcffib.Cookie):
 
 class ScreenChangeNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -1353,6 +1354,7 @@ class NotifyData(xcffib.Union):
 
 class NotifyEvent(xcffib.Event):
     xge = False
+    event_number = 1
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

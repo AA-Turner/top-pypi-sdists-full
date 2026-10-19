@@ -75,6 +75,14 @@ OWNERS: dict[str, str] = {
     "dataset use": DAEMON, "provenance": READ,
     "source add": DAEMON, "source list": READ, "source show": READ,
     "daemon worker": SETUP, "daemon status": READ, "daemon install": SETUP, "daemon override": DAEMON,
+    # The daemon's own look at its session store, answered in its own process
+    # (`local_commands`), like an override.
+    "daemon session": READ,
+    # A child agent for one long read (`agent.run_task`): it runs reads only.
+    "daemon task": READ,
+    # A local draft changed in place, a local data file previewed (the `bash`
+    # tool set's `edit` and `read`; the daemon answers both itself).
+    "draft edit": DAEMON, "file preview": READ,
     "approvals": RESEARCHER, "deny": RESEARCHER,
     # The main agent's question to the daemon's reader: never the writer's.
     "ask": RESEARCHER,
@@ -106,10 +114,8 @@ OWNERS: dict[str, str] = {
     "project reference add": DAEMON, "project reference remove": DAEMON, "project set": DAEMON,
     "project tag": DAEMON, "project use": RESEARCHER,
     "run check": READ, "run child": SDK, "run delete": DAEMON, "run end": DAEMON,
-    # What a run read and built on: facts to label (lineage plan L5). Correcting a
-    # read's match is the researcher's (the plan's decided default).
+    # What a run read and built on: facts to label (lineage plan L5).
     "run inputs": READ, "run upstream": READ,
-    "run input dismiss": RESEARCHER, "run input pin": RESEARCHER, "run input reset": RESEARCHER,
     # A declared range emails the run's creator when crossed: the researcher's call.
     "run expect": RESEARCHER, "run fork": SDK, "run get": READ,
     "run list": READ, "run metrics": READ, "run move": DAEMON, "run reproduce": READ, "run series": READ,
@@ -126,6 +132,9 @@ OWNERS: dict[str, str] = {
     "shared share": RESEARCHER, "shared unshare": RESEARCHER,
     "snapshot": SDK, "snapshot-prune-refs": RESEARCHER, "snapshot-restore": RESEARCHER,
     "snapshot-show": READ,
+    # `probe status`: this device's install as data (the desktop app's read);
+    # `--refresh` asks the agents' CLIs and the server, and writes nothing.
+    "status": READ,
     "span add": SDK, "span get": READ, "span list": READ,
     # A project's or experiment's summary and its Metrics-center visuals
     # (writer-owns-summary): the recorder's. A checkout and `visuals options`
@@ -205,10 +214,18 @@ _HOSTING_IS_THE_RESEARCHERS = ("`--upload` stores the dataset's bytes in Probe a
                                "that is the researcher's call - register it as a reference without it")
 _TEAM_NOTE_IS_A_QUESTION = ("`--team` writes the team note directly; change it in its file instead, where "
                             "the researcher sees each change first")
+#: Options that turn a read into a write of a local file the command is pointed
+#: at, anywhere on the machine (`--export ~/.bashrc`): with one, the command is
+#: the researcher's (`Parsed.owner`), refused for the daemon's writer and reader.
+WRITING_OPTIONS = frozenset({("run reproduce", "export"), ("run reproduce", "materialize")})
 _FORBIDDEN_OPTIONS = {
     ("notes push", "force"): "`--force` overwrites what others wrote since the checkout - push merges without it",
     ("notes checkout", "steal"): "`--steal` discards another writer's unpushed edits",
-    ("summary checkout", "steal"): "`--steal` discards another writer's unpushed edits",
+    # Not `summary checkout --steal`: the daemon's summary drafts are its own,
+    # one per session (`<session>.daemon.*`), so `--steal` discards only its
+    # own unpushed edits -- and since a checkout never replaces those without
+    # it (review of #3034, finding 3), it is the way back after an erasure
+    # refused a push (`erased_since_checkout`).
     ("run set", "authored_by"): None,  # checked by value below
     # `--summary` is `document`: the Markdown block inside the Overview page, which
     # track-work names the researcher's ("never write it"). A bench daemon wrote its
@@ -247,6 +264,10 @@ MANIFEST_PARAMS = {("artifact add", "from_manifest")}
 #: File-shaped names that are NOT local files, with what they are.
 NOT_FILES: dict[tuple[str, str], str] = {
     ("commits", "path"): "a path filter the server applies to the repository's history",
+    ("draft edit", "path"): ("a checked-out draft, changed in place and never sent (the daemon answers it in "
+                             "its own process, `local_commands`, by `probe.drafts`' own folder rule)"),
+    ("file preview", "path"): ("a local file shown, never sent (the daemon answers it in its own process, by the "
+                               "read rules, `tools.read_check`)"),
     ("ignore check", "paths"): "paths tested against the local `.probe.config` files; nothing is read or sent",
     ("commits", "source"): "a code source id",
     ("project code attach", "path"): "a subtree of the GitHub repository, read by the server",
@@ -288,7 +309,13 @@ class Parsed:
 
     @property
     def owner(self) -> str | None:
-        return READ if self.help else OWNERS.get(self.path)
+        if self.help:
+            return READ
+        # A read whose option writes a file anywhere it is pointed (`run reproduce
+        # --export FILE`, `--materialize DIR`) is the researcher's, not a read.
+        if any(self.params.get(param) for path, param in WRITING_OPTIONS if path == self.path):
+            return RESEARCHER
+        return OWNERS.get(self.path)
 
 
 @dataclass

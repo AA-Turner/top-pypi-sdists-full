@@ -10,6 +10,7 @@ from hypothesis import strategies as st
 
 import schemathesis
 from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.modes import GenerationMode
 from schemathesis.specs.openapi.examples import get_strategies_from_examples
 from schemathesis.specs.openapi.serialization import (
@@ -33,7 +34,7 @@ from schemathesis.specs.openapi.serialization import (
     simple_object,
 )
 from schemathesis.transport.prepare import get_default_headers
-from test.utils import assert_requests_call
+from test.utils import assert_requests_call, run_given
 
 # A branch keeps the parameter's type unknown until the value exists.
 _BRANCHING_SCHEMA = {
@@ -379,11 +380,9 @@ def test_path_serialization_styles_openapi3(ctx, schema, style, explode, expecte
         },
     )
 
-    @given(case=schema["/teapot/{color}"]["GET"].as_strategy())
+    @run_given(case=schema["/teapot/{color}"]["GET"].as_strategy(), max_examples=100)
     def test(case):
         assert case.path_parameters == expected
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -539,37 +538,34 @@ def test_content_serialization(ctx, testdir):
 @settings(max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_querystring_urlencoded_default_serialization(ctx, data):
     # Example from OAS 3.2: {"foo": "a + b", "bar": true} -> foo=a+%2B+b&bar=true
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "ignored",
-                            "in": "querystring",
-                            "required": True,
-                            "content": {
-                                "application/x-www-form-urlencoded": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "foo": {"type": "string", "enum": ["a + b"]},
-                                            "bar": {"type": "boolean", "enum": [True]},
-                                        },
-                                        "required": ["foo", "bar"],
-                                        "additionalProperties": False,
-                                    }
-                                }
-                            },
+            "parameters": [
+                {
+                    "name": "ignored",
+                    "in": "querystring",
+                    "required": True,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "foo": {"type": "string", "enum": ["a + b"]},
+                                    "bar": {"type": "boolean", "enum": [True]},
+                                },
+                                "required": ["foo", "bar"],
+                                "additionalProperties": False,
+                            }
                         }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+                    },
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.2.0",
     )
-    case = data.draw(schema["/teapot"]["GET"].as_strategy())
+    case = data.draw(operation.as_strategy())
     kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1:1")
     prepared = requests.Request("GET", "http://127.0.0.1:1/teapot", params=kwargs["params"]).prepare()
     query_string = urlsplit(prepared.url).query
@@ -580,42 +576,39 @@ def test_querystring_urlencoded_default_serialization(ctx, data):
 @given(st.data())
 @settings(max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_querystring_urlencoded_uses_encoding_styles(ctx, data):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "ignored",
-                            "in": "querystring",
-                            "required": True,
-                            "content": {
-                                "application/x-www-form-urlencoded": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "bbox": {
-                                                "type": "array",
-                                                "minItems": 4,
-                                                "maxItems": 4,
-                                                "items": {"type": "number", "enum": [1.1]},
-                                            }
-                                        },
-                                        "required": ["bbox"],
-                                        "additionalProperties": False,
-                                    },
-                                    "encoding": {"bbox": {"style": "pipeDelimited", "explode": False}},
-                                }
+            "parameters": [
+                {
+                    "name": "ignored",
+                    "in": "querystring",
+                    "required": True,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "bbox": {
+                                        "type": "array",
+                                        "minItems": 4,
+                                        "maxItems": 4,
+                                        "items": {"type": "number", "enum": [1.1]},
+                                    }
+                                },
+                                "required": ["bbox"],
+                                "additionalProperties": False,
                             },
+                            "encoding": {"bbox": {"style": "pipeDelimited", "explode": False}},
                         }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+                    },
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.2.0",
     )
-    case = data.draw(schema["/teapot"]["GET"].as_strategy())
+    case = data.draw(operation.as_strategy())
     assert case.query == {"bbox": "1.1|1.1|1.1|1.1"}
 
 
@@ -625,37 +618,34 @@ def test_querystring_urlencoded_uses_encoding_styles(ctx, data):
 def test_querystring_json_serialization_is_sent_as_raw_query(ctx, data):
     # Example from OAS 3.2: {"numbers":[1,2],"flag":null}
     # -> %7B%22numbers%22%3A%5B1%2C2%5D%2C%22flag%22%3Anull%7D
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "ignored",
-                            "in": "querystring",
-                            "required": True,
-                            "content": {
-                                "application/json": {
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "numbers": {"type": "array", "enum": [[1, 2]]},
-                                            "flag": {"type": "null"},
-                                        },
-                                        "required": ["numbers", "flag"],
-                                        "additionalProperties": False,
-                                    }
-                                }
-                            },
+            "parameters": [
+                {
+                    "name": "ignored",
+                    "in": "querystring",
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "numbers": {"type": "array", "enum": [[1, 2]]},
+                                    "flag": {"type": "null"},
+                                },
+                                "required": ["numbers", "flag"],
+                                "additionalProperties": False,
+                            }
                         }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+                    },
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.2.0",
     )
-    case = data.draw(schema["/teapot"]["GET"].as_strategy())
+    case = data.draw(operation.as_strategy())
     kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1:1")
     decoded = json.loads(unquote(kwargs["params"]))
     assert decoded == {"numbers": [1, 2], "flag": None}
@@ -677,53 +667,42 @@ _EMPTY_QUERYSTRING_CONTENTS = (
 @settings(max_examples=5, suppress_health_check=[HealthCheck.function_scoped_fixture])
 def test_querystring_without_content_sends_no_query(ctx, data):
     for content in _EMPTY_QUERYSTRING_CONTENTS:
-        schema = ctx.openapi.load_schema(
+        operation = ctx.openapi.load_operation(
+            "GET /teapot",
             {
-                "/teapot": {
-                    "get": {
-                        "parameters": [{"name": "ignored", "in": "querystring", "required": True, "content": content}],
-                        "responses": {"200": {"description": "OK"}},
-                    }
-                }
+                "parameters": [{"name": "ignored", "in": "querystring", "required": True, "content": content}],
+                "responses": {"200": {"description": "OK"}},
             },
             version="3.2.0",
         )
-        case = data.draw(schema["/teapot"]["GET"].as_strategy())
+        case = data.draw(operation.as_strategy())
         assert case.query == {}
         assert case.as_transport_kwargs(base_url="http://127.0.0.1:1")["params"] == {}
 
 
 def test_querystring_binary_serialization_is_sent_as_raw_query(ctx):
     schemathesis.openapi.format("binary", st.just(b"\xff\x00A"))
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "ignored",
-                            "in": "querystring",
-                            "required": True,
-                            "content": {
-                                "application/octet-stream": {
-                                    "schema": {"type": "string", "format": "binary", "minLength": 3}
-                                }
-                            },
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "ignored",
+                    "in": "querystring",
+                    "required": True,
+                    "content": {
+                        "application/octet-stream": {"schema": {"type": "string", "format": "binary", "minLength": 3}}
+                    },
                 }
-            }
+            ],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.2.0",
     )
 
-    @given(case=schema["/teapot"]["GET"].as_strategy())
-    @settings(max_examples=1, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @run_given(case=operation.as_strategy(), max_examples=1)
     def test(case):
         assert prepared_query_string(case) == "%FF%00A"
-
-    test()
 
 
 DELIMITED_ARRAY_SCHEMA = {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string", "enum": ["a,b"]}}
@@ -797,14 +776,11 @@ def test_array_parameter_keeps_delimiter_literal(ctx, paths, version, operation_
     # Items are percent-encoded but the separator stays literal, so a server can split the array back.
     schema = ctx.openapi.load_schema(paths, version=version)
 
-    @given(case=schema[operation_path]["GET"].as_strategy())
-    @settings(max_examples=5)
+    @run_given(case=schema[operation_path]["GET"].as_strategy(), max_examples=5)
     def test(case):
         kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1:1")
         prepared = requests.Request("GET", kwargs["url"], params=kwargs["params"]).prepare()
         assert prepared.url == expected_url
-
-    test()
 
 
 STYLED_ARRAY_SCHEMA = {"type": "array", "enum": [["a,b", "c"]]}
@@ -855,25 +831,22 @@ def prepared_path(case):
 )
 def test_path_style_delimiters_stay_literal(ctx, style, explode, schema, expected):
     # Matrix and label parsers split the raw segment on literal delimiters; only the values are encoded.
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot/{p}",
         {
-            "/teapot/{p}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "p",
-                            "in": "path",
-                            "required": True,
-                            "style": style,
-                            "explode": explode,
-                            "schema": schema,
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "p",
+                    "in": "path",
+                    "required": True,
+                    "style": style,
+                    "explode": explode,
+                    "schema": schema,
                 }
-            }
-        }
-    )["/teapot/{p}"]["GET"]
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
 
     assert fuzzing_rendered(operation, prepared_path) == {expected}
     assert coverage_rendered(operation, prepared_path) == {expected}
@@ -916,14 +889,7 @@ def prepared_query_string(case):
 
 
 def fuzzing_rendered(operation, render):
-    found = set()
-
-    @given(case=operation.as_strategy())
-    @settings(max_examples=5, deadline=None, suppress_health_check=list(HealthCheck))
-    def test(case):
-        found.add(render(case))
-
-    test()
+    found = {render(case) for case in generate_many(operation.as_strategy(), 5)}
     return found
 
 
@@ -1020,17 +986,14 @@ def rendered_parameters(case, container):
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize(("location", "container"), [("header", "headers"), ("cookie", "cookies")])
 def test_header_and_cookie_values_use_json_wire_form(ctx, location, container):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": wire_form_parameters(location),
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": wire_form_parameters(location),
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.1.0",
-    )["/teapot"]["GET"]
+    )
 
     render = partial(rendered_parameters, container=container)
 
@@ -1195,47 +1158,41 @@ def test_empty_exploded_object_expands_to_nothing(func):
 
 
 def test_exploded_object_key_does_not_overwrite_declared_query_parameter(ctx):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /items",
         {
-            "/items": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "Version",
-                            "in": "query",
-                            "required": True,
-                            "schema": {"type": "string", "enum": ["2016-11-15"]},
+            "parameters": [
+                {
+                    "name": "Version",
+                    "in": "query",
+                    "required": True,
+                    "schema": {"type": "string", "enum": ["2016-11-15"]},
+                },
+                {
+                    "name": "LaunchTemplate",
+                    "in": "query",
+                    "required": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "LaunchTemplateId": {"type": "string", "enum": ["lt-1"]},
+                            "Version": {"type": "string", "enum": [""]},
                         },
-                        {
-                            "name": "LaunchTemplate",
-                            "in": "query",
-                            "required": True,
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "LaunchTemplateId": {"type": "string", "enum": ["lt-1"]},
-                                    "Version": {"type": "string", "enum": [""]},
-                                },
-                                "required": ["LaunchTemplateId", "Version"],
-                                "additionalProperties": False,
-                            },
-                        },
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+                        "required": ["LaunchTemplateId", "Version"],
+                        "additionalProperties": False,
+                    },
+                },
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(case=schema["/items"]["GET"].as_strategy())
-    @settings(max_examples=5)
+    @run_given(case=operation.as_strategy(), max_examples=5)
     def test(case):
         assert case.as_transport_kwargs(base_url="http://127.0.0.1:1")["params"] == {
             "LaunchTemplateId": "lt-1",
             "Version": "2016-11-15",
         }
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -1324,22 +1281,18 @@ def test_unusual_form_schema(ctx, type_name):
     # See GH-1152
     # When API schema defines multipart media type
     # And its schema is not an object or bytes (string + format=byte)
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /multipart",
         {
-            "/multipart": {
-                "post": {
-                    "requestBody": {
-                        "content": {"multipart/form-data": {"schema": {"type": type_name}}},
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "content": {"multipart/form-data": {"schema": {"type": type_name}}},
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    @given(case=schema["/multipart"]["POST"].as_strategy())
-    @settings(max_examples=5, deadline=None)
+    @run_given(case=operation.as_strategy(), max_examples=5)
     def test(case):
         # Then it should lead to a valid network request
         assert_requests_call(case)
@@ -1365,8 +1318,6 @@ def test_unusual_form_schema(ctx, type_name):
         headers = case.as_transport_kwargs(headers={"content-type": "text/plain"})["headers"]
         assert headers["content-type"] == "text/plain"
         assert list(headers) == [*list(get_default_headers()), SCHEMATHESIS_TEST_CASE_HEADER, "content-type"]
-
-    test()
 
 
 NESTED_OBJECT_SCHEMA = {
@@ -1404,8 +1355,8 @@ _NESTED_EXPECTED = {"request[pagination][pageNumber]": 1, "request[pagination][p
         pytest.param(
             {"name": "request", "in": "query", "required": True, "schema": NESTED_OBJECT_SCHEMA},
             {"request": _NESTED_INPUT},
-            {"pagination": _NESTED_INPUT["pagination"]},
-            id="inline-nested-keeps-extract",
+            {"pagination[pageNumber]": 1, "pagination[pageSize]": 10},
+            id="inline-nested",
         ),
         pytest.param(
             {
@@ -1417,8 +1368,8 @@ _NESTED_EXPECTED = {"request[pagination][pageNumber]": 1, "request[pagination][p
                 "schema": NESTED_OBJECT_SCHEMA,
             },
             {"request": _NESTED_INPUT},
-            {"request[pagination]": _NESTED_INPUT["pagination"]},
-            id="deepObject-inline-stays-one-level",
+            _NESTED_EXPECTED,
+            id="deepObject-inline-nested",
         ),
         pytest.param(
             {
@@ -1448,8 +1399,8 @@ _NESTED_EXPECTED = {"request[pagination][pageNumber]": 1, "request[pagination][p
                 },
             },
             {"q": {"foo-1": "value", "spam-1": {"pagination": {"pageNumber": 1, "pageSize": 10}}}},
-            {"foo-1": "value", "spam-1": {"pagination": {"pageNumber": 1, "pageSize": 10}}},
-            id="inline-object-with-ref-property-keeps-extract",
+            {"foo-1": "value", "spam-1[pagination][pageNumber]": 1, "spam-1[pagination][pageSize]": 10},
+            id="inline-object-with-ref-property",
         ),
         pytest.param(
             {"name": "page", "in": "query", "required": True, "schema": {"type": "integer"}},
@@ -1558,17 +1509,14 @@ def test_schema_has_nested_object_properties_detection(schema, expected):
 
 
 def querystring_operation(ctx, content, *, required):
-    return ctx.openapi.load_schema(
+    return ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": [{"name": "ignored", "in": "querystring", "required": required, "content": content}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"name": "ignored", "in": "querystring", "required": required, "content": content}],
+            "responses": {"200": {"description": "OK"}},
         },
         version="3.2.0",
-    )["/teapot"]["GET"]
+    )
 
 
 @pytest.mark.hypothesis_nested
@@ -1593,6 +1541,21 @@ def test_optional_querystring_is_omitted_or_sent_raw(ctx, content, expected):
     assert fuzzing_rendered(operation, prepared_query_string) == expected
 
 
+_INLINE_NESTED_FILTER = {
+    "type": "object",
+    "properties": {
+        "inner": {
+            "type": "object",
+            "properties": {"a": {"enum": ["x"]}},
+            "required": ["a"],
+            "additionalProperties": False,
+        }
+    },
+    "required": ["inner"],
+    "additionalProperties": False,
+}
+
+
 @pytest.mark.hypothesis_nested
 @pytest.mark.parametrize(
     ("schema", "style", "expected"),
@@ -1604,6 +1567,18 @@ def test_optional_querystring_is_omitted_or_sent_raw(ctx, content, expected):
             id="recursive-ref-deepObject-nested",
         ),
         pytest.param(
+            _INLINE_NESTED_FILTER,
+            "deepObject",
+            "filter%5Binner%5D%5Ba%5D=x",
+            id="inline-deepObject-nested",
+        ),
+        pytest.param(
+            _INLINE_NESTED_FILTER,
+            "form",
+            "inner%5Ba%5D=x",
+            id="inline-form-nested",
+        ),
+        pytest.param(
             {"enum": [{"a": "x"}], "anyOf": [{"properties": {"a": {}}}]},
             "form",
             "a=x",
@@ -1612,16 +1587,11 @@ def test_optional_querystring_is_omitted_or_sent_raw(ctx, content, expected):
     ],
 )
 def test_query_object_serialization_styles(ctx, schema, style, expected):
-    operation = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /teapot",
         {
-            "/teapot": {
-                "get": {
-                    "parameters": [
-                        {"name": "filter", "in": "query", "required": True, "style": style, "schema": schema}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
+            "parameters": [{"name": "filter", "in": "query", "required": True, "style": style, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
         },
         components={
             "schemas": {
@@ -1641,6 +1611,6 @@ def test_query_object_serialization_styles(ctx, schema, style, expected):
                 }
             }
         },
-    )["/teapot"]["GET"]
+    )
 
     assert fuzzing_rendered(operation, prepared_query_string) == {expected}

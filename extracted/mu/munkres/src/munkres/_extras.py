@@ -63,10 +63,12 @@ def stable_matching(
             next_choice[p] += 1
             if p not in rank[r]:
                 continue
-            current = held.get(r)
-            if current is None:
+            if (
+                r not in held
+            ):  # membership, not `.get() is None`: `None` is a legal participant name
                 held[r] = p
                 break
+            current = held[r]
             if rank[r][p] < rank[r][current]:
                 held[r] = p
                 free.append(current)

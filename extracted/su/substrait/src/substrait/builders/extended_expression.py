@@ -3,9 +3,10 @@ import contextlib
 import contextvars
 import itertools
 import uuid as uuid_module
+from collections.abc import Callable, Iterable
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Callable, Iterable, Union
+from typing import Any, Union
 
 import substrait.algebra_pb2 as stalg
 import substrait.extended_expression_pb2 as stee
@@ -22,8 +23,10 @@ from substrait.utils import (
     inline_reference_rels,
     plan_subtrees,
     remap_function_references,
+    top_level_names,
     type_num_names,
 )
+from substrait.utils.detached import resolve_for_building
 
 # Monotonic source of unique RelCommon.rel_anchor values within a single build.
 # Not reset between builds by default; reset at each top-level materialization
@@ -55,7 +58,7 @@ def fresh_rel_anchors():
 UnboundExtendedExpression = Callable[
     [stp.NamedStruct, ExtensionRegistry], stee.ExtendedExpression
 ]
-ExtendedExpressionOrUnbound = Union[stee.ExtendedExpression, UnboundExtendedExpression]
+ExtendedExpressionOrUnbound = stee.ExtendedExpression | UnboundExtendedExpression
 
 
 class EnumArg:
@@ -83,7 +86,7 @@ class EnumArg:
 
 
 def _alias_or_inferred(
-    alias: Union[Iterable[str], str, None],
+    alias: Iterable[str] | str | None,
     op: str,
     args: Iterable[str],
 ):
@@ -160,10 +163,13 @@ def resolve_expression(
     whichever build produced it, so the collector re-derives them from the durable
     ``(urn, name)`` identities and the expression is rewritten to match -- the
     expression-level counterpart of ``builders.plan._bind``. Unchanged when the
-    numbering already agrees, as it does for anything this build resolved.
+    numbering already agrees, as it does for anything this build resolved. Its
+    detached subtrees are inlined, since their tables do not travel with the
+    expression into whatever is built from it.
     """
     if not isinstance(expression, stee.ExtendedExpression):
-        return expression(base_schema, registry)
+        return resolve_for_building(expression(base_schema, registry))
+    expression = resolve_for_building(expression)
     collector = current_collector()
     if collector is None:
         return expression
@@ -456,7 +462,7 @@ def _make_literal(value: Any, type: stp.Type) -> stalg.Expression.Literal:
 
 
 def literal(
-    value: Any, type: stp.Type, alias: Union[Iterable[str], str, None] = None
+    value: Any, type: stp.Type, alias: Iterable[str] | str | None = None
 ) -> UnboundExtendedExpression:
     """Builds a resolver for ExtendedExpression containing a literal expression.
 
@@ -480,7 +486,7 @@ def literal(
     return build_scoped(resolve)
 
 
-def outer_reference(field: Union[str, int], steps_out: int = 1):
+def outer_reference(field: str | int, steps_out: int = 1):
     """A field reference to an enclosing query's column (a correlated reference).
 
     Only valid inside a subquery; ``steps_out`` counts query-nesting levels
@@ -538,7 +544,7 @@ class LateralInput:
         self._rel_anchor = rel_anchor
         self._schema = schema
 
-    def column(self, field: Union[str, int]):
+    def column(self, field: str | int):
         """A correlated reference to the left row's ``field`` (name or index)."""
         rel_anchor = self._rel_anchor
         schema = self._schema
@@ -570,12 +576,12 @@ class LateralInput:
         return build_scoped(resolve)
 
 
-def column(field: Union[str, int], alias: Union[Iterable[str], str, None] = None):
+def column(field: str | int, alias: Iterable[str] | str | None = None):
     """Builds a resolver for ExtendedExpression containing a FieldReference expression
 
     Accepts either an index or a field name of a desired field.
     """
-    alias = [alias] if alias and isinstance(alias, str) else alias
+    alias = [alias] if alias and isinstance(alias, str) else list(alias or [])
 
     def resolve(
         base_schema: stp.NamedStruct, registry: ExtensionRegistry
@@ -584,9 +590,18 @@ def column(field: Union[str, int], alias: Union[Iterable[str], str, None] = None
         flat_indices = [0] + list(itertools.accumulate(lengths))[:-1]
 
         if isinstance(field, str):
-            column_index = list(base_schema.names).index(field)
-            field_index = flat_indices.index(column_index)
+            top_level = top_level_names(base_schema)
+            if field not in top_level:
+                raise ValueError(
+                    f"column {field!r} not found; available columns: {top_level}"
+                )
+            field_index = top_level.index(field)
         else:
+            num_columns = len(base_schema.struct.types)
+            if isinstance(field, bool) or not 0 <= field < num_columns:
+                raise ValueError(
+                    f"column {field!r} out of range; schema has {num_columns} columns"
+                )
             field_index = field
 
         names_start = flat_indices[field_index]
@@ -595,6 +610,21 @@ def column(field: Union[str, int], alias: Union[Iterable[str], str, None] = None
             if len(flat_indices) > field_index + 1
             else None
         )
+
+        output_names = list(base_schema.names)[names_start:names_end]
+        if len(alias) == 1:
+            # A single alias renames only the top-level field, keeping a struct
+            # column's nested names.
+            output_names = [alias[0], *output_names[1:]]
+        elif alias:
+            # A full list replaces every name, so it must name each field.
+            if len(alias) != len(output_names):
+                raise ValueError(
+                    f"column() alias {alias!r} has {len(alias)} names, but field "
+                    f"{field!r} needs {len(output_names)} "
+                    f"({output_names!r})."
+                )
+            output_names = list(alias)
 
         return stee.ExtendedExpression(
             referred_expr=[
@@ -609,9 +639,7 @@ def column(field: Union[str, int], alias: Union[Iterable[str], str, None] = None
                             ),
                         )
                     ),
-                    output_names=list(base_schema.names)[names_start:names_end]
-                    if not alias
-                    else alias,
+                    output_names=output_names,
                 )
             ],
             base_schema=base_schema,
@@ -624,8 +652,8 @@ def scalar_function(
     urn: str,
     function: str,
     expressions: Iterable[ExtendedExpressionOrUnbound],
-    alias: Union[Iterable[str], str, None] = None,
-    options: Union[dict, None] = None,
+    alias: Iterable[str] | str | None = None,
+    options: dict | None = None,
 ):
     """Builds a resolver for ExtendedExpression containing a ScalarFunction expression.
 
@@ -678,14 +706,14 @@ def aggregate_function(
     urn: str,
     function: str,
     expressions: Iterable[ExtendedExpressionOrUnbound],
-    alias: Union[Iterable[str], str, None] = None,
+    alias: Iterable[str] | str | None = None,
     invocation: Union[
         "stalg.AggregateFunction.AggregationInvocation.ValueType", None
     ] = None,
     sorts: Iterable[
         tuple[ExtendedExpressionOrUnbound, "stalg.SortField.SortDirection.ValueType"]
     ] = (),
-    options: Union[dict, None] = None,
+    options: dict | None = None,
 ):
     """Builds a resolver for ExtendedExpression containing a AggregateFunction measure.
 
@@ -751,8 +779,8 @@ def window_function(
     function: str,
     expressions: Iterable[ExtendedExpressionOrUnbound],
     partitions: Iterable[ExtendedExpressionOrUnbound] = [],
-    alias: Union[Iterable[str], str, None] = None,
-    options: Union[dict, None] = None,
+    alias: Iterable[str] | str | None = None,
+    options: dict | None = None,
 ):
     """Builds a resolver for ExtendedExpression containing a WindowFunction expression"""
 
@@ -807,7 +835,7 @@ def window_function(
 def if_then(
     ifs: Iterable[tuple[ExtendedExpressionOrUnbound, ExtendedExpressionOrUnbound]],
     _else: ExtendedExpressionOrUnbound,
-    alias: Union[Iterable[str], str, None] = None,
+    alias: Iterable[str] | str | None = None,
 ):
     """Builds a resolver for ExtendedExpression containing an IfThen expression"""
 
@@ -990,7 +1018,7 @@ def multi_or_list(
 def cast(
     input: ExtendedExpressionOrUnbound,
     type: stp.Type,
-    alias: Union[Iterable[str], str, None] = None,
+    alias: Iterable[str] | str | None = None,
 ):
     """Builds a resolver for ExtendedExpression containing a cast expression"""
 
@@ -1053,6 +1081,9 @@ def _inner_rel(query, registry: ExtensionRegistry, base_schema) -> stalg.Rel:
         plan = query(registry) if callable(query) else query
     finally:
         outer_schemas.reset(token)
+    # Only the Rel travels into the Expression.Subquery; the PlanRel's detached
+    # tables stay behind with the plan, so inline its ordinals first.
+    plan = resolve_for_building(plan)
     # Fold the inner plan's extensions into this build before lifting its Rel: only
     # the Rel travels into the Expression.Subquery, so the declarations its function
     # references name stay behind with the plan. A plan built elsewhere therefore
@@ -1078,7 +1109,7 @@ def _inner_rel(query, registry: ExtensionRegistry, base_schema) -> stalg.Rel:
     return rel
 
 
-def scalar_subquery(query, alias: Union[str, None] = None):
+def scalar_subquery(query, alias: str | None = None):
     """A scalar (one-row, one-column) subquery expression."""
 
     def resolve(base_schema, registry):
@@ -1091,7 +1122,7 @@ def scalar_subquery(query, alias: Union[str, None] = None):
     return build_scoped(resolve)
 
 
-def set_predicate(query, op, alias: Union[str, None] = None):
+def set_predicate(query, op, alias: str | None = None):
     """An EXISTS / UNIQUE subquery predicate."""
 
     def resolve(base_schema, registry):
@@ -1106,7 +1137,7 @@ def set_predicate(query, op, alias: Union[str, None] = None):
     return build_scoped(resolve)
 
 
-def in_predicate(needles, query, alias: Union[str, None] = None):
+def in_predicate(needles, query, alias: str | None = None):
     """A ``needles IN (subquery)`` predicate."""
 
     def resolve(base_schema, registry):

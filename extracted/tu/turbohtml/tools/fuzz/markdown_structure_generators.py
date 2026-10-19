@@ -95,14 +95,24 @@ def markdown_source_check(source: str, render: Callable[[Node], str] = Node.to_m
 
 def markdown_html_check(markup: str, render: Callable[[Node], str] = Node.to_markdown) -> str | None:
     """Compare source meaning because a stable conversion can lose HTML semantics."""
-    expected: Final = _html_meaning(markup)
+    expected: Final = markdown_html_meaning(markup)
     converted: Final = _READER.render(render(parse_fragment(markup)))
-    return None if _html_meaning(converted) == expected else "Markdown conversion changes meaning"
+    if markdown_html_meaning(converted) == expected:
+        return None
+    if any(char in markup and char not in converted for char in "\x0b\x1c\x1d\x1e\x1f\x85"):
+        msg = "Markdown reader discards control whitespace at paragraph edges"
+        raise MarkdownProfileError(msg)
+    return "Markdown conversion changes meaning"
 
 
-def _html_meaning(markup: str) -> tuple[_Meaning, ...]:
+def markdown_html_meaning(markup: str) -> tuple[_Meaning, ...]:
+    """Collapse reader HTML to the structure and text the Markdown oracle compares."""
     # read the tree to_markdown converts, so a parser that lags the WHATWG tree builder cannot pose as a lost meaning
-    return _flow(_children(_tree(parse_fragment(markup)), preserve=False))
+    root: Final = parse_fragment(markup)
+    if any(sum(1 for _ in element.ancestors) > 128 for element in root.iter_elements()):
+        msg = "HTML nesting exceeds the meaning model"
+        raise MarkdownProfileError(msg)
+    return _flow(_children(_tree(root), preserve=False))
 
 
 def _tree(node: Element) -> _TreeNode:
@@ -192,10 +202,10 @@ def _draws_nothing(record: _Meaning) -> bool:
 
 
 def _children(element: _TreeNode, *, preserve: bool) -> tuple[_Meaning, ...]:
-    records: Final[list[_Meaning]] = list(_text(element.text, preserve=preserve, keep=element.tag in _INLINE_HOSTS))
+    records: Final[list[_Meaning]] = list(_text(element.text, preserve=preserve))
     for child in element:
         records.extend(_element(child, element.tag, preserve=preserve))
-        records.extend(_text(child.tail, preserve=preserve, keep=element.tag in _INLINE_HOSTS))
+        records.extend(_text(child.tail, preserve=preserve))
     spaced: Final = _spacing(_merge(records), preserve=preserve, inline=element.tag in _INLINE_TEXT)
     return spaced if preserve or element.tag in _INLINE_TEXT else _block_end(spaced)
 
@@ -400,8 +410,9 @@ def _literal_parts(element: _TreeNode) -> Iterator[str | None]:
 
 def _attributes(tag: str, attributes: dict[str, str]) -> tuple[tuple[str, str], ...]:
     # an empty title gives no advisory information (WHATWG 3.2.6.1), the same as none
+    # URL navigation and Markdown destinations both discard tabs and line breaks.
     semantic: Final = {
-        name: value
+        name: re.sub(r"[\t\n\r]", "", value) if name in {"href", "src"} else value
         for name, value in attributes.items()
         if name in _SEMANTIC_ATTRIBUTES.get(tag, ()) and (value or name != "title")
     }
@@ -409,13 +420,11 @@ def _attributes(tag: str, attributes: dict[str, str]) -> tuple[tuple[str, str], 
     return tuple(sorted((({"src": "", "alt": ""} if tag == "img" else {}) | semantic).items()))
 
 
-def _text(text: str, *, preserve: bool, keep: bool) -> tuple[_Meaning, ...]:
+def _text(text: str, *, preserve: bool) -> tuple[_Meaning, ...]:
     if not text:
         return ()
     if not preserve:
         text = re.sub(r"[ \t\n\f\r]+", " ", text)
-        if not keep and not text.strip(" \t\n\f\r"):
-            return ()
     return (("#text", (("value", text),), ()),)
 
 
@@ -751,6 +760,7 @@ __all__ = [
     "markdown_generate",
     "markdown_grammar",
     "markdown_html_check",
+    "markdown_html_meaning",
     "markdown_snapshot",
     "markdown_source_check",
     "markdown_source_seeds",

@@ -12,6 +12,7 @@ from . import xproto
 
 class CompletionEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

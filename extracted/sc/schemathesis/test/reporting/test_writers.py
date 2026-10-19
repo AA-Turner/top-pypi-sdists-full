@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 
 import pytest
+import yaml
 
 from schemathesis.config import ProjectConfig, SanitizationConfig
 from schemathesis.core.version import SCHEMATHESIS_VERSION
@@ -54,6 +55,14 @@ def test_vcr_writer_writes_header_to_stream():
     )
 
 
+def test_vcr_writer_header_with_single_quote_in_command():
+    command = 'st run http://localhost/openapi.json -H "X-Name: O\'Brien"'
+    stream = StringIO()
+    with VcrWriter(output=stream, config=ProjectConfig.from_dict({})) as writer:
+        writer.open(seed=42, command=command)
+    assert yaml.safe_load(stream.getvalue())["command"] == command
+
+
 @pytest.mark.parametrize(
     "writer_cls, kwargs",
     [
@@ -78,6 +87,8 @@ def test_writer_context_manager_no_error_without_open(writer_cls, kwargs):
         (["--proxy", "http://user:pw@proxy:3128"], ["--proxy", "http://[Filtered]@proxy:3128"]),
         (["-u", "https://api.example.com/?token=s3cret"], ["-u", "https://api.example.com/?token=%5BFiltered%5D"]),
         (["https://user:pw@api.example.com/openapi.json"], ["https://[Filtered]@api.example.com/openapi.json"]),
+        (["--origin", "http://user:pw@api.example.com"], ["--origin", "http://[Filtered]@api.example.com"]),
+        (["--origin=http://user:pw@api.example.com"], ["--origin=http://[Filtered]@api.example.com"]),
         (["--max-examples=5"], ["--max-examples=5"]),
         (["-HX-API-Key: s3cret"], ["-HX-API-Key: [Filtered]"]),
         (["-aadmin:hunter2"], ["-a[Filtered]"]),
@@ -94,6 +105,8 @@ def test_writer_context_manager_no_error_without_open(writer_cls, kwargs):
         "proxy",
         "url-option",
         "url-positional",
+        "unknown-url-option",
+        "unknown-url-option-joined",
         "unrelated",
         "header-attached",
         "auth-attached",

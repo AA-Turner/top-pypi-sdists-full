@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Simple command line utility to help finding the differences between
 ConfigUpdater and ConfigParser.
 
@@ -14,19 +15,21 @@ Alternatively https://github.com/megatops/PatchViewer can also be used.
 [bat]: https://github.com/sharkdp/bat
 [PathViewer]:  https://github.com/megatops/PatchViewer
 """
+
 from __future__ import annotations
 
 import argparse
 import os.path
 import sys
+from collections.abc import Iterator, Sequence
 from configparser import ConfigParser, SectionProxy
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from inspect import getmembers, getsourcefile, getsourcelines
-from typing import Iterator, Optional, Sequence, Type
+from typing import Any
 
 try:
-    import configupdater  # noqa
+    import configupdater  # noqa: F401
 except ImportError:
     repo = os.path.dirname(os.path.dirname(__file__))
     sys.path.append(os.path.join(repo, "src"))
@@ -47,7 +50,7 @@ def diff_all(numlines: int) -> str:
     return "\n\n".join(patches)
 
 
-def diff_class(orig_cls: Type, changed_cls: Type, numlines: int) -> str:
+def diff_class(orig_cls: type, changed_cls: type, numlines: int) -> str:
     diff_fragments = (
         diff_member(name, orig_cls, changed_cls, numlines)
         for name, _ in getmembers(changed_cls)
@@ -57,8 +60,8 @@ def diff_class(orig_cls: Type, changed_cls: Type, numlines: int) -> str:
 
 
 def diff_member(
-    name: str, orig_cls: Type, changed_cls: Type, numlines: int
-) -> Optional[str]:
+    name: str, orig_cls: type, changed_cls: type, numlines: int
+) -> str | None:
     orig = getattr(orig_cls, name, None)
     changed = getattr(changed_cls, name, None)
 
@@ -86,12 +89,14 @@ class CodeInfo:
     starting_line: int
 
     @classmethod
-    def inspect(cls, obj) -> "CodeInfo":
+    def inspect(cls, obj: Any) -> CodeInfo:
         path = "<builtin>"
         try:
             path = getsourcefile(obj) or "<extension>"
             src, start = getsourcelines(obj)
-        except TypeError:
+        except (TypeError, OSError):
+            # OSError: source not available, e.g. for frozen modules like
+            # `_collections_abc` (Python >= 3.11)
             src = [f"# {path} ::: {obj}\n"]
             start = 0
         return cls(src, path, start)
@@ -127,7 +132,7 @@ def format_patch(
                     yield "+" + line
 
 
-def line_range(start, stop, offset):
+def line_range(start: int, stop: int, offset: int) -> str:
     length = stop - start
     return f"{offset + start},{length}"  # Lines are counted from 1
 
@@ -137,7 +142,7 @@ def relativise_path(path: str) -> str:
     return relative if len(path) > len(relative) else path
 
 
-def main():
+def main() -> None:
     cli = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,

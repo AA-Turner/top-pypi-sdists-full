@@ -205,6 +205,8 @@ from local_operator.harness.wake import (
     format_duration,
     format_wake_delivery_text,
 )
+from local_operator.i18n.keys import tui_notices as _nt
+from local_operator.i18n.messages import Msg
 from local_operator.imaging import rebound_oversize_image
 from local_operator.incidents import (
     DELIBERATE_CUT_OFF_CAUSE,
@@ -368,6 +370,34 @@ if TYPE_CHECKING:
     from local_operator.session_factory import _KnowledgeHooks
 
 logger = logging.getLogger(__name__)
+
+
+def _notice(
+    message: Msg,
+    *,
+    kind: Literal["info", "warning", "error"] = "warning",
+    headline: str = "",
+) -> NoticeEvent:
+    """One typed notice: catalogue text plus its additive ``code``/``params``.
+
+    ``text`` stays present and English-first (RFC §2.6) so every existing
+    client keeps rendering what it rendered before; the id and parameters let
+    a locale-aware viewer re-render without parsing the sentence.
+    """
+    body = message.envelope()
+    return NoticeEvent(
+        text=body["text"],
+        code=body["code"],
+        params=body["params"],
+        kind=kind,
+        headline=headline,
+    )
+
+
+def _text(message: Msg) -> str:
+    """The English text of a catalogue message (fragments and headlines)."""
+    return message.envelope()["text"]
+
 
 #: Transcript custom-entry type recording which model is ACTUALLY serving
 #: requests when a provider fallback pins a route away from the selected
@@ -1207,11 +1237,15 @@ def _todo_reminder_text(pending: list[dict[str, str]], blocked: list[dict[str, s
         # clause would render a parked item as plain pending work.
         reason = item.get("reason")
         rows.append(
-            f"- {item['text']} — blocked: {reason}" if reason else f"- {item['text']} — blocked"
+            # i18n: ignore model-facing system reminder (not shown to the user)
+            f"- {item['text']} — blocked: {reason}"
+            if reason
+            else f"- {item['text']} — blocked"
         )
     paragraphs: list[str] = []
     if pending:
         paragraphs.append(
+            # i18n: ignore model-facing system reminder (not shown to the user)
             "Do not end the turn while pending items remain: either keep "
             "working, or resolve each one honestly — `todo done` when it is "
             "finished, `todo block` with a reason when it needs a user decision "
@@ -1221,6 +1255,7 @@ def _todo_reminder_text(pending: list[dict[str, str]], blocked: list[dict[str, s
         )
     if blocked:
         paragraphs.append(
+            # i18n: ignore model-facing system reminder (not shown to the user)
             "Before you finish, account for each blocked item: check whether "
             "its condition still holds. If it has cleared, resume the work; if "
             "the decision is the user's, raise it with the `ask` tool; if it "
@@ -1265,7 +1300,9 @@ def _project_reminder_text(stale: list[Project], *, now: float | None = None) ->
     for project in stale[:_PROJECT_REMINDER_MAX_ROWS]:
         age = reported_age(project, now=now)
         if age is None:
-            rows.append(f"- {project.name} [{project.status}] — no progress recorded")
+            rows.append(
+                f"- {project.name} [{project.status}] — no progress recorded"
+            )  # i18n: ignore model-facing system reminder (not shown to the user)
             continue
         # The reporter clause is dropped when the row carries no reporter (a
         # hand-edited or pre-tool row): "by session " with nothing after it
@@ -1277,12 +1314,15 @@ def _project_reminder_text(stale: list[Project], *, now: float | None = None) ->
         if len(excerpt) > _PROJECT_REMINDER_EXCERPT_CHARS:
             excerpt = excerpt[: _PROJECT_REMINDER_EXCERPT_CHARS - 1].rstrip() + "…"
         rows.append(
+            # i18n: ignore model-facing system reminder (not shown to the user)
             f"- {project.name} [{project.status}] — progress last reported "
             f'{age} ago{reporter}: "{excerpt}"'
         )
     extra = len(stale) - _PROJECT_REMINDER_MAX_ROWS
     if extra > 0:
-        rows.append(f"… and {extra} more")
+        rows.append(
+            f"… and {extra} more"
+        )  # i18n: ignore model-facing system reminder (not shown to the user)
     return (
         "<system-reminder>\n"
         "Injected by the harness at the turn boundary. Not from the user, and "
@@ -4412,6 +4452,14 @@ class Session:
         #: the gate on every aida hook below (load hold, persist reconcile,
         #: config-watch reconcile, delivery guard, after-turn tray drain).
         self._aida_duty = False
+        #: Whether this session is THE LIBRARIAN'S (``local_operator.librarian``),
+        #: resolved once per open beside ``_aida_duty`` — one stat of
+        #: ``<config>/librarian/state.json`` on every session that is not hers,
+        #: and the gate on the cadence filter/persist/config-watch hooks below.
+        self._librarian_duty = False
+        #: The accepted ``librarian-cadence`` occurrence, consumed by the
+        #: persist boundary after retirement (the twin of ``_aida_cadence_delivered``).
+        self._librarian_cadence_delivered: WakeSchedule | None = None
         #: Distinct wake-supervisor refusal reasons already reported (M3). The
         #: install hook runs on every schedule persist, so the set is what keeps
         #: "your check-ins need a session open" from printing on every write.
@@ -4966,16 +5014,7 @@ class Session:
             self._image_drop_diagnostic(),
         )
         self._spawn_background(
-            self._emit(
-                NoticeEvent(
-                    text=(
-                        f"{label} does not accept images — the images in this "
-                        "conversation are omitted from its context. Switch to a "
-                        "model that accepts images to see them again."
-                    ),
-                    kind="warning",
-                )
-            )
+            self._emit(_notice(_nt.image_unsupported(model=label), kind="warning"))
         )
 
     def _live_todo_reminders(self, messages: list[AgentMessage]) -> list[AgentMessage]:
@@ -5333,16 +5372,7 @@ class Session:
             self._wire_budget_override,
             frames_left,
         )
-        await self._emit(
-            NoticeEvent(
-                text=(
-                    "The provider refused the request as too large. Some screenshots "
-                    "have been dropped from the context and the size limit tightened — "
-                    "send your message again."
-                ),
-                kind="warning",
-            )
-        )
+        await self._emit(_notice(_nt.request_too_large_dropped(), kind="warning"))
         return True
 
     async def _degrade_images_for_size(self, budget: int, frames_left: int) -> bool:
@@ -5387,22 +5417,8 @@ class Session:
             self._image_drop_diagnostic(),
         )
         await self._emit(
-            NoticeEvent(
-                text=(
-                    # Branching on the actual history rather than emitting one
-                    # sentence that is false half the time: this rung is
-                    # reached on the FIRST refusal for a text-only history,
-                    # where "dropping screenshots" and "images have been
-                    # removed" both describe something that never happened
-                    # (agent review round 2, R9).
-                    "This conversation is too large for the provider to accept. "
-                    "Run /compact to summarise it, or start a new conversation."
-                    if frames_left == 0
-                    else "The conversation is too large for this provider even after "
-                    "dropping screenshots, so images have been removed from the "
-                    "context to keep the session working. If it still fails, run "
-                    "/compact or start a new conversation."
-                ),
+            _notice(
+                _nt.too_large_run_compact() if frames_left == 0 else _nt.too_large_images_removed(),
                 kind="warning",
             )
         )
@@ -5451,16 +5467,7 @@ class Session:
             "provider rejected an image; dropping images from this session's context (%s)",
             self._image_drop_diagnostic(),
         )
-        await self._emit(
-            NoticeEvent(
-                text=(
-                    "The provider rejected an image in this conversation's history. "
-                    "Images have been dropped from the context so the session keeps "
-                    "working — send your message again."
-                ),
-                kind="warning",
-            )
-        )
+        await self._emit(_notice(_nt.image_rejected_history(), kind="warning"))
 
     def _missing_media_diagnostic(self) -> str:
         """What the omitted payload-less block(s) look like, for the log.
@@ -14622,7 +14629,7 @@ class Session:
         # that a turn died.
         if notify and kind != "error" and self._run_ended_quiet(event):
             notify = False
-        if notify and kind != "error" and self._aida_cadence_banner_veto(event):
+        if notify and kind != "error" and self._proactive_banner_veto(event):
             notify = False
         # THE BANNER-BUDGET STASH (review MAJOR-2): whether this publish is one
         # of her check-in banners is judged HERE, once, beside ``notify``. The
@@ -14729,6 +14736,61 @@ class Session:
         from local_operator.aida import proactive
 
         return all(proactive.is_cadence_family_row(wake_id) for wake_id in wake_ids)
+
+    def _proactive_banner_veto(self, event: AgentEndEvent) -> bool:
+        """Which engine's check-in veto applies — Aida's or the Librarian's.
+
+        Dispatched on the already-resolved duty flags, so a session pays one
+        attribute read per settle. The two vetoes are deliberate twins: the
+        quiet-day sentinel must silence the Librarian's daily pass exactly as
+        it silences Aida's check-in, and an Aida-only veto was the reported
+        defect (a quiet library day would have raised the completion banner).
+        """
+        if getattr(self, "_aida_duty", False):
+            return self._aida_cadence_banner_veto(event)
+        if getattr(self, "_librarian_duty", False):
+            return self._librarian_cadence_banner_veto(event)
+        return False
+
+    def _librarian_checkin_run(self) -> bool:
+        """Whether THIS run's notifying deliveries are EXCLUSIVELY her passes.
+
+        The Librarian's half of the scope test: hers, wake-delivery-only
+        triggers, every recorded wake id one of her cadence-family rows
+        (``librarian-cadence`` or ``librarian-extra-N``), and no unconsumed user
+        message. Anything else — a user-armed wake, a peer note, a job result,
+        a mixed run — keeps normal notification semantics.
+        """
+        if not getattr(self, "_librarian_duty", False):
+            return False
+        if self._has_awaiting_user():
+            return False
+        if set(self._run_triggers) != {WAKE_PROMPT_MESSAGE_TYPE}:
+            return False
+        wake_ids = set(self._run_wake_ids)
+        if not wake_ids:
+            return False
+        from local_operator.librarian import proactive
+
+        return all(proactive.is_cadence_family_row(wake_id) for wake_id in wake_ids)
+
+    def _librarian_cadence_banner_veto(self, event: AgentEndEvent) -> bool:
+        """Whether one of the Librarian's passes must stay SILENT.
+
+        The quiet-day rule, applied to her own rows: an empty reply (nothing
+        was produced) or the exact sentinel normalised by
+        ``librarian.proactive.reply_is_quiet`` vetoes the banner. There is no
+        greeting ledger or banner budget on her side — she is not a personal
+        assistant and must not spend Aida's budget — so nothing else is read.
+        """
+        if not self._librarian_checkin_run():
+            return False
+        from local_operator.librarian import proactive
+
+        reply = self._run_last_assistant_text(event)
+        if not reply:
+            return True
+        return proactive.reply_is_quiet(reply)
 
     def _run_last_assistant_text(self, event: AgentEndEvent) -> str:
         """The run's LAST assistant reply text, or ``""`` when it produced none.
@@ -17208,15 +17270,7 @@ class Session:
             # to resume" described work they do not have to do and misnamed the
             # state. What they cannot see — and what this exists to say — is
             # that things are arriving and being held rather than run.
-            await self._emit(
-                NoticeEvent(
-                    text=(
-                        "Work arriving into this stopped session is being held, not run. "
-                        "The held items are read on the next turn."
-                    ),
-                    kind="warning",
-                )
-            )
+            await self._emit(_notice(_nt.stopped_session_held(), kind="warning"))
         logger.info(
             "dropped a pre-aborted turn (%d in this run); %d message(s) held for the next turn",
             self._pre_aborted_drops,
@@ -17244,11 +17298,8 @@ class Session:
                     dropped,
                 )
                 await self._emit(
-                    NoticeEvent(
-                        text=(
-                            f"Auto-continuation limit ({_MAX_CONTINUATIONS}) reached; " "stopping."
-                        ),
-                        kind="warning",
+                    _notice(
+                        _nt.auto_continuation_limit(limit=str(_MAX_CONTINUATIONS)), kind="warning"
                     )
                 )
                 return
@@ -17773,6 +17824,13 @@ class Session:
             # rows themselves, and this method is the ONE append path for
             # ``video_job_v1`` records (see ``journal_video_job``).
             journal_video_job=self.journal_video_job,
+            # The audio lane's late-settlement pair: a cancelled-but-running
+            # job may finish minutes after the tool returned, so the settle
+            # poll rides the SESSION's background task set (tracked, and
+            # cancelled by dispose) and its record lands through the
+            # session's one append path — the tool can do neither itself.
+            journal_audio_settle=self.journal_audio_settle,
+            spawn_background=self._spawn_background,
             # The send tool's own notice hook, wired for the same reason and
             # with the same shape: the tool cannot write a transcript row
             # itself, and the gate (``send.journal_unconfirmed``, default off) is
@@ -19204,6 +19262,23 @@ class Session:
         """
         await self._transcript.append_custom(VIDEO_JOB_CUSTOM_TYPE, record, preserve_mtime=True)
 
+    async def journal_audio_settle(self, record: dict[str, Any]) -> None:
+        """Append one ``audio_settle_v1`` row after a RUNNING cancel.
+
+        The audio contract's cancel is a guaranteed stop ONLY while the job is
+        queued. A job refused mid-flight keeps running and is charged if it
+        produces audio, so the settle poll records what actually happened
+        minutes after the tool returned — a transcript row the tool cannot
+        write itself (the ``journal_video_job`` precedent).
+
+        BOOKKEEPING, like the video record: the write is caused by work the user
+        started earlier, and it must not re-rank the session as freshly worked.
+        Failures PROPAGATE so the caller decides (the settle task logs).
+        """
+        from local_operator.audiogen.settle import AUDIO_SETTLE_CUSTOM_TYPE
+
+        await self._transcript.append_custom(AUDIO_SETTLE_CUSTOM_TYPE, record, preserve_mtime=True)
+
     async def _boot_video_jobs(self) -> None:
         """Cold-follow conversion for pending video jobs (criterion b).
 
@@ -19851,12 +19926,7 @@ class Session:
             except Exception:  # noqa: BLE001 - one handler cannot hide rejection from others
                 logger.exception("steering rejection handler failed")
         await self._emit(
-            NoticeEvent(
-                text=(
-                    f"steering command {command_id} was not saved: {reason}; "
-                    "retry with the same command ID"
-                )
-            )
+            _notice(_nt.steering_not_saved(command_id=command_id, reason=reason), kind="info")
         )
         # Mobile projections optimistically count accepted steers. Rejection is
         # another terminal exit from that queue, even though it was not delivered.
@@ -24048,15 +24118,10 @@ class Session:
             )
         lost: list[str] = []
         if adoptions:
-            lost.append(f"{len(adoptions)} aside(s) you added to the conversation")
+            lost.append(_text(_nt.unsaved_asides(count=str(len(adoptions)))))
         if receipts:
-            lost.append(f"{len(receipts)} shell command record(s)")
-        await self._emit(
-            NoticeEvent(
-                text=f"{' and '.join(lost)} could not be saved before the conversation closed",
-                kind="error",
-            )
-        )
+            lost.append(_text(_nt.unsaved_receipts(count=str(len(receipts)))))
+        await self._emit(_notice(_nt.unsaved_records(summary=" and ".join(lost)), kind="error"))
         # DURABLE as well (review R6): the notice reaches only a frontend still
         # connected during teardown. The row is written straight to the
         # transcript, as ``_journal_held_delivery_failure`` does once disposed —
@@ -24132,6 +24197,11 @@ class Session:
         # hold, the persist reconcile, the config-watch reconcile, the
         # delivery guard and the after-turn tray drain.
         self._aida_duty = self._aida_is_hers()
+        # THE LIBRARIAN'S DUTY rides the same seam and the same early placement
+        # reason: a session with no wake entry is exactly the state her engine
+        # must recover from, so the flag cannot sit behind "this session already
+        # has rows".
+        self._librarian_duty = self._librarian_is_hers()
         # A wake is active ownership, not conversation history. A fork declines
         # only snapshots copied at its creation boundary; snapshots appended
         # afterwards belong to the fork and must survive its next resume.
@@ -24160,6 +24230,8 @@ class Session:
         # ``delivery_allowed`` in the same module for the fire-time half).
         if self._aida_duty:
             schedules = self._aida_filter_rows(schedules)
+        elif self._librarian_duty:
+            schedules = self._librarian_filter_rows(schedules)
         # PATIENCE ROWS PAST THEIR EPISODE TTL RETIRE AT LOAD (§8.2.4): the
         # process was down past the 2 h hard stop, so the wait can never be
         # honoured and a row left armed would fire a note nobody can act on.
@@ -24276,6 +24348,67 @@ class Session:
             logger.warning("aida: load-time hold failed; arming unfiltered", exc_info=True)
             return schedules
 
+    # -- librarian engine attachment ----------------------------------------
+
+    def _librarian_is_hers(self) -> bool:
+        """Whether THIS session is the one ``librarian/state.json`` names.
+
+        One stat on every other session on the machine, and the flag every
+        Librarian hook is gated on. Failure answers False: a session that cannot
+        prove it is hers must not run her engine.
+        """
+        try:
+            from local_operator.librarian import state as librarian_state
+            from local_operator.paths import config_dir
+
+            return librarian_state.is_librarian_session(config_dir(), self._session_id)
+        except Exception:  # noqa: BLE001 — a lookup, never a boot dependency
+            logger.debug("librarian: could not resolve her session identity", exc_info=True)
+            return False
+
+    def _librarian_filter_rows(self, schedules: list[WakeSchedule]) -> list[WakeSchedule]:
+        """Drop her ``librarian-*`` rows when she is paused or disabled."""
+        try:
+            from local_operator.librarian import proactive
+
+            return proactive.filter_on_load(schedules, config_dir=self._config_dir)
+        except Exception:  # noqa: BLE001 — the fire-time guard still holds
+            logger.warning("librarian: load-time hold failed; arming unfiltered", exc_info=True)
+            return schedules
+
+    async def _librarian_reconcile_rows(
+        self,
+        schedules: list[WakeSchedule],
+        *,
+        cadence_fired: WakeSchedule | None = None,
+    ) -> list[WakeSchedule]:
+        """Her engine's reconcile over one schedule list, notes journaled.
+
+        Called from the persist (so a fire's automatic re-arm and every wake
+        tool mutation land through ONE writer) and from the config watcher (a
+        pause/resume issued in another process arrives within its 2 s tick).
+        Never raises: a failure leaves the list exactly as the caller gave it,
+        and an accepted occurrence is re-raised only so the retirement is not
+        committed without its successor.
+        """
+        try:
+            from local_operator.librarian import proactive
+
+            result = proactive.reconcile(
+                schedules,
+                config_dir=self._config_dir,
+                session_id=self._session_id,
+                cadence_fired=cadence_fired,
+            )
+            if result.notes:
+                await proactive.append_notes(self._transcript, result.notes)
+            return result.schedules
+        except Exception:  # noqa: BLE001 — the schedule write outranks the engine
+            if cadence_fired is not None:
+                raise
+            logger.warning("librarian: reconcile failed; leaving the list as given", exc_info=True)
+            return schedules
+
     async def _aida_reconcile_rows(
         self,
         schedules: list[WakeSchedule],
@@ -24291,6 +24424,10 @@ class Session:
         the list exactly as the caller gave it.
         """
         try:
+            if getattr(self, "_librarian_duty", False):
+                # THE SAME ONE-WRITER SEAM, a different engine: her persist
+                # path re-arms her own cadence and never touches Aida's rows.
+                return await self._librarian_reconcile_rows(schedules, cadence_fired=cadence_fired)
             from local_operator.aida import proactive
 
             # The stash is cleared BEFORE the reconcile: a token may only ever
@@ -24348,6 +24485,8 @@ class Session:
         # the sidebar all read what this writes. Equal values do nothing,
         # which is what keeps :meth:`_sync_aida_display_name` (which a rename
         # rings) from ringing the watcher straight back.
+        if not getattr(self, "_aida_duty", False):
+            return
         try:
             from local_operator.aida import naming as aida_naming
             from local_operator.paths import config_dir
@@ -25047,7 +25186,9 @@ class Session:
                     f"- {schedule.id} (due {_due_label(schedule)}): "
                     "missed while the session was down."
                 )
-            lines.append(f"{header}\n  Message: {schedule.message}")
+            lines.append(
+                f"{header}\n  Message: {schedule.message}"
+            )  # i18n: ignore model-facing wake prompt
         return (
             "(alarm) The session resumed after being closed; the following scheduled wake(s) "
             "came due while it was down. Each fires once now — handle them as missed wakes, "
@@ -25135,10 +25276,40 @@ class Session:
                     # cannot consume the authoritative replacement's owed phase.
                     schedules = [*schedules, previous_cadence]
             schedules = await self._aida_reconcile_rows(schedules, cadence_fired=cadence_fired)
+        if getattr(self, "_librarian_duty", False):
+            from local_operator.librarian import proactive as librarian_proactive
+
+            accepted = getattr(self, "_librarian_cadence_delivered", None)
+            previous = self._transcript.latest_custom_entry(WAKE_SCHEDULES_CUSTOM_TYPE)
+            previous_rows = (
+                previous.payload.get("details", {}).get("schedules", []) if previous else []
+            )
+            # The accepted occurrence must match the authoritative retired arm:
+            # an unrelated same-id replacement is not a fire.
+            if not any(row.id == librarian_proactive.CADENCE_ID for row in schedules):
+                previous_cadence = next(
+                    (
+                        WakeSchedule.model_validate(raw)
+                        for raw in previous_rows
+                        if raw.get("id") == librarian_proactive.CADENCE_ID
+                    ),
+                    None,
+                )
+                if (
+                    accepted is not None
+                    and previous_cadence is not None
+                    and accepted.request_id == previous_cadence.request_id
+                    and accepted.created_at == previous_cadence.created_at
+                ):
+                    cadence_fired = accepted
+            schedules = await self._librarian_reconcile_rows(schedules, cadence_fired=cadence_fired)
         await self._transcript.append_custom(
             WAKE_SCHEDULES_CUSTOM_TYPE,
             {"schedules": [schedule.model_dump() for schedule in schedules]},
         )
+        if getattr(self, "_librarian_duty", False) and cadence_fired is not None:
+            # The successor is durable now; the receipt may go.
+            self._librarian_cadence_delivered = None
         if getattr(self, "_aida_duty", False):
             from local_operator.aida import proactive
 
@@ -25918,14 +26089,10 @@ class Session:
         if self._model_migration_notice:
             self._model_migration_notice = False
             await self._emit(
-                NoticeEvent(
-                    text=(
-                        "Saved model information is incomplete; "
-                        f"using {self.model_label}. "
-                        "This selection is now saved for future resumes."
-                    ),
+                _notice(
+                    _nt.model_info_incomplete(model=self.model_label),
                     kind="warning",
-                    headline="Model selected",
+                    headline=_text(_nt.model_info_incomplete_headline()),
                 )
             )
 
@@ -26283,6 +26450,20 @@ class Session:
                     return
             except Exception:  # noqa: BLE001 — fail OPEN: the wake is already due
                 logger.debug("aida: delivery guard could not read the hold", exc_info=True)
+        elif getattr(self, "_librarian_duty", False):
+            # Her fire-time hold, the twin of the block above: a pause that
+            # landed in another process suppresses this fire, and the load-time
+            # filter covers the session that opens while held.
+            try:
+                from local_operator.librarian import proactive as librarian_proactive
+
+                if librarian_proactive.is_librarian_row(
+                    due.schedule.id
+                ) and not librarian_proactive.delivery_allowed(self._config_dir):
+                    logger.info("librarian: dropping held wake %s (paused)", due.schedule.id)
+                    return
+            except Exception:  # noqa: BLE001 — fail OPEN: the wake is already due
+                logger.debug("librarian: delivery guard could not read the hold", exc_info=True)
         text = format_wake_delivery_text(due)
         missed_note = self._missed_delivery_note(due)
         if missed_note:
@@ -26322,6 +26503,11 @@ class Session:
                 # Aida-only accepted occurrence, consumed by the existing persist
                 # boundary after retirement. No generic fire/dedup behavior changes.
                 self._aida_cadence_delivered = due.schedule
+        elif getattr(self, "_librarian_duty", False):
+            if due.schedule.id == "librarian-cadence":
+                # Her accepted occurrence, consumed by the persist boundary
+                # after retirement exactly as Aida's is.
+                self._librarian_cadence_delivered = due.schedule
         # The receipt event rides BEFORE the turn spawn so a front end can
         # paint the expandable wake line ahead of the work it triggered —
         # without it the transcript showed the agent starting to work with no
@@ -26896,6 +27082,14 @@ class Session:
         and only on her session — every other session short-circuits on the
         duty flag. Fail OPEN like the delivery guard it mirrors.
         """
+        if getattr(self, "_librarian_duty", False):
+            try:
+                from local_operator.librarian import proactive as librarian_proactive
+
+                return librarian_proactive.hold_active(self._config_dir)
+            except Exception:  # noqa: BLE001 — fail OPEN, matching the delivery guard
+                logger.debug("could not resolve the librarian hold", exc_info=True)
+                return False
         if not getattr(self, "_aida_duty", False):
             return False
         try:
@@ -27266,6 +27460,13 @@ class Session:
         # transcript follow in the same breath.
         if getattr(self, "_aida_duty", False) and any(key.startswith("aida.") for key in changed):
             self._spawn_background(self._aida_reconcile_now())
+        # THE LIBRARIAN'S LIVE-CONFIG SEAM, the same registry-key diff: a pause
+        # or resume written by the desktop route in another process reaches
+        # this session's own reconcile within the watcher's tick.
+        if getattr(self, "_librarian_duty", False) and any(
+            key.startswith("librarian.") for key in changed
+        ):
+            self._spawn_background(self._aida_reconcile_now())
         if "asks.lapsed_visible_for" in changed and self._ask_queue is not None:
             # The window is applied at publish time (``frontend_state.ask_wire``
             # reads it per call), so republishing IS the apply: a narrower
@@ -27401,13 +27602,10 @@ class Session:
             # The model default itself moved: the #785 notice, unchanged.
             self._spawn_background(
                 self._emit(
-                    NoticeEvent(
-                        text=(
-                            f"keeping {self.model_label}; default changed for new sessions. "
-                            "/model saved adopts it here"
-                        ),
+                    _notice(
+                        _nt.model_default_changed(model=self.model_label),
                         kind="info",
-                        headline="Model unchanged",
+                        headline=_text(_nt.model_default_changed_headline()),
                     )
                 )
             )
@@ -27431,13 +27629,10 @@ class Session:
         stored_effort = str(values.get("model_effort") or "")
         self._spawn_background(
             self._emit(
-                NoticeEvent(
-                    text=(
-                        "reasoning effort default changed for new sessions "
-                        f"({stored_effort or 'auto'}); /model saved adopts it here"
-                    ),
+                _notice(
+                    _nt.effort_default_changed(effort=stored_effort or "auto"),
                     kind="info",
-                    headline="Effort default changed",
+                    headline=_text(_nt.effort_default_changed_headline()),
                 )
             )
         )
@@ -27859,13 +28054,19 @@ class Session:
                 failure = task.exception()
         complete = task in done and not cancelled and failure is None
         if task not in done:
-            errors.append(f"timeout after {timeout_s:g}s: owned cleanup still running (unverified)")
+            errors.append(
+                f"timeout after {timeout_s:g}s: owned cleanup still running (unverified)"
+            )  # i18n: ignore structured eval-harness error (no product UI)
         if cancelled:
             # Cancellation proves NOTHING about resource state: keep it
             # incomplete and uncached (R3).
-            errors.append("cleanup task was cancelled; owned work state unverified")
+            errors.append(
+                "cleanup task was cancelled; owned work state unverified"
+            )  # i18n: ignore structured eval-harness error (no product UI)
         if failure is not None:
-            errors.append(f"cleanup failed: {type(failure).__name__}: {str(failure)[:200]}")
+            errors.append(
+                f"cleanup failed: {type(failure).__name__}: {str(failure)[:200]}"
+            )  # i18n: ignore structured eval-harness error (no product UI)
         hook_failures = tuple(self._disposal_hook_failures)
         if hook_failures:
             # Ordinary disposal logs-and-continues past a failing hook; the
@@ -27887,10 +28088,14 @@ class Session:
         in_flight = bool(getattr(self._stream_fn, "child_model_requests_in_flight", False))
         if complete and pending_jobs:
             complete = False
-            errors.append(f"{len(pending_jobs)} owned job(s) still running after cleanup")
+            errors.append(
+                f"{len(pending_jobs)} owned job(s) still running after cleanup"
+            )  # i18n: ignore structured eval-harness error (no product UI)
         if complete and in_flight:
             complete = False
-            errors.append("a descendant provider stream was still in flight after cleanup")
+            errors.append(
+                "a descendant provider stream was still in flight after cleanup"
+            )  # i18n: ignore structured eval-harness error (no product UI)
         # The observer holder lives on the ROOT stream; a child's stream only
         # REFERENCES it. Reading the child's own attribute would report a
         # local zero while subscriptions and delivery count on the shared
@@ -27975,11 +28180,14 @@ class Session:
         task = self._disposal_task
         if task is not None and task.done():
             if task.cancelled():
-                reasons.append("cleanup task was cancelled; owned work state unverified")
+                reasons.append(
+                    "cleanup task was cancelled; owned work state unverified"
+                )  # i18n: ignore structured eval-harness error (no product UI)
             else:
                 failure = task.exception()
                 if failure is not None:
                     reasons.append(
+                        # i18n: ignore structured eval-harness error (no product UI)
                         f"cleanup failed: {type(failure).__name__}: {str(failure)[:200]}"
                     )
         reasons.extend(self._disposal_hook_failures)
@@ -27999,6 +28207,7 @@ class Session:
         """
         for error in errors:
             self._descendant_cleanup_failures.append(
+                # i18n: ignore structured eval-harness error (no product UI)
                 f"descendant {session_id} cleanup unverified: {error}"
             )
 

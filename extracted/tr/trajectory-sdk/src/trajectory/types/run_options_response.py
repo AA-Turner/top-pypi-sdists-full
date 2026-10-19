@@ -43,6 +43,7 @@ TrainingOptionKey: TypeAlias = Literal[
   "train_batch_size",
   "samples_per_instance",
   "n_parallel_agents",
+  "max_active_rollouts",
   "execution_timeout_seconds",
   "batch_collection_idle_timeout_seconds",
   "evaluation_max_samples",

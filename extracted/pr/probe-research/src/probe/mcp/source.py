@@ -518,16 +518,9 @@ class ResearchOSSource:
     def artifact_by_id(self, artifact_id: str) -> dict:
         """Resolve an artifact ID, without widening the reuse check's scope.
 
-        DELIBERATE SCOPE DECISION -- an id resolves for EVERY artifact, but only a
-        SHARED one resolves to a full card:
-
-        * ``view=versions`` works for any artifact whatever its anchor, because
-          ``GET /v1/artifacts/{id}/versions`` is an unscoped by-id route. A caller
-          holding an id gets the version chain even for a run-anchored artifact.
-        * a full CARD needs the artifact's ROW (name, metadata), and the only list
-          that yields one is ``GET /v1/shared/files``. So a shared id gets the same
-          card a name does; a non-shared id resolves to an id-only identity that
-          says where the rest lives.
+        An id resolves for EVERY artifact to a full card: a shared id from
+        ``GET /v1/shared/files`` (the same row its name resolves to), any other
+        anchor from ``GET /v1/artifacts/{id}``, marked ``shared: False``.
 
         This does NOT widen the reuse check. That check is ``artifact:<name>`` and
         is still SHARED-only: "is there an official X" must not be answered off a
@@ -544,27 +537,18 @@ class ResearchOSSource:
         for row in rows:
             if str(row.get("id")) == artifact_id:
                 return row
-        # Not shared. The artifact almost certainly still EXISTS -- run-, experiment-
-        # and project-anchored artifacts never appear in the shared list -- so
-        # answering not-found here would be the #135 inversion wearing new clothes:
-        # get_entity's contract reads an error as "a new identity is licensed".
-        # Prove existence off the unscoped by-id route instead of guessing.
-        self.artifact_versions(artifact_id)  # 404s iff the id is genuinely unknown
-        return {
-            "id": artifact_id,
-            "shared": False,
-            # Carried so the card says why it is thin rather than looking truncated.
-            "resolution_note": (
-                f"artifact {artifact_id} exists but is not shared, so only its id "
-                f"and version chain are readable here (there is no "
-                f"GET /v1/artifacts/{{id}} entity route, and only "
-                f"GET /v1/shared/files yields a full row). view=versions is "
-                f"complete; for name and metadata read the owning container with "
-                f"run:<id> / experiment:<id> view=artifacts, or promote it with "
-                f"`probe shared share`. This is NOT absence and licences no new "
-                f"identity."
-            ),
-        }
+        # Not shared. Run-, experiment- and project-anchored artifacts never appear
+        # in the shared list, but `GET /v1/artifacts/{id}` reads any anchor by id
+        # (RLS-scoped; 404 iff the id is unknown to this tenant). An error here must
+        # stay a real NotFound: get_entity reads one as "a new identity is licensed".
+        row = dict(self.client.get_artifact(artifact_id))
+        row["shared"] = False
+        return row
+
+    def artifact_content(self, artifact_id: str) -> bytes:
+        """The artifact's stored bytes (presigned GET). A client-owned reference has
+        no managed bytes and raises the backend's 409."""
+        return self.client.download_artifact(artifact_id)
 
     def artifact_by_name(self, name: str) -> dict:
         """Resolve an artifact NAME to the artifact, at the shared (lab-wide) level.

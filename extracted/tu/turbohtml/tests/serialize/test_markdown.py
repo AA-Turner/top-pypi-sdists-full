@@ -45,6 +45,65 @@ def md(html: str) -> str:
     return parse(html).to_markdown()
 
 
+@pytest.mark.parametrize("depth", [16, 32, 64])
+def test_deep_inline_wrappers_spanning_blocks_have_linear_output(depth: int) -> None:
+    source: Final = "<i><div>" * depth + "x" + "</div>" * depth
+    result: Final = md(source)
+    assert len(result) <= len(source) * 2
+    assert result.count("<em>") == depth
+    assert result.count("</em>") == depth
+    assert "x" in result
+
+
+@pytest.mark.parametrize("depth", [16, 32])
+def test_deep_emphasis_before_block_has_linear_output(depth: int) -> None:
+    source: Final = "<i>y" * depth + "<div>x</div>" + "</i>" * depth
+    result: Final = md(source)
+    assert "x" in result
+    assert len(result) <= len(source) * 4
+
+
+def test_pending_emphasis_after_deep_block_keeps_text() -> None:
+    source: Final = "<i>y" * 8 + "<i><div>x</div>" + "</i>" * 9
+    assert "x" in md(source)
+
+
+def test_link_inside_deep_block_keeps_destination() -> None:
+    source: Final = "<i>" * 9 + "<div>x</div><a href=/t>y</a>" + "</i>" * 9
+    assert "[y](/t)" in md(source)
+
+
+def test_google_style_inside_deep_block_keeps_both_blocks() -> None:
+    source: Final = '<span style="font-weight:bold">B' + "<i>" * 9 + "<div>x</div><div>z</div>" + "</i>" * 9
+    result: Final = parse(source).to_markdown(Markdown(google=Markdown.GoogleDoc(enabled=True)))
+    assert "x" in result
+    assert "z" in result
+    assert len(result) <= len(source) * 4
+
+
+def test_many_trailing_breaks_keep_visible_text() -> None:
+    assert md("x" + "<br>" * 128) == "x"
+
+
+@pytest.mark.parametrize("separator", ["\n", "\r", "\t", "\f"])
+@pytest.mark.parametrize("attribute", ["src", "alt", "title"])
+def test_image_url_whitespace_survives_markdown(separator: str, attribute: str) -> None:
+    fragment: Final = parse_fragment("<img>")
+    image: Final = fragment.select("img")[0]
+    image.attrs["src"] = f'a{separator}&<"b'
+    image.attrs["alt"] = 'x&<"'
+    image.attrs["title"] = 'title&<"'
+    rendered: Final = MarkdownIt("commonmark", {"html": True}).render(fragment.to_markdown())
+    result: Final = parse_fragment(rendered).select("img")[0]
+    assert result.attr(attribute) == image.attr(attribute)
+
+
+def test_image_url_whitespace_without_optional_attributes() -> None:
+    fragment: Final = parse_fragment('<img src="a\nb">')
+    rendered: Final = MarkdownIt("commonmark", {"html": True}).render(fragment.to_markdown())
+    assert parse_fragment(rendered).select("img")[0].attr("src") == "a\nb"
+
+
 @pytest.mark.parametrize(
     ("html", "expected"),
     [
@@ -196,6 +255,113 @@ def test_unicode_space_before_non_ascii_letter_at_prose_start() -> None:
     paragraph: Final = parse_fragment(MarkdownIt("commonmark").render(output)).find("p")
     assert paragraph is not None
     assert (output, paragraph.text) == ("&#160;é", "\u00a0é")
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("<h4>&nbsp;é</h4>", "#### &#160;é", id="leading"),
+        pytest.param("<h4>x&nbsp;y</h4>", "#### x&#160;y", id="middle"),
+        pytest.param("<h4>x&nbsp;</h4>", "#### x&#160;", id="trailing"),
+    ],
+)
+def test_heading_non_ascii_space_stays_after_markdown_reparse(source: str, expected: str) -> None:
+    first: Final = md(source)
+    second: Final = md(MarkdownIt("commonmark").render(first))
+    assert (first, second) == (expected, expected)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        pytest.param("<strong><del>😀</del>1</strong>", "<strong><del>😀</del>1</strong>", id="nested-unicode"),
+        pytest.param(
+            "<strong><strong>a\\</strong><strong>b</strong></strong>",
+            "<strong><strong>a\\\\</strong><strong>b</strong></strong>",
+            id="nested-backslash",
+        ),
+        pytest.param("<b>_<br> <br></b>c", "**\\_<br><br>** c", id="repeated-breaks"),
+        pytest.param(
+            "d<b>😀=</b><del>;<strong>&gt",
+            "d<strong>😀=</strong><del>;<strong>></strong></del>",
+            id="adjacent-unicode-and-strike",
+        ),
+        pytest.param(
+            "<b><b>\\ </b><strong>\\<g></b>~",
+            "<strong><strong>\\\\</strong> <strong>\\\\</strong></strong><strong>\\~</strong>",
+            id="nested-escaped-text",
+        ),
+        pytest.param("&nbsp<i>\\</i><i>(<i>", "&#160;<em>\\\\</em><em>(</em>", id="adjacent-backslash"),
+        pytest.param("<i>x</i><i>\\</i>", "<em>x</em><em>\\\\</em>", id="backslash-after-emphasis"),
+        pytest.param("<i>\\</i><i>x</i>", "<em>\\\\</em><em>x</em>", id="backslash-before-emphasis"),
+        pytest.param(
+            ";<strong><b>d </b><b>\\<t",
+            ";<strong><strong>d</strong> <strong>\\\\</strong></strong>",
+            id="single-backslash-in-nested-emphasis",
+        ),
+        pytest.param(
+            "<del>[</del>\\<em><em>h|</em>>(<br><del><br><el",
+            "<del>\\[</del>\\\\<em><em>h|</em>>(</em>",
+            id="nested-punctuation-after-backslash",
+        ),
+        pytest.param("é<del>😀<del>", "é<del>😀</del>", id="unicode-before-strike"),
+        pytest.param("<del><i></i>😀</del>a", "<del>😀</del>a", id="unicode-strike-before-text"),
+        pytest.param("c<b>😀<em>", "c<strong>😀</strong>", id="unicode-strong-after-text"),
+        pytest.param(
+            "<ol><del><i></i>></ol><em>é<br></em>p",
+            "<del>></del>\n\n<em>é<br></em>p",
+            id="unicode-emphasis-before-break",
+        ),
+    ],
+)
+def test_emphasis_stays_after_markdown_reparse(source: str, expected: str) -> None:
+    first: Final = md(source)
+    second: Final = md(MarkdownIt("commonmark").render(first))
+    assert (first, second) == (expected, expected)
+
+
+@pytest.mark.parametrize("source", ["<i>.<i>x</i></i>", "<em>.<i>x</i></em>"])
+def test_nested_emphasis_after_punctuation_keeps_separate_delimiters(source: str) -> None:
+    assert md(source) == "*._x_*"
+
+
+def test_strike_after_emphasis_with_leading_text_keeps_delimiters() -> None:
+    assert md("x<em>a</em><del>b</del>") == "x*a*~~b~~"
+
+
+def test_emphasis_after_literal_tilde_keeps_punctuation() -> None:
+    assert md("~<em>!</em>") == "\\~*!*"
+
+
+def test_empty_text_before_strike_keeps_markup() -> None:
+    root: Final = Element("p", children=[Text(""), Element("del", children=[Text("x")])])
+    assert root.to_markdown() == "~~x~~"
+
+
+@pytest.mark.parametrize(
+    ("children", "expected"),
+    [
+        pytest.param([Text(""), Element("em", children=[Text("é")])], "*é*", id="empty-before"),
+        pytest.param(
+            [Element("em", children=[Text("é")]), Element("span", children=[Text("x")])], "*é*x", id="element-after"
+        ),
+        pytest.param([Element("em", children=[Text("é")]), Text("")], "*é*", id="empty-after"),
+    ],
+)
+def test_unicode_emphasis_ignores_empty_or_element_siblings(children: list[Element | Text], expected: str) -> None:
+    assert Element("p", children=children).to_markdown() == expected
+
+
+def test_unrelated_empty_emphasis_does_not_change_breaks() -> None:
+    assert md("<strong><b></b></strong><p><i><br></i><br>é") == "\\\n\\\né"
+
+
+def test_backslash_emphasis_without_emphasis_sibling() -> None:
+    assert md("<p><i>\\</i></p>") == "*\\\\*"
+
+
+def test_repeated_breaks_in_emphasis_after_foreign_element() -> None:
+    assert md("<b>x<svg></svg><br><br>y</b>") == "**x<br><br>y**"
 
 
 @pytest.mark.parametrize(
@@ -461,7 +627,11 @@ def test_code(html: str, expected: str) -> None:
         ),
         pytest.param("<p><i>;</i>i</p>", "<em>;</em>i", id="emphasis-close-punct-before-letter"),
         pytest.param("<p>i<i>;</i></p>", "i<em>;</em>", id="emphasis-open-letter-before-punct"),
-        pytest.param("<p><b>c<i>\\</i></b></p>", "**c<em>\\\\</em>**", id="emphasis-in-strong-backslash"),
+        pytest.param(
+            "<p><b>c<i>\\</i></b></p>",
+            "<strong>c<em>\\\\</em></strong>",
+            id="emphasis-in-strong-backslash",
+        ),
         pytest.param("<p><i>end.</i></p>", "*end.*", id="emphasis-trailing-punct-at-end-keeps-delimiter"),
         pytest.param("<p><i>;</i>.x</p>", "*;*.x", id="emphasis-close-before-punct-keeps-delimiter"),
         pytest.param("<p>.<i>;</i> z</p>", ".*;* z", id="emphasis-open-after-punct-keeps-delimiter"),
@@ -1520,6 +1690,11 @@ def test_trailing_break_at_an_inline_root_is_dropped() -> None:
             id="table-rowspan-keeps-html",
         ),
         pytest.param(
+            "<table><tr><td>A</td><td>B</td></tr><tr><td>C</td></tr></table>",
+            "<table><tbody><tr><td>A</td><td>B</td></tr><tr><td>C</td></tr></tbody></table>",
+            id="table-ragged-rows-keep-html",
+        ),
+        pytest.param(
             "<table><thead><tr><th>H</th></tr></thead><tbody><tr><td>v</td></tr></tbody></table>",
             "| H |\n| --- |\n| v |",
             id="table-thead-tbody",
@@ -1578,8 +1753,8 @@ def test_trailing_break_at_an_inline_root_is_dropped() -> None:
         ),
         pytest.param(
             "<table><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></table>",
-            "| a |  |\n| --- | --- |\n| b | c |",
-            id="table-short-row-padded-with-empty-cells",
+            "<table><tbody><tr><td>a</td></tr><tr><td>b</td><td>c</td></tr></tbody></table>",
+            id="table-short-row-keeps-html",
         ),
         pytest.param("<em><table><tr><th>a</th></tr></table></em>", "| *a* |\n| --- |", id="table-in-emphasis"),
         pytest.param(
@@ -1805,11 +1980,11 @@ def test_escaping_none(html: str, options: Markdown, expected: str) -> None:
         pytest.param('<a href="http://x/y">http://x/y</a>', "<http://x/y>", id="autolink"),
         pytest.param('<a href="a\nb">x</a>', "[x](ab)", id="newline-dropped"),
         pytest.param('<a href="a\tb">x</a>', "[x](ab)", id="tab-dropped"),
-        pytest.param('<img src="i&#13;e">', "![](ie)", id="carriage-return-dropped"),
+        pytest.param('<img src="i&#13;e">', '<img src="i&#13;e" alt="">', id="image-carriage-return-preserved"),
         pytest.param('<a href="é\nx">t</a>', "[t](éx)", id="newline-dropped-after-non-ascii"),
         pytest.param('<a href="\n&lt;">x</a>', "[x](<\\<>)", id="leading-angle-after-dropped-newline"),
         pytest.param('<a href="a\x01b">x</a>', "[x](<a\x01b>)", id="control-takes-angle-form"),
-        pytest.param('<img src="a\x0cb">', "![](<a\x0cb>)", id="form-feed-takes-angle-form"),
+        pytest.param('<img src="a\x0cb">', '<img src="a&#12;b" alt="">', id="image-form-feed-preserved"),
     ],
 )
 def test_link_destination(html: str, expected: str) -> None:
@@ -1917,8 +2092,8 @@ def test_edge_cases(html: str, expected: str) -> None:
     [
         pytest.param(
             "<table><tr><th>A</th><th>B</th></tr><tr><td>1</td></tr></table>",
-            "| A | B |\n| --- | --- |\n| 1 |  |",
-            id="ragged-row-padded",
+            "<table><tbody><tr><th>A</th><th>B</th></tr><tr><td>1</td></tr></tbody></table>",
+            id="ragged-row-keeps-html",
         ),
         pytest.param(
             "<table><tr><!--c--><td>a</td></tr><tr><td>b</td></tr></table>",
@@ -2251,6 +2426,10 @@ def test_inner_trailing_marker_space_is_trimmed() -> None:
         Markdown(converters={"div": lambda _e, content: f"[{content}]"})
     )
     assert out == "[-]"
+
+
+def test_strikethrough_with_trailing_space_keeps_markdown_delimiters() -> None:
+    assert parse("<del>[ </del>p").to_markdown() == "~~\\[~~ p"
 
 
 def test_custom_element_with_attribute() -> None:

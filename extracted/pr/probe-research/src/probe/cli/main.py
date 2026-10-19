@@ -699,6 +699,10 @@ _UPDATE_HOT_PATH_COMMANDS = frozenset({"log", "span", "artifact", "run", "exec",
 #: for the same document in the same second.
 _WIZARD_COMMANDS = frozenset({"wizard", "install"})
 
+#: Commands that start no process and send nothing (`probe.cli.status`), so the
+#: root callback's every-command notices, each of which can, skip them.
+_READ_ONLY_COMMANDS = frozenset({"status"})
+
 #: How old the wizard's held server answer may be when Diagnose reports it.
 _DIAGNOSE_MAX_AGE_S = 30.0
 
@@ -1466,6 +1470,11 @@ def _root(
     # here would be a second answer to the same question. See the precedence
     # table above `_resolve_write_mode`.
     _conn.write_mode = write_mode
+    if ctx.invoked_subcommand in _READ_ONLY_COMMANDS:
+        # No banner, no background refresher, no auto-update, no capture heal:
+        # each of those can start a process or a request, and `probe status`
+        # promises neither (the desktop app asks it on every focus).
+        return
     _outbox_notice()
     # The CLI's own auto-update trigger. Before this existed, auto-update fired
     # from exactly one place -- the Claude Code plugin's SessionStart hook -- so a
@@ -1482,8 +1491,9 @@ def _root(
 
 # -- auth -------------------------------------------------------------------
 def _finish_website_onboarding(exc: OnboardingRequired) -> None:
-    from probe.cli import tui
+    from probe.cli import json_events, tui
 
+    json_events.onboarding_required(exc.onboarding_url)
     # Through `tui.final`: this is the run's last word, and inside the
     # wizard's window a plain print would close with the window.
     if exc.onboarding_url:
@@ -1518,14 +1528,15 @@ def login(
     ``--context staging`` logs in under a named context instead of the active one,
     so several endpoints or tenants can coexist on one machine.
     """
-    _login(
-        base_url=base_url,
-        token=token,
-        ingest_token=ingest_token,
-        hmac_secret=hmac_secret,
-        device=device,
-        context=context,
-    )
+    with _wizard_run_lock(command="probe login"):
+        _login(
+            base_url=base_url,
+            token=token,
+            ingest_token=ingest_token,
+            hmac_secret=hmac_secret,
+            device=device,
+            context=context,
+        )
 
 
 def _login(
@@ -1544,21 +1555,32 @@ def _login(
     self-hosted server, an air-gapped paste) and, until it is deleted, `probe
     login`. `device=False` saves the endpoint without minting a token.
     """
+    from probe.cli import json_events
+
     resolved_token = token
     base = base_url or _conn.base_url
+    signing_in = {"signed_in": bool(device or token)}
 
     if device and not resolved_token:
         endpoint = resolve(base_url=base).base_url
         print(f"opening {endpoint} for browser approval…" if open_browser
               else f"approve this device at {endpoint}…")
 
+        json_events.step(json_events.Step.SIGN_IN, json_events.Status.STARTED)
         try:
             resolved_token = device_login(endpoint, on_prompt=_show_device_prompt, open_browser=open_browser)
         except OnboardingRequired as exc:
+            json_events.step(json_events.Step.SIGN_IN, json_events.Status.FAILED, str(exc))
             _finish_website_onboarding(exc)
         except DeviceLoginError as exc:
             print(f"device login failed: {exc}", file=sys.stderr)
+            json_events.step(json_events.Step.SIGN_IN, json_events.Status.FAILED, str(exc))
+            json_events.agent_result(
+                None, requested=signing_in, actual={"signed_in": False}, ok=False,
+                message=f"device login failed: {exc}",
+            )
             raise typer.Exit(1) from exc
+        json_events.step(json_events.Step.SIGN_IN, json_events.Status.DONE)
 
     settings = resolve(
         base_url=base,
@@ -1613,6 +1635,10 @@ def _login(
         use_context(context)
     path = save_context(updates, name=context)
     print(f"config: {path} (context: {context or current_context_name()})")
+    json_events.agent_result(
+        None, requested=signing_in, actual={"signed_in": bool(settings.token)},
+        ok=bool(settings.token) == signing_in["signed_in"],
+    )
     if settings.token:
         from probe.cli import setup as wizard
 
@@ -1632,24 +1658,25 @@ def _login(
 @app.command()
 def logout() -> None:
     """Stop imports, revoke the calling token, and clear local config."""
-    _clear_wizard_imports()
-    try:
-        with _client() as c:
-            c.logout()
-        print("token revoked")
-    except errors.RosError as exc:
-        print(f"revoke skipped ({exc})", file=sys.stderr)
-    # The ACTIVE context only. Deleting the whole file would sign the user out of every
-    # other endpoint they have configured, which is not what "logout" means.
-    name = current_context_name()
-    clear_context(name)
-    print(f"local config cleared (context: {name})")
-    # Kimi Code's installed manifests carry the read token as a bearer header:
-    # with the config cleared there is none to hold, so they go back to OAuth.
-    from probe.cli import kimi_config
+    with _wizard_run_lock(command="probe logout"):
+        _clear_wizard_imports()
+        try:
+            with _client() as c:
+                c.logout()
+            print("token revoked")
+        except errors.RosError as exc:
+            print(f"revoke skipped ({exc})", file=sys.stderr)
+        # The ACTIVE context only. Deleting the whole file would sign the user out of every
+        # other endpoint they have configured, which is not what "logout" means.
+        name = current_context_name()
+        clear_context(name)
+        print(f"local config cleared (context: {name})")
+        # Kimi Code's installed manifests carry the read token as a bearer header:
+        # with the config cleared there is none to hold, so they go back to OAuth.
+        from probe.cli import kimi_config
 
-    for line in kimi_config.sync_mcp_bearer():
-        print(line)
+        for line in kimi_config.sync_mcp_bearer():
+            print(line)
 
 
 @app.command()
@@ -1848,10 +1875,12 @@ def update_compat(
 
     from probe.cli import tui
 
-    with tui.working("Updating the CLI and plugins"):
-        outcome = perform_update(
-            base_url=base, include_plugin=plugin, trigger=_update_action_trigger(yes)
-        )
+    trigger = _update_action_trigger(yes)
+    with (
+        _wizard_run_lock(command="probe update", update_trigger=trigger),
+        tui.working("Updating the CLI and plugins"),
+    ):
+        outcome = perform_update(base_url=base, include_plugin=plugin, trigger=trigger)
     for line in outcome.lines:
         print(line)
     if outcome.restart_needed:
@@ -1910,6 +1939,54 @@ def doctor(
         print("\n".join(["", "Retired folder defaults", *rows]))
 
 
+@app.command("status")
+def status_command(
+    as_json: bool = typer.Option(
+        False, "--json", help="one JSON object on stdout, for a program (schema: `probe.cli.status`)"
+    ),
+    refresh: bool = typer.Option(
+        False,
+        "--refresh",
+        help="also ask the agents' own CLIs, the server and the MCP token check, all within --timeout",
+    ),
+    timeout: float = typer.Option(
+        None,
+        "--timeout",
+        min=0.1,
+        help="--refresh: seconds the whole read may take, every check included (default 10)",
+    ),
+) -> None:
+    """This device's Probe install as one snapshot: account, agents, who records,
+    the new-session default, auto-update, versions, the daemon, and whether a
+    `probe wizard` is running. What the wizard's menu shows, as data.
+
+    Local only by default: files, no network and no subprocess, so a program can
+    ask on every focus. `--refresh` adds the slow checks the menu makes, all
+    within one `--timeout` budget, each reported as {state, checked, error}.
+    Exits 0 whatever the state; 2 for a usage error. The `--json` schema is
+    `probe.cli.status`'s docstring.
+    """
+    import json
+
+    from probe.cli import json_events
+    from probe.cli import status as status_impl
+
+    limit = status_impl.DEFAULT_TIMEOUT_S if timeout is None else timeout
+    if not as_json:
+        for line in status_impl.human_lines(status_impl.snapshot(refresh=refresh, timeout=limit)):
+            print(line)
+        return
+    # Whatever the readers print goes to stderr: stdout is the one object.
+    with json_events.redirect_stdout() as out:
+        state = status_impl.snapshot(refresh=refresh, timeout=limit)
+        pretty = False
+        try:
+            pretty = out.isatty()
+        except (AttributeError, ValueError):
+            pass
+        out.write(json.dumps(state, indent=2 if pretty else None) + "\n")
+
+
 def _default_agents(available_sources: tuple[str, ...], *, unattended: bool) -> tuple[str, ...]:
     """The agents a run that names none configures: every one found here,
     except, with nobody watching, a cloud agent (Capy) not already captured
@@ -1950,6 +2027,103 @@ def _agent_flags() -> str:
 #: The single-agent `--agent` values, from the registry ("claude, codex, ...").
 _AGENT_FLAGS = _agent_flags()
 
+#: `--agent`'s help, on `install` and `wizard` alike.
+_AGENT_HELP = (
+    f"configure {_AGENT_FLAGS}, or both (both = claude+codex); repeat for several "
+    "(--agent claude --agent pi), all in one browser approval (default: choose interactively)"
+)
+
+#: `--json`'s help, on `install` and `wizard` alike.
+_JSON_HELP = (
+    "for a program: stdout carries only NDJSON events (step, device_prompt, "
+    "onboarding_required, result, error, done); everything else goes to stderr"
+)
+
+#: The `--agent` values that name Claude Code AND Codex. pi and every other agent
+#: are reachable only by name (see `_explicit_agent_sources`).
+_BOTH_AGENTS = frozenset({"both", "all", "claude,codex", "codex,claude"})
+
+
+def _agent_values(agent) -> list[str]:
+    """`--agent` as the list of values given: repeatable now, a single string
+    from a direct Python caller, nothing at all when it was not passed."""
+    if isinstance(agent, str):
+        return [agent]
+    if isinstance(agent, (list, tuple)):
+        return [value for value in agent if isinstance(value, str)]
+    return []
+
+
+def _explicit_agent_sources(agent) -> tuple[str, ...] | None:
+    """The agents `--agent` names, in order and once each; None when it names none.
+
+    "both"/"all" keep their EXISTING meaning -- claude_code + codex, the two
+    coding agents this wizard can install a marketplace plugin for (see
+    setup.INSTALLABLE_AGENT_SOURCES). pi is deliberately NOT swept into either
+    alias: it has no plugin for this run to install, only a capture credential
+    to pair (see the pi-only selection scoping in `_wizard_session`), so
+    silently including it in "both" would promise install work for a run that
+    does something categorically different. pi is reachable only by naming it.
+
+    Every other value names ONE agent: its registry `cli_flag`, id or alias
+    (`claude`, `kimi`, `capy`, ...), so a new installable row is reachable here
+    the moment it lands -- and, like pi, only by name. Repeating the flag adds
+    agents (`--agent claude --agent pi`): one run, one browser approval.
+    """
+    sources: list[str] = []
+    for value in _agent_values(agent):
+        normalized = value.strip().lower()
+        if normalized in _BOTH_AGENTS:
+            sources.extend(("claude_code", "codex"))
+            continue
+        named = _installable_agent(normalized)
+        if named is None:
+            raise typer.BadParameter(f"--agent must be {_AGENT_FLAGS}, or both")
+        sources.append(named.id)
+    return tuple(dict.fromkeys(sources)) or None
+
+
+def _wizard_changes_device(action: str | None, *, yes: bool, who_records: str | None) -> bool:
+    """Whether this wizard run may change the device, so must hold the run lock.
+
+    Read-only runs never wait on (or block) one that writes: a diagnose, a
+    headless account, settings or imports listing, a recorder row read without
+    `--who-records`. Those report only when nobody can answer their screen."""
+    from probe.cli import setup as wizard
+    from probe.cli.actions import Action
+
+    if action in {Action.DIAGNOSE, Action.MANUAL, Action.EXIT}:
+        return False
+    headless = yes or not wizard.interactive()
+    if action in {Action.ACCOUNT, Action.IMPORT_JOBS, Action.DEFAULTS, Action.SETTINGS}:
+        return not headless
+    if action == Action.RECORDER:
+        return who_records is not None or not headless
+    return True
+
+
+class _JsonCommand(typer.core.TyperCommand):
+    """`--json` promises a `done` line however the run ends -- including when
+    its arguments do not parse, which happens before the command (and its
+    event session) ever runs. `--help` is not a run: it prints its help and no
+    events. `install`, `wizard` and its `setup` alias all use this."""
+
+    def parse_args(self, ctx, args):  # type: ignore[override]
+        wants_json = "--json" in args
+        try:
+            return super().parse_args(ctx, args)
+        except UsageError as exc:  # Typer's own click's (module top), never `import click`
+            if wants_json:
+                from probe.cli import json_events
+
+                json_events.done_events(
+                    code=json_events.ErrorCode.USAGE,
+                    message=exc.format_message(),
+                    exit_code=exc.exit_code or 2,
+                )
+            raise
+
+
 def _capy_project_option():
     """`--capy-project` on `install` and `wizard` (a fresh Option each): the Capy
     projects whose threads to capture, for a run with no terminal to pick them
@@ -1962,12 +2136,12 @@ def _capy_project_option():
     )
 
 
-@app.command(name="install")
+@app.command(name="install", cls=_JsonCommand)
 def install(
-    agent: Optional[str] = typer.Option(  # noqa: UP007
+    agent: Optional[list[str]] = typer.Option(  # noqa: UP007
         None,
         "--agent",
-        help=f"configure {_AGENT_FLAGS}, or both (both = claude+codex; default: choose interactively)",
+        help=_AGENT_HELP,
     ),
     tracking: Optional[bool] = typer.Option(  # noqa: UP007
         None, "--tracking/--no-tracking", help="research tracking skills + read-only MCP search"
@@ -1987,6 +2161,7 @@ def install(
     ),
     capy_project: Optional[list[str]] = _capy_project_option(),  # noqa: UP007
     yes: bool = typer.Option(False, "--yes", "-y", help="skip the prompts"),
+    json_output: bool = typer.Option(False, "--json", help=_JSON_HELP),
     auth_code: str = typer.Argument(
         None, help="one-time 10-character sign-in code from the website"
     ),
@@ -2028,6 +2203,7 @@ def install(
         who_records=None,
         auth_code=auth_code,
         capy_project=capy_project,
+        json_output=json_output is True,
     )
 
 
@@ -2046,12 +2222,12 @@ def _exit_wizard() -> None:
     raise typer.Exit(0)
 
 
-@app.command(name="wizard")
+@app.command(name="wizard", cls=_JsonCommand)
 def wizard(
-    agent: Optional[str] = typer.Option(  # noqa: UP007
+    agent: Optional[list[str]] = typer.Option(  # noqa: UP007
         None,
         "--agent",
-        help=f"configure {_AGENT_FLAGS}, or both (both = claude+codex; default: choose interactively)",
+        help=_AGENT_HELP,
     ),
     tracking: Optional[bool] = typer.Option(  # noqa: UP007 - typer needs Optional
         None,
@@ -2124,6 +2300,7 @@ def wizard(
     who_records: str = typer.Option(
         None, "--who-records", help="recorder: agent | daemon, for every coding agent on this device"
     ),
+    json_output: bool = typer.Option(False, "--json", help=_JSON_HELP),
     auth_code: str = typer.Argument(
         None, help="one-time 10-character sign-in code from the website"
     ),
@@ -2135,87 +2312,134 @@ def wizard(
     whatever is already configured, so `--yes` in CI can never silently revoke
     someone's capture pairing.
     """
+    from probe.cli import actions as actions_mod
     from probe.cli import capture as capture_mod
-    from probe.cli import tui
+    from probe.cli import json_events, tui
 
-    # D4: a sign-in from before D3 may have left pi's capture off for good.
-    capture_mod.clear_stray_pi_killswitch()
+    # `--json`: stdout carries only events, and the last is `done` however the
+    # run ends (`json_events`). A no-op without the flag.
+    with json_events.session(json_output is True):
+        # `--experimental` gated the Who records rows until 0.204.1; still
+        # accepted so a script or a habit that passes it keeps working.
+        del experimental
 
-    # `--experimental` gated the Who records rows until 0.204.1; still
-    # accepted so a script or a habit that passes it keeps working.
-    del experimental
+        # First, so `--who-records` with a sign-in flag is refused below like any
+        # other action rather than signing in and never switching.
+        if who_records is not None:
+            if who_records not in session_marker.RECORDERS:
+                raise typer.BadParameter("--who-records takes agent or daemon")
+            if action not in (None, "recorder"):
+                raise typer.BadParameter("--who-records goes with --action recorder")
+            action = "recorder"
 
-    # First, so `--who-records` with a sign-in flag is refused below like any
-    # other action rather than signing in and never switching.
-    if who_records is not None:
-        if who_records not in session_marker.RECORDERS:
-            raise typer.BadParameter("--who-records takes agent or daemon")
-        if action not in (None, "recorder"):
-            raise typer.BadParameter("--who-records goes with --action recorder")
-        action = "recorder"
+        # SIGN IN ONLY (`--action login` with its flags): nothing is installed or
+        # configured, so a GPU box or a self-hosted server gets a login and no
+        # plugin, capture or rule it did not ask for (R10). Before the wizard's
+        # window, so what it prints stays on the terminal.
+        if any((token, base_url, context, ingest_token, hmac_secret, endpoint_only, no_browser)):
+            if action not in (None, "login"):
+                raise typer.BadParameter(
+                    "--token, --base-url, --context, --ingest-token, --hmac-secret, --endpoint-only and "
+                    "--no-browser sign in only: use them with --action login"
+                )
+            # Anything else asked for would be dropped in silence: say so instead.
+            dropped = [
+                name
+                for name, value in (
+                    ("--agent", _agent_values(agent) or None),
+                    ("--tracking/--no-tracking", tracking),
+                    ("--capture/--no-capture", capture),
+                    ("--auto-update/--no-auto-update", auto_update),
+                    ("--agent-rules/--no-agent-rules", agent_rules),
+                    ("--capy-project", capy_project if isinstance(capy_project, (list, tuple)) and capy_project else None),
+                    ("--uninstall", uninstall or None),
+                    ("--folder", folder),
+                    ("a sign-in code", auth_code),
+                )
+                if value is not None
+            ]
+            if dropped:
+                raise typer.BadParameter(
+                    f"these flags only sign in, so {', '.join(dropped)} would be ignored: "
+                    "run it separately, without them"
+                )
+            json_events.begin_result(actions_mod.Action.SIGN_IN.value, [None])
+            with _wizard_run_lock():
+                # D4: a sign-in from before D3 may have left pi's capture off for good.
+                capture_mod.clear_stray_pi_killswitch()
+                _login(
+                    base_url=base_url,
+                    token=token,
+                    ingest_token=ingest_token,
+                    hmac_secret=hmac_secret,
+                    device=not endpoint_only,
+                    context=context,
+                    open_browser=not no_browser,
+                )
+            return
 
-    # SIGN IN ONLY (`--action login` with its flags): nothing is installed or
-    # configured, so a GPU box or a self-hosted server gets a login and no
-    # plugin, capture or rule it did not ask for (R10). Before the wizard's
-    # window, so what it prints stays on the terminal.
-    if any((token, base_url, context, ingest_token, hmac_secret, endpoint_only, no_browser)):
-        if action not in (None, "login"):
-            raise typer.BadParameter(
-                "--token, --base-url, --context, --ingest-token, --hmac-secret, --endpoint-only and "
-                "--no-browser sign in only: use them with --action login"
+        # After the sign-in-only refusals, which name `--agent` as a flag they
+        # would drop, and before the run lock: a mistyped agent is a usage
+        # error whether or not another run holds the lock.
+        _explicit_agent_sources(agent)
+
+        # The wizard's screens draw in a window of their own (`tui.window`): the
+        # whole terminal, scrolled by the wizard's keys, and the shell's screen
+        # put back untouched on the way out. `--yes` draws no screens.
+        with (
+            _wizard_run_lock(
+                _wizard_changes_device(action, yes=yes, who_records=who_records),
+                update_trigger=_update_action_trigger(yes) if action == actions_mod.Action.UPDATE else None,
+            ),
+            tui.window(enabled=not yes),
+        ):
+            # D4: a sign-in from before D3 may have left pi's capture off for
+            # good. Under the lock, so a run turned away changes nothing.
+            capture_mod.clear_stray_pi_killswitch()
+            _wizard_session(
+                agent=agent,
+                tracking=tracking,
+                capture=capture,
+                auto_update=auto_update,
+                agent_rules=agent_rules,
+                channel=channel,
+                uninstall=uninstall,
+                action=action,
+                folder=folder,
+                yes=yes,
+                auth_code=auth_code,
+                who_records=who_records,
+                # A direct Python call gets typer's Option default, not a list.
+                cloud_projects=tuple(capy_project) if isinstance(capy_project, (list, tuple)) else (),
             )
-        # Anything else asked for would be dropped in silence: say so instead.
-        dropped = [
-            name
-            for name, value in (
-                ("--agent", agent),
-                ("--tracking/--no-tracking", tracking),
-                ("--capture/--no-capture", capture),
-                ("--auto-update/--no-auto-update", auto_update),
-                ("--agent-rules/--no-agent-rules", agent_rules),
-                ("--capy-project", capy_project if isinstance(capy_project, (list, tuple)) and capy_project else None),
-                ("--uninstall", uninstall or None),
-                ("--folder", folder),
-                ("a sign-in code", auth_code),
-            )
-            if value is not None
-        ]
-        if dropped:
-            raise typer.BadParameter(
-                f"these flags only sign in, so {', '.join(dropped)} would be ignored: "
-                "run it separately, without them"
-            )
-        _login(
-            base_url=base_url,
-            token=token,
-            ingest_token=ingest_token,
-            hmac_secret=hmac_secret,
-            device=not endpoint_only,
-            context=context,
-            open_browser=not no_browser,
-        )
-        return
 
-    # The wizard's screens draw in a window of their own (`tui.window`): the
-    # whole terminal, scrolled by the wizard's keys, and the shell's screen
-    # put back untouched on the way out. `--yes` draws no screens.
-    with tui.window(enabled=not yes):
-        _wizard_session(
-            agent=agent,
-            tracking=tracking,
-            capture=capture,
-            auto_update=auto_update,
-            agent_rules=agent_rules,
-            channel=channel,
-            uninstall=uninstall,
-            action=action,
-            folder=folder,
-            yes=yes,
-            auth_code=auth_code,
-            who_records=who_records,
-            # A direct Python call gets typer's Option default, not a list.
-            cloud_projects=tuple(capy_project) if isinstance(capy_project, (list, tuple)) else (),
-        )
+
+@contextlib.contextmanager
+def _wizard_run_lock(needed: bool = True, *, command: str = "probe wizard", update_trigger=None):
+    """Hold the device's wizard run lock (`wizard_lock`) for the block, or end
+    the run at once: a second runner says so and exits `BUSY_EXIT_CODE`,
+    having changed nothing. `command` names the runner in what it says; an
+    update (`update_trigger`, an `update_report.Trigger`) turned away is also
+    recorded as a skip, so `probe doctor` shows why it did not run."""
+    from probe.cli import json_events, wizard_lock
+
+    with contextlib.ExitStack() as stack:
+        if needed:
+            try:
+                stack.enter_context(wizard_lock.held())
+            except wizard_lock.Busy:
+                if update_trigger is not None:
+                    from probe.cli import autoupdate
+
+                    autoupdate.record_skip(autoupdate.SKIP_SETUP_RUNNING, trigger=update_trigger.value)
+                print(
+                    f"{command}: {wizard_lock.BUSY_MESSAGE} on this device (a terminal or the "
+                    "desktop app). Nothing has been changed: run this again when it finishes.",
+                    file=sys.stderr,
+                )
+                json_events.error(json_events.ErrorCode.BUSY, wizard_lock.BUSY_MESSAGE)
+                raise typer.Exit(wizard_lock.BUSY_EXIT_CODE) from None
+        yield
 
 
 def _wizard_session(
@@ -2237,6 +2461,7 @@ def _wizard_session(
     """`wizard`, inside its window. See `wizard` for the contract."""
     from probe.cli import actions as actions_mod
     from probe.cli import doctor as doctor_impl
+    from probe.cli import json_events
     from probe.cli import setup as wizard
     from probe.cli import telemetry as telemetry_mod
     from probe.cli import tui
@@ -2257,28 +2482,8 @@ def _wizard_session(
     # Flag validation BEFORE the funnel entry event: a `--agent bogus` typo is
     # a usage error, and emitting first would file it in the funnel's
     # "infrastructure died before wizard.started" bucket.
-    explicit_agent_sources: tuple[str, ...] | None = None
-    if agent is not None:
-        normalized_agent = agent.strip().lower()
-        # "both"/"all" keep their EXISTING meaning -- claude_code + codex, the
-        # two coding agents this wizard can install a marketplace plugin for
-        # (see setup.INSTALLABLE_AGENT_SOURCES). pi is deliberately NOT swept
-        # into either alias: it has no plugin for this run to install, only a
-        # capture credential to pair (see the pi-only selection scoping
-        # below), so silently including it in "both" would promise install
-        # work for a run that does something categorically different. pi is
-        # reachable only by naming it.
-        #
-        # Every other value names ONE agent: its registry `cli_flag`, id or
-        # alias (`claude`, `kimi`, `capy`, ...), so a new installable row is
-        # reachable here the moment it lands -- and, like pi, only by name.
-        if normalized_agent in {"both", "all", "claude,codex", "codex,claude"}:
-            explicit_agent_sources = ("claude_code", "codex")
-        else:
-            named = _installable_agent(normalized_agent)
-            if named is None:
-                raise typer.BadParameter(f"--agent must be {_AGENT_FLAGS}, or both")
-            explicit_agent_sources = (named.id,)
+    # `--agent` (repeatable; see `_explicit_agent_sources` for its aliases).
+    explicit_agent_sources = _explicit_agent_sources(agent)
 
     # `wizard.invoked` fires BEFORE the bootstrap below: the ephemeral-npx →
     # persistent install is the most failure-prone distribution step, and a
@@ -2344,6 +2549,7 @@ def _wizard_session(
     boot = ensure_persistent_install()
     if boot.message:
         print(boot.message)
+    json_events.persistent_install(boot)
 
     codex_session = bool(os.environ.get("CODEX_THREAD_ID") or os.environ.get("CODEX_SANDBOX"))
     # `wizard.detectable_sources()`, not a fresh literal and not
@@ -2613,11 +2819,12 @@ def _wizard_session(
         try:
             chosen_action = actions_mod.Action(action)
         except ValueError:
-            tui.final(
+            unknown = (
                 f"unknown action {action!r}; expected one of: "
-                f"{', '.join(a.value for a in actions_mod.Action)}",
-                file=sys.stderr,
+                f"{', '.join(a.value for a in actions_mod.Action)}"
             )
+            tui.final(unknown, file=sys.stderr)
+            json_events.error(json_events.ErrorCode.USAGE, unknown)
             raise typer.Exit(2) from None
     elif not yes and not explicit_flags and wizard.interactive():
         tui.clear()
@@ -2653,6 +2860,10 @@ def _wizard_session(
             "  To install:  probe wizard --action configure\n"
             "  Non-interactively, say what you want: --yes, or --action <name>.",
             file=sys.stderr,
+        )
+        json_events.error(
+            json_events.ErrorCode.USAGE,
+            "refusing to configure without a decision: pass --yes, or --action <name>",
         )
         raise typer.Exit(2)
 
@@ -3037,6 +3248,17 @@ def _wizard_session(
                     for source, snapshot in caps_by_source.items()
                 }
             caps = caps_by_source[agent_sources[0]]
+        # `--json`'s `result`: a row per coding agent changed, or one for the
+        # device's own credentials (agent null).
+        if chosen_action in {
+            actions_mod.Action.CONFIGURE, actions_mod.Action.UPDATE, actions_mod.Action.UNINSTALL,
+        }:
+            json_events.begin_result(chosen_action.value, agent_sources)
+        elif chosen_action in {actions_mod.Action.SIGN_IN, actions_mod.Action.SIGN_OUT}:
+            json_events.begin_result(chosen_action.value, [None])
+        elif chosen_action is actions_mod.Action.RECORDER and menu_recorder is not None:
+            # Its rows are the agents the switch applies to (`_record_recorder`).
+            json_events.begin_result(chosen_action.value, [])
         if chosen_action in actions_mod.DEVICE_ACTIONS:
             # ONCE for the device, and unlabelled: the per-agent loop below
             # would run a browser approval per coding agent and file the result
@@ -3281,6 +3503,7 @@ def _wizard_session(
             # left is dropped by every destination filtering on a known person.
             tel.pin_identity()
             lines = [*lines, *wizard.finish_removal()]
+            _record_device_sign_in(wanted=False)
             tel.emit(
                 telemetry_mod.EVENT_WIZARD_UNINSTALL_COMPLETED,
                 outcome=telemetry_mod.UninstallOutcome.REMOVED,
@@ -3807,9 +4030,10 @@ def _run_wizard_action(
     from probe.cli import telemetry as telemetry_mod
 
     tel = telemetry_mod.null_context() if telemetry is None else telemetry
-    from probe.cli import tui
+    from probe.cli import json_events, tui
     from probe.cli.capabilities import Capability
     from probe.cli.capture import OffMode
+    from probe.cli.json_events import Step
 
     if chosen_action in actions_mod.ACCOUNT_ACTIONS:
         return _run_account_action(
@@ -3822,7 +4046,7 @@ def _run_wizard_action(
         )
 
     if chosen_action is actions_mod.Action.RECORDER:
-        return _run_recorder_action(
+        lines = _run_recorder_action(
             yes=yes,
             caps_by_source=caps_by_source,
             base_now=base_now,
@@ -3830,6 +4054,8 @@ def _run_wizard_action(
             telemetry=tel,
             agent_rules=agent_rules,
         )
+        _record_recorder(recorder, caps_by_source or {}, lines)
+        return lines
 
     if chosen_action is actions_mod.Action.DEFAULTS:
         return _run_defaults_action(yes=yes, base_now=base_now, chosen=default_state)
@@ -3874,6 +4100,7 @@ def _run_wizard_action(
             outcome = perform_update(
                 base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
             )
+        _record_update(caps.agent_source, outcome)
         lines = list(outcome.lines)
         if outcome.restart_needed:
             agent_name = wizard.agent_label(caps.agent_source)
@@ -3931,10 +4158,12 @@ def _run_wizard_action(
         # it off the disk, so this is the last pass that can still publish.
         settings_before_removal = resolve(base_url=base_now)
         lines = list(wizard.remove_everything(caps))
+        removed = doctor_impl.collect()
         lines += _register_local_capabilities(
-            doctor_impl.collect(),
+            removed,
             settings=settings_before_removal,
         )
+        _record_removal(caps.agent_source, removed, lines)
         return lines
 
     if chosen_action is actions_mod.Action.IMPORT_RESEARCH:
@@ -4057,10 +4286,19 @@ def _run_wizard_action(
 
     steps = wizard.plan(caps, selection)
     mcp_token_drifted = selection.tracking and wizard.mcp_token_drifted()
+    needs = (
+        authorization_needs
+        if authorization_needs is not None
+        else _needs_for_this_run(wizard.needs_authorization(caps, selection), yes=yes)
+    )
     if (
         not cloud
         and not steps
         and not authorization_needs
+        # `--json`: a grant the plan has no row for -- the MCP's read token
+        # alone; `tracking_on` does not read it -- is still work, because the
+        # program reading the run shows its approval link (`device_prompt`).
+        and not (needs and json_events.enabled())
         and not mcp_token_drifted
         and not (selection.capture and caps.legacy_capture_plugin_installed)
     ):
@@ -4076,6 +4314,7 @@ def _run_wizard_action(
             no_changes=True,
             duration_seconds=int(time.monotonic() - configure_t0),
         )
+        _record_configure(caps.agent_source, selection, caps, ok=True)
         return [
             "Already set up the way you asked. Nothing to change.",
             *register_configure(caps),
@@ -4112,11 +4351,6 @@ def _run_wizard_action(
     # Measured: `claude plugin install` on an already-installed plugin returns
     # "already installed" and does NOT upgrade it, so that work was pure waste
     # -- and it was the step that failed, on the one path a new user is on.
-    needs = (
-        authorization_needs
-        if authorization_needs is not None
-        else _needs_for_this_run(wizard.needs_authorization(caps, selection), yes=yes)
-    )
     tel.emit(
         telemetry_mod.EVENT_WIZARD_CONFIGURE_STARTED,
         tracking=selection.tracking,
@@ -4136,7 +4370,8 @@ def _run_wizard_action(
     # Turning a capability OFF is deliberately ungated -- refusing to uninstall
     # because a credential could not be minted would trap someone on a plugin they
     # just asked to remove.
-    work: list[tuple[str, object, object]] = []
+    # The fourth field is the step's stable name for `--json` (`json_events.Step`).
+    work: list[tuple[str, object, object, Step]] = []
 
     if cloud:
         # A cloud agent (Capy): no plugin, MCP login or skills to install here
@@ -4147,6 +4382,7 @@ def _run_wizard_action(
                     f"connect {cloud_agent.label()} capture",
                     _cloud_capture_step,
                     Capability.CAPTURE if cloud_ask.pairs else None,
+                    Step.CLOUD_CAPTURE,
                 )
             )
         elif cloud_agent.connected_here():
@@ -4155,6 +4391,7 @@ def _run_wizard_action(
                     f"turn {cloud_agent.label()} capture off",
                     lambda: cloud_agent.capture_off(uninstall=uninstall),
                     None,
+                    Step.CLOUD_CAPTURE,
                 )
             )
     else:
@@ -4199,10 +4436,13 @@ def _run_wizard_action(
                         "install the CLI + MCP plugin",
                         lambda: wizard.apply_tracking(True, on_retry=_may_retry),
                         Capability.TRACKING,
+                        Step.TRACKING_PLUGIN,
                     )
                 )
             else:
-                work.append(("skip the CLI + MCP plugin", _skip_plugin("the CLI + MCP plugin"), None))
+                work.append(
+                    ("skip the CLI + MCP plugin", _skip_plugin("the CLI + MCP plugin"), None, Step.TRACKING_PLUGIN)
+                )
         elif not selection.tracking and not caps.tracking_plugin_installed:
             # The plugin is already gone -- removed with `/plugin uninstall` rather
             # than here -- but its skills are copies in the agent's OWN folder, and
@@ -4213,6 +4453,7 @@ def _run_wizard_action(
                 "remove Probe's skills",
                 lambda: wizard.remove_root_skills(caps.agent_source),
                 None,
+                Step.REMOVE_SKILLS,
             ))
         elif not selection.tracking and caps.tracking_plugin_installed:
             work.append((
@@ -4220,6 +4461,7 @@ def _run_wizard_action(
                 # pi keeps its one package while capture stays selected.
                 lambda: wizard.apply_tracking(False, keep_capture=selection.capture),
                 None,
+                Step.TRACKING_PLUGIN,
             ))
 
         if (
@@ -4238,6 +4480,7 @@ def _run_wizard_action(
                     "authenticate the Codex MCP",
                     wizard.apply_codex_mcp_auth,
                     Capability.TRACKING,
+                    Step.CODEX_MCP_LOGIN,
                 )
             )
         elif mcp_token_drifted:
@@ -4263,12 +4506,13 @@ def _run_wizard_action(
                     "re-point your agents' Probe MCP at your current read token",
                     wizard.sync_mcp_token,
                     Capability.TRACKING,
+                    Step.MCP_TOKEN_SYNC,
                 )
             )
 
         if selection.capture and not agent_here and not caps.capture_plugin_installed:
             work.append(
-                ("skip the Session capture plugin", _skip_plugin("the Session capture plugin"), None)
+                ("skip the Session capture plugin", _skip_plugin("the Session capture plugin"), None, Step.CAPTURE)
             )
         elif selection.capture and (
             not caps.capture_plugin_installed
@@ -4302,6 +4546,7 @@ def _run_wizard_action(
                     capture_label,
                     lambda: wizard.apply_capture(caps, True, mode=OffMode.DISABLE, on_retry=_may_retry),
                     Capability.CAPTURE,
+                    Step.CAPTURE,
                 )
             )
         elif not selection.capture and (caps.capture_plugin_installed or caps.capture_on):
@@ -4314,6 +4559,7 @@ def _run_wizard_action(
                         mode=OffMode.UNINSTALL if uninstall else OffMode.DISABLE,
                     ),
                     None,
+                    Step.CAPTURE,
                 )
             )
 
@@ -4323,6 +4569,7 @@ def _run_wizard_action(
                 f"{'enable' if selection.auto_update else 'disable'} automatic updates",
                 lambda: wizard.apply_auto_update(selection.auto_update),
                 None,
+                Step.AUTO_UPDATE,
             )
         )
     if cloud:
@@ -4339,6 +4586,7 @@ def _run_wizard_action(
                     selection.agent_rules, stale=caps.agent_rules_stale
                 ),
                 None,
+                Step.AGENT_RULES,
             )
         )
     elif selection.agent_rules and wizard.statusline_catch_up_due(caps.agent_source):
@@ -4348,7 +4596,11 @@ def _run_wizard_action(
             f"add Probe's state to {wizard.agent_label(caps.agent_source)}'s status line",
             lambda: wizard.catch_up_statusline(caps.agent_source),
             None,
+            Step.STATUSLINE,
         ))
+
+    #: Why the refresh failed, when it did (`_refresh`, `_run_step`).
+    refresh_failure: list[str] = []
 
     # The refresh is hoisted out of install_plugin (it used to run per plugin,
     # discarding both results), so the CALLER owns it now -- and owning it means
@@ -4376,11 +4628,12 @@ def _run_wizard_action(
             # Scrubbed like every other child output we print, and a Mac that
             # cannot run git gets its one-line fix, not Apple's paragraph.
             reason = updater.git_blocker(result.detail) or updater.clean_reason(result.detail)
+            refresh_failure.append(reason)
             return [f"! could not refresh the marketplace: {reason}"]
         return []
 
-    if any(label.startswith("install") for label, action, _ in work if action is not None):
-        work.insert(0, ("refresh the plugin marketplace", _refresh, None))
+    if any(label.startswith("install") for label, action, _, _ in work if action is not None):
+        work.insert(0, ("refresh the plugin marketplace", _refresh, None, Step.REFRESH_MARKETPLACE))
 
     # The browser approval is REAL WORK and the longest wait in the run -- it
     # blocks on a human in a browser. Leaving it off the list is what made a
@@ -4397,32 +4650,42 @@ def _run_wizard_action(
     # had already authorized. Credential first, and the window does not exist.
     auth_index = 0 if needs else None
     if needs:
-        work.insert(0, (f"sign in ({', '.join(needs)})", None, None))
+        work.insert(0, (f"sign in ({', '.join(needs)})", None, None, Step.SIGN_IN))
 
     tui.clear()
     progress = tui.Progress(
-        "This run will:", [label for label, _, _ in work], overall=progress_header
+        "This run will:", [label for label, *_ in work], overall=progress_header
     )
     progress.render()
 
     skipped: list[str] = []
 
-    def _run_step(index: int, label: str, fn) -> list[str]:
+    def _run_step(index: int, label: str, fn, name: Step) -> list[str]:
         """Run one apply step, unless the phase has already run out of time.
 
         The budget refuses to START work; it never interrupts a step already in
         flight. A `claude plugin install` killed mid-write is how a plugin cache
         gets corrupted, so a slow step is allowed to finish on its own timeout.
         """
+        agent = caps.agent_source
         if time.monotonic() > deadline:
             skipped.append(label)
+            json_events.step(
+                name, json_events.Status.SKIPPED,
+                f"stopped after {wizard.PHASE_BUDGET_S:.0f}s without starting: {label}", agent=agent,
+            )
             return []
         progress.start(index)
+        json_events.step(name, json_events.Status.STARTED, label, agent=agent)
         try:
             out = list(fn())
         except Exception as exc:  # noqa: BLE001 - one bad step must not eat the rest
             progress.finish(index, ok=False)
             progress.note(f"! {label}: {exc}")
+            if name is Step.REFRESH_MARKETPLACE:
+                json_events.step(name, json_events.Status.DONE, _used_copy_on_disk(str(exc)), agent=agent)
+            else:
+                json_events.step(name, json_events.Status.FAILED, f"{label}: {exc}", agent=agent)
             return []
         # A step reports failure in prose, not by raising: the apply_* helpers
         # return "could not install ..." strings. The classifier lives next to
@@ -4432,7 +4695,26 @@ def _run_wizard_action(
         progress.finish(index, ok=ok)
         if out:
             progress.note(*out)
+        if name is Step.REFRESH_MARKETPLACE and not ok and refresh_failure:
+            json_events.step(name, json_events.Status.DONE, _used_copy_on_disk(refresh_failure[-1]), agent=agent)
+            return out
+        json_events.step(
+            name,
+            # A "skip ..." step is the one that reports why it could not run.
+            json_events.Status.SKIPPED if label.startswith("skip ")
+            else json_events.Status.DONE if ok else json_events.Status.FAILED,
+            "\n".join(out) or label,
+            agent=agent,
+        )
         return out
+
+    def _used_copy_on_disk(reason: str) -> str:
+        """A failed refresh, as its `--json` step: DONE, because the run goes on
+        and installs from the marketplace copy already on disk. Marking it failed
+        cleared `complete`, so the desktop app showed a failed install for one that
+        works. The failure text is kept; when the copy on disk cannot serve the
+        install, the install's own step fails and clears `complete` instead."""
+        return f"used the copy already on this machine (refresh failed: {reason})"
 
     granted: dict = {}
     if needs:
@@ -4447,6 +4729,7 @@ def _run_wizard_action(
         except Exception:  # noqa: BLE001 - an unreadable config just skips the revoke
             previous_context = {}
         progress.start(auth_index)
+        json_events.step(Step.SIGN_IN, json_events.Status.STARTED, work[auth_index][0])
         progress.note(
             "",
             "Signing in with the website code…"
@@ -4467,11 +4750,17 @@ def _run_wizard_action(
                 **({"install_code": install_code} if install_code is not None else {}),
             )
         except OnboardingRequired as exc:
+            json_events.step(Step.SIGN_IN, json_events.Status.FAILED, str(exc))
             _finish_website_onboarding(exc)
         signed_in_ok = not [g for g in needs if g not in granted]
         progress.finish(auth_index, ok=signed_in_ok)
         if auth_messages:
             progress.note(*auth_messages)
+        json_events.step(
+            Step.SIGN_IN,
+            json_events.Status.DONE if signed_in_ok else json_events.Status.FAILED,
+            "\n".join(auth_messages) or work[auth_index][0],
+        )
         if install_code is not None and not signed_in_ok:
             raise typer.Exit(1)
         revoked = wizard.revoke_replaced_token(previous_context, granted, base_url=base_now)
@@ -4512,7 +4801,7 @@ def _run_wizard_action(
 
     ungranted: list[str] = []
 
-    for position, (label, action, gate) in enumerate(work):
+    for position, (label, action, gate, step_name) in enumerate(work):
         if action is None:
             continue  # the authorization step, run above
         # The gate. Installing a plugin whose credential this run tried and failed
@@ -4532,8 +4821,12 @@ def _run_wizard_action(
             ungranted.append(label)
             progress.finish(position, ok=False)
             progress.note(f"! skipped {label} — no credential for {', '.join(blocked)}.")
+            json_events.step(
+                step_name, json_events.Status.SKIPPED,
+                f"skipped {label} — no credential for {', '.join(blocked)}.", agent=caps.agent_source,
+            )
             continue
-        _run_step(position, label, action)
+        _run_step(position, label, action, step_name)
 
     if skipped:
         progress.note(
@@ -4628,6 +4921,14 @@ def _run_wizard_action(
         progress.note(
             "", f"Not finished — {'; '.join(reasons)}.", "Re-run `probe wizard` to retry."
         )
+        if absent:
+            json_events.step(
+                Step.VERIFY_PLUGINS, json_events.Status.FAILED,
+                f"these plugins are not installed: {', '.join(absent)}", agent=caps.agent_source,
+            )
+        _record_configure(
+            caps.agent_source, selection, after, ok=False, message=f"Not finished — {'; '.join(reasons)}."
+        )
         progress.close()
         # complete=False: this run did NOT finish, and the dashboard treats a
         # fresh registration as the install completing. Reporting the observed
@@ -4637,13 +4938,22 @@ def _run_wizard_action(
             tui.say(message)
         raise typer.Exit(1)
 
+    unverified = (
+        f"Could not confirm the plugins are installed ({wizard.agent_label(caps.agent_source)} did not answer). "
+        "Run `probe doctor` to check."
+    )
     if wanted_plugins and not after.plugins_verified:
         # Could not ask. Say so rather than claiming either outcome.
-        progress.note(
-            "",
-            f"Could not confirm the plugins are installed ({wizard.agent_label(caps.agent_source)} did not answer). "
-            "Run `probe doctor` to check.",
+        progress.note("", unverified)
+        json_events.step(
+            Step.VERIFY_PLUGINS, json_events.Status.SKIPPED, unverified, agent=caps.agent_source
         )
+    elif selection.tracking or selection.capture:
+        json_events.step(Step.VERIFY_PLUGINS, json_events.Status.DONE, agent=caps.agent_source)
+    _record_configure(
+        caps.agent_source, selection, after, ok=True,
+        message=unverified if wanted_plugins and not after.plugins_verified else "",
+    )
     tel.emit(
         telemetry_mod.EVENT_WIZARD_CONFIGURE_COMPLETED,
         outcome=(
@@ -4675,6 +4985,37 @@ def _run_wizard_action(
         tui.say(message)
 
     return []
+
+
+def _capability_fields(values) -> dict[str, bool]:
+    """A selection (`setup.Selection`) or a `Capabilities.enabled()` map as
+    `--json` names it: {tracking, capture, auto_update, agent_rules}."""
+    from probe.cli.capabilities import Capability
+
+    if isinstance(values, dict):
+        return {str(capability): bool(values.get(capability)) for capability in Capability}
+    return {str(capability): bool(getattr(values, capability.value)) for capability in Capability}
+
+
+def _record_configure(source: str, selection, after, *, ok: bool, message: str = "") -> None:
+    """`--json`'s result row for one agent's configure: what the run asked for,
+    what the agent reads as on now, and whether the run verified it. Automatic
+    updates and the instruction rules are plain files on this machine, so a
+    mismatch there fails the row whatever the step said. So does tracking or
+    capture still on after the run was asked to turn it off: the run's verdict
+    checks only what it installed."""
+    from probe.cli import json_events
+    from probe.cli.capabilities import Capability
+
+    if not json_events.enabled():
+        return
+    requested = _capability_fields(selection)
+    actual = _capability_fields(after.enabled())
+    unmet = [c for c in (Capability.AUTO_UPDATE, Capability.AGENT_RULES) if actual[c] != requested[c]]
+    unmet += [c for c in (Capability.TRACKING, Capability.CAPTURE) if requested[c] is False and actual[c] is True]
+    if unmet and not message:
+        message = f"not as asked: {', '.join(unmet)}"
+    json_events.agent_result(source, requested=requested, actual=actual, ok=ok and not unmet, message=message)
 
 
 def _cloud_agent_finish(agent_sources, *, tracking: bool, base_url: str | None):
@@ -4752,6 +5093,20 @@ def _finish_cloud_configure(
         progress.note("", f"Not finished — no credential for: {', '.join(missing)}.", "Re-run `probe wizard` to retry.")
     elif blocked:
         progress.note("", f"Not finished — {agent.label()} capture is not connected.")
+    from probe.cli import json_events
+
+    if json_events.enabled():
+        json_events.agent_result(
+            after.agent_source,
+            requested=_capability_fields(selection),
+            actual=_capability_fields(after.enabled()),
+            ok=complete,
+            message=(
+                f"Not finished — no credential for: {', '.join(missing)}." if missing
+                else f"Not finished — {agent.label()} capture is not connected." if blocked
+                else "" if complete else "Not finished."
+            ),
+        )
     if selection.tracking:
         progress.note_next(*agent.setup_steps(base_url=_conn.base_url))
     progress.close()
@@ -5109,10 +5464,102 @@ def _run_recorder_action(
     return lines
 
 
-def _needs_for_this_run(needs: list[str], *, yes: bool) -> list[str]:
+def _record_recorder(chosen: str | None, caps_by_source: dict, lines: list[str] | None) -> None:
+    """`--json`'s result rows for a Who records switch: what each agent's own
+    config says now, never which steps ran. A refusal, a missing key or
+    libraries, or an agent with no daemon profile all leave it on the other
+    recorder, so its row is not ok, with the switch's own words as the reason."""
+    from probe.cli import json_events
     from probe.cli import setup as wizard
 
-    return needs if not yes and wizard.interactive() else wizard.headless_needs(needs)
+    if chosen is None or not json_events.enabled():
+        return
+    daemon = session_marker.RECORDER_DAEMON
+    detail = "\n".join(lines or [])
+    agents = [
+        source
+        for source, snapshot in caps_by_source.items()
+        if source in wizard.RECORDER_SOURCES or (chosen == daemon and snapshot.configured)
+    ]
+    if not agents:
+        actual = wizard.machine_recorder()
+        json_events.agent_result(
+            None, requested={"recorder": chosen}, actual={"recorder": actual},
+            ok=actual == chosen, message="" if actual == chosen else detail,
+        )
+    for source in agents:
+        actual = session_marker.recorder(source)
+        json_events.agent_result(
+            source, requested={"recorder": chosen}, actual={"recorder": actual},
+            ok=actual == chosen, message="" if actual == chosen else detail,
+        )
+
+
+def _record_update(source: str, outcome) -> None:
+    """`--json`'s result row for one agent's update (`upgrading.UpdateOutcome`)."""
+    from probe.cli import json_events
+
+    if not json_events.enabled():
+        return
+    json_events.agent_result(
+        source,
+        requested={"updated": True},
+        actual={"updated": bool(outcome.ok), "restart_needed": bool(outcome.restart_needed)},
+        ok=bool(outcome.ok),
+        message="" if outcome.ok else "\n".join(outcome.lines) or "the update did not finish",
+    )
+
+
+def _record_removal(source: str, after, lines: list[str]) -> None:
+    """`--json`'s result row for one agent's uninstall: what is still there."""
+    from probe.cli import json_events
+
+    if not json_events.enabled():
+        return
+    actual = {
+        "tracking": bool(after.tracking_plugin_installed),
+        "capture": bool(after.capture_plugin_installed or after.capture_on),
+        "agent_rules": bool(after.agent_rules_installed),
+    }
+    json_events.agent_result(
+        source,
+        requested={key: False for key in actual},
+        actual=actual,
+        ok=not any(actual.values()),
+        message="\n".join(line for line in lines if line.startswith("!")),
+    )
+
+
+def _record_device_sign_in(*, wanted: bool, ok: bool | None = None, message: str = "") -> None:
+    """`--json`'s result row for the device's own credentials (agent null):
+    whether a token is saved here now."""
+    from probe.cli import json_events
+
+    if not json_events.enabled():
+        return
+    try:
+        signed_in = bool((load_context() or {}).get("token"))
+    except Exception:  # noqa: BLE001 - an unreadable config holds no credential
+        signed_in = False
+    json_events.agent_result(
+        None,
+        requested={"signed_in": wanted},
+        actual={"signed_in": signed_in},
+        ok=(signed_in == wanted) if ok is None else ok,
+        message=message,
+    )
+
+
+def _needs_for_this_run(needs: list[str], *, yes: bool) -> list[str]:
+    """The grants this run asks for. A run nobody is watching drops a lone MCP
+    grant (`setup.headless_needs`); a `--json` run does not, because the
+    program reading it shows the approval link (`device_prompt`) to a person."""
+    from probe.cli import json_events
+    from probe.cli import setup as wizard
+
+    if (not yes and wizard.interactive()) or json_events.enabled():
+        return needs
+    return wizard.headless_needs(needs)
 
 
 def _ensure_daemon(base: str, *, open_browser: bool = True) -> list[str]:
@@ -5382,6 +5829,7 @@ def _run_account_action(
                 return None
         for line in wizard.sign_out(sources):
             tui.say(line)
+        _record_device_sign_in(wanted=False)
         raise typer.Exit(0)
 
     # SIGN IN. This one streams: the approval URL is only useful WHILE the flow
@@ -5406,6 +5854,9 @@ def _run_account_action(
     else:
         tui.say(heading)
         tui.say()
+    from probe.cli import json_events
+
+    json_events.step(json_events.Step.SIGN_IN, json_events.Status.STARTED, heading)
     try:
         result = wizard.sign_in(
             base_url=base_now,
@@ -5413,7 +5864,14 @@ def _run_account_action(
             on_prompt=_prompt,
         )
     except OnboardingRequired as exc:
+        json_events.step(json_events.Step.SIGN_IN, json_events.Status.FAILED, str(exc))
         _finish_website_onboarding(exc)
+    json_events.step(
+        json_events.Step.SIGN_IN,
+        json_events.Status.DONE if result.ok else json_events.Status.FAILED,
+        "\n".join(result.lines),
+    )
+    _record_device_sign_in(wanted=True, ok=result.ok, message="" if result.ok else "\n".join(result.lines))
     tel.emit(
         telemetry_mod.EVENT_WIZARD_SIGNED_IN,
         outcome=(
@@ -5488,7 +5946,7 @@ def _register_local_capabilities(
 # shipped plugin copy, and in every PR description written before the rename.
 # Registering the SAME function under both names means the alias can never drift
 # from the real command's options.
-app.command(name="setup", hidden=True)(wizard)
+app.command(name="setup", hidden=True, cls=_JsonCommand)(wizard)
 
 
 # -- history import (0108) ---------------------------------------------------
@@ -5532,6 +5990,12 @@ from .summary_cli import summary_app, visuals_app  # noqa: E402 -- registration,
 
 app.add_typer(summary_app, name="summary")
 app.add_typer(visuals_app, name="visuals")
+
+# -- local files: a draft changed in place, a data file previewed (daemon `bash`)
+from .drafts_cli import draft_app, file_app  # noqa: E402 -- registration, not use
+
+app.add_typer(draft_app, name="draft")
+app.add_typer(file_app, name="file")
 app.command("deny")(deny_cmd)
 app.command("ask")(ask_cmd)
 
@@ -6472,6 +6936,7 @@ def _confirmed_delete(
     cascade: str | None = None,
     delete_kwargs: dict[str, Any] | None = None,
     trash: bool = False,
+    dry_run: bool = False,
 ) -> None:
     """The whole shape of a delete: resolve, show, confirm, delete by id.
 
@@ -6484,16 +6949,26 @@ def _confirmed_delete(
 
     Resolution happens BEFORE the prompt, which is the ordering the confirmation
     is worth anything under.
+
+    ``dry_run`` resolves the same way, asks the same route with
+    ``?dry_run=true`` and prints its answer: what would go, whose it is and when
+    it last changed, with nothing moved and no prompt. Only a trash delete has
+    one (0261).
     """
     with _client() as c:
         target = _ref(c, kind, ref)
         # Promise the trash only where the server has one: before 0261 the
         # same DELETE is permanent, and the prompt must say so.
         trash = trash and c.supports_feature("trash")
-        _confirm_delete(yes, target.label, cascade=cascade, trash=trash)
         kwargs = dict(delete_kwargs or {})
         if kind == "experiment" and _filed_under(target):
             kwargs.setdefault("project_id", _filed_under(target))  # saves a lookup
+        if dry_run:
+            if not trash:
+                raise typer.BadParameter("this Probe server has no trash, so a delete has no dry run")
+            _print_json(getattr(c, f"delete_{kind}")(target.id, dry_run=True, **kwargs))
+            return
+        _confirm_delete(yes, target.label, cascade=cascade, trash=trash)
         answer = getattr(c, f"delete_{kind}")(target.id, **kwargs)
     until = answer.get("restorable_until") if trash and isinstance(answer, dict) else None
     if until:
@@ -6772,8 +7247,8 @@ def project_get(
 def project_lineage(project_id: str = slug_ref("project")) -> None:
     """Print the project's OWN links: what it came from and what came from it.
 
-    Its links in and out (stored, then "built on" derived from its runs' reads,
-    `derived: true`), its `origin` and its direct children. An experiment's own
+    Its links in and out (stored, then "built on" derived from what its runs
+    used, `derived: true`), its `origin` and its direct children. An experiment's own
     links are `experiment lineage`. Look here before linking it to anything.
     """
     with _client() as c:
@@ -6977,6 +7452,11 @@ def project_delete(
         "--recursive",
         help="also delete every SUBPROJECT and everything in them (0148)",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="change nothing: print what the delete would take, whose it is and when it last changed",
+    ),
 ) -> None:
     """Move a project and everything in it to the trash (Probe support can
     restore it for 21 days, then it is deleted for good). A server without the
@@ -6995,6 +7475,7 @@ def project_delete(
         ),
         delete_kwargs={"recursive": True} if recursive else None,
         trash=True,
+        dry_run=dry_run,
     )
 
 
@@ -8820,6 +9301,11 @@ def run_reproduce(
 def run_delete(
     run: str = run_ref(),
     yes: bool = typer.Option(False, "--yes", help="skip the confirmation prompt"),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="change nothing: print what the delete would take, whose it is and when it last changed",
+    ),
 ) -> None:
     """Move a run and its telemetry to the trash (Probe support can restore
     it for 21 days, then it is deleted for good). A server without the trash
@@ -8827,7 +9313,7 @@ def run_delete(
     # No --by-* here: a slug is a server-minted petname, so it cannot be
     # UUID-shaped and cannot collide with an id. See refs.resolve_run.
     _confirmed_delete(
-        "run", run, yes=yes, cascade="its spans, metrics and files go too", trash=True
+        "run", run, yes=yes, cascade="its spans, metrics and files go too", trash=True, dry_run=dry_run
     )
 
 
@@ -8854,16 +9340,16 @@ def run_metrics(
 # -- what a run READ, and what it built on (lineage plan L5) ------------------
 @run_app.command("inputs")
 def run_inputs(run: str = run_ref()) -> None:
-    """The files a run READ, as the SDK recorded them.
+    """The files a run READ, as the SDK recorded them: path, size, hash and
+    when it was first seen.
 
-    Each read carries its `matches`: the run and file version that wrote the
-    same bytes (found by content hash; several when more than one run wrote
-    them, none when Probe holds no copy), and whether a person dismissed the
-    match (`match_dismissed`) or pinned the version really read
-    (`match_version_id`) or the run that wrote it (`match_run_id`).
-    `coverage` is what the recorder could see, including
-    whether it stopped listing (`truncated`). Fix a wrong match with
-    `probe run input dismiss|pin|reset`.
+    Each read carries `stored_as`: the catalog entries holding exactly those
+    bytes (`basis` `same_bytes`, or `pre_redaction` when the stored copy was
+    redacted), at most 10 (`stored_as_truncated`). That is evidence, never a
+    link: record what the run used with `probe dataset use` / `probe
+    checkpoint use`. An older server answers `matches` instead. `coverage` is
+    what the recorder could see, including whether it stopped listing
+    (`truncated`).
     """
     with _client() as c:
         _print_json(c.run_inputs(_ref(c, "run", run).id))
@@ -8875,78 +9361,11 @@ def run_upstream(
     depth: int = typer.Option(2, "--depth", min=1, max=5, help="how many hops back (1-5)"),
 ) -> None:
     """What a run built on, `--depth` hops back: its parents (retry, fork,
-    resume, branch), runs it built on, and the writer of every file it read,
-    then the same for each of those. `truncated` says the walk stopped early."""
+    resume, branch), runs it built on, and the run that made each dataset or
+    checkpoint it used, then the same for each of those. `truncated` says the
+    walk stopped early."""
     with _client() as c:
         _print_json(c.run_upstream(_ref(c, "run", run).id, depth=depth))
-
-
-run_input_app = typer.Typer(
-    no_args_is_help=True,
-    help="correct the run a file this run read was matched to (`probe run inputs` lists them)",
-)
-run_app.add_typer(run_input_app, name="input")
-
-_INPUT_PATH_HELP = "the read's path, as `probe run inputs` lists it"
-_INPUT_HASH_HELP = "only the read of these bytes, when the run read the path more than once"
-
-
-@run_input_app.command("dismiss")
-def run_input_dismiss(
-    run: str = run_ref(),
-    path: str = typer.Argument(..., help=_INPUT_PATH_HELP),
-    content_hash: str = typer.Option(None, "--hash", help=_INPUT_HASH_HELP),
-) -> None:
-    """Drop a read's match: equal bytes, but not what this run built on."""
-    _correct_input(run, path, content_hash=content_hash, dismissed=True)
-
-
-@run_input_app.command("pin")
-def run_input_pin(
-    run: str = run_ref(),
-    path: str = typer.Argument(..., help=_INPUT_PATH_HELP),
-    version: str = typer.Option(
-        None, "--version", help="the id of the file version really read (`probe artifact versions`)"
-    ),
-    writer: str = typer.Option(
-        None,
-        "--writer",
-        help="the run that wrote the file (id or slug) -- for a file it only recorded writing, "
-        "which has no stored version",
-    ),
-    content_hash: str = typer.Option(None, "--hash", help=_INPUT_HASH_HELP),
-) -> None:
-    """Name what a read really was, instead of the derived match: the file
-    version (`--version`) or the run that wrote it (`--writer`). One of the
-    two; a pin replaces the one before (`reset` undoes it)."""
-    if (version is None) == (writer is None):
-        raise typer.BadParameter("give --version or --writer (one of the two)")
-    _correct_input(run, path, content_hash=content_hash, version_id=version, writer=writer)
-
-
-@run_input_app.command("reset")
-def run_input_reset(
-    run: str = run_ref(),
-    path: str = typer.Argument(..., help=_INPUT_PATH_HELP),
-    content_hash: str = typer.Option(None, "--hash", help=_INPUT_HASH_HELP),
-) -> None:
-    """Hand a read back to automatic matching (undoes a dismiss or a pin)."""
-    _correct_input(run, path, content_hash=content_hash, dismissed=False)
-
-
-def _correct_input(run: str, path: str, *, writer: str | None = None, **correction: Any) -> None:
-    """One read's correction (`PATCH /v1/runs/{id}/inputs`, 204): prints what
-    was set, or what happened to a write that could not be delivered.
-    ``writer`` (a run ref) is resolved to the id the server pins."""
-    with _client() as c:
-        run_id = _ref(c, "run", run).id
-        if writer is not None:
-            correction["writer_run_id"] = _ref(c, "run", writer).id
-        c.correct_run_input(run_id, path, **correction)
-    done = {"run_id": run_id, "path": path, **{k: v for k, v in correction.items() if v is not None}}
-    # Not delivered (queued, or lost with the outbox): print THAT, never the
-    # correction as if it were made.
-    _print_json(None if _UNDELIVERED.total else done)
 
 
 # -- exec (process correlation) ---------------------------------------------
@@ -16190,6 +16609,11 @@ def experiment_tag(
 def experiment_delete(
     experiment_id: str = slug_ref("experiment"),
     yes: bool = typer.Option(False, "--yes", help="skip the confirmation prompt"),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="change nothing: print what the delete would take, whose it is and when it last changed",
+    ),
 ) -> None:
     """Move an experiment and its runs to the trash (Probe support can
     restore it for 21 days, then it is deleted for good). A server without the
@@ -16200,6 +16624,7 @@ def experiment_delete(
         yes=yes,
         cascade="every run, metric and file inside it goes too",
         trash=True,
+        dry_run=dry_run,
     )
 
 
@@ -16222,8 +16647,8 @@ def experiment_lineage(experiment_id: str = slug_ref("experiment")) -> None:
 
     `experiment edges` is the graph AMONG its runs and files. This is the
     experiment as one node: its links in and out (stored, then "built on"
-    derived from its runs' reads, `derived: true`), its `origin` and its direct
-    children. Look here before linking it to anything.
+    derived from what its runs used, `derived: true`), its `origin` and its
+    direct children. Look here before linking it to anything.
     """
     with _client() as c:
         target = _ref(c, "experiment", experiment_id)
@@ -16496,8 +16921,8 @@ def edge_remove(
     A run's PARENT is an edge too (forked_from, resumed_from, retried_from,
     branched_from), and a run may have several: removing its first parent makes
     the next-oldest one its parent, or clears it when none is left. A wrong
-    parent is fixed by removing it and adding the right one. A wrong match on a
-    file the run read is corrected instead with `probe run input dismiss|pin`.
+    parent is fixed by removing it and adding the right one. So is a wrong data
+    link (`probe dataset use` / `probe checkpoint use`), or a wrong role on one.
     """
     with _client() as c:
         result = c.remove_edge(edge_id)
@@ -16586,10 +17011,17 @@ def main(argv: list[str] | None = None) -> int:
     """Run the CLI, returning a process exit code (never calls sys.exit itself)."""
     from . import write_gate
 
-    # A harness that puts no session id in its shells (Kimi Code): find the
-    # session from the harness process before the write gate reads it.
-    agent_session.adopt_harness_process_session()
     args, directed = write_gate.split_directed(sys.argv[1:] if argv is None else argv)
+    command = session_marker.command_words(args)[:1]
+    if command and command[0] in _READ_ONLY_COMMANDS:
+        # `probe status` reads no session and must start no process: finding
+        # one walks this process's ancestors, which is `ps` where there is no
+        # /proc (macOS), and the desktop app asks on every focus.
+        agent_session.forgo_harness_process_session()
+    else:
+        # A harness that puts no session id in its shells (Kimi Code): find the
+        # session from the harness process before the write gate reads it.
+        agent_session.adopt_harness_process_session()
     _conn.directed = directed
     excluded = write_gate.excluded_refusal(args)
     if excluded is not None:

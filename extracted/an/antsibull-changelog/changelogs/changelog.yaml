@@ -498,7 +498,7 @@ releases:
     changes:
       bugfixes:
         - When linting found RST problems with rstcheck, the error messages were reduced
-          to a single letter (https://github.com/ansible-community/antsibull-changelog/pull/188).
+          to a single letter (https://github.com/ansible-community/antsibull-changelog/pull/189).
       release_summary: Bugfix release.
     fragments:
       - 0.31.2.yml
@@ -605,3 +605,16 @@ releases:
       - 0.35.1.yml
       - 217-md-toc-newline.yml
     release_date: '2026-05-18'
+  0.35.2:
+    changes:
+      bugfixes:
+        - Declare support for Python 3.15 (https://github.com/ansible-community/antsibull-changelog/pull/227).
+      minor_changes:
+        - Internal change to allow rendering MarkDown documents without section IDs
+          (https://github.com/ansible-community/antsibull-changelog/pull/226).
+      release_summary: Maintenance release.
+    fragments:
+      - 0.35.2.yml
+      - 226-markdown-ids.yml
+      - python315.yml
+    release_date: '2026-10-18'

@@ -131,6 +131,39 @@ class _Infeasible(Exception):  # noqa: N818
 # ---------------------------------------------------------------------------
 
 
+def _is_forbidden(value: Any) -> bool:
+    """
+    True for `DISALLOWED` and for any numeric that equals +infinity (float, Decimal, numpy scalar).
+    One definition so every helper agrees with `_validated_edges` on what a forbidden cell is.
+    """
+    if value is DISALLOWED:
+        return True
+    try:
+        return bool(value == _INF)
+    except (ArithmeticError, TypeError, ValueError):  # Decimal('sNaN') signals on comparison
+        return False
+
+
+def _is_nonfinite(value: Any) -> bool:
+    """True for NaN and +-infinity of any numeric type (but not for `DISALLOWED`)."""
+    if value is DISALLOWED:
+        return False
+    try:
+        return bool(value != value or value == _INF or value == -_INF)  # noqa: PLR0124, PLR1714
+    except (ArithmeticError, TypeError, ValueError):
+        return True
+
+
+def _safe_ratio(big: Any, small: Any) -> float | None:
+    """float(big / small) for positive exact numbers; `inf` when the quotient exceeds the float range."""
+    try:
+        return float(big / small)
+    except (OverflowError, ArithmeticError):  # int/Fraction overflow, decimal.Overflow
+        return _INF
+    except ZeroDivisionError:
+        return None
+
+
 def _as_lists(matrix: Any) -> list[list[Any]]:
     """
     Return a brand-new list-of-lists copy of `matrix`. Accepts lists, tuples,
@@ -208,7 +241,7 @@ def _validated_edges(matrix: Any) -> tuple[int, int, list[list[tuple[int, Any]]]
 # ---------------------------------------------------------------------------
 
 
-def _solve(
+def _solve_raw(
     n: int,
     m: int,
     edges: Sequence[Sequence[tuple[int, Any]]],
@@ -317,6 +350,65 @@ def _solve(
     if duals is not None:
         duals.extend([u, v[:m]])
     return [(p[j], j) for j in range(m) if p[j] >= 0]
+
+
+_NATIVE_MIN = 16  # below this many cells the pure-Python path is already faster
+
+
+def _needs_exact(n: int, m: int, edges: Sequence[Sequence[tuple[int, Any]]]) -> bool:
+    """True if float arithmetic on these costs could overflow to +-inf.
+
+    Dual potentials can grow to about (n + m) times the largest |cost|, so the
+    float path is only safe while that product stays finite.
+    """
+    biggest = 0.0
+    saw_float = False
+    for allowed in edges:
+        for _, cost in allowed:
+            if isinstance(cost, float):
+                saw_float = True
+                a = abs(cost)
+                biggest = max(biggest, a)
+    return saw_float and biggest * (n + m + 4) >= 1.7e308
+
+
+def _solve(
+    n: int,
+    m: int,
+    edges: Sequence[Sequence[tuple[int, Any]]],
+    events: list[dict[str, Any]] | None = None,
+    duals: list[Any] | None = None,
+) -> list[tuple[int, int]]:
+    """
+    Pure-Python solver, overflow-safe front end of `_solve_raw`.
+
+    Floats are exact binary rationals, so when intermediate sums could exceed the float range
+    the problem is solved on `Fraction` copies instead (same optimum, no overflow). Duals, if
+    requested, are then Fractions.
+    """
+    if _needs_exact(n, m, edges):
+        edges = [
+            [(j, Fraction(c) if isinstance(c, float) else c) for j, c in allowed]
+            for allowed in edges
+        ]
+    return _solve_raw(n, m, edges, events, duals)
+
+
+def _solve_dispatch(
+    n: int,
+    m: int,
+    edges: Sequence[Sequence[tuple[int, Any]]],
+    events: list[dict[str, Any]] | None = None,
+    duals: list[Any] | None = None,
+) -> list[tuple[int, int]]:
+    """Use the native C kernel when it applies (no trace/duals requested); else `_solve`."""
+    if events is None and duals is None and m >= 1 and n * m >= _NATIVE_MIN:
+        from munkres import _native
+
+        got = _native.solve_dense(n, m, edges)  # raises _Infeasible with a Hall witness
+        if got is not None:
+            return got
+    return _solve(n, m, edges, events, duals)
 
 
 # ---------------------------------------------------------------------------
@@ -455,7 +547,7 @@ def _assign(
         trace.transposed = transposed
         events = trace.events
     try:
-        pairs = _solve(n, width, graph, events, duals)
+        pairs = _solve_dispatch(n, width, graph, events, duals)
     except _Infeasible as bad:
         left, right = ("column", "row") if transposed else ("row", "column")
         raise _explain(bad, left, right, swapped=transposed) from None
@@ -511,7 +603,12 @@ def make_cost_matrix(
     rows = _as_lists(profit_matrix)
 
     def forbidden(value: Any) -> bool:
-        return value is DISALLOWED or (isinstance(value, float) and value == _INF)
+        if value is DISALLOWED:
+            return True
+        try:
+            return isinstance(value, _NUMBER_TYPES) and bool(value == _INF)
+        except ArithmeticError:  # Decimal('sNaN') signals on comparison
+            return False
 
     invert: Callable[[Any], Any]
     if inversion_function is not None:

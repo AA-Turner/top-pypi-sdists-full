@@ -88,6 +88,9 @@ from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_re
     SchedulerconfigversionsummaryListResponse,
 )
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
+from anyscale.client.openapi_client.models.workspace_ssh_details import (
+    WorkspaceSshDetails,
+)
 from anyscale.sdk.anyscale_client.models import (
     ApplyProductionServiceV2Model,
     Cluster,
@@ -248,13 +251,36 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_system_cluster(self, cloud_id: str) -> ClusteroperationResponse:
-        """Terminate the system cluster for the provided cloud ID."""
+    def list_cloud_resources(self, cloud_id: str) -> List[DecoratedCloudResource]:
+        """List the cloud resources of the provided cloud ID."""
         raise NotImplementedError
 
     @abstractmethod
-    def describe_system_workload_get_status(self, cloud_id: str) -> str:
-        """Get the status of the system cluster for the provided cloud ID."""
+    def terminate_system_cluster(
+        self,
+        cloud_id: str,
+        cloud_resource_id: Optional[str] = None,
+        *,
+        skip_if_nothing_to_terminate: bool = False,
+    ) -> Optional[ClusteroperationResponse]:
+        """Terminate the system cluster for the provided cloud ID.
+
+        Terminates the system cluster of the given cloud resource, or of the cloud's
+        primary cloud resource if none is given. With skip_if_nothing_to_terminate,
+        returns None instead of raising when that cloud resource has no system cluster
+        or it is already terminated.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def describe_system_workload_get_status(
+        self, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> str:
+        """Get the status of the system cluster for the provided cloud ID.
+
+        Describes the system cluster of the given cloud resource, or of the cloud's
+        primary cloud resource if none is given.
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -298,6 +324,11 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def archive_compute_config(self, *, compute_config_id: str):
         """Archive the compute config for the provided ID."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def unarchive_compute_config(self, *, compute_config_id: str):
+        """Unarchive the compute config for the provided ID."""
         raise NotImplementedError
 
     @abstractmethod
@@ -924,6 +955,11 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def get_cluster_ssh_key(self, cluster_id: str) -> SessionSshKey:
         """Get the SSH key for the cluster."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_kuberay_workspace_ssh_details(self, workspace_id: str) -> WorkspaceSshDetails:
+        """Get host, key and token for a KubeRay workspace in one call."""
         raise NotImplementedError
 
     @abstractmethod

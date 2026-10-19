@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Optional
 
@@ -7,6 +9,11 @@ from office365.entity import Entity
 class AttachmentBase(Entity):
     """Represents an abstract base type for an attachment. You can add related content to a todoTask in the form
     of an attachment."""
+
+    @property
+    def content_bytes(self) -> Optional[str]:
+        """The base64-encoded contents of a file attachment (``None`` for other kinds)."""
+        return self.properties.get("contentBytes", None)
 
     @property
     def content_type(self) -> Optional[str]:
@@ -31,3 +38,7 @@ class AttachmentBase(Entity):
     def size(self) -> Optional[int]:
         """The length of the attachment in bytes."""
         return self.properties.get("size", None)
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.AttachmentBase"

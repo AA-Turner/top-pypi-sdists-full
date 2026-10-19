@@ -18,7 +18,7 @@ class ConvertExcelToSheetResponseOut(UniversalBaseModel):
 
     conversion_status: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Conversion status for background (run_async) conversions: 'converting' immediately after the request. Poll the asset's athena_metadata.conversionStatus for 'completed' | 'failed'. Null for synchronous conversions, which have already completed.
+    Conversion status for background (run_async) conversions: 'converting' immediately after the request. Poll the asset's athena_metadata.conversionStatus for 'completed' | 'failed'. Null for synchronous conversions, which have already completed. An in_place conversion still running answers 'converting' too; see in_place for how to poll it.
     """
 
     excel_asset_id: str = pydantic.Field()
@@ -33,7 +33,7 @@ class ConvertExcelToSheetResponseOut(UniversalBaseModel):
 
     sheet_asset_id: str = pydantic.Field()
     """
-    ID of the newly created Athena sheet asset
+    ID of the Athena sheet: a new asset, or excel_asset_id itself for an in_place conversion
     """
 
     title: str = pydantic.Field()

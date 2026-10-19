@@ -168,6 +168,90 @@ def test_use_dataset_records_the_role_and_share(run, fake):
     assert [u["roles"] for u in fake.uses] == [["train"], ["init"]]
 
 
+def test_a_use_that_fails_for_now_is_queued_only_when_its_ref_is_fixed(run, fake):
+    """D17: a moving ref sent later would be resolved then, maybe to a newer
+    version than the run used, and still read as seen in the code. So it is
+    never queued: it warns once per ref and records nothing. A fixed ref is
+    queued and lands on flush."""
+    run.log_dataset(_folder_path(run, "val"), name="val", preview=False)
+    run.log_dataset(_folder_path(run, "train"), name="train", preview=False)
+    fake.use_status = 503
+    _, said = _caught(lambda: [run.use_dataset("dataset:val", role="validation") for _ in range(2)]
+                      + [run.use_dataset("dataset:train"),
+                         run.use_checkpoint("checkpoint:sft-7b@best", role="eval"),
+                         run.use_mixture({"dataset:train@1": 0.5, "source:hf:datasets/allenai/c4": 0.5})])
+    not_queued = [s for s in said if "not queued" in s]
+    assert len(not_queued) == 4  # once per ref: val, train, the checkpoint, the mixture
+    assert all("dataset:<name>@<N>" in s and "Call it again" in s for s in not_queued)
+    run.use_dataset("dataset:val@1", role="validation")
+    fake.use_status = None
+    run._client.flush()
+    assert [(u["target"]["ref"], u["roles"]) for u in fake.uses] == [("dataset:val@1", ["validation"])]
+
+
+def _transport(message, *, unreachable):
+    from probe import errors
+
+    exc = errors.TransportError(message)
+    exc.unreachable = unreachable
+    return exc
+
+
+def _cut(*, sent):
+    from probe import errors
+
+    return errors.DeadlineExceeded("POST /v1/runs/x/uses: deadline", sent=sent)
+
+
+@pytest.mark.parametrize(
+    ("failure", "maybe"),
+    [
+        (lambda: _cut(sent=True), True),
+        (lambda: _transport("POST /v1/runs/x/uses: ReadTimeout", unreachable=False), True),
+        (lambda: _transport("POST /v1/runs/x/uses: ConnectError", unreachable=True), False),
+        (lambda: _cut(sent=False), False),
+    ],
+    ids=["cut-after-sending", "read-timeout", "connect-refused", "cut-before-sending"],
+)
+def test_a_moving_ref_whose_answer_was_lost_never_says_nothing_was_recorded(run, fake, monkeypatch, failure, maybe):
+    """The request left and only its answer was lost: it may have landed, so
+    the warning says so, never that nothing was recorded or to call again."""
+
+    def lost(*_a, **_kw):
+        raise failure()
+
+    monkeypatch.setattr(run._client, "write", lost)
+    _, said = _caught(lambda: run.use_dataset("dataset:val"))
+    (line,) = [s for s in said if "not queued" in s]
+    assert ("may or may not be recorded" in line) is maybe
+    assert ("nothing was recorded" in line) is not maybe and ("Call it again" in line) is not maybe
+
+
+def test_an_offline_run_is_told_it_needs_a_fixed_ref(tmp_path, monkeypatch):
+    """`probe sync` sends an offline run's writes later, so a moving ref is
+    never queued there; a fixed one is."""
+    from probe.sdk import fluent, offline
+    from probe.sdk.journal import Journal
+
+    monkeypatch.setenv("PROBE_OUTBOX_DIR", str(tmp_path / "outbox"))
+    monkeypatch.setenv("PROBE_BASE_URL", "http://test")
+    monkeypatch.delenv("PROBE_RUN_ID", raising=False)
+    fluent._current.set(None)
+    fluent._process_default = None
+    try:
+        handle = probe.init(mode="offline", project="p1", name="offline-run")
+        _, said = _caught(lambda: [handle.use_dataset("dataset:val"), handle.use_dataset("dataset:val@1")])
+        (line,) = [s for s in said if "not recorded" in s]
+        assert "an offline run needs a fixed ref" in line
+        (directory,) = offline.find_offline_dirs()
+        queued = [op for _, op in Journal(directory).pending() if str(op.get("path", "")).endswith("/uses")]
+        assert [op["body"]["target"] for op in queued] == ["dataset:val@1"]
+        probe.finish()
+    finally:
+        fluent._current.set(None)
+        fluent._process_default = None
+
+
 def test_a_bad_role_or_unknown_ref_warns_once_and_never_raises(run, fake):
     _, said = _caught(lambda: run.use_dataset("dataset:nope@1", role="base_model"))
     assert any("not a role" in s for s in said) and not fake.calls("POST", f"/v1/runs/{run.id}/uses")
@@ -717,6 +801,20 @@ def test_a_manifest_put_that_fails_for_now_is_queued_ahead_of_the_registration(r
     assert fake.datasets["queued"]["versions"][0]["content_hash"] == ds.content_hash
     order = [r.url.path for r in fake.requests if r.method in ("PUT", "POST") and "/catalog/" in r.url.path]
     assert order[-2].startswith("/v1/catalog/manifests/") and order[-1] == "/v1/catalog/datasets"
+
+
+def test_a_registration_naming_a_moving_ref_is_never_queued(run, fake, tmp_path):
+    """D17 for `log_dataset(composition=...)`: the registration waits behind a
+    queued manifest only when every ref it names is fixed."""
+    run.log_dataset(_folder(tmp_path / "base", {"a.jsonl": b"{}\n"}), name="base", preview=False)
+    fake.manifest_status = 503
+    data = _folder(tmp_path / "ds", {"a.jsonl": b"{}\n", "b.jsonl": b"{}\n{}\n"})
+    ds, said = _caught(lambda: run.log_dataset(data, name="mixed", composition={"dataset:base": 1.0}, preview=False))
+    assert ds.pending is False and ds.ref is None
+    assert any("not queued" in s for s in said)
+    fake.manifest_status = None
+    run._client.flush()
+    assert [r["name"] for r in fake.registrations] == ["base"]
 
 
 def test_log_dataset_spends_the_runs_one_hashing_budget(run, fake, tmp_path):

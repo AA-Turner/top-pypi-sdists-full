@@ -2773,13 +2773,10 @@ class CloudController(BaseController):
             confirmation_msg = f"Please confirm that you would like to remove resource {resource_name} from cloud {cloud_name}."
         confirm(confirmation_msg, yes)
 
-        if is_managed:
-            self._teardown_managed_cloud_resource(
-                cloud=cloud,
-                cloud_resource=cloud_resource,
-                yes=yes,
-            )
-
+        # The backend tears down the resource's load balancer before it
+        # returns. The load balancer sits in the resource's network and is
+        # reached with the resource's credentials, so the infrastructure goes
+        # after it.
         try:
             with self.log.spinner("Removing cloud resource..."):
                 self.api_client.remove_cloud_resource_api_v2_clouds_cloud_id_remove_resource_delete(
@@ -2788,6 +2785,9 @@ class CloudController(BaseController):
                 )
         except Exception as e:  # noqa: BLE001
             raise ClickException(f"Failed to remove cloud resource: {e}")
+
+        if is_managed:
+            self._teardown_managed_cloud_resource(cloud=cloud, cloud_resource=cloud_resource)
 
         if not is_managed:
             self.log.warning(
@@ -2800,12 +2800,11 @@ class CloudController(BaseController):
         self,
         cloud: Cloud,
         cloud_resource: DecoratedCloudResource,
-        yes: bool,
     ) -> None:
         """Run the provider-specific teardown for an Anyscale-managed cloud resource.
 
-        On failure, prompt the user to force-delete (leaving the backing
-        infrastructure in place and proceeding to remove the Anyscale record).
+        Runs after the resource is removed from the cloud, so on failure it
+        raises with instructions to delete the backing infrastructure by hand.
         Branches on the resource's provider — not the cloud's — to handle MRC
         clouds where resources can span providers.
         """
@@ -2825,14 +2824,11 @@ class CloudController(BaseController):
                     f"for cloud resource provider {resource_provider}."
                 )
         except Exception as e:  # noqa: BLE001
-            confirm(
-                f"Error while trying to clean up {resource_provider} resources:\n{e}\n"
-                f"Please check your {resource_provider} account for relevant errors.\n"
-                "Do you want to force delete this cloud resource? You will need to "
-                "clean up any associated resources on your own.\n"
-                "Continue with force deletion?",
-                yes,
-            )
+            raise ClickException(
+                f"Resource {cloud_resource.name} was removed from cloud {cloud.name}, "
+                f"but cleaning up its {resource_provider} resources failed:\n{e}\n"
+                f"Please check your {resource_provider} account and delete them manually."
+            ) from e
 
     def _resolve_cloud_resource_id(
         self,
@@ -3018,8 +3014,9 @@ class CloudController(BaseController):
         else:
             self.log.info(
                 f"Successfully disabled system cluster for cloud {cloud_id}\n"
-                "Note: if the system cluster is currently running, it will continue to run until it is terminated.\n"
-                "To terminate the system cluster, use the CLI command: "
+                "Note: each cloud resource of the cloud has its own system cluster, and any "
+                "that are currently running will continue to run until they are terminated.\n"
+                "To terminate the system clusters of every cloud resource of the cloud, use the CLI command: "
                 f"anyscale cloud terminate-system-cluster --cloud-id {cloud_id} --wait"
             )
 

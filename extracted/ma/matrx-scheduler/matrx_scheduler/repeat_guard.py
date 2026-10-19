@@ -59,6 +59,13 @@ host's ``escalation_sink``. Re-enabling is a deliberate human act after repair.
 while the code below did exactly that; a doc that lies about a guard is worse
 than no doc.)
 
+**A host may name tasks that are never switched off** (ext
+``suspension_exempt``, 2026-10-17). Infrastructure whose silence costs more
+than its failures — aidream's Cloud Computer lease renewer, whose suspension
+ended every machine 150 s later — keeps firing through every ceiling. The
+ceiling still SCREAMS and still reaches the ``escalation_sink`` (the streak
+carries ``exempt_reason``), so a person hears it; only the disable is skipped.
+
 **Work done is evidence, status is not.** A run row whose
 ``result_metadata.units_done`` is above zero COMMITTED work — a bounded
 multi-pass job that classified 839 keywords and then hit a transient provider
@@ -238,6 +245,9 @@ class FailureStreak:
     #: Whether THIS call disabled the task. False when it was already disabled
     #: (a previous fire, or a human) — the sink still fires either way.
     suspended: bool = False
+    #: Set when the host exempts this task from suspension (ext
+    #: ``suspension_exempt``): the sentence saying why it keeps running.
+    exempt_reason: str | None = None
 
 
 async def check_task_failure_streak(
@@ -555,16 +565,30 @@ async def escalate_streak(
         # SCREAMING is the point. A guard that fires silently is the bug it replaced.
         log.error("[scheduler-repeat-guard] %s", streak.reason)
 
-        try:
-            suspended, approval = await _auto_suspend(streak, run_id)
-        except Exception:
-            if suspension_must_land:
-                raise
-            log.exception(
-                "[scheduler-repeat-guard] could not suspend sch_task %s; escalating anyway.",
+        exempt_reason = await suspension_exempt_reason(task_id)
+        if exempt_reason:
+            # NEVER switched off: the host named this task as infrastructure
+            # whose silence costs more than its failures. Scream and escalate;
+            # the next fire is the retry.
+            log.error(
+                "[scheduler-repeat-guard] sch_task %s reached a ceiling and is NOT being "
+                "suspended: %s",
                 task_id,
+                exempt_reason,
             )
             suspended, approval = False, None
+            streak = replace(streak, exempt_reason=exempt_reason)
+        else:
+            try:
+                suspended, approval = await _auto_suspend(streak, run_id)
+            except Exception:
+                if suspension_must_land:
+                    raise
+                log.exception(
+                    "[scheduler-repeat-guard] could not suspend sch_task %s; escalating anyway.",
+                    task_id,
+                )
+                suspended, approval = False, None
         if approval:
             log.error(
                 "[scheduler-repeat-guard] sch_task %s carries a HUMAN APPROVAL (%s) and "
@@ -606,6 +630,28 @@ async def escalate_streak(
             task_id,
             run_id,
         )
+
+
+async def suspension_exempt_reason(task_id: str) -> str | None:
+    """Why the host never lets a guard switch this task off, or None.
+
+    A resolver that raises counts as EXEMPT, loudly: the only tasks a host
+    names are the ones whose suspension is the outage, so an unreadable answer
+    must not be the moment one is switched off.
+    """
+    resolver = get_optional_ext("suspension_exempt")
+    if resolver is None:
+        return None
+    try:
+        reason = await resolver(task_id)
+    except Exception:  # noqa: BLE001 — fail toward keeping the task running
+        log.exception(
+            "[scheduler-repeat-guard] the suspension_exempt resolver failed for sch_task %s; "
+            "treating it as exempt so a guard never switches it off on a failed read.",
+            task_id,
+        )
+        return "the host's exemption check could not be read, so the task was kept running"
+    return str(reason) if reason else None
 
 
 async def _auto_suspend(streak: FailureStreak, run_id: str) -> tuple[bool, str | None]:

@@ -230,6 +230,9 @@ class Verdict:
     # word `probe`); `safe` is then False with reason "probe command", and the
     # caller routes it to its own pre-check.
     probe_argv: list[str] | None = None
+    # The text a quoted heredoc feeds that probe command (`probe draft edit PATH
+    # <<'EOF'`, `_probe_heredoc`): the caller hands it to the command as stdin.
+    probe_stdin: str | None = None
     # Set when the command is several commands and some are `probe ...` calls:
     # the caller runs them one by one (`Step`), each probe command through its
     # own pre-check and each other part as a command of its own.
@@ -492,6 +495,15 @@ def _moved_harness_files() -> frozenset[str]:
     return frozenset(found)
 
 
+#: The probe commands a quoted heredoc may feed (`_Checker._probe_heredoc`), and
+#: what a probe heredoc in another shape answers (NEW wording,
+#: tests/fixtures/daemon_prompts/tools/bash-replies.NEW.md).
+PROBE_STDIN_COMMANDS = (("draft", "edit"), ("daemon", "task"))
+#: The whole-command shape of each, as the refusals name it.
+PROBE_HEREDOC_SHAPES = {("draft", "edit"): "probe draft edit PATH <<'EOF'", ("daemon", "task"): "probe daemon task <<'EOF'"}
+R_PROBE_HEREDOC = "A probe heredoc must be the whole command: `{shape}`, the text, then a line reading EOF."
+R_PROBE_HEREDOC_TAIL = "Something follows the heredoc - `probe {command}` with its text must be the whole command."
+R_PROBE_HEREDOC_CHAINED = "`probe {command}` with its heredoc must be the whole command: run the rest in another call."
 _ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=")
 _SED_PRINT = re.compile(r"[0-9]+(,[0-9]+)?p")  # Codex: /^(\d+,)?\d+p$/
 _HEREDOC_TAG = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -967,9 +979,13 @@ class _Checker:
         write_dirs: Sequence[Path],
         read_dirs: Sequence[Path] = (),
         hidden: Callable[[str], bool] | None = None,
+        inside_only: bool = False,
     ) -> None:
         #: A path a `.probe.config` sets to `off`: Probe never reads it, in any mode.
         self.hidden = hidden
+        #: The daemon's reader: no read program reaches outside the working folders
+        #: (and the places `_place` opens besides), as its `read` tool never did.
+        self.inside_only = inside_only
         self.home = _norm(os.path.abspath(str(home)))
         self.home_real = os.path.realpath(self.home)
         self.cwd = os.path.realpath(str(cwd))
@@ -981,7 +997,8 @@ class _Checker:
             if not any(_inside(h, real) for h in homes) and real not in self.roots:
                 self.roots.append(real)
         self.write_dirs = [os.path.realpath(str(d)) for d in write_dirs]
-        # Read-only folders (the file reader's, never the shell's): the Probe skills.
+        # Read-only folders: the Probe skills (the file reader's, and the `bash`
+        # tool set's shell: `toolset`).
         self.read_dirs = [os.path.realpath(str(d)) for d in read_dirs]
         secrets = [os.path.join(h, name) for h in homes for name in _HOME_SECRETS]
         # Probe's config wherever it lives: $XDG_CONFIG_HOME, else ~/.config (the
@@ -1013,6 +1030,9 @@ class _Checker:
         if "\0" in command:
             raise _Refuse("The command contains a NUL byte.")
         self._never_bookkeeping(command)
+        fed = self._probe_heredoc(command)
+        if fed is not None:
+            return fed
         try:
             note = self._note_write(command)
         except _Refuse as refusal:
@@ -1041,6 +1061,13 @@ class _Checker:
             raise
         # The every-mode refusals first, over EVERY part: the checks below stop at
         # the first part they would ask about, and bypass mode runs what is asked.
+        if any(op.op in ("<<", "<<-") for part in parts for op, _ in part.redirects):
+            # A heredoc that is not on the first line (`echo hi` then `bash <<'EOF'`):
+            # `_never` reads no further than its tag, and its body may be code bash
+            # runs. Every allowed heredoc shape (`_note_write`, `_probe_heredoc`) puts
+            # it on the first line, so this one is asked about -- and bypass mode runs
+            # what is asked: the every-mode refusals over the whole raw text first.
+            self._never_raw(command)
         self._never(parts)
         if any(_is_probe(p) for p in parts):
             if len(parts) == 1 and not parts[0].redirects:
@@ -1090,8 +1117,8 @@ class _Checker:
         unquoted heredoc nor bypass mode gets past it (`_check_write` alone sat
         behind the quoted-heredoc check). A heredoc's body is data, not read."""
         first = command.partition("\n")[0]
-        text = first if "<<" in first else command
-        if not _BOOKKEEPING_NAMED.search(text):
+        text = _fold(_unquoted(first if "<<" in first else command))
+        if not any(_could_be_bookkeeping(tok.rstrip("/").rsplit("/", 1)[-1]) for tok in _TOKENS.findall(text)):
             return
         forms: set[str] = set()
         for folder in self.write_dirs:
@@ -1100,8 +1127,9 @@ class _Checker:
                 if _inside(folder, home) and folder != home:
                     rel = os.path.relpath(folder, home)
                     forms |= {f"~/{rel}", f"$HOME/{rel}", f"${{HOME}}/{rel}"}
-        cwd = os.path.realpath(self.cwd)
-        if any(form in text for form in forms) or any(_inside(cwd, d) for d in self.write_dirs):
+        cwd = _fold(os.path.realpath(self.cwd))
+        if (any(_fold(form) in text for form in forms)
+                or any(_inside(cwd, _fold(d)) for d in self.write_dirs)):
             raise _Never("It names a checkout's base copy, version or lock in Probe's notes or summaries, which "
                          "only `probe` writes.")
 
@@ -1119,6 +1147,9 @@ class _Checker:
         parts = _split(_tokenize(first))  # `_note_write` read this line already
         for part in parts:  # one by one: `_never` stops reading at a heredoc
             if _is_probe(part):  # as the steps path refuses it: its lines would run as commands
+                which = tuple(w.value for w in part.words[1:3])
+                if which in PROBE_STDIN_COMMANDS:
+                    raise _Never(R_PROBE_HEREDOC_CHAINED.format(command=" ".join(which)))
                 raise _Never("A heredoc can't go in a chained command with probe (its lines would run as commands).")
             self._never([part])
         found = next(((op, tag) for part in parts for op, tag in part.redirects if op.op in ("<<", "<<-")), None)
@@ -1309,6 +1340,51 @@ class _Checker:
             steps.append(Step(before, text, cd=_expand(folder, self.home) if folder is not None else None))
         return steps
 
+    def _probe_heredoc(self, command: str) -> Verdict | None:
+        """`probe draft edit PATH <<'TAG'` ... `TAG`, the whole command: the one
+        probe command a heredoc may feed (`PROBE_STDIN_COMMANDS`). The daemon runs
+        it itself, never bash, and hands it the body as stdin, so nothing in the
+        body is ever read as a command. None for any other command; a refusal for
+        a probe command fed in another shape (an unquoted tag, a pipe, text after
+        the closing line) -- refused in EVERY mode (`_Never`): a refusal here comes
+        before the every-mode checks (`_never_heredoc`, `_never_raw`), so a plain
+        `_Refuse` would let bypass mode run the whole text with bash, whatever
+        follows the closing line."""
+        first, newline, body = command.partition("\n")
+        if not newline or "<<" not in first:
+            return None
+        try:
+            toks = _tokenize(first)
+        except _Refuse:
+            return None
+        if not (toks and isinstance(toks[0], _Word) and toks[0].value == "probe"):
+            return None
+        words = [t.value for t in toks[1:] if isinstance(t, _Word)]
+        which = tuple(words[:2])
+        if which not in PROBE_STDIN_COMMANDS:
+            return None
+        if (len(toks) < 3 or not isinstance(toks[-2], _Op) or toks[-2].op not in ("<<", "<<-")
+                or toks[-2].fd is not None or not isinstance(toks[-1], _Word)
+                or any(isinstance(t, _Op) for t in toks[:-2])):
+            raise _Never(R_PROBE_HEREDOC.format(shape=PROBE_HEREDOC_SHAPES[which]))
+        op, tag = toks[-2].op, toks[-1]
+        name = tag.value
+        if not (_HEREDOC_TAG.fullmatch(name) and tag.raw in (f"'{name}'", f'"{name}"')):
+            raise _Never("The heredoc's delimiter must be quoted (<<'EOF').")
+        lines = body.split("\n")
+        for k, line in enumerate(lines):
+            if (line.lstrip("\t") if op == "<<-" else line) == name:
+                if "\n".join(lines[k + 1 :]).strip():
+                    raise _Never(R_PROBE_HEREDOC_TAIL.format(command=" ".join(which)))
+                break
+        else:
+            raise _Never(f"The heredoc is never closed by a line reading {name}.")
+        kept = lines[:k]
+        if op == "<<-":
+            kept = [line.lstrip("\t") for line in kept]
+        argv = [_expand(t, self.home) for t in toks[1:-2] if isinstance(t, _Word)]
+        return Verdict(False, "probe command", probe_argv=argv, probe_stdin="\n".join(kept) + ("\n" if k else ""))
+
     def _note_write(self, command: str) -> Verdict | None:
         """The one write allowed: `cat > FILE <<'TAG'` ... `TAG`, FILE inside write_dirs."""
         first, newline, body = command.partition("\n")
@@ -1372,9 +1448,15 @@ class _Checker:
             raise _Refuse(f"It writes {shown}, which looks like a credential or Probe's key file.")
         if os.path.isdir(real) or not os.path.isdir(os.path.dirname(real)):
             raise _Refuse(f"It writes {shown}, which isn't a file in an existing folder.")
+        inside = [d for d in self.write_dirs if _inside(_fold(real), _fold(d)) and _fold(real) != _fold(d)]
+        if inside and (is_bookkeeping(os.path.basename(real)) or is_bookkeeping(os.path.basename(lex))):
+            # Never, not Refuse: bypass mode approves a Refuse, and this one guards the erasure check.
+            raise _Never(f"It writes {shown}: a checkout's base copy, version or lock, which only `probe` writes.")
         if not any(_inside(real, d) and real != d for d in self.write_dirs):
+            # (On macOS and Windows a folder spelled in other case is the same folder:
+            # its bookkeeping was refused just above, in every mode.)
             raise _Refuse(f"It writes {shown}, outside the folders open for writing.")
-        if os.path.basename(real).endswith(_BOOKKEEPING) or os.path.basename(lex).endswith(_BOOKKEEPING):
+        if is_bookkeeping(os.path.basename(real)) or is_bookkeeping(os.path.basename(lex)):
             # Never, not Refuse: bypass mode approves a Refuse, and this one guards the erasure check.
             raise _Never(f"It writes {shown}: a checkout's base copy, version or lock, which only `probe` writes.")
         return real
@@ -1555,7 +1637,7 @@ class _Checker:
             hidden = bad
         if hidden:
             return f"inside a hidden folder ({hidden})"
-        return _OUTSIDE if anywhere is None else self._outside(real, anywhere)
+        return _OUTSIDE if anywhere is None or self.inside_only else self._outside(real, anywhere)
 
     def _outside(self, real: str, anywhere: str) -> str | None:
         """A read program's read outside the working folders: None when it runs at
@@ -1593,7 +1675,10 @@ class _Checker:
             return f"a folder {_OUTSIDE}, and every file in it would be read" if outside else None
         if not stat.S_ISREG(st.st_mode):
             return "not an ordinary file (a pipe, a socket or a device)"
-        if st.st_nlink > 1:
+        if st.st_nlink > 1 and not (any(_inside(real, d) for d in self.read_dirs) and packaged_file(real)):
+            # Not a file the installed package put in the read-only folders (the
+            # Probe skills): an installer that links from its cache (uv) gives each
+            # a second name there, and its RECORD names it with its hash.
             return f"the file has {st.st_nlink} names (hard links): another may be a credential's"
         return None
 
@@ -2190,6 +2275,8 @@ def classify(
     piped_input: bool = False,
     hidden: Callable[[str], bool] | None = None,
     off_inside: Callable[[str], bool] | None = None,
+    read_dirs: Sequence[Path] = (),
+    inside_only: bool = False,
 ) -> Verdict:
     """Decide, without running anything, whether `command` may run at once.
 
@@ -2197,12 +2284,15 @@ def classify(
     daemon's own); `~` is expanded with it. `write_dirs` are the only folders the
     note-writing heredoc may write into. `piped_input`: its stdin is another
     command's output that may hold a file's text (a compound's `probe ... | X`).
+    `read_dirs`: folders read programs may read, never write (the Probe skills).
+    `inside_only`: no read reaches outside the working folders (the reader).
     """
     refused = _config_refusal(command, cwd, hidden, off_inside)
     if refused:
         return Verdict(False, refused, refused=True)
     checker = _Checker(
-        workdirs=workdirs, home=home, cwd=cwd, protected=protected, write_dirs=write_dirs, hidden=hidden
+        workdirs=workdirs, home=home, cwd=cwd, protected=protected, write_dirs=write_dirs, hidden=hidden,
+        read_dirs=read_dirs, inside_only=inside_only,
     )
     try:
         return checker.classify(command, piped_input)
@@ -2453,7 +2543,90 @@ def _held_resolve(word: str, dirs: list[str], home: str) -> list[str]:
 #: never the daemon's to write. A forged version would push stale text past the
 #: server's concurrent-edit and erasure checks.
 _BOOKKEEPING = (".base", ".meta.json", ".lock", ".owner")
-_BOOKKEEPING_NAMED = re.compile(r"""[^\s'"`;|&<>()=]*(?:\.base|\.meta\.json|\.lock|\.owner)(?=$|[\s'"`;|&<>()])""")
+#: Any case: macOS and Windows file systems ignore it, so `X.BASE` is `X.base`.
+_BOOKKEEPING_NAMED = re.compile(r"""[^\s'"`;|&<>()=]*(?:\.base|\.meta\.json|\.lock|\.owner)(?=$|[\s'"`;|&<>()])""", re.I)
+
+
+def _record_hashes() -> dict[str, str]:
+    """Real path -> sha256 (RECORD's urlsafe base64) of every file the installed
+    `probe-research` package lists in its RECORD; empty when it has none."""
+    global _RECORD
+    if _RECORD is None:
+        found: dict[str, str] = {}
+        try:
+            from importlib import metadata
+
+            dist = metadata.distribution("probe-research")
+            for entry in dist.files or []:
+                if entry.hash is not None and entry.hash.mode == "sha256":
+                    found[os.path.realpath(str(dist.locate_file(entry)))] = entry.hash.value
+        except Exception:  # noqa: BLE001 -- no package metadata: no file is the package's
+            found = {}
+        _RECORD = found
+    return _RECORD
+
+
+_RECORD: dict[str, str] | None = None
+
+
+def packaged_file(real: str) -> bool:
+    """Is `real` a file of the installed package, as its RECORD lists it: the
+    path AND its content (sha256)? A second name another file was given there
+    (a hard link to a key) does not hash alike."""
+    import base64
+    import hashlib
+
+    want = _record_hashes().get(real)
+    if want is None:
+        return False
+    try:
+        with open(real, "rb") as handle:
+            digest = hashlib.sha256(handle.read(4 * 1024 * 1024 + 1)).digest()
+    except OSError:
+        return False
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode() == want
+
+
+#: Words of a command line, as the bookkeeping ban reads them (quotes already gone).
+_TOKENS = re.compile(r"[^\s;|&<>()=]+")
+#: What can stand for other characters in a name: globs, braces, expansions.
+_STANDS_IN = "?*[{$`"
+
+
+def _unquoted(text: str) -> str:
+    """`text` without quotes and backslashes, as bash joins the pieces of a word
+    (`x.md.ba''se`, `x.md.ba\\se`, `x.md."BASE"` are all `x.md.base`)."""
+    return re.sub(r"[\"'\\]", "", text)
+
+
+def _fold(path: str) -> str:
+    """`path` without case where the file system ignores it (macOS, Windows):
+    `~/.local/STATE/probe/notes` is the notes folder there."""
+    return path.casefold() if sys.platform == "darwin" or os.name == "nt" else path
+
+
+def _could_be_bookkeeping(name: str) -> bool:
+    """Could this file name, as written, be a checkout's bookkeeping file? Its
+    suffix in any case, or a glob, brace or expansion that could expand to one
+    (`x.md.bas?`, `x.md.ba[s]e`, `x.md.b*`, `x.md.ba{s,}e`)."""
+    import fnmatch
+
+    folded = name.casefold()
+    if folded.endswith(_BOOKKEEPING):
+        return True
+    if not any(c in folded for c in _STANDS_IN):
+        return False
+    if any(c in folded for c in "{$`"):
+        return True  # expands to what the text does not show
+    literal = re.split(r"[?*\[]", folded, maxsplit=1)[0]
+    return any(fnmatch.fnmatchcase(literal + suffix[j:], folded)
+               for suffix in _BOOKKEEPING for j in range(len(suffix) + 1)
+               if (literal + suffix[j:]).endswith(suffix))
+
+
+def is_bookkeeping(name: str) -> bool:
+    """A checkout's base copy, version or lock (`_BOOKKEEPING`), in any case."""
+    return name.casefold().endswith(_BOOKKEEPING)
 
 
 def names_writable(command: str, *, cwd: Path, home: Path, folders: Sequence[Path]) -> str | None:

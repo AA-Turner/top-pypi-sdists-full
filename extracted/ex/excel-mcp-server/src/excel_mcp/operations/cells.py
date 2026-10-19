@@ -8,9 +8,11 @@ from openpyxl.worksheet.worksheet import Worksheet
 from pydantic import BaseModel
 
 from excel_mcp.errors import InvalidArgumentError, LimitExceededError
+from excel_mcp.lazy_workbook import LazyCells, held_cells
 from excel_mcp.operations.date_width import FITTED_WIDTHS, widen_for_dates
 from excel_mcp.operations.hyperlinks import Link, set_link
 from excel_mcp.operations.spill import spill_formulas
+from excel_mcp.operations.used_range import used_range_in
 from excel_mcp.refs import (
     MAX_COLUMN,
     MAX_ROW,
@@ -55,6 +57,30 @@ def stored_cells(sheet: Worksheet) -> Iterator[Cell]:
             yield cell
 
 
+def stored_cells_in(sheet: Worksheet, area: CellRange) -> Iterator[Cell]:
+    """The cells that hold a value inside ``area``; a large sheet parses only those rows."""
+    cells = sheet._cells
+    if not isinstance(cells, LazyCells):
+        yield from (
+            cell
+            for cell in stored_cells(sheet)
+            if area.min_row <= cell.row <= area.max_row
+            and area.min_col <= cell.column <= area.max_col
+        )
+        return
+    for row in range(area.min_row, area.max_row + 1):
+        for (_, column), cell in cells.in_row(row):
+            if area.min_col <= column <= area.max_col and cell.value is not None:
+                yield cell
+
+
+def parsed_cells(sheet: Worksheet) -> Iterator[Cell]:
+    """`stored_cells`, but for the rows a large sheet has not parsed, which are as in the file."""
+    for _, cell in sorted(held_cells(sheet).items()):
+        if cell.value is not None:
+            yield cell
+
+
 def used_range(sheet: Worksheet) -> CellRange:
     """The smallest range containing every cell that has a value.
 
@@ -79,7 +105,13 @@ def streamed_cells(sheet: ReadOnlyWorksheet) -> Iterator[tuple[int, int, object]
 
 
 def streamed_used_range(sheet: ReadOnlyWorksheet) -> CellRange:
-    """Like used_range, for a streamed sheet: one full pass over its cells."""
+    """Like used_range, for a streamed sheet: read from the sheet's XML text, or else one full
+    pass over its cells."""
+    if not sheet.parent.data_only:  # pyright: ignore[reportOptionalMemberAccess]
+        with sheet._get_source() as source:  # pyright: ignore[reportAttributeAccessIssue]
+            found = used_range_in(source.read())
+        if found is not None:
+            return found
     min_row = min_col = MAX_ROW + 1
     max_row = max_col = 0
     for row, col, _ in streamed_cells(sheet):

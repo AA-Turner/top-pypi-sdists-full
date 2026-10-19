@@ -63,6 +63,7 @@ from scripts.lab_alarm import (
     evaluate_lab_pass_receipt,
     evaluate_stale_indeterminate,
     evaluate_work_ledger_projection_stale,
+    exit_code,
     expand_env,
     make_ledger_appender,
     make_runner,
@@ -668,6 +669,179 @@ def test_read_onex_lane_credential_refuses_a_missing_store(tmp_path: Path) -> No
         read_onex_lane_credential(tmp_path / "does-not-exist", "dev")
 
 
+@pytest.mark.unit
+def test_the_lag_path_makes_no_subprocess_ssh_or_docker_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AC1 falsifier: reading lag escapes the process to ssh, docker, or a shell."""
+    import asyncio
+
+    from aiokafka.structs import OffsetAndMetadata, TopicPartition
+
+    from scripts.lab_alarm import make_kafka_lag_reader
+
+    partition = TopicPartition("savings", 0)
+    guarded_calls: list[tuple[object, ...]] = []
+
+    def refuse_process(*args: object, **kwargs: object) -> None:
+        guarded_calls.append(args)
+        raise AssertionError("lag reading must stay in-process")
+
+    class FakeAdmin:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        async def start(self) -> None:
+            pass
+
+        async def list_consumer_group_offsets(
+            self, group: str
+        ) -> dict[TopicPartition, OffsetAndMetadata]:
+            assert group == "savings"
+            return {partition: OffsetAndMetadata(5, "")}
+
+        async def close(self) -> None:
+            pass
+
+    class FakeConsumer:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        async def start(self) -> None:
+            pass
+
+        async def end_offsets(
+            self, partitions: list[TopicPartition]
+        ) -> dict[TopicPartition, int]:
+            assert partitions == [partition]
+            return {partition: 12}
+
+        async def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr("aiokafka.admin.AIOKafkaAdminClient", FakeAdmin)
+    monkeypatch.setattr("aiokafka.AIOKafkaConsumer", FakeConsumer)
+    monkeypatch.setattr(subprocess, "run", refuse_process)
+    monkeypatch.setattr(subprocess, "Popen", refuse_process)
+    monkeypatch.setattr(os, "system", refuse_process)
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", refuse_process)
+
+    reader = make_kafka_lag_reader(
+        bootstrap_servers="unused:9092",
+        sasl_username="dev-cli-test",
+        sasl_password="in-process-test-password",
+    )
+    report, sample = evaluate_consumer_group_lag(
+        reader, ["savings"], previous={"savings": 7}
+    )
+    assert report.outcome is EnumConditionOutcome.OK
+    assert sample == {"savings": 7}
+    assert guarded_calls == []
+
+    # Positive control: the installed guard really refuses a process call.
+    with pytest.raises(AssertionError, match="must stay in-process"):
+        subprocess.run(["true"], check=True)
+    assert len(guarded_calls) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "failure", ["connection", "authorization", "runtime", "insecure-store"]
+)
+def test_the_resolved_password_never_reaches_evidence_or_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    failure: str,
+) -> None:
+    """AC2 falsifier: a credential or client failure exposes the resolved password."""
+    from aiokafka.errors import (
+        GroupAuthorizationFailedError,
+        KafkaConnectionError,
+    )
+    from aiokafka.structs import OffsetAndMetadata, TopicPartition
+
+    from scripts.lab_alarm import (
+        _build_lag_reader,
+        _resolve_onex_credential_or_reason,
+    )
+
+    password = "AC2-distinctive-resolved-password-omn19091"
+    _write_onex_store(
+        tmp_path,
+        password=password,
+        mode=0o644 if failure == "insecure-store" else 0o600,
+    )
+    directory_before = sorted(tmp_path.rglob("*"))
+    credential = _resolve_onex_credential_or_reason(tmp_path)
+    if failure == "insecure-store":
+        assert isinstance(credential, str)
+        assert "0600" in credential
+        assert password not in credential
+    else:
+        assert credential == ("dev-cli-test", password)
+
+    error_type = {
+        "connection": KafkaConnectionError,
+        "authorization": GroupAuthorizationFailedError,
+        "runtime": RuntimeError,
+        "insecure-store": RuntimeError,
+    }[failure]
+    partition = TopicPartition("savings", 0)
+    client_kwargs: list[dict[str, object]] = []
+
+    class FakeAdmin:
+        def __init__(self, **kwargs: object) -> None:
+            client_kwargs.append(kwargs)
+
+        async def start(self) -> None:
+            raise error_type(f"client failed with password {password}")
+
+        async def list_consumer_group_offsets(
+            self, group: str
+        ) -> dict[TopicPartition, OffsetAndMetadata]:
+            return {partition: OffsetAndMetadata(5, "")}
+
+        async def close(self) -> None:
+            pass
+
+    class FakeConsumer:
+        def __init__(self, **kwargs: object) -> None:
+            client_kwargs.append(kwargs)
+
+        async def start(self) -> None:
+            pass
+
+        async def end_offsets(
+            self, partitions: list[TopicPartition]
+        ) -> dict[TopicPartition, int]:
+            return {partition: 12}
+
+        async def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr("aiokafka.admin.AIOKafkaAdminClient", FakeAdmin)
+    monkeypatch.setattr("aiokafka.AIOKafkaConsumer", FakeConsumer)
+    reader = _build_lag_reader(credential, bootstrap_servers="unused:9092")
+    report, _ = evaluate_consumer_group_lag(
+        reader, ["savings"], previous={"savings": 7}
+    )
+    assert report.outcome is EnumConditionOutcome.INDETERMINATE
+    assert password not in report.evidence
+    assert password not in repr(report)
+    captured = capsys.readouterr()
+    assert password not in captured.out
+    assert password not in captured.err
+    assert sorted(tmp_path.rglob("*")) == directory_before
+    if failure == "insecure-store":
+        assert client_kwargs == []
+    else:
+        assert error_type.__name__ in report.evidence
+        # Positive control: the secret reached the real reader's client kwargs.
+        assert len(client_kwargs) == 1
+        assert client_kwargs[0]["sasl_plain_password"] == password
+
+
 # ---------------------------------------------------------------------------
 # Edge-triggering, and the whole-run record
 # ---------------------------------------------------------------------------
@@ -697,6 +871,7 @@ def _run(
     canary: tuple[int, str] = (0, CANARY_GREEN),
     appender: LedgerAppender | None = None,
     clock: Callable[[], str] | None = None,
+    heartbeat: Callable[[], dict[str, Any]] | None = None,
 ) -> ModelAlarmRun:
     config = ModelAlarmConfig(
         repo="o/r",
@@ -744,11 +919,23 @@ def _run(
         lag_reader=_lag_reader({"savings": lag}),
         effects_reader=_effects_reader(),
         canary_reader=lambda repo, workflow, branch, max_age_hours: canary,
+        heartbeat_reader=heartbeat
+        or _fresh_heartbeat(clock() if clock is not None else None),
         posting_channel=CHANNEL,
         env_file=tmp_path / "absent.env",
         ledger_appender=appender if appender is not None else _recording_appender([]),
         **({} if clock is None else {"clock": clock}),
     )
+
+
+def _fresh_heartbeat(at: str | None = None) -> Callable[[], dict[str, Any]]:
+    """A HeartbeatReader answering a beat observed *at* (now when omitted): OMN-19998."""
+
+    def read() -> dict[str, Any]:
+        observed = at or datetime.now(UTC).isoformat(timespec="seconds")
+        return {"heartbeat": {"omnimarket": {"observed_at": observed, "alarm": False}}}
+
+    return read
 
 
 def _recording_appender(rows: list[str]) -> LedgerAppender:
@@ -2511,6 +2698,33 @@ def test_lab_alarm_ledger_row_cells_cannot_break_the_row(tmp_path: Path) -> None
 
 
 @pytest.mark.unit
+def test_lab_alarm_ledger_row_names_the_mechanism_as_actor() -> None:
+    """The ruling audit counts a mechanism as acting only by its ``actor=`` cell.
+
+    ``ruling_mechanisms.py`` (queue-status) credits a ledger row to a mechanism
+    when its ``actor=`` is ``<kind>:<name>`` with a mechanism kind and a name
+    derived from the mechanism path. The alarm wrote ``lane=lab-alarm`` alone, so
+    the rulings it carries read NOT-ACTING while it raised rows every day.
+    """
+    from scripts.lab_alarm import render_ledger_row
+
+    row = render_ledger_row(
+        ModelAlarm(
+            condition=EnumAlarmCondition.CONTAINER_RESTARTS,
+            subject="omninode-runtime",
+            detail="restarted",
+        ),
+        evidence="e",
+        stamp="2026-10-17T09:55:27Z",
+        raised_at="2026-10-17T09:55:27+00:00",
+        ticket="OMN-20769",
+    )
+    kind, _, name = _ledger_cells(row)["actor"].partition(":")
+    assert kind == "launchd"
+    assert name in {"lab-alarm", "lab_alarm"}
+
+
+@pytest.mark.unit
 def test_lab_alarm_failed_ledger_append_is_loud_and_retried(tmp_path: Path) -> None:
     """An alarm that believes it recorded and did not is this ticket's defect."""
     from scripts.lab_alarm import EXIT_ALARM, exit_code
@@ -2731,6 +2945,7 @@ def _replay_tick(
         lag_reader=_lag_reader({"savings": 1}),
         effects_reader=_effects_reader(),
         canary_reader=lambda repo, workflow, branch, max_age_hours: (0, CANARY_GREEN),
+        heartbeat_reader=_fresh_heartbeat(tick),
         posting_channel=CHANNEL,
         env_file=tmp_path / "absent.env",
         ledger_appender=appender,
@@ -3337,6 +3552,46 @@ def test_a_red_chain_canary_alarms_once_across_two_runs_and_clears(
     assert canary_alarms(second) == []
     assert canary_alarms(green) == []
     assert len(canary_alarms(again)) == 1
+
+
+@pytest.mark.unit
+def test_a_stale_dev_tag_heartbeat_alarms_once_across_two_runs_and_clears(
+    tmp_path: Path,
+) -> None:
+    """OMN-19998: the stale heartbeat is the negative control, the fresh one the positive."""
+    ledger = tmp_path / "ledger.md"
+    ledger.write_text("| none |\n", encoding="utf-8")
+    stale_at = (datetime.now(UTC) - timedelta(hours=4)).isoformat(timespec="seconds")
+
+    def heartbeat_alarms(run: ModelAlarmRun) -> list[ModelAlarm]:
+        return [
+            a for a in run.raised if a.condition is EnumAlarmCondition.DEV_TAG_HEARTBEAT
+        ]
+
+    def run(heartbeat: Callable[[], dict[str, Any]]) -> ModelAlarmRun:
+        return _run(
+            tmp_path,
+            result=EnumLabPassResult.PASS,
+            restarts="0 running",
+            lag=7,
+            ledger=ledger,
+            heartbeat=heartbeat,
+        )
+
+    fresh = run(_fresh_heartbeat())
+    first = run(_fresh_heartbeat(stale_at))
+    second = run(_fresh_heartbeat(stale_at))
+    cleared = run(_fresh_heartbeat())
+    again = run(_fresh_heartbeat(stale_at))
+    assert heartbeat_alarms(fresh) == []
+    assert [a.subject for a in heartbeat_alarms(first)] == ["omnimarket"]
+    assert heartbeat_alarms(second) == []
+    assert heartbeat_alarms(cleared) == []
+    assert len(heartbeat_alarms(again)) == 1
+    assert exit_code(first) == 1
+    assert {r.condition: r.outcome for r in fresh.reports}[
+        EnumAlarmCondition.DEV_TAG_HEARTBEAT
+    ] is EnumConditionOutcome.OK
 
 
 @pytest.mark.unit

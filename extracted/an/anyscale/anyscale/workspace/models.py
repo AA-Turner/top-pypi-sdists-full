@@ -5,9 +5,11 @@ from typing import ClassVar, Dict, List, Optional, Union
 from anyscale._private.models import ImageURI, ModelBase
 from anyscale._private.models.model_base import ModelEnum
 from anyscale._private.models.validation import (
+    RAY_VERSION_FIELD_DEPRECATION,
     SCHEDULING_PRIORITY_MAX,
     SCHEDULING_PRIORITY_MIN,
     validate_scheduling_priority,
+    warn_ray_version_deprecated,
 )
 from anyscale.compute_config.models import (
     compute_config_type_from_dict,
@@ -230,7 +232,8 @@ tags:
     ray_version: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "Ray version (X.Y.Z) of the image, from an image URI or a containerfile. Defaults to the version of the containerfile's Anyscale base image, if any. Otherwise, Anyscale doesn't assume a version."
+            "docstring": "Ray version (X.Y.Z) of the image, from an image URI or a containerfile. Defaults to the version of the containerfile's Anyscale base image, if any. Otherwise, Anyscale doesn't assume a version.",
+            **RAY_VERSION_FIELD_DEPRECATION,
         },
     )
 
@@ -243,6 +246,7 @@ tags:
                 raise ValueError(
                     f"Invalid Ray version format: {ray_version}. Must be in the format 'X.Y.Z'."
                 )
+            warn_ray_version_deprecated()
 
 
 @dataclass(frozen=True)

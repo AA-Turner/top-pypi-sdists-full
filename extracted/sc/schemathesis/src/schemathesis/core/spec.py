@@ -40,10 +40,9 @@ class CoverageCapabilities:
     """Coverage-phase data the engine asks of a specification.
 
     Specs that do not participate in coverage generation can return an empty instance
-    (`format_strategies={}`, `update_pattern=None`, `validator_cls=None`).
+    (`update_pattern=None`, `validator_cls=None`).
     """
 
-    format_strategies: dict[str, SearchStrategy[Any]]
     update_pattern: Callable[[str, int | None, int | None], str] | None
     validator_cls: type[jsonschema_rs.Validator] | None
 
@@ -215,7 +214,11 @@ class TransportShape(Protocol):
 
     def evaluate_server_error(self, case: Case, response: Response) -> None: ...  # pragma: no cover
 
-    def classify_call_outcome(self, response: Response) -> CallOutcome: ...  # pragma: no cover
+    def evaluate_negative_data(self, case: Case, response: Response) -> None: ...  # pragma: no cover
+
+    def evaluate_positive_data(self, case: Case, response: Response) -> None: ...  # pragma: no cover
+
+    def classify_call_outcome(self, case: Case, response: Response) -> CallOutcome: ...  # pragma: no cover
 
     def prepare_multipart(
         self,

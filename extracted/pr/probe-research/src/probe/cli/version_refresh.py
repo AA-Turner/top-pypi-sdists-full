@@ -105,33 +105,39 @@ def _flush_update_reports(base: str) -> None:
         pass
 
 
-def _apply() -> None:
-    """Wait out the parent, then upgrade.
+def _apply() -> int:
+    """Wait out the parent, then upgrade. The exit status: 0, or
+    `wizard_lock.BUSY_EXIT_CODE` while a Probe setup holds the device.
 
-    `perform_update` does the waiting and re-checks the run lock afterwards; both
-    live there because the wizard's own Update action shares this path and must
+    `perform_update` does the waiting and re-checks the run lock afterwards, and
+    then takes the wizard lock (recording the skip when it is held); all of it
+    lives there because the wizard's own Update action shares this path and must
     behave identically when it is not spawned (no parent pid in the environment,
     so no wait).
     """
     from probe import version_policy
-    from probe.cli import autoupdate, update_report
+    from probe.cli import autoupdate, update_report, wizard_lock
     from probe.cli.upgrading import perform_update
 
     # Single-writer across concurrent sessions. Without it, several Claude Code
     # windows starting at once each run `uv tool upgrade` against one install.
     if not autoupdate.acquire_lock():
-        return
+        return 0
     try:
         perform_update(
             base_url=version_policy.base_url(),
             trigger=update_report.trigger_from_env(update_report.Trigger.CLI),
         )
+    except wizard_lock.Busy:
+        return wizard_lock.BUSY_EXIT_CODE
     finally:
         autoupdate.release_lock()
+    return 0
 
 
-def _apply_if_newer() -> None:
+def _apply_if_newer() -> int:
     """Fetch, compare, and only then upgrade. The run-end path's entry point.
+    The exit status is `_apply`'s.
 
     The fetch is authoritative rather than cached ON PURPOSE: the parent that
     spawned us could not consult the cache without doing exactly the blocking
@@ -147,7 +153,7 @@ def _apply_if_newer() -> None:
     against one version and upgrading toward another.
     """
     from probe import __version__, version_policy
-    from probe.cli import autoupdate, update_report, updater
+    from probe.cli import autoupdate, update_report, updater, wizard_lock
     from probe.cli.upgrading import perform_update, update_owed_pi_package
 
     base = version_policy.base_url()
@@ -168,25 +174,31 @@ def _apply_if_newer() -> None:
     # line. That is also why the fetch failure below returns from INSIDE the
     # `finally` -- the lock must be released on every exit, not just the happy one.
     if not autoupdate.acquire_lock():
-        return
+        return 0
+    trigger = update_report.trigger_from_env(update_report.Trigger.CLI)
     try:
         try:
             manifest = updater.fetch_latest(base)
         except Exception:  # noqa: BLE001 -- see docstring: no manifest, no upgrade
-            return
+            return 0
         if not updater.cli_update_available(manifest, __version__):
             # The CLI is current, but a pi package update that failed is
-            # still owed: that alone, never the CLI and plugins again.
+            # still owed: that alone, never the CLI and plugins again. It
+            # changes the device too, so it waits for no Probe setup either.
             if autoupdate.pi_update_due():
-                update_owed_pi_package()
-            return
-        perform_update(
-            base_url=base,
-            manifest=manifest,
-            trigger=update_report.trigger_from_env(update_report.Trigger.CLI),
-        )
+                try:
+                    with wizard_lock.held():
+                        update_owed_pi_package()
+                except wizard_lock.Busy:
+                    autoupdate.record_skip(autoupdate.SKIP_SETUP_RUNNING, trigger=trigger.value)
+                    return wizard_lock.BUSY_EXIT_CODE
+            return 0
+        perform_update(base_url=base, manifest=manifest, trigger=trigger)
+    except wizard_lock.Busy:  # `perform_update` recorded the skip
+        return wizard_lock.BUSY_EXIT_CODE
     finally:
         autoupdate.release_lock()
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -201,11 +213,10 @@ def main(argv: list[str] | None = None) -> int:
         # matches whole elements, but ordering here keeps the intent obvious to
         # anyone adding a fourth mode.
         if "--apply-if-newer" in args:
-            _apply_if_newer()
-        elif "--apply" in args:
-            _apply()
-        else:
-            _refresh()
+            return _apply_if_newer()
+        if "--apply" in args:
+            return _apply()
+        _refresh()
     except Exception:  # noqa: BLE001
         # Detached: there is no terminal to raise into, and a traceback on stderr
         # goes to /dev/null. Failures that matter are in the audit record.

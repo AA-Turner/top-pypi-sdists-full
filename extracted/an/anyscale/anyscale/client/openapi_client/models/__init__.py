@@ -506,7 +506,9 @@ from openapi_client.models.gpu_metric_point import GpuMetricPoint
 from openapi_client.models.gpu_metric_series import GpuMetricSeries
 from openapi_client.models.gpu_metric_timeseries import GpuMetricTimeseries
 from openapi_client.models.gpu_node_rollup import GpuNodeRollup
+from openapi_client.models.gpu_power_source import GpuPowerSource
 from openapi_client.models.gpu_scope import GpuScope
+from openapi_client.models.gpu_series_source import GpuSeriesSource
 from openapi_client.models.gpu_state import GpuState
 from openapi_client.models.gpu_status_cluster import GpuStatusCluster
 from openapi_client.models.gpu_status_group import GpuStatusGroup
@@ -521,6 +523,7 @@ from openapi_client.models.gpu_telemetry import GpuTelemetry
 from openapi_client.models.gpu_telemetry_health import GpuTelemetryHealth
 from openapi_client.models.gpu_telemetry_health_status import GpuTelemetryHealthStatus
 from openapi_client.models.gpu_timeseries_metric import GpuTimeseriesMetric
+from openapi_client.models.gpu_utilization_source import GpuUtilizationSource
 from openapi_client.models.gpu_workload_ref import GpuWorkloadRef
 from openapi_client.models.gpu_xid import GpuXid
 from openapi_client.models.gpudetail_response import GpudetailResponse
@@ -885,6 +888,7 @@ from openapi_client.models.run_attempt_status import RunAttemptStatus
 from openapi_client.models.run_config import RunConfig
 from openapi_client.models.run_settings import RunSettings
 from openapi_client.models.run_status import RunStatus
+from openapi_client.models.s3_addressing_style import S3AddressingStyle
 from openapi_client.models.s3_download_location import S3DownloadLocation
 from openapi_client.models.scim_migration_result import SCIMMigrationResult
 from openapi_client.models.sso_config import SSOConfig
@@ -1131,6 +1135,7 @@ from openapi_client.models.workspace_event_source_filter import WorkspaceEventSo
 from openapi_client.models.workspace_proxied_artifacts_metadata import WorkspaceProxiedArtifactsMetadata
 from openapi_client.models.workspace_readme import WorkspaceReadme
 from openapi_client.models.workspace_snapshot_states import WorkspaceSnapshotStates
+from openapi_client.models.workspace_ssh_details import WorkspaceSshDetails
 from openapi_client.models.workspace_system_artifacts import WorkspaceSystemArtifacts
 from openapi_client.models.workspace_template import WorkspaceTemplate
 from openapi_client.models.workspace_template_category import WorkspaceTemplateCategory
@@ -1149,6 +1154,7 @@ from openapi_client.models.workspacedataplaneartifacts_response import Workspace
 from openapi_client.models.workspacedataplaneproxiedartifacts_with_metadata_response import WorkspacedataplaneproxiedartifactsWithMetadataResponse
 from openapi_client.models.workspaceevent_list_response import WorkspaceeventListResponse
 from openapi_client.models.workspacereadme_response import WorkspacereadmeResponse
+from openapi_client.models.workspacesshdetails_response import WorkspacesshdetailsResponse
 from openapi_client.models.workspacetemplate_list_response import WorkspacetemplateListResponse
 from openapi_client.models.workspacetemplate_response import WorkspacetemplateResponse
 from openapi_client.models.workspacetemplateclusterenvironmentmetadata_response import WorkspacetemplateclusterenvironmentmetadataResponse

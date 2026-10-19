@@ -170,7 +170,7 @@ async def test_progress_lands_on_the_row_while_the_run_is_still_in_flight(fake_s
 @pytest.mark.asyncio
 async def test_a_multi_pass_handler_stops_cleanly_before_the_run_ceiling(fake_supabase) -> None:
     """Max runtime 1s, passes of 0.4s: after one or two passes the lease says the
-    third cannot finish. The handler stops ITSELF — not cancelled, no unit
+    third cannot finish. The handler stops ITSELF — not canceled, no unit
     left half-done — and the row names the ceiling with the work counted."""
     cancelled = False
     passes = 0
@@ -398,7 +398,7 @@ async def test_a_shutdown_cancel_preserves_progress(fake_supabase) -> None:
     assert row["status"] == "interrupted", row
     assert row["result_metadata"]["units_done"] == 1000
     assert row["result_metadata"]["passes"] == 5
-    assert "runner cancelled" in row["result_metadata"]["stopped_early"]
+    assert "runner canceled" in row["result_metadata"]["stopped_early"]
     assert row.get("error_message") is None
 
 

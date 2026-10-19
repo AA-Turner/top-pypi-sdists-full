@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: munkres
-Version: 2.0.0
+Version: 3.0.0
 Summary: The Munkres (Hungarian) algorithm for the assignment problem: fast, typed, dependency-free.
 Author: Eishit Nigam
 Author-email: "Brian M. Clapper" <bmc@clapper.org>
@@ -12,7 +12,7 @@ Project-URL: Changelog, https://github.com/iameishit/Paldita-munkres/blob/main/C
 Project-URL: Issues, https://github.com/iameishit/Paldita-munkres/issues
 Project-URL: Original project, https://software.clapper.org/munkres/
 Keywords: munkres,hungarian,kuhn-munkres,assignment problem,linear assignment,optimization,matching,operations research
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
@@ -33,12 +33,10 @@ License-File: NOTICE
 Dynamic: license-file
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/iameishit/Paldita-munkres/main/assets/banner.jpg" alt="Paldita Munkres V2: Faster. Smarter. More Robust." width="100%">
+  <img src="https://raw.githubusercontent.com/iameishit/Paldita-munkres/main/assets/banner.jpg" alt="Paldita Munkres V3: Faster. Smarter. More Robust." width="100%">
 </p>
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iameishit/Paldita-munkres/main/assets/logo.png" alt="Paldita Munkres V2 badge" width="150">
-</p>
+<img src="https://raw.githubusercontent.com/iameishit/Paldita-munkres/main/assets/logo.png" alt="Paldita Munkres V3 badge" width="120" align="left">
 
 # munkres
 
@@ -47,7 +45,7 @@ Dynamic: license-file
 ![Python](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.14-3776AB)
 ![Dependencies](https://img.shields.io/badge/runtime%20dependencies-0-brightgreen)
 ![Typed](https://img.shields.io/badge/typing-strict-informational)
-![Release](https://img.shields.io/badge/release-v2.0.0rc1-2f6fed)
+![Release](https://img.shields.io/badge/release-v3.0.0-2f6fed)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
 The **Munkres (Hungarian) algorithm** for the *assignment problem*: given a cost
@@ -64,7 +62,7 @@ Worker 2      3      2      2
 ## Install
 
 ```bash
-pip install munkres        # once 2.0 is on PyPI; until then:
+pip install munkres==3.0.0
 pip install git+https://github.com/iameishit/Paldita-munkres
 ```
 
@@ -241,6 +239,51 @@ print(round(soft_assignment([[0.0, 1.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 0.0]],
 - `transport`: ship quantities from suppliers to consumers at least cost.
 - `sinkhorn` / `soft_assignment`: entropic optimal transport, a soft, differentiable matching.
 
+## What is new in v3 (development)
+
+An optional C kernel makes dense solves as fast as SciPy's from about 64x64 up, and much faster when you solve many small problems at once (`solve_batch`); without a compiler everything still works in pure Python. On top of the solver there is a layer you can trust and inspect:
+
+```python
+import munkres as mk
+
+cost = [[4, 1, 3], [2, 0, 5], [3, 2, 2]]
+
+res = mk.solve_planned(cost, verify=True)            # plan, solve, then an independent exact proof
+print(res.total, res.certificate.verify(cost).ok)    # 5 True
+
+top = mk.topology(cost)                              # which cells are forced / optional across all optima
+print(top.unique, top.n_optimal)                     # True 1
+print(mk.canonical_optimum(cost))                    # ((0, 1), (1, 0), (2, 2))
+print(mk.explain_edge(cost, 0, 1)[:40])              # cell (0, 1) is forced (in every optim...
+
+state = mk.AssignmentState(cost)                     # costs change? repair instead of re-solving
+state.update_cost(0, 0, 9)
+print(state.objective, bool(state.verify()))         # 5 True
+
+print(mk.solve_spec({"cost": [[1, 2], [2, None]], "verify": True})["total"])   # 4
+try:
+    mk.solve_limited(cost, mk.SolverLimits(max_cells=4))   # refuses before allocating anything
+except mk.ProblemTooLargeError as err:
+    print(err.code)                                  # CELLS_LIMIT
+```
+
+Everything above is exact (integers, fractions, or floats treated as the exact rationals they are) and is checked against brute force in the test-suite. The full list is in [`docs/api.md`](docs/api.md); the research ideas behind it, with an honest status for each of the 300, are in; the design and its limits are in [`docs/V3_ARCHITECTURE.md`](docs/V3_ARCHITECTURE.md). `munkres doctor` shows whether the native kernel is active.
+
+Honest limits: tiny matrices (about 10x10 and below) are slower than SciPy because of Python call overhead; heavily forbidden large matrices (90% forbidden at 256x256) are slower too; the exact tools (`topology`, `enumerate_optima`, `AssignmentState`, ...) are meant for small and medium problems; quantum/Ising helpers are classical simulations, not quantum hardware.
+
+## Production safety
+
+The native accelerator is optional and can never break your program: if it is missing, rejected by its load-time
+self-test, or raises at runtime, the call finishes on the exact pure-Python solver and a circuit breaker switches
+the kernel off after repeated failures. Check `munkres.native_status()` in your health checks; see
+[docs/production.md](docs/production.md).
+
+## SciPy-compatible functions
+
+`linear_sum_assignment(cost, maximize=False)` and `min_weight_full_bipartite_matching(biadjacency, maximize=False)`
+have the same calls as their SciPy counterparts (when several optimal answers exist the one returned may differ; the
+total is always the same).
+
 ## Command line
 
 ```bash
@@ -264,18 +307,10 @@ Matrix files are comma- or space-separated; an empty cell, `D`, `x` or `inf` for
 
 ## Performance
 
-Pure-Python O(n²·m). Measured on one machine: 200x200 in ~0.1 s, 500x500 in ~0.8 s, 1000x1000 in ~4 s
-(about 5-50x faster than munkres 1.1.4 on random matrices, and on par when almost all costs tie; numbers in [docs/BENCHMARKS.md](docs/BENCHMARKS.md), reproducible with
-`python tools/benchmark.py`).
+On NumPy input, munkres 3.0 runs at about the same speed as SciPy's `linear_sum_assignment` in this range (0.75x to 1.04x across 50x50 to 1000x1000 random matrices, same optimum).
+It is competitive, not uniformly faster. The full table and method are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/iameishit/Paldita-munkres/main/assets/benchmark.png" alt="Benchmark results: munkres 1.1.4 vs munkres 2.x vs SciPy, solve time on a log scale" width="100%">
-</p>
-
-For very large or latency-critical problems use a compiled solver such as
-`scipy.optimize.linear_sum_assignment`; this library's niche is zero dependencies, `DISALLOWED` support, exact
-`Decimal`/`Fraction` arithmetic and clear errors. `munkres.linear_sum_assignment` has the same call signature, so
-switching either way is a one-line change.
+![Benchmark: munkres 3.0 vs SciPy](https://raw.githubusercontent.com/iameishit/Paldita-munkres/main/assets/benchmark.png)
 
 ## Migrating from 1.x
 
@@ -289,12 +324,9 @@ switching either way is a one-line change.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full list.
 
-## What's new in 2
+## What's new in 3.0.0
 
-Faster, typed, thread-safe, and impossible matrices now raise a clear error immediately. New: `solve()`
-with gating, labels and traces, optimality certificates, k-best, bottleneck, stable matching, transportation,
-Sinkhorn and a `munkres` command. Full details: [V2_RELEASE.txt](V2_RELEASE.txt) and
-[CHANGELOG.md](CHANGELOG.md). Documentation: [docs/index.md](docs/index.md).
+The first stable 3.x release: an optional native kernel with automatic fallback, exact certificates and an independent verifier, a planner that explains its choices, dynamic updates, and structure tools. Full details: [V3_RELEASE.txt](V3_RELEASE.txt) and [CHANGELOG.md](CHANGELOG.md).
 
 ## Development
 

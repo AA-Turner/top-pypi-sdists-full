@@ -24,9 +24,20 @@ MigrationProgress = Optional[Callable[["Progress"], None]]
 class DataSource(ABC):
     """Reads migration items from a source.
 
-    Optional hook (not declared here so ``hasattr`` reflects real support):
-    ``read_permissions(item) -> list[PermissionEntry]`` — the item's ACLs, used
-    for best-effort ``preserve_permissions``. Absent when the source has none.
+    Optional hooks (not declared here so ``hasattr`` reflects real support):
+
+    - ``read_permissions(item) -> list[PermissionEntry]`` — the item's ACLs, used
+      for best-effort ``preserve_permissions`` and for the permission diff;
+    - ``read_metadata(item) -> dict`` — comparable attributes (``created``,
+      ``modified``, ``size_bytes``, ...) the validator diffs against the target;
+    - ``read_version_history(item) -> (label, older)`` — the current version
+      label and the older versions (oldest first, current excluded), used by a
+      version-preserving target (the server-side package target) so history
+      survives the migration;
+    - ``supports_attachments`` — a class attribute set True by a source that
+      emits list-item attachments as extra ``item_type="attachment"`` items.
+
+    Absent when the source does not expose them.
     """
 
     @abstractmethod
@@ -45,9 +56,28 @@ class DataSource(ABC):
 class DataTarget(ABC):
     """Writes migration items to a target.
 
-    Optional hooks (not declared here so ``hasattr`` reflects real support),
-    used for best-effort fidelity after a write:
-    ``apply_timestamps(item)`` and ``apply_permissions(item, permissions)``.
+    Optional hooks (not declared here so ``hasattr`` reflects real support):
+
+    - ``configure(options)`` — called once by the runner before any write, so a
+      target can derive per-run policy (e.g. a record target maps
+      ``options.conflict_resolution`` onto its ``on_conflict`` mode);
+    - ``apply_timestamps(item)`` / ``apply_authorship(item)`` /
+      ``apply_permissions(item, permissions)`` — best-effort fidelity applied
+      after a successful write;
+    - ``read_permissions(item)`` / ``read_metadata(item)`` — the read
+      counterparts the validator diffs against the source (needed to *verify*
+      that the requested fidelity actually landed);
+    - ``supports_versions`` — a class attribute set True by a target that can
+      restore version history (the server-side package target). The runner then
+      reads ``source.read_version_history(item)`` into ``item.version_label`` /
+      ``item.versions`` before the write, so history is preserved whenever the
+      source can supply it;
+    - ``supports_authorship`` — a class attribute set True by a target that
+      restores ``Author``/``ModifiedBy`` while building the payload (the
+      server-side package target); client-side targets expose ``apply_authorship``
+      instead (both best-effort, resolved users only);
+    - ``supports_attachments`` — a class attribute set True by a target that
+      accepts ``item_type="attachment"`` items.
     """
 
     @abstractmethod

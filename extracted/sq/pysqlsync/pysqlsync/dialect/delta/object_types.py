@@ -7,12 +7,12 @@ Copyright 2023-2026, Levente Hunyadi
 """
 
 import re
-from typing import Optional
+from typing import Final
 
 from pysqlsync.formation.object_types import Column, Namespace, ObjectFactory, Table
 from pysqlsync.model.id_types import LocalId
 
-_sql_quoted_str_table = str.maketrans(
+_sql_quoted_str_table: Final[dict[int, str]] = str.maketrans(
     {
         "\\": "\\\\",
         "'": "\\'",
@@ -60,7 +60,7 @@ class DeltaColumn(Column):
         return f"{self.data_type}{nullable}{identity}{description}"
 
     @property
-    def comment(self) -> Optional[str]:
+    def comment(self) -> str | None:
         if self.description is not None:
             return sql_quoted_string(self.description)
         else:
@@ -68,13 +68,13 @@ class DeltaColumn(Column):
 
 
 class DeltaNamespace(Namespace):
-    def create_schema_stmt(self) -> Optional[str]:
+    def create_schema_stmt(self) -> str | None:
         if self.name.local_id:
             return f"CREATE SCHEMA IF NOT EXISTS {self.name};"
         else:
             return None
 
-    def drop_schema_stmt(self) -> Optional[str]:
+    def drop_schema_stmt(self) -> str | None:
         if self.name.local_id:
             return f"DROP SCHEMA IF EXISTS {self.name} CASCADE;"
         else:

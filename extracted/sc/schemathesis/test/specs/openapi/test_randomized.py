@@ -26,6 +26,7 @@ from schemathesis.specs.openapi import definitions
 from schemathesis.specs.openapi.formats import get_default_format_strategies
 from schemathesis.specs.openapi.schemas import OpenApiSchema
 from test.apps.builders import build_schema, make_permissive_flask_app
+from test.utils import run_given
 
 IGNORED_EXCEPTIONS = (hypothesis.errors.Unsatisfiable, hypothesis.errors.FailedHealthCheck)
 config = SchemathesisConfig.from_dict({})
@@ -319,7 +320,7 @@ def _assemble(
     result.update(spec.seed_document())
     for key in spec.media_type_keys:
         result[key] = list(media_types)
-    return _rewritten(result, media_types, spec.seed_pointer)
+    return _rewritten(result, media_types, spec)
 
 
 def _items(entries: list[Entry]) -> dict[str, dict[str, Any]]:
@@ -328,15 +329,13 @@ def _items(entries: list[Entry]) -> dict[str, dict[str, Any]]:
         item = entry.item
         shared = item.get("parameters")
         if isinstance(shared, list):
-            # A reference carries nothing to name, and all are repointed at the same seed, so keep at most one.
-            references = [parameter for parameter in shared if isinstance(parameter, dict) and "$ref" in parameter]
+            # A reference carries nothing to name.
             item = {
                 **item,
-                "parameters": references[:1]
-                + [
-                    _named(parameter, f"i{position}")
+                "parameters": [
+                    parameter if "$ref" in parameter else _named(parameter, f"i{position}")
                     for position, parameter in enumerate(shared)
-                    if isinstance(parameter, dict) and "$ref" not in parameter
+                    if isinstance(parameter, dict)
                 ],
             }
         names = [
@@ -351,8 +350,9 @@ def _items(entries: list[Entry]) -> dict[str, dict[str, Any]]:
     return items
 
 
-def _rewritten(document: dict[str, Any], media_types: list[str], pointer: str) -> dict[str, Any]:
+def _rewritten(document: dict[str, Any], media_types: list[str], spec: Spec) -> dict[str, Any]:
     """Every reference resolves, and every body is written in a media type that can be encoded."""
+    pointer = spec.seed_pointer
 
     def walk(value: JsonValue) -> JsonValue:
         if isinstance(value, dict):
@@ -367,9 +367,15 @@ def _rewritten(document: dict[str, Any], media_types: list[str], pointer: str) -
                 result["content"] = {
                     media_types[index % len(media_types)]: entry for index, entry in enumerate(entries)
                 }
+            # Swagger 2.0 operations may override the document-level media types with drawn ones.
+            for key in spec.media_type_keys:
+                if isinstance(result.get(key), list) and result[key]:
+                    result[key] = list(media_types)
             return result
         if isinstance(value, list):
-            return [walk(item) for item in value]
+            # Distinct references become one after repointing, and lists like `parameters` must stay unique.
+            items = [walk(item) for item in value]
+            return [item for index, item in enumerate(items) if item not in items[:index]]
         return value
 
     return _as_object(walk(document))
@@ -389,13 +395,7 @@ def catch_all_url(app_runner):
 @pytest.mark.parametrize("version", sorted(SPECS))
 def test_random_schemas(catch_all_url, version, hypothesis_max_examples):
     # Each document is a full engine run; the nightly CI profile raises the budget.
-    @given(data=st.data())
-    @settings(
-        phases=[Phase.generate],
-        deadline=None,
-        suppress_health_check=list(HealthCheck),
-        max_examples=hypothesis_max_examples or 25,
-    )
+    @run_given(data=st.data(), max_examples=hypothesis_max_examples or 25, phases=[Phase.generate])
     def run(data):
         raw = data.draw(openapi_documents(version))
         assert SPECS[version].validator.is_valid(raw), raw
@@ -405,8 +405,6 @@ def test_random_schemas(catch_all_url, version, hypothesis_max_examples):
             assert not isinstance(event, events.FatalError), repr(event)
             if isinstance(event, events.NonFatalError) and not _is_rejection(event.value):
                 raise AssertionError(str(event.info)) from event.value
-
-    run()
 
 
 _OK_RESPONSES = {"responses": {"200": {"description": "OK"}}}
@@ -504,6 +502,28 @@ def test_walkers_agree_on_valid_documents(version, data):
     total = _assert_walkers_agree(schema)
     # No path item is broken here, so every result names an operation the other walks reach too.
     assert len(list(schema.get_all_operations())) == total
+
+
+@pytest.mark.parametrize("version", sorted(SPECS))
+def test_repointed_references_keep_parameters_unique(version):
+    spec = SPECS[version]
+    item = {"post": {**_OK_RESPONSES, "parameters": [{"$ref": "#/first"}, {"$ref": "#/second"}]}}
+    document = _assemble(
+        _hostile_document(version, {}), [Entry(item, "get", _OK_RESPONSES)], [], ["application/json"], spec=spec
+    )
+    assert document["paths"]["/p0"]["post"]["parameters"] == [{"$ref": spec.seed_pointer}]
+
+
+def test_operation_media_types_are_encodable():
+    operation = {**_OK_RESPONSES, "consumes": ["1/0"], "produces": ["1/0"]}
+    document = _assemble(
+        _hostile_document("2.0", {}), [Entry({}, "post", operation)], [], ["application/json"], spec=SPECS["2.0"]
+    )
+    assert document["paths"]["/p0"]["post"] == {
+        **_OK_RESPONSES,
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+    }
 
 
 @pytest.mark.parametrize("hostile", sorted(HOSTILE_PATHS))

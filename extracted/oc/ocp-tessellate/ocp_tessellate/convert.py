@@ -206,10 +206,35 @@ def _to_topods(o: object) -> TopoDS_Shape:
     return w
 
 
+def _serialize_unchecked(shape: TopoDS_Shape) -> bytes | None:
+    """
+    Serialize a shape as if none of its faces were checked.
+
+    The binary format stores each sub-shape's state flags, and meshing changes
+    the faces' Checked flag: BRepTools::Update (called by BRepMesh) sets it,
+    storing a new triangulation clears it again (TopoDS_TShape::Modified).
+    Without this, the same geometry gets a new cache id after every
+    tessellation, up to three for one shape, and the cache misses. The flags
+    are restored afterwards, so computing the id leaves the shape unchanged.
+
+    The flags are changed briefly on shapes that may be shared: fine as long as
+    no other thread meshes or serializes the same shape at the same time.
+    """
+    saved = [(face, face.Checked()) for face in get_faces(shape)]
+    try:
+        for face, _checked in saved:
+            face.Checked(False)
+        return serialize(shape)
+    finally:
+        for face, checked in saved:
+            face.Checked(checked)
+
+
 def create_cache_id(obj: ShapeLike | Sequence[ShapeLike]) -> str:
     """
     The TopoDS_Shape objects are serialized and hashed to create a unique id.
-    The current approach is to use the sha256 hash of the serialized object.
+    The current approach is to use the sha256 hash of the serialized object,
+    independent of the faces' Checked flags (see _serialize_unchecked).
 
     @param obj: A shape (raw or wrapped) or a list/tuple of them
 
@@ -218,11 +243,26 @@ def create_cache_id(obj: ShapeLike | Sequence[ShapeLike]) -> str:
     sha = sha256()
     objs = [obj] if not isinstance(obj, (tuple, list)) else list(obj)
     for o in objs:
-        data = serialize(_to_topods(o))
+        data = _serialize_unchecked(_to_topods(o))
         assert data is not None, "serialization failed"
         sha.update(data)
 
     return sha.hexdigest()
+
+
+def _without_location(obj: TopoDS_Shape) -> TopoDS_Shape:
+    """
+    The shape moved back to its own origin.
+
+    This is what OcpConverter.get_instance stores as instance and what gets
+    tessellated; the location is sent to the viewer separately. Its cache id
+    therefore does not depend on the location, so moved and rotated copies of
+    a shape share one cache entry. Locations inside the shape (e.g. of a
+    compound's children) are part of its structure and stay.
+    """
+    loc = obj.Location()
+    # the shape's own location: one binding at runtime; the OCP | nanocct unions cannot say so (known limit)
+    return downcast(obj.Moved(loc.Inverted()))  # ty: ignore[invalid-argument-type]
 
 
 class OcpConverter:
@@ -296,8 +336,7 @@ class OcpConverter:
 
         # Create the relocated object as a copy
         loc = obj.Location()  # Get location
-        # the shape's own location: one binding at runtime; the OCP | nanocct unions cannot say so (known limit)
-        obj2 = downcast(obj.Moved(loc.Inverted()))  # ty: ignore[invalid-argument-type]
+        obj2 = _without_location(obj)
 
         # check if the same instance is already available
         for i, instance in enumerate(self.instances):
@@ -316,9 +355,7 @@ class OcpConverter:
 
         return ref, loc
 
-    def trim_infinite_objs(
-        self, obj: TopoDS_Shape, name: str
-    ) -> TopoDS_Shape | None:
+    def trim_infinite_objs(self, obj: TopoDS_Shape, name: str) -> TopoDS_Shape | None:
         # Degenerate OCCT artifacts (edges without geometry, faces without a
         # surface) are dropped by returning None; they would make the
         # length/area calls below raise. Zero-area faces with a valid surface
@@ -433,7 +470,8 @@ class OcpConverter:
         if kind in ("solid", "face", "shell"):
             # solid/face/shell kinds always unify into a single shape
             assert is_topods_shape(ocp_obj), f"not unified: {ocp_obj}"
-            cache_id = create_cache_id(ocp_obj)
+            # The id of the shape at its own origin, as tessellated by get_instance
+            cache_id = create_cache_id(_without_location(ocp_obj))
             ref, loc = self.get_instance(ocp_obj, cache_id, name)
             ocp_object = OcpObject(
                 kind,
@@ -945,9 +983,7 @@ class OcpConverter:
         # unwrap everything else
         else:
             unwrapped = unwrap(cad_obj)
-            assert not is_topods_shape(unwrapped), (
-                "a list input unwraps to a list"
-            )
+            assert not is_topods_shape(unwrapped), "a list input unwraps to a list"
             objs = unwrapped
             typ = get_type(objs[0])
 
@@ -1590,7 +1626,9 @@ class OcpConverter:
         ocp_obj.name = name
         if ocp_obj.kind in ["solid", "imageface", "face", "shell"]:
             ref, loc = self.get_instance(
-                cad_obj.objs[0], create_cache_id(cad_obj.objs[0]), name
+                cad_obj.objs[0],
+                create_cache_id(_without_location(cad_obj.objs[0])),
+                name,
             )
             ocp_obj.loc = mul_locations(cad_obj.loc, loc)
             ocp_obj.ref = ref
@@ -1599,9 +1637,7 @@ class OcpConverter:
 
     # ================================ Empty objects ================================ #
 
-    def handle_empty_iterables(
-        self, obj_name: str | None, level: int
-    ) -> OcpObject:
+    def handle_empty_iterables(self, obj_name: str | None, level: int) -> OcpObject:
         """
         Handle empty objects.
 

@@ -42,6 +42,7 @@ from sqlbuild.adapter.contract.classes.snapshot_sql import SnapshotSql
 from sqlbuild.adapter.contract.classes.statement_recorder import StatementRecorder
 from sqlbuild.adapter.contract.classes.unkeyed_diff import UnkeyedDiffMixin
 from sqlbuild.adapter.contract.constants import (
+    CANCELLABLE_DURATION_LIMIT_SECONDS,
     DIFF_LEFT_SIDE,
     DIFF_RIGHT_SIDE,
 )
@@ -139,6 +140,7 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             adapter=self, connection=connection, relations=relations
         )
 
+    execution_duration_limit_seconds: ClassVar[int | None] = CANCELLABLE_DURATION_LIMIT_SECONDS
     adapter_name: ClassVar[str] = BuiltinAdapter.SQLSERVER.value
     sql_analysis_dialect_name: ClassVar[str | None] = "tsql"
     sql_lexical_syntax: ClassVar[SqlLexicalSyntax] = SqlLexicalSyntax(nested_block_comments=True)
@@ -448,13 +450,30 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         )
 
     def render_create_source_freshness_table_sql(self, *, database: str | None, schema: str) -> str:
-        from sqlbuild._native import build_source_freshness_create_table_sql
+        from sqlbuild._native import (
+            SOURCE_FRESHNESS_TABLE_NAME,
+            build_source_freshness_create_table_sql,
+        )
 
-        return build_source_freshness_create_table_sql(
+        create_sql: str = build_source_freshness_create_table_sql(
             database=database,
             schema=schema,
             render_qualified_name=self.render_qualified_name,
             render_framework_type=self.render_framework_type,
+        ).replace("CREATE TABLE IF NOT EXISTS ", "CREATE TABLE ", 1)
+        for column in (
+            "source_name",
+            "target_database",
+            "target_schema",
+            "target_name",
+            "run_id",
+        ):
+            create_sql = create_sql.replace(f"{column} NVARCHAR(MAX)", f"{column} NVARCHAR(450)")
+        return self._create_table_if_missing_sql(
+            create_sql=create_sql,
+            database=database,
+            schema=schema,
+            table_name=SOURCE_FRESHNESS_TABLE_NAME,
         )
 
     def render_create_source_freshness_index_sqls(
@@ -2798,10 +2817,10 @@ class SqlServerAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
         return False
 
     def interrupt_connection(self, connection: Any) -> bool:
-        """Cancel a connection's running statement from another thread; False if unsupported."""
+        """Cancel the connection's running statement through the driver."""
 
-        del connection
-        return False
+        connection.cancel_active_statements()
+        return True
 
     def lists_relations_authoritatively(self, *, database: str | None, schema: str) -> bool:
         """Return whether ``list_relations`` reports every relation in this scope."""

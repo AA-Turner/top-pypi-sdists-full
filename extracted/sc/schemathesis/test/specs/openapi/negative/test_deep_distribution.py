@@ -5,12 +5,13 @@ from collections import Counter
 
 import jsonschema_rs
 import pytest
-from hypothesis import HealthCheck, Phase, given, settings
+from hypothesis import Phase
 
 import schemathesis
 from schemathesis.core.jsonschema import _is_valid_uuid
 from schemathesis.engine.events import ScenarioFinished
 from schemathesis.generation.meta import FuzzingPhaseData
+from test.utils import run_given
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True, replace_invalid_component=True)
@@ -111,27 +112,22 @@ def test_additional_properties_negation_stays_invalid(ctx):
     # See GH-4332. Negating `additionalProperties` drops the `properties` context it is defined
     # against, so the mutated schema still admits bodies valid against the original.
     # 500 examples because only a small fraction of draws pick this keyword combination.
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /reset",
         {
-            "/reset": {
-                "post": {
-                    "requestBody": {
-                        "required": True,
-                        "content": {"application/json": {"schema": BODY_WITH_NO_ADDITIONAL_PROPERTIES}},
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": BODY_WITH_NO_ADDITIONAL_PROPERTIES}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
     validator = jsonschema_rs.Draft4Validator(BODY_WITH_NO_ADDITIONAL_PROPERTIES, validate_formats=True)
 
-    @given(case=schema["/reset"]["POST"].as_strategy(generation_mode=schemathesis.GenerationMode.NEGATIVE))
-    @settings(
+    @run_given(
+        case=operation.as_strategy(generation_mode=schemathesis.GenerationMode.NEGATIVE),
         max_examples=500,
-        deadline=None,
         derandomize=True,
-        suppress_health_check=list(HealthCheck),
         phases=[Phase.generate],
     )
     def test(case):
@@ -139,8 +135,6 @@ def test_additional_properties_negation_stays_invalid(ctx):
         if not isinstance(body, (dict, list, str, int, float, bool)) and body is not None:
             return
         assert not validator.is_valid(body), f"False positive: body {body!r} is valid against the schema"
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -184,23 +178,21 @@ def test_secondary_planted_bug_detected(cli, ctx, snapshot_cli, factory_name):
     ],
 )
 def test_negative_body_stays_invalid(ctx, body_schema):
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /items",
         {
-            "/items": {
-                "post": {
-                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+            "responses": {"200": {"description": "OK"}},
+        },
     )
     validator = jsonschema_rs.Draft4Validator(body_schema)
 
-    @given(case=schema["/items"]["POST"].as_strategy(generation_mode=schemathesis.GenerationMode.NEGATIVE))
-    @settings(max_examples=10, deadline=None, derandomize=True, suppress_health_check=list(HealthCheck))
+    @run_given(
+        case=operation.as_strategy(generation_mode=schemathesis.GenerationMode.NEGATIVE),
+        max_examples=10,
+        derandomize=True,
+    )
     def test(case):
         if isinstance(case.body, bytes):
             return
         assert not validator.is_valid(case.body), f"False positive: body {case.body!r}"
-
-    test()

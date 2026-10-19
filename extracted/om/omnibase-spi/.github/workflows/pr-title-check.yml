@@ -18,24 +18,20 @@ jobs:
   pr-title:
     # OMN-20996: run the published title decision under the required context.
     name: pr-title / check-title
-    runs-on: >-
-      ${{
-        (github.event_name == 'pull_request' &&
-         github.event.pull_request.head.repo.full_name != github.repository)
-        && fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
-        || fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
-      }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
       # OMN-15012: the validator's broad workflow keyword is not coverage.
-      # Keep the node's runtime dependency in the scoped requirements file.
-      - name: Checkout node requirements
+      # OMN-17427: resolve the node runtime group from the UV project lock.
+      - name: Checkout node dependency metadata
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          sparse-checkout: .github/pr-title-node/requirements.txt
+          sparse-checkout: |
+            pyproject.toml
+            uv.lock
           sparse-checkout-cone-mode: false
 
       - name: Install uv
@@ -49,8 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           venv="${RUNNER_TEMP}/pr-title-check"
-          uv venv --quiet --python 3.12 "${venv}"
+          UV_PROJECT_ENVIRONMENT="${venv}" uv sync --frozen --only-group pr-title --no-install-project --python 3.12
           uv pip install --quiet --python "${venv}/bin/python" --no-deps "omnimarket==${OMNIMARKET_VERSION}"
-          uv pip install --quiet --python "${venv}/bin/python" --requirements .github/pr-title-node/requirements.txt
           "${venv}/bin/python" -I -c 'import json, os; print(json.dumps({"title": os.environ["PR_TITLE"], "author": os.environ["PR_AUTHOR"]}))' \
             | "${venv}/bin/python" -I -m omnimarket.nodes.node_pr_title_check_compute

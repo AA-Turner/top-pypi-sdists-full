@@ -239,7 +239,9 @@ def test_flat_maxima():
 def test_all_knees():
     x, y = dg.bumpy()
     kl = KneeLocator(x, y, curve="convex", direction="decreasing", online=True)
-    assert np.isclose(sorted(kl.all_elbows), [26, 31, 41, 46, 53]).all()
+    assert kl.all_elbows == [26, 31, 41, 46, 53]
+    # all_knees lines up with all_knees_y (#161)
+    assert kl.all_elbows_y == [kl.y[kl.x == k][0] for k in kl.all_elbows]
     assert np.isclose(
         sorted(kl.all_norm_elbows),
         [
@@ -287,6 +289,13 @@ def test_interp_method():
     x, y = dg.figure2()
     with pytest.raises(ValueError):
         kl = KneeLocator(x, y, interp_method="not_a_method")
+
+
+@pytest.mark.parametrize("interp_method", ["interp1d", "polynomial"])
+def test_x_y_length_mismatch(interp_method):
+    """Test that x and y must be the same length."""
+    with pytest.raises(ValueError, match="same length"):
+        KneeLocator(range(4), [1, 3, 5], interp_method=interp_method)
 
 
 def test_x_equals_y():
@@ -560,3 +569,45 @@ def test_find_shape():
     direction, curve = find_shape(x, y)
     assert direction == "increasing"
     assert curve == "convex"
+
+
+@pytest.mark.parametrize(
+    "curve, direction, flip_x, flip_y",
+    [
+        ("concave", "decreasing", True, False),
+        ("convex", "increasing", True, True),
+        ("convex", "decreasing", False, True),
+    ],
+)
+def test_uneven_x_mirrored(curve, direction, flip_x, flip_y):
+    """The same unevenly spaced points find the same knee in every orientation (#98)"""
+    x = np.linspace(0, 1, 30) ** 2
+    y = -1 / (x + 0.1) + 5
+    expected = KneeLocator(x, y, curve="concave", direction="increasing").knee
+    xs = 1 - x if flip_x else x
+    ys = -y if flip_y else y
+    order = np.argsort(xs)
+    kl = KneeLocator(xs[order], ys[order], curve=curve, direction=direction)
+    knee = 1 - kl.knee if flip_x else kl.knee
+    assert math.isclose(knee, expected)
+
+
+@pytest.mark.parametrize("online", [True, False])
+def test_knee_at_zero(online):
+    """Test that a knee at x=0 gets its y values (#171)"""
+    x = list(range(-3, 7))
+    y = [0, 4, 7, 9, 10, 10.5, 10.8, 11, 11.1, 11.2]
+    kl = KneeLocator(x, y, online=online)
+    assert kl.knee == 0
+    assert kl.knee_y == 9
+    assert math.isclose(kl.norm_knee_y, 0.804, rel_tol=0.01)
+
+
+@pytest.mark.parametrize("dtype", [np.int8, np.int16, np.int32])
+def test_signed_int_x(dtype):
+    """Test that signed integer x doesn't overflow when normalized (#173)"""
+    x = (np.linspace(-1, 1, 11) * np.iinfo(dtype).max).astype(dtype)
+    y = [0, 4, 7, 9, 10, 10.5, 10.8, 11, 11.1, 11.2, 11.3]
+    kl = KneeLocator(x, y)
+    assert kl.knee == KneeLocator(x.astype(float), y).knee
+    assert kl.x_normalized.min() == 0 and kl.x_normalized.max() == 1

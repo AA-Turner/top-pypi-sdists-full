@@ -9,7 +9,8 @@ Copyright 2023-2026, Levente Hunyadi
 import datetime
 import ipaddress
 import uuid
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any, Final
 
 from strong_typing.auxiliary import int8, int16, int32, int64
 from strong_typing.core import JsonType
@@ -24,8 +25,8 @@ from pysqlsync.util.typing import override
 from .data_types import OracleIntegerType, OracleTimestampType, OracleTimeType, OracleVariableBinaryType, OracleVariableCharacterType
 from .object_types import OracleObjectFactory
 
-MIN_DATETIME = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
-MIN_DATE = datetime.date.min
+MIN_DATETIME: Final[datetime.datetime] = datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+MIN_DATE: Final[datetime.date] = datetime.date.min
 
 
 class OracleGenerator(BaseGenerator):
@@ -90,7 +91,7 @@ class OracleGenerator(BaseGenerator):
         return super().get_field_extractor(column, field_name, field_type)
 
     @override
-    def get_value_transformer(self, column: Column, field_type: type) -> Optional[Callable[[Any], Any]]:
+    def get_value_transformer(self, column: Column, field_type: type) -> Callable[[Any], Any] | None:
         if field_type is uuid.UUID:
             return lambda field: field.bytes
         elif is_ip_address_type(field_type):

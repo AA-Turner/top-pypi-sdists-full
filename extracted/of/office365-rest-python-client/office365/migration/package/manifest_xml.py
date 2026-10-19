@@ -8,8 +8,10 @@ folders, files, and file versions — plus the small, fully-specified
 
 The full ``DeploymentManifest`` schema has 100+ elements (content types, views,
 web parts, list items, taxonomy, ...); only what a document-library migration
-needs is modeled here. The generated XML follows the documented format but is
-**not yet verified against a live tenant**.
+needs is modeled here. That subset is ingested end-to-end on a live tenant —
+content, version history, authorship and permissions (see
+``docs/migration.md``) — so the format below is exercised, not merely documented;
+everything outside it is unmodeled rather than unverified.
 
 References:
 - https://learn.microsoft.com/en-us/sharepoint/dev/apis/migration-manifest
@@ -20,6 +22,9 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
+
+from office365.migration.base import normalize_puid
 
 MANIFEST_NS = "urn:deployment-manifest-schema"
 SYSTEM_DATA_NS = "urn:deployment-systemdata-schema"
@@ -83,9 +88,19 @@ def _q(ns: str, tag: str) -> str:
 
 
 def _str(value: object) -> str:
-    """Render an attribute value (booleans as lowercase ``true``/``false``)."""
+    """Render an attribute value (booleans as lowercase ``true``/``false``).
+
+    ``datetime``/``date`` values are emitted as XML-Schema ``dateTime``/``date``
+    (the Migration API rejects Python's ``str(datetime)`` space-separated form with
+    a schema-validation fatal error), normalized to UTC.
+    """
     if isinstance(value, bool):
         return "true" if value else "false"
+    if isinstance(value, datetime):
+        moment = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if isinstance(value, date):
+        return value.isoformat()
     return str(value)
 
 
@@ -472,7 +487,7 @@ class UserGroupMap:
                     "IsDomainGroup": user.is_domain_group,
                     "IsSiteAdmin": user.is_site_admin,
                     # the service schema requires the attribute even when unknown
-                    "SystemId": user.system_id or "",
+                    "SystemId": normalize_puid(user.system_id) or "",
                     "IsDeleted": user.is_deleted,
                 },
             )

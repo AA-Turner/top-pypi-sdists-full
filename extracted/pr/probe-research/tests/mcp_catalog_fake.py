@@ -284,6 +284,7 @@ def dataset_version(n: int, name: str = "c4-clean", **extra: Any) -> dict:
         "size_bytes": 1000 * n,
         "rows": 10 * n,
         "uri": f"s3://bucket/{name}/v{n}",
+        "preview_artifact_id": None,
         "origin": "pinned",
         "meta": {"local_path": "/data/c4", "host": "gpu-1"},
         "producer": {"run": RUN, "project": PROJECT},

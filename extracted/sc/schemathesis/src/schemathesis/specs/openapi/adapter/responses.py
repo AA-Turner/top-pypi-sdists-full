@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import ItemsView, Iterator, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
@@ -8,7 +9,7 @@ import jsonschema_rs
 
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType, RefResolutionError, unresolvable_reference
-from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
+from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS, supplemental_formats
 from schemathesis.core.jsonschema.bundler import Bundle, bundle
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.jsonschema.types import JsonSchema
@@ -35,6 +36,7 @@ class ResolvedSchema:
     # Set when the response documents a schema that names a component the document does not define.
     # `schema` is `None` either way, but this tells "unvalidatable" apart from "nothing documented".
     unresolvable_reference: str | None = None
+    has_discriminator: bool = False
 
 
 @dataclass(slots=True)
@@ -45,6 +47,92 @@ class CachedValidation:
     validator: jsonschema_rs.Validator | None
     name_to_uri: dict[str, str]
     unresolvable_reference: str | None = None
+    has_discriminator: bool = False
+    # Shared by every response documenting the same schema; validators are looked up by it.
+    bundled: Bundle | None = None
+
+
+def _build_response_validator(
+    schema: JsonSchema, validator_cls: type[jsonschema_rs.Validator], validate_formats: bool
+) -> jsonschema_rs.Validator:
+    return validator_cls(
+        schema,
+        validate_formats=validate_formats,
+        pattern_options=FANCY_REGEX_OPTIONS,
+        formats=supplemental_formats(validator_cls),
+    )
+
+
+class ResponseSchemaCache:
+    """Response schemas prepared once per loaded API, shared by every response that documents the same schema."""
+
+    __slots__ = ("_bundles", "_validators", "_lock")
+
+    def __init__(self) -> None:
+        # Workers starting together build each schema once; builds of different schemas also wait for each other.
+        self._lock = threading.Lock()
+        # Entries pin the keyed objects, so their `id`s cannot be recycled into a stale hit.
+        self._bundles: dict[tuple[object, ...], tuple[Bundle, JsonSchema]] = {}
+        self._validators: dict[tuple[int, type, bool], tuple[jsonschema_rs.Validator, Bundle]] = {}
+
+    def prepared(
+        self,
+        schema: JsonSchema,
+        resolver: Resolver,
+        scope: str,
+        nullable_keyword: str,
+        *,
+        upgrade_legacy_exclusive_bounds: bool,
+        merge_ref_siblings: bool,
+    ) -> Bundle:
+        try:
+            text = jsonschema_rs.canonical.json.to_string(schema)
+        except ValueError:
+            # Schemas built in Python can hold values no JSON document can (e.g. a `datetime.date`);
+            # they are prepared as before, so the validator reports them where it always has.
+            return _build_prepared_schema(
+                schema,
+                resolver,
+                nullable_keyword,
+                upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+                merge_ref_siblings=merge_ref_siblings,
+            )
+        key = (
+            id(resolver.schema),
+            resolver.base_uri,
+            scope,
+            text,
+            nullable_keyword,
+            upgrade_legacy_exclusive_bounds,
+            merge_ref_siblings,
+        )
+        cached = self._bundles.get(key)
+        if cached is None:
+            with self._lock:
+                cached = self._bundles.get(key)
+                if cached is None:
+                    bundled = _build_prepared_schema(
+                        schema,
+                        resolver,
+                        nullable_keyword,
+                        upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
+                        merge_ref_siblings=merge_ref_siblings,
+                    )
+                    cached = self._bundles[key] = (bundled, resolver.schema)
+        return cached[0]
+
+    def validator(
+        self, bundled: Bundle, validator_cls: type[jsonschema_rs.Validator], validate_formats: bool
+    ) -> jsonschema_rs.Validator:
+        key = (id(bundled), validator_cls, validate_formats)
+        cached = self._validators.get(key)
+        if cached is None:
+            with self._lock:
+                cached = self._validators.get(key)
+                if cached is None:
+                    validator = _build_response_validator(bundled.schema, validator_cls, validate_formats)
+                    cached = self._validators[key] = (validator, bundled)
+        return cached[0]
 
 
 @dataclass
@@ -56,6 +144,7 @@ class OpenApiResponse:
     resolver: Resolver
     scope: str
     adapter: ResponseAdapter
+    cache: ResponseSchemaCache
 
     __slots__ = (
         "status_code",
@@ -63,6 +152,7 @@ class OpenApiResponse:
         "resolver",
         "scope",
         "adapter",
+        "cache",
         "_validation_cache",
         "_sse_validator",
         "_stream_schemas",
@@ -97,7 +187,12 @@ class OpenApiResponse:
         if cache_key not in self._validation_cache:
             try:
                 bundled = self.adapter.extract_schema_for_media_type(
-                    self.definition, resolved_media_type, self.resolver, self.scope, self.adapter.nullable_keyword
+                    self.definition,
+                    resolved_media_type,
+                    self.resolver,
+                    self.scope,
+                    self.adapter.nullable_keyword,
+                    self.cache,
                 )
             except RefResolutionError as exc:
                 # A schema we cannot assemble leaves the response unvalidatable - the rest of the
@@ -109,7 +204,11 @@ class OpenApiResponse:
                 # Create cache entry with schema but no validator yet (lazy validator creation)
                 if bundled is not None:
                     self._validation_cache[cache_key] = CachedValidation(
-                        schema=bundled.schema, validator=None, name_to_uri=bundled.name_to_uri
+                        schema=bundled.schema,
+                        validator=None,
+                        name_to_uri=bundled.name_to_uri,
+                        has_discriminator=_contains_discriminator(bundled.schema),
+                        bundled=bundled,
                     )
                 else:
                     self._validation_cache[cache_key] = CachedValidation(schema=None, validator=None, name_to_uri={})
@@ -120,6 +219,7 @@ class OpenApiResponse:
             media_type=resolved_media_type,
             name_to_uri=cached.name_to_uri,
             unresolvable_reference=cached.unresolvable_reference,
+            has_discriminator=cached.has_discriminator,
         )
 
     def get_stream_schema(self, media_type: str | None) -> ResolvedSchema:
@@ -129,7 +229,7 @@ class OpenApiResponse:
         if resolved is None:
             try:
                 bundled = self.adapter.extract_stream_schema(
-                    self.definition, media_type, self.resolver, self.scope, self.adapter.nullable_keyword
+                    self.definition, media_type, self.resolver, self.scope, self.adapter.nullable_keyword, self.cache
                 )
             except RefResolutionError as exc:
                 resolved = ResolvedSchema(
@@ -148,9 +248,7 @@ class OpenApiResponse:
         return resolved
 
     def _build_validator(self, schema: JsonSchema, validate_formats: bool) -> jsonschema_rs.Validator:
-        return self.adapter.jsonschema_validator_cls(
-            schema, validate_formats=validate_formats, pattern_options=FANCY_REGEX_OPTIONS
-        )
+        return _build_response_validator(schema, self.adapter.jsonschema_validator_cls, validate_formats)
 
     def get_validator(
         self, resolved_media_type: str | None, schema: JsonSchema, *, validate_formats: bool = True
@@ -164,7 +262,12 @@ class OpenApiResponse:
         cached = self._validation_cache[cache_key]
 
         if cached.validator is None and cached.schema is not None:
-            cached.validator = self._build_validator(cached.schema, validate_formats)
+            if cached.bundled is not None:
+                cached.validator = self.cache.validator(
+                    cached.bundled, self.adapter.jsonschema_validator_cls, validate_formats
+                )
+            else:
+                cached.validator = self._build_validator(cached.schema, validate_formats)
 
         return cached.validator
 
@@ -249,6 +352,7 @@ class OpenApiResponses:
     resolver: Resolver
     scope: str
     adapter: ResponseAdapter
+    cache: ResponseSchemaCache
 
     @classmethod
     def from_definition(
@@ -257,13 +361,19 @@ class OpenApiResponses:
         resolver: Resolver,
         scope: str,
         adapter: ResponseAdapter,
+        cache: ResponseSchemaCache,
     ) -> OpenApiResponses:
         """Build new collection of responses from their raw definition."""
         return cls(
-            dict(_iter_resolved_responses(definition=definition, resolver=resolver, scope=scope, adapter=adapter)),
+            dict(
+                _iter_resolved_responses(
+                    definition=definition, resolver=resolver, scope=scope, adapter=adapter, cache=cache
+                )
+            ),
             resolver=resolver,
             scope=scope,
             adapter=adapter,
+            cache=cache,
         )
 
     def items(self) -> ItemsView[str, OpenApiResponse]:
@@ -279,6 +389,7 @@ class OpenApiResponses:
             resolver=self.resolver,
             scope=self.scope,
             adapter=self.adapter,
+            cache=self.cache,
         )
         self._inner[status_code] = instance
         return instance
@@ -333,6 +444,7 @@ def _iter_resolved_responses(
     resolver: Resolver,
     scope: str,
     adapter: ResponseAdapter,
+    cache: ResponseSchemaCache,
 ) -> Iterator[tuple[str, OpenApiResponse]]:
     """Iterate and resolve response definitions."""
     if not isinstance(definition, dict):
@@ -356,17 +468,25 @@ def _iter_resolved_responses(
                 resolver=response_resolver,
                 scope=new_scope,
                 adapter=adapter,
+                cache=cache,
             ),
         )
 
 
 def extract_response_schema_v2(
-    response: Mapping[str, Any], resolver: Resolver, scope: str, nullable_keyword: str
+    response: Mapping[str, Any], resolver: Resolver, scope: str, nullable_keyword: str, cache: ResponseSchemaCache
 ) -> Bundle | None:
     """Extract and prepare response schema for Swagger 2.0."""
     schema = extract_raw_response_schema_v2(response)
     if schema is not None:
-        return _prepare_schema(schema, resolver, scope, nullable_keyword, merge_ref_siblings=False)
+        return cache.prepared(
+            schema,
+            resolver,
+            scope,
+            nullable_keyword,
+            upgrade_legacy_exclusive_bounds=False,
+            merge_ref_siblings=False,
+        )
     return None
 
 
@@ -388,10 +508,9 @@ def extract_raw_response_schema_v3(
     return first_schema
 
 
-def _prepare_schema(
+def _build_prepared_schema(
     schema: JsonSchema,
     resolver: Resolver,
-    scope: str,
     nullable_keyword: str,
     *,
     upgrade_legacy_exclusive_bounds: bool = False,
@@ -428,9 +547,10 @@ def extract_schema_for_media_type_v2(
     resolver: Resolver,
     scope: str,
     nullable_keyword: str,
+    cache: ResponseSchemaCache,
 ) -> Bundle | None:
     """Swagger 2.0 has single schema regardless of media type."""
-    return extract_response_schema_v2(response, resolver, scope, nullable_keyword)
+    return extract_response_schema_v2(response, resolver, scope, nullable_keyword, cache)
 
 
 def get_default_response_media_type_v3(response: Mapping[str, Any]) -> str | None:
@@ -490,6 +610,7 @@ def extract_schema_for_media_type_v3(
     resolver: Resolver,
     scope: str,
     nullable_keyword: str,
+    cache: ResponseSchemaCache,
     *,
     schema_covers_stream: bool = False,
     upgrade_legacy_exclusive_bounds: bool = False,
@@ -504,7 +625,7 @@ def extract_schema_for_media_type_v3(
     if schema is None:
         return None
 
-    return _prepare_schema(
+    return cache.prepared(
         schema,
         resolver,
         scope,
@@ -520,6 +641,7 @@ def extract_stream_schema_v3(
     resolver: Resolver,
     scope: str,
     nullable_keyword: str,
+    cache: ResponseSchemaCache,
     *,
     schema_covers_stream: bool = False,
     upgrade_legacy_exclusive_bounds: bool = False,
@@ -535,7 +657,7 @@ def extract_stream_schema_v3(
     schema = media_type_object.get("schema")
     if schema is None:
         return None
-    return _prepare_schema(
+    return cache.prepared(
         schema,
         resolver,
         scope,
@@ -546,7 +668,12 @@ def extract_stream_schema_v3(
 
 
 def extract_stream_schema_v2(
-    response: Mapping[str, Any], media_type: str | None, resolver: Resolver, scope: str, nullable_keyword: str
+    response: Mapping[str, Any],
+    media_type: str | None,
+    resolver: Resolver,
+    scope: str,
+    nullable_keyword: str,
+    cache: ResponseSchemaCache,
 ) -> Bundle | None:
     return None
 
@@ -692,7 +819,7 @@ def _iter_resolved_headers(
 def extract_header_schema_v2(
     header: Mapping[str, Any], resolver: Resolver, scope: str, nullable_keyword: str
 ) -> Bundle:
-    return _prepare_schema(cast(dict, header), resolver, scope, nullable_keyword, merge_ref_siblings=False)
+    return _build_prepared_schema(cast(dict, header), resolver, nullable_keyword, merge_ref_siblings=False)
 
 
 def extract_header_schema_v3(
@@ -705,10 +832,9 @@ def extract_header_schema_v3(
     merge_ref_siblings: bool = False,
 ) -> Bundle:
     schema = header.get("schema", {})
-    return _prepare_schema(
+    return _build_prepared_schema(
         schema,
         resolver,
-        scope,
         nullable_keyword,
         upgrade_legacy_exclusive_bounds=upgrade_legacy_exclusive_bounds,
         merge_ref_siblings=merge_ref_siblings,
@@ -745,3 +871,16 @@ def iter_response_examples_v3(response: Mapping[str, Any], status_code: str) -> 
                     yield name, example
             if example_keyword in definition:
                 yield name, definition[example_keyword]
+
+
+def _contains_discriminator(schema: JsonSchema) -> bool:
+    stack: list[object] = [schema]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            if isinstance(node.get("discriminator"), dict):
+                return True
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return False

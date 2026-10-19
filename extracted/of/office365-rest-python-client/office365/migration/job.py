@@ -8,18 +8,37 @@ see :class:`MigrationServerJob` instead.)
 
 from __future__ import annotations
 
+import logging
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, cast
 
-from office365.migration.base import MigrationOptions, MigrationPhase, MigrationStats
+from office365.migration.base import MigrationItem, MigrationOptions, MigrationPhase, MigrationStats
 from office365.migration.checkpoint import Checkpoint
+from office365.migration.delta import DeltaReport, compute_delta
+from office365.migration.logging import log_event
 from office365.migration.manifest import Manifest
 from office365.migration.runner import MigrationRunner
 
 if TYPE_CHECKING:
     from office365.runtime.operations import Progress
+
+
+def _elapsed_ms(started: datetime, finished: datetime | None = None) -> int:
+    """Whole milliseconds between two UTC timestamps (for the event payload)."""
+    end = finished or datetime.now(timezone.utc)
+    return int((end - started).total_seconds() * 1000)
+
+
+def _rebind_adapter(adapter):
+    """The adapter re-addressed on its own context, or the adapter itself.
+
+    Adapters opt in by exposing ``rebind()`` (the SharePoint ones do); the ones that
+    hold no runtime context (filesystem, in-memory) are shared as they are.
+    """
+    rebind = getattr(adapter, "rebind", None)
+    return rebind() if callable(rebind) else adapter
 
 
 class MigrationJob:
@@ -38,6 +57,7 @@ class MigrationJob:
         self._target = target
         self._options = options or MigrationOptions()
         self._manifest = Manifest()
+        self._delta = DeltaReport()
         self._checkpoint = Checkpoint.create(run_id)
         self._stats = MigrationStats()
         self._manifest_path = manifest_path
@@ -59,6 +79,33 @@ class MigrationJob:
         self._assess_hook = hook
         return self
 
+    def rebind(self) -> "MigrationJob":
+        """This job with context-isolated adapters — a copy safe to run on a thread.
+
+        A job's adapters may hold a ``ClientRuntimeContext`` (the SharePoint adapters
+        do), and a context owns a single pending-query queue: two jobs sharing one
+        cannot run at the same time. Adapters that expose ``rebind()`` are
+        re-addressed on a ``clone`` (which shares the authenticated transport, so the
+        whole fleet still uses one connection pool); the rest are context-free and
+        shared. Returns ``self`` when nothing had to change, so a sequential run is
+        untouched.
+
+        The copy starts from a fresh phase and stats — it is meant to be created
+        *before* the job runs, which is what a session does before handing it to a
+        worker thread.
+        """
+        source = _rebind_adapter(self._source)
+        target = _rebind_adapter(self._target)
+        if source is self._source and target is self._target:
+            return self
+        return MigrationJob(
+            source,
+            target,
+            self._options,
+            manifest_path=self._manifest_path,
+            checkpoint_path=self._checkpoint_path,
+        )
+
     # ── State ────────────────────────────────────────────────────
 
     @property
@@ -70,12 +117,37 @@ class MigrationJob:
         return self._stats
 
     @property
+    def options(self) -> MigrationOptions:
+        """The effective options for this job (defaults when none were supplied)."""
+        return self._options
+
+    @property
     def manifest(self) -> Manifest:
         return self._manifest
 
     @property
+    def delta(self) -> DeltaReport:
+        """What changed at the source since the persisted plan (a re-run's drift).
+
+        Filled by :meth:`plan` when ``manifest_path`` holds the plan a previous
+        run wrote: deleted, renamed/moved and changed items are named there so a
+        copy that cannot converge on them says so instead of passing silently.
+        """
+        return self._delta
+
+    @property
     def checkpoint(self) -> Checkpoint:
         return self._checkpoint
+
+    @property
+    def source(self):
+        """The source adapter for this job."""
+        return self._source
+
+    @property
+    def target(self):
+        """The target adapter for this job."""
+        return self._target
 
     @property
     def source_label(self) -> str:
@@ -103,6 +175,12 @@ class MigrationJob:
             return None
         return (self._finished_at - self._started_at).total_seconds()
 
+    @property
+    def duration_ms(self) -> int | None:
+        """Wall-clock duration of the last run, in milliseconds (log payloads)."""
+        duration = self.duration
+        return None if duration is None else int(duration * 1000)
+
     # ── Lifecycle ────────────────────────────────────────────────
 
     def assess(self, progress: Callable[["Progress"], None] | None = None) -> object | None:
@@ -124,27 +202,78 @@ class MigrationJob:
         return None
 
     def plan(self, progress: Callable[["Progress"], None] | None = None) -> Manifest:
-        """Enumerate the source into a persisted manifest."""
+        """Enumerate the source into a persisted manifest.
+
+        When the manifest path already holds a plan, that plan is the baseline of
+        a delta comparison (:attr:`delta`) before it is replaced.
+        """
         self._checkpoint.phase = MigrationPhase.PLANNING
+        started = datetime.now(timezone.utc)
+        # No labels here: a SharePoint source has not read its list yet, so its
+        # server-relative URL is still unknown — ``plan.completed`` carries both.
+        log_event("plan.started")
+        previous, note = self._previous_plan()
         self._manifest = Manifest.from_source(self._source, progress)
+        self._delta = compute_delta(previous, self._manifest.items, note=note)
         self._save_state()
+        log_event(
+            "plan.completed",
+            f"{self.source_label}: {len(self._manifest.items)} item(s) planned",
+            source=self.source_label,
+            target=self.target_label,
+            items=len(self._manifest.items),
+            duration_ms=_elapsed_ms(started),
+        )
         return self._manifest
 
     def run(self, progress: Callable[["Progress"], None] | None = None) -> MigrationStats:
         """Execute the migration (resumable; re-drives pending/failed items)."""
         self._checkpoint.phase = MigrationPhase.RUNNING
         self._started_at = datetime.now(timezone.utc)
-        self._stats = self._runner.run(
-            self._source,
-            self._target,
-            self._manifest.items,
-            self._options,
-            self._checkpoint,
-            self._checkpoint_path,
-            progress,
-            stop_event=self._stop_event.is_set,
+        log_event(
+            "job.started",
+            f"{self.source_label} -> {self.target_label}",
+            source=self.source_label,
+            target=self.target_label,
+            items=len(self._manifest.items),
         )
+        try:
+            self._stats = self._runner.run(
+                self._source,
+                self._target,
+                self._manifest.items,
+                self._options,
+                self._checkpoint,
+                self._checkpoint_path,
+                progress,
+                stop_event=self._stop_event.is_set,
+            )
+        except Exception as e:
+            self._finished_at = datetime.now(timezone.utc)
+            log_event(
+                "job.failed",
+                f"{self.source_label} -> {self.target_label} failed: {e}",
+                level=logging.ERROR,
+                source=self.source_label,
+                target=self.target_label,
+                error=str(e),
+                duration_ms=self.duration_ms,
+            )
+            raise
         self._finished_at = datetime.now(timezone.utc)
+        log_event(
+            "job.completed",
+            f"{self.target_label}: {self._stats.success} copied, {self._stats.skipped} skipped"
+            f", {self._stats.errors} failed",
+            source=self.source_label,
+            target=self.target_label,
+            phase=self._checkpoint.phase.value,
+            success=self._stats.success,
+            skipped=self._stats.skipped,
+            errors=self._stats.errors,
+            bytes_transferred=self._stats.bytes_transferred,
+            duration_ms=self.duration_ms,
+        )
         if self._checkpoint.phase == MigrationPhase.PAUSED and self._cancel_requested:
             self._checkpoint.phase = MigrationPhase.CANCELLED
             self._save_state()
@@ -169,12 +298,30 @@ class MigrationJob:
     def status(self) -> MigrationPhase:
         return self.phase
 
+    def fidelity(self):
+        """Describe the requested fidelity this job's adapter pair can honor.
+
+        Purely informational (never raises); use it to report capabilities before
+        :meth:`run`. The run itself still fails fast on an unhonorable flag. The
+        report also carries the full per-dimension fidelity matrix
+        (``report.dimensions`` / ``report.matrix_summary()``).
+        """
+        from office365.migration.fidelity import describe_fidelity
+
+        return describe_fidelity(self._source, self._target, self._options)
+
     def verify(self, spot_checks: int = 20):
-        """Reconcile source vs target after migration (counts + checksum spot-checks)."""
+        """Reconcile source vs target after migration.
+
+        Always checks presence and content checksums; when the run requested
+        fidelity flags, the same sample is diffed for timestamps/permissions via
+        the optional adapter ``read_metadata`` / ``read_permissions`` hooks (see
+        :func:`office365.migration.validators.verify`).
+        """
         from office365.migration.validators import verify as _verify
 
         self._checkpoint.phase = MigrationPhase.VERIFYING
-        report = _verify(self._source, self._target, self._manifest, spot_checks)
+        report = _verify(self._source, self._target, self._manifest, spot_checks, self._options)
         self._checkpoint.phase = MigrationPhase.COMPLETED if report.ok else MigrationPhase.COMPLETED_WITH_ERRORS
         return report
 
@@ -201,6 +348,18 @@ class MigrationJob:
             self._manifest.save(self._manifest_path)
         if self._checkpoint_path is not None:
             self._checkpoint.save(self._checkpoint_path)
+
+    def _previous_plan(self) -> tuple[list[MigrationItem] | None, str | None]:
+        """The plan a previous run persisted (the delta baseline), if there is one."""
+        if self._manifest_path is None:
+            return None, None
+        path = Path(self._manifest_path)
+        if not path.exists():
+            return None, None
+        try:
+            return Manifest.load(path).items, None
+        except Exception as e:  # noqa: BLE001 — a broken baseline must not block a re-plan
+            return None, f"the previous plan at {path} could not be read ({e})"
 
     def _load_state(self) -> None:
         if self._manifest_path is not None and Path(self._manifest_path).exists():

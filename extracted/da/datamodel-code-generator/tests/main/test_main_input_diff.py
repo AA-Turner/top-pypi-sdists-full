@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from typing import TYPE_CHECKING
 
 import jsonschema
@@ -16,7 +17,7 @@ from datamodel_code_generator.__main__ import (
     _output_comparison_policy,
     _write_comparison_output,
 )
-from tests.conftest import assert_output, create_assert_file_content
+from tests.conftest import assert_output, create_assert_file_content, stored_expected
 from tests.main.conftest import DATA_PATH, InputFileTypeLiteral, run_main_and_assert, run_main_with_args
 
 if TYPE_CHECKING:
@@ -27,7 +28,7 @@ INPUT_DIFF_EXPECTED_PATH = DATA_PATH / "expected" / "main" / "input_diff"
 JSON_SCHEMA_INPUT_DIFF_PATH = DATA_PATH / "jsonschema" / "input_diff"
 OPENAPI_INPUT_DIFF_PATH = DATA_PATH / "openapi" / "input_diff"
 LOCAL_INPUT_TYPE_CASES: tuple[tuple[InputFileTypeLiteral, Path, bool], ...] = (
-    ("jsonschema", JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json", False),
+    ("jsonschema", JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json", False),
     ("openapi", OPENAPI_INPUT_DIFF_PATH / "new.yaml", True),
     ("asyncapi", DATA_PATH / "asyncapi" / "user-events.yaml", False),
     ("mcp-tools", DATA_PATH / "mcp_tools" / "direct_tool.json", False),
@@ -85,7 +86,7 @@ def test_diff_against_identical_single_file_does_not_write_virtual_output(
         input_path=new_input,
         output_path=output_file,
         input_file_type="jsonschema",
-        extra_args=["--diff-against", str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json"), "--disable-timestamp"],
+        extra_args=["--diff-against", str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json"), "--disable-timestamp"],
         expected_exit=Exit.OK,
         output_should_not_exist=True,
         capsys=capsys,
@@ -105,7 +106,7 @@ def test_diff_against_supports_every_output_model_type(
         input_file_type="jsonschema",
         extra_args=[
             "--diff-against",
-            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json"),
+            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json"),
             "--disable-timestamp",
             "--output-model-type",
             output_model_type,
@@ -125,7 +126,7 @@ def test_diff_against_infers_each_input_type_independently(
     run_main_and_assert(
         input_path=JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.yaml",
         output_path=output_file,
-        extra_args=["--diff-against", str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json"), "--disable-timestamp"],
+        extra_args=["--diff-against", str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json"), "--disable-timestamp"],
         expected_exit=Exit.OK,
         output_should_not_exist=True,
         capsys=capsys,
@@ -183,10 +184,39 @@ def test_diff_against_reports_changed_single_file_without_writing_virtual_output
     )
 
 
+def test_diff_against_reports_model_name_map_keys_that_match_no_model_of_the_current_input(
+    output_file: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Report once the --model-name-map keys that match no model of the current input, whatever the baseline has."""
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=OPENAPI_INPUT_DIFF_PATH / "model_name_map_new.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            extra_args=[
+                "--diff-against",
+                str(OPENAPI_INPUT_DIFF_PATH / "model_name_map_old.yaml"),
+                "--disable-timestamp",
+                "--model-name-map",
+                json.dumps({"PetOwner": "Person", "Ownr": "Keeper"}),
+            ],
+            expected_exit=Exit.DIFF,
+            output_should_not_exist=True,
+            capsys=capsys,
+            expected_stdout_path=INPUT_DIFF_EXPECTED_PATH / "model_name_map.txt",
+            assert_no_stderr=True,
+        )
+    assert_output(
+        "".join(f"{record.message}\n" for record in recorded if record.category is UserWarning),
+        INPUT_DIFF_EXPECTED_PATH / "model_name_map_warnings.txt",
+    )
+
+
 @pytest.mark.parametrize(
     ("baseline", "current", "extra_args", "expected_exit", "expected_stdout"),
     [
-        pytest.param("same_old.json", "same_new.json", (), Exit.OK, "identical.txt", id="identical"),
+        pytest.param("same_new.json", "same_new.json", (), Exit.OK, "identical.txt", id="identical"),
         pytest.param("old.json", "new.json", (), Exit.DIFF, "different_suffixless_file.txt", id="different"),
         pytest.param(
             "old.json",
@@ -375,7 +405,7 @@ def test_diff_against_json_reports_identical_inputs_without_writing_virtual_outp
         input_file_type="jsonschema",
         extra_args=[
             "--diff-against",
-            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json"),
+            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json"),
             "--disable-timestamp",
             "--output-format",
             "json",
@@ -398,7 +428,7 @@ def test_diff_against_preserves_a_preexisting_virtual_file(
         input_file_type="jsonschema",
         extra_args=[
             "--diff-against",
-            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json"),
+            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json"),
             "--disable-timestamp",
         ],
         expected_exit=Exit.OK,
@@ -407,7 +437,7 @@ def test_diff_against_preserves_a_preexisting_virtual_file(
         capsys=capsys,
         expected_stdout_path=INPUT_DIFF_EXPECTED_PATH / "identical.txt",
         assert_no_stderr=True,
-        copy_files=[(VIRTUAL_FILE_SENTINEL, output_file)],
+        copy_files=[(stored_expected(VIRTUAL_FILE_SENTINEL), output_file)],
     )
 
 
@@ -430,7 +460,7 @@ def test_diff_against_preserves_a_preexisting_virtual_directory(
         capsys=capsys,
         expected_stdout_path=INPUT_DIFF_EXPECTED_PATH / "identical.txt",
         assert_no_stderr=True,
-        copy_files=[(VIRTUAL_DIRECTORY_SENTINEL / "sentinel.py", output_dir / "sentinel.py")],
+        copy_files=[(stored_expected(VIRTUAL_DIRECTORY_SENTINEL / "sentinel.py"), output_dir / "sentinel.py")],
     )
 
 
@@ -446,7 +476,7 @@ def test_diff_against_uses_the_virtual_output_context_for_relative_custom_format
         input_file_type="jsonschema",
         extra_args=[
             "--diff-against",
-            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json"),
+            str(JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json"),
             "--disable-timestamp",
             "--formatters",
             "builtin",
@@ -488,7 +518,7 @@ use-double-quotes = true
                 "--profile",
                 "compare",
                 "--diff-against",
-                str((JSON_SCHEMA_INPUT_DIFF_PATH / "same_old.json").resolve()),
+                str((JSON_SCHEMA_INPUT_DIFF_PATH / "same_new.json").resolve()),
                 "--disable-timestamp",
                 "--formatters",
                 "builtin",
@@ -505,8 +535,10 @@ def test_diff_against_json_fixture_matches_structured_output_schema() -> None:
     """The input-diff payload remains part of the public structured-output schema."""
     schema_path = DATA_PATH / "expected" / "main_kr" / "output_format_json" / "structured_output_schema.txt"
     jsonschema.validate(
-        instance=json.loads((INPUT_DIFF_EXPECTED_PATH / "different_file_json.txt").read_text(encoding="utf-8")),
-        schema=json.loads(schema_path.read_text(encoding="utf-8")),
+        instance=json.loads(
+            stored_expected(INPUT_DIFF_EXPECTED_PATH / "different_file_json.txt").read_text(encoding="utf-8")
+        ),
+        schema=json.loads(stored_expected(schema_path).read_text(encoding="utf-8")),
     )
 
 

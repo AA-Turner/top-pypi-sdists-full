@@ -15,10 +15,11 @@ from schemathesis.cli.summary import (
     reduce_test_cases,
 )
 from schemathesis.core.failures import Failure
+from schemathesis.core.output.sanitization import sanitized
 from schemathesis.engine import Status, StopReason
 from schemathesis.engine.statistic import GroupedFailures, Statistic
 from schemathesis.reporting.html import write_report
-from schemathesis.reporting.html.build import failing_case, sanitized
+from schemathesis.reporting.html.build import failing_case, failure_titles
 from schemathesis.reporting.html.model import ErrorEntry, OperationRow, OperationStatus, ReportData, ReportMeta
 from schemathesis.reporting.recorders import grouped_failures_from_recorder
 
@@ -159,7 +160,7 @@ class HtmlWriter:
             failing_case(group, config=self._config, replay=None)
             for group in self._statistic.failures.get(label, {}).values()
         ]
-        failures = sorted({failure.title for case in cases for failure in case.failures})
+        failures = failure_titles(cases)
         note = None
         if failures:
             status = OperationStatus.FAILED

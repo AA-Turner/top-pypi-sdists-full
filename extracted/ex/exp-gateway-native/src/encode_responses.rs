@@ -10,6 +10,7 @@ use crate::events::{
     CompletedToolCall, Event, ProviderAssistantMessagePhase, ProviderOutputItemKind,
     ProviderOutputItemStatus, Usage,
 };
+use crate::reasoning_estimate::ReasoningEstimate;
 use crate::tool_search::ResponsesToolSearch;
 use crate::web_search::{
     responses_web_search_events, url_citations, CitationShape, WebSearchAdmission,
@@ -68,6 +69,8 @@ pub struct ResponsesSseEncoder {
     messages: HashMap<MessageKey, MessageState>,
     provider_output_starts: HashMap<u32, ProviderOutputStart>,
     usage: Option<Usage>,
+    /// Visible output and thinking for the estimated reasoning count.
+    reasoning_estimate: ReasoningEstimate,
     web_search: Option<WebSearchAdmission>,
     /// The gateway-run tool-search rounds, rendered as leading hosted items
     /// at `start` and metered on usage; `None` changes nothing.
@@ -101,6 +104,7 @@ impl ResponsesSseEncoder {
             messages: HashMap::new(),
             provider_output_starts: HashMap::new(),
             usage: None,
+            reasoning_estimate: ReasoningEstimate::default(),
             web_search: None,
             tool_search: None,
         }
@@ -179,6 +183,7 @@ impl ResponsesSseEncoder {
                 "Responses stream received an event after its terminal.",
             ));
         }
+        self.reasoning_estimate.observe(event);
         match event {
             Event::ProviderResponsesLogprobs {
                 output_index,
@@ -374,6 +379,7 @@ impl ResponsesSseEncoder {
                 name,
                 namespace,
                 caller,
+                thought_signature,
             } => self.tool_started(
                 *index,
                 call_id,
@@ -381,6 +387,7 @@ impl ResponsesSseEncoder {
                 namespace.as_deref(),
                 caller.as_ref(),
                 *custom,
+                thought_signature.as_deref(),
             ),
             Event::ToolArgumentsDelta { index, delta } => self.tool_arguments(*index, delta),
             Event::ToolCallCompleted { index, call } => self.tool_completed(*index, call),
@@ -630,6 +637,7 @@ impl ResponsesSseEncoder {
     }
 
     /// Emit one stable function-call output item start.
+    #[allow(clippy::too_many_arguments)]
     fn tool_started(
         &mut self,
         index: u32,
@@ -638,6 +646,7 @@ impl ResponsesSseEncoder {
         namespace: Option<&str>,
         caller: Option<&Value>,
         custom: bool,
+        thought_signature: Option<&str>,
     ) -> Result<Vec<String>, PublicError> {
         if self.tools.contains_key(&index) {
             return Err(invalid_provider_stream(
@@ -684,6 +693,7 @@ impl ResponsesSseEncoder {
             name: name.to_string(),
             namespace: namespace.map(str::to_string),
             caller: caller.cloned(),
+            thought_signature: thought_signature.map(str::to_string),
             arguments: String::new(),
             status,
             done: false,
@@ -741,6 +751,7 @@ impl ResponsesSseEncoder {
             || state.name != call.name
             || state.namespace != call.namespace
             || state.caller != call.caller
+            || state.thought_signature != call.thought_signature
             || state.custom != call.custom
             || state.arguments != call.raw_arguments
             || (provider_owned_identity && call.provider_item_id != state.item_id)

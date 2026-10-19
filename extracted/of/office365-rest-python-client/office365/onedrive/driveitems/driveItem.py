@@ -6,7 +6,7 @@ from functools import partial
 from io import IOBase
 from os import PathLike
 from os.path import isfile, join
-from typing import IO, AnyStr, Callable, Optional
+from typing import IO, TYPE_CHECKING, AnyStr, AsyncIterator, Callable, Optional
 
 import requests
 from requests import Response
@@ -21,6 +21,7 @@ from office365.onedrive.analytics.item_analytics import ItemAnalytics
 from office365.onedrive.base_item import BaseItem
 from office365.onedrive.driveitems.audio import Audio
 from office365.onedrive.driveitems.conflict_behavior import ConflictBehavior
+from office365.onedrive.driveitems.copy_result import DriveItemCopyResult
 from office365.onedrive.driveitems.geo_coordinates import GeoCoordinates
 from office365.onedrive.driveitems.image import Image
 from office365.onedrive.driveitems.item_preview_info import ItemPreviewInfo
@@ -53,20 +54,31 @@ from office365.onedrive.sensitivitylabels.extract_result import (
 from office365.onedrive.shares.shared import Shared
 from office365.onedrive.versions.drive_item import DriveItemVersion
 from office365.onedrive.workbooks.workbook import Workbook
+from office365.runtime.client_request_exception import ClientRequestException
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.v4.upload_session import UploadSession
 from office365.runtime.odata.v4.upload_session_request import UploadSessionRequest
-from office365.runtime.operations import Progress
+from office365.runtime.operations import Progress, ProgressCallback, emit_progress
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.function import FunctionQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.runtime.queries.upload_session import UploadSessionQuery
+from office365.runtime.transport.base import HeadersCallback
+from office365.runtime.transport.offload import get_offload_executor, run_offloaded
 from office365.runtime.types.odata_property import odata
 from office365.subscriptions.collection import SubscriptionCollection
+
+if TYPE_CHECKING:
+    from office365.onedrive.driveitems.bundle import Bundle
+    from office365.onedrive.driveitems.malware import Malware
+    from office365.onedrive.driveitems.package import Package
+    from office365.onedrive.driveitems.video import Video
+    from office365.onedrive.root import Root
+    from office365.search.search_result import SearchResult
 
 
 class DriveItem(BaseItem):
@@ -139,9 +151,10 @@ class DriveItem(BaseItem):
         The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
         collection is honored on every ``children`` page the scan loads.
         """
+        from office365.onedrive.driveitems.collection import DriveItemCollection
         from office365.runtime.queries.deferred import DeferredOperationQuery
 
-        return_type = EntityCollection(self.context, DriveItem, self.resource_path)
+        return_type = DriveItemCollection(self.context, self.resource_path)
 
         def _get_files(parent_drive_item: DriveItem) -> None:
             def _after_loaded(col: EntityCollection[DriveItem]) -> None:
@@ -185,9 +198,10 @@ class DriveItem(BaseItem):
         The fluent ``.select([...])`` / ``.expand([...])`` applied to the returned
         collection is honored on every ``children`` page the scan loads.
         """
+        from office365.onedrive.driveitems.collection import DriveItemCollection
         from office365.runtime.queries.deferred import DeferredOperationQuery
 
-        return_type = EntityCollection(self.context, DriveItem, self.resource_path)
+        return_type = DriveItemCollection(self.context, self.resource_path)
 
         def _get_folders(parent: DriveItem) -> None:
             def _after_loaded(col: EntityCollection[DriveItem]) -> None:
@@ -269,40 +283,37 @@ class DriveItem(BaseItem):
     def _resolve_path(self, names: list[str], on_resolved: Callable[[DriveItem], None]) -> None:
         """Walk and create the folders in ``names``, then call ``on_resolved`` with the resolved folder.
 
-        Reuses an existing folder per level or creates the missing one. The
-        callback receives a query-bound parent entity, so callers can queue
-        further work (e.g. a file upload) that depends on the parent id. With no
-        names the callback runs synchronously against ``self``.
+        Each level is resolved with a children lookup
+        (``.../children?$filter=name eq '...'``) rather than path-based addressing,
+        because Graph supports ``root:/path:/`` addressing but *not*
+        ``items/{id}:/path:/`` for a read. Creation goes through the parent's
+        ``children`` collection, so the walk works both from the drive root and
+        from a folder addressed by id. The callback receives the resolved folder
+        (existing or created); with no names it runs synchronously against
+        ``self``.
 
         Args:
             names (list[str]): Folder names, relative to this item.
             on_resolved (Callable[[DriveItem], None]): Invoked with the resolved folder.
         """
-        from office365.runtime.exceptions import ObjectNotFoundException
 
         def _walk(parent: DriveItem, idx: int) -> None:
             if idx == len(names):
                 on_resolved(parent)
                 return
 
-            child = parent.get_by_path(names[idx])
+            name = names[idx]
+            escaped = name.replace("'", "''")
+            existing = parent.children.first_or_none(f"name eq '{escaped}'")
 
-            def _on_found(_) -> None:
-                _walk(child, idx + 1)
+            def _on_checked(_) -> None:
+                if existing.is_loaded:
+                    _walk(existing, idx + 1)
+                else:
+                    created = parent.create_folder(name)
+                    created.after_execute(lambda _: _walk(created, idx + 1))
 
-            def _on_missing(error) -> None:
-                if not isinstance(error, ObjectNotFoundException):
-                    raise error
-                created = parent.create_folder(names[idx])
-                created.after_execute(lambda _: _reload(idx))
-
-            child.get().after_execute(_on_found).on_error(_on_missing)
-
-        def _reload(idx: int) -> None:
-            # Re-resolve the freshly created folder by path so the next level has
-            # a stable, addressable parent entity.
-            prefix = "/".join(names[: idx + 1])
-            self.get_by_path(prefix).get().after_execute(lambda resolved: _walk(resolved, idx + 1))
+            parent.children.after_execute(_on_checked)
 
         _walk(self, 0)
 
@@ -334,8 +345,6 @@ class DriveItem(BaseItem):
         Returns:
             DriveItem: The target file (existing or newly uploaded).
         """
-        from office365.runtime.queries.get_or_create import get_or_create
-
         if on_conflict not in ("skip", "replace"):
             raise ValueError(f"on_conflict must be 'skip' or 'replace', got {on_conflict!r}")
         names = self._split_path(relative_path)
@@ -346,16 +355,24 @@ class DriveItem(BaseItem):
         return_type = DriveItem(self.context)
 
         def _on_resolved(parent_item: DriveItem) -> None:
+            # ``items/{parent-id}:/{name}:/content`` is a valid *upload* target, so
+            # the path-addressed item is fine for the PUT; only the existence read
+            # must avoid ``:/`` (see ``_resolve_path``) and go through ``children``.
             return_type._resource_path = parent_item.get_by_path(name)._resource_path
             if on_conflict == "replace":
                 parent_item.context.add_query(parent_item._build_upload_query(return_type, data))
                 return
-            get_or_create(
-                find=lambda: parent_item.get_by_path(name).get(),
-                create_query=lambda: parent_item._build_upload_query(return_type, data),
-                return_type=return_type,
-                on_conflict="skip",
-            )
+
+            escaped = name.replace("'", "''")
+            existing = parent_item.children.first_or_none(f"name eq '{escaped}'")
+
+            def _on_checked(_) -> None:
+                if existing.is_loaded:
+                    return_type.copy_from(existing)
+                else:
+                    parent_item.context.add_query(parent_item._build_upload_query(return_type, data))
+
+            parent_item.children.after_execute(_on_checked)
 
         self._resolve_path(names[:-1], _on_resolved)
         return return_type
@@ -427,7 +444,7 @@ class DriveItem(BaseItem):
         self.context.add_query(qry)
         return self
 
-    def delete_object(self, bypass_shared_lock: bool = False) -> Self:
+    def delete_object(self, bypass_shared_lock: bool = False, *, ignore_missing: bool = False) -> Self:
         """Deletes the driveItem.
 
         Args:
@@ -435,8 +452,10 @@ class DriveItem(BaseItem):
                 succeeds even when the item is open for editing. Without it the
                 server rejects the request with
                 :class:`~office365.runtime.exceptions.FileLockedException` (HTTP 423).
+            ignore_missing: When ``True``, deleting an item that no longer exists
+                (HTTP 404) succeeds instead of raising.
         """
-        super().delete_object()
+        super().delete_object(ignore_missing=ignore_missing)
         if bypass_shared_lock:
             from office365.runtime.http.prefer import prefer_bypass_shared_lock
 
@@ -543,6 +562,68 @@ class DriveItem(BaseItem):
         self.context.add_query(qry).after_execute(_start_upload)
         return return_type
 
+    async def resumable_upload_async(
+        self,
+        source_path: str,
+        chunk_size: int = 2000000,
+        chunk_uploaded: Callable[[int], None] | None = None,
+        progress: ProgressCallback | None = None,
+    ) -> DriveItem:
+        """Create an upload session and upload a large file without blocking the loop.
+
+        Async twin of :meth:`resumable_upload` that is an awaitable coroutine: it
+        creates the upload session and sends every chunk before it returns,
+        instead of deferring the work to the next context execution.
+
+        Each chunk is read from disk on the shared offload executor and PUT
+        through the context's async transport (native with ``httpx``, otherwise a
+        worker thread), so a multi-gigabyte upload keeps the event loop free.
+        Chunks are uploaded sequentially, as the service requires.
+
+        Args:
+            source_path (str): Local file path to upload.
+            chunk_size (int): Number of bytes per chunk. Graph requires a
+                multiple of 320 KiB, which the default (2 MB) satisfies.
+            chunk_uploaded: Optional ``(bytes_uploaded) -> None`` callback invoked
+                after each accepted chunk.
+            progress: Optional ``ProgressCallback`` invoked per chunk with a
+                ``Progress`` snapshot (``done`` = bytes uploaded, ``total`` =
+                file size).
+
+        Returns:
+            DriveItem: The uploaded item.
+        """
+        file_name = os.path.basename(source_path)
+        return_type = DriveItem(self.context, UrlPath(file_name, self.resource_path))
+
+        qry = UploadSessionQuery(return_type, {"item": DriveItemUploadableProperties(name=file_name)})
+        self.context.add_query(qry)
+        await self.context.execute_query_async()
+
+        pending = self.context.pending_request()
+        executor = get_offload_executor()
+        file_size = await run_offloaded(os.path.getsize, source_path, executor=executor)
+
+        def _on_chunk(uploaded: int) -> None:
+            if callable(chunk_uploaded):
+                chunk_uploaded(uploaded)
+            emit_progress(progress, done=uploaded, total=file_size, stage="uploading")
+
+        local_file: IO = await run_offloaded(open, source_path, "rb", executor=executor)
+        try:
+            session_request = UploadSessionRequest(local_file, chunk_size, _on_chunk)
+            session_request.with_async_transport(pending.async_transport)
+            try:
+                await session_request.execute_query_async(qry)
+            except ClientRequestException as e:
+                if pending.onError:
+                    pending.onError(e)
+                    return return_type
+                raise
+        finally:
+            local_file.close()
+        return return_type
+
     @require_permission(
         delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
         application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
@@ -559,8 +640,8 @@ class DriveItem(BaseItem):
     def _build_upload_query(self, item: DriveItem, content: bytes | None) -> ServiceOperationQuery[DriveItem]:
         """Build (but do not queue) the ``PUT .../content`` query for ``item``.
 
-        Shared by :meth:`upload` and :meth:`ensure_file` — the latter needs a
-        query it can hand to ``get_or_create``'s deferred create slot.
+        Shared by :meth:`upload` and :meth:`ensure_file` — the latter only queues
+        it when the leaf file is missing.
 
         Args:
             item (DriveItem): The file that receives the content.
@@ -632,6 +713,55 @@ class DriveItem(BaseItem):
         qry = FunctionQuery(self, action_name, None, return_type, return_raw_content=True)
         self.context.add_query(qry)
         return return_type
+
+    async def get_content_stream_async(
+        self,
+        chunk_size: int = 1024 * 1024,
+        format_name: str | None = None,
+        on_headers: HeadersCallback | None = None,
+    ) -> AsyncIterator[bytes]:
+        """Yield the file body in chunks without buffering it in memory.
+
+        The streaming primitive behind :meth:`download_session_async`: it sends
+        the same ``/content`` request (auth, pacing and the configured async
+        transport all apply) and yields the body as it arrives, so the bytes can
+        be piped straight to another destination — a socket, an upload, a hash —
+        without opening a local file or materialising the whole content::
+
+            async for chunk in item.get_content_stream_async():
+                await sink.send(chunk)
+
+        Args:
+            chunk_size: Number of bytes per yielded chunk.
+            format_name: Optional conversion format (e.g. ``"pdf"``) requested via
+                the ``/content?format=`` endpoint.
+            on_headers: Optional callback invoked once with the response headers
+                before the first chunk (e.g. to read ``Content-Length``).
+
+        Yields:
+            Successive slices of the file body.
+
+        Raises:
+            ClientRequestException: When the service returns an error status.
+        """
+        pending = self.context.pending_request()
+        action_name = "content" if format_name is None else f"content?format={format_name}"
+        qry = FunctionQuery(self, action_name, None, None, return_raw_content=True)
+        request = pending.build_request(qry)
+        request.stream = True
+        request.method = HttpMethod.Get
+        await pending.before_execute_async(request)
+        stream = pending.async_transport.stream_async(request, chunk_size=chunk_size, on_headers=on_headers)
+        try:
+            async for chunk in stream:
+                yield chunk
+        except requests.HTTPError as e:
+            raise ClientRequestException.from_response(e.response) from e
+        finally:
+            # Close the response when the consumer stops early (break/cancel).
+            aclose = getattr(stream, "aclose", None)
+            if aclose is not None:
+                await aclose()
 
     @require_permission(
         delegated=[
@@ -729,6 +859,71 @@ class DriveItem(BaseItem):
         self.get_content().before_execute(_construct_request).after_execute(_process_response, include_response=True)
         return self
 
+    async def download_session_async(
+        self,
+        file_object: IO,
+        chunk_downloaded: Callable[[int], None] | None = None,
+        chunk_size: int = 1024 * 1024,
+        progress: ProgressCallback | None = None,
+    ) -> Self:
+        """Async twin of :meth:`download_session` that never blocks the loop.
+
+        Streams a large file into ``file_object`` through the configured async
+        transport — native when one is set (e.g.
+        :class:`~office365.runtime.transport.httpx_transport.HttpxTransport`),
+        otherwise a worker thread — so the event loop stays free while the body
+        is transferred and the content is never buffered in memory.
+
+        Unlike the deferred :meth:`download_session`, this is an awaitable
+        coroutine: it sends the request and writes every chunk before it returns.
+
+        Args:
+            file_object: An open binary file object to write into.
+            chunk_downloaded: Optional ``(bytes_so_far) -> None`` callback invoked
+                after each chunk.
+            chunk_size: Number of bytes per chunk.
+            progress: Optional ``ProgressCallback`` invoked per chunk with a
+                ``Progress`` snapshot (``done`` = bytes downloaded so far,
+                ``total`` = content length when known).
+
+        Returns:
+            Self for method chaining.
+        """
+        pending = self.context.pending_request()
+        qry = FunctionQuery(self, "content", None, None, return_raw_content=True)
+        request = pending.build_request(qry)
+        request.stream = True
+        request.method = HttpMethod.Get
+        await pending.before_execute_async(request)
+
+        if file_object.seekable():
+            file_object.seek(0)
+            file_object.truncate()
+
+        total: list[int | None] = [None]
+
+        def _capture_length(headers) -> None:
+            length = headers.get("Content-Length")
+            total[0] = int(length) if length else None
+
+        bytes_read = 0
+        try:
+            async for chunk in pending.async_transport.stream_async(
+                request, chunk_size=chunk_size, on_headers=_capture_length
+            ):
+                bytes_read += len(chunk)
+                if callable(chunk_downloaded):
+                    chunk_downloaded(bytes_read)
+                emit_progress(progress, done=bytes_read, total=total[0], stage="downloading")
+                file_object.write(chunk)
+        except requests.HTTPError as e:
+            error = ClientRequestException.from_response(e.response)
+            if pending.onError:
+                pending.onError(error)
+                return self
+            raise error from e
+        return self
+
     @require_permission(
         delegated=["Files.ReadWrite", "Files.ReadWrite.All", "Sites.ReadWrite.All"],
         application=["Files.ReadWrite.All", "Sites.ReadWrite.All"],
@@ -786,9 +981,15 @@ class DriveItem(BaseItem):
         name: str | None = None,
         parent: ItemReference | DriveItem | None = None,
         conflict_behavior: ConflictBehavior = ConflictBehavior.Fail,
-    ) -> ClientResult[str]:
+    ) -> DriveItemCopyResult:
         """Asynchronously creates a copy of an driveItem (including any children), under a new parent item or with a
         new name.
+
+        Microsoft Graph accepts this action with ``202 Accepted`` and returns the
+        URL of an operation-status (monitor) resource. The returned
+        :class:`~office365.onedrive.driveitems.copy_result.DriveItemCopyResult`
+        exposes it as ``monitor_url``; use ``wait_for_item()`` /
+        ``wait_for_item_async()`` to poll to completion and get the new item.
 
         Args:
             name (str or None): The new name for the copy. If this isn't provided, the same name will be used as the
@@ -797,10 +998,16 @@ class DriveItem(BaseItem):
               to the parent item the copy will be created in.
             conflict_behavior (str): query parameter to customize the behavior when a conflict occurs.
               Returns location for details about how to monitor the progress of the copy, upon accepting the request.
+
+        Returns:
+            The monitor result; call ``execute_query()`` to start the copy, then
+            ``wait_for_item()`` / ``wait_for_item_async()`` for the new item.
         """
-        return_type = ClientResult(self.context, str())
+        return_type = DriveItemCopyResult(self.context, self)
 
         def _copy(parent_reference: ItemReference) -> None:
+            return_type.destination_drive_id = parent_reference.driveId
+
             def _create_request(request: RequestOptions) -> None:
                 request.url += f"?@microsoft.graph.conflictBehavior={conflict_behavior.value}"
 
@@ -897,7 +1104,9 @@ class DriveItem(BaseItem):
         Args:
             query_text (str):
         """
-        return_type = EntityCollection[DriveItem](self.context, DriveItem, ResourcePath("items", self.resource_path))
+        from office365.onedrive.driveitems.collection import DriveItemCollection
+
+        return_type = DriveItemCollection(self.context, ResourcePath("items", self.resource_path))
         qry = FunctionQuery(self, "search", {"q": query_text}, return_type)
         self.context.add_query(qry)
         return return_type
@@ -1130,9 +1339,11 @@ class DriveItem(BaseItem):
         """Collection containing Item objects for the immediate children of Item. Only items representing folders
         have children.
         """
+        from office365.onedrive.driveitems.collection import DriveItemCollection
+
         return self.properties.get(
             "children",
-            EntityCollection(self.context, DriveItem, ChildrenPath(self.resource_path)),
+            DriveItemCollection(self.context, ChildrenPath(self.resource_path)),
         )
 
     @property
@@ -1257,3 +1468,66 @@ class DriveItem(BaseItem):
     @property
     def property_ref_name(self) -> str:
         return "id"
+
+    @property
+    def bundle(self) -> Bundle:
+        """Gets the bundle property"""
+        from office365.onedrive.driveitems.bundle import Bundle
+
+        return self.properties.get("bundle", Bundle())
+
+    @property
+    def content(self) -> Optional[bytes]:
+        """Gets the content property"""
+        return self.properties.get("content", None)
+
+    @property
+    def ctag(self) -> Optional[str]:
+        """Gets the cTag property"""
+        return self.properties.get("cTag", None)
+
+    @property
+    def malware(self) -> Malware:
+        """Gets the malware property"""
+        from office365.onedrive.driveitems.malware import Malware
+
+        return self.properties.get("malware", Malware())
+
+    @property
+    def package(self) -> Package:
+        """Gets the package property"""
+        from office365.onedrive.driveitems.package import Package
+
+        return self.properties.get("package", Package())
+
+    @property
+    def root(self) -> Root:
+        """Gets the root property"""
+        from office365.onedrive.root import Root
+
+        return self.properties.get("root", Root())
+
+    @property
+    def search_result(self) -> SearchResult:
+        """Gets the searchResult property"""
+        from office365.search.search_result import SearchResult
+
+        return self.properties.get("searchResult", SearchResult())
+
+    @property
+    def video(self) -> Video:
+        """Gets the video property"""
+        from office365.onedrive.driveitems.video import Video
+
+        return self.properties.get("video", Video())
+
+    @property
+    def list_item(self) -> ListItem:
+        """Gets the listItem property"""
+        from office365.onedrive.listitems.list_item import ListItem
+
+        return self.properties.get("listItem", ListItem(self.context, ResourcePath("listItem", self.resource_path)))
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.DriveItem"

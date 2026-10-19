@@ -12,11 +12,10 @@ import pathlib
 import shutil
 import sys
 from os import PathLike
-from typing import Protocol, Sequence, TypeVar, cast
 from .toml_config import ConfigSource
 
 
-_BOOLEAN_VALUES = {
+_BOOLEAN_VALUES: dict[str, bool] = {
     **{k.casefold(): False for k in ('', '0', 'off', 'False', 'F', 'no', 'N')},
     **{k.casefold(): True for k in ('1', 'on', 'True', 'T', 'yes', 'Y')},
 }
@@ -40,6 +39,7 @@ def add_argument(
     * Set the destination value to the corresponding value in the no-arg
       form, but also allow (for long options) for a single arg which is
       parsed by :py:func:`.boolean()`.
+
     Also automatically generates complementary boolean options for
     ``action='store_true'`` options.
     If ``hide_complementary_options`` is
@@ -56,8 +56,8 @@ def add_argument(
             Whether to hide the auto-generated complementary options to
             ``action='store_true'`` options from the help text for
             brevity.
-        arg, *args, **kwargs
-            Passed to ``parser_like.add_argument()``
+        arg, *args, **kwargs:
+            Passed to ``parser_like.add_argument()``.
 
     Returns:
         Any: action_like
@@ -331,4 +331,4 @@ def short_string_path(path: str | PathLike[str]) -> str:
     except ValueError:  # Not relative to the curdir
         pass
     paths_list = list(paths)
-    return cast(str, min(paths_list, key=len))
+    return min(paths_list, key=len)

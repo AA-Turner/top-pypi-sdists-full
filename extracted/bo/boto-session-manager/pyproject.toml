@@ -2,7 +2,7 @@
 [project]
 name = "boto_session_manager"
 # Bump before each release (https://semver.org/), then ``mise run inst`` to update ``uv.lock``.
-version = "2.1.0"
+version = "2.1.1"
 description = "A boto3 session manager: cached clients, typed client properties for 400+ AWS services, assume role with auto-refresh, and AWS CLI credential handoff."
 # An SPDX license expression (PEP 639); keep ``LICENSE.txt`` in sync.
 # Read: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license-and-license-files

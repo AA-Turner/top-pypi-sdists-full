@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: pyoxigraph
-Version: 0.5.11
+Version: 0.5.12
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -24,7 +23,7 @@ Home-Page: https://pyoxigraph.readthedocs.io/
 Author: Tpt <thomas@pellissier-tanon.fr>
 Author-email: Tpt <thomas@pellissier-tanon.fr>
 License: MIT OR Apache-2.0
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://github.com/oxigraph/oxigraph/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://pyoxigraph.readthedocs.io/

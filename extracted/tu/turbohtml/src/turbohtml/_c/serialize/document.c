@@ -22,6 +22,22 @@ static int xml_wide_name_wellformed(const Py_UCS4 *name, Py_ssize_t len) {
     return 1;
 }
 
+static int xml_element_name_wellformed(const Py_UCS4 *name, Py_ssize_t len) {
+    if (!xml_wide_name_wellformed(name, len)) {
+        return 0;
+    }
+    int colon = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (name[index] == ':') {
+            if (index == 0 || index == len - 1 || colon) {
+                return 0;
+            }
+            colon = 1;
+        }
+    }
+    return 1;
+}
+
 /* Write an attribute's displayed name (the form the #document line uses) into buf:
    namespaced foreign attributes show "prefix localname", everything else is the
    stored name (foreign attribute case adjustments are applied at construction). */
@@ -211,6 +227,7 @@ Py_UCS4 *th_tree_serialize(th_tree *tree, Py_ssize_t *out_len) {
 
 SER_NOINLINE int th_xml_attr_name_wellformed_utf8(const char *name, Py_ssize_t name_len) {
     Py_ssize_t index = 0;
+    int colon = 0;
     while (index < name_len) {
         int first = index == 0;
         unsigned char lead = (unsigned char)name[index];
@@ -232,6 +249,12 @@ SER_NOINLINE int th_xml_attr_name_wellformed_utf8(const char *name, Py_ssize_t n
         }
         if (!(first ? is_name_start(character) : is_name_char(character))) {
             return 0;
+        }
+        if (character == ':') {
+            if (index == name_len || colon) {
+                return 0;
+            }
+            colon = 1;
         }
     }
     return 1;
@@ -317,6 +340,44 @@ static void ser_put_xml_doctype(sbuf *out, th_node *node) {
     sbuf_putc(out, '>');
 }
 
+static int xml_has_visible_child(th_tree *tree, th_node *parent) {
+    th_node *node = parent->first_child;
+    while (node != NULL) {
+        int transparent =
+            node->type == TH_NODE_CONTENT || (node->type == TH_NODE_ELEMENT && node->atom == TH_TAG_UNKNOWN &&
+                                              !xml_element_name_wellformed(node->text, node->text_len));
+        int dropped = node->type == TH_NODE_PI && (node->tag_flags & TH_PI_XML_INVALID);
+        if (node->type == TH_NODE_TEXT) {
+            const Py_UCS4 *text = need_text(tree, node);
+            if (text == NULL && node->text_len > 0) { /* GCOVR_EXCL_BR_LINE: lazy text allocation failure */
+                return -1;                            /* GCOVR_EXCL_LINE: lazy text allocation failure */
+            }
+            dropped = 1;
+            for (Py_ssize_t index = 0; index < node->text_len; index++) {
+                if (!xml_char_invalid(text[index])) {
+                    dropped = 0;
+                    break;
+                }
+            }
+        }
+        if (!transparent && !dropped) {
+            return 1;
+        }
+        if (transparent && node->first_child != NULL) {
+            node = node->first_child;
+            continue;
+        }
+        while (node->next_sibling == NULL) {
+            node = node->parent;
+            if (node == parent) {
+                return 0;
+            }
+        }
+        node = node->next_sibling;
+    }
+    return 0;
+}
+
 /* Emit one node under the compact (WHATWG fragment) layout and return the next node
    the walk rooted at root visits, or NULL once the subtree is fully written. Split
    out of serialize_compact so serialize_iter can resume the walk one node at a time
@@ -342,7 +403,7 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
     }
     switch ((enum th_node_type)node->type) { /* GCOVR_EXCL_BR_LINE: node types are exhaustive */
     case TH_NODE_ELEMENT:
-        if (node->atom == TH_TAG_UNKNOWN && opts->xml && !xml_wide_name_wellformed(node->text, node->text_len)) {
+        if (node->atom == TH_TAG_UNKNOWN && opts->xml && !xml_element_name_wellformed(node->text, node->text_len)) {
             descend = node->first_child;
             break;
         }
@@ -352,11 +413,12 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
                casing, so a childless element ends the tag and a parent descends. A
                template's content fragment is transparent, so an empty one self-closes and
                round-trips as <template/> the way parse_xml reads it back (#1031). */
-            th_node *xml_first = node->first_child;
-            if (xml_first != NULL && xml_first->type == TH_NODE_CONTENT) {
-                xml_first = xml_first->first_child;
+            int visible = xml_has_visible_child(tree, node);
+            if (visible < 0) {   /* GCOVR_EXCL_BR_LINE: lazy text allocation failure */
+                out->failed = 1; /* GCOVR_EXCL_LINE */
+                return NULL;     /* GCOVR_EXCL_LINE */
             }
-            if (xml_first == NULL) {
+            if (!visible) {
                 sbuf_puts(out, "/>");
             } else {
                 sbuf_putc(out, '>');
@@ -397,10 +459,14 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         /* a CDATA section is a Text node, so its escaped text is the one HTML form that holds a ">" */
         TH_FALLTHROUGH;
     case TH_NODE_TEXT:
+        if (need_text(tree, node) == NULL && node->text_len > 0) { /* GCOVR_EXCL_BR_LINE: lazy text OOM */
+            out->failed = 1;                                       /* GCOVR_EXCL_LINE: allocation failure */
+            return NULL;                                           /* GCOVR_EXCL_LINE: allocation failure */
+        }
         if (opts->xml) {
-            sbuf_put_xml_text(out, need_text(tree, node), node->text_len, 0);
+            sbuf_put_xml_text(out, node->text, node->text_len, 0);
         } else {
-            sbuf_put_text(out, need_text(tree, node), node->text_len, 0, opts->formatter);
+            sbuf_put_text(out, node->text, node->text_len, 0, opts->formatter);
         }
         break;
     case TH_NODE_COMMENT:
@@ -426,8 +492,8 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
     case TH_NODE_PI:
         /* XML closes a PI with "?>"; the HTML serialization has no PI syntax and ends the bogus-comment form at ">". */
         if (opts->xml) {
-            if (node->tag_flags & TH_PI_XML_INVALID) {
-                break;
+            if (node->tag_flags & TH_PI_XML_INVALID) { /* GCOVR_EXCL_BR_LINE: invalid PIs are filtered above */
+                break;                                 /* GCOVR_EXCL_LINE */
             }
             sbuf_puts(out, "<?");
             sbuf_put_xml_pi_data(out, node->text, node->text_len);
@@ -451,7 +517,7 @@ static th_node *serialize_compact_step(sbuf *out, th_tree *tree, th_node *node, 
         }
         node = node->parent;
         if (node->type == TH_NODE_ELEMENT && !(opts->inner && node == root)) {
-            if (node->atom == TH_TAG_UNKNOWN && opts->xml && !xml_wide_name_wellformed(node->text, node->text_len)) {
+            if (node->atom == TH_TAG_UNKNOWN && opts->xml && !xml_element_name_wellformed(node->text, node->text_len)) {
                 continue;
             }
             ser_close_tag(out, node);
@@ -842,7 +908,12 @@ Py_UCS4 *th_node_data(th_tree *tree, th_node *node, Py_ssize_t *out_len) {
         return NULL;   /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     if (len) {
-        memcpy(out, need_text(tree, node), (size_t)len * sizeof(Py_UCS4));
+        const Py_UCS4 *text = need_text(tree, node);
+        if (text == NULL) {  /* GCOVR_EXCL_BR_LINE: lazy text OOM */
+            PyMem_Free(out); /* GCOVR_EXCL_LINE: allocation failure */
+            return NULL;     /* GCOVR_EXCL_LINE: allocation failure */
+        }
+        memcpy(out, text, (size_t)len * sizeof(Py_UCS4));
     }
     return out;
 }
@@ -873,18 +944,8 @@ int th_node_doctype_ids(th_node *node, const Py_UCS4 **public_id, Py_ssize_t *pu
     return 1;
 }
 
-static th_node *text_preorder_next(th_node *node, th_node *root) {
-    if (node->first_child != NULL) {
-        return node->first_child;
-    }
-    while (node != root && node->next_sibling == NULL) {
-        node = node->parent;
-    }
-    return node == root ? NULL : node->next_sibling;
-}
-
 static void collect_text(sbuf *out, th_tree *tree, th_node *root) {
-    for (th_node *node = root->first_child; node != NULL; node = text_preorder_next(node, root)) {
+    for (th_node *node = root->first_child; node != NULL; node = preorder_next(node, root)) {
         if (node->type == TH_NODE_TEXT) {
             sbuf_put_ucs4(out, need_text(tree, node), node->text_len);
         }
@@ -905,7 +966,7 @@ PyObject *th_node_text_string(th_tree *tree, th_node *root) {
     sbuf snapshot = {NULL, 0, 0, 0};
     Py_UCS4 bits = 0;
     th_node *first = root->type == TH_NODE_TEXT ? root : root->first_child;
-    for (th_node *node = first; node != NULL; node = text_preorder_next(node, root)) {
+    for (th_node *node = first; node != NULL; node = preorder_next(node, root)) {
         if (node->type != TH_NODE_TEXT || node->text_len == 0) {
             continue;
         }
@@ -960,7 +1021,7 @@ PyObject *th_node_text_string(th_tree *tree, th_node *root) {
    built; a Text or Content child of a content fragment is descended like an element. */
 static void collect_text_into(th_tree *tree, th_node *root, Py_UCS4 *buf) {
     Py_ssize_t pos = 0;
-    for (th_node *node = root->first_child; node != NULL; node = text_preorder_next(node, root)) {
+    for (th_node *node = root->first_child; node != NULL; node = preorder_next(node, root)) {
         if (node->type == TH_NODE_TEXT) {
             memcpy(buf + pos, need_text(tree, node), (size_t)node->text_len * sizeof(Py_UCS4));
             pos += node->text_len;

@@ -3,5 +3,16 @@
 import typing
 
 CreatableAssetType = typing.Union[
-    typing.Literal["spreadsheet", "document", "folder", "database", "computer", "generic_doc"], typing.Any
+    typing.Literal[
+        "spreadsheet",
+        "document",
+        "folder",
+        "database",
+        "computer",
+        "generic_doc",
+        "user_interface",
+        "skill",
+        "collab_agent",
+    ],
+    typing.Any,
 ]

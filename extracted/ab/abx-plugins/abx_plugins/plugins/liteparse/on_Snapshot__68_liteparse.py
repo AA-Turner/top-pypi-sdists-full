@@ -37,6 +37,7 @@ import sys
 import atexit
 import concurrent.futures
 import hashlib
+import fnmatch
 import os
 import re
 import shutil
@@ -183,6 +184,19 @@ def find_document_sources(
         "liteparse_input",
     )
 
+    archive_extensions = {
+        ".zip",
+        ".docx",
+        ".docm",
+        ".xlsx",
+        ".xlsm",
+        ".pptx",
+        ".pptm",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".epub",
+    }
     found: list[tuple[Path, str]] = []
     seen_paths: set[str] = set()
     seen_digests: dict[str, Path] = {}
@@ -190,122 +204,159 @@ def find_document_sources(
     archive_bytes = 0
     warned_limit = False
 
-    def consider(match: Path) -> None:
+    def consider(
+        match: Path,
+        source_stat: os.stat_result | None = None,
+        resolved_path: Path | None = None,
+    ) -> None:
+        # Discovered sources pass their checked target and metadata so hashing
+        # does not repeat archive I/O. The default is only for images we just
+        # extracted ourselves into scratch storage, which may be outside SNAP_DIR.
         # is_file() suppresses filesystem errors on Python 3.14. A failed
         # source read is a failed capture, not evidence that no source exists.
-        source_stat = match.stat()
+        source_stat = source_stat or match.stat()
         if not stat.S_ISREG(source_stat.st_mode) or source_stat.st_size == 0:
             return
-        resolved = str(match.resolve())
+        resolved_path = resolved_path or match
+        resolved = str(resolved_path)
         if resolved in seen_paths:
             return
         suffix = match.suffix.lower()
         if suffix in IMAGE_EXTENSIONS and not include_images:
             return
-        if suffix in IMAGE_EXTENSIONS and _image_is_too_small(match, min_image_dim):
+        if suffix in IMAGE_EXTENSIONS and _image_is_too_small(
+            resolved_path,
+            min_image_dim,
+        ):
             return
-        digest = _content_digest(match)
+        digest = _content_digest(resolved_path)
         if digest in seen_digests:
             return
         seen_digests[digest] = match
         seen_paths.add(resolved)
         found.append((match, digest))
 
-    for base in (Path.cwd(), Path.cwd().parent):
-        for root in document_roots:
-            for root_dir in base.glob(root):
-                if not root_dir.is_dir():
+    # Only sibling producer directories are inputs. Enumerate the snapshot
+    # once instead of probing absent roots inside this parser's own output.
+    with os.scandir(SNAP_DIR) as entries:
+        root_entries = list(entries)
+    for root in document_roots:
+        for entry in root_entries:
+            if not fnmatch.fnmatchcase(entry.name, root) or not entry.is_dir():
+                continue
+            root_dir = Path(entry.path)
+            # Producer directories may themselves alias another plugin's
+            # outputs. Permit that within the snapshot, but never traverse an
+            # escaping alias or private browser state to discover documents.
+            resolved_root = root_dir.resolve() if entry.is_symlink() else root_dir
+            if not resolved_root.is_relative_to(SNAP_DIR) or any(
+                part.casefold() == ".persona"
+                for part in resolved_root.relative_to(SNAP_DIR).parts
+            ):
+                continue
+            for match in root_dir.rglob("*"):
+                suffix = match.suffix.lower()
+                embedded_images = (
+                    include_images
+                    and archive_dir is not None
+                    and suffix in archive_extensions
+                )
+                if suffix not in SUPPORTED_EXTENSIONS and not embedded_images:
                     continue
-                for match in root_dir.rglob("*"):
-                    suffix = match.suffix.lower()
-                    if suffix in SUPPORTED_EXTENSIONS:
-                        consider(match)
-                    # Office/HTML exports may contain images even when the
-                    # document also has native text. OCR those images once,
-                    # deduplicated against the other saved representations.
-                    if not (
-                        include_images
-                        and archive_dir
-                        and suffix
-                        in {
-                            ".zip",
-                            ".docx",
-                            ".docm",
-                            ".xlsx",
-                            ".xlsm",
-                            ".pptx",
-                            ".pptm",
-                            ".odt",
-                            ".ods",
-                            ".odp",
-                            ".epub",
-                        }
-                        and stat.S_ISREG(match.stat().st_mode)
+                # Validate both ordinary documents and archives before any
+                # hashing, parsing, or embedded-image extraction.
+                # Otherwise an escaping archive can copy private image bytes
+                # into ordinary OCR outputs that no longer look like symlinks.
+                # rglob does not recurse into directory symlinks. Reuse one
+                # lstat for normal files, resolving only actual file links.
+                # Enabling recursive symlink traversal would invalidate this
+                # fast path; full resolution repeats costly ancestor lookups.
+                resolved = resolved_root / match.relative_to(root_dir)
+                if any(
+                    part.casefold() == ".persona"
+                    for part in resolved.relative_to(SNAP_DIR).parts
+                ):
+                    continue
+                source_stat = resolved.lstat()
+                if stat.S_ISLNK(source_stat.st_mode):
+                    resolved = resolved.resolve()
+                    if not resolved.is_relative_to(SNAP_DIR) or any(
+                        part.casefold() == ".persona"
+                        for part in resolved.relative_to(SNAP_DIR).parts
                     ):
                         continue
-                    resolved = match.resolve()
-                    if resolved in seen_archives:
-                        continue
-                    seen_archives.add(resolved)
-                    try:
-                        with zipfile.ZipFile(match) as archive:
-                            for entry in archive.infolist():
-                                extension = Path(entry.filename).suffix.lower()
-                                if entry.is_dir() or extension not in IMAGE_EXTENSIONS:
-                                    continue
-                                # Bound temporary OCR input expansion; read one
-                                # member at a time without loading its archive.
-                                if (
-                                    entry.file_size > 256 * 1024 * 1024
-                                    or archive_bytes + entry.file_size
-                                    > 1024 * 1024 * 1024
-                                ):
-                                    if not warned_limit:
-                                        print(
-                                            "[liteparse] Skipping embedded images exceeding OCR expansion limits",
-                                            file=sys.stderr,
-                                        )
-                                        warned_limit = True
-                                    continue
-                                identity = hashlib.sha256(
-                                    f"{resolved}\0{entry.header_offset}\0{entry.filename}".encode(),
-                                ).hexdigest()[:16]
-                                image = (
-                                    archive_dir
-                                    / f"{match.stem[:60]}-{identity}{extension}"
-                                )
-                                try:
-                                    with (
-                                        image.open("wb") as target,
-                                        archive.open(entry) as source,
-                                    ):
-                                        shutil.copyfileobj(
-                                            source,
-                                            target,
-                                            length=1024 * 1024,
-                                        )
-                                except (
-                                    zipfile.BadZipFile,
-                                    RuntimeError,
-                                    ValueError,
-                                ) as error:
-                                    image.unlink(missing_ok=True)
+                    source_stat = resolved.stat()
+                if suffix in SUPPORTED_EXTENSIONS:
+                    consider(match, source_stat, resolved)
+                # Office/HTML exports may contain images even when the
+                # document also has native text. OCR those images once,
+                # deduplicated against the other saved representations.
+                if (
+                    not embedded_images
+                    or archive_dir is None
+                    or not stat.S_ISREG(source_stat.st_mode)
+                ):
+                    continue
+                if resolved in seen_archives:
+                    continue
+                seen_archives.add(resolved)
+                try:
+                    with zipfile.ZipFile(resolved) as archive:
+                        for entry in archive.infolist():
+                            extension = Path(entry.filename).suffix.lower()
+                            if entry.is_dir() or extension not in IMAGE_EXTENSIONS:
+                                continue
+                            # Bound temporary OCR input expansion; read one
+                            # member at a time without loading its archive.
+                            if (
+                                entry.file_size > 256 * 1024 * 1024
+                                or archive_bytes + entry.file_size > 1024 * 1024 * 1024
+                            ):
+                                if not warned_limit:
                                     print(
-                                        f"[liteparse] Cannot read embedded image {match.name}/{entry.filename}: {error}",
+                                        "[liteparse] Skipping embedded images exceeding OCR expansion limits",
                                         file=sys.stderr,
                                     )
-                                    continue
-                                archive_bytes += entry.file_size
-                                consider(image)
-                    except (
-                        zipfile.BadZipFile,
-                        RuntimeError,
-                        ValueError,
-                    ) as error:
-                        print(
-                            f"[liteparse] Cannot inspect embedded images in {match.name}: {error}",
-                            file=sys.stderr,
-                        )
+                                    warned_limit = True
+                                continue
+                            identity = hashlib.sha256(
+                                f"{resolved}\0{entry.header_offset}\0{entry.filename}".encode(),
+                            ).hexdigest()[:16]
+                            image = (
+                                archive_dir / f"{match.stem[:60]}-{identity}{extension}"
+                            )
+                            try:
+                                with (
+                                    image.open("wb") as target,
+                                    archive.open(entry) as source,
+                                ):
+                                    shutil.copyfileobj(
+                                        source,
+                                        target,
+                                        length=1024 * 1024,
+                                    )
+                            except (
+                                zipfile.BadZipFile,
+                                RuntimeError,
+                                ValueError,
+                            ) as error:
+                                image.unlink(missing_ok=True)
+                                print(
+                                    f"[liteparse] Cannot read embedded image {match.name}/{entry.filename}: {error}",
+                                    file=sys.stderr,
+                                )
+                                continue
+                            archive_bytes += entry.file_size
+                            consider(image)
+                except (
+                    zipfile.BadZipFile,
+                    RuntimeError,
+                    ValueError,
+                ) as error:
+                    print(
+                        f"[liteparse] Cannot inspect embedded images in {match.name}: {error}",
+                        file=sys.stderr,
+                    )
 
     return found
 
@@ -489,17 +540,20 @@ def _process_batch(
     env: dict[str, str],
     scratch_dir: Path,
     imagemagick_binary: str,
+    hook_deadline: float,
 ) -> tuple[list[tuple[int, Path, str, str]], list[str]]:
-    """Run ``lit batch-parse`` once per requested format over one batch.
+    """Run ``lit batch-parse`` once per requested format for an isolated source.
 
     Symlinks the batch's sources into a temp input dir, runs lit, then reads
     each per-source output by stem. Returns ``(idx, src, text, json_text)``
     per source, plus parser failures. Read outputs before deleting scratch even
-    when a later document fails or times out, so completed work is retained.
+    when a later format fails or times out, so completed work is retained.
     """
     results: list[tuple[int, Path, str, str]] = []
     errors: list[str] = []
-    deadline = time.monotonic() + timeout
+    deadline = min(hook_deadline, time.monotonic() + timeout)
+    if time.monotonic() >= deadline:
+        return [], ["Hook deadline reached before parsing queued document"]
     # Disposable parser output and OCR rasterization belong on local runtime
     # storage, not the snapshot's potentially remote archive filesystem.
     # Each batch has its own TMPDIR because lit uses fixed page_<n>_ocr names.
@@ -592,7 +646,9 @@ def _process_batch(
                         else exc.stderr
                     )
                     print(stderr, file=sys.stderr, end="")
-                errors.append(f"{fmt} parser timed out after {timeout}s")
+                errors.append(
+                    f"{fmt} parser timed out (document limit {timeout}s; hook deadline enforced)",
+                )
                 break
 
         for (idx, src, _digest), link_name in zip(batch, link_names, strict=True):
@@ -613,6 +669,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
 
     Returns: (status, output_str)
     """
+    started_at = time.monotonic()
     config = load_config(CONFIG_PATH, hydrate_binaries=False)
     timeout = config.LITEPARSE_TIMEOUT
     formats = [
@@ -712,12 +769,10 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
         (idx, path, digest) for idx, (path, digest) in enumerate(sources)
     ]
     batch_count = (len(indexed) + batch_size - 1) // batch_size
-    # Spread the size-sorted inputs across batches instead of concentrating
-    # every large document in the first batch's fixed time budget. Keep the
-    # same batch count, worker count, per-batch deadline, and source indexes.
-    batches: list[list[tuple[int, Path, str]]] = [
-        indexed[i::batch_count] for i in range(batch_count)
-    ]
+    # Native batch-parse is sequential: one stalled document prevents every
+    # later input in that process from starting. Isolate documents while
+    # retaining the configured budget groups and source indexes.
+    batches = [[item] for item in indexed]
 
     # Pre-compute the per-source output basename for every source. The
     # basename keeps the source's full input filename including extension
@@ -735,9 +790,10 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
     batch_errors: list[str] = []
 
     workers = max(1, int(config.LITEPARSE_PARALLEL_WORKERS or 2))
-    batch_waves = max(1, (len(batches) + workers - 1) // workers)
+    batch_waves = max(1, (batch_count + workers - 1) // workers)
     hook_cleanup_budget = max(1, int(timeout * 0.1))
     batch_timeout = max(1, int((timeout - hook_cleanup_budget) / batch_waves))
+    hook_deadline = started_at + timeout - hook_cleanup_budget
 
     def _absorb_batch_results(results: list[tuple[int, Path, str, str]]) -> None:
         """Write per-source ``<name>.txt`` / ``<name>.json`` for one batch.
@@ -789,6 +845,7 @@ def extract_liteparse(url: str, scratch_dir: Path) -> tuple[str, str]:
                 env,
                 scratch_dir,
                 str(config.LITEPARSE_IMAGEMAGICK_BINARY),
+                hook_deadline,
             ): batch
             for batch in batches
         }

@@ -5,7 +5,7 @@ import subprocess  # ruff:ignore[suspicious-subprocess-import]
 import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 import pytest
 from packaging.requirements import Requirement
@@ -15,6 +15,8 @@ from pyproject_api._via_fresh_subprocess import SubprocessFrontend
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    import pytest_mock
 
 
 @pytest.fixture
@@ -183,6 +185,38 @@ def test_empty_pyproject(tmp_path: Path) -> None:
         assert str(left) == str(right)
 
 
+@pytest.mark.parametrize(
+    "backend_path",
+    [
+        pytest.param("../outside", id="parent"),
+        pytest.param("{tmp}/outside", id="absolute-outside"),
+        pytest.param("{tmp}/project", id="absolute-inside"),
+        pytest.param("link", id="symlink-outside"),
+        pytest.param("\\u0000", id="nul"),
+    ],
+)
+def test_create_args_from_folder_rejects_out_of_tree_backend_path(tmp_path: Path, backend_path: str) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "link").symlink_to(tmp_path, target_is_directory=True)
+    (project / "pyproject.toml").write_text(
+        f'[build-system]\nbackend-path = ["{backend_path.format(tmp=tmp_path.as_posix())}"]\nbuild-backend = "b"\n'
+    )
+
+    with pytest.raises(ValueError, match=r"backend-path entry .* must be a relative path inside the project"):
+        SubprocessFrontend.create_args_from_folder(project)
+
+
+def test_create_args_from_folder_rejects_unresolvable_backend_path(
+    tmp_path: Path, mocker: pytest_mock.MockerFixture
+) -> None:
+    (tmp_path / "pyproject.toml").write_text('[build-system]\nbackend-path = ["."]\nbuild-backend = "b"\n')
+    mocker.patch.object(Path, "resolve", autospec=True, side_effect=RuntimeError("Symlink loop"))
+
+    with pytest.raises(ValueError, match=r"backend-path entry '\.' must be a relative path inside the project"):
+        SubprocessFrontend.create_args_from_folder(tmp_path)
+
+
 @pytest.fixture(scope="session")
 def demo_pkg_inline() -> Path:
     return Path(__file__).absolute().parent / "demo_pkg_inline"
@@ -315,6 +349,35 @@ def test_bad_return_type_build_wheel(local_builder: Callable[[str], Path]) -> No
     assert exc.exc_type == "TypeError"
 
 
+@pytest.mark.parametrize("value", ["Path('demo.whl')", "b'demo.whl'", "{'demo.whl'}"])
+def test_non_serializable_hook_result(value: str, local_builder: Callable[[str], Path]) -> None:
+    root = local_builder(f"""
+        import sys
+        from pathlib import Path
+
+        def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+            print("hook stdout")
+            print("hook stderr", file=sys.stderr)
+            if config_settings is None:
+                return {value}
+            return "demo-1.0-py3-none-any.whl"
+        """)
+    frontend = SubprocessFrontend(*SubprocessFrontend.create_args_from_folder(root)[:-1])
+
+    with pytest.raises(BackendFailed) as context:
+        frontend.build_wheel(root / "dist")
+
+    exc = context.value
+    assert exc.code == 1
+    assert exc.exc_type == "TypeError"
+    assert "not JSON serializable" in exc.exc_msg
+    assert "hook stdout" in exc.out
+    assert "hook stderr" in exc.err
+    assert "TypeError" in exc.err
+    result = frontend.build_wheel(root / "dist", config_settings={})
+    assert result.wheel.name == "demo-1.0-py3-none-any.whl"
+
+
 def test_bad_return_type_prepare_metadata_for_build_wheel(local_builder: Callable[[str], Path]) -> None:
     tmp_path = local_builder("def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None): return 1")
     frontend = SubprocessFrontend(*SubprocessFrontend.create_args_from_folder(tmp_path)[:-1])
@@ -335,6 +398,46 @@ def test_prepare_metadata_for_build_wheel_meta_is_root(local_builder: Callable[[
         frontend.prepare_metadata_for_build_wheel(tmp_path)
 
     assert str(context.value) == f"the project root and the metadata directory can't be the same {tmp_path}"
+
+
+@pytest.mark.parametrize("hook", ["prepare_metadata_for_build_wheel", "prepare_metadata_for_build_editable"])
+@pytest.mark.parametrize("alias", [False, True], ids=["directory", "symlink"])
+def test_prepare_metadata_rejects_ancestor_directory(tmp_path: Path, hook: str, alias: bool) -> None:
+    # The old cleanup can remove the whole ancestor, so keep it inside tmp_path.
+    ancestor: Final[Path] = tmp_path / "sandbox"
+    root: Final[Path] = ancestor / "project"
+    root.mkdir(parents=True)
+    source: Final[Path] = root / "build_tester.py"
+    source.write_text("source content\n")
+    unrelated: Final[Path] = ancestor / "unrelated.txt"
+    unrelated.write_text("keep me")
+    metadata_directory: Final[Path] = tmp_path / "alias" if alias else ancestor
+    if alias:
+        metadata_directory.symlink_to(ancestor, target_is_directory=True)
+    frontend: Final[SubprocessFrontend] = SubprocessFrontend(root, (root,), "build_tester", None, ())
+
+    with pytest.raises(RuntimeError, match="the metadata directory can't contain the project root"):
+        getattr(frontend, hook)(metadata_directory)
+
+    assert source.read_text() == "source content\n"
+    assert unrelated.read_text() == "keep me"
+
+
+@pytest.mark.parametrize("hook", ["prepare_metadata_for_build_wheel", "prepare_metadata_for_build_editable"])
+def test_prepare_metadata_allows_sibling_directory(tmp_path: Path, hook: str) -> None:
+    root: Final[Path] = tmp_path / "project"
+    root.mkdir()
+    source: Final[Path] = root / "build_tester.py"
+    source.write_text("")
+    metadata_directory: Final[Path] = tmp_path / "project-metadata"
+    metadata_directory.mkdir()
+    (metadata_directory / "stale.txt").write_text("remove me")
+    frontend: Final[SubprocessFrontend] = SubprocessFrontend(root, (root,), "build_tester", None, ())
+
+    assert getattr(frontend, hook)(metadata_directory) is None
+
+    assert source.is_file()
+    assert list(metadata_directory.iterdir()) == []
 
 
 def test_no_wheel_prepare_metadata_for_build_wheel(local_builder: Callable[[str], Path]) -> None:

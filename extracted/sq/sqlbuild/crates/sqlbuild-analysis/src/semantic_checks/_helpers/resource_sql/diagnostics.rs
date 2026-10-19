@@ -2,14 +2,19 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use sqlbuild_attachments::cursor_intrinsics::main::replace_intrinsics::replace_intrinsics;
+use sqlbuild_core::panics::main::catch_compiler_panic::catch_compiler_panic;
 
 use crate::semantic_checks::_helpers::explanation::opt_outs::unneeded_opt_out;
+use crate::semantic_checks::_helpers::metadata_checks::positions::{text_position, word_start};
 use crate::semantic_checks::_helpers::resource_sql::help::{HelpContext, resource_sql_help};
 use crate::semantic_checks::_helpers::resource_sql::locations::{
     Finding, line_at, location, text_from,
 };
-use crate::semantic_checks::_helpers::resource_sql::resources::{ResourceSql, resources};
+use crate::semantic_checks::_helpers::resource_sql::resources::{
+    MissingColumnAudit, ResourceSql, audit_label, missing_column_audits, resources,
+};
 use crate::semantic_checks::models::{
     ResourceSqlDiagnostic, ResourceSqlFailure, ResourceSqlKind, ResourceSqlRequest, SemanticFailure,
 };
@@ -18,6 +23,7 @@ use crate::semantic_validation::models::{Columns, NormalizationInput, ProjectCat
 use crate::semantic_validation::types::{BindingRequest, Relations};
 
 const UNKNOWN_TABLE_CODE: &str = "B000";
+const UNKNOWN_COLUMN_CODE: &str = "B002";
 const UNKNOWN_TABLE_PREFIX: &str = "Unknown table ";
 const SYNTAX_ERROR_CODE: &str = "P001";
 const OPT_OUT_CODE: &str = "P009";
@@ -199,21 +205,75 @@ fn opt_out_diagnostic(
     })
 }
 
+/// One B002 for a built-in audit on a missing model column, at its MODEL header declaration.
+pub(crate) fn missing_column_diagnostic(
+    missing: &MissingColumnAudit<'_>,
+) -> Result<ResourceSqlDiagnostic, ResourceSqlFailure> {
+    let MissingColumnAudit {
+        audit,
+        model,
+        column,
+    } = missing;
+    let definition: &str = &audit.definition_name;
+    let column_start: usize = word_start(&model.authored_sql, column, 0).map_err(semantic)?;
+    let (line, start) =
+        text_position(&model.authored_sql, definition, column_start).map_err(semantic)?;
+    let end: i64 = start + i64::try_from(definition.chars().count()).unwrap_or(0);
+    Ok(ResourceSqlDiagnostic {
+        kind: ResourceSqlKind::Audit,
+        resource_name: audit.name.clone(),
+        is_error: true,
+        code: UNKNOWN_COLUMN_CODE.to_owned(),
+        message: format!(
+            "{}: Unknown column '{column}' in table '{}'",
+            audit_label(audit),
+            model.name
+        ),
+        path: model.path.clone(),
+        span: (line, start, Some(line), Some(end)),
+        note: None,
+        help: Some(format!(
+            "add {column} to the SELECT list of model '{}' or attach the {definition} audit to \
+             a column the model outputs",
+            model.name
+        )),
+    })
+}
+
 /// Every audit, SQL test and SQL hook finding, in Python's first-seen order.
 pub(crate) fn resource_sql_findings(
     request: &ResourceSqlRequest,
     catalog: &ProjectCatalog,
 ) -> Result<Vec<ResourceSqlDiagnostic>, ResourceSqlFailure> {
-    let checked = resources(request);
+    let mut diagnostics: Vec<ResourceSqlDiagnostic> = missing_column_audits(request)
+        .iter()
+        .map(missing_column_diagnostic)
+        .collect::<Result<_, _>>()?;
+    let pool = || catalog.analysis_pool();
+    let checked = resources(request, &pool).map_err(ResourceSqlFailure::Internal)?;
     if checked.is_empty() {
-        return Ok(Vec::new());
+        return Ok(diagnostics);
     }
     let dialect = request.dialect.as_deref();
-    let mut normalized: HashMap<&str, String> = HashMap::new();
-    for resource in &checked {
-        if !normalized.contains_key(resource.sql.as_str()) {
-            normalized.insert(&resource.sql, cleaned_sql(&resource.sql, dialect)?);
-        }
+    let mut seen: HashSet<&str> = HashSet::with_capacity(checked.len());
+    let unique: Vec<&str> = checked
+        .iter()
+        .map(|resource| resource.sql.as_str())
+        .filter(|sql| seen.insert(sql))
+        .collect();
+    let cleaned: Vec<Result<String, ResourceSqlFailure>> =
+        pool().map_err(ResourceSqlFailure::Internal)?.install(|| {
+            unique
+                .par_iter()
+                .map(|sql| {
+                    catch_compiler_panic(|| Ok(cleaned_sql(sql, dialect)))
+                        .unwrap_or_else(|panic| Err(ResourceSqlFailure::Internal(panic)))
+                })
+                .collect()
+        });
+    let mut normalized: HashMap<&str, String> = HashMap::with_capacity(unique.len());
+    for (sql, cleaned) in unique.into_iter().zip(cleaned) {
+        normalized.insert(sql, cleaned?);
     }
     let shapes: HashMap<&str, &[(String, String)]> = request
         .shapes
@@ -236,7 +296,6 @@ pub(crate) fn resource_sql_findings(
         .map_err(ResourceSqlFailure::Internal)?;
     let mut keys: HashSet<Key> = HashSet::new();
     let mut opt_out_keys: HashSet<(String, i64, i64)> = HashSet::new();
-    let mut diagnostics: Vec<ResourceSqlDiagnostic> = Vec::new();
     for resource in &checked {
         let cleaned = normalized[resource.sql.as_str()].as_str();
         let findings = &results[request_index[&(cleaned, &resource.relations)]];

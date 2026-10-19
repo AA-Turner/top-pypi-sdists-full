@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: apsw
-Version: 3.54.0.0
+Version: 3.54.1.0
 Summary: Another Python SQLite Wrapper
 Home-page: https://github.com/rogerbinns/apsw
 Author: Roger Binns
@@ -23,7 +23,7 @@ Classifier: Framework :: AsyncIO
 Classifier: Framework :: AnyIO
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 
@@ -34,7 +34,7 @@ License-File: LICENSE
   :target: https://rogerbinns.github.io/apsw/
 
 APSW stands for **A**\ nother **P**\ ython **S**\ QLite **W**\ rapper.   APSW
-supports CPython 3.10 onwards.
+supports CPython 3.11 onwards.
 
 About
 =====

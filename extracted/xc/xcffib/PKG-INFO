@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xcffib
-Version: 1.12.0
+Version: 1.13.0
 Summary: xcffib is the XCB binding for python
 Author-email: Tycho Andersen <tycho@tycho.pizza>
 License: Apache License 2.0

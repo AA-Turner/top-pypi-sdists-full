@@ -54,6 +54,7 @@ from tests.conftest import (
     assert_output,
     assert_warnings_contain,
     freeze_time,
+    stored_expected,
     validate_generated_code,
 )
 from tests.main.conftest import (
@@ -65,6 +66,7 @@ from tests.main.conftest import (
     DATA_PATH,
     DEFAULT_VALUES_DATA_PATH,
     EXPERIMENTAL_MISSING_IMPORT_WARNING,
+    JSON_SCHEMA_DATA_PATH,
     LEGACY_BLACK_SKIP,
     MSGSPEC_LEGACY_BLACK_SKIP,
     OPEN_API_DATA_PATH,
@@ -76,6 +78,7 @@ from tests.main.conftest import (
     assert_generated_model_json_invalid,
     assert_generated_model_json_validation,
     installed_pydantic_runs_target,
+    run_generate_and_assert,
     run_generate_file_and_assert,
     run_main_and_assert,
     run_main_url_and_assert,
@@ -985,7 +988,9 @@ model types ignore it. Client generation (`--generate-client`) with `msgspec.Str
 Without the flag the output keeps the 0.83.0 form of an enum that lists `null` without `type: string` or
 `nullable: true`, such as `type: [integer, "null"]` with `enum: [1, 2, null]`: an Enum class with a `None` member
 such as `NoneType_None = None`. msgspec cannot decode such an Enum, because its members must be all `str` or all
-`int` values, and the `IntEnum` written for `type: integer` cannot be imported at all.
+`int` values. An enum whose class has a value type base, the `IntEnum` of `type: integer` or a `--use-subclass-enum`
+class such as `(int, Enum)`, cannot hold a `None` member, so without the flag it is written without it, and without
+`None` as its one `type` rejects `null`.
 
 With the flag the enum is written as a `type: string` or `nullable` enum is: an Enum class with an `Enum` suffix and
 without the `None` member, and the schema name becomes a type alias of that class or `None`, so that msgspec decodes
@@ -1025,7 +1030,7 @@ def test_main_openapi_use_msgspec_nullable_enum_alias(output_file: Path) -> None
     ("input_file", "extra_args", "expected_file", "imports"),
     [
         pytest.param("msgspec_nullable_enum_31.yaml", [], "openapi_31.py", True, id="openapi-31"),
-        pytest.param("msgspec_nullable_enum.yaml", [], "openapi_30.py", False, id="openapi-30"),
+        pytest.param("msgspec_nullable_enum.yaml", [], "openapi_30.py", True, id="openapi-30"),
         pytest.param(
             "msgspec_nullable_enum.yaml",
             ["--use-msgspec-nullable-enum-alias"],
@@ -1037,7 +1042,7 @@ def test_main_openapi_use_msgspec_nullable_enum_alias(output_file: Path) -> None
             "msgspec_nullable_enum.yaml",
             ["--set-default-enum-member"],
             "openapi_30_set_default_enum_member.py",
-            False,
+            True,
             id="openapi-30-set-default-enum-member",
         ),
         pytest.param(
@@ -1047,6 +1052,7 @@ def test_main_openapi_use_msgspec_nullable_enum_alias(output_file: Path) -> None
             True,
             id="openapi-30-set-default-enum-member-alias",
         ),
+        pytest.param("msgspec_nullable_enum_inherited.yaml", [], "openapi_inherited.py", False, id="inherited"),
     ],
 )
 def test_main_openapi_msgspec_nullable_enum(
@@ -1054,7 +1060,9 @@ def test_main_openapi_msgspec_nullable_enum(
 ) -> None:
     """Keep the 0.83.0 msgspec Enum with a None member by default, and write an Enum | None alias with the option.
 
-    The 0.83.0 `IntEnum` of `type: integer` with a `None` member fails at import, so only its source is compared.
+    The `IntEnum` of `type: integer`, which cannot hold a `None` member, is written without it also without the
+    option, and without the alias, as its `type` rejects null. An allOf of enums still merges into the class of its
+    first enum, an `IntEnum` with a `None` member that fails at import, so only its source is compared.
     """
     with warnings.catch_warnings(record=True) as recorded:
         warnings.simplefilter("always")
@@ -1081,6 +1089,87 @@ def test_main_openapi_msgspec_nullable_enum(
             for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
         ),
         EXPECTED_OPENAPI_PATH / "msgspec_nullable_enum" / f"{expected_file.removesuffix('.py')}_warnings.txt",
+    )
+
+
+@pytest.mark.parametrize("stem", ["default", "collapse_root_models"])
+def test_main_openapi_msgspec_enum_unions(stem: str, output_file: Path) -> None:
+    """Report each msgspec union that holds an Enum beside another member of its JSON type, and keep the output.
+
+    msgspec decodes a union only if it holds an Enum of str values as its one str-like member and an Enum of int
+    values as its one int-like member, so the `Level1 | Level2` of a `oneOf` of single-value enums cannot be decoded.
+    A union that names an alias msgspec refuses on its own is reported by that alias; Literal values beside str, an
+    int Enum beside a str Enum and members of other types decode.
+    """
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "msgspec_enum_unions.yaml",
+            output_path=output_file,
+            input_file_type="openapi",
+            assert_func=assert_file_content,
+            expected_file=EXPECTED_OPENAPI_PATH / "msgspec_enum_unions" / f"{stem}.py",
+            extra_args=[
+                *("--output-model-type", "msgspec.Struct", "--formatters", "builtin"),
+                *("--target-python-version", "3.10", "--disable-timestamp"),
+                *(["--collapse-root-models"] if stem == "collapse_root_models" else []),
+            ],
+            force_exec_validation=True,
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        EXPECTED_OPENAPI_PATH / "msgspec_enum_unions" / f"{stem}_warnings.txt",
+    )
+
+
+class _IntValue(int):
+    """An int subclass that a schema passed to generate() may hold as a value."""
+
+    __slots__ = ()
+
+
+class _StrValue(str):  # noqa: FURB189 - a schema passed to generate() may hold str subclasses
+    """A str subclass that a schema passed to generate() may hold as a value."""
+
+    __slots__ = ()
+
+
+def test_main_openapi_msgspec_enum_unions_subclass_values() -> None:
+    """Report msgspec unions of enum and const values that subclass int or str as of the int or str written for them."""
+    schemas = {
+        "Code": {"type": "integer", "enum": [_IntValue(1), _IntValue(2)]},
+        "Color": {"type": "string", "enum": [_StrValue("red"), _StrValue("green")]},
+        "Item": {
+            "type": "object",
+            "properties": {
+                "code": {"anyOf": [{"$ref": "#/components/schemas/Code"}, {"type": "integer"}]},
+                "color": {"anyOf": [{"$ref": "#/components/schemas/Color"}, {"const": _StrValue("blue")}]},
+            },
+        },
+    }
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_generate_and_assert(
+            input_={
+                "openapi": "3.1.0",
+                "info": {"title": "levels", "version": "1"},
+                "components": {"schemas": schemas},
+            },
+            input_file_type=InputFileType.OpenAPI,
+            output_model_type=DataModelType.MsgspecStruct,
+            target_python_version=PythonVersionMin,
+            disable_timestamp=True,
+            expected_file=EXPECTED_OPENAPI_PATH / "msgspec_enum_unions" / "subclass_values.py",
+        )
+    assert_output(
+        "".join(
+            f"{message}\n"
+            for message in dict.fromkeys(str(record.message) for record in recorded if record.category is UserWarning)
+        ),
+        EXPECTED_OPENAPI_PATH / "msgspec_enum_unions" / "subclass_values_warnings.txt",
     )
 
 
@@ -1126,13 +1215,14 @@ def test_main_openapi_msgspec_tagged_unions_declaration_order(order: str, output
     )
 
 
-def test_main_openapi_msgspec_tagged_unions_modules(output_dir: Path) -> None:
-    """Tag variants whose base struct a union of an already generated module tagged."""
+@pytest.mark.parametrize("name", ["msgspec_tagged_unions_modules", "msgspec_tagged_unions_modules_variants_first"])
+def test_main_openapi_msgspec_tagged_unions_modules(name: str, output_dir: Path) -> None:
+    """Tag variants and their base struct that a union of another module tags, whichever module is generated first."""
     run_main_and_assert(
-        input_path=OPEN_API_DATA_PATH / "discriminator_msgspec_tagged_unions_modules.yaml",
+        input_path=OPEN_API_DATA_PATH / f"discriminator_{name}.yaml",
         output_path=output_dir,
         input_file_type="openapi",
-        expected_directory=EXPECTED_OPENAPI_PATH / "discriminator" / "msgspec_tagged_unions_modules",
+        expected_directory=EXPECTED_OPENAPI_PATH / "discriminator" / name,
         extra_args=[
             "--output-model-type",
             "msgspec.Struct",
@@ -1342,6 +1432,92 @@ def test_main_openapi_discriminator_with_properties(output_file: Path) -> None:
         expected_file=EXPECTED_OPENAPI_PATH / "discriminator" / "with_properties.py",
         extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
     )
+
+
+@pytest.mark.parametrize(
+    ("option", "expected_file"),
+    [
+        ("--use-annotated", "discriminator/pattern_use_annotated.py"),
+        ("--field-constraints", "discriminator/pattern_field_constraints.py"),
+    ],
+)
+def test_main_openapi_discriminator_pattern(option: str, expected_file: str, output_file: Path) -> None:
+    """Discriminator tags drop the pattern Pydantic cannot check on a tag Literal and keep their lengths."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "discriminator_pattern.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            option,
+        ],
+        force_exec_validation=True,
+    )
+
+
+def test_main_openapi_discriminator_pattern_mismatch(output_file: Path) -> None:
+    """Keep the patterns of a union whose tag is outside its pattern, as the schema rejects that variant.
+
+    The `const` tag `cat` and the mapped tags `parrot` and `shark` do not match their patterns, so each union keeps the
+    patterns that hide its tags from Pydantic, as before, and only its source is compared.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "discriminator_pattern_mismatch.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=EXPECTED_OPENAPI_PATH / "discriminator" / "pattern_mismatch.py",
+        extra_args=[
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--use-annotated",
+        ],
+        skip_code_validation=True,
+    )
+
+
+def test_main_openapi_discriminator_pattern_nested_choices(output_file: Path) -> None:
+    """Variants that nested choices give a union drop the pattern of the tag they declare or inherit."""
+    name = "discriminator_pattern_nested_choices"
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / f"{name}.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=EXPECTED_OPENAPI_PATH / "discriminator" / "pattern_nested_choices.py",
+        extra_args=[
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--use-annotated",
+        ],
+        force_exec_validation=True,
+    )
+    decoded = []
+    for model_name, payloads in json.loads((DATA_PATH / f"payloads/{name}.json").read_text()).items():
+        with _generated_model(output_file, name, model_name) as model:
+            validate = _model_json_validator(model)
+            for payload in payloads:
+                try:
+                    result = repr(validate(json.dumps(payload)))
+                except pydantic.ValidationError:
+                    result = "rejected"
+                decoded.append(f"{model_name} {json.dumps(payload)}: {result}\n")
+    assert_output("".join(decoded), EXPECTED_OPENAPI_PATH / "discriminator" / "pattern_nested_choices_decoded.txt")
 
 
 def test_main_openapi_discriminator_allof(output_file: Path) -> None:
@@ -1774,6 +1950,26 @@ def test_main_invalid_dotted_schema_name_stdout(capsys: pytest.CaptureFixture[st
 
 
 @pytest.mark.isolate_builtin_formatter_config
+def test_main_invalid_dotted_schema_name_stdout_model_name_map_warnings(capsys: pytest.CaptureFixture[str]) -> None:
+    """Report a --model-name-map key that matches no model once, though stdout output parses the input again."""
+    with freeze_time(TIMESTAMP), warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        run_main_and_assert(
+            input_path=OPEN_API_DATA_PATH / "invalid_dotted_schema_name.yaml",
+            output_path=None,
+            input_file_type="openapi",
+            extra_args=["--model-name-map", '{"#/components/schemas/SaveTrifectaV2.2": "Trifecta"}'],
+            expected_stdout_path=EXPECTED_OPENAPI_PATH / "invalid_dotted_schema_name_stdout.py",
+            capsys=capsys,
+            assert_no_stderr=True,
+        )
+    assert_output(
+        "".join(f"{record.message}\n" for record in recorded if record.category is UserWarning),
+        EXPECTED_OPENAPI_PATH / "invalid_dotted_schema_name_model_name_map_warnings.txt",
+    )
+
+
+@pytest.mark.isolate_builtin_formatter_config
 def test_main_collapse_root_models_recursive_invalid_dotted_stdout(capsys: pytest.CaptureFixture[str]) -> None:
     """Carry the circular-root fallback into the invalid-dotted stdout repair."""
     expected_path = EXPECTED_OPENAPI_PATH / "collapse_root_models_recursive_invalid_dotted_stdout.py"
@@ -1786,7 +1982,7 @@ def test_main_collapse_root_models_recursive_invalid_dotted_stdout(capsys: pytes
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1802,7 +1998,7 @@ def test_main_invalid_dotted_mixed_keys_stdout(capsys: pytest.CaptureFixture[str
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1818,7 +2014,7 @@ def test_main_usable_invalid_dotted_schema_name_stdout(capsys: pytest.CaptureFix
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1834,7 +2030,7 @@ def test_main_invalid_dotted_future_import_stdout(capsys: pytest.CaptureFixture[
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1857,7 +2053,7 @@ def test_main_invalid_dotted_relative_import_stdout(capsys: pytest.CaptureFixtur
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1880,7 +2076,7 @@ def test_main_invalid_dotted_import_binding_stdout(capsys: pytest.CaptureFixture
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1903,7 +2099,7 @@ def test_main_invalid_dotted_conflicting_models_stdout(capsys: pytest.CaptureFix
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1926,7 +2122,7 @@ def test_main_invalid_dotted_name_priority_stdout(capsys: pytest.CaptureFixture[
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1942,7 +2138,7 @@ def test_main_invalid_dotted_info_version_stdout(capsys: pytest.CaptureFixture[s
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1958,7 +2154,7 @@ def test_main_usable_invalid_dotted_no_future_stdout(capsys: pytest.CaptureFixtu
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -1982,7 +2178,9 @@ def test_main_usable_invalid_dotted_inherited_enum_stdout(capsys: pytest.Capture
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=sys.version_info >= (3, 11))
+    validate_generated_code(
+        stored_expected(expected_path).read_text(), str(expected_path), do_exec=sys.version_info >= (3, 11)
+    )
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -2006,7 +2204,9 @@ def test_main_usable_converging_invalid_dotted_models_stdout(capsys: pytest.Capt
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=sys.version_info >= (3, 11))
+    validate_generated_code(
+        stored_expected(expected_path).read_text(), str(expected_path), do_exec=sys.version_info >= (3, 11)
+    )
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -2031,7 +2231,7 @@ def test_main_usable_collapsed_invalid_dotted_models_stdout(capsys: pytest.Captu
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -2053,7 +2253,7 @@ def test_main_usable_discriminator_invalid_dotted_models_stdout(capsys: pytest.C
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -2127,7 +2327,7 @@ def test_main_usable_identical_invalid_dotted_models_stdout(capsys: pytest.Captu
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -2164,7 +2364,7 @@ def test_main_invalid_dotted_mixed_module_stdout(capsys: pytest.CaptureFixture[s
         capsys=capsys,
         assert_no_stderr=True,
     )
-    validate_generated_code(expected_path.read_text(), str(expected_path), do_exec=True)
+    validate_generated_code(stored_expected(expected_path).read_text(), str(expected_path), do_exec=True)
 
 
 @pytest.mark.isolate_builtin_formatter_config
@@ -2632,7 +2832,7 @@ def test_main_custom_template_dir_old_style(
             input_file_type=None,
             extra_args=[
                 "--custom-template-dir",
-                str(DATA_PATH / "templates_old_style"),
+                str(DATA_PATH / "templates" / "pydantic"),
                 "--extra-template-data",
                 str(OPEN_API_DATA_PATH / "extra_data.json"),
             ],
@@ -2817,17 +3017,15 @@ def test_pyproject(tmp_path: Path) -> None:
             return str(path)
 
     output_file: Path = tmp_path / "output.py"
+    (empty := tmp_path / "empty.json").write_text("{}\n", encoding="utf-8")
     pyproject_toml_path = Path(DATA_PATH) / "project" / "pyproject.toml"
     pyproject_toml = (
         pyproject_toml_path
         .read_text()
         .replace("INPUT_PATH", get_path(OPEN_API_DATA_PATH / "api.yaml"))
         .replace("OUTPUT_PATH", get_path(output_file))
-        .replace("ALIASES_PATH", get_path(OPEN_API_DATA_PATH / "empty_aliases.json"))
-        .replace(
-            "EXTRA_TEMPLATE_DATA_PATH",
-            get_path(OPEN_API_DATA_PATH / "empty_data.json"),
-        )
+        .replace("ALIASES_PATH", get_path(empty))
+        .replace("EXTRA_TEMPLATE_DATA_PATH", get_path(empty))
         .replace("CUSTOM_TEMPLATE_DIR_PATH", get_path(tmp_path))
     )
     (tmp_path / "pyproject.toml").write_text(pyproject_toml)
@@ -2942,7 +3140,7 @@ list types for JSON Schema arrays that have the uniqueItems constraint set
 to true, enforcing uniqueness at the type level.""",
     input_schema="openapi/api_constrained.yaml",
     cli_args=["--use-unique-items-as-set", "--field-constraints"],
-    golden_output="openapi/with_field_constraints_use_unique_items_as_set.py",
+    golden_output="openapi/with_field_constraints_pydantic_v2_use_standard_collections_set.py",
 )
 def test_main_with_field_constraints(
     output_model: str, expected_output: str, args: list[str], output_file: Path
@@ -3728,6 +3926,222 @@ def test_main_openapi_enum_models_as_literal_one(min_version: str, output_file: 
         assert_func=assert_file_content,
         expected_file="enum_models/one.py",
         extra_args=["--enum-field-as-literal", "one", "--target-python-version", min_version],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_path", "extra_args"),
+    [
+        pytest.param("single_value_enum_as_const/api.yaml", ["--use-single-value-enum-as-const"], id="enum"),
+        pytest.param("single_value_enum_as_const/written_as_const/api.yaml", [], id="written-as-const"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("scopes", "expected_file"),
+    [
+        pytest.param(
+            ["schemas", "paths", "parameters"], "single_value_enum_as_const.py", id="schemas-paths-parameters"
+        ),
+        pytest.param(["api"], "single_value_enum_as_const_api.py", id="api"),
+    ],
+)
+def test_main_openapi_single_value_enum_as_const(
+    input_path: str, extra_args: list[str], scopes: list[str], expected_file: str, output_file: Path
+) -> None:
+    """Read the single-value enums of schemas, headers, webhooks and callbacks as the const they equal.
+
+    Entries named like keywords, such as the default response, a header named server or a webhook named default,
+    are read as entries, while server variables, link parameters and a header kept under an extension key of a
+    referenced document stay as written.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / input_path,
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--openapi-scopes",
+            *scopes,
+            *extra_args,
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_path", "output_model", "extra_args"),
+    [
+        pytest.param(
+            "single_value_enum_as_const/null_branch.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const"],
+            id="enum",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/null_branch.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const", "--enum-field-as-literal", "one"],
+            id="enum-literal-one",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/written_as_const/null_branch.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const"],
+            id="written-as-const",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/null_branch.yaml",
+            "pydantic_v2.BaseModel",
+            ["--enum-field-as-literal", "one"],
+            id="without-option-literal-one",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/written_as_const/null_branch.yaml",
+            "pydantic_v2.BaseModel",
+            [],
+            id="written-as-const-without-option",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/null_branch.yaml",
+            "msgspec.Struct",
+            ["--use-single-value-enum-as-const"],
+            id="msgspec",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/extension_keys.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const"],
+            id="extension-keys",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/extension_keys.yaml",
+            "pydantic_v2.BaseModel",
+            [],
+            id="extension-keys-without-option",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/paths_scope.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const", "--openapi-scopes", "schemas", "paths"],
+            id="paths-scope",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/paths_scope.yaml",
+            "pydantic_v2.BaseModel",
+            ["--openapi-scopes", "schemas", "paths"],
+            id="paths-scope-without-option",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/paths_scope.yaml",
+            "msgspec.Struct",
+            ["--use-single-value-enum-as-const", "--openapi-scopes", "schemas", "paths"],
+            id="paths-scope-msgspec",
+        ),
+    ],
+)
+def test_main_openapi_single_value_enum_as_const_null_branch(
+    input_path: str, output_model: str, extra_args: list[str], output_file: Path
+) -> None:
+    """Type one value beside a null branch as Literal[...] | None under --use-single-value-enum-as-const.
+
+    Without the option, const branches beside a null branch still merge into an Enum and a root model, as they do
+    under an extension key, which the option reads as written, while a property, path or parameter named like a
+    keyword or an extension is read.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / input_path,
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", output_model, "--formatters", "builtin", *extra_args],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_name", "output_model", "extra_args"),
+    [
+        pytest.param("nullable", "pydantic_v2.BaseModel", [], id="pydantic-v2"),
+        pytest.param("nullable", "pydantic_v2.BaseModel", ["--strict-nullable"], id="strict-nullable"),
+        pytest.param(
+            "nullable",
+            "pydantic_v2.BaseModel",
+            ["--use-missing-sentinel"],
+            id="missing-sentinel",
+            marks=EXPERIMENTAL_MISSING_IMPORT_WARNING,
+        ),
+        pytest.param("nullable", "msgspec.Struct", ["--strict-nullable"], id="msgspec-strict-nullable"),
+        pytest.param("nullable_branches", "pydantic_v2.BaseModel", [], id="branches"),
+    ],
+)
+@pytest.mark.parametrize("option_args", [["--use-single-value-enum-as-const"], []], ids=["option", "without-option"])
+def test_main_openapi_single_value_enum_as_const_nullable(
+    input_name: str, output_model: str, extra_args: list[str], option_args: list[str], output_file: Path
+) -> None:
+    """Read a one-value enum with nullable true as written under --use-single-value-enum-as-const.
+
+    Such a schema gets the models it gets without the option, also as a $ref target, an array item or a branch
+    beside a null branch. Beside such a oneOf/anyOf branch, the branches the option reads as const are typed as
+    written instead of merging, while an enum of null with nullable true is read as const and merges.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "single_value_enum_as_const" / f"{input_name}.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", output_model, "--formatters", "builtin", *extra_args, *option_args],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_path", "output_model", "extra_args"),
+    [
+        pytest.param(
+            "single_value_enum_as_const/mixed_types.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const"],
+            id="enum",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/mixed_types.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const", "--enum-field-as-literal", "one"],
+            id="enum-literal-one",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/written_as_const/mixed_types.yaml",
+            "pydantic_v2.BaseModel",
+            ["--use-single-value-enum-as-const"],
+            id="written-as-const",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/written_as_const/mixed_types.yaml",
+            "pydantic_v2.BaseModel",
+            [],
+            id="written-as-const-without-option",
+        ),
+        pytest.param(
+            "single_value_enum_as_const/mixed_types.yaml",
+            "msgspec.Struct",
+            ["--use-single-value-enum-as-const"],
+            id="msgspec",
+        ),
+    ],
+)
+def test_main_openapi_single_value_enum_as_const_mixed_types(
+    input_path: str, output_model: str, extra_args: list[str], output_file: Path
+) -> None:
+    """Keep one-value branches of different JSON types apart under --use-single-value-enum-as-const.
+
+    One Enum of str and int values cannot be decoded by msgspec, so each branch is typed as its const, while branches
+    of one JSON type still merge. Without the option, const branches of different JSON types still merge.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / input_path,
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--output-model-type", output_model, "--formatters", "builtin", *extra_args],
     )
 
 
@@ -5274,6 +5688,17 @@ def test_main_openapi_const_field(output_model: str, expected_output: str, outpu
         assert_func=assert_file_content,
         expected_file=expected_output,
         extra_args=["--output-model-type", output_model, "--collapse-root-models"],
+    )
+
+
+def test_main_openapi_const_field_without_collapse(output_file: Path) -> None:
+    """Generate the root models of const fields that the --collapse-root-models docs compare with."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "const.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="const_baseline.py",
     )
 
 
@@ -8838,6 +9263,69 @@ def test_main_openapi_discriminator_optional_pydantic_v2(
     )
 
 
+@pytest.mark.parametrize(
+    ("input_name", "output_model", "optional_args"),
+    [
+        (
+            "discriminator_optional_literal",
+            "pydantic_v2.BaseModel",
+            ("--enum-field-as-literal", "one"),
+        ),
+        (
+            "discriminator_optional_literal",
+            "pydantic_v2.dataclass",
+            ("--enum-field-as-literal", "one"),
+        ),
+        (
+            "discriminator_optional_literal_nested",
+            "pydantic_v2.BaseModel",
+            ("--enum-field-as-literal", "one"),
+        ),
+        (
+            "discriminator_optional_literal_nested",
+            "pydantic_v2.BaseModel",
+            ("--enum-field-as-literal", "one", "--strict-nullable"),
+        ),
+        pytest.param(
+            "discriminator_optional_literal_nested",
+            "pydantic_v2.BaseModel",
+            ("--enum-field-as-literal", "one", "--use-missing-sentinel"),
+            marks=EXPERIMENTAL_MISSING_IMPORT_WARNING,
+        ),
+        (
+            "discriminator_optional_literal_nested",
+            "dataclasses.dataclass",
+            (),
+        ),
+    ],
+)
+def test_main_openapi_discriminator_optional_literal(
+    input_name: str, output_model: str, optional_args: tuple[str, ...], output_file: Path
+) -> None:
+    """Give optional one-value Literal discriminator tags their value as default so Pydantic accepts the union.
+
+    Variants that nested choices give the union follow the same rule. A tag the schema declares not nullable keeps
+    its ``None`` default unless the ``MISSING`` sentinel would replace it, and a nested tag that is not a ``Literal``
+    keeps its type.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / f"{input_name}.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--formatters",
+            "builtin",
+            "--target-python-version",
+            "3.10",
+            "--output-model-type",
+            output_model,
+            *optional_args,
+        ],
+        force_exec_validation=True,
+    )
+
+
 @pytest.mark.skipif(
     black.__version__.split(".")[0] == "19",
     reason="Installed black doesn't support the old style",
@@ -8976,7 +9464,7 @@ def test_main_openapi_keyword_only_msgspec_with_extra_data(min_version: str, out
             "--target-python-version",
             min_version,
             "--extra-template-data",
-            str(OPEN_API_DATA_PATH / "extra_data_msgspec.json"),
+            str(JSON_SCHEMA_DATA_PATH / "extra_data_msgspec.json"),
         ],
     )
 
@@ -8987,7 +9475,7 @@ def test_main_openapi_keyword_only_msgspec_with_extra_data(min_version: str, out
 )
 def test_main_generate_openapi_keyword_only_msgspec_with_extra_data(tmp_path: Path) -> None:
     """Test OpenAPI generation with keyword-only msgspec using generate function."""
-    extra_data = json.loads((OPEN_API_DATA_PATH / "extra_data_msgspec.json").read_text())
+    extra_data = json.loads((JSON_SCHEMA_DATA_PATH / "extra_data_msgspec.json").read_text())
     output_file: Path = tmp_path / "output.py"
     generate(
         input_=OPEN_API_DATA_PATH / "inheritance.yaml",
@@ -9221,6 +9709,70 @@ def test_duplicate_models(output_file: Path) -> None:
                 "--parent-scoped-naming",
             ],
         )
+
+
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        pytest.param(["--use-tag-as-union-variant-name", "--naming-strategy", "full-path"], id="full-path"),
+        pytest.param(["--use-tag-as-union-variant-name", "--naming-strategy", "parent-prefixed"], id="parent-prefixed"),
+        pytest.param(["--use-tag-as-union-variant-name", "--parent-scoped-naming"], id="parent-scoped-naming"),
+        pytest.param(
+            ["--use-tag-as-union-variant-name", "--naming-strategy", "full-path", "--use-title-as-name"],
+            id="use-title-as-name",
+        ),
+        pytest.param(
+            [
+                "--use-tag-as-union-variant-name",
+                "--naming-strategy",
+                "full-path",
+                "--model-name-map",
+                '{"ItemEditedChangesFieldValue": "FieldValueChange"}',
+            ],
+            id="model-name-map",
+        ),
+        pytest.param(
+            [
+                "--use-tag-as-union-variant-name",
+                "--naming-strategy",
+                "full-path",
+                "--model-name-map",
+                '{"ItemEditedChangesFieldValue": "ItemEditedChangesFieldValue"}',
+            ],
+            id="model-name-map-identity",
+        ),
+        pytest.param(["--use-tag-as-union-variant-name"], id="numbered"),
+        pytest.param(["--naming-strategy", "full-path"], id="without-tags"),
+    ],
+)
+def test_main_openapi_use_tag_as_union_variant_name_parent_prefix(output_file: Path, extra_args: list[str]) -> None:
+    """Name the value of a branch named after its key as if the branch were not in its path under prefixed naming.
+
+    The branch keeps its key name; a branch its title names or `--model-name-map` renames, and the branches the option
+    leaves numbered, keep prefixing the models in them with their own names.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "use_tag_as_union_variant_name_parent_prefix.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--formatters",
+            "builtin",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="use_tag_as_union_variant_name_parent_prefix",
+        model_name="ItemEdited",
+        valid_json='{"field_value": {"own": "o"}, "changes": {"field_value": {"from": "x", "nested": {"a": "y"}}}}',
+        invalid_json='{"changes": {"field_value": {"nested": {"a": 1}}}}',
+        expected_error_type="string_type",
+    )
 
 
 def test_main_openapi_shadowed_imports(output_file: Path) -> None:
@@ -10895,6 +11447,25 @@ def test_main_openapi_dot_notation_collapse_reuse_models(
     )
 
 
+def test_main_openapi_collapse_root_models_module_named_field(output_dir: Path) -> None:
+    """Drop the import of a collapsed model's module when a field has the module's name."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "collapse_root_models_module_named_field.yaml",
+        output_path=output_dir,
+        expected_directory=EXPECTED_OPENAPI_PATH / "collapse_root_models_module_named_field",
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--collapse-root-models",
+            "--disable-timestamp",
+        ],
+        runtime_validation_module="core.v1",
+        runtime_validation_model_name="Selector",
+        runtime_validation_data={"resource": "cpu", "divisor": "1m"},
+    )
+
+
 @pytest.mark.parametrize(
     "output_model_type",
     [
@@ -11077,6 +11648,28 @@ def test_main_openapi_circular_imports_class_conflict(output_dir: Path) -> None:
             expected_directory=EXPECTED_OPENAPI_PATH / "circular_imports_class_conflict",
             input_file_type="openapi",
         )
+
+
+def test_main_openapi_circular_imports_pattern_properties_ref(output_dir: Path) -> None:
+    """Define a model merged into _internal.py before the class whose patternProperties rule names it."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "circular_imports_pattern_properties_ref.yaml",
+        output_path=output_dir,
+        expected_directory=EXPECTED_OPENAPI_PATH / "circular_imports_pattern_properties_ref",
+        input_file_type="openapi",
+        extra_args=[
+            "--generate-schema-validators",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+        runtime_validation_module="a",
+        runtime_validation_model_name="Services",
+        runtime_validation_data={"name": "n", "svc_web": {"owner": {"other": {"id": "x"}}}},
+    )
 
 
 def test_main_openapi_circular_imports_with_inheritance(output_dir: Path) -> None:
@@ -11884,6 +12477,8 @@ def test_discriminator_final_field_aliases(
     """Resolve variant fields without globalizing scoped aliases or changing tag input."""
     fixture_dir = OPEN_API_DATA_PATH / "discriminator_field_aliases"
     aliases_path = fixture_dir / f"{alias_file}_aliases.json"
+    if alias_file == "none":
+        (aliases_path := output_file.parent / "none_aliases.json").write_text("{}\n", encoding="utf-8")
     expected = EXPECTED_OPENAPI_PATH / "discriminator_field_aliases" / f"{case}.py"
     if entrypoint == "cli":
         args = ["--aliases", str(aliases_path), "--disable-timestamp"]
@@ -11913,8 +12508,8 @@ def test_discriminator_final_field_aliases(
             unchanged_inputs={"aliases": aliases},
             **options,
         )
-    payload_dir = DATA_PATH / "payloads" / "discriminator_alias_outputs"
-    payloads = json.loads((payload_dir / "validation.json").read_text())
+    payload_dir = DATA_PATH / "expected" / "payloads" / "discriminator_alias_outputs"
+    payloads = json.loads((DATA_PATH / "payloads" / "discriminator_alias_outputs" / "validation.json").read_text())
     runtime: dict[str, Any] = {}
     wire_name = "wireKind" if "serialization_aliases" in options else "petType"
     for tag, detail in [("cat", "meow"), ("dog", "bark")]:
@@ -12150,14 +12745,14 @@ def test_external_discriminator_base(output_file: Path, entrypoint: str, case: s
             assert_output(
                 json.dumps(model.model_validate(payload).model_dump(by_alias=True, exclude_none=True), sort_keys=True)
                 + "\n",
-                DATA_PATH / "payloads" / "external_discriminator_outputs" / f"{case}_{tag}.txt",
+                DATA_PATH / "expected" / "payloads" / "external_discriminator_outputs" / f"{case}_{tag}.txt",
             )
     if case == "many_ordinary":
         with _generated_model(output_file, "generated_discriminator_ordinary_refs", "Controls") as model:
             payload = {"field0": {"value": "first"}, "field99": {"value": "last"}}
             assert_output(
                 json.dumps(model.model_validate(payload).model_dump(exclude_none=True), sort_keys=True) + "\n",
-                DATA_PATH / "payloads" / "external_discriminator_outputs" / "ordinary.txt",
+                DATA_PATH / "expected" / "payloads" / "external_discriminator_outputs" / "ordinary.txt",
             )
 
 
@@ -12196,7 +12791,7 @@ def test_external_discriminator_multiple_inputs(
             payload = {"item": {"kind": tag, detail: "yes"}}
             assert_output(
                 json.dumps(module.Wrapper.model_validate(payload).model_dump(exclude_none=True), sort_keys=True) + "\n",
-                DATA_PATH / "payloads" / "external_discriminator_outputs" / f"local_{tag}.txt",
+                DATA_PATH / "expected" / "payloads" / "external_discriminator_outputs" / f"local_{tag}.txt",
             )
 
 
@@ -12246,7 +12841,7 @@ def test_external_discriminator_parent_load_order(output_file: Path, entrypoint:
             with _generated_model(model_file, "discriminator_pending_dump", "Wrapper") as model:
                 assert_output(
                     json.dumps(model.model_validate(payloads[tag]).model_dump(), sort_keys=True) + "\n",
-                    DATA_PATH / "payloads/external_discriminator_outputs" / f"local_{tag}.txt",
+                    DATA_PATH / "expected/payloads/external_discriminator_outputs" / f"local_{tag}.txt",
                 )
 
 

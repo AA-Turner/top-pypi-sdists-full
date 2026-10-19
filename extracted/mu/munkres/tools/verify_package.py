@@ -10,6 +10,8 @@ smoke-test it from outside the repository.
 import argparse
 import email
 import pathlib
+import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -52,13 +54,29 @@ def main() -> int:
         wheel, sdist = wheels[0], sdists[0]
 
         print("== metadata")
-        check(wheel.name == f"munkres-{version}-py3-none-any.whl", f"wheel is named {wheel.name}")
+        parts = wheel.name[: -len(".whl")].split("-")  # name-version[-build]-pytag-abitag-platform
+        check(
+            parts[0] == "munkres" and parts[1] == version,
+            f"wheel is named {wheel.name} (version {version})",
+        )
         with zipfile.ZipFile(wheel) as z:
             names = z.namelist()
             meta = email.message_from_string(
                 z.read(next(n for n in names if n.endswith("METADATA"))).decode()
             )
             entry = z.read(next(n for n in names if n.endswith("entry_points.txt"))).decode()
+        py_tag, abi_tag, plat_tag = parts[-3:]
+        has_native = any(re.search(r"(^|/)_lapc\.[^/]*\.(so|pyd)$", n) for n in names)
+        if has_native:
+            check(
+                plat_tag != "any" and abi_tag != "none",
+                f"native extension shipped, so the wheel is platform-tagged ({py_tag}-{abi_tag}-{plat_tag})",
+            )
+        else:
+            check(
+                (py_tag, abi_tag, plat_tag) == ("py3", "none", "any"),
+                "pure-Python wheel is tagged py3-none-any",
+            )
         check(meta["Version"] == version, "wheel version matches munkres.__version__")
         check(meta["Requires-Python"] == ">=3.10", "Requires-Python is >=3.10")
         check(meta.get_all("Requires-Dist") is None, "no runtime dependencies")
@@ -70,11 +88,12 @@ def main() -> int:
             not any("/tests/" in n or n.startswith("tests/") for n in names),
             "tests are not in the wheel",
         )
+        body = meta.get_payload() or ""
+        check(len(body) > 1000, f"long description is present ({len(body)} characters)")
+        check("munkres" in body.lower(), "long description mentions the project")
         check(
-            len(meta.get_payload() or "") > 1000
-            or "munkres" in (meta["Description"] or "")
-            or True,
-            "long description present",
+            (meta["Description-Content-Type"] or "").startswith("text/markdown"),
+            "long description is declared as Markdown",
         )
 
         print("== sdist")
@@ -96,8 +115,13 @@ def main() -> int:
             run(sys.executable, "-m", "twine", "check", str(wheel), str(sdist)).returncode == 0,
             "twine check passes",
         )
-        contents = run("check-wheel-contents", str(wheel))
-        check(contents.returncode == 0, "check-wheel-contents passes")
+        if shutil.which("check-wheel-contents"):
+            check(
+                run("check-wheel-contents", str(wheel)).returncode == 0,
+                "check-wheel-contents passes",
+            )
+        else:
+            print("  SKIP check-wheel-contents is not installed (install it to enforce this check)")
 
         print("== clean install smoke test")
         env_dir = pathlib.Path(scratch) / "venv"
@@ -131,6 +155,24 @@ def main() -> int:
         check(
             run(python, "-m", "munkres", cwd=elsewhere).returncode == 0,
             "python -m munkres self-check passes",
+        )
+        native = run(
+            python, "-c", "from munkres import _native; print(_native.available())", cwd=elsewhere
+        )
+        check(
+            native.returncode == 0 and (native.stdout.strip() == "True") == has_native,
+            f"native kernel availability matches the wheel contents (native shipped: {has_native})",
+        )
+        fallback = run(
+            python,
+            "-c",
+            "import munkres; print(munkres.Munkres().compute([[4,1,3],[2,0,5],[3,2,2]]))",
+            cwd=elsewhere,
+            env={**__import__("os").environ, "PALDITA_NO_NATIVE": "1"},
+        )
+        check(
+            fallback.returncode == 0 and "[(0, 1), (1, 0), (2, 2)]" in fallback.stdout,
+            "pure-Python fallback (PALDITA_NO_NATIVE=1) solves the textbook example from the installed wheel",
         )
         script = bindir / ("munkres.exe" if sys.platform == "win32" else "munkres")
         piped = subprocess.run(

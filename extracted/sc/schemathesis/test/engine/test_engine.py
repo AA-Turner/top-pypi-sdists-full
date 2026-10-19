@@ -275,7 +275,7 @@ def test_auth(ctx):
         assert request.headers["Authorization"] == "Basic dGVzdDp0ZXN0"
 
 
-@pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"])
+@pytest.mark.parametrize("converter", [lambda x: x, lambda x: x + "/"], ids=["as-is", "trailing-slash"])
 def test_base_url(ctx, converter):
     api = ctx.openapi.apps.success_and_failure()
     base_url = converter(api.base_url)
@@ -584,6 +584,31 @@ def test_path_parameters_encoding(ctx):
     stream.assert_no_failures()
 
 
+def test_path_enum_value_with_slash_is_sent_encoded(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items/{item}": {
+                "get": {
+                    "parameters": [
+                        {"name": "item", "in": "path", "required": True, "schema": {"type": "string", "enum": ["a/b"]}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    raw_paths = []
+
+    @app.before_request
+    def capture():
+        raw_paths.append(flask.request.environ["RAW_URI"])
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    stream = execute(schema, phases=[PhaseName.FUZZING], max_examples=1, modes=[GenerationMode.POSITIVE])
+    stream.assert_no_errors()
+    assert {path for path in raw_paths if path.startswith("/items/")} == {"/items/a%2Fb"}
+
+
 def test_exceptions(ctx):
     api = ctx.openapi.apps.slow()
     schema = schemathesis.openapi.from_url(api.schema_url)
@@ -882,6 +907,68 @@ def test_max_time_reaches_every_operation(ctx, workers):
     stream = execute(schema, max_time=max_time, max_examples=2000, workers=workers, phases=[PhaseName.FUZZING])
     tested = {event.label for event in stream.find_all(events.ScenarioFinished)}
     assert tested == {"POST /users/", "GET /users/{user_id}", "PATCH /users/{user_id}"}
+
+
+def _authorization_header_schema(ctx, app_runner):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/items": {
+                "post": {
+                    "parameters": [{"name": "authorization", "in": "header", "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @app.route("/items", methods=["POST"])
+    def items():
+        return flask.jsonify({})
+
+    return schemathesis.openapi.from_url(app_runner.openapi_url(app))
+
+
+def _fuzzing_cycles(schema, **options):
+    stream = execute(
+        schema, max_examples=10, max_time=2, modes=[GenerationMode.POSITIVE], phases=[PhaseName.FUZZING], **options
+    )
+    cycles = [len(event.recorder.interactions) for event in stream.find_all(events.ScenarioFinished)]
+    assert len(cycles) > 2
+    # The last cycle may be cut by the time limit before sending anything.
+    return cycles[1:-1]
+
+
+@pytest.mark.parametrize("auth_kind", ["basic", "hook"])
+def test_header_set_by_auth_is_not_generated_in_later_cycles(ctx, app_runner, auth_kind):
+    # Configured auth replaces the generated value, so drawing it repeats one request until max examples.
+    schema = _authorization_header_schema(ctx, app_runner)
+    if auth_kind == "hook":
+
+        @schema.auth()
+        class TokenAuth:
+            def get(self, case, context):
+                return "token"
+
+            def set(self, case, data, context):
+                case.headers = case.headers or {}
+                case.headers["Authorization"] = f"Bearer {data}"
+
+    assert set(_fuzzing_cycles(schema, auth=("user", "pass") if auth_kind == "basic" else None)) == {1}
+
+
+def test_header_auth_sets_only_sometimes_is_still_generated(ctx, app_runner):
+    schema = _authorization_header_schema(ctx, app_runner)
+
+    @schema.auth()
+    class FallbackAuth:
+        def get(self, case, context):
+            return "token"
+
+        def set(self, case, data, context):
+            case.headers = case.headers or {}
+            case.headers.setdefault("Authorization", f"Bearer {data}")
+
+    assert max(_fuzzing_cycles(schema)) > 1
 
 
 def test_max_time_in_unit_phase_is_not_an_interrupt(ctx):
@@ -1571,6 +1658,8 @@ def test_generation_config_in_explicit_examples(ctx):
                             "name": "X-VO-Api-Id",
                             "required": True,
                             "type": "string",
+                            # An empty value would satisfy any character set.
+                            "minLength": 1,
                         },
                         {
                             "in": "body",
@@ -1599,10 +1688,7 @@ def test_generation_config_in_explicit_examples(ctx):
         exclude_header_characters="".join({chr(i) for i in range(256)} - {"a"}),
     )
     stream = EventStream(schema, max_examples=10).execute()
-    for case in _scenario_cases(stream):
-        for header in case.value.headers.values():
-            if header:
-                assert set(header) == {"a"}
+    assert [dict(case.value.headers) for case in _scenario_cases(stream)] == [{"X-VO-Api-Id": "a"}]
 
 
 def test_missing_deserializer_warnings_collected(ctx):
@@ -1791,6 +1877,25 @@ def test_max_time_coverage_rerun_reaches_what_feedback_unlocked(ctx):
     )
 
     assert stream.find(events.ScenarioFinished, status=Status.FAILURE) is not None
+
+
+def test_max_time_runs_coverage_cases_generated_before_the_slice_ran_out(ctx):
+    # One slow case uses up the operation's share while the cases before it are already generated.
+    api = ctx.openapi.apps.success()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    generated = []
+
+    def map_case(context, case):
+        generated.append(case)
+        if len(generated) == 5:
+            time.sleep(1.2)
+        return case
+
+    schema.hook("map_case")(map_case)
+    stream = execute(schema, max_time=2, max_examples=100_000, phases=[PhaseName.COVERAGE, PhaseName.FUZZING])
+    finished = stream.find(events.ScenarioFinished, phase=PhaseName.COVERAGE)
+
+    assert len(finished.recorder.cases) == 5
 
 
 def test_max_time_skips_coverage_rerun_for_feedback_that_cannot_change_generation(ctx):
@@ -2045,6 +2150,120 @@ def test_links_inferred_from_location_headers(ctx, app_runner):
     started = stream.find(events.PhaseStarted, phase=lambda phase: phase.name == PhaseName.STATEFUL_TESTING)
 
     assert started.payload.inferred_transitions > 0
+
+
+TEAM_ID = 982451653
+
+
+@pytest.mark.parametrize(
+    ("body", "status_code", "content_type", "expected"),
+    [
+        ('{"results": [{"url": "{host}teams/982451653"}]}', 200, "application/json", True),
+        ('{"url": "/teams/982451653"}', 200, "application/json", True),
+        (json.dumps({f"field{i}": f"/teams/{TEAM_ID}" for i in range(25)}), 200, "application/json", True),
+        ('{"url": "http://example.com/teams/982451653"}', 200, "application/json", False),
+        ('{"a}b": "/teams/982451653"}', 200, "application/json", False),
+        ('{"url": "/teams/982451653"}', 404, "application/json", False),
+        ('{"url": "/teams/982451653"', 200, "application/json", False),
+        ('{"url": "/teams/982451653"}', 200, "application.json", False),
+    ],
+    ids=[
+        "absolute-same-origin",
+        "root-relative",
+        "many-urls",
+        "other-origin",
+        "key-closes-expression",
+        "error-status",
+        "invalid-json",
+        "malformed-content-type",
+    ],
+)
+def test_links_inferred_from_urls_in_response_bodies(ctx, app_runner, body, status_code, content_type, expected):
+    # Hyperlinked APIs (e.g. DRF) expose identifiers only inside URLs in the body.
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/teams": {"get": {"responses": {"default": {"description": "OK"}}}},
+            "/teams/{pk}": {
+                "get": {
+                    "parameters": [{"name": "pk", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    fetched = []
+
+    @app.route("/teams")
+    def list_teams():
+        content = body.replace("{host}", flask.request.host_url)
+        return flask.Response(content, status=status_code, headers={"Content-Type": content_type})
+
+    @app.route("/teams/<int:pk>")
+    def get_team(pk):
+        fetched.append(pk)
+        return flask.jsonify({})
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    stream = execute(
+        schema,
+        max_examples=5,
+        modes=[GenerationMode.POSITIVE],
+        phases=[PhaseName.FUZZING, PhaseName.STATEFUL_TESTING],
+    )
+    started = stream.find(events.PhaseStarted, phase=lambda phase: phase.name == PhaseName.STATEFUL_TESTING)
+
+    assert (started.payload.inferred_transitions > 0, TEAM_ID in fetched, stream.find_all(events.NonFatalError)) == (
+        expected,
+        expected,
+        [],
+    )
+
+
+@pytest.mark.parametrize(
+    ("headers", "body"),
+    [
+        ({"Location": f"/teams/{TEAM_ID}"}, {}),
+        ({}, {"url": f"/teams/{TEAM_ID}"}),
+    ],
+    ids=["location-header", "body-url"],
+)
+def test_links_inferred_for_path_parameters_with_non_identifier_names(ctx, app_runner, headers, body):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/teams": {"post": {"responses": {"201": {"description": "Created"}}}},
+            "/teams/{team-id}": {
+                "get": {
+                    "parameters": [{"name": "team-id", "in": "path", "required": True, "schema": {"type": "integer"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    fetched = []
+
+    @app.route("/teams", methods=["POST"])
+    def create_team():
+        return flask.jsonify(body), 201, headers
+
+    @app.route("/teams/<int:team_id>")
+    def get_team(team_id):
+        fetched.append(team_id)
+        return flask.jsonify({})
+
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    stream = execute(
+        schema,
+        max_examples=5,
+        modes=[GenerationMode.POSITIVE],
+        phases=[PhaseName.FUZZING, PhaseName.STATEFUL_TESTING],
+    )
+    started = stream.find(events.PhaseStarted, phase=lambda phase: phase.name == PhaseName.STATEFUL_TESTING)
+
+    assert (started.payload.inferred_transitions > 0, TEAM_ID in fetched, stream.find_all(events.FatalError)) == (
+        True,
+        True,
+        [],
+    )
 
 
 def test_max_time_reserves_for_stateful_while_links_may_still_appear(ctx, app_runner):

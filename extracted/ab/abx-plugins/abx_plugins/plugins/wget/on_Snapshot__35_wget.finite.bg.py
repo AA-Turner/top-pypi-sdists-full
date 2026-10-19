@@ -100,7 +100,7 @@ def save_wget(url: str, binary: str) -> tuple[bool, str | None, str]:
     # Load config from config.json (auto-resolves x-aliases and x-fallback from env)
     config = load_config()
     timeout = config.WGET_TIMEOUT
-    user_agent = config.WGET_USER_AGENT or "Mozilla/5.0 (compatible; ArchiveBox/1.0)"
+    user_agent = config.WGET_USER_AGENT
     check_ssl = config.WGET_CHECK_SSL_VALIDITY
     cookies_file = config.WGET_COOKIES_FILE
     wget_args = config.WGET_ARGS

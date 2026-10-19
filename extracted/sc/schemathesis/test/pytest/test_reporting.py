@@ -43,7 +43,7 @@ def _junit_outcomes(report_path):
 @pytest.mark.parametrize(
     ("outcome", "junit", "allure", "xdist"),
     [
-        ("check_failure", ("failure", ""), ("failed", ""), False),
+        ("check_failure", ("failure", "ST101"), ("failed", ""), False),
         ("assertion", ("failure", "boom"), ("failed", "boom"), False),
         ("runtime_error", ("error", "RuntimeError: bug"), ("broken", "RuntimeError: bug"), False),
         (
@@ -635,7 +635,7 @@ TestCase = schema.as_state_machine().TestCase
     )
     result = testdir.runpytest("-n", "1")
     result.assert_outcomes(failed=1)
-    result.stdout.fnmatch_lines(["*Undocumented HTTP status code*"])
+    result.stdout.fnmatch_lines(["*Undocumented status code*"])
 
 
 def test_html_report_failed(testdir, ctx, snapshot_html):
@@ -713,9 +713,9 @@ def test_api(case, user):
     )
     testdir.runpytest().assert_outcomes(failed=2)
 
-    assert re.findall(r'tf-name" title="([^"]+)"', report_dir.join("index.html").read_text("utf-8")) == [
+    assert re.findall(r'class="tf-name"[^>]* title="([^"]+)"', report_dir.join("index.html").read_text("utf-8")) == [
         "Server error",
-        "Undocumented HTTP status code",
+        "Undocumented status code",
     ]
 
 
@@ -777,3 +777,25 @@ def test_api(case):
         "  - JUnit: junit.xml",
         f"  - HTML: {pathlib.Path('report', 'index.html')}",
     ]
+
+
+@pytest.mark.parametrize("xdist", [False, True], ids=["single-process", "xdist"])
+def test_junit_failure_names_failure_code(testdir, ctx, xdist):
+    api = ctx.openapi.apps.failure()
+    junit_path = str(testdir.tmpdir.join("report.xml"))
+    _make_xdist_test(
+        ctx,
+        testdir,
+        f"""
+schema.config.reports.update(junit_path=r"{junit_path}")
+
+@schema.parametrize()
+@settings(max_examples=1)
+def test_api(case):
+    case.call_and_validate()
+""",
+        base_url=f"{api.base_url}/api",
+        paths={"/failure": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    )
+    testdir.runpytest(*(("-n", "2") if xdist else ())).assert_outcomes(failed=1)
+    assert _junit_outcomes(junit_path) == {"GET /failure": ("failure", "ST101, ST103")}

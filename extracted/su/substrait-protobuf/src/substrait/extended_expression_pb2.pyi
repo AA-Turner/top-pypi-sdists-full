@@ -66,6 +66,7 @@ class ExtendedExpression(google.protobuf.message.Message):
     ADVANCED_EXTENSIONS_FIELD_NUMBER: builtins.int
     EXPECTED_TYPE_URLS_FIELD_NUMBER: builtins.int
     DETACHED_EXPRESSIONS_FIELD_NUMBER: builtins.int
+    DETACHED_RELS_FIELD_NUMBER: builtins.int
     @property
     def version(self) -> substrait.plan_pb2.Version:
         """Substrait version of the expression. Optional up to 0.17.0, required for later
@@ -105,7 +106,14 @@ class ExtendedExpression(google.protobuf.message.Message):
     def detached_expressions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[substrait.algebra_pb2.Expression]:
         """Expression subtrees stored separately to reduce protobuf nesting.
         Referenced by zero-based ordinals local to this ExtendedExpression.
-        See https://substrait.io/serialization/binary_serialization/#bounded-expression-nesting.
+        See https://substrait.io/serialization/binary_serialization/#detached-relations-and-expressions.
+        """
+
+    @property
+    def detached_rels(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[substrait.algebra_pb2.Rel]:
+        """Relation subtrees stored separately to reduce protobuf nesting.
+        Referenced by zero-based ordinals local to this ExtendedExpression.
+        See https://substrait.io/serialization/binary_serialization/#detached-relations-and-expressions.
         """
 
     def __init__(
@@ -119,8 +127,9 @@ class ExtendedExpression(google.protobuf.message.Message):
         advanced_extensions: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
         expected_type_urls: collections.abc.Iterable[builtins.str] | None = ...,
         detached_expressions: collections.abc.Iterable[substrait.algebra_pb2.Expression] | None = ...,
+        detached_rels: collections.abc.Iterable[substrait.algebra_pb2.Rel] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "base_schema", b"base_schema", "version", b"version"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "base_schema", b"base_schema", "detached_expressions", b"detached_expressions", "expected_type_urls", b"expected_type_urls", "extension_urns", b"extension_urns", "extensions", b"extensions", "referred_expr", b"referred_expr", "version", b"version"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "base_schema", b"base_schema", "detached_expressions", b"detached_expressions", "detached_rels", b"detached_rels", "expected_type_urls", b"expected_type_urls", "extension_urns", b"extension_urns", "extensions", b"extensions", "referred_expr", b"referred_expr", "version", b"version"]) -> None: ...
 
 Global___ExtendedExpression: typing_extensions.TypeAlias = ExtendedExpression

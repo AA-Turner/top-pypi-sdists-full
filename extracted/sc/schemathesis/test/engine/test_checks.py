@@ -4,7 +4,6 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from hypothesis import given, settings
 
 import schemathesis.checks
 from schemathesis import Case
@@ -15,7 +14,9 @@ from schemathesis.core.failures import Failure, FailureGroup
 from schemathesis.core.transport import Response
 from schemathesis.engine._validate import validate_response
 from schemathesis.engine.recorder import ScenarioRecorder
+from schemathesis.failure_codes import FAILURE_CLASSES
 from schemathesis.openapi.checks import (
+    DiscriminatorMismatch,
     JsonSchemaError,
     MalformedMediaType,
     MissingHeaders,
@@ -32,6 +33,7 @@ from schemathesis.specs.openapi.checks import (
     status_code_conformance,
     use_after_free,
 )
+from test.utils import run_given
 
 if TYPE_CHECKING:
     from schemathesis.schemas import BaseSchema
@@ -780,15 +782,12 @@ def test_content_type_conformance_undocumented_json_subtype(openapi_30, response
 def test_response_schema_conformance_references_invalid(complex_schema, response_factory):
     schema = schemathesis.openapi.from_path(complex_schema)
 
-    @given(case=schema["/teapot"]["POST"].as_strategy())
-    @settings(max_examples=3, deadline=None)
+    @run_given(case=schema["/teapot"]["POST"].as_strategy(), max_examples=3)
     def test(case):
         response = Response.from_requests(response_factory.requests(content=json.dumps({"foo": 1}).encode()), True)
         with pytest.raises(FailureGroup):
             case.validate_response(response)
         assert not case.operation.is_valid_response(response)
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -796,15 +795,12 @@ def test_response_schema_conformance_references_invalid(complex_schema, response
 def test_response_schema_conformance_references_valid(complex_schema, value, response_factory):
     schema = schemathesis.openapi.from_path(complex_schema)
 
-    @given(case=schema["/teapot"]["POST"].as_strategy())
-    @settings(max_examples=3, deadline=None)
+    @run_given(case=schema["/teapot"]["POST"].as_strategy(), max_examples=3)
     def test(case):
         response = Response.from_requests(
             response_factory.requests(content=json.dumps({"key": value, "referenced": value}).encode()), True
         )
         case.validate_response(response)
-
-    test()
 
 
 def test_response_schema_conformance_custom_deserializer(openapi_30, response_factory):
@@ -845,16 +841,12 @@ def test_response_schema_conformance_custom_deserializer(openapi_30, response_fa
 
 def test_deduplication(ctx, response_factory):
     # See GH-1394
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /data",
         {
-            "/data": {
-                "get": {
-                    "responses": {"200": _oas3_response({"type": "integer"}, description="OK")},
-                },
-            },
-        }
+            "responses": {"200": _oas3_response({"type": "integer"}, description="OK")},
+        },
     )
-    operation = schema["/data"]["GET"]
     case = operation.Case()
     response = Response.from_requests(response_factory.requests(), True)
     recorder = ScenarioRecorder(label="test")
@@ -1153,7 +1145,7 @@ Value:
     )
     assert (
         str(exc.value.exceptions[1])
-        == """Missing required headers
+        == """Missing required response headers
 
 The following required headers are missing from the response:
 - `X-RateLimit-Reset`"""
@@ -1605,14 +1597,14 @@ def test_malformed_media_type_identity_ignores_message():
     )
 
 
+def test_discriminator_mismatch_identity_ignores_value():
+    assert DiscriminatorMismatch(operation="GET /pets", message="`kind` is 'bird'") == DiscriminatorMismatch(
+        operation="GET /pets", message="`kind` is 'fish'"
+    )
+
+
 def test_no_failure_class_keys_on_its_message():
     # A message-derived key changes whenever wording improves, which a stored key cannot survive.
     schemathesis.checks.load_all_checks()
-    subclasses = []
-    stack = [Failure]
-    while stack:
-        for subclass in stack.pop().__subclasses__():
-            subclasses.append(subclass)
-            stack.append(subclass)
 
-    assert [cls.__name__ for cls in subclasses if cls._unique_key is Failure._unique_key] == []
+    assert [cls.__name__ for cls in FAILURE_CLASSES if cls._unique_key is Failure._unique_key] == []

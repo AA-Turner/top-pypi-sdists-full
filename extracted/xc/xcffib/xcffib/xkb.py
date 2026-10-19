@@ -2728,6 +2728,7 @@ class SetDebuggingFlagsCookie(xcffib.Cookie):
 
 class NewKeyboardNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2808,6 +2809,7 @@ _events[0] = NewKeyboardNotifyEvent
 
 class MapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 1
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -2932,6 +2934,7 @@ _events[1] = MapNotifyEvent
 
 class StateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 2
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3056,6 +3059,7 @@ _events[2] = StateNotifyEvent
 
 class ControlsNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 3
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3136,6 +3140,7 @@ _events[3] = ControlsNotifyEvent
 
 class IndicatorStateNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 4
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3181,6 +3186,7 @@ _events[4] = IndicatorStateNotifyEvent
 
 class IndicatorMapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 5
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3226,6 +3232,7 @@ _events[5] = IndicatorMapNotifyEvent
 
 class NamesNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 6
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3322,6 +3329,7 @@ _events[6] = NamesNotifyEvent
 
 class CompatMapNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 7
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3377,6 +3385,7 @@ _events[7] = CompatMapNotifyEvent
 
 class BellNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 8
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3457,6 +3466,7 @@ _events[8] = BellNotifyEvent
 
 class ActionMessageEvent(xcffib.Event):
     xge = False
+    event_number = 9
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3535,6 +3545,7 @@ _events[9] = ActionMessageEvent
 
 class AccessXNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 10
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -3592,6 +3603,7 @@ _events[10] = AccessXNotifyEvent
 
 class ExtensionDeviceNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 11
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

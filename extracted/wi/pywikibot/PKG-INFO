@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 11.8.0
+Version: 11.9.0
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -284,86 +284,41 @@ For more documentation on Pywikibot see our `docs <https://doc.wikimedia.org/pyw
 Roadmap
 =======
 
-Release 11.8
+Release 11.9
 ============
 
-* Various performance, stability, and code quality improvements.
-* Raise ServerError instead of AssertionError for invalid APISite.userinfo()
-  API response. (T423061)
-* Load only current revision ID with page.BasePage.latest_revision_id.
-* Return non-option defaults with bot.input_list_choice. (T305937)
-* Add APISite.geosearch()
-  method. (T438772)
-* Preserve labels with different prefixes in textlib.replace_links. (T396719)
-* Resolve i18n.bundlespaths from package.
-* Add pywikibot.User.is_globally_blockedand APISite.is_globally_blocked()
-  to support
-  GlobalBlocking extension. (T394628)
-* Initialize the wrapped generator once per lifecycle with
-  tools.collections.GeneratorWrapper.
-* Use ``functools.cache`` for date.escapePattern2.
-* Avoid mutating request inputs in comms.http.fetch.
-* Buffer textlib.GetDataHTMLoutput in textlib.GetDataHTML.textdata.
-* Short-circuit intersection cache checks in tools.itertools.intersect_generators.
-* Add PageViewInfoextension support with page.BasePage.pageviews
-  and site.PageViewInfoMixin.
-  (T325473)
-* Use plain dictionaries for Wikibase pywikibot.Claimmappings.
-* Add page.BasePage.flagged_stateand APSite.flagged_state()
-  site method
-  for FlaggedRevsinfo. (T410893)
-* Disable ``maxlag`` for meta queries, paraminfo and help. (T421642)
-* Added Ukrainian Vikidia and updated testing subdomains for that family.
-* Correctly propagate reference group hashes after
-  page.WikibaseEntity.editEntity. (T367324)
-* Prevent recursive logging handler initialization. (T436130)
-* Avoid duplicate revision updates and avoid constructing cached file revisions
-  again in FilePage.
-* Stop pre-encoding API titles because data.api.Requestnormalizes
-  byte parameters back to strings before serialization.
-* Isolate cached tables by server URL in data.wikistatsmodule.
-* Exceptions from the tools.threading.ThreadedGenerator.runproducer
-  are re-raised during iteration after yielding any queued results.
-* Release bounded capacity in tools.threading.BoundedPoolExecutor.submit
-  when submission fails with any Exception.
-* Avoid duplicate key evaluation in tools.itertools.filter_unique.
-* Replace tools.strtoboolvalue checks with constant mapping.
-* Avoid unnecessary request if *total* is 0 in Category.articles().
-* Reject invalid tools.threading.ThreadListlimits.
-* Public *reason* and *comment* parameters used for page-action and upload
-  summaries were renamed to *summary*. The old parameter names remain
-  available as deprecated aliases. (T62442)
-* Cache valid site codes in titletranslate.translate.
-* Normalize family aliases in data.wikistats.WikiStats.getbefore cache lookup.
-* Preserve Windows commands without a file placeholder in editor.TextEditor.
-* Preserve existing endpoint query parameters in data.sparql.SparqlQuery.query.
-* Reset the retry counter for each query in data.sparql.SparqlQuery.
-* Deduplicate intersections with a single input in tools.itertools.intersect_generators.
-* Accept path-like filenames and detect suffixes case-insensitively in tools.open_archive.
-* Add support for all existing Beta Cluster wikis. (T225892)
-* Support selective page preloading of APISite.preloadpages
-  with
-  pagegenerators.PreloadingGeneratorand pagegenerators.DequePreloadingGenerator.
-* Apply title filters first in pagegenerators.GeneratorFactory.getCombinedGenerator
-  and avoid loading page data for titles rejected by title filters.
-* Support immutable sequences in data.api.encode_url.
-* Clear bundle cache when switching packages with i18n.set_messages_package.
-* Use pathlib for path containment in config.shortpathand
-  version.get_module_filename.
-* Add *depth* parameter to pagegenerators.PetScanPageGenerator.
-* The specialbots.UploadRobotclass now cleans up temporary download files
-  after upload completion or failure, while preserving caller-provided local files.
-* Fix APISite.loadrevisions
-  *step* handling.
-* Keep preload *groupsize* per site in pagegenerators.PreloadingGenerator.
-* Preserve colliding intersection items without ``hash()`` in
-  tools.itertools.intersect_generators.
-* page.BasePage.getno longer validates section fragments or raises
-  exceptions.SectionErrorfor them, as the method always retrieves the complete
-  page text (T422856, T422859).
+* Add support for mlwwikivoyage. (T441175)
 * Update translations (i18n).
-* Add new family.WikimediaSubdomainFamily.
-* Update documentation for page.BasePage.exists. (T334341)
+* Various performance, stability, and code quality improvements.
+* Fix ZIP discovery and duplicate import paths in config.register_families_folder.
+* Unify negative page generator options. (T219282)
+* Keep the sign of negative POSIX timestamps.
+* Use the page.BasePage.sitein page.BasePage.change_categorywhen calling
+  textlib.replaceCategoryLinksto respect category namespaces and footer rules.
+* Validate pywikibot.Link.titlelength in UTF-8 bytes within pywikibot.Link.parse.
+* Normalize usernames in pagegenerators.UserEditFilterGeneratorto match
+  canonical API names.
+* Verify zero-byte stashes against the empty hash in tools.compute_file_hash.
+* Accept optional leading hyphens and period or hyphen separators in beta/rc suffixes
+  in tools.MediaWikiVersion. Raise ValueError instead of AssertionError
+  for malformed suffixes.
+* Prevent setting a class property on an instance with tools.classproperty.
+* Make API cache writes of data.api.CachedRequestatomic and failure-safe.
+  (T438266)
+* Map claims for wbeditentity of page.MediaInfo. (T376955)
+* Avoid reading streamed HTTP responses to detect encoding in comms.http.fetch.
+* Add *timespec* parameter to Timestamp.isoformat()
+  method. (T439983, T440120)
+* Allow global -user optionto override OAuth authentication.
+  (T420084)
+* The *force* parameter of pywikibot.Usermethods was renamed to
+  *refresh* (T433225)
+* Support custom Timestamp ISO separators and restores round-trip compatibility
+  between Timestamp.isoformat()and
+  Timestamp.fromISOformat(). (T396723)
+* Suggest installing all requirements for missing dependencies with
+  pwbwrapper.
+* Support legacy encoded section titles. (T133276)
 
 
 Deprecations
@@ -466,6 +421,10 @@ Pending removal in Pywikibot 13
 Pending removal in Pywikibot 14
 -------------------------------
 
+* 11.9.0: The *force* parameter of pywikibot.Usermethods was renamed to
+  *refresh*. The old parameter name will be removed. (T433225)
+* 11.8.0: The ``config.maxlag`` setting was renamed to write_maxlag
+  . The old setting variable will be dropped. (T421642)
 * 11.8.0: Public *reason* and *comment* parameters used for page-action and
   upload summaries were renamed to *summary*. The old parameter names will
   be removed. (T62442)
@@ -501,7 +460,7 @@ Pending removal in Pywikibot 14
 Release history
 ===============
 
-See https://github.com/wikimedia/pywikibot/blob/stable/HISTORY.rst
+See https://doc.wikimedia.org/pywikibot/stable/changelog.html
 
 Contributing
 ============

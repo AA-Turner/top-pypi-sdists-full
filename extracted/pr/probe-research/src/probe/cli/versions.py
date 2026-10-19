@@ -24,7 +24,6 @@ letting an absent version fall through the current/stale branch.
 from __future__ import annotations
 
 import json
-import os
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -85,10 +84,8 @@ class Comparison:
 
 
 def _installed_plugins_path() -> Path:
-    override = os.environ.get("PROBE_INSTALLED_PLUGINS_JSON")
-    if override:
-        return Path(override)
-    return Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    # One answer for every reader of the ledger, `CLAUDE_CONFIG_DIR` included.
+    return capabilities.claude_plugin_ledger()
 
 
 def _plugin_versions() -> dict[str, str]:

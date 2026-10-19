@@ -23,7 +23,7 @@ jobs:
         uses: fkirc/skip-duplicate-actions@master
         with:
           # All of these options are optional, so you can remove them if you are happy with the defaults
-          cancel_others: 'true'
+          cancel_others: "true"
           do_not_skip: '["pull_request", "workflow_dispatch", "schedule"]'
   build:
     name: Valgrind
@@ -33,13 +33,13 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: false
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies on ubuntu
         run: |
@@ -57,6 +57,7 @@ jobs:
 
       - name: Configure
         run: |
+          export CXXFLAGS="${CXXFLAGS} -march=x86-64-v3"
           cmake -S . -G Ninja -B build \
               -DSKBUILD_PROJECT_NAME="diptest" \
               -DSKBUILD_PROJECT_VERSION="0.0.0" \
@@ -84,7 +85,7 @@ jobs:
 
       - name: Upload valgrind log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: valgrind-log
           path: valgrind-log.txt

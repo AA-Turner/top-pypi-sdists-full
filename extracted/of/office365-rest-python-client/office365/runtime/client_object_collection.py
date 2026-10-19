@@ -4,6 +4,7 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
+    AsyncIterator,
     Callable,
     Dict,
     Generic,
@@ -18,10 +19,19 @@ from typing_extensions import Self
 
 from office365.runtime.client_object import ClientObject, ClientObjectT
 from office365.runtime.client_runtime_context import ClientRuntimeContext
+from office365.runtime.http.prefer import add_prefer
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.odata.json_format import ODataJsonFormat
 from office365.runtime.operations import Progress
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.query_capabilities import (
+    QueryCapability,
+    QueryOptionNotSupportedError,
+    QueryPropertyNotSupportedError,
+    hint,
+    property_hint,
+    query_capabilities_of,
+)
 from office365.runtime.types.event_handler import EventHandler
 from office365.runtime.types.exceptions import NotFoundException
 
@@ -46,6 +56,10 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
 
     _list_view_threshold: int | None = None
     _truncation_hint: str = "page it with get_all(page_size=2000)"
+    #: OData query options this collection's endpoint rejects (or the exact set
+    #: it allows). Declared with
+    #: :func:`~office365.runtime.query_capabilities.query_capabilities`.
+    _query_capability_decl: Optional[QueryCapability] = None
 
     def __init__(
         self,
@@ -82,13 +96,19 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         Reset the collection's internal state while maintaining configuration.
 
         Note:
-            In paged mode, only clears the next page pointer, preserving loaded items.
+            In paged mode, only clears the next page pointer and the
+            server-paging flag, preserving loaded items.
 
         Returns:
             self: Supports fluent method chaining
         """
         if not self._paged_mode:
             self._data = []
+            self._server_paged = False
+        elif self._next_request_url is None:
+            # A fresh request (not a ``$skiptoken`` continuation): a previous
+            # server-paged run must not keep the client-driven ``$skip`` offset
+            # fallback disabled for the new enumeration.
             self._server_paged = False
         self._next_request_url = None
         self._page_headers = None
@@ -221,13 +241,75 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
                 yield from self._data[position:]
                 position = len(self._data)
 
+    def __aiter__(self) -> AsyncIterator[ClientObjectT]:
+        """Iterate all items, fetching pages without blocking the loop.
+
+        The async twin of :meth:`__iter__`: items already loaded are yielded
+        first, then any remaining server pages are awaited and their new items
+        yielded as they arrive. If nothing has been loaded yet the first page is
+        fetched on demand, so ``async for item in collection`` works without an
+        explicit :meth:`get_all_async`.
+        """
+        return self._iter_async()
+
+    async def _iter_async(self) -> AsyncIterator[ClientObjectT]:
+        # Paged mode keeps already-loaded items when a page response arrives
+        # (``clear_state`` otherwise resets ``_data``), matching ``get_all``.
+        self.paged(self._page_size)
+        if not self._data and self._next_request_url is None:
+            self.get()
+            await self.context.execute_query_async()
+
+        for item in self._data:
+            yield item
+
+        if self._paged_mode or self._next_request_url is not None:
+            position = len(self._data)
+            while self.has_next:
+                self._get_next()
+                await self.context.execute_query_async()
+                for item in self._data[position:]:
+                    yield item
+                position = len(self._data)
+
     def __len__(self) -> int:
         """Get the current number of loaded items in the collection."""
         return len(self._data)
 
     def __repr__(self) -> str:
-        """Developer-friendly string representation of the collection."""
-        return f"entity_type_name={self.entity_type_name}(count={len(self)})"
+        """Return a bounded preview of the already-loaded items (never fetches)."""
+        from office365.runtime.display import describe_collection
+
+        return describe_collection(self._data, type(self).__name__, more=self.has_next)
+
+    def __str__(self) -> str:
+        """Return the same bounded preview as :meth:`__repr__`."""
+        return self.__repr__()
+
+    def _repr_html_(self) -> str:
+        """Render the loaded items as an HTML table (Jupyter/rich display)."""
+        from office365.runtime.display import collection_html
+
+        return collection_html(self._data, type(self).__name__, more=self.has_next)
+
+    def to_string(self, max_items: int | None = None) -> str:
+        """Render the loaded items as a full, aligned table.
+
+        Unlike :meth:`__repr__`/:meth:`__str__` (a bounded preview), this
+        renders **every** loaded item so it can back a report. Pass
+        ``max_items`` to cap the rows. Nothing is fetched: call
+        :meth:`get_all` first if the collection is paged. Columns are not
+        truncated, so a report never loses identifier digits.
+        """
+        from office365.runtime.display import describe_collection
+
+        return describe_collection(
+            self._data,
+            type(self).__name__,
+            max_items=max_items,
+            max_column_width=None,
+            more=self.has_next,
+        )
 
     def __getitem__(self, index: int) -> ClientObjectT:
         """Get an item by its index position."""
@@ -249,6 +331,86 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         """
         return [cast(Dict[str, Any], item.to_json(json_format)) for item in self._data]
 
+    def _ensure_query_option(self, option: str) -> bool:
+        """Whether ``option`` may be applied to this collection's endpoint.
+
+        Collections declare this with
+        :func:`~office365.runtime.query_capabilities.query_capabilities` — e.g. the
+        ``callRecords`` feed rejects ``$top``. Raises
+        :class:`QueryOptionNotSupportedError` by default, or warns and returns
+        ``False`` (so the option is ignored) when the declaration uses
+        ``on_unsupported="warn"``.
+        """
+        capability = query_capabilities_of(type(self))
+        if capability is None or capability.supports(option):
+            return True
+        if capability.on_unsupported == "warn":
+            warnings.warn(hint(type(self), option, capability), UserWarning, stacklevel=3)
+            return False
+        raise QueryOptionNotSupportedError(type(self), option, capability)
+
+    def _may_apply_query_option(self, option: str) -> bool:
+        """Whether the endpoint accepts ``option``, without raising or warning.
+
+        Used by :meth:`first` / :meth:`first_or_none` / :meth:`single` to bound
+        their query with ``$top`` only where the feed accepts it. Endpoints such
+        as ``directoryRoles`` reject custom page sizes, so when this returns
+        ``False`` the caller bounds the result client-side from the filtered
+        response instead of sending an unsupported option.
+        """
+        capability = query_capabilities_of(type(self))
+        return capability is None or capability.supports(option)
+
+    def _bounded(self, count: int) -> Self:
+        """``self.get()`` with a ``$top`` bound, applied only if supported."""
+        query = self.get()
+        if self._may_apply_query_option("top"):
+            query = query.top(count)
+        return query
+
+    def _ensure_query_properties(self, option: str, expression: str) -> None:
+        """Validate the properties an expression references against the declaration.
+
+        A property-level restriction (e.g. a drive's ``size``, which the service
+        maps to the non-filterable ``SMTotalFileStreamSize``) is caught here,
+        before a round trip. With ``on_unsupported="warn"`` the expression is
+        kept as-is: silently dropping one side of a filter would change its
+        meaning, so the warning is a caution rather than a rewrite.
+        """
+        capability = query_capabilities_of(type(self))
+        if capability is None:
+            return
+        violations = (
+            capability.filter_violations(expression) if option == "filter" else capability.orderby_violations(expression)
+        )
+        if not violations:
+            return
+        if capability.on_unsupported == "warn":
+            warnings.warn(property_hint(type(self), option, violations[0], capability), UserWarning, stacklevel=3)
+            return
+        raise QueryPropertyNotSupportedError(type(self), option, violations[0], capability)
+
+    def _apply_query_preferences(self, request: RequestOptions) -> None:
+        """Attach the ``Prefer`` values the declared capability requires for this query."""
+        capability = query_capabilities_of(type(self))
+        if capability is None or not capability.prefer:
+            return
+        values = capability.preference_values(self.query_options.filter, self.query_options.order_by)
+        if values:
+            add_prefer(request, *values)
+
+    def select(self, names: List[str]) -> Self:
+        """Include specific properties in the query (``$select``)."""
+        if self._ensure_query_option("select"):
+            super().select(names)
+        return self
+
+    def expand(self, names: List[str]) -> Self:
+        """Include related resources in the query (``$expand``)."""
+        if self._ensure_query_option("expand"):
+            super().expand(names)
+        return self
+
     def filter(self, expression: str) -> Self:
         """
         Get the first item matching the filter criteria.
@@ -262,7 +424,9 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         Raises:
             ValueError: If no matching items found
         """
-        self.query_options.filter = expression
+        if self._ensure_query_option("filter"):
+            self._ensure_query_properties("filter", expression)
+            self.query_options.filter = expression
         return self
 
     def order_by(self, value: str) -> Self:
@@ -275,7 +439,9 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         Returns:
             self: Supports fluent method chaining
         """
-        self.query_options.order_by = value
+        if self._ensure_query_option("order_by"):
+            self._ensure_query_properties("order_by", value)
+            self.query_options.order_by = value
         return self
 
     def skip(self, value: int) -> Self:
@@ -288,7 +454,8 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         Returns:
             self: Supports fluent method chaining
         """
-        self.query_options.skip = value
+        if self._ensure_query_option("skip"):
+            self.query_options.skip = value
         return self
 
     def top(self, value: int) -> Self:
@@ -301,7 +468,8 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         Returns:
             self: Supports fluent method chaining
         """
-        self.query_options.top = value
+        if self._ensure_query_option("top"):
+            self.query_options.top = value
         return self
 
     def paged(self, page_size: int | None = None, page_loaded: Callable[[Self], None] | None = None) -> Self:
@@ -341,7 +509,11 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             if self._paged_mode and self._page_headers is None and request is not None:
                 self._page_headers = dict(request.headers)
 
-        self.context.load(self).after_execute(_capture_headers, include_response=True).after_execute(_loaded)
+        self.context.load(self)
+        capability = query_capabilities_of(type(self))
+        if capability is not None and capability.prefer:
+            self.context.before_execute(self._apply_query_preferences)
+        self.context.after_execute(_capture_headers, include_response=True).after_execute(_loaded)
         return self
 
     def get_all(
@@ -349,6 +521,7 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
         page_size: int | None = None,
         page_loaded: Callable[[Self], None] | None = None,
         progress: "ProgressCallback | None" = None,
+        dedupe_by: str | None = None,
     ) -> Self:
         """
         Load all items in the collection, automatically handling paging.
@@ -360,6 +533,11 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             progress: Optional hook invoked per page with a ``Progress`` snapshot
               (``done`` = items loaded so far; ``total`` unknown for server-driven
               paging, so the bar is indeterminate).
+            dedupe_by: Optional property name (e.g. ``"id"``) used to drop an
+              item that repeats one already seen on an earlier page. Some Graph
+              export APIs repeat rows during service updates; ``None`` (the
+              default) keeps every item. De-duplication runs once the last page
+              has loaded, so it does not disturb ``$skip`` offsets.
 
         Returns:
             self: Supports fluent method chaining
@@ -370,9 +548,90 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
                 progress(Progress(done=len(self._data), stage="loading"))
             if self.has_next:
                 self._get_next().after_execute(_page_loaded)
+            elif dedupe_by:
+                self._dedupe_loaded(dedupe_by)
 
         self.paged(page_size, page_loaded).get().after_execute(_page_loaded)
         return self
+
+    async def get_all_async(
+        self,
+        page_size: int | None = None,
+        page_loaded: Callable[[Self], None] | None = None,
+        progress: "ProgressCallback | None" = None,
+        dedupe_by: str | None = None,
+    ) -> Self:
+        """
+        Async twin of :meth:`get_all`: load every page without blocking the loop.
+
+        Pages are fetched sequentially (server-driven paging) and the event loop
+        stays free while each request is in flight. ``page_loaded`` / ``progress``
+        fire per page exactly as in the synchronous path.
+
+        Args:
+            page_size: Items per page (uses server default if None)
+            page_loaded: Legacy callback invoked with the loaded collection after
+              each page.
+            progress: Optional hook invoked per page with a ``Progress`` snapshot
+              (``done`` = items loaded so far; ``total`` unknown for server-driven
+              paging, so the bar is indeterminate).
+            dedupe_by: Optional property name (e.g. ``"id"``) used to drop an
+              item that repeats one already seen on an earlier page. Some Graph
+              export APIs repeat rows during service updates; ``None`` (the
+              default) keeps every item. De-duplication runs once the last page
+              has loaded, so it does not disturb ``$skip`` offsets.
+
+        Returns:
+            self: Supports fluent method chaining
+        """
+        self.paged(page_size, page_loaded)
+
+        def _page_loaded(_col: ClientObjectCollection) -> None:
+            if callable(progress):
+                progress(Progress(done=len(self._data), stage="loading"))
+
+        self.get().after_execute(_page_loaded)
+        await self.context.execute_query_async()
+        while self.has_next:
+            self._get_next().after_execute(_page_loaded)
+            await self.context.execute_query_async()
+        if dedupe_by:
+            self._dedupe_loaded(dedupe_by)
+        return self
+
+    def _dedupe_loaded(self, key: str) -> None:
+        """Drop items whose ``key`` already appeared on a previous page.
+
+        Preserves the first occurrence and the original order. Called only after
+        enumeration completes so it never affects ``$skip`` offsets mid-run.
+        """
+        seen: set[Any] = set()
+        unique: list[ClientObjectT] = []
+        for item in self._data:
+            value = self._dedupe_key(item, key)
+            if value is not None:
+                try:
+                    hash(value)
+                except TypeError:
+                    # An unhashable value cannot be tracked; keep the item.
+                    unique.append(item)
+                    continue
+                if value in seen:
+                    continue
+                seen.add(value)
+            unique.append(item)
+        self._data = unique
+        self._current_pos = len(self._data)
+
+    @staticmethod
+    def _dedupe_key(item: ClientObjectT, key: str) -> Any:
+        props = getattr(item, "properties", None)
+        if isinstance(props, dict) and key in props:
+            return props[key]
+        try:
+            return getattr(item, key, None)
+        except Exception:  # a missing or still-loading property must not abort de-dup
+            return None
 
     def _can_offset_next(self) -> bool:
         """Whether the next page can be fetched with a client-driven offset request.
@@ -441,7 +700,39 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             for k, v in col[0].properties.items():
                 return_type.set_property(k, v, False)
 
-        self.get().filter(expression).top(1).after_execute(_after_loaded)
+        self._bounded(1).filter(expression).after_execute(_after_loaded)
+        return return_type
+
+    def first_or_none(self, expression: str | None = None) -> ClientObjectT:
+        """Queue a read for the first item matching ``expression``.
+
+        Deferred exactly like :meth:`first`: nothing is sent until the caller runs
+        ``execute_query()``. When an item matches it is copied into the returned
+        object; when nothing matches the object is left uninitialized instead of
+        raising — detect that with :attr:`ClientObject.is_loaded`:
+
+            item = col.first_or_none("displayName eq 'X'").execute_query()
+            if item.is_loaded:
+                ...
+
+        Args:
+            expression: Optional OData filter expression
+
+        Returns:
+            The first matching item, or an uninitialized object when there is none
+        """
+        return_type = self.create_typed_object()
+        self.add_child(return_type)
+
+        def _after_loaded(col: ClientObjectCollection) -> None:
+            if len(col) > 0:
+                for k, v in col[0].properties.items():
+                    return_type.set_property(k, v, False)
+
+        query = self._bounded(1)
+        if expression:
+            query = query.filter(expression)
+        query.after_execute(_after_loaded)
         return return_type
 
     def single(self, expression: str) -> ClientObjectT:
@@ -452,6 +743,10 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
 
         Returns:
             The single matching item
+
+        The query is bounded to ``$top=2`` when the endpoint accepts it: enough to
+        detect an ambiguous match without downloading every matching item just to
+        reject it. Feeds that reject ``$top`` fall back to bounding client-side.
 
         Raises:
             NotFoundException: If no items match
@@ -468,7 +763,52 @@ class ClientObjectCollection(ClientObject, Generic[ClientObjectT]):
             for k, v in col[0].properties.items():
                 return_type.set_property(k, v, False)
 
-        self.get().filter(expression).after_execute(_after_loaded)
+        self._bounded(2).filter(expression).after_execute(_after_loaded)
+        return return_type
+
+    def _find_by_filter(self, expression: str, *, required: bool = False) -> ClientObjectT:
+        """Shared implementation behind the typed ``find_by_*`` lookups.
+
+        Tolerant by default: a miss leaves the returned object uninitialized
+        (``is_loaded`` is ``False``) instead of raising. Pass ``required=True``
+        for the strict :meth:`single` semantics — a miss raises
+        :class:`~office365.runtime.types.exceptions.NotFoundException` and an
+        ambiguous match raises :class:`ValueError`.
+        """
+        if required:
+            return self.single(expression)
+        return self.first_or_none(expression)
+
+    def _find_by_predicate(
+        self,
+        predicate: Callable[[ClientObjectT], bool],
+        description: str,
+        *,
+        required: bool = False,
+    ) -> ClientObjectT:
+        """Client-side twin of :meth:`_find_by_filter` for endpoints without ``$filter``.
+
+        The collection is fetched and the first item satisfying ``predicate`` is
+        copied into a fresh object, leaving it uninitialized when nothing matches.
+        ``required=True`` raises
+        :class:`~office365.runtime.types.exceptions.NotFoundException` on a miss
+        and :class:`ValueError` on an ambiguous match, mirroring :meth:`single`.
+        """
+        return_type = self.create_typed_object()
+        self.add_child(return_type)
+
+        def _after_loaded(col: ClientObjectCollection) -> None:
+            matches = [item for item in col if predicate(item)]
+            if not matches:
+                if required:
+                    raise NotFoundException(return_type, description)
+                return
+            if required and len(matches) > 1:
+                raise ValueError(f"Ambiguous match found for filter: {description}")
+            for k, v in matches[0].properties.items():
+                return_type.set_property(k, v, False)
+
+        self.get().after_execute(_after_loaded)
         return return_type
 
     @property

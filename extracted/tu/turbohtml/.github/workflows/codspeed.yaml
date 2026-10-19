@@ -64,7 +64,7 @@ jobs:
       - name: ⬇️ Install benchmark data
         run: git submodule update --init --depth 1 tools/html5lib-python tools/bench-data/war-and-peace
       - name: 🔄 Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           enable-cache: false
           # CodSpeed diffs this run against the base commit's run, measured whenever that commit landed, so an
@@ -110,7 +110,7 @@ jobs:
             glibc.malloc.arena_max=1)
           echo "GLIBC_TUNABLES=${tunables%:}" >> "$GITHUB_ENV"
       - name: 🚀 Run benchmarks
-        uses: CodSpeedHQ/action@c4fd08a3a159bd0cc208da1e0edf32b8c47d75e5 # v5.4.0
+        uses: CodSpeedHQ/action@f842b9a3ffe213dbb81768fd7f7eeb4dfcf1c369 # v5.4.2
         env:
           # str hashes seed the dict and set probes the benchmarks walk; a fresh seed per run is a small run-to-run
           # term the CPU pins above do not cover.

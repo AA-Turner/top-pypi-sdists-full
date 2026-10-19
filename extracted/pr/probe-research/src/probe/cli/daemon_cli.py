@@ -4,6 +4,8 @@
     probe daemon status         is the AI process installable here, what it is doing
     probe daemon install        install the daemon's AI libraries (the `daemon` extra)
     probe daemon override ...   the daemon's own request to override a blocked check
+    probe daemon session ...    the daemon's own look at the session it records
+    probe daemon task ...       the daemon's own child agent for one long read
     probe approvals             questions the daemon holds for you; answer y/n here
     probe deny <id>             say no to one
 """
@@ -321,6 +323,25 @@ def daemon_override(ctx: typer.Context) -> None:
     Only meaningful inside the daemon, which handles it before it reaches here."""
     typer.echo("`probe daemon override` is the Probe daemon's own request; it does nothing when you run it. "
                "Answer the daemon's questions with `probe approvals`.", err=True)
+    raise typer.Exit(2)
+
+
+@daemon_app.command("session", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def daemon_session(ctx: typer.Context) -> None:
+    """The daemon's own look at the session it records (open, outline, search,
+    logbook, status). Only meaningful inside the daemon, which answers it before
+    it reaches here."""
+    typer.echo("`probe daemon session` is the Probe daemon's own look at the session it records; it does nothing "
+               "when you run it.", err=True)
+    raise typer.Exit(2)
+
+
+@daemon_app.command("task", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def daemon_task(ctx: typer.Context) -> None:
+    """The daemon's own child agent for one long read, in a context of its own.
+    Only meaningful inside the daemon, which answers it before it reaches here."""
+    typer.echo("`probe daemon task` is the Probe daemon's own helper for a long read; it does nothing when you run "
+               "it.", err=True)
     raise typer.Exit(2)
 
 

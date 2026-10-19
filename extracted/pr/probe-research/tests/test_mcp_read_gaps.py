@@ -22,6 +22,7 @@ import asyncio
 import base64
 import itertools
 import json
+import random
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -789,9 +790,70 @@ def test_runs_mode_hides_the_runs_the_callers_session_created(client, app):
     with _hiding(session):
         out = service.browse_list(BrowseMode.RUNS)
     assert [row["uuid"] for row in out["data"]["runs"]] == [f"run:{theirs}"]
-    assert _params(app, "/v1/runs")[-1]["exclude_origin_session"] == session
+    listing, count = _params(app, "/v1/runs")[-2:]
+    assert listing["exclude_origin_session"] == session
+    # The page came back short: one read of the same positions WITHOUT the
+    # exclusion counts what the hiding took (here: the created set's run).
+    assert "exclude_origin_session" not in count
+    assert out["data"]["hidden_own_session_work"] == 1
     # The private positions still line up with the rows that were KEPT.
     assert len(out["_list_after"]) == 1
+
+
+def test_a_runs_page_the_hiding_left_short_says_how_many_it_hid(client, app):
+    """The audit's empty `browse(runs, project=...)`: every run was the reader's
+    own session's, so the page came back empty and read as "no runs". It now
+    counts what it hid -- the server's exclusion and the created set alike."""
+    session = str(uuid.uuid4())
+    by_server = [_seed_run(app, f"own-{i}", origin_session_id=session) for i in range(2)]
+    by_created = _seed_run(app, "own-created")
+    theirs = _seed_run(app, "theirs")
+    service = ResearchReadService(
+        _CreatedSource(client, {"project_ids": [], "run_ids": [*by_server, by_created]})
+    )
+    with _hiding(session):
+        out = service.browse_list(BrowseMode.RUNS, scope=f"project:{_PROJECT}")
+    assert [row["uuid"] for row in out["data"]["runs"]] == [f"run:{theirs}"]
+    assert out["data"]["hidden_own_session_work"] == 3
+    assert "hidden_own_session_work_more" not in out["data"]
+    # Nothing hidden, nothing said; a full page says nothing either.
+    assert "hidden_own_session_work" not in service.browse_list(BrowseMode.RUNS)["data"]
+    with _hiding(session):
+        full = service.browse_list(BrowseMode.RUNS, limit=1)
+    assert len(full["data"]["runs"]) == 1 and "hidden_own_session_work" not in full["data"]
+
+
+def test_a_failed_count_leaves_the_count_unsaid_and_the_browse_whole(client, app):
+    """The count is a second read; when it fails the page still answers, with
+    nothing said about what was hidden (unknown, not zero)."""
+    session = str(uuid.uuid4())
+    mine, theirs = _seed_run(app, "mine"), _seed_run(app, "theirs")
+
+    class _CountFails(_CreatedSource):
+        def run_list(self, **kwargs):
+            if kwargs.get("exclude_origin_session") is None:
+                raise RuntimeError("count read lost")
+            return super().run_list(**kwargs)
+
+    service = ResearchReadService(_CountFails(client, {"project_ids": [], "run_ids": [mine]}))
+    with _hiding(session):
+        out = service.browse_list(BrowseMode.RUNS)
+    assert [row["uuid"] for row in out["data"]["runs"]] == [f"run:{theirs}"]
+    assert "hidden_own_session_work" not in out["data"]
+
+
+def test_a_runs_page_cut_by_the_fill_bound_counts_nothing(client, app, monkeypatch):
+    """Short because the fill bound stopped it, not because the listing ended:
+    the marker says so, and no count over positions it never read."""
+    monkeypatch.setattr(ResearchReadService, "_HIDDEN_FILL_PAGES", 1)
+    session = str(uuid.uuid4())
+    _seed_run(app, "theirs")  # older: past the one page the bound allows
+    mine = [_seed_run(app, f"mine-{i}") for i in range(3)]
+    service = ResearchReadService(_CreatedSource(client, {"project_ids": [], "run_ids": mine}))
+    with _hiding(session):
+        out = service.browse_list(BrowseMode.RUNS, limit=2)
+    assert out["data"]["runs"] == [] and out["next_cursor"]
+    assert "hidden_own_session_work" not in out["data"]
 
 
 def test_an_unverifiable_exclusion_is_said_out_loud(client, app):
@@ -958,12 +1020,22 @@ def test_run_diff_budget_cut_resumes_after_the_last_path_sent(client, app):
     assert app.sandbox_diff_calls[-1]["cursor"] == sent[-1]
 
 
-def test_a_diff_of_long_paths_reserves_room_for_its_cursor(client, app):
+def test_a_diff_of_long_paths_reserves_room_for_its_cursor(client, app, monkeypatch):
     """Review of 2980f4e74, reproduced: the diff cursor carries the last PATH,
     and rows fitted on a chars/4 estimate with no room for it made every page
     of long paths overflow once the cursor landed -- delivered as fragments: 29
     calls for these 60 entries, where the old offset cursor took 22. Fitted
-    exactly, cursor included, no page is split."""
+    exactly, cursor included, no page is split.
+
+    THE RUN ID IS FIXED. The cursor is bound to the call's arguments by a hash
+    of them (the run id included), and base64 of that hash's compressed bytes
+    takes a different number of tokens for every id: the fitted pages hold two
+    or three of these rows by that alone, so with a random id the same walk
+    took 20 to 26 calls (150 ids on Python 3.11) and this bound failed about
+    one run in ten -- on main d48bb3a75 as on 4af98a780. A fixed id measures
+    the fit, not the dice."""
+    seeded = random.Random(2980)
+    monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID(int=seeded.getrandbits(128), version=4))
     rid = _run(client, app)
     paths = [f"src/{'deep/' * 48}f{i:02d}.py" for i in range(60)]
     assert all(len(p) > 240 for p in paths)

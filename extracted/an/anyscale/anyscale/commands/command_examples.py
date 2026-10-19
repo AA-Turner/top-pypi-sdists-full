@@ -365,6 +365,10 @@ COMPUTE_CONFIG_ARCHIVE_EXAMPLE = """\
 Compute config is successfully archived.
 """
 
+COMPUTE_CONFIG_UNARCHIVE_EXAMPLE = """\
+Compute config is successfully unarchived.
+"""
+
 COMPUTE_CONFIG_LIST_EXAMPLE = """\
 Compute configs:
 ID          NAME               CLOUD       LAST MODIFIED AT      URL
@@ -558,7 +562,12 @@ is_default: true
 """
 
 CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE = """\
-System cluster termination initiated for cloud cld_abcdef.
+System cluster termination initiated for cloud cld_abcdef cloud resource my-primary-resource.
+System cluster termination initiated for cloud cld_abcdef cloud resource my-cloud-resource.
+"""
+
+CLOUD_TERMINATE_SYSTEM_CLUSTER_RESOURCE_EXAMPLE = """\
+System cluster termination initiated for cloud cld_abcdef cloud resource my-cloud-resource.
 """
 
 SERVICE_ARCHIVE_EXAMPLE = """\

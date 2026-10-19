@@ -41,12 +41,14 @@ class WorkloadGpuRow(object):
         'state': 'GpuState',
         'last_reported_at': 'int',
         'utilization_pct': 'float',
+        'utilization_source': 'GpuUtilizationSource',
         'fb_used_mib': 'int',
         'fb_free_mib': 'int',
         'fb_total_mib': 'int',
         'gpu_temp_c': 'int',
         'memory_temp_c': 'int',
         'power_usage_w': 'float',
+        'power_source': 'GpuPowerSource',
         'power_limit_w': 'float',
         'sm_clock_mhz': 'int',
         'mem_clock_mhz': 'int',
@@ -79,12 +81,14 @@ class WorkloadGpuRow(object):
         'state': 'state',
         'last_reported_at': 'last_reported_at',
         'utilization_pct': 'utilization_pct',
+        'utilization_source': 'utilization_source',
         'fb_used_mib': 'fb_used_mib',
         'fb_free_mib': 'fb_free_mib',
         'fb_total_mib': 'fb_total_mib',
         'gpu_temp_c': 'gpu_temp_c',
         'memory_temp_c': 'memory_temp_c',
         'power_usage_w': 'power_usage_w',
+        'power_source': 'power_source',
         'power_limit_w': 'power_limit_w',
         'sm_clock_mhz': 'sm_clock_mhz',
         'mem_clock_mhz': 'mem_clock_mhz',
@@ -108,7 +112,7 @@ class WorkloadGpuRow(object):
         'instance_type': 'instance_type'
     }
 
-    def __init__(self, gpu_index=None, uuid=None, gpu_model=None, pci_bus_id=None, driver_version=None, state=None, last_reported_at=None, utilization_pct=None, fb_used_mib=None, fb_free_mib=None, fb_total_mib=None, gpu_temp_c=None, memory_temp_c=None, power_usage_w=None, power_limit_w=None, sm_clock_mhz=None, mem_clock_mhz=None, ecc_sbe_total=None, ecc_dbe_total=None, ecc_sbe_aggregate_total=None, ecc_dbe_aggregate_total=None, correctable_remapped_rows=None, uncorrectable_remapped_rows=None, nvlink_replay_count=None, xids=None, workload=None, cluster_id=None, service_replica_id=None, service_version_id=None, job_attempt_id=None, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, gpu_index=None, uuid=None, gpu_model=None, pci_bus_id=None, driver_version=None, state=None, last_reported_at=None, utilization_pct=None, utilization_source=None, fb_used_mib=None, fb_free_mib=None, fb_total_mib=None, gpu_temp_c=None, memory_temp_c=None, power_usage_w=None, power_source=None, power_limit_w=None, sm_clock_mhz=None, mem_clock_mhz=None, ecc_sbe_total=None, ecc_dbe_total=None, ecc_sbe_aggregate_total=None, ecc_dbe_aggregate_total=None, correctable_remapped_rows=None, uncorrectable_remapped_rows=None, nvlink_replay_count=None, xids=None, workload=None, cluster_id=None, service_replica_id=None, service_version_id=None, job_attempt_id=None, node_id=None, instance_id=None, hostname=None, node_ip=None, instance_type=None, local_vars_configuration=None):  # noqa: E501
         """WorkloadGpuRow - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -122,12 +126,14 @@ class WorkloadGpuRow(object):
         self._state = None
         self._last_reported_at = None
         self._utilization_pct = None
+        self._utilization_source = None
         self._fb_used_mib = None
         self._fb_free_mib = None
         self._fb_total_mib = None
         self._gpu_temp_c = None
         self._memory_temp_c = None
         self._power_usage_w = None
+        self._power_source = None
         self._power_limit_w = None
         self._sm_clock_mhz = None
         self._mem_clock_mhz = None
@@ -164,6 +170,8 @@ class WorkloadGpuRow(object):
             self.last_reported_at = last_reported_at
         if utilization_pct is not None:
             self.utilization_pct = utilization_pct
+        if utilization_source is not None:
+            self.utilization_source = utilization_source
         if fb_used_mib is not None:
             self.fb_used_mib = fb_used_mib
         if fb_free_mib is not None:
@@ -176,6 +184,8 @@ class WorkloadGpuRow(object):
             self.memory_temp_c = memory_temp_c
         if power_usage_w is not None:
             self.power_usage_w = power_usage_w
+        if power_source is not None:
+            self.power_source = power_source
         if power_limit_w is not None:
             self.power_limit_w = power_limit_w
         if sm_clock_mhz is not None:
@@ -389,7 +399,7 @@ class WorkloadGpuRow(object):
     def utilization_pct(self):
         """Gets the utilization_pct of this WorkloadGpuRow.  # noqa: E501
 
-        The GPU utilization in percent.  # noqa: E501
+        The GPU utilization in percent: the share of SM cycles with at least one warp resident, averaged over all SMs and the exporter's 15s collection window (utilization_source sm_active), or NVML's sub-second busy sample at the tick where that field is unavailable (gpu_util).  # noqa: E501
 
         :return: The utilization_pct of this WorkloadGpuRow.  # noqa: E501
         :rtype: float
@@ -400,13 +410,36 @@ class WorkloadGpuRow(object):
     def utilization_pct(self, utilization_pct):
         """Sets the utilization_pct of this WorkloadGpuRow.
 
-        The GPU utilization in percent.  # noqa: E501
+        The GPU utilization in percent: the share of SM cycles with at least one warp resident, averaged over all SMs and the exporter's 15s collection window (utilization_source sm_active), or NVML's sub-second busy sample at the tick where that field is unavailable (gpu_util).  # noqa: E501
 
         :param utilization_pct: The utilization_pct of this WorkloadGpuRow.  # noqa: E501
         :type: float
         """
 
         self._utilization_pct = utilization_pct
+
+    @property
+    def utilization_source(self):
+        """Gets the utilization_source of this WorkloadGpuRow.  # noqa: E501
+
+        Which DCGM field served utilization_pct. Diagnostic; gpu_util reads higher than sm_active on work that uses few SMs.  # noqa: E501
+
+        :return: The utilization_source of this WorkloadGpuRow.  # noqa: E501
+        :rtype: GpuUtilizationSource
+        """
+        return self._utilization_source
+
+    @utilization_source.setter
+    def utilization_source(self, utilization_source):
+        """Sets the utilization_source of this WorkloadGpuRow.
+
+        Which DCGM field served utilization_pct. Diagnostic; gpu_util reads higher than sm_active on work that uses few SMs.  # noqa: E501
+
+        :param utilization_source: The utilization_source of this WorkloadGpuRow.  # noqa: E501
+        :type: GpuUtilizationSource
+        """
+
+        self._utilization_source = utilization_source
 
     @property
     def fb_used_mib(self):
@@ -527,7 +560,7 @@ class WorkloadGpuRow(object):
     def power_usage_w(self):
         """Gets the power_usage_w of this WorkloadGpuRow.  # noqa: E501
 
-        Current power usage in watts.  # noqa: E501
+        Power usage in watts. From the energy counter (power_source energy_counter): mean over the last minute while the GPU reports; for a GPU that has stopped reporting (look-back snapshots), mean over its run within the look-back window. From the power gauge (power_usage): NVML's ~1s reading at the last tick.  # noqa: E501
 
         :return: The power_usage_w of this WorkloadGpuRow.  # noqa: E501
         :rtype: float
@@ -538,13 +571,36 @@ class WorkloadGpuRow(object):
     def power_usage_w(self, power_usage_w):
         """Sets the power_usage_w of this WorkloadGpuRow.
 
-        Current power usage in watts.  # noqa: E501
+        Power usage in watts. From the energy counter (power_source energy_counter): mean over the last minute while the GPU reports; for a GPU that has stopped reporting (look-back snapshots), mean over its run within the look-back window. From the power gauge (power_usage): NVML's ~1s reading at the last tick.  # noqa: E501
 
         :param power_usage_w: The power_usage_w of this WorkloadGpuRow.  # noqa: E501
         :type: float
         """
 
         self._power_usage_w = power_usage_w
+
+    @property
+    def power_source(self):
+        """Gets the power_source of this WorkloadGpuRow.  # noqa: E501
+
+        Which DCGM field served power_usage_w. Diagnostic.  # noqa: E501
+
+        :return: The power_source of this WorkloadGpuRow.  # noqa: E501
+        :rtype: GpuPowerSource
+        """
+        return self._power_source
+
+    @power_source.setter
+    def power_source(self, power_source):
+        """Sets the power_source of this WorkloadGpuRow.
+
+        Which DCGM field served power_usage_w. Diagnostic.  # noqa: E501
+
+        :param power_source: The power_source of this WorkloadGpuRow.  # noqa: E501
+        :type: GpuPowerSource
+        """
+
+        self._power_source = power_source
 
     @property
     def power_limit_w(self):

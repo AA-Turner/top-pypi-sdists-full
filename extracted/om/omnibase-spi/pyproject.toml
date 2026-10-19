@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_spi"
-version = "0.23.7"
+version = "0.23.8"
 description = "ONEX Service Provider Interface - Protocol definitions"
 authors = [
     {name = "OmniNode.ai", email = "jonah@omninode.ai"},
@@ -33,6 +33,7 @@ Repository = "https://github.com/OmniNode-ai/omnibase_spi"
 Documentation = "https://github.com/OmniNode-ai/knowledge_base"
 
 [dependency-groups]
+pr-title = ["pydantic>=2.11"]
 dev = [
     "mypy>=1.13.0",
     "pre-commit>=4.0.0",

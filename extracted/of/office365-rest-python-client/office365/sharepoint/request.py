@@ -8,9 +8,11 @@ from typing_extensions import Self
 
 from office365.azure_env import AzureEnvironment
 from office365.runtime.auth.authentication_context import AuthenticationContext
+from office365.runtime.auth.certificate import CertificateData
 from office365.runtime.auth.client_credential import ClientCredential
 from office365.runtime.auth.token_response import TokenResponse
 from office365.runtime.auth.user_credential import UserCredential
+from office365.runtime.client_request import ASYNC_AUTHENTICATED_FLAG
 from office365.runtime.http.http_method import HttpMethod
 from office365.runtime.http.request_options import RequestOptions
 from office365.runtime.http.url import get_absolute_url
@@ -20,6 +22,7 @@ from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.queries.client_query import ClientQuery
 from office365.runtime.queries.delete_entity import DeleteEntityQuery
 from office365.runtime.queries.update_entity import UpdateEntityQuery
+from office365.runtime.transport.offload import run_offloaded
 from office365.sharepoint.exceptions import SecurityValidationException
 from office365.sharepoint.webs.context_web_information import ContextWebInformation
 
@@ -68,6 +71,7 @@ class SharePointRequest(ODataRequest):
         self._digest_lock = threading.Lock()
         self.beforeExecute += self._authenticate_request
         self.beforeExecute += self.ensure_form_digest
+        self._async_authenticate = self._authenticate_request_async
 
     def _authenticate_request(self, request: RequestOptions) -> None:
         """Authenticate the request, resolving the auth context lazily so it can be
@@ -77,9 +81,22 @@ class SharePointRequest(ODataRequest):
         signs the request itself. Such a session counts as credentials when no
         provider is configured on the auth context.
         """
+        if getattr(request, ASYNC_AUTHENTICATED_FLAG, False):
+            return  # already authenticated by :meth:`_authenticate_request_async`
         if not self._auth_context.is_configured and self._transport.auth is not None:
             return
         self._auth_context.authenticate_request(request)
+
+    async def _authenticate_request_async(self, request: RequestOptions) -> None:
+        """Authenticate the request on the event loop when the token callback is async.
+
+        Synchronous providers are handled by the offloaded
+        :meth:`_authenticate_request` hook instead.
+        """
+        if not self._auth_context.is_async_token_callback:
+            return
+        await self._auth_context.authenticate_request_async(request)
+        setattr(request, ASYNC_AUTHENTICATED_FLAG, True)
 
     def set_base_url(self, url: str) -> Self:
         self._base_url = url
@@ -90,13 +107,20 @@ class SharePointRequest(ODataRequest):
         """Reuse the authentication context and transport of another request.
 
         The same objects are shared by reference (not copied), so the token
-        cache and HTTP session stay single-flight and thread-safe.
+        cache and HTTP session stay single-flight and thread-safe. An explicit
+        async transport (see ``with_async_transport``), the shared rate
+        limiter and the client-level retry policy are carried over as well, so
+        clones keep using the same native-async engine, fleet-wide pacing and
+        resilience policy.
 
         Args:
             other: The request whose auth context and transport to reuse
         """
         self._auth_context = other._auth_context
         self._transport = other._transport
+        self._async_transport = other._async_transport
+        self._rate_limiter = other._rate_limiter
+        self._retry_policy = other._retry_policy
         return self
 
     def build_request(self, query: ClientQuery) -> RequestOptions:
@@ -146,6 +170,17 @@ class SharePointRequest(ODataRequest):
     def warm_up(self) -> None:
         """Fetch the form digest once (e.g. before dispatching parallel batches)."""
         self._ensure_digest()
+
+    async def warm_up_async(self) -> None:
+        """Async twin of :meth:`warm_up`: fetch the digest without blocking the loop.
+
+        The digest fetch uses blocking HTTP, so it is offloaded to a worker
+        thread while the event loop stays free. When the token callback is async,
+        the access token is acquired first so the (blocking) digest request can
+        reuse the cached token through the synchronous auth hook.
+        """
+        await self._auth_context.acquire_token_async()
+        await run_offloaded(self.warm_up)
 
     def invalidate_digest(self) -> None:
         """Drop the cached digest so the next request re-fetches it."""
@@ -229,11 +264,14 @@ class SharePointRequest(ODataRequest):
         self,
         tenant: str,
         client_id: str,
-        thumbprint: str,
+        thumbprint: Optional[str] = None,
         cert_path: Optional[str] = None,
         private_key: Optional[str] = None,
         scopes: Optional[List[str]] = None,
         passphrase: Optional[str] = None,
+        *,
+        public_certificate: Optional[CertificateData] = None,
+        use_sni: bool = False,
     ) -> Self:
         """
         Authenticate using client certificate
@@ -241,17 +279,30 @@ class SharePointRequest(ODataRequest):
         Args:
             tenant: Tenant name
             client_id: Application client ID
-            thumbprint: Certificate thumbprint
-            cert_path: Path to PEM encoded certificate (optional)
+            thumbprint: Certificate thumbprint (optional when ``public_certificate`` is given)
+            cert_path: Path to PEM encoded private key (optional)
             private_key: PEM encoded private key (optional)
             scopes: Requested permission scopes (optional)
             passphrase: Private key passphrase (optional)
+            public_certificate: Certificate (DER/PEM bytes, inline PEM text, or a
+                path) used to derive the thumbprint or, with ``use_sni``, for
+                subject name/issuer authentication (optional)
+            use_sni: Use subject name/issuer authentication (requires the optional
+                ``cryptography`` package)
 
         Returns:
             Self: Supports method chaining
         """
         self._auth_context.with_client_certificate(
-            tenant, client_id, thumbprint, cert_path, private_key, scopes, passphrase
+            tenant,
+            client_id,
+            thumbprint,
+            cert_path,
+            private_key,
+            scopes,
+            passphrase,
+            public_certificate=public_certificate,
+            use_sni=use_sni,
         )
         return self
 
@@ -329,9 +380,17 @@ class SharePointRequest(ODataRequest):
     @property
     def base_url(self) -> str:
         """Represents Base Url"""
-        return self._auth_context.url
+        return self._base_url
 
     @property
     def service_root_url(self) -> str:
-        """Get the SharePoint REST API service root URL"""
-        return f"{self._auth_context.url}/_api"
+        """Get the SharePoint REST API service root URL
+
+        Routing is derived from this request's own base URL, not from the
+        authentication context. :meth:`reuse` shares the auth context by
+        reference (so clones keep the same token cache and transport), which
+        means ``authentication_context.url`` still points at the *source* site
+        after a cross-site :meth:`ClientContext.clone`. Using it here would
+        route every cloned request back to the source site.
+        """
+        return f"{self._base_url}/_api"

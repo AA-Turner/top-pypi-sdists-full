@@ -490,6 +490,7 @@ _errors[2] = BadControlError
 
 class VideoNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 0
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):
@@ -525,6 +526,7 @@ _events[0] = VideoNotifyEvent
 
 class PortNotifyEvent(xcffib.Event):
     xge = False
+    event_number = 1
 
     def __init__(self, unpacker):
         if isinstance(unpacker, xcffib.Protobj):

@@ -1005,9 +1005,7 @@ def test_standard_preset_msgspec_struct(output_file: Path) -> None:
             "msgspec.Struct",
         ],
         assert_func=assert_file_content,
-        expected_file=(
-            "standard_preset_msgspec_struct_black_lt_24.py" if BLACK_LT_24 else "standard_preset_msgspec_struct.py"
-        ),
+        expected_file="standard_preset_msgspec_struct.py",
     )
 
 
@@ -1027,6 +1025,31 @@ def test_standard_preset_typed_dict(output_file: Path) -> None:
         ],
         assert_func=assert_file_content,
         expected_file="standard_preset_typed_dict.py",
+    )
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "date", "expected_name"),
+    [
+        ("typing.TypedDict", "20261015", "typed_dict_20261015"),
+        ("typing.TypedDict", "20261017", "typed_dict_20261017"),
+        ("dataclasses.dataclass", "20261015", "dataclass_20261015"),
+        ("dataclasses.dataclass", "20261017", "dataclass_20261017"),
+        ("pydantic_v2.BaseModel", "20261015", "pydantic_v2"),
+        ("pydantic_v2.BaseModel", "20261017", "pydantic_v2"),
+        ("pydantic_v2.dataclass", "20261015", "pydantic_v2_dataclass"),
+        ("pydantic_v2.dataclass", "20261017", "pydantic_v2_dataclass"),
+    ],
+)
+def test_standard_preset_enum_shapes(output_model_type: str, date: str, expected_name: str, output_file: Path) -> None:
+    """The 20261017 presets render raw-value enums as Literal only for stdlib dataclass and TypedDict output."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "preset_enum_shapes.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--preset", f"standard-py314-{date}", "--output-model-type", output_model_type],
+        assert_func=assert_file_content,
+        expected_file=f"preset_enum_shapes/{expected_name}.py",
     )
 
 
@@ -1943,9 +1966,12 @@ def test_mcp_tools_invalid(
     output_file: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Reject invalid MCP tool schema profile input through the CLI path."""
+    """Reject invalid MCP tool schema profile input through the CLI path; an empty document needs no fixture."""
+    input_path = DATA_PATH / "mcp_tools" / input_file
+    if input_file == "no_tools.json":
+        (input_path := output_file.parent / input_file).write_text("{}\n", encoding="utf-8")
     run_main_and_assert(
-        input_path=DATA_PATH / "mcp_tools" / input_file,
+        input_path=input_path,
         output_path=output_file,
         input_file_type="mcp-tools",
         expected_exit=Exit.ERROR,
@@ -3686,7 +3712,12 @@ def test_all_exports_recursive_local_model_collision_error(
             "recursive",
         ],
         expected_exit=Exit.ERROR,
-        expected_stderr_contains="conflicts with a model in __init__.py",
+        expected_stderr=(
+            "Name collision detected with --all-exports-scope:\n"
+            "  'Message' conflicts with a model in __init__.py\n\n"
+            "Use --all-exports-collision-strategy minimal-prefix or full-prefix to prefix the colliding names with "
+            "their module names.\n"
+        ),
         capsys=capsys,
     )
 
@@ -4149,6 +4180,7 @@ def test_use_standard_primitive_types(output_file: Path) -> None:
             "--output-model-type",
             "dataclasses.dataclass",
             "--use-standard-primitive-types",
+            "--disable-timestamp",
         ],
         expected_file=EXPECTED_MAIN_PATH / "use_standard_primitive_types.py",
     )
@@ -4375,7 +4407,7 @@ require manual `model_rebuild()` calls for cross-module runtime references.""",
         "--no-use-type-checking-imports",
         "--disable-timestamp",
     ],
-    golden_output="openapi/no_use_type_checking_imports_internal.py",
+    golden_output="openapi/no_use_type_checking_imports/_internal.py",
     related_options=["--use-type-checking-imports", "--formatters", "--use-exact-imports"],
 )
 def test_no_use_type_checking_imports(output_dir: Path) -> None:
@@ -4438,7 +4470,7 @@ for multi-module Pydantic output where runtime imports might otherwise be preser
         "--use-type-checking-imports",
         "--disable-timestamp",
     ],
-    golden_output="openapi/use_type_checking_imports_internal.py",
+    golden_output="openapi/use_type_checking_imports_for_multi_module_pydantic_ruff/_internal.py",
     related_options=["--no-use-type-checking-imports", "--formatters", "--use-exact-imports"],
 )
 def test_use_type_checking_imports_for_multi_module_pydantic_ruff() -> None:
@@ -6392,6 +6424,7 @@ def test_all_exports_includes_generate_config() -> None:
         for date, targets in (
             ("20260909", ("310", "311", "312", "313", "314")),
             ("20261015", ("310", "311", "312", "313", "314", "315")),
+            ("20261017", ("310", "311", "312", "313", "314", "315")),
         )
         for family in ("standard", "practical")
         for target in targets

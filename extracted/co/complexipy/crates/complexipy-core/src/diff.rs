@@ -9,14 +9,7 @@ use crate::classes::FileComplexity;
 const GIT_TIMEOUT: Duration = Duration::from_secs(15);
 const GIT_ROOT_TIMEOUT: Duration = Duration::from_secs(10);
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum DiffStatus {
-    Regressed,
-    Improved,
-    Unchanged,
-    New,
-    Removed,
-}
+pub use complexipy_types::DiffStatus;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiffEntry {
@@ -251,7 +244,9 @@ fn analyse_content_to_map(content: Option<&str>) -> Option<HashMap<String, u64>>
     let parsed = ruff_python_parser::parse_module(content).ok()?;
     let ast_body = parsed.into_suite();
     let (functions, _) = crate::cognitive_complexity::function_level_cognitive_complexity_shared(
-        &ast_body, content, false, false, false,
+        &ast_body,
+        content,
+        &crate::rules::AnalysisOptions::default(),
     );
     Some(
         functions

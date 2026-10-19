@@ -1,7 +1,3 @@
-# This source code is part of the Biotite package and is distributed
-# under the 3-Clause BSD License. Please see 'LICENSE.rst' for further
-# information.
-
 from __future__ import annotations
 
 __name__ = "biotite.sequence.align"
@@ -105,7 +101,7 @@ class RandomPermutation(Permutation):
     Examples
     --------
 
-    >>> kmer_alph = KmerAlphabet(NucleotideSequence.alphabet_unamb, k=2)
+    >>> kmer_alph = KmerAlphabet(NucleotideSequence.alphabet_unambiguous, k=2)
     >>> permutation = RandomPermutation()
     >>> # k-mer codes representing the k-mers from 'AA' to 'TT'
     >>> # in lexicographic order

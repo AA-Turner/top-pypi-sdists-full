@@ -11,7 +11,10 @@
 // inlining is preserved and there is no ODR surface.
 #pragma once
 
-#include "_accel_common.h"
+// Python-free since momwire#1479 S3 (the remainder projection runs in the
+// standalone executable too): the pybind11 builders are in
+// `_accel_somm_proj_py.h`, which the binding TUs include instead.
+#include "_mw_core.h"
 
 namespace somm_proj {
 using cd = std::complex<double>;
@@ -29,7 +32,7 @@ static inline void lagrange4(double u, double *w) {
 // the three near (plus optionally two far, issue #159) regions'
 // (4, n_r, n_th) C-contiguous value tables plus their axis origins/spacings,
 // and the region-select breakpoints. Populated from the pybind arrays by both
-// callers (build_grid_view).
+// callers (build_grid_view, through `_accel_somm_proj_py.h` from Python).
 // Sized `MAX_REGIONS` for the below/below family's momwire#1064 layout (3 R1
 // zones x 5 theta bands). The +-=+ family still uses 4 or 6 of these; the
 // extra slots cost a few hundred bytes on a struct built once per batch.
@@ -55,7 +58,7 @@ struct FarPack {
 
 struct GridView {
     const cd *vptr[MAX_REGIONS];
-    py::ssize_t nR[MAX_REGIONS], nTh[MAX_REGIONS];
+    std::ptrdiff_t nR[MAX_REGIONS], nTh[MAX_REGIONS];
     double rr0[MAX_REGIONS], rdr[MAX_REGIONS], rth0[MAX_REGIONS],
         rdth[MAX_REGIONS];
     double r1_max, r_break, th_split, r_near, tiny, half_pi;
@@ -64,12 +67,10 @@ struct GridView {
 
 static GridView build_grid_view(
     double r1_max, double r_break, double th_split, double r_near,
-    const py::detail::unchecked_reference<double, 1> &r0b,
-    const py::detail::unchecked_reference<double, 1> &drb,
-    const py::detail::unchecked_reference<double, 1> &th0b,
-    const py::detail::unchecked_reference<double, 1> &dthb,
-    const std::vector<py::array_t<cd, py::array::c_style | py::array::forcecast>>
-        &reg_vals) {
+    const double *r0b, const double *drb, const double *th0b,
+    const double *dthb, size_t n_reg, const cd *const *vals,
+    const std::ptrdiff_t *shape0, const std::ptrdiff_t *nR,
+    const std::ptrdiff_t *nTh) {
     // 4/6 since the momwire#443 inner-zone theta split; 9 since momwire#838
     // gave the below/below family three theta bands across three R1 zones;
     // 12 since momwire#935 made that four bands, and 15 since momwire#1064
@@ -80,22 +81,20 @@ static GridView build_grid_view(
     // per-family kernel is what pins one. `proj_one_below` checks 15 exactly;
     // #935 found this second gate only by tripping it, which is the check
     // working — a below grid that grew a band reached here first.
-    const size_t n_reg = reg_vals.size();
     if (n_reg != 4 && n_reg != 6 && n_reg != 9 && n_reg != 12 && n_reg != 15)
         throw std::runtime_error("expected 4, 6, 9, 12 or 15 region value tables");
     static_assert(MAX_REGIONS >= 15, "GridView too small for the #1064 layout");
     GridView G;
     for (size_t g = 0; g < n_reg; ++g) {
-        auto v = reg_vals[g].template unchecked<3>();
-        if (v.shape(0) != 4)
+        if (shape0[g] != 4)
             throw std::runtime_error("region values must have shape (4, n_r, n_th)");
-        G.vptr[g] = reg_vals[g].data();
-        G.nR[g] = v.shape(1);
-        G.nTh[g] = v.shape(2);
-        G.rr0[g] = r0b(g);
-        G.rdr[g] = drb(g);
-        G.rth0[g] = th0b(g);
-        G.rdth[g] = dthb(g);
+        G.vptr[g] = vals[g];
+        G.nR[g] = nR[g];
+        G.nTh[g] = nTh[g];
+        G.rr0[g] = r0b[g];
+        G.rdr[g] = drb[g];
+        G.rth0[g] = th0b[g];
+        G.rdth[g] = dthb[g];
     }
     G.r1_max = r1_max;
     G.r_break = r_break;
@@ -117,10 +116,7 @@ static GridView build_grid_view(
 // Load `_sommerfeld.far_cpp_pack(grid)` into G. Eight complex entries in the
 // order below, or none (the continuation off). Any other length is a stale
 // `_sommerfeld.py` and fails loudly.
-static inline void set_far(
-    GridView &G,
-    const py::array_t<cd, py::array::c_style | py::array::forcecast> &far) {
-    const py::ssize_t n = far.size();
+static inline void set_far(GridView &G, const cd *f, std::ptrdiff_t n) {
     if (n == 0) {
         G.far.on = false;
         return;
@@ -128,7 +124,6 @@ static inline void set_far(
     if (n != 8)
         throw std::runtime_error(
             "far pack must hold 8 complex constants (momwire#1258) or none");
-    const cd *f = far.data();
     G.far.on = true;
     G.far.eps = f[0];
     G.far.k1 = f[1];
@@ -312,34 +307,53 @@ static void far_continue(const GridView &G, double r1, double theta, cd surf[4])
 // |dx|, |dy|, and dx, dy merely change sign; hh is one commutative add), so
 // one call serves the (m, n) AND (n, m) projections of a node pair
 // (`sommerfeld_remainder_bspline_Q`'s symmetric route).
-static inline void proj_core(const GridView &G, double k, double rho, double hh,
-                             cd surf[4], cd &g) {
-    const double r1 = std::sqrt(rho * rho + hh * hh);
-
-    // --- inline SommerfeldGrid.eval(r1, theta) ---
-    double theta = std::atan2(hh, rho);
+// `proj_core`'s pair geometry: R1 and the clamped theta from (rho, hh).
+static inline void proj_r1_theta(const GridView &G, double rho, double hh,
+                                 double &r1, double &theta) {
+    r1 = std::sqrt(rho * rho + hh * hh);
+    theta = std::atan2(hh, rho);
     if (theta < 0.0) theta = 0.0; else if (theta > G.half_pi) theta = G.half_pi;
+}
+
+// `proj_core`'s table address for a query at (r1, clamped theta): the
+// region, the fractional offsets on its axes, and the first node (i0, j0)
+// of the 4x4 stencil the read takes. The one copy of the address: the read
+// below and the lazy grids' census (`field_proj_nodes`, `reflected_*_nodes`)
+// both call it, so the nodes a census names are the nodes a read takes.
+static inline int proj_address(const GridView &G, double r1, double theta,
+                               double &fr, double &ft, int &i0, int &j0) {
     const double r1c = r1 > G.r1_max ? G.r1_max : r1;  // the edge; see below
     const int reg = (r1c <= G.r_break)
                         ? (theta <= G.th_split ? 0 : 1)
                         : (r1c <= G.r_near ? (theta <= G.th_split ? 2 : 3)
                                            : (theta <= G.th_split ? 4 : 5));
-    const double fr = (r1c - G.rr0[reg]) / G.rdr[reg];
-    const double ft = (theta - G.rth0[reg]) / G.rdth[reg];
-    int i0 = (int)std::floor(fr) - 1;
-    int j0 = (int)std::floor(ft) - 1;
+    fr = (r1c - G.rr0[reg]) / G.rdr[reg];
+    ft = (theta - G.rth0[reg]) / G.rdth[reg];
+    i0 = (int)std::floor(fr) - 1;
+    j0 = (int)std::floor(ft) - 1;
     if (i0 < 0) i0 = 0; else if (i0 > G.nR[reg] - 4) i0 = (int)G.nR[reg] - 4;
     if (j0 < 0) j0 = 0; else if (j0 > G.nTh[reg] - 4) j0 = (int)G.nTh[reg] - 4;
+    return reg;
+}
+
+static inline void proj_core(const GridView &G, double k, double rho, double hh,
+                             cd surf[4], cd &g) {
+    // --- inline SommerfeldGrid.eval(r1, theta) ---
+    double r1, theta;
+    proj_r1_theta(G, rho, hh, r1, theta);
+    double fr, ft;
+    int i0, j0;
+    const int reg = proj_address(G, r1, theta, fr, ft, i0, j0);
     double wr[4], wt[4];
     lagrange4(fr - i0, wr);
     lagrange4(ft - j0, wt);
     const cd *V = G.vptr[reg];
-    const py::ssize_t nth = G.nTh[reg], nr = G.nR[reg];
+    const std::ptrdiff_t nth = G.nTh[reg], nr = G.nR[reg];
     for (int s = 0; s < 4; ++s) {
-        const cd *plane = V + (py::ssize_t)s * nr * nth;
+        const cd *plane = V + (std::ptrdiff_t)s * nr * nth;
         cd acc(0.0, 0.0);
         for (int i = 0; i < 4; ++i) {
-            const cd *row = plane + (py::ssize_t)(i0 + i) * nth + j0;
+            const cd *row = plane + (std::ptrdiff_t)(i0 + i) * nth + j0;
             cd rs = row[0] * wt[0] + row[1] * wt[1] + row[2] * wt[2] +
                     row[3] * wt[3];
             acc += rs * wr[i];
@@ -376,6 +390,17 @@ static inline cd proj_project(const GridView &G, double dx, double dy,
            toy * (dhy * e_rho + dhx * e_phi) + toz * e_z;
 }
 
+// `proj_one`'s pair geometry: the horizontal offsets and distance, and the
+// image height sum (observer and source heights over the ground added).
+static inline void pair_geometry(double ground_z, double ox, double oy, double oz,
+                                 double sx, double sy, double sz, double &dx,
+                                 double &dy, double &rho, double &hh) {
+    dx = ox - sx;
+    dy = oy - sy;
+    rho = std::hypot(dx, dy);
+    hh = (oz - ground_z) + (sz - ground_z);
+}
+
 // Interpolated + projected smooth-remainder field for ONE (observer, source)
 // pair: t_obs . F(r_obs, r_src) . t_src. `sux/suy/sthsrc/stzsrc` are the
 // source tangent's horizontal-unit / horizontal-magnitude / vertical parts
@@ -391,15 +416,33 @@ static inline cd proj_one(
     double ox, double oy, double oz, double tox, double toy, double toz,
     double sx, double sy, double sz, double sux, double suy, double sthsrc,
     double stzsrc) {
-    const double dx = ox - sx;
-    const double dy = oy - sy;
-    const double rho = std::hypot(dx, dy);
-    const double hh = (oz - ground_z) + (sz - ground_z);
+    double dx, dy, rho, hh;
+    pair_geometry(ground_z, ox, oy, oz, sx, sy, sz, dx, dy, rho, hh);
     cd surf[4], g;
     proj_core(G, k, rho, hh, surf, g);
     return proj_project(G, dx, dy, rho, surf, g, tox, toy, toz, sux, suy,
                         sthsrc, stzsrc);
 }
+
+// A lazy grid's census (momwire#1512): one byte per node of each region's
+// (n_r, n_th) lattice, set where a read's 4x4 stencil takes the node. The
+// readers' census functions walk their pairs with the readers' own geometry
+// and `proj_address` (or the below twin's address), so the marks are the
+// reads; the grid then fills the marked nodes before the read runs.
+struct NodeMarks {
+    uint8_t *m[MAX_REGIONS] = {};
+    std::ptrdiff_t nR[MAX_REGIONS] = {}, nTh[MAX_REGIONS] = {};
+    size_t n_reg = 0;
+    inline void mark(int reg, int i0, int j0) {
+        uint8_t *p = m[reg] + (std::ptrdiff_t)i0 * nTh[reg] + j0;
+        for (int i = 0; i < 4; ++i, p += nTh[reg]) {
+            p[0] = 1;
+            p[1] = 1;
+            p[2] = 1;
+            p[3] = 1;
+        }
+    }
+};
 
 // Decompose a tangent (tx,ty,tz) into (horizontal unit x,y; horizontal
 // magnitude; vertical), matching remainder_field_proj's th_src/ux/uy/tz_src.
@@ -485,9 +528,9 @@ MW_LANES_INLINE void surfaces_lanes(const GridView &G, int reg, int i0, int j0,
     // inside the [&] lambda below (C2131 on `q[CPV]`).
     static constexpr int CPV = W / 2;
     static_assert(4 % CPV == 0, "a vector holds whole surfaces of the four");
-    const py::ssize_t nth = G.nTh[reg];
-    const py::ssize_t plane = G.nR[reg] * nth;
-    const cd *base = G.vptr[reg] + (py::ssize_t)i0 * nth + j0;
+    const std::ptrdiff_t nth = G.nTh[reg];
+    const std::ptrdiff_t plane = G.nR[reg] * nth;
+    const cd *base = G.vptr[reg] + (std::ptrdiff_t)i0 * nth + j0;
     const vd w0 = set1(wt[0][b]), w1 = set1(wt[1][b]), w2 = set1(wt[2][b]),
              w3 = set1(wt[3][b]);
     for (int s = 0; s < 4; s += CPV) {

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 from office365.runtime.paths.service_operation import ServiceOperationPath
 from office365.runtime.queries.create_entity import CreateEntityQuery
 from office365.runtime.queries.service_operation import ServiceOperationQuery
+from office365.runtime.types.collections import StringCollection
 from office365.sharepoint.entity_collection import EntityCollection
 from office365.sharepoint.fields.calculated import FieldCalculated
 from office365.sharepoint.fields.choice import FieldChoice
@@ -104,10 +105,22 @@ class FieldCollection(EntityCollection[Field]):
         return fields
 
     def ensure(self, parameters: FieldCreationInformation, *, on_conflict: str = "skip") -> Field:
-        """Ensure the field exists (get-or-create); ``on_conflict="update"`` reconciles it."""
+        """Ensure the field exists (get-or-create); ``on_conflict="update"`` reconciles it.
+
+        Rich columns are supported: populate ``FieldCreationInformation`` with
+        ``Choices`` (Choice/MultiChoice), ``Formula`` (Calculated), ``Required``,
+        or ``LookupListId``/``LookupFieldName`` (Lookup). With
+        ``on_conflict="update"`` the field kind, description, choices and formula
+        are reconciled, and ``Required`` is turned on when requested — a lookup's
+        target list is create-only and is never retargeted on a re-run.
+
+        ``Choices``/``Formula`` are reconciled only when set, and ``Required`` is
+        only turned on (never off), so a bare ``ensure`` never silently relaxes an
+        existing column. Deferred — run with ``execute_query()``.
+        """
         from office365.runtime.queries.get_or_create import get_or_create
 
-        return_type = Field(self.context)
+        return_type = self.get_by_title(parameters.Title)
 
         def _reconcile(field: Field) -> None:
             changed = False
@@ -117,15 +130,53 @@ class FieldCollection(EntityCollection[Field]):
             if parameters.Description is not None and field.properties.get("Description") != parameters.Description:
                 field.set_property("Description", parameters.Description)
                 changed = True
+            if parameters.Choices is not None and list(field.properties.get("Choices") or []) != list(
+                parameters.Choices
+            ):
+                field.set_property("Choices", StringCollection(list(parameters.Choices)))
+                changed = True
+            if parameters.Formula is not None and field.properties.get("Formula") != parameters.Formula:
+                field.set_property("Formula", parameters.Formula)
+                changed = True
+            if parameters.Required and field.properties.get("Required") is not True:
+                field.set_property("Required", True)
+                changed = True
             if changed:
                 field.update()
 
         return get_or_create(
-            find=lambda: self.get_by_title(parameters.Title).get(),
+            find=return_type.get,
             create_query=lambda: self._build_add_field_query(parameters, return_type),
             return_type=return_type,
             on_conflict=on_conflict,
             reconcile=_reconcile,
+        )
+
+    def ensure_xml(self, schema_xml: str, internal_name: str, *, on_conflict: str = "skip") -> Field:
+        """Ensure a column defined by raw schema XML exists (idempotent).
+
+        The companion of :meth:`create_field_as_xml` with get-or-create
+        semantics: the column is looked up by ``internal_name`` and, when
+        missing, created from ``schema_xml``. This preserves a source column's
+        exact definition (choices, formula, lookup target, ...) that a
+        :class:`FieldCreationInformation` spec cannot always express. Deferred —
+        run with ``execute_query()``.
+
+        Args:
+            schema_xml (str): The schema that defines the field
+                (see :meth:`~office365.sharepoint.fields.field.Field.schema_xml_for_copy`).
+            internal_name (str): The internal name used to look the column up.
+            on_conflict (str): ``"skip"`` (default, keep an existing column) or
+                ``"update"``.
+        """
+        from office365.runtime.queries.get_or_create import get_or_create
+
+        return_type = self.get_by_internal_name_or_title(internal_name)
+        return get_or_create(
+            find=return_type.get,
+            create_query=lambda: self._build_create_field_as_xml_query(schema_xml, return_type),
+            return_type=return_type,
+            on_conflict=on_conflict,
         )
 
     def add_calculated(self, title: str, formula: str, description: Optional[str] = None) -> FieldCalculated:
@@ -415,6 +466,12 @@ class FieldCollection(EntityCollection[Field]):
         )
         return return_type
 
+    def _build_create_field_as_xml_query(self, schema_xml: str, return_type: Field) -> ServiceOperationQuery:
+        """Build (but do not queue) a ``CreateFieldAsXml`` query for the given schema."""
+        self.add_child(return_type)
+        payload = {"parameters": XmlSchemaFieldCreationInformation(schema_xml)}
+        return ServiceOperationQuery(self, "CreateFieldAsXml", None, payload, None, return_type)
+
     def create_field_as_xml(self, schema_xml: str, return_type: Union[type[T], T] = Field) -> T:
         """Creates a field based on the values defined in the parameters input parameter.
 
@@ -424,10 +481,7 @@ class FieldCollection(EntityCollection[Field]):
               ready field instance to bind the query to (deferred/async creation).
         """
         field = self._new_field(return_type)
-        self.add_child(field)
-        payload = {"parameters": XmlSchemaFieldCreationInformation(schema_xml)}
-        qry = ServiceOperationQuery(self, "CreateFieldAsXml", None, payload, None, field)
-        self.context.add_query(qry)
+        self.context.add_query(self._build_create_field_as_xml_query(schema_xml, field))
         return field
 
     def get_by_id(self, id_: str, field_type: type[T] = Field) -> T:

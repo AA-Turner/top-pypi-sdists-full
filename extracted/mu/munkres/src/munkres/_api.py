@@ -6,8 +6,9 @@ from __future__ import annotations
 import importlib
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
+from munkres import _native
 from munkres._core import (
     _INF,
     _NUMBER_TYPES,
@@ -18,6 +19,7 @@ from munkres._core import (
     _assign,
     _validated_edges,
 )
+from munkres._dense import fast_lsa as _fast_lsa
 from munkres._trace import Trace
 
 __all__ = [
@@ -265,6 +267,19 @@ def linear_sum_assignment(cost_matrix: MatrixLike, maximize: bool = False) -> tu
     `UnsolvableMatrix`), and when several optimal answers exist the one returned
     may differ from SciPy's (the total cost is always the same).
     """
+    if hasattr(cost_matrix, "dtype") and hasattr(cost_matrix, "ndim"):
+        got = _fast_lsa(cost_matrix, maximize)
+        if (
+            got is _native.FAILED
+        ):  # the kernel raised (already logged/counted): finish on pure Python
+            with _native.suspended():
+                return _lsa_general(cost_matrix, maximize)
+        if got is not None:
+            return cast("tuple[Any, Any]", got)
+    return _lsa_general(cost_matrix, maximize)
+
+
+def _lsa_general(cost_matrix: MatrixLike, maximize: bool) -> tuple[Any, Any]:
     try:
         result = solve(cost_matrix, maximize=maximize)
     except TypeError as bad:

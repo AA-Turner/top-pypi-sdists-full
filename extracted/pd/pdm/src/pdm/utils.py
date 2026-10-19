@@ -510,7 +510,7 @@ def sanitize_project_name(name: str) -> str:
     """Sanitize the project name and remove all illegal characters"""
     pattern = r"[^a-zA-Z0-9\-_\.]+"
     result = re.sub(pattern, "-", name)
-    result = re.sub(r"^[\._-]|[\._-]$", "", result)
+    result = re.sub(r"^[\._-]+|[\._-]+$", "", result)
     if not result:
         raise PdmException(f"Invalid project name: {name}")
     return result
@@ -574,8 +574,10 @@ def convert_to_datetime(value: str) -> datetime:
             "w": timedelta(weeks=amount),
         }[unit]
         return datetime.now(timezone.utc) - delta
-    if "T" in value:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if "T" in value.upper():
+        dt = datetime.fromisoformat(value.upper().replace("Z", "+00:00"))
+        # A timestamp without an offset is read as UTC, like a bare date
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
 
 

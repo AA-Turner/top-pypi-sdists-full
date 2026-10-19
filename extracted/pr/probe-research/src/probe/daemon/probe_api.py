@@ -246,6 +246,37 @@ async def project_slug(env: dict[str, str], ref: str) -> tuple[str, str] | None:
 SUMMARIES_MODES = ("lane", "recorder")
 
 
+async def summary_head(env: dict[str, str], kind: str, ref: str) -> dict | None:
+    """`{"version", "mode"}` of one project's or experiment's summary, from
+    its plain (Markdown) read -- no chartable set is built, no CLI is started:
+    what the worker asks before deciding a clean draft needs checking out
+    again (`tools.autoload_summaries`). None for a `name:` ref, an unknown one
+    and any answer but a 200. Raises `KeyRefused`, and on a transport failure."""
+    ref = selector(ref)
+    if ref is None:
+        return None
+    async with await _client(env) as client:
+        client.timeout = httpx.Timeout(SCOPE_TIMEOUT_S)
+        resp = await _scope(client, ref)
+        _refuse_key(resp)
+        if resp.status_code != 200:
+            return None
+        place = resp.json()
+        project = place.get("project_id") if isinstance(place, dict) else None
+        if not isinstance(project, str) or not _UUID.fullmatch(project):
+            return None
+        path = (f"/v1/projects/{project}/experiments/{quote(ref, safe='')}/summary" if kind == "experiment"
+                else f"/v1/projects/{project}/summary")
+        resp = await client.get(path)
+        _refuse_key(resp)
+        if resp.status_code != 200:
+            return None
+        body = resp.json()
+    if not isinstance(body, dict) or not isinstance(body.get("version"), int):
+        return None
+    return {"version": body["version"], "mode": body.get("mode")}
+
+
 async def summaries_mode(env: dict[str, str], kind: str, ref: str) -> str | None:
     """The team's summaries mode (`lane` | `recorder`) as one project's or
     experiment's summary read answers it (the mode is the tenant's, so any entity

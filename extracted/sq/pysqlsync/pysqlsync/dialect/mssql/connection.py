@@ -8,7 +8,8 @@ Copyright 2023-2026, Levente Hunyadi
 
 import logging
 import typing
-from typing import Iterable, Optional, TypeVar
+from collections.abc import Iterable
+from typing import TypeVar
 
 import pyodbc
 from strong_typing.inspection import is_dataclass_type
@@ -39,7 +40,7 @@ class MSSQLConnection(BaseConnection):
     @thread_dispatch
     def open(self) -> BaseContext:
         LOGGER.info("connecting to %s", self.params)
-        params: dict[str, Optional[str]] = {
+        params: dict[str, str | None] = {
             "DRIVER": "{ODBC Driver 18 for SQL Server}",
             "APP": "pysqlsync",
             "SERVER": (f"{self.params.host},{self.params.port}" if self.params.port is not None else self.params.host),
@@ -91,7 +92,7 @@ class MSSQLContext(BaseContext):
         statement: str,
         source: DataSource,
         table: Table,
-        order: Optional[tuple[str, ...]] = None,
+        order: tuple[str, ...] | None = None,
     ) -> None:
         async for batch in source.batches():
             await self._internal_execute_typed(statement, batch, table, order)
@@ -108,7 +109,7 @@ class MSSQLContext(BaseContext):
         statement: str,
         records: Iterable[RecordType],
         table: Table,
-        order: Optional[tuple[str, ...]] = None,
+        order: tuple[str, ...] | None = None,
     ) -> None:
         with self.native_connection.cursor() as cur:
             cur.fast_executemany = True

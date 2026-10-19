@@ -11,6 +11,7 @@ from rich.table import Table
 import yaml
 
 from anyscale._private.models.image_uri import ImageURI
+from anyscale._private.models.validation import RAY_VERSION_DEPRECATION_MESSAGE
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples, events_commands
 from anyscale.commands.doc_metadata import (
@@ -91,7 +92,13 @@ def _read_name_from_config_file(path: str):
     status=ReleaseStatus.GA,
     since="0.0.0",
     output_formats=[OutputFormat.TEXT],
-    option_docs={"--connection": {"status": ReleaseStatus.BETA}},
+    option_docs={
+        "--connection": {"status": ReleaseStatus.BETA},
+        "--ray-version": {
+            "status": ReleaseStatus.DEPRECATED,
+            "deprecation_info": {"message": RAY_VERSION_DEPRECATION_MESSAGE},
+        },
+    },
     examples=[
         CommandExample(
             description="Deploy a service from a YAML config file.",

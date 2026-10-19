@@ -33,7 +33,6 @@ from schemathesis.specs.openapi.stateful.dependencies import naming
         ("league_id_or_slug", "/leagues/{league_id_or_slug}", "League"),
         ("match-id-or-slug", "/matches/{match-id-or-slug}", "Match"),
         ("_slug", "/groups/{_slug}", None),
-        ("id", "/users/{id}", "User"),
         ("_id", "/users/{_id}", None),
         ("identifier", "/images/{identifier}", "Image"),
         ("uuid", "/accounts/{uuid}", "Account"),
@@ -355,6 +354,13 @@ def test_find_matching_field(parameter, resource, fields, expected):
 )
 def test_find_matching_field_fallbacks(parameter, resource, fields, expected):
     assert naming.find_matching_field(parameter=parameter, resource=resource, fields=fields) == expected
+
+
+def test_parameter_names_resource_field_with_non_suffix_match():
+    field = naming.find_matching_field(parameter="user_id", resource="User", fields=["uuid"])
+
+    assert field == "uuid"
+    assert naming.parameter_names_resource_field(parameter="user_id", field=field, resource="User")
 
 
 @pytest.mark.parametrize(

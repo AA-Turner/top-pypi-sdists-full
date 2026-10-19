@@ -466,6 +466,14 @@ unsafe extern "C" {
     pub fn TVMFFISetCustomAllocator(allocator: *mut TVMFFICustomAllocator) -> i32;
 
     pub fn TVMFFITypeKeyToIndex(type_key: *const TVMFFIByteArray, out_tindex: *mut i32) -> i32;
+    pub fn TVMFFITypeGetOrAllocIndex(
+        type_key: *const TVMFFIByteArray,
+        static_type_index: i32,
+        type_depth: i32,
+        num_child_slots: i32,
+        child_slots_can_overflow: i32,
+        parent_type_index: i32,
+    ) -> i32;
     pub fn TVMFFITypeRegisterAttr(
         type_index: i32,
         attr_name: *const TVMFFIByteArray,
@@ -529,6 +537,8 @@ unsafe extern "C" {
     pub fn TVMFFITensorToDLPackVersioned(from: TVMFFIObjectHandle, out: *mut *mut c_void) -> i32;
     pub fn TVMFFIStringFromByteArray(input: *const TVMFFIByteArray, out: *mut TVMFFIAny) -> i32;
     pub fn TVMFFIBytesFromByteArray(input: *const TVMFFIByteArray, out: *mut TVMFFIAny) -> i32;
+    pub fn TVMFFIBigIntFromByteArray(input: *const TVMFFIByteArray, out: *mut TVMFFIAny) -> i32;
+    pub fn TVMFFIBigIntGetContentByteArray(value: *const TVMFFIAny) -> TVMFFIByteArray;
     pub fn TVMFFIDataTypeFromString(str: *const TVMFFIByteArray, out: *mut DLDataType) -> i32;
     pub fn TVMFFIDataTypeToString(dtype: *const DLDataType, out: *mut TVMFFIAny) -> i32;
     pub fn TVMFFITraceback(

@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: texttable
-Version: 1.7.1
+Version: 1.7.2
 Summary: module to create simple ASCII tables
 Home-page: https://github.com/foutaise/texttable/
-Download-URL: https://github.com/foutaise/texttable/archive/v1.7.1.tar.gz
+Download-URL: https://github.com/foutaise/texttable/archive/v1.7.2.tar.gz
 Author: Gerome Fournier
 Author-email: jef@foutaise.org
 License: MIT
@@ -264,10 +264,10 @@ DATA
     __author__ = 'Gerome Fournier <jef(at)foutaise.org>'
     __credits__ = 'Jeff Kowalczyk:\n    - textwrap improved import\n ...at...
     __license__ = 'MIT'
-    __version__ = '1.7.1'
+    __version__ = '1.7.2'
 
 VERSION
-    1.7.1
+    1.7.2
 
 AUTHOR
     Gerome Fournier <jef(at)foutaise.org>

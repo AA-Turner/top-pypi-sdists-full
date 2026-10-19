@@ -2,7 +2,7 @@
 a project or an experiment, and its Metrics-center tables and charts, kept by
 whoever records the session (plan writer-owns-summary §3.4, §3.8).
 
-    probe summary checkout --project willow-sft          # -> JSON with the draft's path and the Markdown
+    probe summary checkout --project willow-sft          # -> JSON with the draft's path and its text
     $EDITOR <path>
     probe summary push --project willow-sft              # merges if the page moved; exit 2 on a conflict
     probe summary checkout --experiment b2-decay [--project willow-sft]
@@ -27,11 +27,26 @@ and asks for another push. Two things differ:
    no `--force`: it would send the current version with the old text and slip
    the erased words past that check.
 
-THE REMINDER (plan §3.5, D11): the first `probe` write of a session that lands
-on a project or experiment whose summary that session has not checked out
-prints one line on stderr, once per session per entity. The entity is read from
+FULL PAGES (ARTIFACT-PAGES P1). Checkout asks for the page as HTML
+(`?format=html`); a server that offers it hands over the page, its chart
+declarations and the closed set they may name, and the draft is `<sid>.html`
+(`<sid>.daemon.html`): ONE file holding the declarations as a
+`<script type="application/json" data-probe-series>` block ahead of the page
+(`compose_draft`), so one edit and one three-way merge cover both, with the
+closed set beside it (`<sid>.chartable.json`, `chartable_path` in the JSON).
+Push sends the draft by its extension: `.html` as `html` (the server lifts the
+series block out), `.md` as `markdown`. A server older than full pages ignores
+the parameter and the draft is Markdown, as before.
+
+LOADING ON THE FIRST WRITE (plan §3.5, D11; ARTIFACT-PAGES P3): the first
+`probe` write of a session that lands on a project or experiment whose summary
+that session has not checked out checks it out itself and prints the draft's
+path on stderr, once per session per entity (`remind`). The entity is read from
 the parsed command's own arguments (never the status line's resolver, which
-collapses an experiment to its project), and no server is asked.
+collapses an experiment to its project). When the checkout cannot be made (no
+network, a refused read, unpushed edits in the draft) it prints the reminder
+line instead, and the write it follows never fails. Under the daemon the
+reminder stays a line: the daemon's worker loads its writer's summaries itself.
 """
 
 from __future__ import annotations
@@ -88,15 +103,45 @@ MODE_TTL_S = 24 * 3600
 
 #: The reminder (plan §3.5). `{label}` is the ref as the command named it.
 REMINDER = "Summary of {label} not loaded this session - probe summary checkout --{kind} {label}"
+#: What the first write's own checkout says (ARTIFACT-PAGES P3), in the
+#: reminder's place. Wording PROPOSED.
+LOADED = ("Summary of {label} checked out for this session (v{version}): {path} - "
+          "edit it, then probe summary push --{kind} {label}")
+#: The first write's own checkout (`_load_on_first_write`) gets this long for
+#: every request it makes, with no retry.
+FIRST_WRITE_LOAD_S = 5.0
+#: `GET .../summary?format=html` (ARTIFACT-PAGES P1): the page as HTML.
+FORMAT_HTML = "html"
+FORMAT_MARKDOWN = "markdown"
+#: A draft's extension says what push sends.
+EXT_BY_FORMAT = {FORMAT_MARKDOWN: ".md", FORMAT_HTML: ".html"}
+#: The draft's block of chart declarations, ahead of the page; the server
+#: lifts it out (`app/overviews/summary_html.py` `SERIES_BLOCK_ATTR`).
+SERIES_ATTR = "data-probe-series"
+#: Beside an HTML draft: the closed set its series may name.
+CHARTABLE_SUFFIX = ".chartable.json"
 #: What a push says when the draft grew from a base an erasure changed.
 ERASED_DETAIL = (
     "a session erasure changed this {kind}'s summary since your checkout, so it was not merged; "
-    "check out again (`probe summary checkout --{kind} {label}`) and redo your edit"
+    "check out again (`probe summary checkout --{kind} {label} --steal`: the draft's edits grew "
+    "from the erased text) and redo your edit"
 )
+#: What a checkout says when the draft holds edits that were never pushed
+#: (review of #3034, finding 3): never replaced without `--steal`.
+UNPUSHED = (
+    "{path} has edits that were never pushed, so it was not replaced. Push them (`probe summary "
+    "push --{kind} {label}`), or check out again with --steal to discard them"
+)
+#: The checkout JSON's `refused` when the draft holds unpushed edits.
+REFUSED_UNPUSHED = "unpushed edits"
 SESSION_ERASED_DETAIL = "this session was erased, so its summary writes are refused"
+#: The server's `summary_writer_off` words (app/overviews/summary.py
+#: WRITER_OFF_MESSAGE): since writer-owns-summary R2 no lane writes a `lane`
+#: team's summaries, so the door is closed until Probe switches the team.
 LANE_NOTE = (
-    f"this team's summaries are still written by Probe's overview lane {LANE_MARK}: "
-    "`probe summary push` is refused until that changes"
+    f"this team's summary door is closed (summaries_by=lane) {LANE_MARK}: "
+    "`probe summary push` is refused until Probe switches the team to recorder; "
+    "ask Probe (support@prbe.ai) to switch it"
 )
 #: Checkout's line when the entity carries Metrics-center visuals and none is set
 #: (plan 3.8): the reminder rides the object at the moment it is handed over.
@@ -177,8 +222,9 @@ def resolve_target(client, project: str | None, experiment: str | None) -> Targe
     )
 
 
-def draft_paths(settings, target: Target, sid: str | None, *, suffix: str = ""):
-    """The draft's three files (`notes_file.paths_for` under `summaries/`)."""
+def draft_paths(settings, target: Target, sid: str | None, *, suffix: str = "", fmt: str = FORMAT_MARKDOWN):
+    """The draft's three files (`notes_file.paths_for` under `summaries/`): the
+    document is `.md`, or `.html` for a page checked out as HTML (`fmt`)."""
     from . import notes_file
 
     stem = sid + (DAEMON_DRAFT if os.environ.get(DAEMON_SESSION_ENV) else "") if sid else SHARED_DRAFT
@@ -188,7 +234,36 @@ def draft_paths(settings, target: Target, sid: str | None, *, suffix: str = ""):
         target.id,
         root=notes_file.SUMMARIES_ROOT,
         draft=stem + suffix,
+        ext=EXT_BY_FORMAT[fmt],
     )
+
+
+def checked_out(settings, target: Target, sid: str | None):
+    """`(paths, format)` of this session's draft of `target`: the one on disk
+    (the newer, should both formats be there), else the Markdown paths."""
+    found = []
+    for fmt in (FORMAT_HTML, FORMAT_MARKDOWN):
+        where = draft_paths(settings, target, sid, fmt=fmt)
+        try:
+            found.append((where.document.stat().st_mtime, fmt, where))
+        except OSError:
+            continue
+    if not found:
+        return draft_paths(settings, target, sid), FORMAT_MARKDOWN
+    _mtime, fmt, where = max(found, key=lambda f: f[0])
+    return where, fmt
+
+
+def compose_draft(html: str, series: list | None) -> str:
+    """An HTML draft: the page's chart declarations as one JSON block, then the
+    page. `</` inside the JSON is written `<\\/`, so a title cannot end the block."""
+    body = json.dumps(series or [], indent=2, ensure_ascii=False).replace("</", "<\\/")
+    tail = "" if not html or html.endswith("\n") else "\n"
+    return f'<script type="application/json" {SERIES_ATTR}>\n{body}\n</script>\n{html}{tail}'
+
+
+def chartable_path(where) -> Path:
+    return where.document.with_suffix(CHARTABLE_SUFFIX)
 
 
 def _settings():
@@ -197,18 +272,34 @@ def _settings():
     return resolve(base_url=_main()._conn.base_url)
 
 
-def _get_summary(client, anchors: dict) -> dict:
+def _get_summary(client, anchors: dict, *, html: bool = False) -> dict:
     """`client.get_summary`, with FastAPI's own 404 (a server older than the
     summary routes) said as the writes say it. The SDK read keeps raising
-    `NotFoundError` there: the MCP's summary views read that as "cannot say"."""
+    `NotFoundError` there: the MCP's summary views read that as "cannot say".
+    `html` asks for the full page (`?format=html`), which an older server
+    ignores (`_is_html` reads which one came back)."""
     from ..sdk.client import _PREDATES_SUMMARIES, _route_absent
 
     try:
+        if html:
+            return client.get_summary(**anchors, format=FORMAT_HTML)
         return client.get_summary(**anchors)
     except errors.NotFoundError as exc:
         if _route_absent(exc):
             raise errors.CapabilityUnavailable("summaries", _PREDATES_SUMMARIES) from exc
         raise
+
+
+def _is_html(row: dict) -> bool:
+    """Did the server hand over the page as HTML (a server with full pages)?"""
+    return row.get("format") == FORMAT_HTML and isinstance(row.get("html"), str)
+
+
+def _draft_text(row: dict) -> str:
+    """The draft a summary read makes: the HTML draft, or the Markdown."""
+    if _is_html(row):
+        return compose_draft(row.get("html") or "", row.get("series"))
+    return row.get("markdown") or ""
 
 
 def _mode_file() -> Path:
@@ -286,54 +377,143 @@ def summary_checkout(
     steal: bool = typer.Option(
         False,
         "--steal",
-        help="no session id only: take the shared file although it has unpushed edits",
+        help="replace the draft although it has edits that were never pushed",
+    ),
+    visuals: bool = typer.Option(
+        True,
+        "--visuals/--no-visuals",
+        hidden=True,
+        help="also ask whether the Metrics-center tables are set (the daemon's own loads skip it)",
     ),
 ) -> None:
-    """Pull the summary to a Markdown file; edit it, then `probe summary push` with the same flag.
+    """Pull the summary to a file; edit it, then `probe summary push` with the same flag.
 
-    Prints JSON: `path` (the draft), `version`, `markdown`, `you` and `today`
-    (for an entry's `## <date> · <name>`), `edited_by`, `edited_at` and `mode`.
-    A person's own blocks show as `<!-- kept: hN -->` ... `<!-- /kept -->`:
+    Prints JSON: `path` (the draft), `version`, `you` and `today` (for an
+    entry's `## <date> · <name>`), `edited_by`, `edited_at` and `mode`, and
+    the text: `markdown`, or -- from a server with full pages -- `format`:
+    `html`, `html` (the draft: a `<script type="application/json"
+    data-probe-series>` block of chart declarations, then the page),
+    `chartable_path` (the closed set those may name: each run's metric keys
+    and point counts) and `chartable` (how many runs and keys it holds). A
+    person's own blocks show as `<!-- kept: hN -->` ... `<!-- /kept -->`:
     leave them where they are. The draft is this session's own file, in the
-    state directory at 0600; checking out again replaces it with the page."""
-    from . import notes_file
-
+    state directory at 0600; checking out again replaces it with the page,
+    unless it holds edits that were never pushed: then exit 2, the JSON names
+    the draft (`refused: "unpushed edits"`), and `--steal` replaces it."""
     with _main()._client() as client:
         target = resolve_target(client, project, experiment)
-        row = _get_summary(client, target.anchors())
-        visuals = _visuals_state(client, target) if row.get("mode") != MODE_LANE else None
-    sid = session_id()
-    where = draft_paths(_settings(), target, sid)
-    if sid is None:
-        refusal = notes_file.claim(where, steal=steal)
-        if refusal is not None:
-            print(refusal, file=sys.stderr)
-            raise typer.Exit(2)
-    markdown = row.get("markdown") or ""
+        try:
+            payload = checkout_draft(client, target, session_id(), steal=steal, visuals=visuals)
+        except DraftDirty as dirty:
+            _print_json(dirty.payload())
+            print(UNPUSHED.format(path=dirty.where.document, kind=target.kind, label=target.label),
+                  file=sys.stderr)
+            raise typer.Exit(2) from None
+    _print_json(payload)
+
+
+class DraftDirty(Exception):
+    """The draft holds edits that were never pushed: a checkout does not
+    replace it without `--steal` (review of #3034, finding 3)."""
+
+    def __init__(self, target: "Target", where, fmt: str) -> None:
+        super().__init__(str(where.document))
+        self.target, self.where, self.fmt = target, where, fmt
+
+    def payload(self) -> dict:
+        from .note_sync import read_meta
+
+        try:
+            version = int(read_meta(self.where.meta).get("version") or 0)
+        except (OSError, TypeError, ValueError):
+            version = 0
+        return {"target": self.target.kind, "label": self.target.label, "path": str(self.where.document),
+                "version": version, "format": self.fmt, "refused": REFUSED_UNPUSHED}
+
+
+def checkout_draft(client, target: Target, sid: str | None, *, steal: bool = False,
+                   visuals: bool = True, quiet: bool = False) -> dict:
+    """Check `target`'s summary out to this session's draft and return the
+    checkout's JSON (see `summary_checkout`). `visuals` also asks whether
+    the entity's Metrics-center tables are set; `quiet` prints nothing on
+    stderr. Raises `DraftDirty` -- nothing replaced, nothing read -- when this
+    session's draft of `target`, in either format, holds edits its base copy
+    lacks, unless `steal`."""
+    from . import notes_file
+
+    if not steal:
+        # Whichever format is on disk: a checkout in the other format replaces
+        # it too (below), so both are judged before anything is fetched.
+        for draft_fmt in EXT_BY_FORMAT:
+            existing = draft_paths(_settings(), target, sid, fmt=draft_fmt)
+            if existing.document.exists() and notes_file.dirty(existing):
+                raise DraftDirty(target, existing, draft_fmt)
+    row = _get_summary(client, target.anchors(), html=True)
+    state = _visuals_state(client, target) if visuals and row.get("mode") != MODE_LANE else None
+    fmt = FORMAT_HTML if _is_html(row) else FORMAT_MARKDOWN
+    where = draft_paths(_settings(), target, sid, fmt=fmt)
+    text = _draft_text(row)
     version = int(row.get("version") or 0)
     record_mode(row.get("mode"))
-    notes_file.checkout(where, body=markdown, version=version)
+    notes_file.checkout(where, body=text, version=version)
+    # One stem holds one draft: the other format's document (a checkout from
+    # an older server, or before one) is no longer what the base describes.
+    for other in (f for f in EXT_BY_FORMAT if f != fmt):
+        try:
+            draft_paths(_settings(), target, sid, fmt=other).document.unlink()
+        except OSError:
+            pass
+    extra: dict[str, Any] = {}
+    if fmt == FORMAT_HTML:
+        from ..sdk.durable import write_text_atomic
+
+        chartable = row.get("chartable") if isinstance(row.get("chartable"), dict) else {}
+        path = chartable_path(where)
+        write_text_atomic(path, json.dumps(chartable, indent=2) + "\n", mode=0o600)
+        runs = [e for e in chartable.get("by_run") or [] if isinstance(e, dict)]
+        columns = list(chartable.get("columns") or [])
+        key_at = columns.index("key") if "key" in columns else -1
+        keys = {row_[key_at] for e in runs for row_ in e.get("series") or []
+                if key_at >= 0 and isinstance(row_, list) and len(row_) > key_at}
+        extra = {
+            "format": FORMAT_HTML,
+            "html": text,
+            "series": len(row.get("series") or []),
+            "chartable_path": str(path),
+            "chartable": {"runs": len(runs), "metric_keys": len(keys)},
+        }
+    else:
+        try:
+            chartable_path(where).unlink()
+        except OSError:
+            pass
     record_loaded(sid, target)
-    print(f"checked out {target.kind} summary ({target.label}) v{version}", file=sys.stderr)
-    if row.get("mode") == MODE_LANE:
-        print(LANE_NOTE, file=sys.stderr)
-    if visuals is not None and visuals["eligible"] and not visuals["count"]:
-        print(VISUALS_HINT.format(label=target.label, kind=target.kind), file=sys.stderr)
-    _print_json(
+    if not quiet:
+        print(f"checked out {target.kind} summary ({target.label}) v{version}", file=sys.stderr)
+        if row.get("mode") == MODE_LANE:
+            print(LANE_NOTE, file=sys.stderr)
+        if state is not None and state["eligible"] and not state["count"]:
+            print(VISUALS_HINT.format(label=target.label, kind=target.kind), file=sys.stderr)
+    payload: dict[str, Any] = {
+        "target": target.kind,
+        "label": target.label,
+        "path": str(where.document),
+        "version": version,
+    }
+    if fmt == FORMAT_MARKDOWN:
+        payload["markdown"] = text
+    payload.update(
         {
-            "target": target.kind,
-            "label": target.label,
-            "path": str(where.document),
-            "version": version,
-            "markdown": markdown,
             "you": row.get("you"),
             "today": row.get("today"),
             "edited_by": row.get("edited_by"),
             "edited_at": row.get("edited_at"),
             "mode": row.get("mode"),
-            "visuals": visuals,
+            "visuals": state,
+            **extra,
         }
     )
+    return payload
 
 
 def _visuals_state(client, target: Target) -> dict | None:
@@ -369,8 +549,9 @@ def summary_push(
     with _main()._client() as client:
         target = resolve_target(client, project, experiment)
         anchors = target.anchors()
-        where = draft_paths(_settings(), target, sid)
-        again = f"`probe summary checkout --{target.kind} {target.label}`"
+        where, fmt = checked_out(_settings(), target, sid)
+        html = fmt == FORMAT_HTML
+        again = f"`probe summary checkout --{target.kind} {target.label} --steal`"
         if not where.document.exists():
             _fail(f"nothing checked out for this session at {where.document}: {again} first")
         if not where.base.exists():
@@ -385,8 +566,11 @@ def summary_push(
             sent["text"] = text
             sent["base"] = base_version
             try:
+                # By the draft's extension: an HTML draft goes whole as `html`
+                # (the server lifts its series block out), Markdown as before.
+                body = {"html": text} if html else {"markdown": text}
                 row = client.put_summary(
-                    text,
+                    **body,
                     expected_version=base_version,
                     session_id=sid,
                     directed=directed,
@@ -396,11 +580,14 @@ def summary_push(
                 code = _code(exc)
                 if code in (None, VERSION_MOVED):
                     detail = exc.detail if isinstance(exc.detail, dict) else {}
-                    if (
-                        isinstance(detail.get("markdown"), str)
-                        and detail.get("version") is not None
-                    ):
-                        head["page"] = (detail["markdown"], int(detail["version"]))
+                    if detail.get("version") is not None:
+                        if html and isinstance(detail.get("html"), str):
+                            head["page"] = (
+                                compose_draft(detail["html"], detail.get("series")),
+                                int(detail["version"]),
+                            )
+                        elif not html and isinstance(detail.get("markdown"), str):
+                            head["page"] = (detail["markdown"], int(detail["version"]))
                     raise
                 # NOT a ConflictError from here on: `notes_file.push` merges those.
                 refused.update(code=code, exit=2)
@@ -410,14 +597,23 @@ def summary_push(
                     refused["key"] = exc  # main() says so in the daemon's words
                 refused.update(code=_code(exc), exit=1, message=_message(exc))
                 raise
-            sent["canonical"] = row.get("markdown")
+            if html:
+                sent["canonical"] = (
+                    compose_draft(row["html"], row.get("series")) if isinstance(row.get("html"), str) else None
+                )
+            else:
+                sent["canonical"] = row.get("markdown")
             return int(row.get("version") or 0)
 
         def fetch() -> tuple[str, int]:
             if "page" in head:  # the 409 carried the head: no second read
                 return head.pop("page")
-            row = _get_summary(client, anchors)
-            return row.get("markdown") or "", int(row.get("version") or 0)
+            row = _get_summary(client, anchors, html=html)
+            if html and not _is_html(row):
+                raise errors.RosError(
+                    f"this Probe server no longer serves the summary as html; {again}, then redo your edit"
+                )
+            return _draft_text(row), int(row.get("version") or 0)
 
         report = notes_file.push(where, send=send, fetch=fetch, label=f"{target.kind} summary")
     if "key" in refused:
@@ -755,12 +951,14 @@ def landing(args: list[str]) -> tuple[str, str] | None:
 
 
 def remind(args: list[str]) -> None:
-    """After a `probe` write exited 0: print `REMINDER` once per session per
-    entity whose summary this session has not checked out. Never raises, never
-    asks a server. Not in a session the daemon records for the agent (the
-    summary is the daemon's there), not in a shell with no session, and not
-    while this machine's last checkout or push saw the team in lane mode
-    (`MODE_FILE`, a day): the server would refuse the summary."""
+    """After a `probe` write exited 0, once per session per entity whose
+    summary this session has not checked out: check it out and print `LOADED`
+    (ARTIFACT-PAGES P3), or -- under the daemon (its worker loads the
+    writer's summaries), or when the checkout cannot be made -- print
+    `REMINDER`. Never raises. Not in a session the daemon records for the
+    agent (the summary is the daemon's there), not in a shell with no session,
+    and not while this machine's last checkout or push saw the team in lane
+    mode (`MODE_FILE`, a day): the server would refuse the summary."""
     try:
         sid = session_id()
         if sid is None or os.environ.get(RUN_ID_ENV):
@@ -781,7 +979,34 @@ def remind(args: list[str]) -> None:
         state = _read_loaded(sid)
         if key in state["loaded"] or key in state["reminded"]:
             return
-        print(REMINDER.format(label=ref, kind=kind), file=sys.stderr)
+        loaded = None if os.environ.get(DAEMON_SESSION_ENV) else _load_on_first_write(sid, kind, ref)
+        print(loaded or REMINDER.format(label=ref, kind=kind), file=sys.stderr)
         _write_loaded(sid, lambda d: d.update(reminded=sorted(set(d["reminded"]) | {key})))
     except Exception:  # noqa: BLE001 -- a reminder, never a failed write
         return
+
+
+def _load_on_first_write(sid: str, kind: str, ref: str) -> str | None:
+    """ARTIFACT-PAGES P3: check the summary out for this session and say where
+    it went (`LOADED`); None -- the caller prints the reminder -- when that
+    cannot be done: no server answer, a refused read, or a draft of this
+    session's for the entity that holds unpushed edits (never replaced).
+    Bounded: one attempt per request, `FIRST_WRITE_LOAD_S` for all of them
+    (review of #3034, finding 6) -- the write it follows has already landed,
+    and a slow server must not hold the agent's command."""
+    from ..sdk.transport import deadline_scope
+
+    try:
+        with deadline_scope(time.monotonic() + FIRST_WRITE_LOAD_S), _main()._client() as client:
+            transport = getattr(client, "transport", None)
+            if transport is not None:
+                transport.max_retries = 0
+                transport.timeout = min(float(getattr(transport, "timeout", FIRST_WRITE_LOAD_S)),
+                                        FIRST_WRITE_LOAD_S)
+            target = resolve_target(
+                client, ref if kind == PROJECT else None, ref if kind == EXPERIMENT else None
+            )
+            payload = checkout_draft(client, target, sid, visuals=False, quiet=True)
+    except (Exception, typer.Exit):  # noqa: BLE001 -- DraftDirty, no answer: the reminder, never a failed write
+        return None
+    return LOADED.format(label=ref, kind=kind, path=payload["path"], version=payload["version"])

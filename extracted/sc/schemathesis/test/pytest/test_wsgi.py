@@ -1,10 +1,12 @@
+from unittest.mock import ANY
+
 import pytest
 from flask import Flask, jsonify, redirect, request
-from hypothesis import HealthCheck, given, settings
 
 import schemathesis
 from schemathesis.core.transforms import to_wire_string
 from schemathesis.specs.openapi.checks import ignored_auth
+from test.utils import run_given
 
 
 @pytest.mark.hypothesis_nested
@@ -15,34 +17,28 @@ def test_cookies(ctx):
     def cookies():
         return jsonify(request.cookies)
 
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "GET /cookies",
         {
-            "/cookies": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "token",
-                            "in": "cookie",
-                            "required": True,
-                            "schema": {"type": "string", "enum": ["test"]},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
+            "parameters": [
+                {
+                    "name": "token",
+                    "in": "cookie",
+                    "required": True,
+                    "schema": {"type": "string", "enum": ["test"]},
                 }
-            }
-        }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
     )
 
-    strategy = schema["/cookies"]["GET"].as_strategy()
+    strategy = operation.as_strategy()
 
-    @given(case=strategy)
-    @settings(max_examples=3, suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
+    @run_given(case=strategy, max_examples=3)
     def test(case):
         response = case.call(app=app)
         assert response.status_code == 200
         assert response.json() == {"token": "test"}
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -68,12 +64,9 @@ def test_login_redirect_counts_as_enforced_auth(ctx):
         def set(self, case, data, context):
             case.cookies = {"session": data}
 
-    @given(case=schema["/me"]["GET"].as_strategy())
-    @settings(max_examples=1, deadline=None)
+    @run_given(case=schema["/me"]["GET"].as_strategy(), max_examples=1)
     def test(case):
         assert case.call_and_validate(checks=[ignored_auth]).json() == {"user": "alice"}
-
-    test()
 
 
 @pytest.mark.hypothesis_nested
@@ -82,44 +75,36 @@ def test_form_data(ctx):
     schema = schemathesis.openapi.from_wsgi("/openapi.json", api.wsgi_app)
     strategy = schema["/api/multipart"]["POST"].as_strategy()
 
-    @given(case=strategy)
-    @settings(max_examples=3, suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
+    @run_given(case=strategy, max_examples=3)
     def test(case):
         response = case.call()
         assert response.status_code == 200
         # converted to string in the app
         assert response.json() == {key: to_wire_string(value) for key, value in case.body.items()}
 
-    test()
-
 
 @pytest.mark.hypothesis_nested
-def test_binary_body(ctx, mocker):
+def test_binary_body(ctx):
     # When an API operation accepts a binary input
     api = ctx.openapi.apps.upload_file()
-    schema = ctx.openapi.load_schema(
+    operation = ctx.openapi.load_operation(
+        "POST /api/upload_file",
         {
-            "/api/upload_file": {
-                "post": {
-                    "requestBody": {
-                        "content": {"application/octet-stream": {"schema": {"format": "binary", "type": "string"}}}
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
+            "requestBody": {
+                "content": {"application/octet-stream": {"schema": {"format": "binary", "type": "string"}}}
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
     )
-    strategy = schema["/api/upload_file"]["POST"].as_strategy()
+    strategy = operation.as_strategy()
 
-    @given(case=strategy)
-    @settings(max_examples=3, suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
+    @run_given(case=strategy, max_examples=3)
     def test(case):
         response = case.call(app=api.wsgi_app)
         assert response.status_code == 200
-        assert response.json() == {"size": mocker.ANY}
+        assert response.json() == {"size": ANY}
 
     # Then it should be sent correctly
-    test()
 
 
 def test_app_with_parametrize(testdir):

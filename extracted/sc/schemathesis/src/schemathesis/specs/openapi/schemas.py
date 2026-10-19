@@ -22,7 +22,7 @@ from schemathesis.config import (
     HttpBearerAuthConfig,
     OperationOrdering,
 )
-from schemathesis.core import NOT_SET, Body, Specification, media_types
+from schemathesis.core import NOT_SET, Body, NotSet, Specification, media_types
 from schemathesis.core.errors import (
     InvalidSchema,
     InvalidStateMachine,
@@ -49,7 +49,9 @@ from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
 from schemathesis.generation.meta import CaseMetadata, ComponentInfo
 from schemathesis.resources import ExtraDataSource, ResourcePool
 from schemathesis.specs.openapi import adapter
+from schemathesis.specs.openapi.adapter.parameters import RequestBodySchemaCache
 from schemathesis.specs.openapi.adapter.protocol import SpecificationAdapter
+from schemathesis.specs.openapi.adapter.responses import ResponseSchemaCache
 from schemathesis.specs.openapi.adapter.security import OpenApiSecurity
 from schemathesis.specs.openapi.analysis import OpenAPIAnalysis
 
@@ -63,7 +65,7 @@ from ...schemas import APIOperation, APIOperationMap, BaseSchema
 from ._hypothesis import jsonify_python_specific_types, openapi_cases
 from ._operation_lookup import OperationLookup
 from .examples import get_strategies_from_examples
-from .operations import SCHEMA_PARSING_ERRORS, OperationLoader
+from .operations import SCHEMA_PARSING_ERRORS, OperationLoader, RawSchemaVersion
 from .serialization import _build_urlencoded_serializer
 from .stateful import collect_transitions, create_state_machine
 from .utils import PathTemplate, coerce_wire_string, compile_path_template, parameter_types, parse_spec_version
@@ -71,7 +73,7 @@ from .validation import ResponseValidator
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import TypeAlias
+    from typing import Self, TypeAlias
 
     from hypothesis import HealthCheck
     from hypothesis.strategies import SearchStrategy
@@ -88,6 +90,7 @@ if TYPE_CHECKING:
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.engine.run import Phase
+    from schemathesis.filters import FilterSet
     from schemathesis.generation.coverage import GenerationSession
     from schemathesis.generation.hypothesis.reporting import SlowParameter, UnsatisfiableParameter
     from schemathesis.generation.stateful import APIStateMachine
@@ -113,12 +116,23 @@ class OpenApiSchema(BaseSchema):
     _spec_version: str = field(init=False)
 
     @override
+    def clone(self, *, test_function: Callable | NotSet = NOT_SET, filter_set: FilterSet | NotSet = NOT_SET) -> Self:
+        cloned = super().clone(test_function=test_function, filter_set=filter_set)
+        # Clones share the raw schema, so a change made through one makes every clone's operations stale.
+        cloned.raw_schema_version = self.raw_schema_version
+        cloned._operations = OperationLoader(cloned)
+        return cloned
+
+    @override
     def __post_init__(self) -> None:
         self._initialize_adapter()
         super().__post_init__()
         self.analysis = OpenAPIAnalysis(self)
         self._bundler = Bundler(ref_siblings=self.adapter.ref_siblings)
         self._bundle_cache: BundleCache = {}
+        self.response_schema_cache = ResponseSchemaCache()
+        self.request_body_schema_cache = RequestBodySchemaCache()
+        self.raw_schema_version = RawSchemaVersion()
         self._operation_lookup = OperationLookup(self, HTTP_METHODS_SCHEMA)
         self._operations = OperationLoader(self)
         self._response_validator = ResponseValidator(self)
@@ -239,10 +253,7 @@ class OpenApiSchema(BaseSchema):
 
     @override
     def get_coverage_capabilities(self) -> CoverageCapabilities:
-        from schemathesis.specs.openapi.formats import STRING_FORMATS, get_default_format_strategies
-
         return CoverageCapabilities(
-            format_strategies={**get_default_format_strategies(), **STRING_FORMATS},
             update_pattern=update_quantifier,
             validator_cls=self.adapter.jsonschema_validator_cls,
         )
@@ -327,13 +338,18 @@ class OpenApiSchema(BaseSchema):
                 }
             else:
                 validation_value = value
-            is_valid = case._validate_component(location, validation_value, validator_cls)
-            if not is_valid and location != ParameterLocation.BODY and isinstance(validation_value, Mapping):
-                # Parameters travel as text, so `"5"` written for an integer parameter reaches the server as `5`.
-                is_valid = case._validate_component(
-                    location, _as_read_from_wire(case.operation, location, validation_value), validator_cls
-                )
-            if location in meta.components:
+            is_valid: bool | None
+            try:
+                is_valid = case._validate_component(location, validation_value, validator_cls)
+                if not is_valid and location != ParameterLocation.BODY and isinstance(validation_value, Mapping):
+                    # Parameters travel as text, so `"5"` written for an integer parameter reaches the server as `5`.
+                    is_valid = case._validate_component(
+                        location, _as_read_from_wire(case.operation, location, validation_value), validator_cls
+                    )
+            except jsonschema_rs.ValidationError:
+                # A schema its own draft rejects cannot judge the value, so the generation-time mode stands.
+                is_valid = None
+            if location in meta.components and is_valid is not None:
                 new_mode = GenerationMode.POSITIVE if is_valid else GenerationMode.NEGATIVE
                 meta.components[location] = ComponentInfo(mode=new_mode)
             meta.update_validated_hash(location, current_hash)
@@ -413,9 +429,11 @@ class OpenApiSchema(BaseSchema):
     def apply_stateful_inference(self, observations: Observations | None) -> StatefulInference:
         _ = self._validation_error
         injected = 0
-        if observations is not None and observations.location_headers:
+        if observations is not None:
             for operation, entries in observations.location_headers.items():
-                injected += self.analysis.inferencer.inject_links(operation.responses, entries)
+                injected += self.analysis.inferencer.inject_links(operation, entries)
+            for operation, body_entries in observations.body_urls.items():
+                injected += self.analysis.inferencer.inject_links(operation, body_entries)
         if self.analysis.should_inject_links():
             injected += self.analysis.inject_links()
         # Injected links land in the schema, where operations may share a response definition, so one
@@ -423,6 +441,7 @@ class OpenApiSchema(BaseSchema):
         # later reader see them, rather than the counts from before the injection.
         if injected:
             self.__dict__.pop("statistic", None)
+            self._operations.clear_cache()
         transitions = self.statistic.transitions
         return StatefulInference(inferred=injected, total=transitions.total, selected=transitions.selected)
 
@@ -716,13 +735,14 @@ class OpenApiSchema(BaseSchema):
         Returns None if no operation matches.
         """
         from werkzeug.exceptions import MethodNotAllowed, NotFound
+        from werkzeug.routing import RequestRedirect
 
         from schemathesis.specs.openapi.stateful.inference import OperationById
 
         # Match path and method using werkzeug router
         try:
             operation_ref, _ = self.analysis.inferencer._adapter.match(path, method=method.upper())
-        except (NotFound, MethodNotAllowed):
+        except (NotFound, MethodNotAllowed, RequestRedirect):
             return None
 
         if isinstance(operation_ref, OperationById):
@@ -876,6 +896,9 @@ class MethodMap(Mapping):
         operation = self._path_item[method]
         schema = cast(OpenApiSchema, self._parent._schema)
         path = self._path
+        cached = schema._operations.cached(self._scope, path, method)
+        if cached is not None:
+            return cached
         try:
             parameters = schema._iter_parameters(
                 operation, self._path_item.get("parameters", []), resolver=self._resolver

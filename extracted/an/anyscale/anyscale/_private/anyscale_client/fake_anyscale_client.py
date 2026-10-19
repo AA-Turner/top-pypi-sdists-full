@@ -120,6 +120,9 @@ from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_re
     SchedulerconfigversionsummaryListResponse,
 )
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
+from anyscale.client.openapi_client.models.workspace_ssh_details import (
+    WorkspaceSshDetails,
+)
 from anyscale.cluster_compute import parse_cluster_compute_name_version
 from anyscale.sdk.anyscale_client.configuration import Configuration
 from anyscale.sdk.anyscale_client.models import (
@@ -301,13 +304,19 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._workspaces_env_vars: Dict[str, Dict[str, str]] = {}
         self._clusters_headnode_ip: Dict[str, str] = {}
         self._clusters_ssh_key: Dict[str, SessionSshKey] = {}
+        self._kuberay_ssh_details: Dict[str, WorkspaceSshDetails] = {}
         self._api_keys: Dict[str, List[str]] = defaultdict(list)
         self._organization_collaborators: List[OrganizationCollaborator] = []
         self._organization_invitations: Dict[str, OrganizationInvitation] = {}
         self._resource_quotas: Dict[str, ResourceQuota] = {}
         # Scheduler config version history (newest at index 0).
         self._scheduler_configs: List[SchedulerConfigResponse] = []
-        self._system_cluster_status: Dict[str, str] = {}
+        # System cluster status per (cloud ID, cloud resource ID); a cloud resource ID of
+        # None is the cloud's primary cloud resource when none is given. No entry means
+        # that cloud resource has no system cluster.
+        self._system_cluster_status: Dict[Tuple[str, Optional[str]], str] = {}
+        self.system_cluster_terminate_calls: List[Tuple[str, Optional[str]]] = []
+        self.system_cluster_describe_calls: List[Tuple[str, Optional[str]]] = []
         self.upsert_resource_tags_calls: List[Tuple[str, str, Dict[str, str]]] = []
         self.delete_resource_tags_calls: List[Tuple[str, str, List[str]]] = []
         # Store resource tags in-memory for list operations
@@ -769,7 +778,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def add_cloud(self, cloud: Cloud):
         self._clouds[cloud.id] = cloud
-        self._system_cluster_status[cloud.id] = ClusterState.RUNNING
+        self._system_cluster_status[(cloud.id, None)] = ClusterState.RUNNING
 
         # Create a default compute config for this cloud
         if cloud.id not in self._default_compute_configs:
@@ -814,6 +823,27 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def add_cloud_resource(self, cloud_resource: DecoratedCloudResource) -> None:
         self._cloud_resources[cloud_resource.cloud_resource_id] = cloud_resource
+
+    def list_cloud_resources(self, cloud_id: str) -> List[DecoratedCloudResource]:
+        return [
+            cloud_resource
+            for cloud_resource in self._cloud_resources.values()
+            if cloud_resource.cloud_deployment_id == cloud_id
+        ]
+
+    def set_system_cluster_status(
+        self, cloud_id: str, status: Optional[str], cloud_resource_id: Optional[str] = None
+    ) -> None:
+        """Set the status of a cloud resource's system cluster; None means it has none."""
+        if status is None:
+            self._system_cluster_status.pop((cloud_id, cloud_resource_id), None)
+        else:
+            self._system_cluster_status[(cloud_id, cloud_resource_id)] = status
+
+    def get_system_cluster_status(
+        self, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> Optional[str]:
+        return self._system_cluster_status.get((cloud_id, cloud_resource_id))
 
     def get_default_cloud(self) -> Optional[Cloud]:
         return self._clouds.get(self.DEFAULT_CLOUD_ID, None)
@@ -946,22 +976,46 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         else:
             self._cloud_collaborators[cloud_id].extend(collaborators)
 
-    def terminate_system_cluster(self, cloud_id: str) -> Optional[ClusteroperationResponse]:
-        self._system_cluster_status[cloud_id] = ClusterState.TERMINATING
+    def terminate_system_cluster(
+        self,
+        cloud_id: str,
+        cloud_resource_id: Optional[str] = None,
+        *,
+        skip_if_nothing_to_terminate: bool = False,
+    ) -> Optional[ClusteroperationResponse]:
+        key = (cloud_id, cloud_resource_id)
+        status = self._system_cluster_status.get(key)
+        if status is None or status == ClusterState.TERMINATED:
+            if skip_if_nothing_to_terminate:
+                return None
+            raise ValueError(
+                "No system cluster found."
+                if status is None
+                else "System cluster is already terminated."
+            )
+        self._system_cluster_status[key] = ClusterState.TERMINATING
+        self.system_cluster_terminate_calls.append(key)
         return ClusteroperationResponse(
             result=ClusterOperation(
                 id="sop_123",
                 completed=False,
                 progress=None,
                 result=None,
-                cluster_id="fake-system-cluster-id",
+                cluster_id="fake-system-cluster-id"
+                + (f"-{cloud_resource_id}" if cloud_resource_id else ""),
                 cluster_operation_type="terminate",
             )
         )
 
-    def describe_system_workload_get_status(self, cloud_id: str) -> str:
-        self._system_cluster_status[cloud_id] = ClusterState.TERMINATED
-        return self._system_cluster_status[cloud_id]
+    def describe_system_workload_get_status(
+        self, cloud_id: str, cloud_resource_id: Optional[str] = None
+    ) -> str:
+        key = (cloud_id, cloud_resource_id)
+        self.system_cluster_describe_calls.append(key)
+        # Termination completes as soon as it's checked on.
+        if key in self._system_cluster_status:
+            self._system_cluster_status[key] = ClusterState.TERMINATED
+        return self._system_cluster_status.get(key, ClusterState.TERMINATED)
 
     def add_compute_config(self, compute_config: DecoratedComputeTemplate) -> int:
         compute_config.version = len(self._compute_config_name_to_ids[compute_config.name]) + 1
@@ -1036,6 +1090,15 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         archived_config = self._compute_configs.pop(compute_config_id)
         archived_config.archived_at = datetime.utcnow()
         self._archived_compute_configs[compute_config_id] = archived_config
+
+    def unarchive_compute_config(self, *, compute_config_id: str):
+        # The real API returns success for a config that is not archived,
+        # and 404s for an unknown ID (the pop below raises).
+        if compute_config_id in self._compute_configs:
+            return
+        config = self._archived_compute_configs.pop(compute_config_id)
+        config.archived_at = None
+        self._compute_configs[compute_config_id] = config
 
     def search_cluster_computes(self, query: Dict[str, Any]):  # noqa: PLR0912
         """Search for cluster computes matching the provided query.
@@ -2242,6 +2305,14 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def get_cluster_ssh_key(self, cluster_id: str) -> SessionSshKey:
         return self._clusters_ssh_key.get(cluster_id, None)  # type: ignore
+
+    def get_kuberay_workspace_ssh_details(self, workspace_id: str) -> WorkspaceSshDetails:
+        return self._kuberay_ssh_details.get(workspace_id, None)  # type: ignore
+
+    def set_kuberay_workspace_ssh_details(
+        self, workspace_id: str, details: WorkspaceSshDetails
+    ) -> None:
+        self._kuberay_ssh_details[workspace_id] = details
 
     def get_workspace_default_dir_name(self, workspace_id) -> str:
         workspace = self._workspaces.get(workspace_id, None)
