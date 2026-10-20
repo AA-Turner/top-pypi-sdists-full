@@ -1,19 +1,18 @@
 Metadata-Version: 2.5
 Name: Pint
-Version: 0.26.1
+Version: 0.26.2
 Summary: Physical quantities module
 Project-URL: Homepage, https://github.com/hgrecco/pint
 Project-URL: Documentation, https://pint.readthedocs.io/
 Author-email: "Hernan E. Grecco" <hernan.grecco@gmail.com>
 Maintainer-email: "Hernan E. Grecco" <hernan.grecco@gmail.com>, Jules Chéron <julescheron@gmail.com>
-License: BSD
+License-Expression: BSD-3-Clause
 License-File: AUTHORS
 License-File: LICENSE
 Keywords: conversion,physical,quantities,science,unit
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -29,7 +28,7 @@ Requires-Dist: flexparser>=0.4
 Requires-Dist: platformdirs>=2.1.0
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: all
-Requires-Dist: babel<=2.8; extra == 'all'
+Requires-Dist: babel; extra == 'all'
 Requires-Dist: dask<2025.3.0; extra == 'all'
 Requires-Dist: matplotlib; extra == 'all'
 Requires-Dist: numpy>=2.0.0; extra == 'all'
@@ -39,7 +38,7 @@ Requires-Dist: scipy; extra == 'all'
 Requires-Dist: uncertainties>=3.1.6; extra == 'all'
 Requires-Dist: xarray; extra == 'all'
 Provides-Extra: babel
-Requires-Dist: babel<=2.8; extra == 'babel'
+Requires-Dist: babel; extra == 'babel'
 Provides-Extra: codspeed
 Requires-Dist: pytest; extra == 'codspeed'
 Requires-Dist: pytest-benchmark; extra == 'codspeed'
@@ -233,8 +232,8 @@ LaTeX and pretty formatting. Unit name translation is available if Babel_ is
 installed.
 
 **Free to choose the numerical type**: You can use any numerical type
-(`fraction`, `float`, `decimal`, `numpy.ndarray`, etc). NumPy_ is not required
-but supported.
+(`float`, `fractions.Fraction`, `decimal.Decimal`, `numpy.ndarray`, etc).
+NumPy_ is supported, but not required.
 
 **Awesome NumPy integration**: When you choose to use a NumPy_ ndarray, its methods and
 ufuncs are supported including automatic conversion of units. For example

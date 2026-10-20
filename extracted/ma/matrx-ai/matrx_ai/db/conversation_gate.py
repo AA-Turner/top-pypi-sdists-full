@@ -61,6 +61,7 @@ from matrx_utils import detached_task, vcprint
 from matrx_ai.agents.conversation_type import derive_conversation_type, honest_lineage_type
 
 from .ownership_fields import is_organization_system_actor, stamp_org_id, stamp_row_owner
+from .stored_values_screen import CONVERSATION_VARIABLES, screen_stored_values
 
 
 def _cxm():
@@ -120,10 +121,13 @@ def _get_active_lane_coordinator():
     durability boundary, so a terminal inherited lane is not ownership at all:
     its caller must take the existing governed direct-write branch instead.
     """
+    # The owner is the current Coordinator's own lane, never the ambient one:
+    # a helper outliving its parent request still owns a live Coordinator.
     from matrx_connect.lane import get_current_lane
 
-    lane = get_current_lane()
-    if lane is not None and getattr(lane, "phase", None) != "active":
+    from matrx_ai.persistence.queue_helpers import live_owner_is_terminal
+
+    if live_owner_is_terminal(get_current_lane):
         return None
     return _get_coordinator()
 
@@ -294,6 +298,17 @@ def _resolve_conversation_type(ctx: Any, parent_conversation_id: str | None = No
         from matrx_ai.agents.conversation_type import ConversationType
 
         return ConversationType.MANDATE_CANDIDATE.value
+    # 🚨 A SYSTEM RUN INSIDE A CONVERSATION IS A SYSTEM PROCESS, NEVER A HELPER. The labeler, a
+    # condenser, a memory reader: the run mints its own conversation linked to the one it ran in
+    # (``_own_conversation_for_system_run``), and the fork stamps "subagent" — which nested ~2,100
+    # labeler runs under the chats they named (2026-10-18). Wins over the fork's type; a root
+    # system run keeps its derived type.
+    if getattr(ctx, "system_run", False) and (
+        parent_conversation_id or getattr(ctx, "parent_conversation_id", None)
+    ):
+        from matrx_ai.agents.conversation_type import ConversationType
+
+        return ConversationType.SYSTEM_PROCESS.value
     return derive_conversation_type(
         explicit=getattr(ctx, "conversation_type", None),
         is_internal_agent=bool(getattr(ctx, "is_internal_agent", False)),
@@ -301,6 +316,34 @@ def _resolve_conversation_type(ctx: Any, parent_conversation_id: str | None = No
         parent_conversation_id=parent_conversation_id
         or getattr(ctx, "parent_conversation_id", None),
     )
+
+
+#: Where a system process names the conversation it is ABOUT (never its parent).
+SUBJECT_CONVERSATION_KEY = "subject_conversation_id"
+
+
+def place_system_process_subject(
+    kwargs: dict[str, Any], conversation_type: str | None, *, add_metadata: bool = True
+) -> None:
+    """A system process is never a CHILD of the person's conversation (PB-08, 2026-10-19).
+
+    The labeler, a condenser, a RAG judge: platform work about a conversation, run as the
+    platform in its own organization. Stored as ``parent_conversation_id`` it hung a foreign
+    organization's row under the person's tree and surfaced in every helper / lineage query.
+    The link moves to ``metadata.subject_conversation_id``; only a delegated helper
+    (``subagent``) keeps a parent. ``add_metadata=False`` is for an UPDATE that carries no
+    metadata of its own (inventing one would replace the INSERT's, which has the subject).
+    """
+    from matrx_ai.agents.conversation_type import ConversationType
+
+    if conversation_type != ConversationType.SYSTEM_PROCESS.value:
+        return
+    subject = kwargs.pop("parent_conversation_id", None)
+    if not subject or ("metadata" not in kwargs and not add_metadata):
+        return
+    metadata = dict(kwargs.get("metadata") or {})
+    metadata[SUBJECT_CONVERSATION_KEY] = str(subject)
+    kwargs["metadata"] = metadata
 
 
 def _stamp_origin(
@@ -778,7 +821,7 @@ _ADOPTION_BLOCKING_COLUMNS: tuple[str, ...] = (
 #: sound rather than a shortcut: nothing in the platform writes any of these
 #: columns except an explicit human choice — the binding doors
 #: (``PUT``/``DELETE /conversations/{id}/sandbox``), ``persist_conversation_binding``
-#: recording the box a run was explicitly sent, the favourite star, and the
+#: recording the box a run was explicitly sent, the favorite star, and the
 #: exclude-from-knowledge-graph toggle. A create never sets them, so a default
 #: value here means "nobody has chosen", and a non-default value means "somebody
 #: chose, before any turn landed". There is no third writer to confuse the two.
@@ -814,7 +857,7 @@ _ADOPTION_RESET_TO_DEFAULT: dict[str, Any] = {
 }
 
 # One column cannot be both kept and cleared; a merge that lands it in both maps
-# would resolve silently in favour of whichever dict is applied last.
+# would resolve silently in favor of whichever dict is applied last.
 assert not (set(_ADOPTION_PRESERVED_USER_CHOICE) & set(_ADOPTION_RESET_TO_DEFAULT)), (
     "a conversation column is both preserved as user choice and reset on adoption"
 )
@@ -1205,7 +1248,9 @@ async def create_new_conversation(
             await store.ensure_conversation_exists(
                 conversation_id,
                 safe_user_id,
-                variables=dict(ctx.initial_variables) if ctx else {},
+                variables=screen_stored_values(
+                    CONVERSATION_VARIABLES, conversation_id, dict(ctx.initial_variables) if ctx else {}, ctx
+                ),
                 overrides=dict(ctx.initial_overrides) if ctx else {},
             )
         except Exception as exc:
@@ -1236,7 +1281,10 @@ async def create_new_conversation(
         "config": initial_config,
         "title": resolved_title,
         "metadata": _with_mandate_attribution(metadata or {}, ctx),
-        "variables": ctx.initial_variables if ctx else {},
+        # The host may keep some runs' values off this client-readable row (db/stored_values_screen).
+        "variables": screen_stored_values(
+            CONVERSATION_VARIABLES, conversation_id, ctx.initial_variables if ctx else {}, ctx
+        ),
         "overrides": ctx.initial_overrides if ctx else {},
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
@@ -1254,6 +1302,7 @@ async def create_new_conversation(
     create_kwargs["conversation_type"] = honest_lineage_type(
         create_kwargs["conversation_type"], verified_parent
     )
+    place_system_process_subject(create_kwargs, create_kwargs["conversation_type"])
     # THE START CLAIM. Committed with the row itself, so a second request
     # arriving milliseconds later can SEE that a run already owns this id.
     #
@@ -1432,7 +1481,9 @@ async def ensure_conversation_exists(
                 conversation_id=conversation_id,
                 user_id=user_id,
                 parent_conversation_id=parent_conversation_id,
-                variables=ctx.initial_variables if ctx else {},
+                variables=screen_stored_values(
+                    CONVERSATION_VARIABLES, conversation_id, ctx.initial_variables if ctx else {}, ctx
+                ),
                 overrides=ctx.initial_overrides if ctx else {},
             )
         except Exception as exc:
@@ -1490,7 +1541,9 @@ async def ensure_conversation_exists(
         "config": {},
         "title": title,
         "metadata": _with_mandate_attribution({}, ctx),
-        "variables": ctx.initial_variables if ctx else {},
+        "variables": screen_stored_values(
+            CONVERSATION_VARIABLES, conversation_id, ctx.initial_variables if ctx else {}, ctx
+        ),
         "overrides": ctx.initial_overrides if ctx else {},
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
@@ -1517,6 +1570,7 @@ async def ensure_conversation_exists(
     create_kwargs["conversation_type"] = honest_lineage_type(
         create_kwargs["conversation_type"], verified_parent
     )
+    place_system_process_subject(create_kwargs, create_kwargs["conversation_type"])
 
     # Route through the WriteCoordinator when a request scope is active
     # (the common path — every streaming request reaches here). The INSERT
@@ -2419,7 +2473,7 @@ def launch_conversation_gate(
             return
 
         vcprint(
-            f"[ConversationGate] INSERT failed — cancelling execution: {exc}",
+            f"[ConversationGate] INSERT failed — canceling execution: {exc}",
             color="red",
         )
 

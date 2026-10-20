@@ -255,16 +255,18 @@ async def _can_access_instance(row: Any, ctx: ToolContext, level: str) -> bool:
     ``editor`` — ``SELECT ... FOR UPDATE`` returns it (the UPDATE policy answers).
     No owner fast path and no ``iam.has_access_for`` call: the database decides.
     """
-    from matrx_ai.tools.person_session import as_the_person, person_may_change
+    from matrx_ai.tools.implementations.kind_shared import in_the_persons_lane
+    from matrx_ai.tools.person_session import person_may_change
 
     if not ctx_user_id(ctx):
         return False
     KindInstance = get_db_model("KindInstance")
-    if level == "viewer":
-        async with as_the_person():
+    # The same session + admin lane the instance writes use (writing_as_the_person).
+    async with in_the_persons_lane(ctx):
+        if level == "viewer":
             seen = await KindInstance.get_or_none(use_cache=False, id=str(row.id))
-        return seen is not None
-    return await person_may_change(KindInstance, {"id": str(row.id)})
+            return seen is not None
+        return await person_may_change(KindInstance, {"id": str(row.id)})
 
 
 async def _resolve_instance(

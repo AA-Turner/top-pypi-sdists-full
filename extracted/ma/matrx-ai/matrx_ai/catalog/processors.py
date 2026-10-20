@@ -8,13 +8,13 @@ processors: ``processor_config["order"]`` (default 100), tie-broken by key.
 
 The built-ins below are the exact (now sole) owners of the irreducible
 thinking arithmetic ported from the retired ThinkingConfig; the chat param
-golden (tests/fixtures/chat_param_golden) freezes their behaviour.
+golden (tests/fixtures/chat_param_golden) freezes their behavior.
 
 TRANSLATION TABLES ARE DATA (settings-translation C5, CONTRACTS.md K6). No
 table lives here: a processor reads its numbers/maps from ITS rule —
 ``rule.from_number`` (number -> scale), ``rule.to_number`` (scale -> number),
 ``rule.processor_config[...]`` (maps / thresholds) — and falls back to the
-declared defaults in ``catalog/translation_defaults.py`` (today's behaviour)
+declared defaults in ``catalog/translation_defaults.py`` (today's behavior)
 when the rule carries none.
 
 Converted-sibling note: ``CompiledControlsMap.bridge_numbers`` (the
@@ -407,7 +407,7 @@ def _anthropic_budget_thinking(
         validated_max = max(thinking_budget + headroom, default_max)
     elif current_max <= thinking_budget:
         # Chair ruling R-a (2026-10-04): a translation never DEFEATS what the person
-        # explicitly set. Their output cap is honoured; the THINKING yields to fit
+        # explicitly set. Their output cap is honored; the THINKING yields to fit
         # under it (live e7c78e54: effort max + cap 50 was sent max_tokens 26624).
         # Anthropic needs budget >= min_budget and max_tokens > budget, and the
         # answer needs room (R-b: an empty answer is a failure) — so the budget
@@ -442,7 +442,7 @@ def _anthropic_budget_thinking(
                 provenance="computed",
                 reason=(
                     f"the requested output cap {cap} is below the smallest thinking budget "
-                    f"Anthropic accepts ({min_budget}); thinking switched off to honour the cap"
+                    f"Anthropic accepts ({min_budget}); thinking switched off to honor the cap"
                 ),
             )
         )

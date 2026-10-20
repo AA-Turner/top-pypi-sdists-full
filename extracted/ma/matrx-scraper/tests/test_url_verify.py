@@ -101,7 +101,7 @@ def _client(handler) -> httpx.AsyncClient:
 @pytest.fixture(autouse=True)
 def _no_dns(monkeypatch):
     """The SSRF guard does real DNS; these hosts are fictional. Tests that want
-    the guard's behaviour override this explicitly."""
+    the guard's behavior override this explicitly."""
 
     async def _ok(url: str) -> str:
         return url

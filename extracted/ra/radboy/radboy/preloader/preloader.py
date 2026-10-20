@@ -173,6 +173,11 @@ preloader={
             'desc':'generate appropriate length random string hex/base32'
             	},
     f'{uuid1()}':{
+            'cmds':['ttlexp',"ttlxp","total expense"],
+            'exec':total_expense,
+            'desc':'calculate total expense using Total_Expense=((Price+CRV)*TaxRate)+(Price+CRV)'
+            	},
+    f'{uuid1()}':{
             'cmds':['xp nm cn',"customer name","cn",],
             'exec':customer_name,
             'desc':'create new name for entry\'s where customer is needed'

@@ -78,7 +78,7 @@ _KNOWN_FORMAT_BASES: tuple[str, ...] = tuple(
 
 # Some canonical tokens spell the exact same codec two different ways
 # (mu-law telephony is "mulaw" bare or "ulaw_8000" parameterised; A-law is
-# "alaw" bare or "alaw_8000"). Normalising the base here means family
+# "alaw" bare or "alaw_8000"). Normalizing the base here means family
 # membership and rate-matching only ever have to know ONE name per codec.
 _BASE_SYNONYMS: dict[str, str] = {"ulaw": "mulaw"}
 

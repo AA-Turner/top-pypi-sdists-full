@@ -210,7 +210,7 @@ async def hold_step(
     (``aidream/workflows/mandates.py``, D21 — "unreachable or broken is tracked
     exactly like real, plus a red flag"), so the unbound state is the DECLARED,
     INTENDED state of this mandate, not an error. D20 keeps today's inventory a
-    fix list rather than a licence to 500, and D23 rules the whole class:
+    fix list rather than a license to 500, and D23 rules the whole class:
     scream loud and red and REPORT, never block. Live on 2026-09-12 the
     refusing shape took down every authored ``ai.*`` step on production (run
     fbe577d6…, definition 129a4ec1… "Montessori Parenting Adviser", node

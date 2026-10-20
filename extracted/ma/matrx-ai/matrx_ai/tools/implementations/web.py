@@ -135,6 +135,7 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
         all_text_results: list[str] = []
+        site_icons: dict[str, str] = {}
         for query in parsed.queries:
             await stream.progress(f"Searching: {query}")
             results = await search_web_mcp_quick(
@@ -148,6 +149,8 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 text_content = results.get("result", "")
                 if text_content:
                     all_text_results.append(text_content)
+                for url, icon in (results.get("site_icons") or {}).items():
+                    site_icons.setdefault(url, icon)
 
         combined_text = "\n\n".join(all_text_results)
 
@@ -185,6 +188,7 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             tool_name="web_search",
             call_id=ctx.call_id,
             output_self_capped=True,
+            site_icons=site_icons or None,
         )
 
     except ImportError as exc:
@@ -773,6 +777,8 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if final_truncated:
             timing["final_result_truncated"] = True
 
+        from matrx_scraper.search.search import site_icons_from_search_results
+
         return _with_hint(ToolResult(
             success=True,
             output=final_text,
@@ -780,6 +786,7 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             started_at=started_at,
             completed_at=time.time(),
             output_self_capped=True,
+            site_icons=site_icons_from_search_results(queries_with_results) or None,
         ), [{"url": f["url"], "success": False, "coverage": f.get("coverage") or [],
              "advanced_read": f.get("advanced_read")} for f in read_failures])
 

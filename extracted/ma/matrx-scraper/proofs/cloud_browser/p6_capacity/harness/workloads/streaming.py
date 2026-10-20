@@ -7,7 +7,7 @@ PLAN.md, verbatim:
 
 These are the workloads most likely to SKIP, because they need a stream plane (Selkies),
 sometimes a GPU, a sandbox image, and a TURN server. That is expected and is not a
-harness failure -- but it is also not a result. Every skip is labelled with what is
+harness failure -- but it is also not a result. Every skip is labeled with what is
 missing and what to install, and the run summary refuses the word "complete".
 
 Selkies mode vs encoder-proxy mode

@@ -622,7 +622,7 @@ async def test_anthropic_only_whitespace_stop_sequences_are_left_out(captured) -
 
 # ── NET: the universal safety net (settings-translation lane NET, 2026-10-04) ─
 #
-# Breaks named: a settings rejection nobody catalogued returns no answer and
+# Breaks named: a settings rejection nobody cataloged returns no answer and
 # lands untyped (`provider_request_failed`, no fingerprint) — the three live
 # cases from the V2 verifier (Groq temperature 5, xAI `stop`, Gemini 2.5 Pro
 # budget) and any NEW one. The net must answer through the safe minimum, file

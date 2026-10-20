@@ -67,7 +67,7 @@ def test_finished_sessions_are_not_resumable(status) -> None:
 
 def test_user_cancelled_sessions_are_not_resumable() -> None:
     """A cancel is a deliberate terminal choice — a resume must never undo it."""
-    with pytest.raises(ValueError, match="cancelled"):
+    with pytest.raises(ValueError, match="canceled"):
         _assert_session_resumable(_session(metadata={"cancel_request": {"requested": True}}))
 
 
@@ -392,7 +392,7 @@ def test_lease_filter_pins_a_write_to_its_owner() -> None:
 
     assert _lease_filter("tok") == {"metadata__json_contains": {"run_lease": {"owner": "tok"}}}
     # No token (legacy/unleased caller) must not silently filter to nothing
-    # matching — it degrades to the previous unconditional behaviour.
+    # matching — it degrades to the previous unconditional behavior.
     assert _lease_filter(None) == {}
 
 

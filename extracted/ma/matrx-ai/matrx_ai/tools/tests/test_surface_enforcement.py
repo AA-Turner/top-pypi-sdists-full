@@ -8,7 +8,7 @@ never_include_tools). By the time a spec reaches ``merge_request_tools``
 it has already passed those filters.
 
 These tests are kept as a placeholder so the test file path stays stable
-for any CI configuration that targets it; the actual gate behaviour now
+for any CI configuration that targets it; the actual gate behavior now
 belongs in the host's resolver tests, not here.
 """
 from __future__ import annotations

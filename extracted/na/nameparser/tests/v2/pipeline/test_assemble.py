@@ -135,7 +135,7 @@ def test_ambiguity_with_all_indices_dropped_is_omitted() -> None:
 
 def test_a_connective_or_initial_report_is_withdrawn_where_the_role_is_a_suffix(
 ) -> None:
-    """rules.md#A1, the withdrawal (#397 second review).
+    """rules/A1, the withdrawal (#397 second review).
 
     classify's connective-or-initial fork offers a connective and an
     initial and its detail says which it took. A generation is
@@ -154,7 +154,7 @@ def test_a_connective_or_initial_report_is_withdrawn_where_the_role_is_a_suffix(
         "JOHN QUINCY SMITH I": ["suffix-or-name"],
         "john smith i": ["suffix-or-name"],
         "SMITH, JOHN I": [],
-        "HENRY I": ["suffix-or-name", "given-or-family"],
+        "HENRY SMITH I": ["suffix-or-name"],
     }
     for text, kinds in withdrawn.items():
         name = parse(text)
@@ -164,6 +164,9 @@ def test_a_connective_or_initial_report_is_withdrawn_where_the_role_is_a_suffix(
     # the contrast that keeps the withdrawal honest: where the parse
     # roles the same letter a NAME word the fork DID resolve to one
     # of its branches, and the report stands
+    # -- each with a word to the letter's right: ending its part, as
+    # in 'HENRY I', the letter connects nothing and classify reports
+    # nothing (rules/P3, #721)
     for text in ("JOSEP CAROD I ROVIRA", "josep carod i rovira",
                  "JOHN I SMITH", "JOSEP CAROD I ROVIRA III"):
         name = parse(text)

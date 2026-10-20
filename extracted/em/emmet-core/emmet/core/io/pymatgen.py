@@ -133,7 +133,7 @@ _non_core_class_map: dict[str, str] = {
     "LightStructureEnvironments": "analysis.chemenv.coordination_environments.structure_environments",
     "SimplestChemenvStrategy": "analysis.chemenv.coordination_environments.chemenv_strategies",
     "LocalGeometryFinder": "analysis.chemenv.coordination_environments.coordination_geometry_finder",
-    "MaterialsProjectDFTMixingScheme": "entries.mixing_scheme",
+    "MaterialsProjectDFTMixingScheme": "analysis.compatibility.mixing_scheme",
     "PiezoTensor": "analysis.piezo",
     "WAVELENGTHS": "analysis.diffraction.xrd",
     "XRDCalculator": "analysis.diffraction.xrd",
@@ -201,7 +201,7 @@ def __getattr__(name: str) -> Any:
             import_module(f"{_BASE_PACKAGE_NAME}.{_class_map[name]}"),
             _name_collision_aliases.get(name, name),
         )
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    raise AttributeError(f"module {repr(__name__)} has no attribute {repr(name)}")
 
 
 def __dir__() -> Sequence[str]:

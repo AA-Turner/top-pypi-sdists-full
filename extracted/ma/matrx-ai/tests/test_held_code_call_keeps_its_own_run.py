@@ -13,7 +13,7 @@ The real ``execute_ai_request`` runs; only the provider loop
 * the call runs as a NEW conversation linked to the one it ran inside, and the
   caller's context is unchanged afterwards;
 * a machine context minted non-persisting still stores it; a person's own
-  do-not-save request is honoured;
+  do-not-save request is honored;
 * ``HeldCall.finish`` hands the host the run's conversation + request ids —
   only for a stored run.
 """

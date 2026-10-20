@@ -121,7 +121,8 @@ def validate_file_upload_if_present(file_upload: Optional[FileUpload]) -> None:
     _validate_expected_bytes(file_upload.expected_bytes)
 
 
-def file_upload_chunks(table: str, file_upload: FileUpload) -> Iterator[connector_sdk_pb2.UnstructuredRecord]:
+def file_upload_chunks(
+        schema: Optional[str], table: str, file_upload: FileUpload) -> Iterator[connector_sdk_pb2.UnstructuredRecord]:
     """Generator that reads from stream and yields UnstructuredRecord chunks.
     
     Reads in chunks up to FILE_UPLOAD_CHUNK_SIZE_BYTES with per-read timeout.
@@ -138,6 +139,8 @@ def file_upload_chunks(table: str, file_upload: FileUpload) -> Iterator[connecto
                 "chunk_data": data,
                 "is_last": is_last,
             }
+            if schema is not None:
+                chunk_args["schema_name"] = schema
             if file_upload.expected_bytes is not None:
                 chunk_args["expected_bytes"] = file_upload.expected_bytes
 

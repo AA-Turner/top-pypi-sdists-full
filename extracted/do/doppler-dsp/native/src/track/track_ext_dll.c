@@ -17,6 +17,7 @@ typedef struct
 {
   PyObject_HEAD dp_dll_state_t *handle;
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
+  PyObject     *_jm_retain_set_telemetry_tlm; /* keeps tlm's owner alive */
 } DllObject;
 
 static void
@@ -25,6 +26,7 @@ DllObj_dealloc (DllObject *self)
   if (self->handle)
     dp_dll_destroy (self->handle);
   jm_inflight_free (&self->_jm_inflight);
+  Py_XDECREF (self->_jm_retain_set_telemetry_tlm);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -332,6 +334,12 @@ DllObj_set_telemetry (DllObject *self, PyObject *args, PyObject *kwds)
                     (long long)_rc);
       return NULL;
     }
+  /* retain: the kernel keeps `tlm`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (tlm_obj != Py_None)
+    Py_INCREF (tlm_obj);
+  Py_XSETREF (self->_jm_retain_set_telemetry_tlm,
+              tlm_obj != Py_None ? tlm_obj : NULL);
   Py_RETURN_NONE;
 }
 
@@ -660,7 +668,15 @@ Dll_setprop_bn (DllObject *self, PyObject *value, void *Py_UNUSED (closure))
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_dll_set_bn (self->handle, v);
+  int _rc = dp_dll_set_bn (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Dll: bn is outside the loop filter's domain (need bn >= "
+                    "0, finite, whose loop gains come out finite)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -746,35 +762,51 @@ Dll_getprop_noise_est (DllObject *self, void *Py_UNUSED (closure))
   return PyFloat_FromDouble (dp_dll_get_noise_est (self->handle));
 }
 
-static PyGetSetDef Dll_getset[]
-    = { { "bn", (getter)Dll_getprop_bn, (setter)Dll_setprop_bn,
-          "loop noise bandwidth (retained).\n", NULL },
-        { "code_phase", (getter)Dll_getprop_code_phase, NULL, "Code phase.\n",
-          NULL },
-        { "code_rate", (getter)Dll_getprop_code_rate, NULL,
-          "chips advanced per nominal chip (~1.0).\n", NULL },
-        { "last_error", (getter)Dll_getprop_last_error, NULL,
-          "last discriminator output (loop stress).\n", NULL },
-        { "segments", (getter)Dll_getprop_segments, NULL,
-          "partial correlations per epoch (1 = full).\n", NULL },
-        { "symbol_window", (getter)Dll_getprop_symbol_window, NULL,
-          "The lock detector's coherent window in partials when "
-          "set_symbol_period is on (0 = off) -- size n_looks from it.\n",
-          NULL },
-        { "locked", (getter)Dll_getprop_locked, NULL,
-          "Current lock decision: True after the verify count of consecutive "
-          "above-threshold N-look decisions, False again after the drop count "
-          "of consecutive below-threshold ones (see configure_lock).\n",
-          NULL },
-        { "lock_stat", (getter)Dll_getprop_lock_stat, NULL,
-          "Last code-lock test statistic R = sqrt(2*sum|P|^2 / E|O|^2); "
-          "compare against det_threshold_noncoherent(pfa, n_looks).\n",
-          NULL },
-        { "noise_est", (getter)Dll_getprop_noise_est, NULL,
-          "Current CFAR noise-power estimate E|O|^2 from the off-peak (noise) "
-          "tap EMA.\n",
-          NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef Dll_getset[] = {
+  { "bn", (getter)Dll_getprop_bn, (setter)Dll_setprop_bn,
+    "loop noise bandwidth (retained).\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_dll_set_bn`` refuses the value by returning\n"
+    "    non-zero. The exception message is ``Dll: bn is outside the loop\n"
+    "    filter's domain (need bn >= 0, finite, whose loop gains come out\n"
+    "    finite)``, with the return code appended.\n",
+    NULL },
+  { "code_phase", (getter)Dll_getprop_code_phase, NULL, "Code phase.\n",
+    NULL },
+  { "code_rate", (getter)Dll_getprop_code_rate, NULL,
+    "the loop's own rate, chips per nominal chip (~1.0): 1 + the loop filter "
+    "output (its integrator alone at segments == 1), without the rate aid, so "
+    "the code runs at code_rate + rate_aid. It is read before the NCO "
+    "truncates its command to a whole phase step of sf*sps/2^32 chips per "
+    "chip, so a settled reading sits up to one step above the rate the loop "
+    "carries.\n",
+    NULL },
+  { "last_error", (getter)Dll_getprop_last_error, NULL,
+    "last discriminator output (loop stress).\n", NULL },
+  { "segments", (getter)Dll_getprop_segments, NULL,
+    "partial correlations per epoch (1 = full).\n", NULL },
+  { "symbol_window", (getter)Dll_getprop_symbol_window, NULL,
+    "The lock detector's coherent window in partials when set_symbol_period "
+    "is on (0 = off) -- size n_looks from it.\n",
+    NULL },
+  { "locked", (getter)Dll_getprop_locked, NULL,
+    "Current lock decision: True after the verify count of consecutive "
+    "above-threshold N-look decisions, False again after the drop count of "
+    "consecutive below-threshold ones (see configure_lock).\n",
+    NULL },
+  { "lock_stat", (getter)Dll_getprop_lock_stat, NULL,
+    "Last code-lock test statistic R = sqrt(2*sum|P|^2 / E|O|^2); compare "
+    "against det_threshold_noncoherent(pfa, n_looks).\n",
+    NULL },
+  { "noise_est", (getter)Dll_getprop_noise_est, NULL,
+    "Current CFAR noise-power estimate E|O|^2 from the off-peak (noise) tap "
+    "EMA.\n",
+    NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 DllObj_destroy (DllObject *self, PyObject *Py_UNUSED (ignored))
@@ -827,33 +859,40 @@ static PyMethodDef DllObj_methods[] = {
   { "steps", (PyCFunction)(void *)DllObj_steps, METH_VARARGS | METH_KEYWORDS,
     "steps(x, out) -> ndarray\n"
     "\n"
-    "Correlate a cf32 block against the local code with early/prompt/late "
-    "taps and steer the code NCO each code period on the non-coherent "
-    "(sum|E|-sum|L|)/(sum|E|+sum|L|) discriminator. With segments=1 (default) "
-    "this is a coherent full-epoch integrate-and-dump: one prompt symbol per "
-    "period. With segments>1 each epoch is split into that many sub-epoch "
-    "partial correlations: it emits that many partial prompts per period (a "
-    "stream at ~segments samples/symbol when the symbol rate is near the code "
-    "rate) and tracks the code non-coherently across the partials, which a "
-    "data flip cannot collapse (robust to an asynchronous data-symbol clock). "
-    "segments>1 is the streaming despreader: it removes the PN code and "
-    "outputs samples. The non-coherent loop is carrier-blind, so it tracks "
-    "with a residual carrier still on the input; carrier recovery (Costas) "
-    "and symbol-timing recovery (SymbolSync) are downstream stages fed from "
-    "the partial output. Returned blocks are safe to keep across calls "
-    "(block-size invariant): a block whose array is still referenced is never "
-    "overwritten by a later call (jm gh-437).\n"
+    "Correlate a carrier-wiped cf32 block against the local code with "
+    "early/prompt/late taps and steer the code NCO on the power discriminator "
+    "0.5*(|E|^2-|L|^2)/|P|^2. With segments=1 (default) this is a coherent "
+    "full-epoch integrate-and-dump: one prompt symbol per period. With "
+    "segments>1 each epoch is split into that many sub-epoch partial "
+    "correlations: it emits that many partial prompts per period (a stream at "
+    "~segments samples/symbol when the symbol rate is near the code rate) and "
+    "steers on coherent sums over the one-period window its look-back finds "
+    "free of a data transition, so a data flip cannot collapse it (robust to "
+    "an asynchronous data-symbol clock). segments>1 is the streaming "
+    "despreader: it removes the PN code and outputs samples. The sums are "
+    "coherent and the discriminator takes their powers, so the loop is blind "
+    "to the carrier's phase but not to its frequency: wipe the carrier first, "
+    "and recover symbol timing (SymbolSync) downstream, from the partial "
+    "output. Returned blocks are safe to keep across calls (block-size "
+    "invariant): a block whose array is still referenced is never overwritten "
+    "by a later call (jm gh-437).\n"
     "\n"
     "The Python face of the loop. Each code period the early/prompt/late\n"
-    "correlators dump, the power-domain non-coherent early-minus-late\n"
-    "discriminator runs, and the fixed-point code-phase NCO is re-steered;\n"
-    "the prompt correlator value is emitted as one output symbol per period\n"
-    "(or `segments` partial prompts per period when `segments > 1`). The\n"
-    "loop is carrier-blind — it tracks with a residual carrier still on the\n"
-    "input, so carrier recovery (Costas) and symbol-timing recovery are\n"
-    "downstream stages fed from this output. Returned blocks are block-size\n"
-    "invariant and safe to keep across calls (a block still referenced is\n"
-    "never overwritten, jm gh-437).\n"
+    "correlators dump, the power-domain early-minus-late discriminator runs,\n"
+    "and the fixed-point code-phase NCO is re-steered; the prompt correlator\n"
+    "value is emitted as one output symbol per period (or `segments` partial\n"
+    "prompts per period when `segments > 1`). The discriminator's early,\n"
+    "late and prompt are coherent sums over its window -- one code period,\n"
+    "or with dp_dll_set_symbol_period() the transition-free window of a\n"
+    "symbol -- and it takes their powers. So the loop is blind to the\n"
+    "carrier's phase but not to its frequency: a residual `df` costs a\n"
+    "window of `T` seconds `sinc^2(df * T)` of its power, and a whole `1/T`\n"
+    "cycle nulls it. Wipe the carrier before this call: AsyncDsssReceiver\n"
+    "runs its carrier loop upstream of its Dll and hands the same estimate\n"
+    "to dp_dll_set_rate_aid(). Symbol-timing recovery runs downstream, on\n"
+    "this output. Returned blocks are block-size invariant and safe to keep\n"
+    "across calls (a block still referenced is never overwritten, jm\n"
+    "gh-437).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -904,17 +943,23 @@ static PyMethodDef DllObj_methods[] = {
     "set_telemetry(tlm, prefix, decim) -> None\n"
     "\n"
     "Attach (or detach) a telemetry context and register the code loop's\n"
-    "probes on it. Registers four probes, emitted once per code epoch\n"
+    "probes on it. Registers five probes, emitted once per code epoch\n"
     "(period) and further thinned by decim: \"<prefix>.e\" (the\n"
     "early-minus-late envelope discriminator — the loop stress),\n"
     "\"<prefix>.rate\" (the tracked code rate, chips advanced per nominal\n"
-    "chip, ~1.0 at lock), \"<prefix>.lock\" (the CFAR lock statistic R;\n"
-    "compare against the configured threshold) and \"<prefix>.locked\" (the\n"
-    "verify-counted lock decision, 0/1 — the lockdet output, so a consumer\n"
-    "sees where the declare/drop rule fired without re-deriving it from the\n"
-    "statistic). Passing NULL detaches. Setup path, never hot: call before\n"
-    "the producer thread starts stepping; the context is borrowed and must\n"
-    "outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).\n"
+    "chip, ~1.0 at lock — dp_dll_get_code_rate(), the loop's own rate,\n"
+    "without the carrier aid; a held loop reports its held integrator's),\n"
+    "\"<prefix>.lock\" (the CFAR lock statistic R; compare against the\n"
+    "configured threshold), \"<prefix>.locked\" (the verify-counted lock\n"
+    "decision, 0/1 — the lockdet output, so a consumer sees where the\n"
+    "declare/drop rule fired without re-deriving it from the statistic) and\n"
+    "\"<prefix>.nco\" (what the code NCO is commanded: the complete\n"
+    "loop-filter output, the integrator, the proportional term and the\n"
+    "carrier aid, as chips per nominal chip, at the NCO's resolution of one\n"
+    "phase-increment step; a held loop's held command). Passing NULL\n"
+    "detaches. Setup path, never hot: call before the producer thread starts\n"
+    "stepping; the context is borrowed and must outlive the attachment (SPSC\n"
+    "rules in dp_tlm/dp_tlm_core.h).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -941,11 +986,11 @@ static PyMethodDef DllObj_methods[] = {
     ">>> d = Dll(code=code, sps=2)\n"
     ">>> d.set_telemetry(tlm, \"code\")\n"
     ">>> sorted(tlm.probe_names)\n"
-    "['code.e', 'code.lock', 'code.locked', 'code.rate']\n"
+    "['code.e', 'code.lock', 'code.locked', 'code.nco', 'code.rate']\n"
     ">>> x = np.ones(31 * 2 * 50, dtype=np.complex64)\n"
     ">>> _ = d.steps(x)\n"
-    ">>> recs = tlm.read()   # four records per code epoch\n"
-    ">>> len(recs) > 0 and len(recs) % 4 == 0\n"
+    ">>> recs = tlm.read()   # five records per code epoch\n"
+    ">>> len(recs) > 0 and len(recs) % 5 == 0\n"
     "True\n" },
   { "configure", (PyCFunction)(void *)DllObj_configure,
     METH_VARARGS | METH_KEYWORDS,
@@ -1126,13 +1171,14 @@ static PyMethodDef DllObj_methods[] = {
     "symbol timing, and its windows become the detector's looks -- 7.8 dB "
     "more per look at 1.8 epochs per symbol and four partials per epoch, and "
     "never across a transition. Size n_looks with detection.det_n_noncoh over "
-    "L * (sf * sps / segments) samples. Only the detector's looks change: the "
-    "discriminator keeps its per-epoch window and the emitted partial stream "
-    "is untouched. Raises ValueError when segments <= 1, or the period is not "
-    "finite, is negative, is in (0, 2) or is past 2^20 partials, or when the "
-    "bandwidth's loop gains would overflow at the period's interval or at t = "
-    "1 (the bandwidth domain). Exactly 0 turns the aid off; a negative period "
-    "is refused, not taken as 0.\n"
+    "L * (sf * sps / segments) samples. The discriminator steers once per "
+    "symbol on the same winning window, its filter re-timed so bn keeps its "
+    "per-epoch meaning; the emitted partial stream is untouched. Raises "
+    "ValueError when segments <= 1, or the period is not finite, is negative, "
+    "is in (0, 2) or is past 2^20 partials, or when the bandwidth's loop "
+    "gains would overflow at the period's interval or at t = 1 (the bandwidth "
+    "domain). Exactly 0 turns the aid off; a negative period is refused, not "
+    "taken as 0.\n"
     "\n"
     "In `segments > 1` mode every partial is a look for the code-lock\n"
     "detector (dp_dll_configure_lock()) and the discriminator sees one epoch\n"
@@ -1547,13 +1593,14 @@ static PyTypeObject DllObjType = {
     "    full-epoch integrate-and-dump (one prompt/period). >1 splits each "
     "epoch\n"
     "    into that many sub-epoch partials: it emits that many partial\n"
-    "    prompts/period and tracks the code non-coherently across them "
-    "(robust\n"
-    "    to an asynchronous data-symbol clock). segments/epoch ~ "
-    "samples/symbol\n"
-    "    at a downstream SymbolSync when the symbol rate is near the code "
-    "rate,\n"
-    "    so choose >= 2 for symbol-timing recovery.\n"
+    "    prompts/period and steers on the transition-free one-period window "
+    "its\n"
+    "    look-back finds among them (robust to an asynchronous data-symbol\n"
+    "    clock). segments/epoch ~ samples/symbol at a downstream SymbolSync "
+    "when\n"
+    "    the symbol rate is near the code rate, so choose >= 2 for "
+    "symbol-timing\n"
+    "    recovery.\n"
     "\n"
     "Raises\n"
     "------\n"

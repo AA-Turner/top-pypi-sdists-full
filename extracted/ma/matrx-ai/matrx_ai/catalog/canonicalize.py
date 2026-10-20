@@ -5,7 +5,7 @@ NOT applied here — that is ``CompiledControlsMap.outbound``'s job. This module
 is the SOLE owner of the ``disable_reasoning`` / ``thinking_budget``
 normalization (inherited byte-identical from the retired
 ThinkingConfig.from_settings / to_openai_reasoning; the chat param golden in
-packages/matrx-ai/tests/fixtures/chat_param_golden freezes the behaviour).
+packages/matrx-ai/tests/fixtures/chat_param_golden freezes the behavior).
 """
 
 from __future__ import annotations
@@ -58,7 +58,8 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
 
     # verbosity (gpt-5.x text.verbosity) rides only where an api/offering rule
     # declares it — the declared-keys gate drops it loudly everywhere else.
-    for key in ("temperature", "top_p", "top_k", "max_output_tokens", "seed", "verbosity"):
+    for key in ("temperature", "top_p", "top_k", "max_output_tokens", "seed", "verbosity",
+                "frequency_penalty", "presence_penalty"):
         value = getattr(config, key, None)
         if value is not None:
             out[key] = value
@@ -93,6 +94,17 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     clear_thinking = getattr(config, "clear_thinking", None)
     if clear_thinking is not None:
         out["clear_thinking"] = clear_thinking
+
+    # Request flags the translators used to read straight off the config (OpenAI, xAI,
+    # Cerebras) — never through the rules — so a model that takes neither dropped them with
+    # no record (PB-03 defect 52). Carried here, the rules gate sends or records them like
+    # any setting. ``parallel_tool_calls`` defaults to True: only an explicit False is a
+    # request; ``store`` None is unset.
+    store = getattr(config, "store", None)
+    if store is not None:
+        out["store"] = bool(store)
+    if getattr(config, "parallel_tool_calls", True) is False:
+        out["parallel_tool_calls"] = False
 
     _add_media_settings(config, out)
 

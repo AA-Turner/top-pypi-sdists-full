@@ -2,7 +2,8 @@
 
 While the lease is live and the switch reads `daemon`, the `probe` CLI refuses
 the coding agent's ambient writes: the daemon records. A session the researcher
-set inline (`/probe inline`, state `full`) stops the daemon the way `off` does:
+set inline (`/probe inline`, state `full`), or a confirmed quota handoff (`full`
+or `read-only` plus an inline marker), stops the daemon the way `off` does:
 the worker releases the lease and exits (`inline`). When the daemon is down, hung or unauthorized the
 lease lapses or is released with a reason, and the agent records again. v2
 renews it on PROGRESS -- after every model round and every write -- and checks it
@@ -108,7 +109,7 @@ def reads_only(session_id: str, state: str | None = None) -> bool:
     """`read only (daemon)` (Richard 2026-09-29): the switch reads `read-only` in a
     daemon-profile session. The reader keeps reading; the writer records nothing."""
     state = session_state(session_id) if state is None else state
-    return state == STATE_READ_ONLY and daemon_profile(session_id)
+    return state == STATE_READ_ONLY and daemon_profile(session_id) and not inline(session_id, state)
 
 
 def state_changed_at(session_id: str) -> float | None:

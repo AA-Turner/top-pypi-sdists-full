@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: eventlet
-Version: 0.41.2
+Version: 0.41.3
 Summary: Highly concurrent networking library
 Project-URL: Homepage, https://github.com/eventlet/eventlet
 Project-URL: History, https://github.com/eventlet/eventlet/blob/master/NEWS

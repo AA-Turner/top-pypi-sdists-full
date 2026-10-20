@@ -323,6 +323,9 @@ void scriptResetRun(scriptRunCtx *run_ctx) {
     /* After the script done, remove the MULTI state. */
     run_ctx->c->flags &= ~CLIENT_MULTI;
 
+    /* HIMPORT fieldsets are scoped to a single script invocation. */
+    himportFieldsetsFree(run_ctx->c);
+
     if (scriptIsTimedout()) {
         exitScriptTimedoutMode(run_ctx);
         /* Restore the client that was protected when the script timeout
@@ -401,7 +404,9 @@ static int scriptVerifyCommandArity(struct redisCommand *cmd, int argc, sds *err
 static int scriptVerifyACL(client *c, sds *err) {
     /* Check the ACLs. */
     int acl_errpos;
-    int acl_retval = ACLCheckAllPerm(c, &acl_errpos);
+    /* 'c' is the script engine's fake client, which has no pending command, so
+     * the keys are extracted from c->argv. */
+    int acl_retval = ACLCheckAllPerm(c, c->current_pending_cmd, &acl_errpos);
     if (acl_retval != ACL_OK) {
         addACLLogEntry(c,acl_retval,ACL_LOG_CTX_LUA,acl_errpos,NULL,NULL);
         sds msg = getAclErrorMessage(acl_retval, c->user, c->cmd, c->argv[acl_errpos]->ptr, 0);
@@ -523,6 +528,8 @@ static int scriptVerifyClusterState(scriptRunCtx *run_ctx, client *c, client *or
                              c->cmd->fullname); 
         } else if (error_code == CLUSTER_REDIR_DOWN_UNBOUND) {
             *err = sdsnew("Script attempted to access a slot not served"); 
+        } else if (error_code == CLUSTER_REDIR_TRIMMING) {
+            *err = sdsnew("Script attempted to access a slot being trimmed");
         } else {
             /* error_code == CLUSTER_REDIR_MOVED || error_code == CLUSTER_REDIR_ASK */
             *err = sdsnew("Script attempted to access a non local key in a "
@@ -685,6 +692,10 @@ void scriptCall(scriptRunCtx *run_ctx, sds *err) {
     }
     call(c, call_flags);
     serverAssert((c->flags & CLIENT_BLOCKED) == 0);
+
+    if (server.fire_keyed_jobs_between_subcommands)
+        firePerKeyJobsBetweenSubcommands();
+
     clusterSlotStatsInvalidateSlotIfApplicable(run_ctx);
     return;
 

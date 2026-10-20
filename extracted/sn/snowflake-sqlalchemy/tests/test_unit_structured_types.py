@@ -120,14 +120,12 @@ def test_vector_rejects_invalid_element_type():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.feature_v20
 def test_uuid_parse_type_roundtrip():
     """parse_type('UUID') returns a UUID instance that compiles back to 'UUID'."""
     result = parse_type("UUID")
     assert result.compile() == "UUID"
 
 
-@pytest.mark.feature_v20
 def test_uuid_in_ischema_names():
     """ischema_names maps 'UUID' to sqlalchemy.sql.sqltypes.UUID on SA 2.x."""
     from sqlalchemy.sql.sqltypes import UUID
@@ -136,7 +134,6 @@ def test_uuid_in_ischema_names():
     assert issubclass(ischema_names["UUID"], UUID)
 
 
-@pytest.mark.feature_v20
 def test_get_type_kwargs_uuid_returns_as_uuid_false():
     """_get_type_kwargs returns {'as_uuid': False} for UUID so values are reflected as strings."""
     from sqlalchemy.sql.sqltypes import UUID
@@ -146,7 +143,6 @@ def test_get_type_kwargs_uuid_returns_as_uuid_false():
     assert result == {"as_uuid": False}
 
 
-@pytest.mark.feature_v20
 def test_resolve_column_type_uuid_produces_string_uuid():
     """_resolve_column_type for 'UUID' returns UUID(as_uuid=False), not NullType."""
     from sqlalchemy.sql.sqltypes import UUID
@@ -192,12 +188,12 @@ class TestObjectTypeParsing:
     def test_object_with_comma_in_field_name_parses_cleanly(self):
         """OBJECT("foo,bar" TEXT) must yield exactly one field with the full name."""
         obj = parse_type('OBJECT("foo,bar" TEXT)')
-        assert (
-            len(obj.items_types) == 1
-        ), f"Expected 1 field, got {list(obj.items_types.keys())!r}"
-        assert (
-            '"foo,bar"' in obj.items_types
-        ), f"Expected key '\"foo,bar\"', got {list(obj.items_types.keys())!r}"
+        assert len(obj.items_types) == 1, (
+            f"Expected 1 field, got {list(obj.items_types.keys())!r}"
+        )
+        assert '"foo,bar"' in obj.items_types, (
+            f"Expected key '\"foo,bar\"', got {list(obj.items_types.keys())!r}"
+        )
 
     def test_object_with_normal_fields_parses_correctly(self):
         """Baseline: OBJECT with normal field names still parses correctly."""
@@ -216,9 +212,9 @@ class TestVisitObjectKeyQuoting:
         obj = OBJECT(normal_field=VARCHAR(10))
         obj.items_types = {"field)injected": (VARCHAR(10), False)}
         result = self._type_compiler().process(obj)
-        assert (
-            '"field)injected"' in result
-        ), f"Expected quoted key in DDL, got {result!r}"
+        assert '"field)injected"' in result, (
+            f"Expected quoted key in DDL, got {result!r}"
+        )
 
     def test_already_quoted_key_is_not_double_quoted(self):
         """A key already stored with double-quotes (from parse_type) must not be re-quoted."""
@@ -231,9 +227,9 @@ class TestVisitObjectKeyQuoting:
         """A plain identifier key must appear in DDL (quoted only if required by dialect rules)."""
         obj = OBJECT(my_field=VARCHAR(10))
         result = self._type_compiler().process(obj)
-        assert (
-            "my_field" in result
-        ), f"Expected key 'my_field' in DDL output, got {result!r}"
+        assert "my_field" in result, (
+            f"Expected key 'my_field' in DDL output, got {result!r}"
+        )
 
     def test_fake_quoted_key_is_re_quoted(self):
         """A key that starts and ends with '"' but contains structure must be re-quoted, not passed verbatim."""
@@ -272,9 +268,9 @@ class TestObjectRepr:
     def test_double_quoted_field_name_stripped_in_repr(self):
         """The surrounding double-quotes are stripped so the kwarg is a valid identifier."""
         obj = parse_type('OBJECT("WeirdField" VARCHAR(10))')
-        assert "WeirdField=" in repr(
-            obj
-        ), f"Expected 'WeirdField=' in repr, got: {repr(obj)!r}"
-        assert '"WeirdField"=' not in repr(
-            obj
-        ), f"Double-quotes must be stripped from repr kwarg: {repr(obj)!r}"
+        assert "WeirdField=" in repr(obj), (
+            f"Expected 'WeirdField=' in repr, got: {repr(obj)!r}"
+        )
+        assert '"WeirdField"=' not in repr(obj), (
+            f"Double-quotes must be stripped from repr kwarg: {repr(obj)!r}"
+        )

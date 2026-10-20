@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import operator
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -14,7 +15,12 @@ from pyathena.aio.util import async_retry_api_call
 from pyathena.converter import Converter
 from pyathena.error import OperationalError, ProgrammingError
 from pyathena.model import AthenaQueryExecution
-from pyathena.result_set import AthenaDictResultSet, AthenaResultSet
+from pyathena.result_set import (
+    _CLOSED_MESSAGE,
+    _FETCH_FAILED_MESSAGE,
+    AthenaDictResultSet,
+    AthenaResultSet,
+)
 from pyathena.util import RetryConfig, override
 
 if TYPE_CHECKING:
@@ -125,9 +131,9 @@ class AthenaAioResultSet(AthenaResultSet):
                 succeeded, or the result set is closed.
             OperationalError: If the request fails.
         """
-        request = self._build_get_query_results_request(max_results, next_token)
         if self.is_closed:
             raise ProgrammingError("AthenaAioResultSet is closed.")
+        request = self._reader.build_get_query_results_request(max_results, next_token)
         try:
             response = await async_retry_api_call(
                 self.connection.client.get_query_results,
@@ -142,14 +148,17 @@ class AthenaAioResultSet(AthenaResultSet):
             return cast(dict[str, Any], response)
 
     async def _async_fetch(self) -> None:
-        """Fetch the next page of rows into the result set.
+        """Fetch the next page of rows, if any, into the buffer.
+
+        Nothing is fetched when no page remains, as after ``close()``.
 
         Raises:
-            ProgrammingError: If there is no next page.
+            ProgrammingError: If the next page is requested and the query ID is
+                missing or the query has not succeeded.
             OperationalError: If the request fails.
         """
         if not self._next_token:
-            raise ProgrammingError("NextToken is none or empty.")
+            return
         response = await self._async_get_query_results(self._arraysize, self._next_token)
         rows, self._next_token = self._parse_result_rows(response)
         self._process_rows(rows)
@@ -181,15 +190,30 @@ class AthenaAioResultSet(AthenaResultSet):
         Returns:
             The next row (a tuple, or a dict for ``AthenaAioDictResultSet``), or
             None if no more rows.
+
+        Raises:
+            ProgrammingError: If the result set is closed, or an earlier fetch
+                failed or was cancelled.
         """
-        if not self._rows and self._next_token:
-            await self._async_fetch()
-        if not self._rows:
-            return None
-        if self._rownumber is None:
-            self._rownumber = 0
-        self._rownumber += 1
-        return self._rows.popleft()
+        # As is_closed does, inline on the per-row path.
+        if self._connection is None:
+            raise ProgrammingError(_CLOSED_MESSAGE)
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
+        try:
+            if not self._rows:
+                await self._async_fetch()
+                if not self._rows:
+                    return None
+            row = self._rows.popleft()
+            # As _count_rows() does, inline on the per-row path.
+            rownumber = self._rownumber
+            if rownumber is not None:
+                self._rownumber = rownumber + 1
+        except BaseException:
+            self._fetch_failed = True
+            raise
+        return row
 
     @override
     async def fetchmany(  # type: ignore[override]
@@ -203,17 +227,23 @@ class AthenaAioResultSet(AthenaResultSet):
 
         Returns:
             The rows, fewer than ``size`` when the result is exhausted.
+
+        Raises:
+            TypeError: If ``size`` is not an integer and not replaced with ``arraysize``.
+            ProgrammingError: If the result set is closed, or an earlier fetch
+                failed or was cancelled.
         """
         if not size or size <= 0:
             size = self._arraysize
-        rows = []
-        for _ in range(size):
-            row = await self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
+        size = operator.index(size)
+        self._ensure_open()
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
+        try:
+            return await self._async_take_rows(size)
+        except BaseException:
+            self._fetch_failed = True
+            raise
 
     @override
     async def fetchall(  # type: ignore[override]
@@ -223,14 +253,41 @@ class AthenaAioResultSet(AthenaResultSet):
 
         Returns:
             The remaining rows.
+
+        Raises:
+            ProgrammingError: If the result set is closed, or an earlier fetch
+                failed or was cancelled.
         """
-        rows = []
-        while True:
-            row = await self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
+        self._ensure_open()
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
+        try:
+            return await self._async_take_rows(None)
+        except BaseException:
+            self._fetch_failed = True
+            raise
+
+    async def _async_take_rows(
+        self, size: int | None
+    ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Take the next rows and count them in ``rownumber``.
+
+        The buffered rows are taken in bulk, and ``_async_fetch()`` refills the buffer
+        when it is empty.
+
+        Args:
+            size: The maximum number of rows, or None for all remaining rows.
+
+        Returns:
+            The rows, fewer than ``size`` when the result is exhausted.
+        """
+        rows: list[tuple[Any | None, ...] | dict[Any, Any | None]] = []
+        while size is None or len(rows) < size:
+            if not self._rows:
+                await self._async_fetch()
+                if not self._rows:
+                    break
+            self._take_buffered_rows(rows, size)
         return rows
 
     @override
@@ -241,6 +298,17 @@ class AthenaAioResultSet(AthenaResultSet):
             TypeError: Always, because the fetch methods are coroutines.
         """
         raise TypeError(f"'{type(self).__name__}' object is not iterable; use 'async for' instead.")
+
+    @override
+    def __next__(self) -> NoReturn:
+        """Reject synchronous iteration with ``next()``; use ``async for`` instead.
+
+        Raises:
+            TypeError: Always, because the fetch methods are coroutines.
+        """
+        raise TypeError(
+            f"'{type(self).__name__}' object is not an iterator; use 'async for' instead."
+        )
 
     def __aiter__(self):
         return self

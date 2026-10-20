@@ -29,6 +29,8 @@ flow_editor/org_id,ws_id,flow_folder_id:
     - flow_execute_sandbox/org_id,ws_id,flow_folder_id
     # the Add Node pane lists connections; workspace-wide, as connections have no folder
     - connection_viewer/org_id,ws_id
+    # test runs land in sandbox decision history; workspace-wide, as decision history has no folder
+    - dh_viewer_sandbox/org_id,ws_id
     - w:flows/org_id,ws_id,flow_folder_id,{env=*}
     - d:flows/org_id,ws_id,flow_folder_id,{env=*}
     - w:jobs/org_id,ws_id,flow_folder_id
@@ -198,12 +200,8 @@ data_case_viewer/org_id,ws_id:
 data_case_editor/org_id,ws_id:
     - data_editor/org_id,ws_id
     - case_editor/org_id,ws_id
-    - copilot_user/org_id,ws_id
-    - file_user_sandbox/org_id,ws_id
-    - file_user_live/org_id,ws_id
+    - data_case_viewer/org_id,ws_id
 data_case_admin/org_id,ws_id:
     - data_admin/org_id,ws_id
     - case_admin/org_id,ws_id
-    - copilot_user/org_id,ws_id
-    - file_user_sandbox/org_id,ws_id
-    - file_user_live/org_id,ws_id
+    - data_case_editor/org_id,ws_id

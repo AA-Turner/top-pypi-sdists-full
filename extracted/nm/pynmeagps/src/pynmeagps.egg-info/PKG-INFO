@@ -1,9 +1,11 @@
 Metadata-Version: 2.4
 Name: pynmeagps
-Version: 1.1.7
+Version: 1.1.8
 Summary: NMEA protocol parser and generator
-Author-email: Steve Smith <semuadmin@semuconsulting.com>
-Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>
+Author: Steve Smith
+Author-email: semuadmin@semuconsulting.com
+Maintainer: Steve Smith
+Maintainer-email: semuadmin@semuconsulting.com
 License-Expression: BSD-3-Clause
 Project-URL: homepage, https://github.com/semuconsulting/pynmeagps
 Project-URL: documentation, https://www.semuconsulting.com/pynmeagps/
@@ -24,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
@@ -79,7 +82,7 @@ Contributions _**from human beings**_ welcome - please refer to [CONTRIBUTING.MD
 
 [Bug reports](https://github.com/semuconsulting/pynmeagps/blob/master/.github/ISSUE_TEMPLATE/bug_report.md) and [Feature requests](https://github.com/semuconsulting/pynmeagps/blob/master/.github/ISSUE_TEMPLATE/feature_request.md) - please use the templates provided. For general queries and advice, post a message to one of the [pynmeagps Discussions](https://github.com/semuconsulting/pynmeagps/discussions) channels.
 
-![No Copilot](https://github.com/semuconsulting/PyGPSClient/blob/master/images/nocopilot100.png?raw=true)
+![No Copilot](https://github.com/semuconsulting/PyGPSClient/blob/main/images/nocopilot100.png?raw=true)
 
 ---
 ## <a name="installation">Installation</a>
@@ -431,6 +434,8 @@ A python/tkinter graphical GPS client which supports NMEA, UBX and RTCM3 protoco
 semuadmin@semuconsulting.com
 
 ![License](https://img.shields.io/github/license/semuconsulting/pynmeagps.svg)
+
+[![ORCID iD icon](https://orcid.org/sites/default/files/images/orcid_16x16.png) https://orcid.org/0009-0002-5751-8719](https://orcid.org/0009-0002-5751-8719)
 
 `pynmeagps` is maintained entirely by unpaid volunteers. It receives no funding from advertising or corporate sponsorship. If you find the utility useful, please consider sponsoring the project with the price of a coffee...
 

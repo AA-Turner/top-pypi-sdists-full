@@ -22,7 +22,7 @@ from matrx_seo.competitor_classification import (
 
 
 #: A miniature stand-in for ``platform.domain_classification``. The real ruleset
-#: is 166 live rows and growing; these are the exact patterns whose behaviour the
+#: is 166 live rows and growing; these are the exact patterns whose behavior the
 #: matching logic must guarantee, written in the registry's own two shapes.
 REGISTRY = DomainRuleset(
     [
@@ -94,7 +94,7 @@ class TestDeterministicRole:
 
     def test_an_empty_registry_declines_everything(self):
         """The safe failure. No rules loaded means every candidate reaches the AI
-        layer — the pre-registry behaviour, never a wrong label."""
+        layer — the pre-registry behavior, never a wrong label."""
         assert classify_entity_role("wikipedia.org", DomainRuleset([])) is None
 
     def test_an_org_row_overrides_the_system_row(self):

@@ -15,7 +15,7 @@ Auth:
 
 The Unsplash API response embeds attribution data (photographer name +
 profile link). We surface those fields directly because Unsplash's
-licence requires attribution.
+license requires attribution.
 """
 
 from __future__ import annotations

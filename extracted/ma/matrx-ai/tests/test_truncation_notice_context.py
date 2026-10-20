@@ -20,7 +20,7 @@ What is being proven:
 
 Why it is a forcing test: the assertions are on the sentence a person reads and
 on the routing decision, not on a constant. Replacing ``_caller_can_continue``
-with the pre-fix behaviour (``lambda request: True`` — everyone can continue) or
+with the pre-fix behavior (``lambda request: True`` — everyone can continue) or
 dropping the ``continuable`` branch from ``truncation_notice`` turns these red.
 """
 

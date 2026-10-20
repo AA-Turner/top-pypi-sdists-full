@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: PyAthena
-Version: 4.1.0
+Version: 4.2.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://pyathena.dev/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Front-Ends
 Classifier: Typing :: Typed
@@ -31,7 +32,7 @@ Requires-Dist: boto3>=1.43.31
 Requires-Dist: botocore>=1.43.31
 Requires-Dist: fsspec>=2026.9.0
 Requires-Dist: tenacity>=8.0.1
-Requires-Dist: tzdata
+Requires-Dist: tzdata>=2024.2
 Provides-Extra: aiosqlalchemy
 Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'aiosqlalchemy'
 Provides-Extra: arrow
@@ -78,7 +79,7 @@ PyAthena is a Python [DB API 2.0 (PEP 249)](https://www.python.org/dev/peps/pep-
 
 - Python
 
-  - CPython 3.11, 3.12, 3.13, 3.14
+  - CPython 3.11, 3.12, 3.13, 3.14, 3.15
 
 ## Installation
 

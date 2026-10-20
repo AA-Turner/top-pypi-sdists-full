@@ -108,7 +108,7 @@ dependencies = [
     "tabulate==0.8.10",
     "thefuzz==0.22.1",
     "tinybird-python-sdk[ai]==0.3.7",
-    "tinybird-toolset==2.7.1",
+    "tinybird-toolset==2.7.4",
     "toposort==1.10",
     "tornado==6.5.5",
     "urllib3~=2.8",

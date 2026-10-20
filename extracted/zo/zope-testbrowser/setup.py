@@ -28,7 +28,7 @@ tests_require = ['zope.testing', 'mock', 'zope.testrunner >= 6.4']
 
 setup(
     name='zope.testbrowser',
-    version='8.0',
+    version='8.1',
     url='https://github.com/zopefoundation/zope.testbrowser',
     license='ZPL-2.1',
     project_urls={
@@ -43,18 +43,18 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Zope Public License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Software Development :: Testing',
         'Topic :: Internet :: WWW/HTTP',
     ],
     keywords='headless browser functional tests WSGI HTTP HTML form',
-    python_requires='>=3.9',
+    python_requires='>=3.11',
     install_requires=[
         'setuptools',
         'zope.interface',

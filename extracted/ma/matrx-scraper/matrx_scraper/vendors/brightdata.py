@@ -497,7 +497,7 @@ class BrightDataClient:
 
     # ── Trigger mode: durable jobs ────────────────────────────────────────
     # ``scrape`` waits in-process and cancels on timeout. A host that persists the snapshot id
-    # (a durable job) uses these three instead: nothing is cancelled, a restarted process asks
+    # (a durable job) uses these three instead: nothing is canceled, a restarted process asks
     # ``progress`` again and ``collect``s when ready. Billing is booked once, at ``collect``.
 
     async def trigger(
@@ -586,7 +586,7 @@ class BrightDataClient:
                     cancelled = False
                 raise BrightDataTimeout(
                     "The data source was still collecting when the wait ran out"
-                    + ("; it was cancelled." if cancelled else "; cancelling it FAILED — it may still bill."),
+                    + ("; it was canceled." if cancelled else "; canceling it FAILED — it may still bill."),
                     snapshot_id=snapshot_id,
                 )
             prog = await client.get(f"{self._root}/datasets/v3/progress/{snapshot_id}")

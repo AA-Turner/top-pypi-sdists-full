@@ -195,6 +195,16 @@ class TinybirdDialect(ClickHouse):
                     ),
                     action=partial(actions.add_node_to_buffer, token_type=TokenType.QUOTED_NAME),
                 ),
+                Rule(
+                    name="number",
+                    priority=700,
+                    pattern=group(
+                        r"-?0x[0-9a-f][0-9a-f_]*(\.[0-9a-f_]*)?(p[+-]?\d[\d_]*)?",
+                        r"-?0b[01][01_]*",
+                        r"-?(\d[\d_]*\.?[\d_]*|\.\d[\d_]*)(e[+-]?\d[\d_]*)?",
+                    ),
+                    action=partial(actions.add_node_to_buffer, token_type=TokenType.NUMBER),
+                ),
             ],
             "jinja": [
                 Rule(

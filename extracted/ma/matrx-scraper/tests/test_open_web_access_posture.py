@@ -2,7 +2,7 @@
 
 robots.txt Disallow is not obeyed by default (knob `knowledge.scraper.respect_robots`,
 ships off), a 403 wall reaches the browser step the trail lists, and a bot wall is
-labelled by its real reason rather than `login_wall`.
+labeled by its real reason rather than `login_wall`.
 """
 
 from __future__ import annotations

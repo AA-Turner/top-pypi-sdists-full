@@ -1256,7 +1256,7 @@ async def test_rate_limited_page_throttles_requeues_then_fails_after_cap(
         ),
         event_sink=sink,
         queue_backend=queue,
-        # This test is ABOUT rate-limit behaviour, so it opts out of the
+        # This test is ABOUT rate-limit behavior, so it opts out of the
         # suite-wide fast-knob fixture and runs the real ramp. Values are
         # the shipped defaults except for a rate high enough that the token
         # bucket never makes the test wait.

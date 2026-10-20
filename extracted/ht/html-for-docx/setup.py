@@ -3,12 +3,12 @@ from setuptools import setup, find_packages
 
 here   = os.path.abspath(os.path.dirname(__file__))
 README = open(os.path.join(here, 'README.md')).read()
-VERSION = '1.2.0'
+VERSION = '1.2.1'
 
 setup(
     name                 = 'html-for-docx',
     version              = VERSION,
-    description          = 'Convert HTML to Docx easily and fastly',
+    description          = 'Convert HTML to DOCX easily and quickly',
     long_description     = README,
     license              = 'MIT',
     packages             = find_packages(),
@@ -21,14 +21,13 @@ setup(
     zip_safe             = False,
     url                  = 'https://github.com/dfop02/html4docx',
     project_urls = {
-        "Changelog": "https://github.com/dfop02/html4docx/blob/master/HISTORY.rst",
+        "Changelog": "https://github.com/dfop02/html4docx/blob/main/HISTORY.rst",
         "Bug Tracker": "https://github.com/dfop02/html4docx/issues",
         "Repository": "https://github.com/dfop02/html4docx"
     },
     download_url         = f'https://github.com/dfop02/html4docx/archive/{VERSION}.tar.gz',
     classifiers          = [
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Topic :: Software Development :: Build Tools',
         'Topic :: Software Development :: Libraries',
         'Topic :: Text Processing',

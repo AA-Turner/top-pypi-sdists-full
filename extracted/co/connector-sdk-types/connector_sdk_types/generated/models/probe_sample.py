@@ -21,12 +21,13 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, f
 from typing import Optional
 from connector_sdk_types.generated.models.probe_sample_account import ProbeSampleAccount
 from connector_sdk_types.generated.models.probe_sample_association import ProbeSampleAssociation
+from connector_sdk_types.generated.models.probe_sample_capability_config import ProbeSampleCapabilityConfig
 from connector_sdk_types.generated.models.probe_sample_entitlement import ProbeSampleEntitlement
 from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-PROBESAMPLE_ANY_OF_SCHEMAS = ["ProbeSampleAccount", "ProbeSampleAssociation", "ProbeSampleEntitlement"]
+PROBESAMPLE_ANY_OF_SCHEMAS = ["ProbeSampleAccount", "ProbeSampleAssociation", "ProbeSampleCapabilityConfig", "ProbeSampleEntitlement"]
 
 class ProbeSample(BaseModel):
     """
@@ -39,11 +40,13 @@ class ProbeSample(BaseModel):
     anyof_schema_2_validator: Optional[ProbeSampleEntitlement] = None
     # data type: ProbeSampleAssociation
     anyof_schema_3_validator: Optional[ProbeSampleAssociation] = None
+    # data type: ProbeSampleCapabilityConfig
+    anyof_schema_4_validator: Optional[ProbeSampleCapabilityConfig] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleEntitlement]] = None
+        actual_instance: Optional[Union[ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleCapabilityConfig, ProbeSampleEntitlement]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "ProbeSampleAccount", "ProbeSampleAssociation", "ProbeSampleEntitlement" }
+    any_of_schemas: Set[str] = { "ProbeSampleAccount", "ProbeSampleAssociation", "ProbeSampleCapabilityConfig", "ProbeSampleEntitlement" }
 
     model_config = {
         "validate_assignment": True,
@@ -82,9 +85,15 @@ class ProbeSample(BaseModel):
         else:
             return v
 
+        # validate data type: ProbeSampleCapabilityConfig
+        if not isinstance(v, ProbeSampleCapabilityConfig):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `ProbeSampleCapabilityConfig`")
+        else:
+            return v
+
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in ProbeSample with anyOf schemas: ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleEntitlement. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in ProbeSample with anyOf schemas: ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleCapabilityConfig, ProbeSampleEntitlement. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -115,10 +124,16 @@ class ProbeSample(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
+        # anyof_schema_4_validator: Optional[ProbeSampleCapabilityConfig] = None
+        try:
+            instance.actual_instance = ProbeSampleCapabilityConfig.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into ProbeSample with anyOf schemas: ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleEntitlement. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into ProbeSample with anyOf schemas: ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleCapabilityConfig, ProbeSampleEntitlement. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -132,7 +147,7 @@ class ProbeSample(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleEntitlement]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], ProbeSampleAccount, ProbeSampleAssociation, ProbeSampleCapabilityConfig, ProbeSampleEntitlement]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

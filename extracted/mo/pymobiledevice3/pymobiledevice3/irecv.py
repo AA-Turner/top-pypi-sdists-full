@@ -10,11 +10,11 @@ from enum import Enum
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from tqdm import trange
 from usb.core import Device, USBError
 
 from pymobiledevice3.exceptions import IRecvError, IRecvNoDeviceConnectedError, PyMobileDevice3Exception
 from pymobiledevice3.irecv_devices import IRecvDevice
+from pymobiledevice3.progress import BYTES_UNIT, ProgressBar
 
 if TYPE_CHECKING:
     # pyusb (usb.core / usb.util) and IRECV_DEVICES ship no type information, so their symbols
@@ -175,7 +175,7 @@ class IRecv:
     ) -> "array[int]":
         return cast("array[int]", self.device.ctrl_transfer(bmRequestType, bRequest, timeout=timeout, **kwargs))
 
-    def send_buffer(self, buf: bytes):
+    def send_buffer(self, buf: bytes, desc: Optional[str] = None):
         device = self.device
         mode = self.mode
         packet_size = IRECV_TRANSFER_SIZE_RECOVERY if mode.is_recovery else IRECV_TRANSFER_SIZE_DFU
@@ -201,36 +201,42 @@ class IRecv:
 
         num_packets = math.ceil(len(buf) / packet_size)
 
-        for _offset in trange(0, len(buf), packet_size, dynamic_ncols=True):
-            # Use bulk transfer for recovery mode and control transfer for DFU and WTF mode
-            chunk = buf[_offset : _offset + packet_size]
-            packet_index = _offset // packet_size
+        if desc is None:
+            desc = "recovery upload" if mode.is_recovery else "DFU upload"
+        with ProgressBar(total=len(buf), desc=desc, unit=BYTES_UNIT) as bar:
+            for _offset in range(0, len(buf), packet_size):
+                # Use bulk transfer for recovery mode and control transfer for DFU and WTF mode
+                chunk = buf[_offset : _offset + packet_size]
+                bar.update(len(chunk))
+                packet_index = _offset // packet_size
 
-            if mode.is_recovery:
-                n = cast(int, device.write(0x04, chunk, timeout=USB_TIMEOUT))
-                if n != len(chunk):
-                    raise OSError("failed to upload data")
-            else:
-                if _offset + packet_size >= len(buf):
-                    # last packet
-
-                    # calculate crc of all sent data
-                    crc = binascii.crc32(buf, crc)
-
-                    # add crc of dfu_xbuf (salted value)
-                    dfu_xbuf = bytearray([0xFF, 0xFF, 0xFF, 0xFF, 0xAC, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10])
-                    crc = binascii.crc32(dfu_xbuf, crc)
-
-                    crc_chunk = dfu_xbuf + struct.pack("<I", crc)
-
-                    if len(chunk) + 16 > packet_size:
-                        # crc exceeds the max allowed packet size
-                        self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=chunk)
-                        self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=crc_chunk)
-                    else:
-                        self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=chunk + crc_chunk)
+                if mode.is_recovery:
+                    n = cast(int, device.write(0x04, chunk, timeout=USB_TIMEOUT))
+                    if n != len(chunk):
+                        raise OSError("failed to upload data")
                 else:
-                    self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=chunk)
+                    if _offset + packet_size >= len(buf):
+                        # last packet
+
+                        # calculate crc of all sent data
+                        crc = binascii.crc32(buf, crc)
+
+                        # add crc of dfu_xbuf (salted value)
+                        dfu_xbuf = bytearray([0xFF, 0xFF, 0xFF, 0xFF, 0xAC, 0x05, 0x00, 0x01, 0x55, 0x46, 0x44, 0x10])
+                        crc = binascii.crc32(dfu_xbuf, crc)
+
+                        crc_chunk = dfu_xbuf + struct.pack("<I", crc)
+
+                        if len(chunk) + 16 > packet_size:
+                            # crc exceeds the max allowed packet size
+                            self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=chunk)
+                            self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=crc_chunk)
+                        else:
+                            self.ctrl_transfer(
+                                0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=chunk + crc_chunk
+                            )
+                    else:
+                        self.ctrl_transfer(0x21, 1, wValue=packet_index, wIndex=0, data_or_wLength=chunk)
 
         if mode.is_recovery and len(buf) % 512 == 0:
             # Terminating zero-length packet.
@@ -335,11 +341,14 @@ class IRecv:
                     continue
 
                 if self._device is not None:
-                    raise IRecvError("More then one connected device was found connected in recovery mode")
+                    raise IRecvError(
+                        "More than one device was found connected in recovery mode; select one by its ECID"
+                    )
 
                 try:
                     self._device = device
                     self._mode = mode
+                    self._device_info = {}
                     self._populate_device_info()
 
                     if ecid is not None:
@@ -347,12 +356,17 @@ class IRecv:
                         if found_ecid != ecid:
                             # wrong device - move on
                             self._device = None
+                            self._mode = None
                             continue
                 except (ValueError, NotImplementedError, USBError):
                     # unreadable device (e.g. missing driver or permissions) - move on
                     self._device = None
                     self._mode = None
                     continue
+
+                if ecid is not None:
+                    # Other devices may be in Recovery/DFU too, e.g. while another restore runs.
+                    break
 
     def _populate_device_info(self):
         serial_number = cast(Optional[str], self.device.serial_number)

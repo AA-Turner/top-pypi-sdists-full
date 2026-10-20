@@ -635,6 +635,26 @@ def test_two_failed_turns_tell_the_researcher_and_fail_open_asks(tmp_path):
     assert "the daemon's reader failed 2 turns in a row" in (tmp_path / "state" / "probe" / "daemon-errors.log").read_text()
 
 
+@pytest.mark.parametrize("starting", ["daemon", "read-only"])
+def test_reader_first_quota_refusal_hands_off_and_closes_pending_asks(tmp_path, starting):
+    from pydantic_ai.exceptions import ModelHTTPError
+    from probe.sdk import session_marker
+    _set_state(starting)
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    w = _worker(tmp_path)
+    def quota(messages, info):
+        raise ModelHTTPError(429, "default", body={"error": {"code": "budget_exhausted"}})
+    lane = _lane(w, quota)
+    ask = mailbox.write_ask(SID, "what did the team try?")
+    lane.take_asks()
+    asyncio.run(lane.run_turn("ask"))
+    assert session_marker.is_inline(SID) and not lease.worker_wanted(SID)
+    assert session_marker.session_state(SID) == ("full" if starting == "daemon" else "read-only")
+    assert lane.quitting() and not lease.held(SID)
+    reply = mailbox.claim_answer(SID, ask.id)
+    assert reply.kind == mailbox.Kind.FAILED and "allowance is exhausted" in reply.reason
+
+
 def test_an_ask_held_10_minutes_fails(tmp_path):
     now = [time.time()]
     w = _worker(tmp_path, clock=lambda: now[0])

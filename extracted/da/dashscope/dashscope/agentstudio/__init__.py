@@ -51,6 +51,9 @@ from .pagination import (
     CursorPage,
 )
 from .types import (
+    Memory,
+    MemoryStore,
+    MemoryVersion,
     Message,
     PermissionPolicy,
     SecurityAlert,
@@ -117,6 +120,9 @@ __all__ = [
     "CursorPage",
     "AsyncCursorPage",
     # unified message type
+    "Memory",
+    "MemoryStore",
+    "MemoryVersion",
     "Message",
     "PermissionPolicy",
     "SecurityAlert",

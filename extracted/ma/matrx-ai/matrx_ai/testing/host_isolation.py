@@ -75,6 +75,10 @@ _SEAMS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("matrx_ai.persistence.registry", ("_policy_registrar",)),
     ("matrx_ai.tools.vfs.workspace", ("_BACKEND", "_DURABLE_INSTALLED", "_FS_CACHE")),
     ("matrx_ai.tools.catalog_seam", ("_CATALOG_EXECUTOR", "_LAZY_RESOLVER", "_CACHE_SECONDS", "_LAZY_CACHE")),
+    # The host's child-safety step (aidream reads the person's COPPA status from the database).
+    ("matrx_ai.providers.child_safety_gate", ("_gate",)),
+    # The host's stored-values screen (aidream keeps a mandate run's values off client-readable rows).
+    ("matrx_ai.db.stored_values_screen", ("_SCREEN",)),
 )
 
 

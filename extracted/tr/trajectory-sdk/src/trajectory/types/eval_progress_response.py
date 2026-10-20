@@ -13,13 +13,16 @@ class EvalLiveSummary(BaseModel):
   """Attempts waiting to execute, including startup work."""
 
   running_rollouts: int
-  """Active attempts executing or being stopped."""
+  """Attempts executing or being stopped; completed provider work is counted separately."""
 
   awaiting_result_rollouts: int
-  """Finished captures awaiting cleanup, scoring, or outcome reconciliation."""
+  """Provider-terminal attempts or finished captures awaiting result reconciliation."""
 
   scored_rollouts: int
-  """Completed attempts with a selected numeric score."""
+  """
+    Completed attempts assigned an evaluation score, including zero for some ungraded
+    endings.
+    """
 
   failed_rollouts: int
   """Attempts that failed execution or scoring."""

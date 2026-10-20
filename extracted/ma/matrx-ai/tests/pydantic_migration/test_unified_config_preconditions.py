@@ -103,5 +103,12 @@ def test_the_declared_field_count_the_plan_rests_on():
     (prompt blocks plan §8.3).
 
     109 since 2026-10-16: extended_prompt_cache (the agent's long-cache setting,
-    config/cache_marks.py), twinned."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 109
+    config/cache_marks.py), twinned.
+
+    110 since 2026-10-17: tool_declarations (the provider tools array persisted with
+    the conversation, tools/declaration_ledger.py), twinned.
+
+    114 since 2026-10-18: agent_organization_id (the organization that owns the agent
+    definition, so its declared pieces resolve from there — prompt_blocks/resolve.py,
+    defect 39), twinned."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 114

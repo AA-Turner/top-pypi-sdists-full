@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.1.4
+Version: 3.1.6
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -729,6 +729,7 @@ Requires-Dist: agno[performance]; extra == "tests"
 Requires-Dist: agno[cookbooks]; extra == "tests"
 Requires-Dist: agno[agui]; extra == "tests"
 Requires-Dist: agno[integration-tests]; extra == "tests"
+Requires-Dist: moto[s3]>=5; extra == "tests"
 Requires-Dist: twine; extra == "tests"
 Requires-Dist: build; extra == "tests"
 Requires-Dist: grpcio>=1.76.0; extra == "tests"

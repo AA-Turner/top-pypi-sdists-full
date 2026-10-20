@@ -42,7 +42,7 @@ CONTENT_TYPES: frozenset[str] = frozenset(
 )
 
 INTERACTION_MODES: frozenset[str] = frozenset(
-    {"turn", "single", "extraction", "realtime", "embedding", "agent", "decision"}
+    {"turn", "single", "extraction", "realtime", "embedding", "agent", "decision", "adapter", "detection"}
 )
 
 #: Every feature token the canonical column may carry. Keep in lockstep with
@@ -78,6 +78,11 @@ FEATURE_KEYS: frozenset[str] = frozenset(
         # Anthropic removed it on Sonnet 5 / Opus 5 / Fable / 4.6-4.8; older Claude
         # models keep it. Read by matrx_ai/config/message_flags.py (the prefill flag).
         "assistant_prefill",
+        # The model REJECTS two user-role turns in a row (strict-alternation chat
+        # template), proven by a live probe. Chat-Completions translators then put the
+        # per-turn host block at the end of the system message instead of its own turn
+        # after the newest message (BaseTranslator.place_trailing_on_chat_messages).
+        "strict_role_alternation",
         # Extraction family (GLiNER2 / fastino models)
         "ner",
         "classification",
@@ -112,6 +117,11 @@ FEATURE_KEYS: frozenset[str] = frozenset(
         "multimodal_embedding",
         "music_generation",
         "real_time_translation",
+        # Output beyond one call's limit through the provider's continuation protocol
+        # (Gemini long decode: finish_reason CONTINUATION + continuation_token). The
+        # one-call limit stays ai.model_definition.max_tokens; the total is the offering's
+        # declared max_output_tokens ceiling. Read by GoogleChat.execute.
+        "long_decode",
     }
 )
 
@@ -164,8 +174,13 @@ CANONICAL_KEYS: frozenset[str] = frozenset(
         "multilingual",
         "image_reference_roles",
         "video_reference_roles",
+        "base_family",
     }
 )
+
+#: ``base_family`` is an adapter (LoRA) fact: the base-model family it was trained
+#: for ("sdxl", "z-image", ...). It lives next to ``interaction: "adapter"``.
+BASE_FAMILY_KEY = "base_family"
 
 #: ``image_reference_roles`` is ``{role: max_count, ..., "total": n}`` — how
 #: many reference images of each role an image model accepts. A role absent
@@ -336,6 +351,10 @@ def normalize_capabilities(raw: Any, *, label: str = "") -> CapabilitiesNormaliz
     if multilingual is not None and not isinstance(multilingual, bool):
         rejections.append(f"multilingual {multilingual!r}{where} is not a boolean")
 
+    base_family = raw.get(BASE_FAMILY_KEY)
+    if base_family is not None and (not isinstance(base_family, str) or not base_family.strip()):
+        rejections.append(f"{BASE_FAMILY_KEY} {base_family!r}{where} is not a non-empty string")
+
     if IMAGE_REFERENCE_ROLES_KEY in raw:
         from matrx_ai.media.image_reference_roles import IMAGE_REFERENCE_ROLES, TOTAL_KEY
 
@@ -419,6 +438,7 @@ __all__ = [
     "FEATURE_ALIASES",
     "FEATURE_KEYS",
     "FEATURE_TO_INPUT_MODALITY",
+    "BASE_FAMILY_KEY",
     "IMAGE_REFERENCE_ROLES_KEY",
     "VIDEO_REFERENCE_ROLES_KEY",
     "INTERACTION_ALIASES",

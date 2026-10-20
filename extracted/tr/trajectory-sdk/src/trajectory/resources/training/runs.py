@@ -137,8 +137,8 @@ class Runs(APIResource):
     *,
     has_training_execution: bool | None | Omit = omit,
     status: SequenceNotStr[str] | None | Omit = omit,
-    limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -171,8 +171,8 @@ class Runs(APIResource):
           {
             "has_training_execution": has_training_execution,
             "status": status,
-            "limit": limit,
             "cursor": cursor,
+            "limit": limit,
           }
         ),
         extra_headers=extra_headers,
@@ -222,8 +222,8 @@ class Runs(APIResource):
     self,
     run_id: str,
     *,
-    limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -252,8 +252,8 @@ class Runs(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "limit": limit,
             "cursor": cursor,
+            "limit": limit,
           }
         ),
         extra_headers=extra_headers,

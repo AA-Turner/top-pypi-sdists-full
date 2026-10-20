@@ -113,3 +113,37 @@ class SiteDataArgs(ToolArgs):
     )
     table_name: str | None = Field(default=None, description="Name for the new table (save_to_table only).")
     table_id: str | None = Field(default=None, description="Add to this existing table instead (save_to_table only).")
+
+
+class CompareItem(BaseModel):
+    """One thing to compare: the name and, for a local business, the city, each in its own field."""
+
+    name: str = Field(description="Just the business or company name as the person said it: no city, address or branch.")
+    city: str | None = Field(default=None, description="Local business only: the city (and state) this one is in. Omit for a company.")
+
+
+class CompareArgs(ToolArgs):
+    """``compare``: find and quote a side-by-side of same-type things; the PERSON confirms and starts it."""
+
+    items: list[str | CompareItem] | None = Field(
+        default=None,
+        max_length=8,
+        description=(
+            "Two or more things to compare, one entry each. Local businesses: an object with name and city as "
+            "separate fields (never the city or address glued onto the name). Companies: a name or website. "
+            "A link may be given as a plain string. Give items OR concept."
+        ),
+    )
+    concept: str | None = Field(
+        default=None,
+        description='Instead of items: what to find and compare, like "best bike shops in Bend, OR" or "online therapy services". We find the list and say how.',
+    )
+    kind: Literal["auto", "companies_reviews", "local_business"] = Field(
+        default="auto",
+        description="auto = local business when a city or map link is given, else companies by reviews.",
+    )
+    city: str | None = Field(default=None, description="Local businesses only: the one city they all share. A different city per item goes in that item's city field.")
+    run_id: str | None = Field(
+        default=None,
+        description="Read the outcome of a comparison already started (from an earlier compare result). Never starts one.",
+    )

@@ -44,8 +44,8 @@ HAS_PR_WATCH = 1
 # every input it was built from in .github/ci-images.env. The flag vendors
 # docker/ci.Dockerfile, scripts/ci-image.py and .github/workflows/ci-image.yml
 # and hangs `ci-image-check` off lint; doppler's own copy of all three is gone.
-# doppler's extras (clang's profile runtime, nats-server) are
-# docker/ci-extra.sh, canonical's extension point.
+# doppler's one extra (nats-server, pinned by hash) is docker/ci-extra.sh,
+# canonical's extension point; clang's runtime is bootstrap.toml's clang-rt.
 #
 # TWO BASES, and the pair is load-bearing rather than thorough: build-and-test
 # runs ubuntu-22.04 and ubuntu-24.04 on purpose (two glibcs). One image for
@@ -58,7 +58,7 @@ HAS_PR_WATCH = 1
 HAS_CI_IMAGE          = 1
 CI_IMAGE_REPO         = ghcr.io/doppler-dsp/doppler-ci
 CI_IMAGE_BASES        = ubuntu:22.04 ubuntu:24.04
-CI_IMAGE_GROUPS       = dev docs
+CI_IMAGE_GROUPS       = dev docs clang-rt
 CI_IMAGE_LANDING      = branch
 CI_IMAGE_SMOKE_TARGET = build
 
@@ -92,7 +92,13 @@ STOCK_REGISTRY      ?= public.ecr.aws/docker/library
 # rate limit with backoff (#1979): before a `docker run --pull=never`, and as
 # `$(STOCK_PULL) --dockerfile F` before a `docker build -f F`, because
 # BuildKit does not retry a FROM. `make lint-stock-images` holds every site.
-STOCK_PULL          = STOCK_REGISTRY=$(STOCK_REGISTRY) bash scripts/stock-pull.sh
+# When ECR Public refuses an IP its anonymous data quota, the helper pulls
+# the same tag from STOCK_MIRROR, Google's anonymous mirror of the official
+# images, at the same digests (checked 2026-10-16 for every tag doppler
+# pulls), and names it as the primary's (#2256).
+STOCK_MIRROR        ?= mirror.gcr.io/library
+STOCK_PULL          = STOCK_REGISTRY=$(STOCK_REGISTRY) \
+                      STOCK_MIRROR=$(STOCK_MIRROR) bash scripts/stock-pull.sh
 
 # The uv pin, read from pyproject.toml's [tool.uv] required-version by the
 # script that gates it -- one parser for one declaration (doppler#1940).
@@ -107,9 +113,56 @@ CMAKE       := cmake
 # Defaults to the uv-managed venv Python so the extension suffix always
 # matches the active interpreter.  Override on the command line:
 #   make pyext PYTHON_EXECUTABLE=/usr/bin/python3.13
-PYTHON_EXECUTABLE ?= $(shell uv run python -c \
-    'import sys; print(sys.executable)' 2>/dev/null || which python3)
-PYTHON_EXECUTABLE := $(or $(JUST_BUILDIT_PYTHON),$(PYTHON_EXECUTABLE))
+#
+# Who decides, in order (#2364):
+#   1. JUST_BUILDIT_PYTHON (just-buildit's wheel build), or a
+#      PYTHON_EXECUTABLE given on the command line or in the environment.
+#   2. uv is not installed at all: `python3` from PATH. This is the fallback
+#      the old `|| which python3` was for -- a box provisioned without uv.
+#   3. uv's venv interpreter.
+#   4. uv IS installed but refuses (most often: not the version pinned in
+#      pyproject.toml): EMPTY, with uv's reason in _PY_ERROR, and every
+#      target that builds for or runs the interpreter fails through
+#      `python-executable-check` (below). It used to fall through to case 2
+#      silently, so `pyext` built for the system Python -- the stale-.so
+#      mismatch CLAUDE.md warns about -- and nothing said so.
+#   Empty by any route -- `PYTHON_EXECUTABLE=` given empty, or case 2 with
+#   no python3 -- is case 4's refusal too, with its own reason.
+#
+# `$(or $(UV),uv)` because `UV = uv` is defined further down, under Tooling,
+# and this block is expanded NOW; a `UV=` on the command line is already
+# set, and otherwise the value is the same `uv` the Tooling line assigns.
+# Not a `$(error)`: standard.mk's _std_require expands PYEXT_CMD and
+# COVERAGE_CMD at parse time, so an error there would stop `make lint` and
+# every other target on the same box, not just the ones that need Python.
+_PY_UV := $(or $(UV),uv)
+ifneq ($(JUST_BUILDIT_PYTHON),)
+PYTHON_EXECUTABLE := $(JUST_BUILDIT_PYTHON)
+else ifeq ($(origin PYTHON_EXECUTABLE),undefined)
+ifeq ($(shell command -v $(_PY_UV) 2>/dev/null),)
+PYTHON_EXECUTABLE := $(shell command -v python3 2>/dev/null)
+else
+_PY_PROBE := $(shell out=$$($(_PY_UV) run python -c \
+    'import sys; print(sys.executable)' 2>/dev/null) && echo "ok $$out")
+ifeq ($(firstword $(_PY_PROBE)),ok)
+PYTHON_EXECUTABLE := $(wordlist 2,$(words $(_PY_PROBE)),$(_PY_PROBE))
+else
+PYTHON_EXECUTABLE :=
+# uv's error line, not a `warning:` printed ahead of it; the first line of
+# any kind when uv says nothing starting `error`.
+_PY_ERROR := $(or $(shell out=$$($(_PY_UV) run python -c pass 2>&1 \
+    >/dev/null); printf '%s\n' "$$out" | grep -m1 '^error' \
+    || printf '%s\n' "$$out" | head -n 1),`$(_PY_UV) run python` failed)
+endif
+endif
+endif
+# Whichever way it came out empty -- an explicit `PYTHON_EXECUTABLE=`, or no
+# uv and no python3 -- there is nothing to build for, and an empty value
+# would silently drop -DPython3_EXECUTABLE and let CMake pick one.
+ifeq ($(strip $(PYTHON_EXECUTABLE)),)
+_PY_ERROR := $(or $(_PY_ERROR),PYTHON_EXECUTABLE is empty (set empty, or \
+    no uv and no python3 on PATH))
+endif
 
 # $(call CONTAINER_CHECKOUT,<build dir>) -- the `docker run` flags for "this
 # checkout, bind-mounted read-write at /w, worked on by a `make` inside".
@@ -147,6 +200,9 @@ BLAZING_CFLAGS ?= -march=native
 # change is a one-line edit here. Versions live in pyproject.toml's `dev` group
 # and are pinned by uv.lock — which is what makes local and CI resolve
 # identically, and why the hook config resolves no lock-managed tool itself.
+# Override it with an ABSOLUTE path, or a name on PATH: a few recipes `cd`
+# into a subproject before running $(UV), where a relative UV= no longer
+# names the same file.
 UV         = uv
 
 # A BARE interpreter, deliberately not `$(UV) run python`, and the exception
@@ -255,10 +311,20 @@ C_EXCLUDE_RE = (^|/)(native/inc/|vendor/)|(^|/)jm_(bench|test)\.h$$|_ext\.c$$|_s
 # pass walks all of native/src, rewrote it under whoever applied next
 # (buffer_ext.c after doppler#1432). Derived from the manifest, so a migrated
 # module leaves the set by itself.
-C_FILES = { git ls-files '*.c' '*.h' | grep -Ev '$(C_EXCLUDE_RE)'; \
-            uv run python scripts/list_hand_ext_c.py; }
+#
+# The hand-written list is taken BEFORE the pipe, and its failure stops the
+# target (#2361). It used to be the second half of a `{ ...; }` group piped
+# into xargs: POSIX sh has no pipefail, so a failing `list_hand_ext_c.py`
+# only shortened the list and the target still exited 0 -- a gate reading
+# green while checking less. It also ran a bare `uv`, which ignores the
+# `UV=` override, so a box whose uv is not the pin dropped those files
+# every time.
+C_FILES     = git ls-files '*.c' '*.h' | grep -Ev '$(C_EXCLUDE_RE)'
+HAND_EXT_C  = $(UV) run python scripts/list_hand_ext_c.py
 
-LINT_clang-format = @$(C_FILES) | xargs -r $(CLANG_FORMAT) -i --style=file
+LINT_clang-format = @hand=$$($(HAND_EXT_C)) || exit $$?; \
+    { $(C_FILES); printf '%s\n' "$$hand"; } \
+    | xargs -r $(CLANG_FORMAT) -i --style=file
 
 # clang-tidy does NOT take clang-format's file list, and sharing C_FILES was
 # the reason its first real run emitted 6916 lines of which ~1700 were noise.
@@ -527,7 +593,10 @@ LINT_stock-images = $(UV) run python scripts/check_stock_images.py \
 # every project command on any other version. This holds the INSTALLERS to
 # it: setup-uv only through the composite action with `version-file`, every
 # other installer through UV_VERSION.
-LINT_uv-pin = $(UV) run python scripts/check_uv_pin.py
+# scripts/.bare-uv-allow (rule 4) may only shrink from its state at the merge
+# base with UV_PIN_BASE, read the way STOCK_IMAGES_BASE's list is.
+UV_PIN_BASE ?= origin/main
+LINT_uv-pin = $(UV) run python scripts/check_uv_pin.py --base $(UV_PIN_BASE)
 
 # The artifact half: the committed uv.lock is exactly what the pinned uv
 # writes. Checking the pin cannot establish that -- a textual merge or a hand
@@ -695,7 +764,7 @@ PYTEST_BENCH_DIRS = $(wildcard src/doppler/*/benchmarks)
 # whole-tree number the coverage gates compare, which a narrowed run would
 # quietly redefine.
 TEST_PATHS      = src/
-TEST_PYTHON_CMD = $(MEM_GUARD_CMD) $(LEAK_CHECK) -- uv run pytest $(TEST_PATHS) -v \
+TEST_PYTHON_CMD = $(MEM_GUARD_CMD) $(LEAK_CHECK) -- $(UV) run pytest $(TEST_PATHS) -v \
                       $(PYTEST_SELECT) --benchmark-disable -n auto $(PYTEST_ARGS)
 # The standard target's own description is generic; this line wins in
 # `make help` (it is read before standard.mk) and names the knob.
@@ -723,7 +792,8 @@ TEST_ALL_DEPS = test test-examples test-python test-examples-python
 # a fresh runner, wrong for a dev box running it twice.
 nats-up: ## Start the NATS JetStream broker the nats:// stream tests need
 	@docker rm -f nats >/dev/null 2>&1 || true
-	@STOCK_REGISTRY=$(STOCK_REGISTRY) bash scripts/start-nats.sh
+	@STOCK_REGISTRY=$(STOCK_REGISTRY) STOCK_MIRROR=$(STOCK_MIRROR) \
+	    bash scripts/start-nats.sh
 	@$(NATS_STREAMS) --check
 
 # The remedy `nats-up` names. Deleting is prefix-guarded to DP_WORK_*, so a
@@ -914,9 +984,13 @@ nats-vendor-fresh-check: ## Prove the vendored nats.c keeps its options after a 
 CCACHE_BIN   := $(shell command -v ccache 2>/dev/null)
 CCACHE_FLAGS := $(if $(CCACHE_BIN),-DCMAKE_C_COMPILER_LAUNCHER=ccache,)
 
-CMAKE_FLAGS = -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-              -DPython3_EXECUTABLE=$(PYTHON_EXECUTABLE) $(CCACHE_FLAGS) \
-              $(CMAKE_ARGS)
+# Only when there is one (#2364): an empty -DPython3_EXECUTABLE= would make
+# CMake search PATH and pick the system Python silently, which is the very
+# swap this guards against. Absent, a configured tree keeps its cached one.
+PY_CMAKE_FLAG = $(if $(PYTHON_EXECUTABLE),\
+                    -DPython3_EXECUTABLE=$(PYTHON_EXECUTABLE))
+CMAKE_FLAGS = -DCMAKE_EXPORT_COMPILE_COMMANDS=ON $(PY_CMAKE_FLAG) \
+              $(CCACHE_FLAGS) $(CMAKE_ARGS)
 
 # `CMAKE_FLAGS` reaches the CONFIGURE step only, and the standard's `build`
 # ends with a bare `cmake --build $(BUILD_DIR)` — so there is no flag surface
@@ -968,8 +1042,27 @@ define PYEXT_CMD
 $(CMAKE) -B $(BUILD_DIR) -S . -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
     $(CMAKE_FLAGS) -DBUILD_PYTHON=ON
 $(CMAKE) --build $(BUILD_DIR) --parallel $(NPROC)
-uv sync $(UV_SYNC_FLAGS)
+$(UV) sync $(UV_SYNC_FLAGS)
 endef
+
+# Every target that builds for, or runs, PYTHON_EXECUTABLE goes through this
+# first, so a uv that refuses fails THEM, loudly, instead of quietly building
+# for the system Python (#2364). Targets that need no interpreter -- lint, the
+# C suite -- are untouched.
+# uv's reason is quoted with single quotes (it carries backticks), so any
+# single quote inside it is closed, escaped and reopened.
+_PY_ERROR_Q = '$(subst ','\'',$(_PY_ERROR))'
+python-executable-check: ## Fail when there is no interpreter to build for
+	@if [ -n $(_PY_ERROR_Q) ]; then \
+	  echo "python-executable-check: no interpreter to build for:"; \
+	  printf '    %s\n' $(_PY_ERROR_Q); \
+	  echo "  Fix uv (or pass UV=<the pinned uv>), or name one with"; \
+	  echo "  PYTHON_EXECUTABLE=<python>. Not falling back to python3: that"; \
+	  echo "  builds the extension for the wrong interpreter (#2364)."; \
+	  exit 1; \
+	fi
+pyext coverage warnings-check test-example-downstream-python: \
+    python-executable-check
 
 # `wheel` used to be a .PHONY with no rule: advertised in help, exiting 0 with
 # no wheel produced. This is what it should always have been.
@@ -995,30 +1088,33 @@ DOCS_PREPARE = @rm -f zensical.toml
 # now expresses the shape directly, so the build line goes back to being the
 # standard's — one implementation again, which is what criterion 5 asked for.
 define DOCS_CHECK_PRE_CMDS
-uv run python scripts/check_api_docs.py
-uv run python scripts/check_docstring_coverage.py --check
-uv run python scripts/check_nav_index.py
-uv run python scripts/check_wfmgen_flag_docs.py
-uv run python scripts/gen_related_pages.py --check
-uv run python scripts/gen_readme.py --check
-uv run python scripts/gen_install_scripts.py --check
-uv run python scripts/gen_wfm_defaults.py --check
-uv run python scripts/gen_stage_kinds.py --check
-uv run python scripts/gen_validation_log.py --check
-uv run python scripts/gen_doc_versions.py --check
-uv run python scripts/gen_changelog_links.py --check
-uv run python scripts/check_version_strings.py
-uv run python scripts/check_doc_targets.py
-uv run python scripts/check_doc_paths.py
-uv run python scripts/check_md_tables.py
-uv run python scripts/check_mermaid_theme.py
-uv run python scripts/check_serializable.py
-uv run python scripts/check_doc_face_parity.py
-uv run python scripts/check_init_param_optionality.py
-uv run python scripts/check_out_param_guard.py
-uv run python scripts/check_c_api_link_refs.py
-uv run python docs/design/spectrogram-measurements/u1u4.py --check
-uv run python docs/design/spectrogram-measurements/b2094.py --check
+$(UV) run python scripts/check_api_docs.py
+$(UV) run python scripts/bench_report.py --page --out docs/benchmarks.md --check
+$(UV) run python scripts/check_docstring_coverage.py --check
+$(UV) run python scripts/check_nav_index.py
+$(UV) run python scripts/check_wfmgen_flag_docs.py
+$(UV) run python scripts/gen_related_pages.py --check
+$(UV) run python scripts/gen_readme.py --check
+$(UV) run python scripts/gen_install_scripts.py --check
+$(UV) run python scripts/gen_wfm_defaults.py --check
+$(UV) run python scripts/gen_stage_kinds.py --check
+$(UV) run python scripts/gen_validation_log.py --check
+$(UV) run python scripts/gen_doc_versions.py --check
+$(UV) run python scripts/gen_changelog_links.py --check
+$(UV) run python scripts/check_version_strings.py
+$(UV) run python scripts/check_doc_targets.py
+$(UV) run python scripts/check_doc_paths.py
+$(UV) run python scripts/check_md_tables.py
+$(UV) run python scripts/check_mermaid_theme.py
+$(UV) run python scripts/check_serializable.py
+$(UV) run python scripts/check_doc_face_parity.py
+$(UV) run python scripts/check_init_param_optionality.py
+$(UV) run python scripts/check_out_param_guard.py
+$(UV) run python scripts/check_c_api_link_refs.py
+$(UV) run python docs/design/spectrogram-measurements/u1u4.py --check
+$(UV) run python docs/design/spectrogram-measurements/b2094.py --check
+$(UV) run python docs/design/async-dsss-parallel-measurements/record.py --check
+$(UV) run python docs/design/spectrogram-measurements/b2062.py --check
 endef
 
 # docs-check's invariants WITHOUT the site build, so pre-commit can run them.
@@ -1049,7 +1145,7 @@ docs-invariants: ## docs-check's fast invariants, no site build (pre-commit)
 	     | grep -c .) invariant(s)"
 
 define DOCS_CHECK_POST_CMDS
-uv run python scripts/check_site_links.py
+$(UV) run python scripts/check_site_links.py
 endef
 
 # ── Doxygen ──────────────────────────────────────────────────────────────────
@@ -1091,9 +1187,31 @@ DOXYGEN_CMD      = doxygen Doxyfile
 # The version assertion moved with it: an upstream bump in the image must fail
 # LOUDLY here rather than silently changing generated output, so both fallback
 # paths below check the image's doxygen against DOXYGEN_VERSION first.
+#
+# "CI has moved" is said only when the image RAN and reported another version.
+# A missing docker, or an image that would not run, used to reach the same
+# message with an empty version -- "ships doxygen , not 1.9.8" -- and told the
+# reader to bump a pin that was right (#2362). Each now says what is missing;
+# docker's own stderr is left visible, since it is the reason.
 DOXYGEN_IMAGE_CHECK = \
-  got=$$(docker run --rm $(CI_IMAGE) doxygen --version 2>/dev/null \
-         | cut -d' ' -f1); \
+  if ! command -v docker >/dev/null 2>&1; then \
+      echo "doxygen: the local doxygen is not $(DOXYGEN_VERSION), and docker is"; \
+      echo "  not installed, so CI's doxygen cannot run from $(CI_IMAGE)."; \
+      echo "  Install doxygen $(DOXYGEN_VERSION), or docker."; \
+      exit 1; \
+  fi; \
+  ver=$$(docker run --rm $(CI_IMAGE) doxygen --version) || { \
+      rc=$$?; \
+      echo "doxygen: docker could not run doxygen in $(CI_IMAGE) (exit $$rc)."; \
+      echo "  Nothing is known about CI's doxygen from this; see docker's"; \
+      echo "  message above (daemon not running, image not pulled, ...)."; \
+      exit 1; }; \
+  got=$$(printf '%s\n' "$$ver" | cut -d' ' -f1); \
+  if [ -z "$$got" ]; then \
+      echo "doxygen: $(CI_IMAGE) ran but reported no doxygen version."; \
+      echo "  Nothing is known about CI's doxygen from this; check the image."; \
+      exit 1; \
+  fi; \
   if [ "$$got" != "$(DOXYGEN_VERSION)" ]; then \
       echo "doxygen: the CI image ships doxygen $$got, not $(DOXYGEN_VERSION)."; \
       echo "  CI runs the doxygen job INSIDE that image, so CI has moved too."; \
@@ -1150,9 +1268,9 @@ BENCH_ALLOW ?= test_bench_execute_decim_64k
 # a C snapshot short of the tree's benchmarks, so a filtered run cannot be
 # published by mistake.
 BENCH_ARGS        ?=
-BENCH_CMD         = uv run just-makeit bench $(BENCH_ARGS)
-BENCH_SAVE_CMD    = uv run just-makeit bench --python-only --tag base
-BENCH_COMPARE_CMD = uv run just-makeit bench --check \
+BENCH_CMD         = $(UV) run just-makeit bench $(BENCH_ARGS)
+BENCH_SAVE_CMD    = $(UV) run just-makeit bench --python-only --tag base
+BENCH_COMPARE_CMD = $(UV) run just-makeit bench --check \
                         --python-only --baseline base \
                         --threshold $(BENCH_THRESHOLD) \
                         $(foreach b,$(BENCH_ALLOW),--allow $(b))
@@ -1210,7 +1328,9 @@ COV_GUARD     ?= $(MEM_GUARD_CMD)
 # so the two suites' escape hatches read the same. The measurement that
 # justifies it is at the ctest call site below. `COV_SWEEP=1` restores them.
 COV_EXCLUDE_SWEEP = $(if $(COV_SWEEP),,-LE sweep)
-export MEM_GUARD_PYTHON ?= $(PYTHON_EXECUTABLE)
+# Only the memory probe's interpreter, so it need not be the venv's: when uv
+# refuses (#2364) the probe still runs on python3.
+export MEM_GUARD_PYTHON ?= $(or $(PYTHON_EXECUTABLE),python3)
 # Excluded from the report: vendored code, jm-generated binding aggregators
 # (`<mod>_ext.c`) and per-object fragments, and the test/bench/validation
 # harnesses — only first-party _core.c counts.
@@ -1244,12 +1364,12 @@ COV_IGNORE    ?= (^|/)(vendor|build|build-cov|native/src/app)/|(^|/)jm_[a-z]+\.h
 # find .../libclang_rt.profile.a", which reads like a broken toolchain rather
 # than a missing package -- it cost a full gates run to diagnose.
 #
-# DERIVED rather than listed in bootstrap.toml's dev group, because whether `clang`
-# already carries its profile runtime is a property of the distro RELEASE and
-# one package list cannot express it: Ubuntu 22.04 ships it inside clang's own
-# packages and has no libclang-rt package at all (naming one fails apt
-# outright), while 26.04 splits it into libclang-rt-21-dev that `clang` does
-# not depend on. See the note in bootstrap.toml.
+# Installed by bootstrap.toml's clang-rt group, which derives apt's versioned
+# name, because whether `clang` already carries its profile runtime is a
+# property of the distro RELEASE: Ubuntu 22.04 ships it inside clang's own
+# packages and has no libclang-rt package at all, while 26.04 splits it into
+# libclang-rt-21-dev that `clang` does not depend on. This probe stays the
+# assertion, and names the package for the distro at hand when it fails.
 define COVERAGE_CMD
 @printf 'int main(void){return 0;}\n' > $(COV_DIR)-probe.c 2>/dev/null \
     || { mkdir -p $(dir $(COV_DIR)) ; \
@@ -1268,8 +1388,8 @@ define COVERAGE_CMD
        echo "  Fedora               :  dnf install compiler-rt"; \
        echo "  openSUSE             :  zypper install llvm-compiler-rt"; \
        echo ""; \
-       echo "  Not in bootstrap.toml's dev group on purpose: 22.04 has no such"; \
-       echo "  package at all and naming one fails apt outright. See bootstrap.toml."; \
+       echo "  make install-deps installs it: bootstrap.toml's clang-rt group"; \
+       echo "  derives the name from the clang it finds."; \
        echo ""; \
        rm -f $(COV_DIR)-probe.c $(COV_DIR)-probe; exit 1; }
 @rm -f $(COV_DIR)-probe.c $(COV_DIR)-probe
@@ -1278,7 +1398,7 @@ $(CMAKE) -B $(COV_DIR) -S . \
     -DCMAKE_C_COMPILER=clang \
     $(CCACHE_FLAGS) \
     -DDOPPLER_COVERAGE=ON -DBUILD_PYTHON=ON \
-    -DPython3_EXECUTABLE=$(PYTHON_EXECUTABLE) \
+    $(PY_CMAKE_FLAG) \
     -DPYTHON_PACKAGE_DIR=$(CURDIR)/$(COV_DIR)/pkg/doppler \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     $(CMAKE_ARGS)
@@ -1502,7 +1622,7 @@ sed -i 's|SF:$(CURDIR)/|SF:|' $(COV_DIR)/coverage.lcov
 endef
 
 define COVERAGE_GATE_CMD
-uvx diff-cover $(COV_DIR)/coverage.lcov \
+$(DEV_RUN) diff-cover $(COV_DIR)/coverage.lcov \
     --compare-branch=$(COV_BASE) \
     --fail-under=$(COV_PATCH_MIN) \
     --format html:$(COV_DIR)/patch.html \
@@ -1579,12 +1699,15 @@ endef
 # (just-buildit/just-buildit.github.io#29). Inert until that lands.
 PROJECT = DOPPLER
 
+# A pointer, not the steps: docs/dev/release.md §2b is their one home. A
+# copy here went stale the day the label gate added a step (#2373 review):
+# followed at v0.73.0 it skipped `bench-labels-fix` and left the label files
+# uncommitted, so the release PR's lint went red.
 define RELEASE_BRANCH_NOTES
-@echo "  - if perf-relevant code changed since the last release (release.md"
-@echo "    §2b), in the bench box's one clone: git fetch origin &&"
-@echo "    make bench-preflight && git checkout --detach origin/main, then"
-@echo "    make bench-interleaved VERSION=$(VERSION) && make bench-docs,"
-@echo "    then commit benchmarks/published + docs/benchmarks.md"
+@echo "  - if perf-relevant code changed since the last release, refresh"
+@echo "    the benchmarks for $(VERSION) in the bench box's one clone,"
+@echo "    exactly as docs/dev/release.md §2b lists (it is the one copy of"
+@echo "    those steps: measure, fix the labels, render, commit)"
 endef
 
 # The script is VENDORED from canonical (just-buildit.github.io) and held to it
@@ -1631,12 +1754,12 @@ endef
 # Named here so they land in `.PHONY` and in generated `help`, and so the same
 # gates cover them: criterion 2 is "help lists EVERY target", not "every
 # standard target" — a local target help omits is exactly as invisible.
-LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
-                docs-invariants \
-                jm-apply jm-apply-downstream jm-adopt \
+LOCAL_TARGETS = specan record-demo parallel-record-write gallery blazing \
+                gen-c-api just-build docs-invariants \
+                jm-apply jm-apply-downstream jm-adopt jm-revendor \
                 jm-upgrade changelog-assemble changelog-assembled-check \
                 plot-rx-dynamics \
-                gen-c-api-check \
+                gen-c-api-check python-executable-check \
                 gen-c-api-run \
                 package-c package-c-tarball package-c-smoke vcpkg-smoke \
                 package-deb package-rpm package-linux package-linux-smoke \
@@ -1650,11 +1773,11 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 release-notes-size-check workflow-syntax-check \
                 ci-aggregator-check python-versions-check \
                 jm-pin \
-                issue-link-check \
+                issue-link-check bootstrap-cmd-check \
                 validate validate-py validate-c validate-check \
-                validate-spellings-check \
+                validate-async-receiver-sweep validate-spellings-check \
                 test-sweep validation-time-baseline \
-                characterize characterization-check \
+                characterize characterization-check pool-telemetry \
                 doxygen-warn-gate \
                 test-examples-c test-examples-python test-example-downstream \
                 test-example-downstream-python \
@@ -1687,8 +1810,9 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
                 check-wheel-tags release-wheel-tags \
                 release-smoke-packages \
-                bench-python \
+                bench-python bench-rx \
                 bench-preflight bench-interleaved bench-publish bench-docs \
+                bench-labels-fix \
                 bench-stream bench-report bench-restamp \
                 docker-runtime docker-sdk docker-downstream docker-stream \
                 docker-examples smoke-image
@@ -1716,9 +1840,11 @@ HOOK_DISPATCH_EXEMPT = check-yaml check-toml end-of-file-fixer trailing-whitespa
 # docs/benchmarks.md rendered from them. None of them is compiled, imported
 # or executed by the test matrix, so treating them as source ran the whole
 # matrix twice per release (the PR, then main) over code its parent had
-# already passed. The Docs workflow still builds the site from them, so a
-# broken asset is still caught -- just not by re-running the C/Python tests.
-CI_INERT_RE = ^(CHANGELOG\.md|changelog\.d/.+|docs/assets/[^/]+\.png|benchmarks/published/.+|docs/benchmarks\.md)$$
+# already passed. The page's label files move with a release too
+# (`make bench-labels-fix`), and they feed only the page and `make lint`.
+# The Docs workflow still builds the site from them, so a broken asset is
+# still caught -- just not by re-running the C/Python tests.
+CI_INERT_RE = ^(CHANGELOG\.md|changelog\.d/.+|docs/assets/[^/]+\.png|benchmarks/published/.+|benchmarks/[^/]*\.toml|benchmarks/\.labels-exempt|docs/benchmarks\.md)$$
 
 # THE one declaration of what doppler's docs are, for standard.mk's
 # `make ci-docs` (canonical; just-makeit#1801). A diff touching any of these
@@ -1726,8 +1852,10 @@ CI_INERT_RE = ^(CHANGELOG\.md|changelog\.d/.+|docs/assets/[^/]+\.png|benchmarks/
 # job docs cannot break (CODE_ONLY in ci.yml). A deletion outside
 # CI_DOCS_DIRS is never docs-only. README.md is generated from
 # docs/index.md, so the two move together; benchmarks/published/ feeds the
-# site and nothing compiled.
-CI_DOCS_RE = ^(docs/|benchmarks/published/|mkdocs[^/]*\.yml$$|CHANGELOG\.md$$|changelog\.d/|README\.md$$|CONTRIBUTING\.md$$)
+# site and nothing compiled, and so do the page's label files
+# (benchmarks/*.toml, benchmarks/.labels-exempt), which `make lint` --
+# never skipped -- gates.
+CI_DOCS_RE = ^(docs/|benchmarks/published/|benchmarks/[^/]*\.toml$$|benchmarks/\.labels-exempt$$|mkdocs[^/]*\.yml$$|CHANGELOG\.md$$|changelog\.d/|README\.md$$|CONTRIBUTING\.md$$)
 
 include standard.mk
 
@@ -1781,7 +1909,8 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       workflow-syntax-check ci-aggregator-check python-versions-check \
       gates-extra-home-check \
       release-notes-size-check \
-      issue-link-check deps-budget-check ci-image-refs-check cargo-floor-check \
+      issue-link-check bootstrap-cmd-check deps-budget-check \
+      ci-image-refs-check cargo-floor-check \
       bench-coverage-check kwarg-parity-check doc-sections-check \
       ccsds-isolation-check container-mount-check cargo-lock-check \
       instrumented-sweep-check mem-guard-check \
@@ -1796,7 +1925,7 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
 # caught, and only one of the three was visible to review.
 ASSERT_BASE ?= origin/main
 tests-ssot: ## Verify no C test re-defines dp_test.h's macros or loses assertions
-	@uv run python scripts/check_tests_ssot.py --base $(ASSERT_BASE)
+	@$(UV) run python scripts/check_tests_ssot.py --base $(ASSERT_BASE)
 
 # A published benchmark set stamps doppler_meta.commit as its provenance, and
 # a reader must be able to check that commit out. A set measured on a release
@@ -1807,7 +1936,7 @@ tests-ssot: ## Verify no C test re-defines dp_test.h's macros or loses assertion
 # scripts/.bench-commit-exempt, which only shrinks.
 BENCH_COMMIT_BASE ?= origin/main
 bench-commits-check: ## Fail when a published benchmark names a commit main cannot reach
-	@uv run python scripts/check_bench_commits.py --base $(BENCH_COMMIT_BASE)
+	@$(UV) run python scripts/check_bench_commits.py --base $(BENCH_COMMIT_BASE)
 
 # On `lint` rather than `bench` deliberately: `bench` is the occasional
 # activity (see bench-python), so a gate hung off it reports a missing
@@ -1815,8 +1944,16 @@ bench-commits-check: ## Fail when a published benchmark names a commit main cann
 # checked -- a tested component with no benchmark, and a benchmark no runner
 # can reach -- because this repo has now had both, and the second one looks
 # fixed from every angle except the snapshot it never appears in.
+#
+# It also holds the benchmarks page's label table (#2372): every row the
+# newest published release measures has a plain name, unit and definition in
+# benchmarks/labels.toml, or a line in benchmarks/.labels-exempt -- which may
+# only shrink against BENCH_LABELS_BASE's merge base.
+BENCH_LABELS_BASE ?= origin/main
 bench-coverage-check: ## Verify every tested component has a benchmark that runs
-	@uv run python scripts/check_bench_coverage.py
+	@$(UV) run python scripts/check_bench_coverage.py
+	@$(UV) run python scripts/bench_report.py --check-labels \
+	    --base $(BENCH_LABELS_BASE)
 
 # On `lint` rather than `drift-check`, because drift-check structurally
 # CANNOT see this: a `_kwlist` lives in the wrapper body of a sacred
@@ -1831,20 +1968,20 @@ bench-coverage-check: ## Verify every tested component has a benchmark that runs
 # `mkdir: build/starter-pkg: Permission denied` because an unbalanced `"` in a
 # COMMENT closed the container's script early and the rest ran on the runner.
 workflow-syntax-check: ## Verify every workflow `run:` block is valid shell
-	@uv run python scripts/check_workflow_syntax.py
+	@$(UV) run python scripts/check_workflow_syntax.py
 
 # protect-main requires ONE status check, `CI passed`, so ci.yml's `ci-passed`
 # `needs` list is the whole merge gate: a job left out of it can fail on every
 # PR and block nothing. Relaxing the ruleset from four named checks to that one
 # aggregator (2026-09-14) moved the gate into a hand-kept YAML list; this reads it.
 ci-aggregator-check: ## Verify every ci.yml job feeds the required `CI passed` check
-	@uv run python scripts/check_ci_aggregator.py
+	@$(UV) run python scripts/check_ci_aggregator.py
 
 python-versions-check: ## Verify the Python classifiers match requires-python and release.yml's build lists
-	@uv run python scripts/python_versions.py
+	@$(UV) run python scripts/python_versions.py
 
 kwarg-parity-check: ## Verify each binding accepts the keywords its stub publishes
-	@uv run python scripts/check_kwarg_parity.py
+	@$(UV) run python scripts/check_kwarg_parity.py
 
 # check_doc_paths.py holds the FILE half of a prose citation; this holds the
 # SECTION half. Neither is covered by check_site_links, which reads links in
@@ -1853,7 +1990,7 @@ kwarg-parity-check: ## Verify each binding accepts the keywords its stub publish
 # reads as authority, so one pointing at the wrong argument is worse than
 # none -- the reader concludes the claim is unsupported (#795).
 doc-sections-check: ## Verify every `docs/x.md` section citation resolves
-	@uv run python scripts/check_doc_sections.py
+	@$(UV) run python scripts/check_doc_sections.py
 
 # `build` as a prerequisite, not a note: this reads `nm` output, so without a
 # built archive it has nothing to check -- and a gate that skips when its
@@ -1907,10 +2044,11 @@ export-check: build ## Verify the shared libraries export exactly the public hea
 # validator that grows its own emitter. On `lint` it runs in the fast CI
 # job, seconds after the mistake, instead of behind the validators.
 validation-report-check: ## Verify every generated validation report is structurally sound
-	@uv run python scripts/check_validation_reports.py
+	@$(UV) run python scripts/check_validation_reports.py
 
-# The docs system deps (doxygen, graphviz, LaTeX) — the `docs` group in
-# bootstrap.toml. standard.mk's `install-deps` installs only the default groups
+# The docs system deps (doxygen, graphviz) — the `docs` group in
+# bootstrap.toml. The Python half (zensical, mkdocs, mkdoxy) comes from uv's
+# `docs` group, not from here. standard.mk's `install-deps` installs only the default groups
 # (runtime, dev) and is vendored, so it cannot take a group; this local target
 # is the one place CI's doxygen job and the Pages docs workflow both reach for
 # the docs group, keeping bootstrap.toml the single dependency list. Bootstraps jbx
@@ -1919,6 +2057,12 @@ install-docs-deps: ## Install the docs system deps (bootstrap.toml `docs` group)
 	@command -v jbx >/dev/null 2>&1 \
 	    || curl -sSL https://just-buildit.github.io/get-jb.sh | bash
 	PATH="$$HOME/.local/bin:$$PATH" jbx install-deps -g docs
+	@rc=0; for t in doxygen dot; do \
+	    command -v $$t >/dev/null 2>&1 \
+	        || { echo "install-docs-deps: '$$t' is not on PATH after install-deps"; rc=1; }; \
+	 done; \
+	 [ $$rc -eq 0 ] && echo "install-docs-deps: doxygen and dot are on PATH" \
+	    || { echo "install-docs-deps: the docs group did not provide every tool"; exit 1; }
 
 # ── Provisioning with a deadline (doppler#879) ───────────────────────────────
 # Both targets above reach the network three times — the jbx bootstrap curl,
@@ -2102,12 +2246,16 @@ install-docs-deps-ci: apt-stall-config ## install-docs-deps under a deadline + r
 	    $(MAKE) --no-print-directory install-docs-deps
 
 specan: ## Launch the live spectrum analyzer in a browser
-	uv run doppler-specan
+	$(UV) run doppler-specan
 
 record-demo: ## Re-record the specan demo frames (docs/specan/frames.json)
-	uv run python -m doppler.specan.record_demo \
+	$(UV) run python -m doppler.specan.record_demo \
 	    --frames 120 --rbw 4000 \
 	    -o docs/specan/frames.json
+
+parallel-record-write: ## Re-render the parallel record's blocks from its data
+	$(UV) run python docs/design/async-dsss-parallel-measurements/record.py \
+	    --write
 
 # Run all plot-generating examples and copy output PNGs to docs/assets/.
 # Run before releasing whenever src/doppler/examples/ has changed.
@@ -2170,12 +2318,12 @@ GALLERY_SCRIPTS := \
     src/doppler/examples/dsss_burst_receiver_demo.py \
     src/doppler/examples/dsss_burst_ber_demo.py \
     src/doppler/examples/async_dsss_receiver_spec_demo.py \
+    src/doppler/examples/async_dsss_receiver_lifecycle.py \
     src/doppler/examples/dsss_receiver_demo.py \
     src/doppler/examples/carrier_acq_rrc_demo.py \
     src/doppler/examples/mpsk_receiver_demo.py \
     src/doppler/examples/mpsk_receiver_performance_demo.py \
     src/doppler/examples/async_despread_demo.py \
-    src/doppler/examples/async_despreader_study.py \
     src/doppler/examples/async_dsss_pool_demo.py \
     src/doppler/examples/coding_demo.py \
     src/doppler/examples/costas_demo.py \
@@ -2199,7 +2347,21 @@ GALLERY_SCRIPTS := \
 # captured, so it depends on `build` rather than on the Python examples and it
 # writes straight to docs/assets/ instead of the gallery's mv dance.
 plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness's telemetry
-	uv run python scripts/plot_rx_dynamics.py
+	$(UV) run python scripts/plot_rx_dynamics.py
+
+# The pool speed-up's instrument, a characterization of the async DSSS
+# receiver (phase 7, docs/dev/contributing/adding-algorithms.md): one
+# AsyncDsssReceiver and one AsyncDsssPool timed (telemetry detached), then
+# watched (attached), on the same wfm Gold capture; filed captures, a run
+# record and plot_capture.py's figures in build/pool-telemetry/. Deliberate,
+# never per push: its fast twin is in test_async_dsss_pool.py. POOL_TLM_ARGS
+# passes the script's own flags.
+POOL_TLM_ARGS ?=
+POOL_TLM_PY   := src/doppler/dsss/tests/characterization/async_dsss_receiver/telemetry.py
+.PHONY: pool-telemetry
+pool-telemetry: pyext ## Time + capture telemetry for AsyncDsssReceiver and AsyncDsssPool on one capture (POOL_TLM_ARGS=)
+	$(UV) run python $(POOL_TLM_PY) \
+	    --out $(BUILD_DIR)/pool-telemetry $(POOL_TLM_ARGS)
 
 # The direction a derived move list cannot close: an example whose plot is
 # committed under docs/assets/ but which nothing re-renders, because it was
@@ -2236,7 +2398,7 @@ gallery: ## Run the plot examples and copy their PNGs to docs/assets/
 	        continue; \
 	    fi; \
 	    printf "  %-45s" "$$script"; \
-	    uv run python $$script > /dev/null 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
+	    $(UV) run python $$script > /dev/null 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
 	done
 	@for png in $$($(UV) run python scripts/check_gallery_scripts.py \
 	        --outputs $(GALLERY_SCRIPTS)); do \
@@ -2261,7 +2423,7 @@ gallery: ## Run the plot examples and copy their PNGs to docs/assets/
 # with its plot unrendered.
 ifeq ($(origin GALLERY_SCRIPTS),file)
 	@printf "  %-45s" "$(GALLERY_CHARACTERIZATIONS)"
-	@uv run python $(GALLERY_CHARACTERIZATIONS) \
+	@$(UV) run python $(GALLERY_CHARACTERIZATIONS) \
 	     docs/assets/dsss_acq_characterization.png > /dev/null 2>&1 \
 	     && echo "OK" || { echo "FAIL"; exit 1; }
 endif
@@ -2368,8 +2530,9 @@ ASAN_FLAGS  = -fsanitize=address -fno-omit-frame-pointer -g
 # kernel here reads its samples, so a gcc-built test-asan passed while
 # resamp read 19 samples past its delay line. clang reports them. clang's
 # ASan runtime ships apart from clang on Ubuntu/Debian 24.04+
-# (libclang-rt-<major>-dev); CI's image installs it (docker/ci-extra.sh), and
-# the probe at the top of test-asan says so locally. native/tests/asan_canary.c
+# (libclang-rt-<major>-dev); bootstrap.toml's clang-rt group installs it for
+# a dev box and CI's image alike, and the probe at the top of test-asan says
+# so when it is missing. native/tests/asan_canary.c
 # holds the choice: built as the suite was, it must draw an ASan report, so
 # `ASAN_CC=gcc` is red.
 ASAN_CC    ?= clang
@@ -2393,7 +2556,9 @@ test-asan: ## Run the C suite under ASan+LSan; any bad access or leak fails
 	      sed 's/^/    /' $(ASAN_DIR)/asan_probe.log; \
 	      echo "  clang's ASan runtime ships apart from clang on Ubuntu/Debian"; \
 	      echo "  24.04+ as libclang-rt-<major>-dev; the profile-runtime package"; \
-	      echo "  make coverage names for each distro holds it too."; exit 1; }
+	      echo "  make coverage names for each distro holds it too, and"; \
+	      echo "  make install-deps installs it (bootstrap.toml's clang-rt group)."; \
+	      exit 1; }
 	$(CMAKE) -B $(ASAN_DIR) -S . \
 		-DCMAKE_BUILD_TYPE=Debug \
 		-DCMAKE_C_COMPILER=$(ASAN_CC) \
@@ -2649,7 +2814,7 @@ gen-c-api: ## Regenerate docs/c-api/ from the headers (mkdoxy, CI's doxygen)
 # and the tree it replaces are the same recipe either way.
 CAPI_CONFIG ?= mkdocs-capi.yml
 CAPI_OUT    ?= docs/c-api
-CAPI_BUILD  ?= uv run --group docs mkdocs build -f $(CAPI_CONFIG)
+CAPI_BUILD  ?= $(UV) run --group docs mkdocs build -f $(CAPI_CONFIG)
 gen-c-api-run: ## gen-c-api proper (re-entered with CI's doxygen on PATH)
 	rm -rf .mkdoxy .capi-site
 	$(CAPI_BUILD)
@@ -3161,10 +3326,10 @@ endif
 # is always: tier the new issues, then `make issues`, which drops a closed
 # issue's row itself (no judgement) and refuses while one is untiered.
 issues: ## Refresh docs/dev/issues.md from the live issue list (needs gh)
-	uv run python scripts/gen_issue_tracker.py --write
+	$(UV) run python scripts/gen_issue_tracker.py --write
 
 issues-check: ## Fail if the tier map has drifted from the live issues (needs gh)
-	uv run python scripts/gen_issue_tracker.py --reconcile $(if $(ISSUES_LIVE),--live $(ISSUES_LIVE),)
+	$(UV) run python scripts/gen_issue_tracker.py --reconcile $(if $(ISSUES_LIVE),--live $(ISSUES_LIVE),)
 
 # GATES_CI_EXTRA is a declaration gates-home-check takes on trust. This holds
 # it: each name must be a `make <name>` line -- comments stripped -- in some
@@ -3204,24 +3369,24 @@ wfmgen-flag-matrix: build ## Regenerate native/tests/wfmgen_flag_matrix.json
 	$(UV) run python scripts/gen_wfmgen_flag_matrix.py --exe $(WFMGEN_EXE)
 
 docs-relink: ## Regenerate every generated doc region
-	uv run python scripts/gen_related_pages.py --write
-	uv run python scripts/gen_readme.py --write
-	uv run python scripts/gen_install_scripts.py --write
-	uv run python scripts/gen_validation_log.py --write
-	uv run python scripts/gen_doc_versions.py --write
-	uv run python scripts/gen_jm_pin.py --write
-	uv run python scripts/gen_changelog_links.py --write
+	$(UV) run python scripts/gen_related_pages.py --write
+	$(UV) run python scripts/gen_readme.py --write
+	$(UV) run python scripts/gen_install_scripts.py --write
+	$(UV) run python scripts/gen_validation_log.py --write
+	$(UV) run python scripts/gen_doc_versions.py --write
+	$(UV) run python scripts/gen_jm_pin.py --write
+	$(UV) run python scripts/gen_changelog_links.py --write
 
 # The pre-push half of docs-relink: the three regions a source edit can drift
 # without touching the generated file. The hook dispatches HERE rather than
 # inlining the three commands, so the hook and this target cannot disagree
 # about what "drifted" means. If it trips: run `make docs-relink`.
 docs-drift-check: ## Check the generated doc regions are up to date
-	uv run python scripts/gen_related_pages.py --check
-	uv run python scripts/gen_readme.py --check
-	uv run python scripts/gen_install_scripts.py --check
-	uv run python scripts/gen_validation_log.py --check
-	uv run python scripts/gen_issue_tracker.py --check
+	$(UV) run python scripts/gen_related_pages.py --check
+	$(UV) run python scripts/gen_readme.py --check
+	$(UV) run python scripts/gen_install_scripts.py --check
+	$(UV) run python scripts/gen_validation_log.py --check
+	$(UV) run python scripts/gen_issue_tracker.py --check
 
 # Every object certified under the validation campaign owns
 # src/doppler/<module>/tests/validation/<object>/, and `results.md` there is
@@ -3261,8 +3426,16 @@ validate-py: ## Regenerate the Python validation reports only (VALIDATORS=<valid
 	 fi
 	@for v in $(VALIDATORS); do \
 	    echo "=== $$v ==="; \
-	    uv run python $$v || exit 1; \
+	    $(UV) run python $$v || exit 1; \
 	 done
+
+# The AsyncDsssReceiver certification commits its full sweep as
+# data/sweep.txt and renders it, never re-running it on a push (it takes
+# about 45 s against the --check run's 3). This re-runs the sweep on purpose,
+# after the receiver, the harness or the toolchain changes, then the report.
+# It needs `make build` first: the sweep is the C harness's.
+validate-async-receiver-sweep: ## Re-run the AsyncDsssReceiver certification's full sweep into its data/sweep.txt, then its report
+	$(UV) run python src/doppler/dsss/tests/validation/async_dsss_receiver/validate.py --sweep
 
 # Runs the real `validate-py` and `validate` with stub validators, so it runs
 # no real validator and no harness; see the script for how each case is
@@ -3359,7 +3532,7 @@ validate-c: ## Run every C validation harness's FULL sweep (not the --check subs
 # test_validate_check_classifies.py. The validator list stays here, so
 # VALIDATORS remains the one declaration of what is checked.
 validate-check: ## Fail if any validation report is stale (CI gate)
-	@uv run python scripts/validate_check.py $(VALIDATORS)
+	@$(UV) run python scripts/validate_check.py $(VALIDATORS)
 
 # ── Characterization ─────────────────────────────────────────────────────────
 # A characterization sweeps an object across its whole operating envelope —
@@ -3394,12 +3567,12 @@ CHARACTERIZATIONS = $(shell find src/doppler \
 characterize: ## Run every characterization sweep (MINUTES — deliberate, not per-push)
 	@for c in $(CHARACTERIZATIONS); do \
 	    echo "=== $$c ==="; \
-	    uv run python $$c || exit 1; \
+	    $(UV) run python $$c || exit 1; \
 	 done
 	@echo "characterize: $(words $(CHARACTERIZATIONS)) subject(s) swept"
 
 characterization-check: ## Verify every characterization subject is runnable and has a fast twin
-	@uv run python scripts/check_characterization.py
+	@$(UV) run python scripts/check_characterization.py
 
 # The write half of the drift gate. `drift-check` was the only jm invocation
 # the Makefile carried, so the routine action -- REGENERATING after a manifest
@@ -3447,20 +3620,22 @@ endif
 	@sed -i 's/^jm_version = ".*"/jm_version = "$(JM)"/' just-makeit.toml
 	@$(MAKE) --no-print-directory docs-relink
 	@$(LOCK_CMD)
-	@echo "jm-pin: pinned $(JM). Next: make jm-apply, then make drift-check."
+	@echo "jm-pin: pinned $(JM). Next: make jm-apply, make jm-revendor,"
+	@echo "  then make drift-check."
 
 # `jm upgrade` is the migration step a jm release can ask for (0.75.0: the
 # `complex` -> `_Complex` respelling of the sacred headers, which `apply`
 # cannot do). It rewrites hand-owned files, so it is a target: the make-SSOT
 # hook blocks the bare tool, and a bypass is a missing option, not a habit.
 jm-upgrade: ## Run just-makeit's project migration (after `make jm-pin`)
-	uv sync --group dev --no-install-project
-	uv run just-makeit upgrade
-	@echo "jm-upgrade: done. Next: make jm-apply, then the full gate set."
+	$(UV) sync --group dev --no-install-project
+	$(UV) run just-makeit upgrade
+	@echo "jm-upgrade: done. Next: make jm-apply, make jm-revendor,"
+	@echo "  then the full gate set."
 
 jm-apply: ## Regenerate jm-owned glue from the manifest (then run drift-check)
-	uv sync --group dev --no-install-project
-	uv run just-makeit apply $(JM_APPLY_ARGS)
+	$(UV) sync --group dev --no-install-project
+	$(UV) run just-makeit apply $(JM_APPLY_ARGS)
 	@echo
 	@echo "jm-apply: regenerated. Two things this does NOT do for you:"
 	@echo "  - a sacred native/src/<mod>/<mod>_ext_<obj>.c fragment is"
@@ -3496,11 +3671,21 @@ jm-adopt: ## JM_ADOPT_ARGS='<obj>... [--accept-additions] | --check --all' — f
 	@test -n "$(JM_ADOPT_ARGS)" || { \
 	    echo "usage: make jm-adopt JM_ADOPT_ARGS='<obj>... --accept-additions'"; \
 	    echo "       make jm-adopt JM_ADOPT_ARGS='--check --all'"; exit 2; }
-	uv sync --group dev --no-install-project
-	uv run just-makeit adopt $(JM_ADOPT_ARGS)
+	$(UV) sync --group dev --no-install-project
+	$(UV) run just-makeit adopt $(JM_ADOPT_ARGS)
+
+# The write half of check_jm_status.py's vendored-header question: delete each
+# jm_*.h that is behind the pin, and `just-makeit apply` writes the pinned
+# render -- apply creates a missing create-only file and never rewrites one,
+# so this is the one way to replace it. Both projects, same pin.
+jm-revendor: ## Re-vendor every jm_*.h that is behind the pinned jm (both projects)
+	$(UV) sync --group dev --no-install-project
+	$(UV) run python scripts/check_jm_status.py --fix
+	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) \
+	    python $(CURDIR)/scripts/check_jm_status.py --fix
 
 jm-apply-downstream: ## Regenerate the downstream example's jm glue (same pin)
-	cd $(DOWNSTREAM_DIR) && uv run --project $(CURDIR) just-makeit apply
+	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) just-makeit apply
 
 # The jm manifest drift gate. --no-install-project because the gate only reads
 # the manifest, so there is no reason to build the C extension for it.
@@ -3511,15 +3696,22 @@ drift-check: ## jm manifest drift gate (CI's 'jm manifest drift')
 # (mutation-verified: reverting the downstream pin alone left this target
 # exiting 0). Checking here, ahead of the sync, also stops us installing one jm
 # and gating with a manifest that names another.
-	uv run python scripts/gen_jm_pin.py --check
-	uv sync --group dev --no-install-project
-	uv run just-makeit status --check
+	$(UV) run python scripts/gen_jm_pin.py --check
+	$(UV) sync --group dev --no-install-project
+# ONE status per project, as --check --json: jm's exit code stays the drift
+# verdict, and the same report says whether a vendored jm_*.h is behind the
+# pin (#2377). doppler keeps the jm headers it commits verbatim, so a
+# difference is a stale copy; jm lists it as OUTDATED and counts it as nothing,
+# which is how jm_bench.h kept its 32-row cap three releases past the fix. An
+# untracked one (the root's declined jm_test.h) is not checked.
+	$(UV) run python scripts/check_jm_status.py
 	@echo "── downstream jm example ──"
 # The example is a just-makeit project in its own right, so its generated
 # bindings/stubs/CMake can drift from its manifest exactly like doppler's can.
 # Checked with the SAME pinned jm, so the example cannot silently document a jm
 # version doppler is not on.
-	cd $(DOWNSTREAM_DIR) && uv run --project $(CURDIR) just-makeit status --check
+	cd $(DOWNSTREAM_DIR) && $(UV) run --project $(CURDIR) \
+	    python $(CURDIR)/scripts/check_jm_status.py
 
 # One definition of "code", used by BOTH questions below — and by
 # `issue-link-check`, which asks a third question of the same branch. Splitting
@@ -3550,6 +3742,14 @@ CHANGELOG_BASE ?= origin/main
 #
 # Logic in the script rather than inline so the gate's own test can drive it
 # over seeded messages instead of fabricating a scratch repository.
+# bootstrap.toml's `cmd` sections are run verbatim by install-deps, so two
+# failures go unseen elsewhere: just-bashit's TOML reader cutting a string at
+# its first `]`, and [clang-rt.apt] reporting a real failure (no network, no
+# sudo, no clang) as a bundled runtime. The script refuses both, running that
+# command against stubbed apt for every case it must tell apart.
+bootstrap-cmd-check: ## bootstrap.toml cmds are reader-safe; clang-rt.apt fails on real failures
+	@$(UV) run python scripts/check_bootstrap_cmd.py
+
 issue-link-check: ## A branch changing code must declare Closes #N or No-issue:
 	@ISSUE_BASE=$(CHANGELOG_BASE) ISSUE_CODE_PATHS="$(CHANGELOG_CODE_PATHS)" \
 	    ./scripts/issue-link-check.sh
@@ -3697,7 +3897,7 @@ endif
 	@echo "  git checkout main && git pull && make ship VERSION=$(VERSION)"
 
 release-notes-size-check: ## Fail if the release notes would exceed GitHub's cap
-	@uv run python scripts/check_release_notes_size.py
+	@$(UV) run python scripts/check_release_notes_size.py
 
 # The body release.yml will actually publish -- rendered by release-notes.sh,
 # not re-derived from CHANGELOG.md -- sized against GitHub's cap. This is the
@@ -3708,7 +3908,7 @@ ifndef VERSION
 endif
 	@t=$$(mktemp); trap 'rm -f "$$t"' EXIT; \
 	 scripts/release-notes.sh "$(VERSION)" > "$$t" \
-	 && uv run python scripts/check_release_notes_size.py --body-file "$$t"
+	 && $(UV) run python scripts/check_release_notes_size.py --body-file "$$t"
 
 changelog-check: ## A branch changing code must add a changelog entry
 	@base=$$(git merge-base HEAD $(CHANGELOG_BASE) 2>/dev/null) || { \
@@ -4500,7 +4700,7 @@ check-isotime-parity: build ## Check dp_isotime.h against just-bashit
 # because the snippet trio always runs together, under one CI condition.
 
 test-stubs: ## Doctest every generated .pyi stub
-	uv run python -m pytest --doctest-glob='*.pyi' -q \
+	$(UV) run python -m pytest --doctest-glob='*.pyi' -q \
 	    $$(find $(PYEXT_DIR) -name '*.pyi')
 
 # 79-col gate for the generated .pyi stubs. They are jm-owned and excluded from
@@ -4530,10 +4730,10 @@ lint-stubs: ## Check generated .pyi stays within 79 cols (check-only; see jm#744
 # only on backsliding. Refresh the baseline after improving coverage with
 # `python scripts/check_docstring_coverage.py --update-baseline`.
 check-docstring-coverage: ## Report docstring coverage across both Python faces
-	uv run python scripts/check_docstring_coverage.py
+	$(UV) run python scripts/check_docstring_coverage.py
 
 test-api-docs: ## Doctest the docs/api/*.md reference pages
-	uv run python -m pytest --doctest-glob='*.md' -q docs/api/
+	$(UV) run python -m pytest --doctest-glob='*.md' -q docs/api/
 
 # python/C/shell fences under docs/. Run as one target and reported together:
 # a page usually breaks all three the same way, and stopping at the first costs
@@ -4565,7 +4765,7 @@ test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 	              test_sh_doc_snippets; do \
 	     echo "=== $$t ==="; \
 	     n=$$((n + 1)); \
-	     $(LEAK_CHECK) -- uv run python -m pytest -m docs_snippets -q \
+	     $(LEAK_CHECK) -- $(UV) run python -m pytest -m docs_snippets -q \
 	         $(if $(PAGE),-k "$(PAGE)") \
 	         src/doppler/tests/$$t.py; rc=$$?; \
 	     : "5 is pytest's 'collected nothing'. Under PAGE that is the normal"; \
@@ -4635,7 +4835,7 @@ test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 # the macOS build job, where there is no nats-server to start). It
 # self-skips without either.
 test-examples-python: ## Run the Python example gate (requires pyext)
-	$(MEM_GUARD_CMD) $(LEAK_CHECK) -- uv run pytest \
+	$(MEM_GUARD_CMD) $(LEAK_CHECK) -- $(UV) run pytest \
 	    -m "examples and not examples_serial" -q -n auto \
 	    $(PYTEST_ARGS) src/doppler/tests/test_examples.py \
 	    src/doppler/tests/test_c_example_pairs.py
@@ -4647,7 +4847,7 @@ test-examples-python: ## Run the Python example gate (requires pyext)
 	@# running" rule the serial pass exists to honour. Measured, not
 	@# assumed -- a marker expression selecting nothing exits 5 here.
 	@set +e; \
-	 $(LEAK_CHECK) -- uv run pytest -m "examples and examples_serial" -q \
+	 $(LEAK_CHECK) -- $(UV) run pytest -m "examples and examples_serial" -q \
 	     $(PYTEST_ARGS) src/doppler/tests/test_examples.py; \
 	 rc=$$?; \
 	 if [ $$rc -eq 5 ]; then \
@@ -4667,7 +4867,7 @@ test-example-downstream-python: ## Build + test the downstream example (Python)
 	@cmake -B $(DOWNSTREAM_BUILD_DIR)-py $(DOWNSTREAM_DIR) \
 	    -Ddoppler_DIR=$(abspath $(BUILD_DIR)) \
 	    -DBUILD_PYTHON=ON \
-	    -DPython3_EXECUTABLE=$$(uv run python -c 'import sys; print(sys.executable)') \
+	    $(PY_CMAKE_FLAG) \
 	    -DCMAKE_BUILD_TYPE=Release \
 	    > $(DOWNSTREAM_BUILD_DIR)-py.log 2>&1 \
 	    || { echo "  configure FAILED"; cat $(DOWNSTREAM_BUILD_DIR)-py.log; exit 1; }
@@ -4677,7 +4877,7 @@ test-example-downstream-python: ## Build + test the downstream example (Python)
 	@# Its own pyproject, so not doppler's addopts: pytest-benchmark would
 	@# create .benchmarks/ in the cwd -- the repo root -- on every run.
 	PYTHONPATH=$(abspath $(DOWNSTREAM_DIR))/src $(LEAK_CHECK) -- \
-	    uv run pytest -q $(DOWNSTREAM_DIR)/src/iqtools/capture/tests/ \
+	    $(UV) run pytest -q $(DOWNSTREAM_DIR)/src/iqtools/capture/tests/ \
 	    --benchmark-storage=file://$(abspath $(BUILD_DIR))/.benchmarks
 
 # ── Bench scripts that are not save/compare ──────────────────────────────────
@@ -4687,7 +4887,7 @@ test-example-downstream-python: ## Build + test the downstream example (Python)
 #
 # bench-interleaved is the canonical path: it builds portable + native in two
 # git worktrees and runs them alternately K times (K=5; override with K=N),
-# keeping the per-benchmark best so the *from src* column isn't corrupted by
+# keeping the per-benchmark best so the *%Δ* column isn't corrupted by
 # cross-run drift. bench-publish stamps a single build by hand if you need it.
 # The Python microbenchmarks, MEASURED -- serially, because pytest-benchmark
 # disables itself under xdist and a number it refuses to produce is better
@@ -4699,7 +4899,16 @@ test-example-downstream-python: ## Build + test the downstream example (Python)
 # 139s measurement inside every test run, six times over in CI, feeding
 # nothing -- see TEST_PYTHON_CMD.
 bench-python: ## Time the Python microbenchmarks (serial; pytest-benchmark)
-	uv run pytest $(PYTEST_BENCH_DIRS) -v $(PYTEST_SELECT) $(PYTEST_ARGS)
+	$(UV) run pytest $(PYTEST_BENCH_DIRS) -v $(PYTEST_SELECT) $(PYTEST_ARGS)
+
+# The AsyncDsssReceiver's cost in one command, in seconds: the held cell at
+# three operating points and the searching flavor at the SPEC point, as
+# ns/sample and x real time on one core (bench_async_dsss_receiver_core.c).
+# A delegation to `bench`, so the run is jm's and the JSON lands where every
+# bench's does; the release's numbers still come from bench-interleaved on a
+# quiet machine.
+bench-rx: ## Time the AsyncDsssReceiver alone: tracking and searching cost
+	@$(MAKE) -s bench BENCH_ARGS="--c-only async_dsss_receiver"
 
 # The bench box keeps ONE clone, not one per release (docs/dev/release.md
 # §2b): fetch, then bench-preflight, then `git checkout --detach`, then
@@ -4710,7 +4919,7 @@ bench-python: ## Time the Python microbenchmarks (serial; pytest-benchmark)
 # and not committed, and any symlink refuses instead, touching nothing.
 # bench-interleaved runs the same check first.
 bench-preflight: ## Clear the last release's bench outputs once main has them
-	uv run python scripts/bench_interleaved.py --preflight \
+	$(UV) run python scripts/bench_interleaved.py --preflight \
 	    --base $(BENCH_COMMIT_BASE)
 
 bench-interleaved: ## Measure portable + native alternately, denoised (VERSION=)
@@ -4720,18 +4929,29 @@ ifndef VERSION
 	@echo "  make bench-preflight && git checkout --detach origin/main"
 	@exit 1
 endif
-	uv run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),) \
+	$(UV) run python scripts/bench_interleaved.py $(VERSION) $(if $(K),-k $(K),) \
 	    --base $(BENCH_COMMIT_BASE)
 
 bench-publish: ## Stamp one build's numbers for a release (VERSION= BUILD=)
 ifndef VERSION
 	@echo "usage: make bench-publish VERSION=X.Y.Z BUILD=portable|native"; exit 1
 endif
-	uv run python scripts/bench_report.py --publish $(VERSION) \
+	$(UV) run python scripts/bench_report.py --publish $(VERSION) \
 		--build $(or $(BUILD),portable)
 
 bench-docs: ## Render docs/benchmarks.md from the published numbers
-	uv run python scripts/bench_report.py --page --out docs/benchmarks.md
+	$(UV) run python scripts/bench_report.py --page --out docs/benchmarks.md
+
+# The label gate's housekeeping (#2372): delete the legacy-units entries and
+# exempt lines it refuses only because they are no longer needed -- a row
+# that records its own unit now, is labelled now, or is retired. A release
+# measured after #2314 records every C row's unit, so its PR runs this once
+# and benchmarks/legacy-units.toml goes. Labels are never touched. An exempt
+# line goes as soon as the newest release lacks its row, so a row missing
+# from ONE set (a broker-dependent Python bench that skipped) needs a label,
+# not its old line, when it returns: check the removals it prints.
+bench-labels-fix: ## Delete the legacy-unit and exempt lines the label gate refuses
+	$(UV) run python scripts/bench_report.py --fix-labels
 
 # A set measured on a branch that was then squash- or rebase-merged names a
 # commit main never receives, which bench-commits-check refuses (#1322).
@@ -4742,17 +4962,17 @@ bench-restamp: ## Restamp a published set onto main's tree-identical commit (VER
 ifndef VERSION
 	@echo "usage: make bench-restamp VERSION=X.Y.Z"; exit 1
 endif
-	uv run python scripts/bench_restamp.py $(VERSION) --base $(BENCH_COMMIT_BASE)
+	$(UV) run python scripts/bench_restamp.py $(VERSION) --base $(BENCH_COMMIT_BASE)
 	@$(MAKE) --no-print-directory bench-docs
 
 # Transport (P0) bench: NATS firehose throughput + status-plane RTT via the
 # bench_stream C harness. Self-contained — starts a JetStream broker on an
 # isolated port (temp store) and tears it down.
 bench-stream: ## Transport bench: NATS firehose + status-plane RTT
-	uv run python scripts/bench_stream.py $(if $(VERSION),--publish $(VERSION),)
+	$(UV) run python scripts/bench_stream.py $(if $(VERSION),--publish $(VERSION),)
 
 bench-report: ## Portable-build trend across releases
-	uv run python scripts/bench_report.py
+	$(UV) run python scripts/bench_report.py
 
 # ── Container images ─────────────────────────────────────────────────────────
 # Three shapes, one job each (see deploy/docker/README.md). Each target builds

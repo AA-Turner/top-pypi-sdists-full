@@ -84,7 +84,7 @@ class Deployments(APIResource):
     *,
     checkpoint_id: str,
     model_slug: str,
-    idempotency_key: str | None | Omit = omit,
+    idempotency_key: str | Omit = omit,
     agent_id: str | None | Omit = omit,
     role: Literal["production", "test"] | Omit = omit,
     model_endpoint_config: ModelEndpointConfigParam | None | Omit = omit,
@@ -96,11 +96,9 @@ class Deployments(APIResource):
     """Serve a committed checkpoint through Model Endpoint.
 
     Args:
-      idempotency_key: Required with `Trajectory-API-Version: tmp-contract`, which rejects a missing,
-        blank or over-long key, including an SDK call that passes `idempotency_key=None`.
-        Optional for legacy callers, whose key the API generates. Reuse this key when
-        retrying a submission; the SDK generates one per call and reuses it across
-        automatic retries.
+      idempotency_key: Required. A missing, blank or over-long key is rejected, including an SDK call
+        that passes `idempotency_key=None`. Reuse this key when retrying a submission; the
+        SDK generates one per call and reuses it across automatic retries.
 
       agent_id: Owning agent; inferred from the checkpoint or serving name when omitted.
 

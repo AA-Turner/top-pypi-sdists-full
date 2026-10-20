@@ -45,6 +45,8 @@ class ComparisonRun(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "comparison_run"
@@ -72,7 +74,7 @@ class ShownTo(StrEnum):
 class DataFetchJob(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     source_key = TextField(null=False)
-    dataset_id = TextField(null=False)
+    dataset_id = TextField()
     inputs = JSONBField(null=False, default=[])
     max_records = IntegerField(null=False)
     table_id = UUIDField()
@@ -105,6 +107,9 @@ class DataFetchJob(MatrxEntity):
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
     lease_until = DateTimeField(null=False)
+    call_id = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "data_fetch_job"
@@ -163,6 +168,8 @@ class DataSource(MatrxEntity):
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
     usd_per_record = DecimalField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "data_source"
@@ -190,6 +197,8 @@ class ScrapeDomain(MatrxEntity):
     category_reason = TextField()
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'scrape_domain_settings': {'from_model': 'ScrapeDomainSettings', 'from_field': 'domain_id', 'referenced_field': 'id', 'related_name': 'scrape_domain_settings', 'from_schema': 'scraper'}, 'scrape_path_pattern': {'from_model': 'ScrapePathPattern', 'from_field': 'scrape_domain_id', 'referenced_field': 'id', 'related_name': 'scrape_path_pattern', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "scrape_domain"
@@ -277,6 +286,8 @@ class ScrapeParsedPage(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_parsed_page"
@@ -296,6 +307,8 @@ class ScrapeDomainSettings(MatrxEntity):
     updated_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_domain_settings"
@@ -322,6 +335,8 @@ class ScrapePathPattern(MatrxEntity):
     category_reason = TextField()
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'scrape_path_override': {'from_model': 'ScrapePathOverride', 'from_field': 'path_pattern_id', 'referenced_field': 'id', 'related_name': 'scrape_path_override', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "scrape_path_pattern"
@@ -372,6 +387,8 @@ class ScrapePathOverride(MatrxEntity):
     created_at = DateTimeField(null=False)
     metadata = JSONBField(null=False, default={})
     deleted_at = DateTimeField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_path_override"

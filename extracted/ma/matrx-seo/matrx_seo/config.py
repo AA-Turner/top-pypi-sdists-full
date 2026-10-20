@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Any
 
 from .contracts import CollectionRequest, ResolvedCredential, StoredPayloadReceipt
@@ -56,13 +56,13 @@ def configure(
 def person_cost_text(amount_usd: Decimal | float | str | None) -> str:
     """A cost in a sentence a person reads, through the host's injected
     formatter (``configure(cost_text=...)``). Without one the package states
-    dollars, the only unit it knows on its own."""
+    points at the platform rate (20,000 points = $1) — never dollars."""
     if amount_usd is None:
         return "—"
     amount = Decimal(str(amount_usd))
     if _cost_text is not None:
         return _cost_text(amount)
-    return "$" + str(amount)
+    return f"{max(1, int((amount * 20_000).to_integral_value(rounding=ROUND_CEILING))) if amount > 0 else 0:,} points"
 
 
 async def battery_credential_resolver(

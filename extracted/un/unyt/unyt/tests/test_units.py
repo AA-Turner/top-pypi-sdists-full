@@ -51,6 +51,21 @@ from unyt.unit_registry import UnitRegistry
 from unyt.unit_systems import UnitSystem, cgs_unit_system
 
 
+@pytest.mark.parametrize("symbol", ["nmi", "nautical_mile"])
+def test_nautical_mile_conversion(symbol):
+    assert_equal(unyt_quantity(1, symbol).to_value("m"), 1852.0)
+
+
+@pytest.mark.parametrize("symbol", ["kt", "knot"])
+def test_knot_conversion(symbol):
+    assert_allclose(
+        unyt_quantity(1, symbol).to_value("m/s"),
+        1852.0 / 3600.0,
+        rtol=1e-14,
+    )
+    assert_allclose(unyt_quantity(1, symbol).to_value("nmi/hr"), 1.0)
+
+
 def test_no_conflicting_symbols():
     """
     Check unit symbol definitions for conflicts.
@@ -434,11 +449,11 @@ def test_invalid_operations():
         u1 - 1
     with pytest.raises(InvalidUnitOperation):
         u1 *= u2
-    with pytest.raises(InvalidUnitOperation):
+    with pytest.raises(TypeError):
         u1 * "hello!"
     with pytest.raises(InvalidUnitOperation):
         u1 /= u2
-    with pytest.raises(InvalidUnitOperation):
+    with pytest.raises(TypeError):
         u1 / "hello!"
     with pytest.raises(InvalidUnitOperation):
         Unit("B") * Unit("V")
@@ -601,6 +616,49 @@ def test_decagram():
     dag = Unit("dag")
     g = Unit("g")
     assert dag.get_conversion_factor(g) == (10.0, None)
+
+
+def test_conversion_factor_dtype():
+    # the documented dtype argument should control the precision of the
+    # returned conversion factor (and offset), see GH issue #579
+    km = Unit("km")
+    m = Unit("m")
+
+    factor, offset = km.get_conversion_factor(m, dtype=np.dtype("float32"))
+    assert isinstance(factor, np.float32)
+    assert factor == np.float32(1000.0)
+    assert offset is None
+
+    # offset case: a conversion with a non-zero offset should return both the
+    # factor and the offset with the requested precision
+    degC = Unit("degC")
+    degF = Unit("degF")
+
+    factor, offset = degC.get_conversion_factor(degF, dtype=np.float32)
+    assert isinstance(factor, np.float32)
+    assert isinstance(offset, np.float32)
+
+    # a narrower request is widened to a minimum of 2 bytes, mirroring the
+    # behaviour used internally in unyt.array
+    factor, _ = km.get_conversion_factor(m, dtype=np.int8)
+    assert isinstance(factor, np.float16)
+
+    # a complex request uses the width of its real part; taking the whole item
+    # size would name a float128 that does not exist on every platform
+    factor, _ = km.get_conversion_factor(m, dtype=np.complex128)
+    assert isinstance(factor, np.float64)
+
+    factor, _ = km.get_conversion_factor(m, dtype=np.complex64)
+    assert isinstance(factor, np.float32)
+
+    # regression: without a dtype the result is unchanged (plain Python floats)
+    factor, offset = km.get_conversion_factor(m)
+    assert type(factor) is float
+    assert offset is None
+
+    factor, offset = degC.get_conversion_factor(degF)
+    assert type(factor) is float
+    assert type(offset) is float
 
 
 def test_pickle():
@@ -899,3 +957,105 @@ def test_mixed_registry_operations():
     assert_almost_equal(a * b, b * a)
     assert_almost_equal(b / a, b / a.in_units("km"))
     assert_almost_equal(a / b, a / b.in_units("km"))
+
+
+def test_other_argument_can_handle_multiplication_and_division():
+
+    class MyClass:
+        def __init__(self, x):
+            self.x = x
+
+        def __mul__(self, other):
+            return self.x * other
+
+        def __rmul__(self, other):
+            return self.__mul__(other)
+
+        def __truediv__(self, other):
+            return self.x / other
+
+        def __rtruediv__(self, other):
+            return other / self.x
+
+    u = Unit("m")
+    x = 5
+    mc = MyClass(x=x)
+
+    assert_almost_equal(x * u, mc * u)  # handled by MyClass.__mul__
+    assert_almost_equal(x * u, u * mc)  # handled by MyClass.__mul__
+    assert_almost_equal(x / u, mc / u)  # handled by MyClass.__truediv__
+    assert_almost_equal(u / x, u / mc)  # handled by MyClass.__rtruediv__
+
+
+def test_other_argument_typeerror_on_multiplication_or_division():
+
+    class MyClass:
+        def __init__(self):
+            return
+
+        def __mul__(self, other):
+            return other * None  # always raises TypeError
+
+        def __rtruediv__(self, other):
+            return other / None  # always raises TypeError
+
+    u = Unit("m")
+    mc = MyClass()
+    mul_msg = r"unsupported operand type\(s\) for \*"
+    div_msg = r"unsupported operand type\(s\) for \/"
+
+    # only test for case when MyClass is right argument, when left it's its own problem
+    with pytest.raises(TypeError, match=mul_msg):
+        u * mc
+    with pytest.raises(TypeError, match=div_msg):
+        u / mc
+
+
+def test_other_argument_cannot_handle_multiplication_and_division():
+
+    class MyClass:
+        def __init__(self, x):
+            self.x = x
+
+    u = Unit("m")
+    x = 5
+    mc = MyClass(x=x)
+    mul_msg = r"unsupported operand type\(s\) for \*"
+    div_msg = r"unsupported operand type\(s\) for \/"
+
+    with pytest.raises(TypeError, match=mul_msg):
+        mc * u
+    with pytest.raises(TypeError, match=mul_msg):
+        u * mc
+    with pytest.raises(TypeError, match=mul_msg):
+        mc / u  # handled as multiplication by inverse so expect mul_msg
+    with pytest.raises(TypeError, match=div_msg):
+        u / mc
+
+
+def test_other_argument_explicitly_cannot_handle_multiplication_and_division():
+
+    class MyClass:
+        def __init__(self, x):
+            self.x = x
+
+        def __mul__(self, x):
+            return NotImplemented
+
+        def __rtruediv__(self, x):
+            return NotImplemented
+
+    u = Unit("m")
+    x = 5
+    mc = MyClass(x=x)
+    mul_msg = r"unsupported operand type\(s\) for \*"
+    div_msg = r"unsupported operand type\(s\) for \/"
+
+    with pytest.raises(TypeError, match=mul_msg):
+        mc * u
+    with pytest.raises(TypeError, match=mul_msg):
+        u * mc
+    with pytest.raises(TypeError, match=mul_msg):
+        mc / u  # handled as multiplication by inverse so expect mul_msg
+    with pytest.raises(TypeError, match=div_msg):
+        u / mc

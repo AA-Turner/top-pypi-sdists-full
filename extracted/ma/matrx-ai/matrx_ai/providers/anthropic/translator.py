@@ -22,7 +22,7 @@ from matrx_ai.config.tool_result_guard import (
     dedupe_tool_result_dicts,
     report_tool_result_duplicates,
 )
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
 from matrx_ai.config.cache_marks import (
     MAX_ANTHROPIC_CACHE_MARKS,
     cache_control,
@@ -86,7 +86,7 @@ class AnthropicTranslator(BaseTranslator):
         # in place as a marked note in the user turn — never dropped, never filled.
         from matrx_ai.providers.system_notes import history_system_messages_as_notes
 
-        wire_messages = history_system_messages_as_notes(config.messages, provider="anthropic")
+        wire_messages = history_system_messages_as_notes(self.messages_for_wire(config), provider="anthropic")
         template_position = template_mark_index(wire_messages) if PROMPT_CACHING_ENABLED else None
         for position, msg in enumerate(wire_messages):
             message_content = msg.to_anthropic_blocks()
@@ -323,25 +323,25 @@ class AnthropicTranslator(BaseTranslator):
                 anthropic_request["tools"] = all_tools
 
         # TRAILING CHANNEL — this turn's context block, then the tail channel
-        # (config/live_plan.py). Appended AFTER the rolling breakpoint was
-        # placed, as separate, uncached text blocks on the newest user-role
-        # message (the person's turn, or the newest tool_result mid-loop) —
-        # never concatenated into an existing block. The cached prefix ends
-        # exactly where the last request's did, so the next turn reads it.
+        # (config/live_plan.py). It rides its OWN host turn after the newest
+        # message (owner decision, defects 23 + 35, 2026-10-18: host text never
+        # travels inside the person's message), placed AFTER the rolling
+        # breakpoint, uncached. Anthropic accepts consecutive user-role turns.
+        # With an authored prefill the host turn goes just before the prefill so
+        # the prefill stays last. The cached prefix ends exactly where the last
+        # request's did, so the next turn reads it.
         trailing_text = self.get_trailing_context_text(config)
         if trailing_text:
-            anchor = messages[-2] if trailing_prefill and len(messages) >= 2 else (
-                None if trailing_prefill else (messages[-1] if messages else None)
-            )
-            if anchor is not None and anchor.get("role") == "user":
-                if isinstance(anchor.get("content"), str):
-                    anchor["content"] = [{"type": "text", "text": anchor["content"]}]
-                if isinstance(anchor.get("content"), list):
-                    anchor["content"].append({"type": "text", "text": trailing_text})
-                    anchor = "placed"
-            if anchor != "placed":
-                # No user-role message to carry it (an empty conversation): there
-                # is no cached history to protect, so the system channel is safe.
+            host_turn = {"role": "user", "content": [{"type": "text", "text": trailing_text}]}
+            if messages:
+                if trailing_prefill:
+                    messages.insert(len(messages) - 1, host_turn)
+                else:
+                    messages.append(host_turn)
+                record_platform_text_placement("anthropic", "own_host_turn", trailing_text)
+            else:
+                # No message at all (an empty conversation): there is no cached
+                # history to protect, so the system channel is safe.
                 fallback = self.get_turn_context_text(config)
                 if fallback:
                     system = anthropic_request.get("system")
@@ -498,13 +498,34 @@ class AnthropicTranslator(BaseTranslator):
 
     @classmethod
     def _mark_last_message_cacheable(cls, messages: list[dict[str, Any]]) -> None:
-        """Attach a rolling cache breakpoint to the last eligible message block."""
+        """Attach a rolling cache breakpoint to the last eligible message block.
+
+        🚨 When the newest turn carries this send's platform block (placed BEFORE the person's
+        typed text — ``messages_for_wire``), the mark goes on the last block BEFORE it: the
+        block is per-turn and never persisted, so a cached prefix that contained it would be
+        unreadable next turn. Everything up to the block caches; the block, the person's
+        attachments and typed text are written on the next turn, in stored order.
+        """
         if not messages:
             return
         content = messages[-1].get("content")
         if not isinstance(content, list) or not content:
             return
-        for index in range(len(content) - 1, -1, -1):
+        from matrx_ai.config.typed_text_last import TURN_CONTEXT_MARK
+
+        end = len(content)
+        for at, block in enumerate(content):
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "text"
+                and str(block.get("text") or "").startswith(TURN_CONTEXT_MARK)
+            ):
+                if at == 0:
+                    cls._mark_last_message_cacheable(messages[:-1])
+                    return
+                end = at
+                break
+        for index in range(end - 1, -1, -1):
             block = content[index]
             if not isinstance(block, dict):
                 continue
@@ -611,7 +632,7 @@ class AnthropicTranslator(BaseTranslator):
 
         # Anthropic requires an object-root schema. No usable / non-object-root
         # schema → omit structured output. This is a runtime ADJUSTMENT (schema
-        # NOT enforced) — log loudly so it's never mistaken for configured behaviour.
+        # NOT enforced) — log loudly so it's never mistaken for configured behavior.
         downgrade_reason: str | None = None
         if not isinstance(schema, dict):
             downgrade_reason = "no JSON Schema was supplied with the json_schema request"

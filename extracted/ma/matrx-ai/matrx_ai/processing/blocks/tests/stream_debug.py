@@ -9,7 +9,7 @@ Usage:
         --chunk-size N   Simulate streaming by feeding N bytes at a time (default: 0 = whole file at once)
         --json           Print each event as raw JSON instead of the human-readable summary
         --final-only     Only print the final complete state of each block, not every streaming event
-        --no-color       Disable ANSI colour output
+        --no-color       Disable ANSI color output
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ INPUT_FILE = os.path.join(os.path.dirname(__file__), "test_input.txt")
 
 
 # ---------------------------------------------------------------------------
-# ANSI colours
+# ANSI colors
 # ---------------------------------------------------------------------------
 
 class C:
@@ -59,7 +59,7 @@ def _c(code: str, text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Type → colour mapping so different block types stand out
+# Type → color mapping so different block types stand out
 # ---------------------------------------------------------------------------
 
 _TYPE_COLORS: dict[str, str] = {
@@ -277,7 +277,7 @@ def main() -> None:
     parser.add_argument(
         "--no-color",
         action="store_true",
-        help="Disable ANSI colour output",
+        help="Disable ANSI color output",
     )
     parser.add_argument(
         "--input", "-i",

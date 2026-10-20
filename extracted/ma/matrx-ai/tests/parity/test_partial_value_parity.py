@@ -225,7 +225,7 @@ def _canonical(block_type: str, value: dict[str, Any]) -> dict[str, Any]:
     answer-as-text), Python's preferred path kicked in — ``_partial_value``
     documents that it PREFERS the real parser precisely so the provisional
     value and the final value are the same object — and the leftover keys
-    became the parser's normalised twins (``multipleChoice``,
+    became the parser's normalized twins (``multipleChoice``,
     ``correctAnswer: 0``, ``id``).
 
     Nothing the reader sees changed: ``adapt_block_data`` reads both spellings

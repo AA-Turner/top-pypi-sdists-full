@@ -21,6 +21,7 @@ from doppler.dsss import (
     CellAsyncDsssReceiver,
     ReceiverStatus,
 )
+from doppler.telemetry import Telemetry
 from doppler.wfm import Gold
 
 SF = 1023
@@ -111,7 +112,8 @@ def _noise(n, cn0_dbhz, seed):
     ).astype(np.complex64)
 
 
-# ── Seeded from outside: the cell receiver (design section 11.1) ──────────
+# ── Seeded from outside: the cell receiver ───────────────────────────────────
+# (docs/design/async-dsss-receiver.md §11.1)
 
 
 @pytest.mark.parametrize("chip_phase", [-0.5, float(SF), float("nan")])
@@ -136,7 +138,8 @@ def test_seed_on_the_searching_flavor_beats_its_own_search():
     assert rx.idle == 0  # this flavor goes back to searching
 
 
-# ── The release rule (design section 11.2) ────────────────────────────────
+# ── The release rule ─────────────────────────────────────────────────────────
+# (docs/design/async-dsss-receiver.md §11.2)
 
 
 def _feed_until_lost(rx, x, chunk):
@@ -198,7 +201,55 @@ def test_lost_confirm_zero_never_releases():
     assert (rx.tracking, rx.lost) == (1, 0)
 
 
-# ── The cell mode (design section 12.22-12.24 as a mode, #1283) ──────────
+def test_reacquire_needs_a_release_interval():
+    # Its release is the only way back to searching: one that never fires
+    # is refused, not accepted as a silent no-op.
+    msg = "at least one input sample with reacquire"
+    with pytest.raises(ValueError, match=msg):
+        _new_receiver(70.0, lost_confirm_s=0.0, reacquire=True)
+    with pytest.raises(ValueError, match=msg):  # rounds to zero samples
+        _new_receiver(70.0, lost_confirm_s=1e-9, reacquire=True)
+    _new_receiver(70.0, lost_confirm_s=0.02, reacquire=True)
+
+
+def test_lifecycle_walks_every_state():
+    # `lifecycle` names each state the receiver passes through, in order:
+    # a cell receiver waits idle; a searching one searches, refines,
+    # tracks, and -- with the release rule armed and the emitter gone --
+    # is lost.
+    assert _new_cell(70.0).lifecycle == "idle"
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    off = _noise(int(0.25 * FS), 70.0, seed=99)
+    rx = _new_receiver(70.0, lost_confirm_s=0.02)
+    seen = [rx.lifecycle]
+    for block in (x, off):
+        for pos in range(0, len(block) - TE, TE):
+            rx.steps(block[pos : pos + TE])
+            if rx.lifecycle != seen[-1]:
+                seen.append(rx.lifecycle)
+    assert seen == ["searching", "refining", "tracking", "lost"]
+
+
+def test_reacquire_returns_to_searching_never_lost():
+    # The parallel design's release (async-dsss-parallel.md section 3): the
+    # emitter gone past the interval, the receiver searches again by
+    # itself, with no reset(). The behavior's own test is the C one; this
+    # is the keyword reaching it.
+    x, _data = _make_ramp_signal(70.0, seed=21)
+    off = _noise(int(0.25 * FS), 70.0, seed=99)
+    rx = _new_receiver(70.0, lost_confirm_s=0.02, reacquire=True)
+    _feed(rx, x)
+    assert rx.tracking == 1
+    states = set()
+    for pos in range(0, len(off), 4096):
+        rx.steps(off[pos : pos + 4096])
+        states.add(rx.lifecycle)
+    assert "lost" not in states
+    assert "searching" in states
+
+
+# ── The cell mode, as a mode of this receiver (#1283) ────────────────────────
+# (docs/design/async-dsss-receiver-measurements.md §12.22-12.24)
 
 
 def _new_cell(cn0_dbhz, **kwargs):
@@ -293,7 +344,8 @@ def test_cell_state_roundtrip_is_mode_keyed():
     assert rx2.tracking == 1
 
 
-# ── The status record (design section 11.3) ──────────────────────────────
+# ── The status record ────────────────────────────────────────────────────────
+# (docs/design/async-dsss-receiver.md §11.3)
 
 
 def test_status_record_is_the_getters_other_face():
@@ -652,3 +704,43 @@ def test_state_roundtrip_while_searching():
     rx2.set_state(blob)
     assert rx2.tracking == 0
     assert rx2.refining == 0
+
+
+def test_telemetry_reports_every_loop_and_survives_a_reseed():
+    """set_telemetry, through the capsule: every loop's output reports
+    under the prefix while tracking, and keeps reporting after reset() and
+    a new seed rebuild the chain; None detaches. The cell view shares the
+    method verbatim; the searching flavor adds its search's probes."""
+    search = Telemetry(1 << 12)
+    _new_receiver(70.0).set_telemetry(search, "rx")
+    assert "rx.acq.stat" in search.probe_names
+
+    tlm = Telemetry(1 << 17)
+    x, _data = _make_ramp_signal(70.0, seed=21, n_sym=400)
+    rx = _new_cell(70.0, correct_periods=40, pullin_intervals=4)
+    rx.set_telemetry(tlm, "rx")
+    outputs = (
+        "rx.car.freq",
+        "rx.code.rate",
+        "rx.demod.car.freq",
+        "rx.demod.sync.rate",
+    )
+    assert set(outputs) <= set(tlm.probe_names)
+    assert "rx.acq.stat" not in tlm.probe_names  # a cell has no search
+    n_probes = tlm.probe_count
+    for _ in range(2):  # the second pass runs on a rebuilt chain
+        rx.reset()
+        rx.seed(0.0, 0.0, 70.0)
+        _feed(rx, x[PRE_SILENCE:])
+        assert rx.tracking == 1
+        got = tlm.read_dict()
+        for name in outputs:
+            assert len(got[name]) > 0, name
+        assert tlm.probe_count == n_probes  # the same names, the same ids
+
+    rx.set_telemetry(None, "rx")
+    rx.reset()
+    rx.seed(0.0, 0.0, 70.0)
+    _feed(rx, x[PRE_SILENCE:])
+    got = tlm.read_dict()
+    assert all(len(got[name]) == 0 for name in outputs)

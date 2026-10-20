@@ -1147,7 +1147,7 @@ cdef class MSSQLConnection:
 
             strValue = <char *>PyMem_Malloc(len(value) + 1)
             tmp = value
-            strncpy(strValue, tmp, len(value) + 1)
+            memcpy(strValue, tmp, len(value))
             strValue[ len(value) ] = b'\0';
             dbValue[0] = <BYTE *>strValue
             length[0] = len(value)
@@ -1644,6 +1644,16 @@ cdef class MSSQLConnection:
             rtc = bcp_options(dbproc, BCPHINTS, value, valuelen)
         check_cancel_and_raise(rtc, self)
 
+    cdef bcp_keep_identity(self):
+        cdef DBPROCESS *dbproc = self.dbproc
+        cdef RETCODE rtc
+
+        log("_mssql.MSSQLBCPContext.bcp_keep_identity() [FIX]")
+
+        with nogil:
+            rtc = bcp_control(dbproc, BCPKEEPIDENTITY, 1)
+        check_cancel_and_raise(rtc, self)
+
     cdef bcp_bind(self, object value, int is_none, int column_db_type, int position, BYTE **data):
         cdef DBPROCESS *dbproc = self.dbproc
         cdef RETCODE rtc
@@ -1689,7 +1699,7 @@ cdef class MSSQLConnection:
         if rows_inserted == -1:
             raise_MSSQLDatabaseException(self)
 
-    cpdef bcp_sendrow(self, object element, object column_ids):
+    cpdef bcp_sendrow(self, object element, object column_ids, object unicode_column_ids=None):
         cdef DBPROCESS *dbproc = self.dbproc
         cdef RETCODE rtc
         cdef int length = len(element)
@@ -1698,6 +1708,7 @@ cdef class MSSQLConnection:
         cdef int db_type = -1
         cdef int is_none = -1
         cdef int column_id = -1
+        cdef object bind_value
 
         log("_mssql.MSSQLBCPContext.bcp_sendrow()")
 
@@ -1715,12 +1726,19 @@ cdef class MSSQLConnection:
                         except IndexError:
                             raise ValueError("Too few column IDs provided")
                     if col_value is None:
+                        bind_value = col_value
                         db_type = 0
                         is_none = 1
                     else:
                         db_type = py2db_type(type(col_value), col_value)
+                        bind_value = col_value
+                        if (unicode_column_ids is not None
+                                and column_id in unicode_column_ids
+                                and isinstance(col_value, unicode)):
+                            log("_mssql.MSSQLBCPContext.bcp_sendrow() [FIX] UTF-16LE for Unicode column %d", column_id)
+                            bind_value = col_value.encode('utf-16le')
                         is_none = 0
-                    self.bcp_bind(col_value, is_none, db_type, column_id, &datas[idx])
+                    self.bcp_bind(bind_value, is_none, db_type, column_id, &datas[idx])
                 rtc = bcp_sendrow(dbproc)
 
                 check_cancel_and_raise(rtc, self)

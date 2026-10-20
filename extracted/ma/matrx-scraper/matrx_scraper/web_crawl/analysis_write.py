@@ -14,7 +14,7 @@ and hands them over; these functions own the DB contract:
 - `web.analysis_result` is IMMUTABLE (insert-only). `status` pass|warn|fail
   requires `score` 1–100; `n_a`/`error` require NULL — DB CHECK
   `analysis_result_status_score_valid`.
-- `severity` comes from the catalogue row's own `severity_map` bands, never
+- `severity` comes from the catalog row's own `severity_map` bands, never
   from a provider's opinion.
 - `web.finding` is the mutable register: warn/fail opens-or-refreshes-or-
   REOPENS, pass resolves, `n_a` CLOSES AS UNVERIFIED (resolved, with the
@@ -66,8 +66,8 @@ def _cap(severity: str, ceiling: str) -> str:
 
 
 def band_severity(item: WebAnalysisItem, score: int | None) -> str:
-    """The catalogue row's own band for a score. A scoreless outcome
-    (`n_a`/`error`) is `info`: it carries no judgement about the page."""
+    """The catalog row's own band for a score. A scoreless outcome
+    (`n_a`/`error`) is `info`: it carries no judgment about the page."""
     if score is None:
         return "info"
     bands = ((item.severity_map or {}).get("bands")) or []

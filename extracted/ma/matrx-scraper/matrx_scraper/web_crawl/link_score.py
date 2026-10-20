@@ -31,7 +31,7 @@ row is left NULL just for being an alias.
 **When it runs.** Wholesale recompute after a COMPLETED full crawl (see
 ``service._run_post_crawl_link_scoring``) and on demand via
 ``POST /crawler/sites/{site_id}/links/score``. Never mid-crawl, never after a
-partial, cancelled, or list crawl: scoring a half-crawled site produces
+partial, canceled, or list crawl: scoring a half-crawled site produces
 confident, wrong numbers, and a stale-but-coherent score beats a fresh
 incoherent one. ``page.link_score_computed_at`` records when the number was
 produced so a consumer can tell a fresh score from one left over from an

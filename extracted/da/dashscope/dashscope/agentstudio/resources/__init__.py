@@ -27,6 +27,14 @@ from dashscope.agentstudio.resources.environments import (
     AsyncEnvironments,
 )
 from dashscope.agentstudio.resources.files import Files, AsyncFiles
+from dashscope.agentstudio.resources.memory_stores import (
+    AsyncMemories,
+    AsyncMemoryStores,
+    AsyncMemoryVersions,
+    Memories,
+    MemoryStores,
+    MemoryVersions,
+)
 from dashscope.agentstudio.resources.session_events import (
     AsyncSessionEvents,
     SessionEvents,
@@ -74,6 +82,12 @@ __all__ = [
     "AsyncSessionEvents",
     "Vaults",
     "AsyncVaults",
+    "MemoryStores",
+    "AsyncMemoryStores",
+    "Memories",
+    "AsyncMemories",
+    "MemoryVersions",
+    "AsyncMemoryVersions",
     "WebhookEndpoints",
     "AsyncWebhookEndpoints",
     "_TypedEventStream",

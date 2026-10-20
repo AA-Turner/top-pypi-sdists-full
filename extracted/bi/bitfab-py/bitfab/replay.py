@@ -969,7 +969,7 @@ def replay(
         skip_assertion_judging: Don't judge approved assertions on each
             replay. Judging is on by default: every approved assertion is
             judged as its replay finishes and the verdict is saved as that
-            assertion's agent label, and each judgement costs model calls.
+            assertion's agent verdict, and each judgement costs model calls.
         only_with_assertions: Replay only the selected traces that carry at
             least one approved assertion. Narrows whatever ``limit``,
             ``trace_ids`` or ``dataset_ids`` chose, so a run that measures
@@ -1478,7 +1478,7 @@ def replay(
                 f"Bitfab: server has no persisted trace for {len(missing)} of "
                 f"{completed_count} completed replay item(s) "
                 f"(experiment {experiment_id}). Their replay token usage is "
-                f"unavailable and they cannot be labeled."
+                f"unavailable and they cannot be judged."
             )
 
     result = _replay_result(

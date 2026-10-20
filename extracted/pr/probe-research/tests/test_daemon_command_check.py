@@ -157,6 +157,26 @@ def test_a_refusal_in_every_mode_never_reaches_jev(tmp_path, monkeypatch):
     assert "refused in every mode" in out and check.calls == []
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cut -c1-5 {service}/service.log",
+        "python3 -c \"import socket; s = socket.socket(socket.AF_UNIX); s.connect('{socket}')\"",
+    ],
+)
+def test_the_probe_service_is_refused_in_every_mode(tmp_path, monkeypatch, command):
+    """Its socket runs the researcher's own setup actions (logout, uninstall,
+    an update): as private as the approvals board, never judged."""
+    from probe.service import paths as service_paths
+
+    check = _check(monkeypatch, YES)
+    deps = _deps(tmp_path)
+    deps.protected = folders.protected_paths()
+    sock = service_paths.socket_path()
+    out = _run(tools.shell(deps, command.format(service=service_paths.service_dir(), socket=sock)))
+    assert "refused in every mode" in out and check.calls == [], out
+
+
 def test_a_command_naming_the_team_note_is_asked_never_judged(tmp_path, monkeypatch):
     check = _check(monkeypatch, YES)
     deps = _deps(tmp_path)  # no write folders: the team note is found on its own

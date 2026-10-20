@@ -3,29 +3,143 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
+    cast,
 )
 
-from pyathena import OperationalError
-from pyathena.arrow.converter import _to_timestamp
+from pyathena import DataError, OperationalError
+from pyathena.arrow.converter import _to_null, _to_timestamp
 from pyathena.arrow.util import to_column_info
 from pyathena.converter import Converter, _to_default
 from pyathena.filesystem.reader import ReadAheadStream
 from pyathena.model import AthenaQueryExecution
-from pyathena.result_set import AthenaResultSet
+from pyathena.result_set import AthenaResultSet, AthenaUnloadResultSetMetadataReader
 from pyathena.util import RetryConfig, override, parse_output_location
 
 if TYPE_CHECKING:
     import polars as pl
     from pyarrow import Table
+    from pyarrow.parquet import ParquetDataset
 
     from pyathena.connection import Connection
 
 _logger = logging.getLogger(__name__)
+
+
+class AthenaArrowResultSetMetadataReader(AthenaUnloadResultSetMetadataReader):
+    """Reads the metadata of an Arrow result set, and opens the dataset of its Parquet files.
+
+    It owns the pyarrow S3 filesystem of the result files, which uses the
+    credentials of the connection's session and the given timeouts. An UNLOAD
+    result is described by the schema of the ``ParquetDataset`` of its files,
+    which reads INT96 timestamps at microseconds and has the partition columns
+    of a partitioned UNLOAD. ``AthenaArrowResultSet`` takes the dataset
+    (:meth:`take_parquet_dataset`) and reads its table.
+    """
+
+    def __init__(
+        self,
+        connection: Connection[Any],
+        query_execution: AthenaQueryExecution,
+        retry_config: RetryConfig,
+        unload: bool = False,
+        unload_location: str | None = None,
+        connect_timeout: float | None = None,
+        request_timeout: float | None = None,
+    ) -> None:
+        """Initialize the reader and the filesystem of the result files; it sends no request.
+
+        Args:
+            connection: The connection that ran the query.
+            query_execution: The query execution whose result set to read.
+            retry_config: The retry configuration for API calls.
+            unload: Whether the cursor runs its queries as UNLOAD to Parquet.
+            unload_location: The S3 location of the UNLOAD output.
+            connect_timeout: The connect timeout in seconds for the pyarrow S3 filesystem.
+            request_timeout: The request timeout in seconds for the pyarrow S3 filesystem.
+        """
+        super().__init__(
+            connection,
+            query_execution,
+            retry_config,
+            unload=unload,
+            unload_location=unload_location,
+        )
+        self._connect_timeout = connect_timeout
+        self._request_timeout = request_timeout
+        # Created on first use, so that a description of a CSV result creates none.
+        self._filesystem: Any = None
+        # The dataset of the Parquet files of an UNLOAD result, which read() opens; None
+        # without data files, and once taken.
+        self._parquet_dataset: ParquetDataset | None = None
+
+    @property
+    def filesystem(self) -> Any:
+        """The pyarrow S3 filesystem that reads the result files, created on first use."""
+        if self._filesystem is None:
+            self._filesystem = self._create_s3_file_system()
+        return self._filesystem
+
+    def take_parquet_dataset(self) -> ParquetDataset | None:
+        """Take the dataset of the Parquet files of the UNLOAD result.
+
+        Returns:
+            The dataset that :meth:`read` opened; None without data files, and on
+            later calls.
+        """
+        dataset, self._parquet_dataset = self._parquet_dataset, None
+        return dataset
+
+    @override
+    def _read_parquet_metadata(self) -> tuple[dict[str, Any], ...]:
+        """Open the dataset of the Parquet files of the UNLOAD result, and describe it.
+
+        The dataset reads timestamps at microseconds, and is kept for the read.
+
+        Returns:
+            The column metadata of the schema of the dataset.
+
+        Raises:
+            OperationalError: If opening the files or reading the schema fails.
+        """
+        from pyarrow import parquet
+
+        bucket, key = parse_output_location(cast(str, self._unload_location))
+        try:
+            # Athena writes timestamps as INT96, whose default unit, nanoseconds, cannot
+            # hold years before 1677 or after 2262.
+            self._parquet_dataset = parquet.ParquetDataset(
+                f"{bucket}/{key}", filesystem=self.filesystem, coerce_int96_timestamp_unit="us"
+            )
+            return to_column_info(self._parquet_dataset.schema)
+        except Exception as e:
+            _logger.exception(f"Failed to read schema {bucket}/{key}.")
+            raise OperationalError(*e.args) from e
+
+    def _create_s3_file_system(self) -> Any:
+        """Create a pyarrow ``S3FileSystem`` with the credentials of the connection's session.
+
+        Returns:
+            The pyarrow S3 filesystem for reading the query results.
+        """
+        from pyarrow import fs
+
+        kwargs: dict[str, Any] = {"region": self._connection.region_name}
+        if self._connect_timeout is not None:
+            kwargs["connect_timeout"] = self._connect_timeout
+        if self._request_timeout is not None:
+            kwargs["request_timeout"] = self._request_timeout
+        credentials = self._connection.session.get_credentials()
+        if credentials:
+            frozen_credentials = credentials.get_frozen_credentials()
+            kwargs["access_key"] = frozen_credentials.access_key
+            kwargs["secret_key"] = frozen_credentials.secret_key
+            kwargs["session_token"] = frozen_credentials.token
+        return fs.S3FileSystem(**kwargs)
 
 
 class AthenaArrowResultSet(AthenaResultSet):
@@ -63,6 +177,10 @@ class AthenaArrowResultSet(AthenaResultSet):
         This class is used internally by ArrowCursor and typically not
         instantiated directly by users. Requires pyarrow to be installed.
     """
+
+    _metadata_reader_class: ClassVar[type[AthenaArrowResultSetMetadataReader]] = (
+        AthenaArrowResultSetMetadataReader
+    )
 
     DEFAULT_BLOCK_SIZE = 1024 * 1024 * 128
 
@@ -116,7 +234,7 @@ class AthenaArrowResultSet(AthenaResultSet):
             request_timeout: The request timeout in seconds for the pyarrow S3 filesystem.
             result_set_type_hints: Athena type signatures for complex-type columns,
                 keyed by column name (case-insensitive) or zero-based column index.
-            **kwargs: Additional keyword arguments, stored but not used.
+            **kwargs: Additional keyword arguments, which are ignored.
 
         Raises:
             ProgrammingError: If ``query_execution`` is not given.
@@ -126,22 +244,34 @@ class AthenaArrowResultSet(AthenaResultSet):
             connection=connection,
             converter=converter,
             query_execution=query_execution,
-            arraysize=1,  # Fetch one row to retrieve metadata
+            # The fetch size can exceed the size of a GetQueryResults page, which the
+            # base class validates.
+            arraysize=1,
             retry_config=retry_config,
+            # The metadata reader of the result set reads the metadata.
+            _pre_fetch=False,
             result_set_type_hints=result_set_type_hints,
         )
-        self._rows.clear()  # Clear pre_fetch data
         self._arraysize = arraysize
         self._block_size = block_size if block_size else self.DEFAULT_BLOCK_SIZE
-        self._unload = unload
-        self._unload_location = unload_location
-        self._connect_timeout = connect_timeout
-        self._request_timeout = request_timeout
-        self._kwargs = kwargs
-        self._fs = self._create_s3_file_system()
-        if self.state == AthenaQueryExecution.STATE_SUCCEEDED and self.output_location:
+        reader = self._metadata_reader_class(
+            connection,
+            query_execution,
+            retry_config,
+            unload=unload,
+            unload_location=unload_location,
+            connect_timeout=connect_timeout,
+            request_timeout=request_timeout,
+        )
+        self._metadata_reader = reader
+        self._fs = reader.filesystem
+        self._load_metadata()
+        succeeded = self.state == AthenaQueryExecution.STATE_SUCCEEDED
+        # The UNLOAD output location that the reader found, given or derived.
+        self._unload_location = reader.unload_location
+        if succeeded and self.output_location:
             self._table = self._as_arrow()
-        elif self.state == AthenaQueryExecution.STATE_SUCCEEDED:
+        elif succeeded:
             # Without a result file, as with managed query result storage, the rows from
             # GetQueryResults are read as a CSV result file.
             self._table = self._read_csv()
@@ -150,27 +280,6 @@ class AthenaArrowResultSet(AthenaResultSet):
 
             self._table = pa.Table.from_pydict({})
         self._batches = iter(self._table.to_batches(arraysize))
-
-    def _create_s3_file_system(self):
-        """Create a pyarrow ``S3FileSystem`` with the credentials of the connection's session.
-
-        Returns:
-            The pyarrow S3 filesystem for reading the query results.
-        """
-        from pyarrow import fs
-
-        kwargs: dict[str, Any] = {"region": self.connection.region_name}
-        if self._connect_timeout is not None:
-            kwargs["connect_timeout"] = self._connect_timeout
-        if self._request_timeout is not None:
-            kwargs["request_timeout"] = self._request_timeout
-        credentials = self.connection.session.get_credentials()
-        if credentials:
-            frozen_credentials = credentials.get_frozen_credentials()
-            kwargs["access_key"] = frozen_credentials.access_key
-            kwargs["secret_key"] = frozen_credentials.secret_key
-            kwargs["session_token"] = frozen_credentials.token
-        return fs.S3FileSystem(**kwargs)
 
     @property
     def timestamp_parsers(self) -> list[str]:
@@ -197,37 +306,42 @@ class AthenaArrowResultSet(AthenaResultSet):
 
     @override
     def _fetch(self) -> None:
-        try:
-            rows = next(self._batches)
-        except StopIteration:
-            return
-        else:
-            # Read the columns and their converters by position; to_pydict() and the
-            # converters property keep one column per name.
-            columns = [column.to_pylist() for column in rows.columns]
-            description = self.description if self.description else []
-            converters = [self._converter.get(d[1]) for d in description]
-            if any(convert is not _to_default for convert in converters):
-                processed_rows = [
-                    tuple(convert(v) for convert, v in zip(converters, row, strict=False))
-                    for row in zip(*columns, strict=False)
-                ]
-            else:
-                processed_rows = list(zip(*columns, strict=False))
-            self._rows.extend(processed_rows)
+        """Buffer the rows of the next record batch that has any.
 
-    @override
-    def fetchone(
-        self,
-    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        if not self._rows:
-            self._fetch()
-        if not self._rows:
-            return None
-        if self._rownumber is None:
-            self._rownumber = 0
-        self._rownumber += 1
-        return self._rows.popleft()
+        A table can hold empty record batches between others, such as one of
+        an empty result file, which would otherwise end the fetches early.
+
+        Raises:
+            DataError: If a value fails to convert, such as a ``timestamp with time
+                zone`` value with an unknown zone or a local time without one instant in
+                its zone. The message names the column.
+        """
+        rows = next((batch for batch in self._batches if batch.num_rows), None)
+        if rows is None:
+            return
+        # Read the columns and their converters by position; to_pydict() and the
+        # converters property keep one column per name.
+        columns = [column.to_pylist() for column in rows.columns]
+        description = self.description if self.description else []
+        names = [d[0] for d in description]
+        converters = [self._converter.get(d[1]) for d in description]
+
+        def convert(row: tuple[Any, ...]) -> Iterator[Any]:
+            # Unlike a loop that returns the values, a generator turns a StopIteration
+            # from the converter into a RuntimeError instead of ending an iteration of
+            # the rows.
+            for name, converter, value in zip(names, converters, row, strict=False):
+                try:
+                    converted = converter(value)
+                except DataError as e:
+                    raise DataError(f"Column {name!r}: {e}") from e
+                yield converted
+
+        if any(converter is not _to_default for converter in converters):
+            processed_rows = [tuple(convert(row)) for row in zip(*columns, strict=False)]
+        else:
+            processed_rows = list(zip(*columns, strict=False))
+        self._rows.extend(processed_rows)
 
     def _open_csv(self, location: str) -> Any:
         """Open the CSV result file for ``pyarrow.csv.read_csv()``.
@@ -308,6 +422,13 @@ class AthenaArrowResultSet(AthenaResultSet):
             if d[1] == "timestamp" and isinstance(dtype := column_types.get(name), pa.TimestampType)
         }
         binary_columns = {i for i, d in enumerate(description) if d[1] == "varbinary"}
+        # Athena never writes an empty string for these types, so an empty string in
+        # their text columns is NULL.
+        null_text_columns = {
+            i
+            for i, d in enumerate(description)
+            if d[1] in ("time", "time with time zone", "timestamp with time zone")
+        }
         if length and self.output_location and self.output_location.endswith(".txt"):
             read_opts = csv.ReadOptions(
                 skip_rows=0,
@@ -366,50 +487,65 @@ class AthenaArrowResultSet(AthenaResultSet):
                 )
             if has_duplicate_names:
                 table = table.rename_columns(names)
-            if binary_columns:
-                for index, field in enumerate(table.schema):
-                    if index not in binary_columns and (
-                        pa.types.is_string(field.type) or pa.types.is_binary(field.type)
-                    ):
-                        # Preserve the existing CSV behavior for non-binary Athena columns.
-                        table = table.set_column(index, field, table.column(index).fill_null(""))
+            for index, field in enumerate(table.schema):
+                if index in null_text_columns and pa.types.is_string(field.type):
+                    table = table.set_column(index, field, _to_null(table.column(index)))
+                elif (
+                    binary_columns
+                    and index not in binary_columns
+                    and (pa.types.is_string(field.type) or pa.types.is_binary(field.type))
+                ):
+                    # Preserve the existing CSV behavior for non-binary Athena columns.
+                    table = table.set_column(index, field, table.column(index).fill_null(""))
             return table
         except Exception as e:
             _logger.exception(f"Failed to read {location}.")
             raise OperationalError(*e.args) from e
 
     def _read_parquet(self) -> Table:
+        """Read the UNLOAD result, with timestamps at microseconds.
+
+        Reads the dataset that the metadata reader opened.
+
+        Returns:
+            The table of the result, or an empty table without data files.
+
+        Raises:
+            OperationalError: If reading the Parquet files fails.
+        """
         import pyarrow as pa
-        from pyarrow import parquet
 
-        manifests = self._read_data_manifest()
-        if not manifests:
+        reader = cast(AthenaArrowResultSetMetadataReader, self._reader)
+        dataset = reader.take_parquet_dataset()
+        if dataset is None:
             return pa.Table.from_pydict({})
-        if not self._unload_location:
-            self._unload_location = "/".join(manifests[0].split("/")[:-1]) + "/"
-
-        bucket, key = parse_output_location(self._unload_location)
         try:
-            dataset = parquet.ParquetDataset(f"{bucket}/{key}", filesystem=self._fs)
             return dataset.read(use_threads=True)
         except Exception as e:
-            _logger.exception(f"Failed to read {bucket}/{key}.")
+            _logger.exception(f"Failed to read {self._unload_location}.")
             raise OperationalError(*e.args) from e
 
     def _as_arrow(self) -> Table:
-        if self.is_unload:
-            table = self._read_parquet()
-            self._metadata = to_column_info(table.schema)
-        else:
-            table = self._read_csv()
-        return table
+        """Read the result file, or the Parquet files of an UNLOAD result.
+
+        Returns:
+            The table of the result.
+
+        Raises:
+            OperationalError: If reading the result fails.
+        """
+        return self._read_parquet() if self.is_unload else self._read_csv()
 
     def as_arrow(self) -> Table:
         """Return the query results as an Apache Arrow Table.
 
         Returns:
             The Arrow Table that holds the query results.
+
+        Raises:
+            ProgrammingError: If the result set is closed.
         """
+        self._ensure_open()
         return self._table
 
     def as_polars(self) -> pl.DataFrame:
@@ -423,6 +559,7 @@ class AthenaArrowResultSet(AthenaResultSet):
 
         Raises:
             ImportError: If polars is not installed.
+            ProgrammingError: If the result set is closed.
 
         Example:
             >>> cursor = connection.cursor(ArrowCursor)
@@ -430,6 +567,7 @@ class AthenaArrowResultSet(AthenaResultSet):
             >>> df = cursor.as_polars()
             >>> # Use with Polars operations
         """
+        self._ensure_open()
         try:
             import polars as pl
 

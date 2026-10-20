@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: gdstk
-Version: 1.0.1
+Version: 1.0.2
 Summary: Python module for creation and manipulation of GDSII files.
 Keywords: GDSII,OASIS,CAD,layout
 Author-Email: "Lucas H. Gabrielli" <heitzmann@gmail.com>
@@ -78,6 +78,10 @@ Typical applications of Gdstk are in the fields of electronic chip design, plana
 The complete documentation is available [here](http://heitzmann.github.io/gdstk).
 
 The source files can be found in the _docs_ directory.
+
+On Windows, filenames passed to the C++ file I/O functions must be encoded as UTF-8.
+The Python interface handles encoding of strings and `pathlib.Path` objects automatically.
+On other platforms, filenames use the native filesystem encoding.
 
 
 ## Installation

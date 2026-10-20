@@ -77,13 +77,57 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
+#: Automatic-activity-detection defaults for a Live session (voice-speed bench
+#: 2026-10-16, end of speech -> first audio p50): 700 ms of silence ended the
+#: turn 66 ms sooner than the ~800 ms server default; 500 ms + HIGH end
+#: sensitivity SPLIT utterances, so neither is used. A caller's ``vad_config``
+#: wins key by key.
+DEFAULT_LIVE_VAD: dict[str, Any] = {"silence_duration_ms": 700}
+
+#: How a NON_BLOCKING tool's result is delivered (``tool_response`` client
+#: message). WHEN_IDLE lets the model finish the sentence it is saying; the
+#: gemini-3.8-live-extended-thinking model takes NO scheduling config, so a
+#: caller for that model sends ``"scheduling": null`` and none is attached.
+DEFAULT_TOOL_SCHEDULING = "WHEN_IDLE"
+
+
+class GoogleLiveFunction(BaseModel):
+    """One function tool the Live model may call.
+
+    ``non_blocking`` (default True) declares ``behavior: NON_BLOCKING``: the
+    model keeps talking while the tool runs and the result is delivered later
+    with a ``tool_response`` message. This is the Google half of "fast voice in
+    front, smart agent in back" — the host runs the slow work and answers the
+    ``tool_call`` provider event whenever it is ready.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    description: str = ""
+    parameters: dict[str, Any] | None = None
+    non_blocking: bool = True
+
+
 class GoogleLiveOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    thinking_level: Literal["minimal", "low", "medium", "high"] = "minimal"
-    turn_coverage: Literal["TURN_INCLUDES_ONLY_ACTIVITY", "TURN_INCLUDES_ALL_INPUT"] = (
-        "TURN_INCLUDES_ONLY_ACTIVITY"
-    )
+    #: None = unset: the offering's cells decide (gemini-3.8-live REJECTS
+    #: thinking_level, so its offering declares it unsupported and the cells
+    #: drop — and announce — whatever is asked; extended-thinking defaults to low).
+    thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
+    tools: list[GoogleLiveFunction] = Field(default_factory=list)
+    #: Sliding-window context compression: lifts the audio-length cap on a session.
+    context_window_compression: bool = True
+    #: Google's own enum strings ARE the canonical values (``ai.setting`` turn_coverage).
+    #: TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO: audio activity (silence excluded under
+    #: automatic activity detection) plus every video frame — Google's default from
+    #: Gemini 3.1 Live on. The setting row must list it before the cells pass it through.
+    turn_coverage: Literal[
+        "TURN_INCLUDES_ONLY_ACTIVITY",
+        "TURN_INCLUDES_ALL_INPUT",
+        "TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO",
+    ] = "TURN_INCLUDES_ONLY_ACTIVITY"
     response_modalities: list[Literal["TEXT", "AUDIO"]] = Field(default_factory=lambda: ["AUDIO"])
     vad_config: dict[str, Any] = Field(default_factory=dict)
     session_handle: str | None = None
@@ -122,6 +166,10 @@ class _ReportedSession:
         async with _provider_failures(self._profile, self._route):
             await self._session.send_realtime_input(**kwargs)
 
+    async def send_tool_response(self, **kwargs: Any) -> None:
+        async with _provider_failures(self._profile, self._route):
+            await self._session.send_tool_response(**kwargs)
+
     async def send_client_content(self, **kwargs: Any) -> None:
         async with _provider_failures(self._profile, self._route):
             await self._session.send_client_content(**kwargs)
@@ -151,6 +199,101 @@ def _translate_session_settings(
     return out
 
 
+def _function_tools(functions: Sequence[GoogleLiveFunction]) -> list[types.Tool]:
+    if not functions:
+        return []
+    return [
+        types.Tool(
+            function_declarations=[
+                types.FunctionDeclaration(
+                    name=fn.name,
+                    description=fn.description,
+                    parameters_json_schema=fn.parameters,
+                    behavior=types.Behavior.NON_BLOCKING if fn.non_blocking else None,
+                )
+                for fn in functions
+            ]
+        )
+    ]
+
+
+def _tool_responses(message: dict[str, Any]) -> list[types.FunctionResponse]:
+    """Client ``tool_response`` message -> SDK function responses (scheduling
+    WHEN_IDLE unless the message says ``"scheduling": null`` or names another)."""
+    out: list[types.FunctionResponse] = []
+    for item in message.get("responses") or []:
+        scheduling = item.get("scheduling", DEFAULT_TOOL_SCHEDULING)
+        out.append(
+            types.FunctionResponse(
+                id=item.get("id"),
+                name=str(item["name"]),
+                response=dict(item.get("response") or {}),
+                scheduling=(types.FunctionResponseScheduling(scheduling) if scheduling else None),
+            )
+        )
+    if not out:
+        raise ValueError("tool_response needs at least one response")
+    return out
+
+
+def build_live_config(
+    profile: ResolvedCallProfile, options: GoogleLiveOptions
+) -> types.LiveConnectConfig:
+    """The ONE builder of a Live session's connect config.
+
+    The relay (``GoogleLiveSession``) and the token broker's ephemeral token
+    (``live_token``, which LOCKS this config server-side) both call it, so a
+    direct browser session runs exactly what the relayed one would.
+    """
+    vad = types.AutomaticActivityDetection(
+        **{**DEFAULT_LIVE_VAD, **options.vad_config}
+    )
+    # The session settings go through the translation cells like every
+    # other seam (thinking level, turn coverage, response modalities); this
+    # class only shapes the translated values into the SDK config.
+    translated = _translate_session_settings(
+        profile,
+        {
+            "thinking_level": options.thinking_level,
+            "turn_coverage": options.turn_coverage,
+            "response_modalities": options.response_modalities,
+        },
+    )
+    thinking_level = translated.get("thinking_level")
+    config = types.LiveConnectConfig(
+        response_modalities=translated.get("response_modalities"),
+        thinking_config=(
+            types.ThinkingConfig(thinking_level=str(thinking_level).upper())
+            if thinking_level is not None
+            else None
+        ),
+        realtime_input_config=types.RealtimeInputConfig(
+            automatic_activity_detection=vad,
+            turn_coverage=translated.get("turn_coverage"),
+        ),
+        session_resumption=types.SessionResumptionConfig(handle=options.session_handle),
+        history_config=types.HistoryConfig(
+            initial_history_in_client_content=(options.initial_history_in_client_content)
+        ),
+        input_audio_transcription=(
+            types.AudioTranscriptionConfig() if options.input_audio_transcription else None
+        ),
+        output_audio_transcription=(
+            types.AudioTranscriptionConfig()
+            if options.output_audio_transcription
+            else None
+        ),
+        system_instruction=options.system_instruction,
+        context_window_compression=(
+            types.ContextWindowCompressionConfig(sliding_window=types.SlidingWindow())
+            if options.context_window_compression
+            else None
+        ),
+        tools=_function_tools(options.tools) or None,
+    )
+    return config
+
+
 class GoogleLiveSession:
     """Thin async session around ``BidiGenerateContent``.
 
@@ -166,44 +309,7 @@ class GoogleLiveSession:
         self._session: Any = None
 
     async def __aenter__(self) -> GoogleLiveSession:
-        vad = types.AutomaticActivityDetection(**self.options.vad_config)
-        # The session settings go through the translation cells like every
-        # other seam (thinking level, turn coverage, response modalities); this
-        # class only shapes the translated values into the SDK config.
-        translated = _translate_session_settings(
-            self.profile,
-            {
-                "thinking_level": self.options.thinking_level,
-                "turn_coverage": self.options.turn_coverage,
-                "response_modalities": self.options.response_modalities,
-            },
-        )
-        thinking_level = translated.get("thinking_level")
-        config = types.LiveConnectConfig(
-            response_modalities=translated.get("response_modalities"),
-            thinking_config=(
-                types.ThinkingConfig(thinking_level=str(thinking_level).upper())
-                if thinking_level is not None
-                else None
-            ),
-            realtime_input_config=types.RealtimeInputConfig(
-                automatic_activity_detection=vad,
-                turn_coverage=translated.get("turn_coverage"),
-            ),
-            session_resumption=types.SessionResumptionConfig(handle=self.options.session_handle),
-            history_config=types.HistoryConfig(
-                initial_history_in_client_content=(self.options.initial_history_in_client_content)
-            ),
-            input_audio_transcription=(
-                types.AudioTranscriptionConfig() if self.options.input_audio_transcription else None
-            ),
-            output_audio_transcription=(
-                types.AudioTranscriptionConfig()
-                if self.options.output_audio_transcription
-                else None
-            ),
-            system_instruction=self.options.system_instruction,
-        )
+        config = build_live_config(self.profile, self.options)
         async with _provider_failures(self.profile, _LIVE_ROUTE):
             self._context = get_google_client().aio.live.connect(
                 model=self.profile.provider_model_id,
@@ -248,6 +354,9 @@ class GoogleLiveSession:
                 turns=message.get("turns"),
                 turn_complete=bool(message.get("turn_complete", True)),
             )
+            return
+        if kind == "tool_response":
+            await session.send_tool_response(function_responses=_tool_responses(message))
             return
         if kind == "audio_stream_end":
             await session.send_realtime_input(audio_stream_end=True)

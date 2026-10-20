@@ -14,6 +14,7 @@ from chalk.features.feature_field import Feature
 from chalk.features.inference import generate_inference_resolver
 from chalk.features.resolver import ResourceHint
 from chalk.features.underscore import Underscore, UnderscoreCast, UnderscoreFunction
+from chalk.functions._sort_order import normalize_sort, sort_order
 from chalk.functions._window import (
     Frame,
     WindowSpec,
@@ -4246,7 +4247,9 @@ def max_by(dataframe: Underscore | Any, sort: Underscore | Any):
         should reference the returned value. The `DataFrame` can include any
         necessary filters.
     sort
-        The column on which to sort.
+        The ordering to sort by. A single column, a tuple of columns to order by in precedence
+        order, or a :func:`sort_order` call when a key needs an explicit direction or null
+        placement.
 
     Returns
     -------
@@ -4274,7 +4277,7 @@ def max_by(dataframe: Underscore | Any, sort: Underscore | Any):
     ...         lambda: Transaction.id == User.biggest_transfer_id
     ...     )
     """
-    return UnderscoreFunction("max_by", dataframe, sort)
+    return UnderscoreFunction("max_by", dataframe, normalize_sort(sort, selects_greatest=True))
 
 
 def max_by_n(dataframe: Underscore | Any, sort: Underscore | Any, n: int):
@@ -4290,7 +4293,9 @@ def max_by_n(dataframe: Underscore | Any, sort: Underscore | Any, n: int):
         should reference the returned value. The `DataFrame` can include any
         necessary filters.
     sort
-        The column on which to sort.
+        The ordering to sort by. A single column, a tuple of columns to order by in precedence
+        order, or a :func:`sort_order` call when a key needs an explicit direction or null
+        placement.
     n
         The number of rows to return.
 
@@ -4323,7 +4328,7 @@ def max_by_n(dataframe: Underscore | Any, sort: Underscore | Any, n: int):
     ...         )
     ...     )
     """
-    return UnderscoreFunction("max_by_n", dataframe, sort, n)
+    return UnderscoreFunction("max_by_n", dataframe, normalize_sort(sort, selects_greatest=True), n)
 
 
 def min_by(dataframe: Underscore | Any, sort: Underscore | Any):
@@ -4338,7 +4343,9 @@ def min_by(dataframe: Underscore | Any, sort: Underscore | Any):
         should reference the returned value. The `DataFrame` can include any
         necessary filters.
     sort
-        The column on which to sort.
+        The ordering to sort by. A single column, a tuple of columns to order by in precedence
+        order, or a :func:`sort_order` call when a key needs an explicit direction or null
+        placement.
 
     Returns
     -------
@@ -4366,7 +4373,7 @@ def min_by(dataframe: Underscore | Any, sort: Underscore | Any):
     ...         lambda: Transaction.id == User.smallest_transfer_id
     ...     )
     """
-    return UnderscoreFunction("min_by", dataframe, sort)
+    return UnderscoreFunction("min_by", dataframe, normalize_sort(sort, selects_greatest=False))
 
 
 def min_by_n(dataframe: Underscore | Any, sort: Underscore | Any, n: int):
@@ -4382,7 +4389,9 @@ def min_by_n(dataframe: Underscore | Any, sort: Underscore | Any, n: int):
         should reference the returned value. The `DataFrame` can include any
         necessary filters.
     sort
-        The column on which to sort.
+        The ordering to sort by. A single column, a tuple of columns to order by in precedence
+        order, or a :func:`sort_order` call when a key needs an explicit direction or null
+        placement.
     n
         The number of rows to return.
 
@@ -4415,7 +4424,7 @@ def min_by_n(dataframe: Underscore | Any, sort: Underscore | Any, n: int):
     ...         )
     ...     )
     """
-    return UnderscoreFunction("min_by_n", dataframe, sort, n)
+    return UnderscoreFunction("min_by_n", dataframe, normalize_sort(sort, selects_greatest=False), n)
 
 
 def head(dataframe: Underscore | Any, n: Underscore | int):
@@ -9047,6 +9056,7 @@ __all__ = (
     "max",
     "max_by",
     "max_by_n",
+    "sort_order",
     "md5",
     "min",
     "minijinja",

@@ -304,7 +304,7 @@ def from_parsed_page(parsed: Any, *, method: str = "native") -> list[dict[str, A
     """Portion one server parse (a ``ScrapeResult`` or its ``to_dict()``) by its H1–H3 headings.
 
     The body is the parser's ``organized_data`` tree (:func:`from_organized_data`): it is built
-    with ``remove_filtered``, so everything the parser labelled chrome (navigation, footers,
+    with ``remove_filtered``, so everything the parser labeled chrome (navigation, footers,
     sponsor rails) is already gone, and it is plain — no markdown reaches a portion. A parse
     without that tree falls back to ``markdown_renderable`` through the plain markdown path, then
     to its best flat text (a PDF, plain text, JSON) as one section. No headings = one section.

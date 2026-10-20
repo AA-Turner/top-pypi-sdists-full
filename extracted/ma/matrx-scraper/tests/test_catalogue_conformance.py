@@ -1,4 +1,4 @@
-"""Standing guard: every SEO check scores the way its catalogue row says it does.
+"""Standing guard: every SEO check scores the way its catalog row says it does.
 
 Why this exists (2026-10-14 census): checks silently contradicted their own
 ``web.analysis_item.score_contract`` (a 51-60 char title flagged while the
@@ -17,7 +17,7 @@ How it works
   score today. They run as strict xfails: still disagreeing = reported, not red;
   FIXED = the strict xfail flips red and says "delete this entry". A NEW
   disagreement is a plain red failure. Nothing is hidden and nothing rots.
-* The meta-test refuses a catalogued deterministic/formula key that has no case
+* The meta-test refuses a cataloged deterministic/formula key that has no case
   and no entry in ``NOT_CHECKABLE`` / ``NOT_IMPLEMENTED`` (with a reason).
 * The severity test pins ``analysis_write.severity_for`` to the documented tier
   rule, using each row's own severity_map from the fixture.
@@ -109,7 +109,7 @@ def test_fixture_matches_the_live_catalogue():
     url = os.environ.get("CATALOGUE_SUPABASE_URL") or os.environ.get("SUPABASE_URL")
     key = os.environ.get("CATALOGUE_SUPABASE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not url or not key:
-        pytest.skip("no catalogue credentials (CATALOGUE_SUPABASE_URL / CATALOGUE_SUPABASE_KEY)")
+        pytest.skip("no catalog credentials (CATALOGUE_SUPABASE_URL / CATALOGUE_SUPABASE_KEY)")
     response = httpx.get(
         f"{url.rstrip('/')}/rest/v1/analysis_item",
         params={"select": "key,tier,score_contract,severity_map", "deleted_at": "is.null"},
@@ -141,7 +141,7 @@ def test_fixture_matches_the_live_catalogue():
         )
         pytest.skip("fixture refreshed from live")
     assert set(live) == set(CATALOGUE), (
-        f"catalogue keys drifted: new={sorted(set(live) - set(CATALOGUE))} gone={sorted(set(CATALOGUE) - set(live))}"
+        f"catalog keys drifted: new={sorted(set(live) - set(CATALOGUE))} gone={sorted(set(CATALOGUE) - set(live))}"
     )
     changed = [
         k
@@ -1159,7 +1159,7 @@ KNOWN_DISAGREEMENTS: dict[str, str] = {}
 # Coverage meta-test: every deterministic/formula key has a case or a reason
 # ---------------------------------------------------------------------------
 
-#: Catalogued, deterministic/formula, and NO check function exists - the row is
+#: Cataloged, deterministic/formula, and NO check function exists - the row is
 #: scored by nothing today. If someone implements one, this entry must go and
 #: a conformance case must be written (the meta-test enforces both).
 NOT_IMPLEMENTED: dict[str, str] = {
@@ -1192,16 +1192,16 @@ def test_every_catalogued_check_has_a_conformance_case_or_a_reason():
                 problems.append(f"{key}: now implemented - delete it from NOT_IMPLEMENTED and write cases")
             continue
         if key not in registered:
-            problems.append(f"{key}: catalogued but has no check function and is not in NOT_IMPLEMENTED")
+            problems.append(f"{key}: cataloged but has no check function and is not in NOT_IMPLEMENTED")
         elif key in NOT_CHECKABLE:
             continue
         elif key not in covered:
             problems.append(f"{key}: registered check without a conformance case")
     for key in set(NOT_IMPLEMENTED) | set(NOT_CHECKABLE):
         if key not in CATALOGUE:
-            problems.append(f"{key}: allowlisted but not in the catalogue snapshot")
+            problems.append(f"{key}: allowlisted but not in the catalog snapshot")
     for key in registered - set(CATALOGUE):
-        problems.append(f"{key}: registered check with no catalogue row")
+        problems.append(f"{key}: registered check with no catalog row")
     assert not problems, "\n".join(problems)
 
 
@@ -1211,7 +1211,7 @@ def test_every_case_cites_a_real_piece_of_its_contract():
 
 
 #: Contract bands the check's INPUT cannot express, so no case can reach them. Each
-#: is a gap between catalogue and code (the evidence the band needs is never handed
+#: is a gap between catalog and code (the evidence the band needs is never handed
 #: to the check). Stale entries are refused: an entry must be a real rule and must
 #: NOT also be cited by a case.
 UNREACHABLE_BANDS: dict[tuple[str, str], str] = {
@@ -1318,7 +1318,7 @@ def test_severity_follows_the_tier_rule(key: str):
     for score in range(1, 101):
         expected = _documented_tier_rule(row["tier"], _band(row["severity_map"], score))
         assert severity_for(item, score) == expected, f"{key} tier={row['tier']} score={score}"
-    # scoreless outcomes carry no judgement, whatever the tier
+    # scoreless outcomes carry no judgment, whatever the tier
     assert severity_for(item, None) == "info"
 
 

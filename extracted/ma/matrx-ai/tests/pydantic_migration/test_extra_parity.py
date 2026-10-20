@@ -1,7 +1,7 @@
 """Parity for the four remaining pure-data contract types.
 
 Phase 1b.2, Retirement Ledger row 7. The three extra_config blocks and
-ProviderCharge. Everything else left in the closure carries behaviour or state
+ProviderCharge. Everything else left in the closure carries behavior or state
 and is NOT converted here — see PLAN.md for the per-type analysis.
 """
 

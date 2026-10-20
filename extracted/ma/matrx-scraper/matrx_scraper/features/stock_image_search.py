@@ -4,7 +4,7 @@ A plain async function with no graph/AppContext coupling, so any caller — an L
 tool, a workflow node, a script — can fetch real photos for a query. The host
 supplies the Unsplash key (``UNSPLASH_ACCESS_KEY`` env, or an explicit override);
 end users never need their own. Attribution fields are surfaced because the
-Unsplash licence requires crediting the photographer.
+Unsplash license requires crediting the photographer.
 
 This is the single source of the Unsplash HTTP + parse logic. The matrx-graph
 ``media.stock_image.search`` node delegates here (see

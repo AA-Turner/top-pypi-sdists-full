@@ -93,8 +93,10 @@ def test_handshake_policy_gate_runs_from_ci_yml_on_merge_group_only() -> None:
     assert job["uses"] == "./.github/workflows/handshake-policy-gate.yml"
     assert job["if"] == "github.event_name == 'merge_group'"
     assert job["permissions"] == {"contents": "read", "actions": "read"}
-    inherited = job["secrets"]
-    assert inherited == "inherit", "the App-token mint reads org secrets"
+    assert job["secrets"] == {
+        "ONEXBOT_APP_ID": "${{ secrets.ONEXBOT_APP_ID }}",
+        "ONEXBOT_APP_PRIVATE_KEY": "${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}",
+    }, "the App-token mint reads exactly the two App secrets, not the org's"
     assert "needs" not in job
 
 
@@ -239,10 +241,32 @@ def _run_detection(
     return output.read_text().strip()
 
 
+# The five paths the propagate-dry-run detection step in ci.yml watches. They
+# were read from propagate-config.yml's pull_request filter until that filter
+# was removed; a pull_request run of that file only ever produced a skipped
+# placeholder row that CI Summary's external sweep fails (OMN-19998).
+PROPAGATION_PATHS = (
+    ".github/workflows/propagate-config.yml",
+    ".github/propagation-targets.yaml",
+    ".pre-commit-hooks.yaml",
+    "scripts/propagate-config.sh",
+    "tests/scripts/test_propagate_config.py",
+)
+
+
 def _propagation_paths() -> list[str]:
-    paths = _triggers(_load(PROPAGATE_YML))["pull_request"]["paths"]
-    assert len(paths) >= 5
-    return paths
+    return list(PROPAGATION_PATHS)
+
+
+def test_propagate_config_has_no_pull_request_or_push_trigger() -> None:
+    triggers = _triggers(_load(PROPAGATE_YML))
+    assert set(triggers) == {"release", "workflow_dispatch"}, sorted(triggers)
+
+
+def test_detection_script_watches_every_propagation_path() -> None:
+    script = _detect_script()
+    for path in PROPAGATION_PATHS:
+        assert path in script, path
 
 
 @pytest.mark.parametrize("path", _propagation_paths())

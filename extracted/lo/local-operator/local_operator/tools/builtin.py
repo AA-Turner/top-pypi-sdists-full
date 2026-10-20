@@ -174,13 +174,14 @@ from local_operator.scratchpad import (
     SCRATCHPAD_NAMESPACE,
     SCRATCHPAD_PATH_ENV,
     SCRATCHPAD_SCHEME,
-    SCRATCHPAD_TOTAL_BUDGET_BYTES,
     SCRATCHPAD_UNAVAILABLE,
     ScratchpadContentError,
     ScratchpadPathError,
     check_scratchpad_write,
     ensure_scratchpad_dir,
     parse_scratchpad_url,
+    scratchpad_budget_bytes,
+    scratchpad_contains,
     scratchpad_dir_of,
     scratchpad_env_injection,
     scratchpad_footprint,
@@ -826,11 +827,31 @@ def _spill(text: str, tool_name: str, context: ToolContext | None) -> SpillMeta 
     truncation, which is exactly the behaviour that shipped before this module
     existed — losing expansion is an inconvenience, failing the tool call is a
     bug.
+
+    Span markers are stripped BEFORE the write: the per-session token exists
+    only to protect one rendered result, and a spill file must not preserve it
+    for a later read (LOH-28). A context with no capable store is unchanged.
     """
+    store = getattr(context, "variables", None)
+    spans: list[tuple[int, int, int]] | None = None
+    strip_ranges = cast(
+        Callable[[str], tuple[str, list[tuple[int, int, int]]]] | None,
+        getattr(store, "strip_identifier_spans_with_ranges", None),
+    )
+    if callable(strip_ranges):
+        text, spans = strip_ranges(text)
+    else:
+        strip = cast(
+            Callable[[str], str] | None,
+            getattr(store, "strip_identifier_spans", None),
+        )
+        if callable(strip):
+            text = strip(text)
     return get_store().write(
         text,
         tool_name=tool_name,
         session_id=(context.session_id if context else "") or "",
+        identifier_spans=spans,
     )
 
 
@@ -4002,6 +4023,15 @@ async def execute_bash(
             "bash",
             _secret_sink_refusal(scan, text=params.command, tool_name="bash"),
         )
+    # The pad cap, BEFORE the child exists. A shell cannot be refused after the
+    # fact like ``write`` can, and once a pad is over its cap every creating
+    # command made it worse — so a command that would create a path under an
+    # over-cap pad is refused here and nothing runs. Reads and shrinks (``ls``,
+    # ``rm``) do not match the creating-command scan and are unaffected, which is
+    # what keeps the pad's owner able to recover it.
+    pad_refusal = _bash_pad_precheck(params.command, context)
+    if pad_refusal is not None:
+        return _error(tool_call_id, "bash", pad_refusal)
     injections: dict[str, str] = dict(NON_INTERACTIVE_ENV)
     # The DELEGATION ALLOWANCE rides the child environment (see the helper for
     # the full three-arm reasoning — it is shared with the ``sessions`` tool's
@@ -5860,7 +5890,61 @@ def _capped_list_body(
     return body + _spill_footer(meta, span), {"spill": _spill_detail(meta)}
 
 
-def _read_spill(tool_call_id: str, target: str, range_spec: str | None) -> ToolResult:
+def _spill_span_map(meta: Any) -> dict[int, list[tuple[int, int]]]:
+    """The sidecar's identifier ranges, grouped by 1-based line."""
+    by_line: dict[int, list[tuple[int, int]]] = {}
+    for line_no, start, end in getattr(meta, "identifier_spans", ()) or ():
+        by_line.setdefault(line_no, []).append((start, end))
+    return by_line
+
+
+def _remark_spill_line(
+    line: str,
+    line_number: int,
+    spans: Mapping[int, list[tuple[int, int]]],
+    context: ToolContext | None,
+    *,
+    window_start: int = 0,
+    window_end: int | None = None,
+    offset: int = 0,
+) -> str:
+    """Re-mint this store's span around stored identifier ranges (R3-2).
+
+    The spill keeps PLAIN text and integer positions, never a marker or
+    token. On a read-back the positions become spans again so the read
+    result's redaction pass leaves the identifier readable; a forged or
+    stale range cannot do more than mark bytes that are already in the
+    plain text, and a missing store leaves the line untouched.
+
+    WINDOW (R4-2): ``line`` may be a slice of the stored line. Only ranges
+    FULLY inside ``[window_start, window_end)`` are marked, mapped through
+    ``offset`` (the slice's decoration). A range cut by the window is
+    dropped rather than re-minted, so no token prefix or U+FFFD can reach
+    a search result; the cut identifier is then masked by redaction.
+    """
+    ranges = spans.get(line_number)
+    if not ranges:
+        return line
+    span = cast(
+        Callable[[str], str] | None,
+        getattr(getattr(context, "variables", None), "identifier_span", None),
+    )
+    if not callable(span):
+        return line
+    limit = len(line) - offset if window_end is None else window_end
+    for start, end in sorted(ranges, reverse=True):
+        if start < window_start or end > limit:
+            continue
+        begin = offset + start - window_start
+        finish = offset + end - window_start
+        if 0 <= begin <= finish <= len(line):
+            line = line[:begin] + span(line[begin:finish]) + line[finish:]
+    return line
+
+
+def _read_spill(
+    tool_call_id: str, target: str, range_spec: str | None, context: ToolContext | None = None
+) -> ToolResult:
     """Serve a ``spill://`` handle: a line range, or a regex search inside it.
 
     Routed here BEFORE the host's internal-URL resolver rather than registered
@@ -5896,7 +5980,7 @@ def _read_spill(tool_call_id: str, target: str, range_spec: str | None) -> ToolR
         )
 
     if ref.query:
-        return _search_spill(tool_call_id, store, ref, meta, range_spec)
+        return _search_spill(tool_call_id, store, ref, meta, range_spec, context)
 
     start, end = 1, None
     if range_spec:
@@ -5908,6 +5992,11 @@ def _read_spill(tool_call_id: str, target: str, range_spec: str | None) -> ToolR
     if result is None:
         return _error(tool_call_id, "read", f"Spilled output {ref.handle} could not be read.")
     selected, total = result
+    span_map = _spill_span_map(meta)
+    selected = [
+        _remark_spill_line(line, start + offset, span_map, context)
+        for offset, line in enumerate(selected)
+    ]
     details: dict[str, Any] = {"url": ref.handle, "range": range_spec or "full"}
     if not selected:
         return _text(
@@ -5957,20 +6046,23 @@ _SPILL_MATCH_CONTEXT_CHARS = 200
 _SPILL_MATCH_LINE_CHARS = 2 * _SPILL_MATCH_CONTEXT_CHARS + 100
 
 
-def _spill_match_window(line: str, regex: re.Pattern[str]) -> str:
-    """``line``, or a window around its first hit when the line is very long.
+def _spill_match_window(line: str, regex: re.Pattern[str]) -> tuple[str, int, int, int]:
+    """``(window_text, start, end, lead)`` around the first hit of a long line.
 
     The window says how much it dropped on each side, so the model knows the
     line continues and can read the whole line with a ``range`` on its number.
+    ``start``/``end`` are offsets in the STORED line; ``lead`` is the length
+    of the decoration prepended to the slice, so an identifier range inside
+    the slice maps to ``start - window_start + lead``.
     """
     if len(line) <= _SPILL_MATCH_LINE_CHARS:
-        return line
+        return line, 0, len(line), 0
     hit = regex.search(line)
     start = max((hit.start() if hit else 0) - _SPILL_MATCH_CONTEXT_CHARS, 0)
     end = min((hit.end() if hit else 0) + _SPILL_MATCH_CONTEXT_CHARS, len(line))
     before = f"[\u2026{start} chars] " if start else ""
     after = f" [{len(line) - end} chars\u2026]" if end < len(line) else ""
-    return f"{before}{line[start:end]}{after}"
+    return f"{before}{line[start:end]}{after}", start, end, len(before)
 
 
 #: The most matches ONE ``?q=`` call will ask the store to materialize. A page
@@ -5987,6 +6079,7 @@ def _search_spill(
     ref: SpillRef,
     meta: SpillMeta,
     range_spec: str | None,
+    context: ToolContext | None = None,
 ) -> ToolResult:
     """``?q=<regex>`` over one spilled output: line numbers, then a range.
 
@@ -6085,8 +6178,19 @@ def _search_spill(
     regex = re.compile(ref.query)
     rows: list[str] = []
     used = 0
+    span_map = _spill_span_map(meta)
     for number, line in matches:
-        row = f"{number:>{width}}| {_spill_match_window(line, regex)}"
+        window, window_start, window_end, lead = _spill_match_window(line, regex)
+        window = _remark_spill_line(
+            window,
+            number,
+            span_map,
+            context,
+            window_start=window_start,
+            window_end=window_end,
+            offset=lead,
+        )
+        row = f"{number:>{width}}| {window}"
         if rows and used + len(row) + 1 > READ_OUTPUT_LIMIT_CHARS:
             break
         rows.append(row)
@@ -6610,7 +6714,7 @@ async def execute_read(
     # handle is that it answers a RANGE. Checked first so a host that also
     # claims 'spill://' cannot shadow the expansion path a footer promised.
     if target.startswith(SPILL_SCHEME):
-        return _read_spill(tool_call_id, target, params.range)
+        return _read_spill(tool_call_id, target, params.range, context)
 
     # ``read https://…`` is sugar for a web fetch: it delegates to the SAME
     # engine web_fetch uses, returning the same bounded preview + spill handle,
@@ -7650,7 +7754,13 @@ def _bash_pad_write_check(command: str, context: ToolContext | None) -> str:
         return ""
     if not _command_names_pad(command, pad):
         return ""
-    for candidate, sources in _bash_created_entries(command):
+    # The pad walk, not the plain one: a relative operand after
+    # ``cd "<pad>"`` is pad-relative (review round 1 M1), and the two known
+    # spellings are expanded so a quoted ``$LOCAL_OPERATOR_SCRATCHPAD`` names
+    # the same target as its literal path.
+    for candidate, sources in _bash_created_entries(
+        _expand_scratchpad_spellings(command, pad), pad=pad
+    ):
         target = _pad_target(candidate, pad)
         if target is None:
             continue
@@ -7770,11 +7880,12 @@ def _pad_budget_line(pad: Path) -> str:
     precise half, where the earlier "refuse further writes" overstated it
     (review round 1, F3).
     """
-    held, over_budget, too_wide = scratchpad_footprint(pad)
+    budget = scratchpad_budget_bytes()
+    held, over_budget, too_wide = scratchpad_footprint(pad, budget)
     if over_budget:
         return (
             f"[scratch] The pad now holds ≥{_pad_size_text(held)}, over its "
-            f"{_pad_size_text(SCRATCHPAD_TOTAL_BUDGET_BYTES, attributive=True)} budget — "
+            f"{_pad_size_text(budget, attributive=True)} budget — "
             f"{SCRATCHPAD_ELSEWHERE_SHORT}; writes that add are refused."
         )
     if too_wide:
@@ -7783,6 +7894,108 @@ def _pad_budget_line(pad: Path) -> str:
             f"a tree rather than a pad; {SCRATCHPAD_ELSEWHERE_SHORT}."
         )
     return ""
+
+
+def _bash_pad_precheck(command: str, context: ToolContext | None) -> str | None:
+    """The PRE-EXECUTION half of the pad cap: refuse a creating command when the
+    pad is already over its configured cap.
+
+    Why before the child exists: ``_bash_pad_write_check`` reports what a
+    command LEFT BEHIND, and the write tools refuse before the bytes land. The
+    shell was the one channel that could keep growing a pad it was already over
+    — so a build tree that filled it made every later ``mkdir``/``cp`` add more,
+    with the audit line as the only feedback. This refuses at the same boundary
+    the next ``write`` would hit, at the only moment a shell can be stopped.
+
+    Deliberately narrow: only a command the SAME structural scan says creates a
+    path under the pad (``_bash_created_entries`` + ``_pad_target``) is a
+    candidate, and only when the bounded walk says the pad is over
+    ``scratchpad_budget_bytes()``. ``ls``, ``rm``, ``du`` and every other read
+    or shrink still run — they are the documented way back under the cap, and a
+    gate that refused them would strand the pad's owner. Two no-growth shapes
+    are exempt so the gate refuses only commands that ADD bytes: an ``mv`` whose
+    sources and destination are all inside the pad (a rename), and a
+    ``mkdir``/``touch`` target that already exists as an entry. Both exemptions
+    are PRECHECK-ONLY (review round 3, R3-1): the post-hoc shape audit still
+    sees the destination and reports a refused name it left behind. The pad's two
+    known spellings are expanded before the walk, and a ``cd``/``pushd`` into
+    the pad makes the relative creating operands that follow pad-relative
+    (review round 1 M1: ``cd "<pad>" && mkdir d`` was the bypass).
+
+    KNOWN MISS, stated rather than papered over: a destination assembled from an
+    arbitrary shell variable (``D="$PAD/x"; mkdir "$D"``) is not resolved before
+    the child exists, so this gate cannot see it; the post-hoc pad audit still
+    reports what it left behind. A ``cd`` inside a command substitution, or in a
+    construct the tokenizer cannot follow, is likewise outside the walk's model.
+    Do not read this as complete shell coverage — it closes the ordinary idioms,
+    and the after-the-fact line remains the backstop.
+
+    The sentence leads with the CAUSE and the cap before the destination (UX U3):
+    a tool card's head can otherwise spend its useful width on a long absolute
+    path before reaching why the command was stopped. It names held bytes, the
+    cap, the key, the first destination (or ``first of N``), all three remedies,
+    and closes with "The command did not run."
+
+    Returns the refusal sentence, or ``None`` to run the command.
+    """
+    if not command:
+        return None
+    pad = _scratchpad_root(context)
+    if pad is None:
+        return None
+    if not _command_names_pad(command, pad):
+        return None
+    created: list[Path] = []
+    expanded = _expand_scratchpad_spellings(command, pad)
+    for candidate, _sources in _bash_created_entries(expanded, pad=pad, exempt_no_growth=True):
+        target = _pad_target(candidate, pad)
+        if target is not None and scratchpad_contains(target, pad):
+            created.append(target)
+    if not created:
+        return None
+    budget = scratchpad_budget_bytes()
+    held, over_budget, _too_wide = scratchpad_footprint(pad, budget)
+    if not over_budget:
+        return None
+    first = os.fspath(created[0])
+    more = f" (first of {len(created)} destinations)" if len(created) > 1 else ""
+    return (
+        f"[scratch] Scratchpad over cap: holds ≥{held:,} bytes, cap {budget:,} bytes "
+        f"(session.scratchpad.max_bytes). This command would create {first}{more} "
+        "under the pad. Move build output to a git worktree (or another checkout), "
+        "delete what is no longer needed with rm, or raise "
+        "session.scratchpad.max_bytes in /settings → Scratchpad, then retry. "
+        "The command did not run."
+    )
+
+
+def _pad_destination_refusal(
+    tool_call_id: str,
+    tool_name: str,
+    target: str,
+    context: ToolContext | None,
+    size: int | None = None,
+) -> ToolResult | None:
+    """Apply the pad write policy when a tool writes to a PATH under the pad.
+
+    ``write``/``edit`` address the pad through ``scratchpad://`` and are checked
+    in ``_scratchpad_target``. A tool that takes an ordinary filesystem path
+    (browser ``screenshot``) would otherwise bypass the pad policy entirely just
+    because the caller spelled the destination absolutely, so the same
+    ``check_scratchpad_write`` runs here. A destination outside every pad is
+    skipped: this is the pad's policy, not a general file-write gate.
+    """
+    pad = _scratchpad_root(context)
+    if pad is None:
+        return None
+    path = Path(target)
+    if not scratchpad_contains(path, pad):
+        return None
+    try:
+        check_scratchpad_write(path, pad, target, size)
+    except ScratchpadContentError as exc:
+        return _invalid_arguments(tool_call_id, tool_name, str(exc))
+    return None
 
 
 def _expand_scratchpad_spellings(text: str, pad: Path) -> str:
@@ -7869,7 +8082,9 @@ def _pad_target(candidate: str, pad: Path) -> Path | None:
         return None
 
 
-def _bash_created_entries(command: str) -> Iterator[tuple[str, tuple[str, ...]]]:
+def _bash_created_entries(
+    command: str, *, pad: Path | None = None, exempt_no_growth: bool = False
+) -> Iterator[tuple[str, tuple[str, ...]]]:
     """The candidate paths ``command`` creates, in the order the shell meets
     them, each with the SOURCE operands a copy or move reads from.
 
@@ -7887,24 +8102,74 @@ def _bash_created_entries(command: str) -> Iterator[tuple[str, tuple[str, ...]]]
     the same candidate stream it always had — the temp arm's targets cannot be
     derived from a source this way — so the richer shape exists for the pad
     audit alone.
+
+    ``pad`` turns on the PAD walk's extra context, and only that caller passes
+    it: ``cd``/``pushd`` operands update a base directory so a relative creating
+    operand after ``cd "<pad>"`` is judged as pad-relative (review round 1 M1 —
+    the idiom was the bypass), and the base resets on a ``cd`` elsewhere or a
+    subshell/group boundary the walk cannot follow.
+
+    ``exempt_no_growth`` is PRECHECK-ONLY (review round 2, R2-1): it skips an
+    ``mv`` whose sources and destination are all inside the pad (a rename) and an
+    existing entry for ``touch`` / an existing directory for ``mkdir``, because
+    those commands add no bytes and refusing them was a false positive. The
+    POST-HOC shape audit must NOT pass it: ``mkdir -p "$PAD/build/sub"`` leaves a
+    build tree even when it adds no bytes, and the shape line is the only
+    feedback that names it.
     """
     tokens = _bash_tokens(_strip_heredoc_bodies(command))
     index = 0
     at_command = True
+    base: Path | None = None
+
+    def resolved(candidate: str) -> str:
+        """``candidate`` as the shell would resolve it against ``base``.
+
+        Only relative spellings are joined: an absolute path, a home/temp
+        spelling and a scheme are already what they are, and every one of them
+        reaches :func:`_pad_target` unchanged.
+        """
+        if pad is None or base is None:
+            return candidate
+        if not candidate or candidate.startswith(("/", "~", "$")) or "://" in candidate:
+            return candidate
+        return str(base / candidate)
+
     while index < len(tokens):
         kind, text = tokens[index]
         index += 1
         if kind == "redir":
             if index < len(tokens) and tokens[index][0] == "word":
-                yield tokens[index][1], ()
+                yield resolved(tokens[index][1]), ()
                 index += 1
             continue
         if kind == "op":
+            if pad is not None and text == "(":
+                # A subshell cannot be tracked: a ``cd`` inside it must not leak
+                # into the commands that follow the closing parenthesis.
+                base = None
             at_command = True
             continue
         if not at_command:
             continue
         if _ASSIGNMENT.match(text):
+            continue
+        name = text.rsplit("/", 1)[-1]
+        if pad is not None and name in ("cd", "pushd"):
+            operands: list[str] = []
+            while index < len(tokens) and tokens[index][0] == "word":
+                word = tokens[index][1]
+                index += 1
+                if not word.startswith("-"):
+                    operands.append(word)
+            base = _pad_cd_base(operands[0] if operands else None, base, pad)
+            at_command = True
+            continue
+        if pad is not None and text in ("{", "}"):
+            # A brace group is a boundary the token walk cannot open/close with
+            # certainty; reset rather than carry a base across it.
+            base = None
+            at_command = True
             continue
         prefix = _COMMAND_PREFIXES.get(text)
         if prefix is not None:
@@ -7914,26 +8179,105 @@ def _bash_created_entries(command: str) -> Iterator[tuple[str, tuple[str, ...]]]
             # A stray flag in command position names no command, so nothing behind
             # it is a creation this walk can attribute.
             continue
-        mode = _CREATING_COMMANDS.get(text.rsplit("/", 1)[-1])
+        mode = _CREATING_COMMANDS.get(name)
         if mode is None:
             at_command = False
             continue
-        operands: list[str] = []
+        operands = []
         while index < len(tokens) and tokens[index][0] == "word":
             if not tokens[index][1].startswith("-"):
                 operands.append(tokens[index][1])
             index += 1
         if mode == "last":
             if operands:
-                yield operands[-1], tuple(operands[:-1])
+                destination = resolved(operands[-1])
+                sources = tuple(resolved(source) for source in operands[:-1])
+                if (
+                    exempt_no_growth
+                    and pad is not None
+                    and name == "mv"
+                    and _pad_only_rename(destination, sources, pad)
+                ):
+                    continue
+                yield destination, sources
         elif mode == "template":
             for operand in operands:
                 if "X" in operand:
-                    yield operand, ()
+                    yield resolved(operand), ()
         else:
             for operand in operands:
-                yield operand, ()
+                target = resolved(operand)
+                if (
+                    exempt_no_growth
+                    and pad is not None
+                    and name in ("mkdir", "touch")
+                    and _pad_existing_entry(target, pad, allow_file=name == "touch")
+                ):
+                    continue
+                yield target, ()
         at_command = False
+
+
+def _pad_cd_base(operand: str | None, base: Path | None, pad: Path) -> Path | None:
+    """The pad-relative base after a ``cd``/``pushd``, or ``None``.
+
+    ``None`` means "not inside the pad": the walk must not carry a base across a
+    command that left it. A relative operand resolves against the CURRENT base
+    (``cd sub`` twice), an absolute one stands alone, and a destination that is
+    the pad or below it becomes the new base. Anything unresolvable is ``None``
+    — the safe direction, because a base this walk cannot prove is not used to
+    judge a relative creation.
+    """
+    if operand is None:
+        return None  # ``cd`` with no operand goes home; not this pad
+    target = _pad_target(operand, pad)
+    if target is None and base is not None and not operand.startswith(("/", "~", "$")):
+        target = _pad_target(str(base / operand), pad)
+    if target is not None and scratchpad_contains(target, pad):
+        return target
+    return None
+
+
+def _pad_existing_entry(candidate: str, pad: Path, *, allow_file: bool) -> bool:
+    """Whether ``candidate`` is an existing entry inside the pad that adds nothing.
+
+    ``mkdir -p <pad>`` / ``mkdir -p <pad>/build`` (existing dir) and ``touch`` of
+    an existing file or directory add no bytes; refusing them taught the operator
+    the gate fires on no-ops (review round 2, M2). A SYMLINK is never exempt:
+    ``touch`` through a dangling link can create its target outside the pad, and
+    the gate cannot judge where that lands.
+    """
+    # BEFORE any resolve: ``_pad_target`` follows the link, which would erase
+    # the very fact this guard exists to see (review round 3, R3-2). ``touch``
+    # through a symlink can create its target outside the pad; only a real
+    # existing entry is a no-op.
+    if os.path.islink(candidate):
+        return False
+    target = _pad_target(candidate, pad)
+    if target is None or not scratchpad_contains(target, pad):
+        return False
+    try:
+        return target.is_dir() or (allow_file and target.is_file())
+    except OSError:
+        return False
+
+
+def _pad_only_rename(destination: str, sources: tuple[str, ...], pad: Path) -> bool:
+    """Whether ``mv`` only renames inside the pad, adding no bytes.
+
+    A rename changes names, not the pad's total; refusing it would be the
+    conservatism the pre-execution gate's docstring promises not to apply.
+    """
+    target = _pad_target(destination, pad)
+    if target is None or not scratchpad_contains(target, pad):
+        return False
+    if not sources:
+        return False
+    for source in sources:
+        source_target = _pad_target(source, pad)
+        if source_target is None or not scratchpad_contains(source_target, pad):
+            return False
+    return True
 
 
 def _bash_created_paths(command: str) -> Iterator[str]:
@@ -14721,7 +15065,9 @@ async def execute_send(
         # (`session=`, and `target=` when the needle is a full id) are
         # covered; every other error form returns None before any read; see
         # _peer_holder_hint.
-        hint = await _peer_holder_hint(params.session or "", params.target or "", error or "")
+        hint = await _peer_holder_hint(
+            params.session or "", params.target or "", error or "", context
+        )
         if hint:
             error = hint
         return _error(tool_call_id, "send", error or "no target resolved")
@@ -14815,7 +15161,8 @@ async def execute_send(
         # unchanged — no acknowledged result is NOT an undelivered message — so
         # this must never become the confident arm.
         target = (
-            f"{record.conversation_name or record.session_id} (pid {record.pid})"
+            f"{identifier_text(context, str(record.conversation_name or record.session_id))} "
+            f"(pid {record.pid})"
             if record is not None
             else f"{cold_session_id} (not running)"
         )
@@ -15978,7 +16325,7 @@ async def _sessions_target(
     # THE PEER HINT: the exact-id miss may name a session a PEER holds — in
     # either spelling, `session=` or a full-id `target=`; every other error
     # form is untouched (see _peer_holder_hint).
-    hint = await _peer_holder_hint(params.session or "", params.target or "", error or "")
+    hint = await _peer_holder_hint(params.session or "", params.target or "", error or "", context)
     if hint:
         error = hint
     return _SessionsTarget(None, "", [], False, error or "no session resolved")
@@ -16033,7 +16380,7 @@ _FULL_ID_RE = re.compile(r"^[0-9a-f]{12}$")
 _TARGET_MISS_TAIL = "(searched live and stored sessions)"
 
 
-def _peer_holder_sentence(session_id: str) -> str | None:
+def _peer_holder_sentence(session_id: str, context: ToolContext | None = None) -> str | None:
     """The sentence naming the peer that holds ``session_id``, else ``None``.
 
     Blocking (a cache read, and on a miss one bounded relay fan-out): call
@@ -16080,10 +16427,15 @@ def _peer_holder_sentence(session_id: str) -> str | None:
     if row is None or not row.is_remote or not row.owner_device:
         return None
     device = row.owner_device_name or row.owner_device
-    return f"`{session_id}` is held by {device} — pass `peer={device}`"
+    # Identifier field: the session id the caller must pass back.
+    return (
+        f"`{identifier_text(context, session_id)}` is held by {device} — " f"pass `peer={device}`"
+    )
 
 
-async def _peer_holder_hint(session_id: str, target: str, error: str) -> str | None:
+async def _peer_holder_hint(
+    session_id: str, target: str, error: str, context: ToolContext | None = None
+) -> str | None:
     """``_peer_holder_sentence`` for an exact-id miss refusal, else ``None``.
 
     TWO SPELLINGS of one exact id reach the hint, and both mean "this id,
@@ -16111,7 +16463,7 @@ async def _peer_holder_hint(session_id: str, target: str, error: str) -> str | N
         needle = target.strip()
         if not _FULL_ID_RE.match(needle) or not error.endswith(_TARGET_MISS_TAIL):
             return None
-    return await asyncio.to_thread(_peer_holder_sentence, needle)
+    return await asyncio.to_thread(_peer_holder_sentence, needle, context)
 
 
 def _sessions_candidates_text(target: _SessionsTarget) -> str:
@@ -16223,14 +16575,18 @@ def _sessions_marker_extras(session_id: str) -> dict[str, Any]:
     return extras
 
 
-def _session_row_brief(row: Mapping[str, Any]) -> str:
+def _session_row_brief(row: Mapping[str, Any], context: ToolContext | None = None) -> str:
     """One lean listing line: the fields a caller acts on. The full published
-    row rides in ``details``, which costs no prompt tokens."""
+    row rides in ``details``, which costs no prompt tokens.
+
+    Identifier fields: the conversation title and session id are marked as
+    spans so redaction leaves them readable; neither is a credential.
+    """
     state = str(row.get("state") or "?")
-    name = str(row.get("conversation_name") or "(unnamed)")
+    name = identifier_text(context, str(row.get("conversation_name") or "(unnamed)"))
     bits = [f"[{state}] {name}"]
     if row.get("session_id"):
-        bits.append(f"session {row['session_id']}")
+        bits.append(f"session {identifier_text(context, str(row['session_id']))}")
     if row.get("pid"):
         bits.append(f"pid {row['pid']}")
     if row.get("model_label"):
@@ -16380,7 +16736,7 @@ async def _sessions_list(
     }
     if notes:
         details["notes"] = notes
-    lines: list[str] = [_session_row_brief(row) for row in shown]
+    lines: list[str] = [_session_row_brief(row, context) for row in shown]
     if len(deduped) > len(shown):
         if scope == "local":
             lines.append(
@@ -16443,13 +16799,16 @@ async def _sessions_list_query(
             row["pid"] = entry[0].pid
             row["model_label"] = entry[0].model_label
         rows.append(row)
-        name = session_row.name or "(unnamed)"
+        # Identifier fields: the title and id this search row prints are names
+        # a caller quotes back; both are marked spans, not credentials.
+        name = identifier_text(context, session_row.name or "(unnamed)")
+        session_id = identifier_text(context, session_row.id)
         if entry:
-            lines.append(f"- [live] {name}, session {session_row.id}, pid {entry[0].pid}")
+            lines.append(f"- [live] {name}, session {session_id}, pid {entry[0].pid}")
         else:
             age = max(0.0, time.time() - float(session_row.mtime or 0.0))
             age_text = format_duration(int(age * 1000))
-            lines.append(f"- [stored] {name}, session {session_row.id}, last active {age_text} ago")
+            lines.append(f"- [stored] {name}, session {session_id}, last active {age_text} ago")
     details: dict[str, Any] = {
         "op": "list",
         "query": params.query,
@@ -16470,7 +16829,7 @@ async def _sessions_list_query(
     return _text(tool_call_id, "sessions", text, details=details)
 
 
-def _sessions_facts_line(extras: Mapping[str, Any]) -> str:
+def _sessions_facts_line(extras: Mapping[str, Any], context: ToolContext | None = None) -> str:
     """The durable-facts line every ``info`` text ends with.
 
     Shared by the row-backed and the disk-only bodies so the two cannot drift
@@ -16483,11 +16842,13 @@ def _sessions_facts_line(extras: Mapping[str, Any]) -> str:
     ]
     opener = extras.get("opened_by")
     if opener:
-        bits = [str(opener.get("agent") or "?")]
+        # Identifier fields: agent/profile name, its label and the opener
+        # session id are names a caller quotes back.
+        bits = [identifier_text(context, str(opener.get("agent") or "?"))]
         if opener.get("label"):
-            bits.append(f"label {opener['label']!r}")
+            bits.append(f"label {identifier_text(context, repr(opener['label']))}")
         if opener.get("session"):
-            bits.append(f"session {opener['session']}")
+            bits.append(f"session {identifier_text(context, str(opener['session']))}")
         second.append("opened by " + ", ".join(bits))
     if extras.get("tags"):
         second.append("tags: " + ", ".join(extras["tags"]))
@@ -16498,7 +16859,9 @@ def _sessions_facts_line(extras: Mapping[str, Any]) -> str:
     return "; ".join(second)
 
 
-def _sessions_disk_only_body(facts: _SessionsDiskFacts, extras: Mapping[str, Any]) -> str:
+def _sessions_disk_only_body(
+    facts: _SessionsDiskFacts, extras: Mapping[str, Any], context: ToolContext | None = None
+) -> str:
     """The ``info`` text when no listing row describes the session.
 
     A stored directory can be absent from a listing scan for four reasons,
@@ -16512,7 +16875,9 @@ def _sessions_disk_only_body(facts: _SessionsDiskFacts, extras: Mapping[str, Any
     the sentence and the scan cannot disagree. The per-row reads need only
     the id, which is why the answer can be composed here at all.
     """
-    name = facts.name or "(unnamed)"
+    # Identifier field: the stored title is a name the caller reads; it is
+    # marked as a span so redaction leaves it readable.
+    name = identifier_text(context, facts.name or "(unnamed)")
     directory = str(extras.get("session_dir") or "")
     resumable = True
     if extras.get("sidebar_visibility") == "hidden":
@@ -16535,16 +16900,22 @@ def _sessions_disk_only_body(facts: _SessionsDiskFacts, extras: Mapping[str, Any
     first = f'"{name}" — stored, {why}'
     if resumable:
         first += "; it can still be resumed by its exact session id"
-    return first + "\n" + _sessions_facts_line(extras)
+    return first + "\n" + _sessions_facts_line(extras, context)
 
 
-def _sessions_info_body(row: Mapping[str, Any], extras: Mapping[str, Any]) -> str:
-    """Two lines: the live-state row, then the durable facts about it."""
+def _sessions_info_body(
+    row: Mapping[str, Any], extras: Mapping[str, Any], context: ToolContext | None = None
+) -> str:
+    """Two lines: the live-state row, then the durable facts about it.
+
+    Identifier fields: the conversation title and session id are marked spans;
+    both are names the caller quotes back, not credentials.
+    """
     state = str(row.get("state") or "?")
-    name = str(row.get("conversation_name") or "(unnamed)")
+    name = identifier_text(context, str(row.get("conversation_name") or "(unnamed)"))
     parts = [f'"{name}" — {state}']
     if row.get("session_id"):
-        parts.append(f"session {row['session_id']}")
+        parts.append(f"session {identifier_text(context, str(row['session_id']))}")
     if row.get("pid"):
         parts.append(f"pid {row['pid']}")
     if row.get("busy"):
@@ -16557,7 +16928,7 @@ def _sessions_info_body(row: Mapping[str, Any], extras: Mapping[str, Any]) -> st
         parts.append(f"pending {needs}")
     if row.get("model_label"):
         parts.append(str(row["model_label"]))
-    return ", ".join(parts) + "\n" + _sessions_facts_line(extras)
+    return ", ".join(parts) + "\n" + _sessions_facts_line(extras, context)
 
 
 async def _sessions_info_mesh(
@@ -16604,7 +16975,12 @@ async def _sessions_info_mesh(
         lines = [
             f"{peer} holds {len(candidates)} sessions matching {needle!r} — name one by its id:"
         ]
-        lines.extend(f"  {row.id}  {row.name}" for row in candidates)
+        # Identifier fields: candidate ids and names are names the caller quotes
+        # back to disambiguate; both are marked spans.
+        lines.extend(
+            f"  {identifier_text(context, row.id)}  {identifier_text(context, row.name)}"
+            for row in candidates
+        )
         return _error(tool_call_id, "sessions", "\n".join(lines))
     if found is None:
         return _error(
@@ -16617,8 +16993,10 @@ async def _sessions_info_mesh(
     block = row.get("peer") or {}
     device = str(block.get("name") or block.get("device_id") or peer)
     state = str(row.get("state") or "?")
-    name = str(row.get("conversation_name") or "(unnamed)")
-    bits = [f"[{state}] {name}", f"session {found.id}"]
+    # Identifier fields: the row's title and session id are names the caller
+    # acts on; both are marked spans, never credentials.
+    name = identifier_text(context, str(row.get("conversation_name") or "(unnamed)"))
+    bits = [f"[{state}] {name}", f"session {identifier_text(context, found.id)}"]
     if row.get("pid"):
         bits.append(f"pid {row['pid']}")
     if row.get("model_label"):
@@ -16657,6 +17035,8 @@ async def _sessions_info(
         include_stored=stored,
         stored_limit=_SESSIONS_STORED_LOOKUP_LIMIT,
     )
+    # Identifier fields: the info body prints the session's title and id as
+    # names the caller quotes back; marks are applied inside the body.
     if row is None:
         if stored:
             # Two situations land here, and until review round 1 they shared
@@ -16678,7 +17058,7 @@ async def _sessions_info(
                     "listed": False,
                     **extras,
                 }
-                text = await asyncio.to_thread(_sessions_disk_only_body, facts, extras)
+                text = await asyncio.to_thread(_sessions_disk_only_body, facts, extras, context)
                 text, spill = spill_truncate(text, "sessions", context)
                 if spill:
                     details.update(spill)
@@ -16699,7 +17079,7 @@ async def _sessions_info(
         )
     extras = await asyncio.to_thread(_sessions_marker_extras, target.session_id)
     details: dict[str, Any] = {"op": "info", **row, **extras}
-    text = _sessions_info_body(row, extras)
+    text = _sessions_info_body(row, extras, context)
     text, spill = spill_truncate(text, "sessions", context)
     if spill:
         details.update(spill)
@@ -17447,10 +17827,14 @@ async def _sessions_peek_mesh(
     }
     if not rows:
         text = (
-            f"{session_id} on {peer}: no steps with text are shown on that device's " "display yet"
+            f"{identifier_text(context, session_id)} on {peer}: no steps with text "
+            "are shown on that device's display yet"
         )
     else:
-        header = f"{session_id} on {peer} — the newest {len(rows)} step(s)"
+        # Identifier field: the session id a caller addresses on that peer.
+        header = (
+            f"{identifier_text(context, session_id)} on {peer} — " f"the newest {len(rows)} step(s)"
+        )
         if payload.get("has_older"):
             header += " (older steps are loaded there too)"
         lines = [header + ":"]
@@ -17555,9 +17939,10 @@ async def _sessions_peek(
                 text = payload.miss
             else:
                 name = await asyncio.to_thread(_peek_name)
+                # Identifier fields: the header quotes the title and id.
                 text = _peek_body(
-                    name,
-                    session_id,
+                    identifier_text(context, name),
+                    identifier_text(context, session_id),
                     mode,
                     payload,
                     anchor=str(params.before_id or params.around_id or ""),
@@ -18014,10 +18399,14 @@ def _sessions_disk_facts(session_id: str) -> _SessionsDiskFacts:
     )
 
 
-def _sessions_open_body(params: SessionsParams, details: Mapping[str, Any]) -> str:
+def _sessions_open_body(
+    params: SessionsParams, details: Mapping[str, Any], context: ToolContext | None = None
+) -> str:
     """The one-line-ish receipt (§5.4): what was opened, where it shows up,
     and — for a hidden run — how each side still reaches it."""
-    name = str(details.get("name") or "")
+    # Identifier fields: the title, session id and opener identity are names
+    # a caller quotes back or addresses.
+    name = identifier_text(context, str(details.get("name") or ""))
     # Two spellings, because the spaces differ per branch: ``named`` carries
     # no trailing space and ``where`` starts with one, so composing them
     # directly produced a double space in the resume receipt (review round 1,
@@ -18027,7 +18416,7 @@ def _sessions_open_body(params: SessionsParams, details: Mapping[str, Any]) -> s
     lead = f"{named} " if named else ""
     bits = []
     if details.get("session_id"):
-        bits.append(f"session {details['session_id']}")
+        bits.append(f"session {identifier_text(context, str(details['session_id']))}")
     if details.get("job_id"):
         bits.append(f"job {details['job_id']}")
     if details.get("pid"):
@@ -18038,11 +18427,11 @@ def _sessions_open_body(params: SessionsParams, details: Mapping[str, Any]) -> s
     opener = details.get("opener") or {}
     opened_by = ""
     if opener.get("agent"):
-        opened_by = f" opened by {opener['agent']}"
+        opened_by = f" opened by {identifier_text(context, str(opener['agent']))}"
         if opener.get("label"):
-            opened_by += f" (label {opener['label']!r})"
+            opened_by += f" (label {identifier_text(context, repr(opener['label']))})"
         if opener.get("session"):
-            opened_by += f" from session {opener['session']}"
+            opened_by += f" from session {identifier_text(context, str(opener['session']))}"
         opened_by += "."
     if params.op == "resume":
         if details.get("readiness") == "starting":
@@ -18101,7 +18490,8 @@ def _sessions_open_body(params: SessionsParams, details: Mapping[str, Any]) -> s
     elif details.get("sidebar_visibility") == "hidden":
         text += (
             " The operator reaches it through `lop sessions` (the live run); your "
-            f"route back is `lop exec --resume {details['session_id']}`."
+            f"route back is `lop exec --resume "
+            f"{identifier_text(context, str(details['session_id']))}`."
         )
     return text
 
@@ -18183,9 +18573,11 @@ async def _sessions_spawn_mesh(
         return _error(tool_call_id, "sessions", refusal, details={"mesh": payload})
     minted = str(payload.get("session_id") or "")
     name = str(params.name or "").strip()
-    head = f'created "{name}" on {peer}' if name else f"created on {peer}"
+    # Identifier fields: the title the caller chose and the minted id.
+    shown_name = identifier_text(context, name)
+    head = f'created "{shown_name}" on {peer}' if name else f"created on {peer}"
     if minted:
-        head += f" (session {minted})"
+        head += f" (session {identifier_text(context, minted)})"
     lines = [head]
     if str(params.prompt or ""):
         admitted = bool(payload.get("admitted"))
@@ -18470,14 +18862,16 @@ async def _sessions_open(
             return _text(
                 tool_call_id,
                 "sessions",
-                _sessions_open_body(params, details) + f" Tags not applied: {exc}. "
+                _sessions_open_body(params, details, context) + f" Tags not applied: {exc}. "
                 "Once listed, the operator can re-tag it from the sidebar Tags… picker; "
                 "do not repeat the spawn to retry tags.",
                 details=details,
             )
     if params.op == "resume":
         details["visibility_changed"] = False
-    return _text(tool_call_id, "sessions", _sessions_open_body(params, details), details=details)
+    return _text(
+        tool_call_id, "sessions", _sessions_open_body(params, details, context), details=details
+    )
 
 
 async def _sessions_resume_batch(
@@ -18574,7 +18968,10 @@ async def _sessions_resume_batch(
         ]
         for session_id, name in rows:
             age = format_age(max(0.0, time.time() - mtime_by_id[session_id]))
-            lines.append(f'- {session_id}  "{name}"  ({age})')
+            lines.append(
+                f"- {identifier_text(context, session_id)}  "
+                f'"{identifier_text(context, name)}"  ({age})'
+            )
         if not rows:
             lines = [f"resume set ({sets_name}): no stored sessions match{capped_note}."]
         text, spill = spill_truncate("\n".join(lines), "sessions", context)
@@ -18617,12 +19014,14 @@ async def _sessions_resume_batch(
     for outcome in outcomes:
         if outcome.ok:
             lines.append(
-                f'- ok    {outcome.session_id}  "{outcome.name}"  '
+                f"- ok    {identifier_text(context, outcome.session_id)}  "
+                f'"{identifier_text(context, outcome.name)}"  '
                 f"({outcome.status}, job {outcome.job_id})"
             )
         else:
             lines.append(
-                f'- FAIL  {outcome.session_id}  "{outcome.name}"  — '
+                f"- FAIL  {identifier_text(context, outcome.session_id)}  "
+                f'"{identifier_text(context, outcome.name)}"  — '
                 f"{outcome.detail or outcome.status}"
             )
     text, spill = spill_truncate("\n".join(lines), "sessions", context)
@@ -18803,6 +19202,26 @@ def _variable_store(context: ToolContext | None) -> VariableStoreProtocol:
     from local_operator.variables import VariableStore
 
     return VariableStore(cwd=_safe_cwd(context))
+
+
+def identifier_text(context: ToolContext | None, value: str) -> str:
+    """Wrap a rendered identifier in the markers redaction honours.
+
+    WHY AT THE RENDER SITE: only the code that prints the value knows it is a
+    NAME rather than a secret. The mark covers the exact bytes being printed in
+    this result — it cannot exempt the same word elsewhere, or outlive the
+    line — which is what keeps a project key named ``token`` from releasing a
+    later ``token: <secret>`` credential (LOH-28 remediation). A store without
+    ``identifier_span`` (an older caller, a test double) renders the plain
+    value.
+    """
+    span = cast(
+        Callable[[str], str] | None,
+        getattr(getattr(context, "variables", None), "identifier_span", None),
+    )
+    if not callable(span):
+        return value
+    return span(value)
 
 
 @_guard("list_variables")
@@ -20231,6 +20650,12 @@ async def _browser_screenshot(
         denial = _confinement_denial(resolved, context, resolvable=_resolvable)
         if denial is not None:
             return _error(tool_call_id, "browser", denial)
+        # A screenshot destination is an ordinary path, so the pad policy must
+        # be applied here too: an absolute path into ``scratchpad/`` otherwise
+        # wrote a PNG the next ``write`` would have refused.
+        pad_refusal = _pad_destination_refusal(tool_call_id, "browser", target, context)
+        if pad_refusal is not None:
+            return pad_refusal
     else:
         import tempfile
 
@@ -23519,6 +23944,12 @@ async def _bridge_action(
             "browser",
             f"{_host_label(host)} capture is not a PNG ({len(payload)} bytes)",
         )
+    # The payload size is known now, so the cap check can judge the write the
+    # page is about to make (the per-write ceiling included), not just the
+    # destination's name.
+    pad_refusal = _pad_destination_refusal(tool_call_id, "browser", target, context, len(payload))
+    if pad_refusal is not None:
+        return pad_refusal
     try:
         Path(target).parent.mkdir(parents=True, exist_ok=True)
         Path(target).write_bytes(payload)

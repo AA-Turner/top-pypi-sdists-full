@@ -26,6 +26,8 @@ from pulp import constants as const
 from pulp.apis.core import clocks
 from pulp.constants import PulpError
 from pulp.tests.solver_common import (
+    EXAMPLE_MPS_BV_BOUNDS,
+    EXAMPLE_MPS_LI_UI_BOUNDS,
     EXAMPLE_MPS_MI_BOUNDS,
     EXAMPLE_MPS_PL_BOUNDS,
     EXAMPLE_MPS_RHS56,
@@ -782,6 +784,34 @@ class PuLPModelTest(unittest.TestCase):
         mi_var = vars["YTWO"]
         self.assertEqual(mi_var.lowBound, float("-inf"))
 
+    def test_importMPS_BV_bound(self):
+        """Import MPS file with BV bound type: a binary variable is integer."""
+        with tempfile.NamedTemporaryFile(delete=False) as h:
+            h.write(str.encode(EXAMPLE_MPS_BV_BOUNDS))
+        vars, problem = LpProblem.fromMPS(h.name)
+        os.unlink(h.name)
+        self.assertIsInstance(problem, LpProblem)
+        bv_var = vars["YTWO"]
+        self.assertEqual(bv_var.cat, const.LpInteger)
+        self.assertEqual(bv_var.lowBound, 0)
+        self.assertEqual(bv_var.upBound, 1)
+        self.assertEqual(vars["ZTHREE"].cat, const.LpContinuous)
+
+    def test_importMPS_LI_UI_bounds(self):
+        """Import MPS file with LI and UI bound types: integer variables with a bound."""
+        with tempfile.NamedTemporaryFile(delete=False) as h:
+            h.write(str.encode(EXAMPLE_MPS_LI_UI_BOUNDS))
+        vars, problem = LpProblem.fromMPS(h.name)
+        os.unlink(h.name)
+        self.assertIsInstance(problem, LpProblem)
+        self.assertEqual(vars["XONE"].cat, const.LpInteger)
+        self.assertEqual(vars["XONE"].lowBound, 0)
+        self.assertEqual(vars["XONE"].upBound, 4)
+        self.assertEqual(vars["YTWO"].cat, const.LpInteger)
+        self.assertEqual(vars["YTWO"].lowBound, -1)
+        self.assertEqual(vars["YTWO"].upBound, 1)
+        self.assertEqual(vars["ZTHREE"].cat, const.LpContinuous)
+
     def test_unbounded_problem__is_not_valid(self):
         """Given an unbounded problem, where x will tend to infinity
         to maximise the objective, assert that it is categorised
@@ -909,6 +939,28 @@ class PuLPModelTest(unittest.TestCase):
         for a in assign_vars_matrix:
             for b in a:
                 self.assertIsInstance(b, LpVariable)
+
+    def test_binary_variables_with_several_indices(self):
+        """
+        Test that binary variables created over several index sets get [0, 1] bounds
+        """
+        prob = LpProblem(self._testMethodName, const.LpMinimize)
+        customers = [1, 2, 3]
+        agents = ["A", "B"]
+
+        assign_vars = prob.add_variable_dicts(
+            "dicts", (customers, agents), cat=const.LpBinary
+        )
+        assign_vars_matrix = prob.add_variable_matrix(
+            "matrix", (customers, agents), cat=const.LpBinary
+        )
+        variables = [b for v in assign_vars.values() for b in v.values()]
+        variables += [b for a in assign_vars_matrix for b in a]
+        self.assertEqual(len(variables), 12)
+        for v in variables:
+            self.assertEqual(v.cat, const.LpInteger)
+            self.assertEqual(v.lowBound, 0)
+            self.assertEqual(v.upBound, 1)
 
     def test_sum_nan_values(self):
         import math

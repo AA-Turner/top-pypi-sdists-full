@@ -323,7 +323,7 @@ async def ai_text_to_speech(
                 audio_path=refs.path,
                 # This output is written to workflow.node_outcome and replayed
                 # days later, so only a DURABLE url may ride it — the expiring
-                # one is dropped, not labelled. One classifier (matrx_files)
+                # one is dropped, not labeled. One classifier (matrx_files)
                 # decides; file_id is what a consumer re-mints from.
                 audio_url=refs.url if is_durable_media_url(refs.url) else None,
                 audio_cdn_url=refs.url if is_durable_media_url(refs.url) else None,

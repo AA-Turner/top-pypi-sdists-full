@@ -130,8 +130,9 @@ NOT_A_SCHEMA_OBJECT: dict[str, str] = {
         "identity is a (role, server) pair, and the role half is cluster-scoped"
     ),
     "CreatePLangStmt": (
-        "PostgreSQL parses CREATE LANGUAGE as CreateExtensionStmt, which is "
-        "tracked; this node is unreachable from a parse"
+        "only CREATE LANGUAGE … HANDLER … reaches this node, a procedural language "
+        "defined by hand; PostgreSQL's grammar turns the parameterless form into "
+        "CreateExtensionStmt, which is tracked"
     ),
 }
 
@@ -408,6 +409,18 @@ def _ref_of(obj: SchemaObject) -> ObjectRef:
         signature=signature_bucket(obj.signature_key),
         display=obj.identity,
     )
+
+
+def defined_kind(raw: Any) -> str | None:
+    """The kind a statement defines, from its node alone, for a node read by ``_EXTRA``.
+
+    ``"extension"`` for ``CREATE EXTENSION`` (and the parameterless ``CREATE
+    LANGUAGE`` PostgreSQL turns into one), ``"schema"`` for ``CREATE SCHEMA``, and
+    so on; ``None`` for a node :func:`object_of` reads through the inventory. A
+    reader looking for one kind asks this before paying for :func:`object_of`.
+    """
+    spec = _EXTRA.get(type(raw.stmt).__name__)
+    return None if spec is None else spec.kind
 
 
 def object_of(sql: str, raw: Any) -> DDLObject | None:

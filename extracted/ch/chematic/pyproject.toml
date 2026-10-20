@@ -1,0 +1,51 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "chematic"
+dynamic = ["version"]
+description = "Pure-Rust cheminformatics — SMILES, fingerprints, 190+ descriptors, pKa, ADMET"
+readme = "README.md"
+license = { text = "MIT OR Apache-2.0" }
+authors = [{ name = "Kentaro Tanabe (kent-tokyo)", email = "kent-tokyo@users.noreply.github.com" }]
+requires-python = ">=3.9"
+keywords = ["cheminformatics", "smiles", "chemistry", "rdkit", "fingerprints", "drug-discovery", "molecular-descriptors", "wasm", "admet", "qed"]
+dependencies = ["numpy>=1.20"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+]
+
+[project.optional-dependencies]
+excel = ["elixcee>=1.0.13,<2"]
+test = ["pytest<9", "pytest-asyncio>=0.23,<1"]
+
+[project.urls]
+Homepage = "https://kent-tokyo.github.io/chematic/"
+Repository = "https://github.com/kent-tokyo/chematic"
+Documentation = "https://docs.rs/chematic"
+
+[tool.maturin]
+module-name = "chematic"
+# Published wheels carry the IUPAC InChI library (v1.07.5, the version RDKit
+# 2026.03 links), so `Mol.standard_inchi` / `standard_inchikey` work out of
+# the box. The Rust crates and the WASM build stay pure Rust by default.
+features = ["native-inchi"]
+manifest-path = "crates/chematic-py/Cargo.toml"
+python-source = "python"

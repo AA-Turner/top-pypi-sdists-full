@@ -106,6 +106,9 @@ def test_color_count():
     This is known to fail if MuPDF is built without PyMuPDF's custom config.h,
     e.g. in Linux system installs.
     '''
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        print(f'test_color_count(): doing nothing in sysinstall.')
+        return
     pm = pymupdf.Pixmap(imgfile)
     assert pm.color_count() == 40624
 
@@ -166,10 +169,11 @@ def test_3020():
     pm4 = pymupdf.Pixmap(pm, pm3)
 
 def test_3050():
-    '''
-    This is known to fail if MuPDF is built without it's default third-party
-    libraries, e.g. in Linux system installs.
-    '''
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        # This is known to fail if MuPDF is built without it's default
+        # third-party libraries, e.g. in Linux system installs.
+        print(f'test_3050(): doing nothing because known to fail if MuPDF is built without it\'s default third-party libraries, e.g. in Linux system installs.')
+        return
     path = os.path.normpath(f'{__file__}/../../tests/resources/001003ED.pdf')
     with pymupdf.open(path) as pdf_file:
         page_no = 0
@@ -276,6 +280,9 @@ def test_3493():
     This test is excluded by default in sysinstall tests, because running
     commands in a new venv does not seem to pick up pymupdf as expected.
     '''
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        print(f'test_3493(): doing nothing in sysinstall.')
+        return
     if platform.system() != 'Linux':
         print(f'Not running because not Linux: {platform.system()=}')
         return
@@ -435,7 +442,7 @@ def test_3854():
     pixmap_diff.save(path_diff)
     rms = gentle_compare.pixmaps_rms(pixmap, pixmap_expected)
     print(f'{rms=}.')
-    if os.environ.get('PYMUPDF_SYSINSTALL_TEST') == '1':
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
         # MuPDF using external third-party libs gives slightly different
         # behaviour.
         assert rms < 2
@@ -659,6 +666,9 @@ def test_5001():
     '''
     #5001 is fixed with mupdf>=1.28.
     '''
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        print(f'test_5001(): doing nothing in sysinstall.')
+        return
     path = os.path.normpath(f'{__file__}/../../tests/resources/test_5001.pdf')
     path_expected = os.path.normpath(f'{__file__}/../../tests/resources/test_5001_expected.png')
     path_out = os.path.normpath(f'{__file__}/../../tests/test_5001_out.png')
@@ -758,3 +768,77 @@ def test_natural():
         )
         pix=pymupdf.Pixmap(pm)
         print(f"{pix=}")    
+
+
+def text_pixmap_transpositions():
+    """Test that flip_rotate() is consistent with repeated applications."""
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_natural.pdf')
+    doc=pymupdf.open(path)
+    pix = doc[0].get_pixmap()
+    samples0 = pix.samples
+    modes = {
+        pymupdf.Pixmap.ROTATE_90: 3,
+        pymupdf.Pixmap.ROTATE_180: 1,
+        pymupdf.Pixmap.ROTATE_270: 3,
+        pymupdf.Pixmap.FLIP_LEFT_RIGHT: 1,
+        pymupdf.Pixmap.FLIP_TOP_BOTTOM: 1,
+    }
+    for mode, repeat in modes.items():
+        new = pix.flip_rotate(mode)
+        for _ in range(repeat):
+            new = new.flip_rotate(mode)
+        assert new.samples == samples0, "Failed for mode %s" % mode
+
+
+def test_5082():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_5082(): not running on Pyodide - `requests` module not available.')
+        return
+    print()
+    path = util.download(
+            'https://www.city.toyota.aichi.jp/_res/projects/default_project/_page_/001/057/466/01.pdf',
+            'test_5082.pdf',
+            headers={'user-agent': 'pymupdf-test'}, # Avoids html 403 failure.
+            )
+    print(f'test_5082(): {pymupdf.mupdf_version=}.')
+    print(f'test_5082(): calling page.get_pixmap() in child process.')
+    timeout = False
+    try:
+        cp = subprocess.run(
+                [
+                    sys.executable,
+                    '-c',
+                    f'import pymupdf; document=pymupdf.open({path!r}); page = document[0]; page.get_pixmap()',
+                    ],
+                check=1,
+                timeout=10,
+                )
+    except subprocess.TimeoutExpired:
+        timeout = True
+    print(f'test_5082(): {timeout=}')
+    if pymupdf.mupdf_version_tuple < (1, 28, 5):
+        assert timeout, f'Expected timeout from {pymupdf.mupdf_version=}.'
+    else:
+        assert not timeout, f'Unexpected timeout from {pymupdf.mupdf_version=}.'
+
+
+def test_5125():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_5125(): not running on Pyodide - cannot run child processes.')
+        return
+        
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_5125.pdf')
+    e = None
+    command = f'{sys.executable} -c "import pymupdf; pymupdf.open({path!r})[0].get_pixmap(dpi=200)"'
+    print()
+    print(f'Running: {command}', flush=1)
+    try:
+        cp = subprocess.run(command, shell=1, timeout=30)
+    except subprocess.TimeoutExpired as ee:
+        e = ee
+    print(f'{e=}', flush=1)
+    if pymupdf.mupdf_version_tuple >= (1, 28, 5):
+        assert not e
+    else:
+        assert e
+    

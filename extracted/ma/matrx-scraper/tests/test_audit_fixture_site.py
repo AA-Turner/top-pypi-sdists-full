@@ -6,7 +6,7 @@ checks it must raise (``tests/fixtures/audit_site/<site>/site.json``,
 checks run over it (``audit_fixture_harness``), and each page is compared as an
 exact set — a missing verdict and an extra one both fail it.
 
-Three sets partition the 83 builtin catalogue rows and are printed on every run:
+Three sets partition the 83 builtin catalog rows and are printed on every run:
 
 * ``NOT_IMPLEMENTED`` — builtin rows no check function computes (recounted from
   code: ``analysis.PAGE_CHECKS`` + ``analysis.SITE_CHECKS``).
@@ -38,9 +38,9 @@ from audit_fixture_harness import (
 from matrx_scraper.web_crawl import analysis
 
 #: Every builtin, non-deleted `web.analysis_item` key — read from the live
-#: catalogue on 2026-09-28 (83 rows). `scripts/check_seo_catalogue_coverage.py`
-#: owns catalogue ⟷ code drift against the live DB; this snapshot lets the gate
-#: run offline. A row added to the catalogue is added here in the same change.
+#: catalog on 2026-09-28 (83 rows). `scripts/check_seo_catalogue_coverage.py`
+#: owns catalog ⟷ code drift against the live DB; this snapshot lets the gate
+#: run offline. A row added to the catalog is added here in the same change.
 BUILTIN_CATALOGUE: frozenset[str] = frozenset(
     """
     a11y_lab_basics anchor_text_descriptiveness asset_delivery broken_external_links
@@ -71,18 +71,18 @@ BUILTIN_CATALOGUE: frozenset[str] = frozenset(
 NOT_IMPLEMENTED: dict[str, str] = {
     "a11y_lab_basics": "needs a rendered-browser accessibility pass; nothing computes it",
     "content_freshness": "no dated-content evidence is scored yet",
-    "content_quality_eeat": "AI judgement row; no model pass is wired to the sweep",
-    "grammar_spelling": "AI judgement row; no model pass is wired to the sweep",
+    "content_quality_eeat": "AI judgment row; no model pass is wired to the sweep",
+    "grammar_spelling": "AI judgment row; no model pass is wired to the sweep",
     "gsc_index_coverage": "needs Search Console index-coverage data; no check reads it",
-    "image_alt_quality": "AI judgement row (alt text quality, not presence)",
+    "image_alt_quality": "AI judgment row (alt text quality, not presence)",
     "intrusive_interstitials": "AI vision row; needs a rendered screenshot pass",
-    "keyword_topical_coverage": "AI judgement row; no model pass is wired to the sweep",
+    "keyword_topical_coverage": "AI judgment row; no model pass is wired to the sweep",
     "mobile_render_quality": "AI vision row; needs a rendered screenshot pass",
     "mobile_usability_lab": "needs a mobile lab render; nothing computes it",
     "readability": "Flesch is captured per page but no check scores it",
-    "search_intent_alignment": "AI judgement row; no model pass is wired to the sweep",
-    "serp_snippet_quality": "AI judgement row; no model pass is wired to the sweep",
-    "structured_data_coverage": "AI judgement row (which markup a page should carry)",
+    "search_intent_alignment": "AI judgment row; no model pass is wired to the sweep",
+    "serp_snippet_quality": "AI judgment row; no model pass is wired to the sweep",
+    "structured_data_coverage": "AI judgment row (which markup a page should carry)",
     "title_keyword_alignment": "needs a target keyword per page; no check reads one",
 }
 
@@ -132,7 +132,7 @@ def partition_errors(
     external_only: dict[str, str],
     catalogue: frozenset[str] = BUILTIN_CATALOGUE,
 ) -> list[str]:
-    """Every way the three sets can disagree with the code and the catalogue."""
+    """Every way the three sets can disagree with the code and the catalog."""
 
     errors = []
     for key in sorted(implemented & set(not_implemented)):
@@ -142,9 +142,9 @@ def partition_errors(
     for key in sorted(set(external_only) - implemented):
         errors.append(f"{key} is EXTERNAL_ONLY but not implemented")
     for key in sorted(implemented - catalogue):
-        errors.append(f"{key} is implemented but has no builtin catalogue row")
+        errors.append(f"{key} is implemented but has no builtin catalog row")
     for key in sorted(set(not_implemented) - catalogue):
-        errors.append(f"{key} is in NOT_IMPLEMENTED but not in the catalogue")
+        errors.append(f"{key} is in NOT_IMPLEMENTED but not in the catalog")
     for mapping_name, mapping in (
         ("NOT_IMPLEMENTED", not_implemented),
         ("EXTERNAL_ONLY", external_only),
@@ -384,7 +384,7 @@ async def test_fixture_site_raises_exactly_what_it_declares(
 
 
 def test_coverage_summary_is_printed() -> None:
-    """exercised / implemented / not implemented / external-only, of the catalogue."""
+    """exercised / implemented / not implemented / external-only, of the catalog."""
 
     implemented = implemented_checks()
     covered = declared_truth(_load_sites())

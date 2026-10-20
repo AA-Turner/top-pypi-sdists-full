@@ -120,7 +120,7 @@ class CxmConversationPersistence:
 
 
 def _to_content_blocks(content: Any) -> list[Any]:
-    """Normalise a turn's content into the cx_message content-block list shape.
+    """Normalize a turn's content into the cx_message content-block list shape.
     (The exact provider-faithful tool-result shape is validated on a real env.)"""
     if isinstance(content, str):
         return [{"type": "text", "text": content}]

@@ -155,6 +155,67 @@ def container_for_content(content: Any) -> MediaContainer | None:
     return _CONTENT_CLASS_CONTAINER.get(type(content).__name__)
 
 
+def _document_natively_serializable(content: Any, style: str) -> bool:
+    """Whether THIS document's format has a representation in the style's serializer.
+
+    The container answer ("Anthropic accepts documents") is not enough: the
+    serializers represent a document only as a PDF or as decoded UTF-8 text
+    (``DocumentContent.to_anthropic`` / ``to_openai``), and Gemini's inline
+    document slot takes PDF and ``text/*`` only. A .docx/.xlsx/.pptx/.doc or any
+    other binary therefore must be CONVERTED before dispatch — before PB-05
+    (2026-10-18) it passed the container check and the serializer returned
+    ``None``, dropping the file with a console line only. Mirrors the
+    serializers exactly; ``tests/test_attachment_every_kind_arrives.py`` asserts
+    this predicate and the real serializers never disagree.
+    """
+    from matrx_ai.config.media_config import decode_document_text, is_pdf_mime
+
+    mime = getattr(content, "mime_type", None)
+    if is_pdf_mime(mime):
+        return True
+    b64 = getattr(content, "base64_data", None)
+    if style == _STYLE_GOOGLE:
+        if getattr(content, "file_uri", None) and str(content.file_uri).startswith("gs://"):
+            return True
+        return bool(b64) and (mime or "").split(";")[0].strip().lower().startswith("text/")
+    if style in (_STYLE_ANTHROPIC, _STYLE_OPENAI_RESPONSES):
+        if b64:
+            return decode_document_text(b64) is not None
+        # No bytes: the url-source path. Only a PDF url is representable in fact,
+        # but an unresolved url is the boundary's to fetch; leave it native.
+        return bool(getattr(content, "resolved_url", None) or getattr(content, "url", None))
+    return False
+
+
+def content_needs_fallback(
+    content: Any,
+    endpoint: str | None,
+    *,
+    model_supports_vision: bool | None = None,
+) -> bool:
+    """Whether this ONE media item must go through the fallback seam before dispatch.
+
+    Per item, never per container: a PDF beside a .docx stays a native PDF while
+    the .docx is converted.
+    """
+    container = container_for_content(content)
+    if container is None or container is MediaContainer.TEXT:
+        return False
+    if container is MediaContainer.IMAGE and model_supports_vision is False:
+        return True
+    native = endpoint_native_inputs(endpoint)
+    if native is None:
+        return False
+    if container in _CONTAINERS_WITH_TRANSCODE_FALLBACK:
+        return False
+    if container not in native:
+        return True
+    if container is MediaContainer.DOCUMENT:
+        style = endpoint_serializer_style(endpoint)
+        return not _document_natively_serializable(content, style or "")
+    return False
+
+
 def scan_message_media(messages: Any) -> set[MediaContainer]:
     """Best-effort set of non-text media containers present in a MessageList /
     list of messages. Never raises — a shape it doesn't understand contributes
@@ -178,12 +239,25 @@ def find_unsupported_media(
     *,
     model_supports_vision: bool | None = None,
 ) -> set[MediaContainer]:
-    """Return request media that needs the fallback conversion seam."""
-    return unsupported_inputs(
+    """Return the containers of every request media item that needs the fallback seam."""
+    found = unsupported_inputs(
         scan_message_media(messages),
         endpoint,
         model_supports_vision=model_supports_vision,
     )
+    try:
+        msgs = messages.to_list() if hasattr(messages, "to_list") else messages
+        for message in msgs or []:
+            for content in getattr(message, "content", None) or []:
+                if content_needs_fallback(
+                    content, endpoint, model_supports_vision=model_supports_vision
+                ):
+                    container = container_for_content(content)
+                    if container is not None:
+                        found.add(container)
+    except Exception:  # noqa: BLE001 — classification must never break a caller
+        return found
+    return found
 
 
 __all__ = [
@@ -193,6 +267,7 @@ __all__ = [
     "is_input_natively_supported",
     "unsupported_inputs",
     "container_for_content",
+    "content_needs_fallback",
     "scan_message_media",
     "find_unsupported_media",
 ]

@@ -16,6 +16,7 @@ from matrx_ai.config import (
     UnifiedMessage,
     UnifiedResponse,
     YouTubeVideoContent,
+    openai_compatible_usage_counts,
     serialize_provider_usage,
 )
 from matrx_ai.config.media_config import ImageContent
@@ -29,6 +30,9 @@ from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 class GroqTranslator(BaseTranslator):
     """Translates between unified format and Groq API (OpenAI-style)"""
+
+    #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
+    TURN_CONTEXT_AFTER_CACHE_LINE = True
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
@@ -54,7 +58,7 @@ class GroqTranslator(BaseTranslator):
             messages.append({"role": "system", "content": system_text})
 
         # Convert messages to OpenAI-style format
-        for msg in config.messages:
+        for msg in self.messages_for_wire(config, profile):
             if msg.role == "tool":
                 # Image-bearing tool results surface their images as a
                 # follow-up user message (Chat Completions role=tool only
@@ -124,11 +128,12 @@ class GroqTranslator(BaseTranslator):
         # clear_thinking is a Cerebras-only concept — not forwarded to Groq.
         # disable_reasoning has no equivalent on Groq (no reasoning support) — dropped.
 
-        # TAIL CHANNEL (config/live_plan.py): one message after the newest tool
-        # results, the same follow-up shape image-bearing results use above.
-        tail_text = self.get_tail_context_text(config)
-        if tail_text:
-            messages.append({"role": "user", "content": tail_text})
+        # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
+        # block (live clock, selection, values) plus the tail channel
+        # (config/live_plan.py) ride its OWN user turn after the newest message,
+        # never in the system message (this provider's exact-prefix cache includes
+        # it) and never inside the person's message (owner ruling L29, 2026-10-18).
+        self.place_trailing_on_chat_messages(messages, self.get_trailing_context_text(config, profile), profile)
 
         # Build request
         groq_request = {
@@ -163,7 +168,7 @@ class GroqTranslator(BaseTranslator):
         # asked for structured JSON is better served by guaranteed-valid JSON
         # than by tool access. This is a runtime ADJUSTMENT to keep the request
         # working for testing; it must never be silently persisted as the
-        # configured behaviour, so we log it loudly every time it happens.
+        # configured behavior, so we log it loudly every time it happens.
         if json_mode and all_tools:
             vcprint(
                 data={
@@ -177,7 +182,7 @@ class GroqTranslator(BaseTranslator):
                     "kept_response_format": groq_response_format,
                 },
                 title=(
-                    "⚠️  GROQ ADJUSTMENT: dropped tools to honour JSON mode — "
+                    "⚠️  GROQ ADJUSTMENT: dropped tools to honor JSON mode — "
                     "Groq forbids json_object/json_schema + tools in one request. "
                     "Tools were REMOVED for this call so structured output works. "
                     "Do NOT persist this combination as a saved config; either "
@@ -299,9 +304,13 @@ class GroqTranslator(BaseTranslator):
         # Convert usage to TokenUsage
         token_usage = None
         if response.usage:
+            input_tokens, output_tokens, cached_input_tokens = openai_compatible_usage_counts(
+                response.usage
+            )
             token_usage = TokenUsage(
-                input_tokens=response.usage.prompt_tokens,
-                output_tokens=response.usage.completion_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cached_input_tokens=cached_input_tokens,
                 matrx_model_name=response.model,
                 provider_model_name=response.model,
                 api="groq",

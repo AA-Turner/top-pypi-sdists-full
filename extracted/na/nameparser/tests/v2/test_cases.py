@@ -71,7 +71,7 @@ def _swept(case_id: str,
 @pytest.mark.parametrize("case,order", _SWEPT_ROWS, ids=_SWEPT_IDS)
 def test_the_family_partitions_into_particles_and_base(
         case: Case, order: tuple[Role, Role, Role] | None) -> None:
-    """rules.md#R2's invariant: a particle needs a base to attach to,
+    """rules/R2's invariant: a particle needs a base to attach to,
     so a family made only of particles is a family whose words are not
     acting as particles -- and therefore a non-empty family always has
     a non-empty base.
@@ -178,10 +178,27 @@ def test_the_field_sweep_sees_the_claims_it_checks() -> None:
         for case, order in _SWEPT_ROWS
         for a in _swept(case.id, order).ambiguities)
     # 1156 -> 1159 on 2026-10-11: the JOHN PROF. MA row (one
-    # suffix-or-name claim under each of the three orders).
-    assert claims == 1159, (
-        f"the field sweep checks {claims} claims, recorded as 1159 on "
-        f"2026-10-11")
+    # suffix-or-name claim under each of the three orders); 1159 ->
+    # 1162 on 2026-10-14: the Агриппина Младшая row (#661, one
+    # given-or-family claim under each order); 1162 -> 1171 on
+    # 2026-10-17: three #701 rows reporting suffix-or-name, under each
+    # order; 1171 -> 1174 on 2026-10-17: the エリザベス二世 row (#707,
+    # one given-or-family claim under each order); 1174 -> 1172 on
+    # 2026-10-17: #718's re-pinned and added numeral rows (the lone
+    # numeral rows lose their given-or-family claims; the 'John III'
+    # row brings some back); 1172 -> 1191 on 2026-10-18:
+    # #718's declined-numeral report, which names the field the letter
+    # was read into, on those rows under each order; 1191 -> 1210 the
+    # same day: the PR review's rows (the chain-taken, family-first,
+    # lowercase and maiden-clause numerals); 1210 -> 1243 the same day:
+    # #721's rows (#722); 1243 -> 1246 the same day: #727's
+    # '田中さん v' row (one suffix-or-name claim under each order);
+    # 1246 -> 1252 the same day: #656's two C12 rows behind a nickname
+    # and a maiden clause (one suffix-or-name claim under each order);
+    # 1252 -> 1255 the same day: the C12 row with a title in the part.
+    assert claims == 1255, (
+        f"the field sweep checks {claims} claims, recorded as 1255 on "
+        f"2026-10-18")
 
 
 #: Case.__post_init__'s shape checks, each probed for the message that
@@ -310,7 +327,7 @@ def test_case_construction_rejects_a_bad_shape_tag(
 #: The constructions the battery above proves nothing rejects: a pure
 #: shape-6 row, a Han shape-6 row divided by a nakaguro that does NOT
 #: mark it as source order (U+30FB is not a divider outside katakana
-#: -- decisions.md#T3; this is family-first per
+#: -- decisions/T3; this is family-first per
 #: ja_nakaguro_han_takes_the_han_order), an interpunct-divided shape-7
 #: row, a SPACED wholly-katakana shape-7 row (the subtler admission --
 #: a transcription with no U+00B7 at all is still a shape, not a

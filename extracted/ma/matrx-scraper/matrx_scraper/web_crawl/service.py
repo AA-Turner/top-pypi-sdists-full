@@ -178,6 +178,47 @@ async def stop_crash_resumed_runs() -> None:
 _RESUMABLE_MODES = frozenset({"full", "list", "page_fetch"})
 
 
+#: A crawl that ended at its time budget left its unfetched pages on the durable frontier; a later run may CONTINUE
+#: it (a background audit of a big site finishes over several runs). Only a recent one: an old frontier describes
+#: an old site.
+CONTINUE_TIME_BUDGET_LOOKBACK = timedelta(days=7)
+
+
+def stopped_at_time_budget(session: object) -> bool:
+    """True when the session ended `partial` at its time budget with pages still on the frontier."""
+    if str(getattr(session, "status", "") or "") != "partial":
+        return False
+    stats = dict(getattr(session, "stats", None) or {})
+    if stats.get("stop_reason") != "time_budget":
+        return False
+    try:
+        return int(stats.get("remaining_queue_depth") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def continuable_after_time_budget(session: object, now: datetime) -> bool:
+    """The newest full crawl of a site can be continued instead of starting over: it stopped at its time budget
+    with work left, is recent, was not canceled, and is a full-site crawl (the modes with a durable frontier)."""
+    if not stopped_at_time_budget(session):
+        return False
+    if (getattr(session, "scope", None) or {}).get("mode") != "full":
+        return False
+    if ((getattr(session, "metadata", None) or {}).get("cancel_request") or {}).get("requested"):
+        return False
+    created = getattr(session, "created_at", None)
+    return created is not None and now - created <= CONTINUE_TIME_BUDGET_LOOKBACK
+
+
+def with_time_budget(config: CrawlStartRequest, seconds: int | None) -> CrawlStartRequest:
+    """``config`` with the tighter of its own time budget and ``seconds`` (None / 0 = unchanged)."""
+    if not seconds:
+        return config
+    seconds = max(1, min(int(seconds), 86_400))
+    own = config.time_budget_seconds
+    return config.model_copy(update={"time_budget_seconds": min(own, seconds) if own else seconds})
+
+
 def _assert_session_resumable(session: object, *, check_attempts: bool = True) -> dict:
     """Gate a session for resume; returns the persisted request dump.
 
@@ -193,7 +234,7 @@ def _assert_session_resumable(session: object, *, check_attempts: bool = True) -
             f"session mode {mode!r} is not resumable — short runs have no durable frontier"
         )
     status = str(getattr(session, "status", "") or "")
-    if status in ("complete", "partial"):
+    if status == "complete" or (status == "partial" and not stopped_at_time_budget(session)):
         raise ValueError(
             f"session already finished with status {status!r} — start a new crawl instead"
         )
@@ -210,7 +251,7 @@ def _assert_session_resumable(session: object, *, check_attempts: bool = True) -
         )
     metadata = dict(getattr(session, "metadata", None) or {})
     if (metadata.get("cancel_request") or {}).get("requested"):
-        raise ValueError("session was cancelled by a user — start a new crawl instead of resuming")
+        raise ValueError("session was canceled by a user — start a new crawl instead of resuming")
     attempts = int((metadata.get("resume") or {}).get("attempts") or 0)
     if check_attempts and attempts >= RESUME_MAX_ATTEMPTS:
         raise ValueError(
@@ -466,6 +507,8 @@ class WebCrawlService:
         *,
         preset_id: str | None = None,
         trigger: str = "manual",
+        time_budget_seconds: int | None = None,
+        continue_time_budget_partial: bool = False,
     ) -> PreparedCrawl:
         """One-click "crawl this site again" — no request body required.
 
@@ -473,17 +516,56 @@ class WebCrawlService:
         a start that is refused (another crawl already active, screenshots
         unavailable) never registers as a use.
 
-        `trigger` is provenance, not behaviour: a recurring `web.crawl_schedule`
-        firing passes `"scheduled"` so its session is honestly labelled, and
+        `trigger` is provenance, not behavior: a recurring `web.crawl_schedule`
+        firing passes `"scheduled"` so its session is honestly labeled, and
         runs the SAME derivation a human clicking Rescrape runs.
+
+        `time_budget_seconds` bounds the crawl's wall-clock time on top of the derived config (the tighter of the
+        two budgets wins), so a pinned default preset no longer means "no budget". With
+        `continue_time_budget_partial` a site whose latest full crawl stopped at its time budget with pages left
+        CONTINUES that crawl (same session, same frontier) instead of starting over — how a scheduled crawl of a big
+        site finishes over several runs.
         """
 
+        if continue_time_budget_partial:
+            continued = await self._continue_time_budget_partial(ctx, site_id)
+            if continued is not None:
+                return continued
         presets = self._presets(ctx)
         resolved = await derive_recrawl_config(presets, site_id, preset_id=preset_id)
-        prepared = await self.prepare_start(ctx, site_id, resolved.config, trigger=trigger)
+        config = with_time_budget(resolved.config, time_budget_seconds)
+        prepared = await self.prepare_start(ctx, site_id, config, trigger=trigger)
         if resolved.preset_id:
             await presets.touch(resolved.preset_id)
         return prepared
+
+    async def _continue_time_budget_partial(self, ctx: AppContext, site_id: str) -> PreparedCrawl | None:
+        """The prepared CONTINUATION of the site's latest full crawl when that one stopped at its time budget with
+        pages left (see :func:`continuable_after_time_budget`); None when there is nothing to continue, or the
+        session cannot be taken right now (another run holds it, the resume cap says stop) — the caller then
+        starts a fresh crawl, and the reason is logged, never silent."""
+        from matrx_scraper.db.models_web import CrawlSession
+
+        rows = (
+            await CrawlSession.filter(site_id=site_id, deleted_at__isnull=True)
+            .order_by("-created_at")
+            .limit(10)
+            .all()
+        )
+        newest_full = next((r for r in rows if (r.scope or {}).get("mode") == "full"), None)
+        if newest_full is None or not continuable_after_time_budget(newest_full, utcnow()):
+            return None
+        try:
+            return await self.prepare_resume(ctx, str(newest_full.id))
+        except (ValueError, RuntimeError, LookupError) as exc:
+            logger.warning(
+                "site %s: crawl session %s stopped at its time budget but cannot be continued (%s); "
+                "starting a fresh crawl",
+                site_id,
+                newest_full.id,
+                exc,
+            )
+            return None
 
     async def prepare_start(
         self,
@@ -651,7 +733,7 @@ class WebCrawlService:
         SAME batch execution by session link and claims the SAME pending
         frontier — the whole point of the durable queue.
 
-        Raises `ValueError` for a non-resumable session (finished, cancelled,
+        Raises `ValueError` for a non-resumable session (finished, canceled,
         short-run mode, attempt cap, no persisted request), `RuntimeError`
         ("already active") when another run owns the session — either its
         broker in this process, its live durable run lease, or the lease
@@ -756,7 +838,7 @@ class WebCrawlService:
         holds at once (a restart must never stampede); a later sweep fills slots
         as resumed runs finish. Each runs under its own creator's identity
         (`system_app_context`) with a console emitter — headless, no client.
-        Non-resumable candidates (cancelled, finished, attempt-capped, short
+        Non-resumable candidates (canceled, finished, attempt-capped, short
         runs) are skipped quietly; real failures are loud and move on.
 
         Returns how many runs this sweep started.
@@ -1603,7 +1685,7 @@ class WebCrawlService:
                     return
 
         await prepared.repository.mark_session_running(prepared.session_id, lease_token=lease_token)
-        await emit("started", "Analyzing pages against the audit catalogue…", AnalysisSummary())
+        await emit("started", "Analyzing pages against the audit catalog…", AnalysisSummary())
         await self._refresh_site_probe(prepared.site_id)
         heartbeat_task = asyncio.create_task(_heartbeat())
         analysis_settle = await _track_growth_stage(
@@ -1871,7 +1953,7 @@ class WebCrawlService:
         links point at pages that were never fetched, and every page in the
         list would look artificially isolated. A homepage bootstrap / site
         initialization is one page. And this runs only on the success path of
-        ``run_prepared``, so a cancelled or failed session never scores either:
+        ``run_prepared``, so a canceled or failed session never scores either:
         a partial graph would produce confident, wrong numbers, and a
         stale-but-coherent score beats a fresh incoherent one. A resumed
         session that finishes IS complete and does score.
@@ -1962,7 +2044,7 @@ class WebCrawlService:
         # authored in the domain-rules UI and stored in scraper.scrape_domain.
         # Until 2026-08-09 the canonical crawler never received it, so every
         # policy a user set was silently ignored on every site crawl while the
-        # quick-scrape lane honoured it — a UI editing a setting nothing read.
+        # quick-scrape lane honored it — a UI editing a setting nothing read.
         #
         # The L2 page cache is deliberately NOT wired here: a site crawl must
         # report the site's CURRENT state, and serving a cached parse would make
@@ -1987,6 +2069,7 @@ class WebCrawlService:
             config=SiteCrawlerConfig(
                 base_url=prepared.root_url,
                 max_pages=request.max_pages,
+                time_budget_seconds=request.time_budget_seconds,
                 max_depth=request.max_depth,
                 concurrency=effective_concurrency,
                 follow_subdomains=request.follow_subdomains,
@@ -2731,7 +2814,7 @@ class WebCrawlService:
         *,
         lease_token: str | None,
     ) -> None:
-        """Beat the run lease until cancelled — for the stretch before a crawl's
+        """Beat the run lease until canceled — for the stretch before a crawl's
         cancel watcher (which beats it from then on) exists."""
         if not lease_token:
             return

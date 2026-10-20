@@ -1,8 +1,8 @@
-"""Behaviours ported in from the matrx-local scraper-service fork (2026-08-09).
+"""Behaviors ported in from the matrx-local scraper-service fork (2026-08-09).
 
 matrx-local ran a forked COPY of this engine so it could scrape from the user's
 own machine and residential IP. The fork is deleted; the local EXECUTION lane
-stays and now consumes this package. Each test below pins one behaviour the
+stays and now consumes this package. Each test below pins one behavior the
 fork had that this package did not — without them the fork's deletion is a
 silent feature loss, and the next refactor has nothing telling it these cases
 matter.

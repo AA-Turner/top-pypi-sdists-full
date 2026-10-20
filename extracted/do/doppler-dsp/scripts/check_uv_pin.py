@@ -31,6 +31,21 @@ INSTALL uv to the same value:
    enforce ``required-version`` (measured), and the manylinux release leg's
    uv exists to run ``uvx auditwheel repair``.
 
+4. A makefile runs uv through ``$(UV)``, never a bare ``uv run``/``uv sync``
+   (doppler#2369). ``UV=<the pinned uv>`` is the way out on a box whose uv
+   is not the pin -- uv's own refusal and ``python-executable-check`` both
+   name it -- and a bare spelling is a call it does not reach: ``make pyext
+   UV=...`` still failed at its last step, a bare ``uv sync``. Lines that
+   must stay bare for now are listed in ``scripts/.bare-uv-allow`` with
+   their reason. The list is a ratchet: an entry must match exactly one
+   logical makefile line, one that matches none fails, and with ``--base``
+   one the list at the merge base did not hold is refused. Nor may a
+   makefile run a tool OUTSIDE the lock -- ``uvx``, ``uv tool run``, or
+   ``uv run --with`` (doppler#2371): it resolves the tool unpinned, so
+   a gate's verdict can change with no commit here, and it does not enforce
+   ``required-version`` either. The tool goes in the dev group with an
+   exact pin and runs through ``$(DEV_RUN)``.
+
 Files are every tracked file (``git ls-files``; every file under ``--root``
 when it is not a checkout), less prose -- ``docs/``, ``*.md``, the changelog
 -- and ``vendor/``, the lockfile, and this gate and its test, which spell out
@@ -42,6 +57,7 @@ must be exactly what the pinned uv writes, which no amount of pin-checking
 can establish.
 
 Usage:  python3 scripts/check_uv_pin.py [--root DIR] [--print-version]
+                                        [--base REF]
 Exit 0 when the pin is exact and every installer reads it. With
 ``--print-version``, print the pinned version (the Makefile's UV_VERSION).
 Runs on the floor Python: ``yaml`` is imported only by the check itself, and
@@ -91,6 +107,205 @@ _ARG_DEFAULT = re.compile(r"^\s*ARG\s+UV_VERSION\s*=")
 _UV_TOKEN = re.compile(r"uv(?:\[[^\]]*\])?(?:[=<>!~].*)?")
 #: Where one command ends and the next begins.
 _END = re.compile(r"\s(?:\|\|?|&&|;)\s|\)\s*$")
+
+#: Rule 4's files and the bare form it refuses. `uv` must not be the tail of
+#: a longer word or path (`$(UV)` is upper case, so it never matches), and a
+#: shell substitution `$$(uv run ...)` is a bare call like any other. After
+#: a word and a `-` (`foo-uv`) it is another name; after a lone `-` it is
+#: make's ignore-errors prefix, and `-uv sync` or `@-uv run` runs a bare uv.
+#: Global flags may come before the subcommand (`uv -q sync`,
+#: `uv --project . run`), each with at most one value; backtracking leaves
+#: the subcommand for the alternation.
+_MAKEFILE = re.compile(r"(?:^|/)(?:GNU)?[Mm]akefile$|\.mk$")
+_BARE_UV = re.compile(
+    r"(?<![\w./])(?<!\w-)uv\s+(?:-\S+(?:\s+[^-\s]\S*)?\s+)*"
+    r"(?:run|sync|lock|pip|build|venv|tool|export|tree|add|remove|cache"
+    r"|python|version|init|publish|format)\b"
+)
+#: Rule 4's other half: a tool run outside the lock. Three forms, each with
+#: make's `@`/`-` prefixes and uv's global flags, by uv's spellings: bare,
+#: by path (`.venv/bin/uv`), or a make variable whose name ends in UV
+#: (`$(UV)`, `${UV}`, `$(_PY_UV)`):
+#:
+#: - `uvx`, bare or by path, as a word of its own: not `uvx_helper`,
+#:   `uvx-helper.sh` or `foo-uvx`;
+#: - `uv tool run`, with flags before or after `tool`;
+#: - `uv run` given `--with`/`-w`/`--with-requirements`/`--with-editable`
+#:   among uv's OWN options, or `$(DEV_RUN)` given one: the package resolves
+#:   outside the lock (`_run_with`). An option after the command is the
+#:   command's (`pytest --with-coverage`), not uv's.
+_ANY_UV = r"(?:\$[({]\w*UV[)}]|(?<![\w.])(?<!\w-)(?:[\w.$(){}/-]*/)?uv(?=\s))"
+_FLAGS = r"(?:-\S+(?:\s+[^-\s]\S*)?\s+)*"
+_UNLOCKED_TOOL = re.compile(
+    r"(?<![\w.])(?<!\w-)uvx(?=\s|$)"
+    rf"|{_ANY_UV}\s+{_FLAGS}tool\s+{_FLAGS}run\b"
+)
+#: Where `uv run`'s own options start: after `run`, or after `$(DEV_RUN)`
+#: (`$(UV) run --group dev`).
+_RUN = re.compile(rf"{_ANY_UV}\s+{_FLAGS}run(?=\s|$)|\$[({{]DEV_RUN[)}}]")
+#: The `uv run` options that add a package from outside the lock.
+_RUN_WITH = frozenset(
+    {"--with", "-w", "--with-requirements", "--with-editable"}
+)
+#: The `uv run` options (its own and uv's global ones) that take a value, so
+#: the token after one is that value, not the command. From the pinned uv's
+#: `uv run --help`; test_uv_pin_gate.py derives the same set from that help
+#: and fails when the pin's set moves.
+RUN_VALUED = frozenset(
+    {
+        "--allow-insecure-host",
+        "--cache-dir",
+        "--color",
+        "--config-file",
+        "--config-setting",
+        "--config-settings-package",
+        "--default-index",
+        "--directory",
+        "--env-file",
+        "--exclude-newer",
+        "--exclude-newer-package",
+        "--extra",
+        "--extra-index-url",
+        "--find-links",
+        "--fork-strategy",
+        "--group",
+        "--index",
+        "--index-strategy",
+        "--index-url",
+        "--keyring-provider",
+        "--link-mode",
+        "--no-binary-package",
+        "--no-build-isolation-package",
+        "--no-build-package",
+        "--no-editable-package",
+        "--no-extra",
+        "--no-group",
+        "--no-sources-package",
+        "--only-group",
+        "--package",
+        "--prerelease",
+        "--prerelease-package",
+        "--project",
+        "--python",
+        "--python-platform",
+        "--refresh-package",
+        "--reinstall-package",
+        "--resolution",
+        "--upgrade-group",
+        "--upgrade-package",
+        "--with",
+        "--with-editable",
+        "--with-requirements",
+        "-C",
+        "-P",
+        "-f",
+        "-i",
+        "-p",
+        "-w",
+    }
+)
+
+
+#: Value-taking spellings `uv run --help` does not show, so the test that
+#: holds RUN_VALUED to the help cannot see them: hidden options and aliases,
+#: read from uv 0.12.24's CLI source (crates/uv-cli/src/lib.rs).
+RUN_VALUED_UNLISTED = frozenset(
+    {
+        "--python-preference",
+        "--python-fetch",
+        "--preview-features",
+        "--preview-feature",
+        "--max-recursion-depth",
+        "--trusted-host",
+        "--config-settings",
+    }
+)
+#: The uv RUN_VALUED_UNLISTED was read from. The help cannot show a new
+#: hidden option, so a test fails once the uv pin moves past this: re-read
+#: the new uv's crates/uv-cli/src/lib.rs for hidden options and aliases that
+#: take a value, update the set, then this version.
+RUN_VALUED_UNLISTED_UV = "0.12.24"
+_VALUED = RUN_VALUED | RUN_VALUED_UNLISTED
+
+
+def _run_with(line: str) -> bool:
+    """Whether a `uv run` in ``line`` adds a package with `--with` or its
+    kin among uv's own options, which end at the command: the first token
+    that is neither an option nor the value of one.
+
+    A single-dash token longer than two characters is read a character at
+    a time, as uv reads it: a cluster of short flags (``-qw X``) or a short
+    option with its value attached (``-wX``).
+    """
+    for m in _RUN.finditer(line):
+        toks = line[m.end() :].split()
+        i = 0
+        while i < len(toks) and toks[i].startswith("-"):
+            tok = toks[i]
+            name, eq, _ = tok.partition("=")
+            if name in _RUN_WITH:
+                return True
+            if tok.startswith("--") or len(tok) <= 2:
+                i += 2 if name in _VALUED and not eq else 1
+                continue
+            step = 1
+            for j, ch in enumerate(tok[1:], 1):
+                if "-" + ch in _RUN_WITH:
+                    return True
+                if "-" + ch in _VALUED:
+                    # Its value is the rest of the token, or the next one.
+                    step = 1 if j < len(tok) - 1 else 2
+                    break
+            i += step
+    return False
+
+
+def _unlocked_tool(line: str) -> bool:
+    """Whether ``line`` runs a tool outside the lock (the three forms)."""
+    return bool(_UNLOCKED_TOOL.search(line)) or _run_with(line)
+
+
+#: Rule 4's allowlist, relative to the root: `<line text> -- <reason>`.
+BARE_UV_ALLOW = "scripts/.bare-uv-allow"
+
+
+def _parse_allow(text: str) -> list[tuple[int, str, str]]:
+    """(line number, key, reason) per BARE_UV_ALLOW entry: the one reader of
+    the format, for the list as it is and as the merge base had it. An entry
+    with no ` -- <reason>` has an empty reason."""
+    out = []
+    for n, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, why = line.partition(" -- ")
+        out.append((n, key.strip(), why.strip()))
+    return out
+
+
+def read_bare_uv_allow(root: Path) -> tuple[dict[str, str], list[str]]:
+    """({line text: reason}, problems) from BARE_UV_ALLOW.
+
+    The list must EXIST, even with no entries. A missing list read as empty
+    would let a change delete it -- passing, since an empty list gains
+    nothing -- and a later change recreate it with new entries, which
+    would pass too: the merge base has no list to be shrunk from. That is
+    the #1976 hole; refusing the absence closes it."""
+    path = root / BARE_UV_ALLOW
+    allow: dict[str, str] = {}
+    if not path.is_file():
+        return allow, [
+            f"{BARE_UV_ALLOW}: missing. It holds the makefile lines that may "
+            "run a bare uv, and only shrinks; with no entries left it stays, "
+            "empty but for its header"
+        ]
+    bad: list[str] = []
+    for n, key, why in _parse_allow(path.read_text(encoding="utf-8")):
+        if not why:
+            bad.append(f"{BARE_UV_ALLOW}:{n}: no reason -- `{key[:60]}`")
+            continue
+        allow[key] = why
+    return allow, bad
 
 
 def read_pin(root: Path) -> tuple[str | None, str | None]:
@@ -210,6 +425,112 @@ def installer_offenders(root: Path, files: list[str]) -> list[str]:
     return bad
 
 
+def _past_recipe_comment(physical: list[str], n: int, line: str) -> str:
+    """``line`` less a leading recipe comment on its FIRST physical line.
+
+    A recipe's ``@# ...`` is a shell comment, and the shell ends a comment
+    at the newline: a ``\\`` at its end is part of the comment, not a
+    continuation, so the next physical line runs. Only the first physical
+    line is prose; the rest of the logical line is still checked.
+    """
+    first = physical[n - 1].rstrip()
+    if not first.lstrip().startswith("@#"):
+        return line
+    if not first.endswith("\\"):
+        return ""
+    return line[len(first) :]
+
+
+def _allow_keys(text: str) -> list[str]:
+    """The entry keys of a BARE_UV_ALLOW text, through _parse_allow."""
+    return [key for _, key, _ in _parse_allow(text)]
+
+
+def added_allow_entries(root: Path, base: str, keys: list[str]) -> list[str]:
+    """BARE_UV_ALLOW entries the list at the merge base with ``base`` lacks.
+
+    The list only shrinks, so an entry it did not have is refused even with
+    a reason: the line is spelled $(UV) instead. The read is
+    _gitbase.added_since_base, the one ratchet read. Its ``since`` is the
+    list itself, because the gate predates the list: the change that brings
+    the list (doppler#2369) has no baseline and adds nothing. That is safe
+    only because read_bare_uv_allow refuses a missing list: once main has
+    it, no change can delete it and later recreate it as a new baseline.
+    A tree that is not a checkout has no base; a base git cannot read
+    fails closed.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _gitbase import BaseUnreadableError, added_since_base, in_git_repo
+
+    if not in_git_repo(root):
+        return []
+    try:
+        added = added_since_base(
+            root, base, BARE_UV_ALLOW, keys, _allow_keys, since=BARE_UV_ALLOW
+        )
+    except BaseUnreadableError:
+        return [
+            f"{BARE_UV_ALLOW}: cannot resolve {base}, so an ADDED entry "
+            "cannot be told from an old one. Fetch it: git fetch --no-tags "
+            "--depth=1 origin +refs/heads/main:refs/remotes/origin/main"
+        ]
+    return [
+        f"{BARE_UV_ALLOW}: `{k}` is not in the list at the merge base with "
+        f"{base} -- the list only shrinks; spell the line $(UV) instead"
+        for k in added
+    ]
+
+
+def bare_uv_offenders(
+    root: Path, files: list[str], base: str | None = None
+) -> list[str]:
+    """``path:line: text`` for each makefile line running a bare uv, plus
+    each BARE_UV_ALLOW entry that is unreasoned, matches no line or more
+    than one, or (with ``base``) is new since the merge base."""
+    allow, bad = read_bare_uv_allow(root)
+    hits: dict[str, list[str]] = {k: [] for k in allow}
+    for rel in files:
+        if not _MAKEFILE.search(rel):
+            continue
+        text = (root / rel).read_text(encoding="utf-8")
+        physical = text.splitlines()
+        for n, line in _logical_lines(text):
+            line = _past_recipe_comment(physical, n, line)
+            if _unlocked_tool(line):
+                bad.append(
+                    f"{rel}:{n}: runs a tool outside the lock -- "
+                    f"`{line.strip()[:70]}`; pin it in the dev group and run "
+                    "it through $(DEV_RUN)"
+                )
+                continue
+            if not _BARE_UV.search(line):
+                continue
+            allowed = [k for k in allow if k in line]
+            for k in allowed:
+                hits[k].append(f"{rel}:{n}")
+            if allowed:
+                continue
+            bad.append(
+                f"{rel}:{n}: bare uv -- `{line.strip()[:70]}`; "
+                "spell it $(UV) so UV= reaches it"
+            )
+    for key in sorted(allow):
+        if not hits[key]:
+            bad.append(
+                f"{BARE_UV_ALLOW}: `{key}` matches no makefile line -- its "
+                "reason is gone; remove the entry"
+            )
+        elif len(hits[key]) > 1:
+            bad.append(
+                f"{BARE_UV_ALLOW}: `{key}` matches {len(hits[key])} lines "
+                f"({', '.join(hits[key])}) -- an entry exempts exactly one; "
+                "quote more of the line"
+            )
+    if base is not None:
+        bad += added_allow_entries(root, base, list(allow))
+    return bad
+
+
 def _steps_using_setup_uv(doc: object) -> list[dict]:
     """Every mapping in ``doc`` whose ``uses`` is astral-sh/setup-uv."""
     found: list[dict] = []
@@ -267,6 +588,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, default=ROOT)
     ap.add_argument("--print-version", action="store_true")
+    ap.add_argument(
+        "--base",
+        default=None,
+        help=f"ref whose merge base holds the {BARE_UV_ALLOW} this one may "
+        "only shrink from (rule 4); unset, that check is skipped",
+    )
     args = ap.parse_args()
     root = args.root.resolve()
 
@@ -293,6 +620,7 @@ def main() -> int:
         return 1
     setup_bad, n_steps = setup_uv_offenders(root, files)
     bad += setup_bad + installer_offenders(root, files)
+    bad += bare_uv_offenders(root, files, args.base)
     for b in bad:
         print(f"check_uv_pin: {b}")
     if bad:

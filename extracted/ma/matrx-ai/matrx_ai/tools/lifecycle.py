@@ -187,7 +187,7 @@ class ToolLifecycleManager:
         """Mark cx_tool_call rows still in 'running' past the stale threshold
         as 'abandoned'.
 
-        Covers the case where a server crash or a cancelled coroutine left a
+        Covers the case where a server crash or a canceled coroutine left a
         row in the running state with no completion. This sweep explicitly
         excludes client-delegated rows — those are governed by their own
         ``expires_at`` column and the delegated-expiry sweep below.

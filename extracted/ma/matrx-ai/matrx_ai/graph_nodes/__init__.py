@@ -28,6 +28,7 @@ Actions registered:
 - ``ai.image.concept_generate``— pick visual concepts for a topic (large model).
 - ``ai.image.prompt_write``    — write image prompts from a concept (small model).
 - ``ai.image.qc_judge``        — vision-model pass/fail on a generated image.
+- ``ai.judge.resolve``         — pick the best of N gathered arms, or merge them.
 Every action returns the canonical ``AiExecutionResult`` — stable Pydantic
 shape regardless of which entry point ran. Downstream workflow nodes wire
 to ``result.final_text``, ``result.conversation_id``, ``result.usage``, etc.
@@ -63,6 +64,7 @@ def register_with_graph() -> None:
         image_pipeline_actions,
         llm_action,
         mandate_action,
+        resolve_action,
         revise_action,
         scrape_action,
         search_action,

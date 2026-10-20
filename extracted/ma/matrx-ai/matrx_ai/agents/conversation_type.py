@@ -53,6 +53,22 @@ class ConversationType(StrEnum):
     # and HIDDEN from every chat list (matrx-frontend chat.conversation_lane → 'hidden'). Set by the
     # candidate executor when AppContext.metadata["mandate_candidate"] is present.
     MANDATE_CANDIDATE = "mandate_candidate"
+    # A system process: platform work done ABOUT a conversation, inside it — naming it, labeling
+    # it, condensing it, reading it for memories, a pipeline's own judge or cleaner. Nobody asked
+    # for it and nobody talks to it, so it is HIDDEN everywhere (chat.conversation_lane → 'hidden'):
+    # never in a chat list, never nested under its subject as a helper, never a background task.
+    # Its history is kept (cost, prompt, answer) and opens by id. Stamped on every system run that
+    # has a parent conversation (``AppContext.system_run``); a helper an agent DELEGATES to is a
+    # ``subagent`` and stays visible.
+    SYSTEM_PROCESS = "system_process"
+
+
+#: Types no person ever sees in a list, a sidebar nest or a background-task panel; each opens only
+#: by id. Mirrored by matrx-frontend's ``chat.conversation_lane`` ('hidden') and the chat package's
+#: ``HIDDEN_CONVERSATION_TYPES``.
+HIDDEN_CONVERSATION_TYPES: frozenset[str] = frozenset(
+    {ConversationType.MANDATE_CANDIDATE.value, ConversationType.SYSTEM_PROCESS.value}
+)
 
 
 # Every type that is NOT a normal user-facing conversation. The UI uses this to
@@ -106,6 +122,20 @@ SOURCE_FEATURE_TO_TYPE: dict[str, str] = {
     # system
     "tool_testing": ConversationType.SYSTEM,
 }
+
+
+#: AppContext.metadata key a host stamps on ONE child run that may be steered
+#: while it works (a message sent to it lands at its next step). An internal
+#: conversation drains no inbox by default (pure overhead under fan-out); this
+#: marker is the one exception. Never inherited: ``agent_call`` strips it from
+#: every child it builds unless the host passes it again.
+STEERABLE_CHILD_KEY = "steerable_child"
+
+#: AppContext.metadata key a host stamps on the context a SYSTEM PROCESS's AI call runs in (the
+#: labeler; aidream ``services/system_processes/identity.platform_scope``). Its value is the
+#: feature. The platform runs and pays for that work, so the host's spend gates read it to keep
+#: system processes on their own limits instead of the platform account's shared ceiling.
+SYSTEM_PROCESS_KEY = "system_process"
 
 
 def is_valid_conversation_type(value: str | None) -> bool:
@@ -179,7 +209,7 @@ def honest_lineage_type(conversation_type: str, parent_conversation_id: str | No
     """``subagent`` means "has a parent conversation"; a parentless one is ``auto``.
 
     A server root run (mandate, pipeline, background job) is forked through the
-    child-agent path with no caller conversation. Labelling it ``subagent`` made
+    child-agent path with no caller conversation. Labeling it ``subagent`` made
     ~8,300 root runs look like helpers. Every writer of the label passes through
     this one rule (and the gate re-applies it once the parent row is verified).
     """

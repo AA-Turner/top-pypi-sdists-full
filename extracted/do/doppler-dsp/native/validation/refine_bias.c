@@ -4,7 +4,8 @@
  *        offset, by the dwell, or by the stream it estimates on?
  *
  * The continuous async-DSSS receiver (docs/design/async-dsss-receiver.md
- * §4, §12.9) hands its carrier loop the refine stage's Doppler: the
+ * §4; docs/design/async-dsss-receiver-measurements.md §12.10) hands its
+ * carrier loop the refine stage's Doppler: the
  * coarse seed plus the residual `CarrierAcquisition` finds on the
  * despread stream, the peak of its averaged PSD correlated with a sinc^2
  * template, parabolically refined between bins. At the floor from a
@@ -138,11 +139,12 @@ run_trial (const uint8_t *code, int sign_idx, size_t seed, double seed_err,
   memset (out, 0, sizeof *out);
   /* The searching flavour, seeded from outside: its refine chain is the
      one under test (the hand-off flavour that carried this validator was
-     retired, design section 12.28; seed() is a method of both). */
+     retired, docs/design/async-dsss-receiver-measurements.md §12.28; seed() is
+     a method of both). */
   dp_async_dsss_receiver_state_t *rx = dp_async_dsss_receiver_create (
       code, SF, CHIP_RATE, SYM_RATE, SPC, 2, CN0, 1e-2, 0.9, 100.0, 4, 8, 0,
       lookback_db[lb], 4, margin_db, REFINE_N_FFT, 8, false, 100000,
-      CARRIER_HZ, 0.0);
+      CARRIER_HZ, 0.0, false);
   DP_REQUIRE_MSG (rx != NULL, "the receiver opens");
   /* The capture's signal starts on chip 0 at PRE_SILENCE; fed from there,
      the seed's phase is 0 -- the test's own convention. */
@@ -236,20 +238,12 @@ print_point (const point_t *p, double truth, double seed_err)
           p->max, p->handed_s * 1e3);
 }
 
-static void
-gold_1023 (uint8_t *code)
-{
-  dp_gold_state_t *gd = dp_gold_create (934, 350, 567, 73, 10);
-  dp_gold_generate (gd, SF, code, SF);
-  dp_gold_destroy (gd);
-}
-
 int
 main (int argc, char **argv)
 {
   int     check = (argc > 1 && strcmp (argv[1], "--check") == 0);
   uint8_t code[SF];
-  gold_1023 (code);
+  dp_dsss_gold_1023 (code);
 
   printf ("refine bias: Gold-1023 at 5 Mcps, spc 2, 2700 sym/s async BPSK "
           "at %.0f dB-Hz (Es/N0 %.1f dB); static capture at a carrier "

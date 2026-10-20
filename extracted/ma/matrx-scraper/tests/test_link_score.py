@@ -199,7 +199,7 @@ async def test_partial_graph_never_scores_but_a_completed_full_crawl_does(monkey
     A list crawl (hand-picked URLs) and the short homepage/initialization runs
     see only a fragment of the site's links — scoring them produces confident,
     wrong numbers. And because the step hangs off the success path of
-    `run_prepared`, a failed or cancelled session never reaches it at all.
+    `run_prepared`, a failed or canceled session never reaches it at all.
     """
 
     from matrx_scraper.web_crawl import service as service_mod

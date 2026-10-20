@@ -11,7 +11,7 @@ add_custom_target(clean_objects
     COMMENT "Removing all object (.o) files"
 )
 
-project(ntgcalls VERSION 3.0.4 LANGUAGES C CXX)
+project(ntgcalls VERSION 3.0.5 LANGUAGES C CXX)
 include(cmake/VersionUtil.cmake)
 
 if (MSVC)
@@ -40,6 +40,7 @@ include(cmake/FindLibCXX.cmake)
 include(cmake/FindBoost.cmake)
 include(cmake/FindOpenH264.cmake)
 include(cmake/FindFFmpeg.cmake)
+include(cmake/ThirdPartyNotices.cmake)
 include(cmake/GenerateE2ETL.cmake)
 include(cmake/codegen/GenerateSchema.cmake)
 if(NOT SCHEMA_ONLY)

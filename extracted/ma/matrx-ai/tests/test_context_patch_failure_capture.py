@@ -4,9 +4,8 @@ import pytest
 
 from matrx_ai.tools.executor import (
     CONTEXT_PATCH_NO_MATCH_KIND,
-    TOOL_ARGUMENT_VALIDATION_FAILED_KIND,
     _capture_context_patch_no_match,
-    _capture_tool_argument_validation_failed,
+    _note_tool_argument_refusal,
     _is_expected_domain_failure,
 )
 
@@ -58,9 +57,13 @@ async def test_context_patch_no_match_creates_structured_incident(monkeypatch) -
     assert "old_str" not in repr(incident)
 
 
-@pytest.mark.asyncio
-async def test_invalid_tool_arguments_create_safe_structured_incident(monkeypatch) -> None:
-    captured: list[tuple[BaseException, dict[str, object]]] = []
+def test_invalid_tool_arguments_file_no_incident_and_keep_no_model_content(
+    monkeypatch, caplog
+) -> None:
+    """A refused call is the model's mistake (PB-08): a WARNING line, never an incident."""
+    import logging
+
+    captured: list[object] = []
 
     async def fake_capture_error(exc: BaseException, **kwargs: object) -> None:
         captured.append((exc, kwargs))
@@ -80,20 +83,11 @@ async def test_invalid_tool_arguments_create_safe_structured_incident(monkeypatc
     except ValidationError as exc:
         validation_error = exc
 
-    await _capture_tool_argument_validation_failed(
-        ctx=ctx, tool_name="memory", validation_error=validation_error
-    )
+    caplog.set_level(logging.DEBUG)
+    _note_tool_argument_refusal(ctx=ctx, tool_name="memory", validation_error=validation_error)
 
-    assert len(captured) == 1
-    _exc, incident = captured[0]
-    assert incident["kind"] == TOOL_ARGUMENT_VALIDATION_FAILED_KIND
-    assert incident["route"] == "tool_executor.argument_validation"
-    assert incident["error_type"] == "ToolArgumentValidationError"
-    assert incident["context"]["tool_name"] == "memory"
-    assert incident["context"]["call_id"] == "call-1"
-    assert incident["context"]["validation_error_count"] == 1
-    assert incident["context"]["validation_error_codes"] == ["custom_validation"] or incident[
-        "context"
-    ]["validation_error_codes"]
-    assert "payload" not in incident
-    assert "limit" not in repr(incident)
+    assert captured == []
+    lines = [r for r in caplog.records if "memory" in r.getMessage()]
+    assert lines and all(r.levelno == logging.WARNING for r in lines)
+    assert "call-1" in lines[0].getMessage()
+    assert "123" not in lines[0].getMessage()

@@ -621,7 +621,7 @@ def _seed_parser(registry: ReplayRegistry) -> argparse.ArgumentParser:
             "Re-seed these traces: run the registered function once on each "
             "trace's recorded inputs and record the result under the same trace "
             "id, keeping the previous run as history under a new id. Nothing is "
-            "mocked and no experiment is created; labels, assertions, and "
+            "mocked and no experiment is created; verdicts, assertions, and "
             "dataset membership stay on the trace."
         ),
     )

@@ -63,7 +63,7 @@ defaults for arguments used throughout the accessor, such as
 * `window`: Window length.
 * `minp`: Minimum number of observations in a window required to have a value.
 * `ddof`: Delta Degrees of Freedom.
-* `risk_free`: Constant risk-free return throughout the period.
+* `risk_free`: Constant risk-free return per observation, rather than an annualized rate.
 * `levy_alpha`: Scaling relation (Levy stability exponent).
 * `required_return`: Minimum acceptance return of the investor.
 * `cutoff`: Decimal representing the percentage cutoff for the bottom percentile of returns.
@@ -478,6 +478,91 @@ class ReturnsAccessor(GenericAccessor):
         if minp is None:
             minp = self.defaults["minp"]
         result = dispatch.rolling_calmar_ratio(self.to_2d_array(), window, minp, self.ann_factor, engine=engine)
+        wrap_kwargs = merge_dicts({}, wrap_kwargs)
+        return self.wrapper.wrap(result, group_by=False, **wrap_kwargs)
+
+    def ulcer_index(self, engine: tp.Optional[str] = None, wrap_kwargs: tp.KwargsLike = None) -> tp.MaybeSeries:
+        """Root mean square of drawdowns, expressed as a fraction.
+
+        Uses the same drawdown convention as `ReturnsAccessor.drawdown`.
+        NaN returns count as zero-return observations. Empty input returns NaN.
+
+        Uses Numba with `engine='auto'`; `engine='rust'` is not supported.
+
+        See `vectorbt.returns.dispatch.ulcer_index`."""
+        engine = engine if engine is not None else self.engine
+        result = dispatch.ulcer_index(self.to_2d_array(), engine=engine)
+        wrap_kwargs = merge_dicts(dict(name_or_index="ulcer_index"), wrap_kwargs)
+        return self.wrapper.wrap_reduced(result, group_by=False, **wrap_kwargs)
+
+    def rolling_ulcer_index(
+        self,
+        window: tp.Optional[int] = None,
+        minp: tp.Optional[int] = None,
+        engine: tp.Optional[str] = None,
+        wrap_kwargs: tp.KwargsLike = None,
+    ) -> tp.SeriesFrame:
+        """Rolling version of `ReturnsAccessor.ulcer_index`.
+
+        Recalculate drawdowns within each window. `minp` counts non-NaN returns;
+        NaN returns within an eligible window count as zero-return observations."""
+        engine = engine if engine is not None else self.engine
+        if window is None:
+            window = self.defaults["window"]
+        if minp is None:
+            minp = self.defaults["minp"]
+        result = dispatch.rolling_ulcer_index(self.to_2d_array(), window, minp, engine=engine)
+        wrap_kwargs = merge_dicts({}, wrap_kwargs)
+        return self.wrapper.wrap(result, group_by=False, **wrap_kwargs)
+
+    def martin_ratio(
+        self,
+        risk_free: tp.Optional[float] = None,
+        engine: tp.Optional[str] = None,
+        wrap_kwargs: tp.KwargsLike = None,
+    ) -> tp.MaybeSeries:
+        """Martin ratio (ulcer performance index).
+
+        Subtract the annualized risk-free return from the annualized strategy return,
+        then divide by `ReturnsAccessor.ulcer_index`. Return NaN when the ulcer index
+        is zero or NaN.
+
+        `risk_free` is a constant per-observation rate, compounded over `ann_factor`
+        periods to annualize it. Defaults to the `risk_free` value in `ReturnsAccessor.defaults`.
+
+        Uses Numba with `engine='auto'`; `engine='rust'` is not supported.
+
+        See `vectorbt.returns.dispatch.martin_ratio`."""
+        engine = engine if engine is not None else self.engine
+        if risk_free is None:
+            risk_free = self.defaults["risk_free"]
+        result = dispatch.martin_ratio(self.to_2d_array(), self.ann_factor, risk_free, engine=engine)
+        wrap_kwargs = merge_dicts(dict(name_or_index="martin_ratio"), wrap_kwargs)
+        return self.wrapper.wrap_reduced(result, group_by=False, **wrap_kwargs)
+
+    def rolling_martin_ratio(
+        self,
+        window: tp.Optional[int] = None,
+        minp: tp.Optional[int] = None,
+        risk_free: tp.Optional[float] = None,
+        engine: tp.Optional[str] = None,
+        wrap_kwargs: tp.KwargsLike = None,
+    ) -> tp.SeriesFrame:
+        """Rolling version of `ReturnsAccessor.martin_ratio`.
+
+        Recalculate the annualized return and ulcer index within each window.
+        `minp` counts non-NaN returns; NaN returns within an eligible window count
+        as zero-return observations."""
+        engine = engine if engine is not None else self.engine
+        if window is None:
+            window = self.defaults["window"]
+        if minp is None:
+            minp = self.defaults["minp"]
+        if risk_free is None:
+            risk_free = self.defaults["risk_free"]
+        result = dispatch.rolling_martin_ratio(
+            self.to_2d_array(), window, minp, self.ann_factor, risk_free, engine=engine
+        )
         wrap_kwargs = merge_dicts({}, wrap_kwargs)
         return self.wrapper.wrap(result, group_by=False, **wrap_kwargs)
 

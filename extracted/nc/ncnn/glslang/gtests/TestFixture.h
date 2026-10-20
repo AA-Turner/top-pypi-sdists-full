@@ -211,7 +211,9 @@ public:
                 path += headerName;
                 std::replace(path.begin(), path.end(), '\\', '/');
 
-                auto [success, fileContent] = ReadFile(path);
+                auto readResult = ReadFile(path);
+                const bool success = readResult.first;
+                const std::string& fileContent = readResult.second;
                 if (success) {
                     auto buffer = new char[fileContent.size() + 1];
                     std::copy(fileContent.begin(), fileContent.end(), buffer);
@@ -442,6 +444,11 @@ public:
                                  const bool enableDebug = false,
                                  const bool enableNonSemanticShaderDebugInfo = false)
     {
+#ifndef ENABLE_HLSL
+        if (source == Source::HLSL) {
+            return;
+        }
+#endif
         const std::string inputFname = testDir + "/" + testName;
         const std::string expectedOutputFname =
             testDir + baseDir + testName + ".out";
@@ -477,6 +484,11 @@ public:
                                             const std::string &baseDir = "/baseResults/",
                                             const EShMessages additionalOptions = EShMessages::EShMsgDefault)
     {
+#ifndef ENABLE_HLSL
+        if (source == Source::HLSL) {
+            return;
+        }
+#endif
         const std::string inputFname = testDir + "/" + testName;
         const std::string expectedOutputFname = testDir + baseDir + testName + ".out";
         std::string input, expectedOutput;
@@ -503,6 +515,11 @@ public:
                                                 Target target,
                                                 const std::string& entryPointName="")
     {
+#ifndef ENABLE_HLSL
+        if (source == Source::HLSL) {
+            return;
+        }
+#endif
         const std::string inputFname = testDir + "/" + testName;
         const std::string expectedOutputFname =
             testDir + "/baseResults/" + testName + ".out";
@@ -535,8 +552,14 @@ public:
                                       int baseUboBinding,
                                       int baseSsboBinding,
                                       bool autoMapBindings,
-                                      bool flattenUniformArrays)
+                                      bool flattenUniformArrays,
+                                      bool relaxSetBindingLimits)
     {
+#ifndef ENABLE_HLSL
+        if (source == Source::HLSL) {
+            return;
+        }
+#endif
         const std::string inputFname = testDir + "/" + testName;
         const std::string expectedOutputFname =
             testDir + "/baseResults/" + testName + ".out";
@@ -545,7 +568,9 @@ public:
         tryLoadFile(inputFname, "input", &input);
         tryLoadFile(expectedOutputFname, "expected output", &expectedOutput);
 
-        const EShMessages controls = DeriveOptions(source, semantics, target);
+        EShMessages controls = DeriveOptions(source, semantics, target);
+        if (relaxSetBindingLimits)
+            controls = static_cast<EShMessages>(controls | EShMsgRelaxSetBindingLimits);
         GlslangResult result = compileLinkIoMap(testName, input, entryPointName, controls,
                                                 baseSamplerBinding, baseTextureBinding, baseImageBinding,
                                                 baseUboBinding, baseSsboBinding,

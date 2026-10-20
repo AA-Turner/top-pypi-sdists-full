@@ -626,7 +626,7 @@ class StagnationTracker:
                 "2. Which approaches are ruled out, and by which output?",
                 (
                     "3. What is the revised plan? If it is worth writing "
-                    "down, call create_plan."
+                    "down, write it down."
                 ),
                 (
                     "A structurally different call, or one specific question "
@@ -723,5 +723,117 @@ def convergence_hint(
             "- If the criterion is ALREADY met: stop optimizing, do one "
             "final self-verify, and finish — do not risk regressing a "
             "passing result."
+        )
+    return ""
+
+
+def time_budget_hint(
+    elapsed_sec: float,
+    budget_sec: float,
+    soft_ratio: float = 0.5,
+    hard_ratio: float = 0.8,
+) -> str:
+    """Wall-clock counterpart of ``convergence_hint``, deliverable-first.
+
+    The turn-count nudge never fires on the failure shape this covers: a run
+    of very few, very long generations (7/150 turns) can still burn 95% of
+    the harness's wall-clock cap, and every hard-set task that died that way
+    (dna-assembly, write-compressor) died with its required output file
+    never written at all. So the soft band does NOT say "converge": it says
+    "land a best-effort deliverable now, then keep refining" — securing an
+    artifact early is what the turn nudge's plateaued loop already has and
+    these runs lack.
+
+    Returns "" below ``soft_ratio`` or when ``budget_sec`` is unset/<=0;
+    a secure-the-deliverable nudge in the soft band; a finalize nudge
+    at/after ``hard_ratio`` that forces a partial write when the disk is
+    still empty — "best version on disk" means nothing to a run that has
+    written nothing (solve-sudoku in 2026-10-12__medium12 died that way).
+    """
+    if budget_sec <= 0 or elapsed_sec < 0:
+        return ""
+    frac = elapsed_sec / budget_sec
+    remaining = max(0.0, budget_sec - elapsed_sec)
+    elapsed_i = int(elapsed_sec)
+    budget_i = int(budget_sec)
+    remaining_i = int(remaining)
+    if frac >= hard_ratio:
+        return (
+            "\n\n## ⏳ Wall-clock budget nearly exhausted\n"
+            f"{elapsed_i}s of your ~{budget_i}s budget are gone "
+            f"({remaining_i}s left).\n"
+            "Do NOT start a new approach — there is no time left to debug "
+            "it. Right now:\n"
+            "1. If the required deliverable file is not on disk yet, write "
+            "your current best partial answer to it immediately — an "
+            "incomplete or placeholder version can still score; an empty "
+            "path scores zero. If one is on disk, make sure it is the best "
+            "version you have produced (overwrite a broken draft with an "
+            "older working one if needed).\n"
+            "2. Run ONE final verification against the acceptance "
+            "criterion.\n"
+            "3. Finish.\n"
+        )
+    if frac >= soft_ratio:
+        return (
+            "\n\n## ⏳ Wall-clock budget half spent\n"
+            f"{elapsed_i}s of your ~{budget_i}s budget are gone "
+            f"({remaining_i}s left); the run is killed when it hits 0.\n"
+            "If the file/artifact this task requires does not exist yet in "
+            "complete form, write a best-effort version NOW with your "
+            "current approach — a rough working deliverable beats a perfect "
+            "plan that never lands. Then keep refining and overwrite it "
+            "with better versions.\n"
+            "If it already exists, keep improving it — but re-save after "
+            "every improvement, so whatever is on disk when time runs out "
+            "is your best attempt."
+        )
+    return ""
+
+
+def compression_hint(
+    event: tuple[int, int] | None,
+    context_ratio: float,
+    warn_ratio: float = 0.40,
+) -> str:
+    """Context-window counterpart of the budget hints, persistence-first.
+
+    Auto-compression is silent by design at the UI layer (a dim console
+    line), but the *model* is never told its history was just rewritten —
+    it keeps referring to tool outputs and reasoning that no longer exist
+    in the prompt, and it gets no chance to move key state to disk while
+    the full text is still around. dsh's tracker shows the un-managed end
+    of this failure: a full window with no user-facing signal at all. The
+    window is shared with the soft compression trigger (50%), so the
+    pre-hint band sits just below it (40%) and the post-compression notice
+    fires once per event.
+
+    ``event`` is (old_count, new_count) when a compression just ran, else
+    None. Returns "" when nothing fired; ``warn_ratio >= SOFT`` would make
+    the pre-hint unreachable (compression fires first), so it is clamped
+    below the soft trigger by the caller passing a sane value.
+    """
+    if event is not None:
+        old_count, new_count = event
+        return (
+            "\n\n## 🗜 Context was just compressed\n"
+            f"History shrank from {old_count} to {new_count} messages; "
+            "earlier tool outputs and reasoning may be gone from your "
+            "context now.\n"
+            "- Re-read any file you still need instead of assuming you "
+            "remember its contents.\n"
+            "- If a finding or deliverable existed only in messages, write "
+            "it to disk now — the next compression will take what this one "
+            "left.\n"
+        )
+    if 0.0 < warn_ratio <= context_ratio:
+        pct = int(context_ratio * 100)
+        return (
+            "\n\n## 🗜 Context filling up\n"
+            f"About {pct}% of the context window is in use; automatic "
+            "compression is approaching.\n"
+            "Persist key findings and any deliverable to disk NOW, while "
+            "the full text is still in front of you. After compression, "
+            "only what is on disk is guaranteed to survive verbatim.\n"
         )
     return ""

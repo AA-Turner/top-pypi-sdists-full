@@ -155,7 +155,7 @@ async def resume_crawl(
     pending work items. 409 when a run of this session is already active
     ANYWHERE — this process's broker, another process's live run lease, or a
     claimant that won the lease compare-and-swap first; 422 when the session is
-    not resumable (finished, cancelled, short-run mode, resume-attempt cap).
+    not resumable (finished, canceled, short-run mode, resume-attempt cap).
     """
     service = get_web_crawl_service()
     try:
@@ -435,7 +435,7 @@ async def analyze_site(
     site_id: str,
     ctx: AppContext = Depends(context_dep),
 ) -> StreamingResponse:
-    """Run the deterministic page-analysis catalogue over the site's stored
+    """Run the deterministic page-analysis catalog over the site's stored
     crawl evidence, writing web.analysis_result + web.finding rows."""
 
     service = get_web_crawl_service()
@@ -455,7 +455,7 @@ async def analyze_site(
         ctx,
         service.run_analysis,
         prepared,
-        initial_message="Analyzing pages against the audit catalogue…",
+        initial_message="Analyzing pages against the audit catalog…",
         debug_label="CanonicalPageAnalysis",
     )
     return _stream_headers(response, prepared)
@@ -777,8 +777,15 @@ async def rescrape_site(
 
     service = get_web_crawl_service()
     preset_id = request.preset_id if request is not None else None
+    time_budget_seconds = request.time_budget_seconds if request is not None else None
     try:
-        prepared = await service.prepare_rescrape(ctx, site_id, preset_id=preset_id)
+        prepared = await service.prepare_rescrape(
+            ctx,
+            site_id,
+            preset_id=preset_id,
+            time_budget_seconds=time_budget_seconds,
+            continue_time_budget_partial=bool(request and request.continue_time_budget_partial),
+        )
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except LookupError as exc:

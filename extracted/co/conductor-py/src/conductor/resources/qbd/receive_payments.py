@@ -139,6 +139,8 @@ class ReceivePaymentsResource(SyncAPIResource):
           memo: A memo or note for this receive-payment that will be displayed at the beginning
               of reports containing details about this receive-payment.
 
+              Maximum length: 4095 characters.
+
           payment_method_id: The receive-payment's payment method (e.g., cash, check, credit card).
 
               **NOTE**: If this receive-payment contains credit card transaction data supplied
@@ -307,6 +309,8 @@ class ReceivePaymentsResource(SyncAPIResource):
           memo: A memo or note for this receive-payment that will be displayed at the beginning
               of reports containing details about this receive-payment.
 
+              Maximum length: 4095 characters.
+
           payment_method_id: The receive-payment's payment method (e.g., cash, check, credit card).
 
           receivables_account_id: The Accounts-Receivable (A/R) account to which this receive-payment is assigned,
@@ -449,6 +453,9 @@ class ReceivePaymentsResource(SyncAPIResource):
               a numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific receive-payments by their ref-number(s), case-sensitive. In
               QuickBooks, ref-numbers are not required to be unique and can be arbitrarily
               changed by the QuickBooks user.
@@ -468,6 +475,9 @@ class ReceivePaymentsResource(SyncAPIResource):
               value. If omitted, the range will end with the last number of the list. Uses a
               numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for receive-payments whose `date` field is on or after this date, in ISO
               8601 format (YYYY-MM-DD).
@@ -704,6 +714,8 @@ class AsyncReceivePaymentsResource(AsyncAPIResource):
           memo: A memo or note for this receive-payment that will be displayed at the beginning
               of reports containing details about this receive-payment.
 
+              Maximum length: 4095 characters.
+
           payment_method_id: The receive-payment's payment method (e.g., cash, check, credit card).
 
               **NOTE**: If this receive-payment contains credit card transaction data supplied
@@ -872,6 +884,8 @@ class AsyncReceivePaymentsResource(AsyncAPIResource):
           memo: A memo or note for this receive-payment that will be displayed at the beginning
               of reports containing details about this receive-payment.
 
+              Maximum length: 4095 characters.
+
           payment_method_id: The receive-payment's payment method (e.g., cash, check, credit card).
 
           receivables_account_id: The Accounts-Receivable (A/R) account to which this receive-payment is assigned,
@@ -1014,6 +1028,9 @@ class AsyncReceivePaymentsResource(AsyncAPIResource):
               a numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific receive-payments by their ref-number(s), case-sensitive. In
               QuickBooks, ref-numbers are not required to be unique and can be arbitrarily
               changed by the QuickBooks user.
@@ -1033,6 +1050,9 @@ class AsyncReceivePaymentsResource(AsyncAPIResource):
               value. If omitted, the range will end with the last number of the list. Uses a
               numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for receive-payments whose `date` field is on or after this date, in ISO
               8601 format (YYYY-MM-DD).

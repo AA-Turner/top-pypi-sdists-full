@@ -8,7 +8,7 @@ integer index, so it returned None, the block was stamped `parseError` with no
 whole quiz into prose. The reader got a wall of raw JSON where a quiz
 component belonged (Arman's run a268ba41, 2026-08-22).
 
-Normalisation, never loosening: the OUTPUT is still an int id and an int
+Normalization, never loosening: the OUTPUT is still an int id and an int
 answer index, so nothing downstream changes.
 """
 

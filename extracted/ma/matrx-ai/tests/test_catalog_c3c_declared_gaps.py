@@ -72,7 +72,7 @@ def test_auto_a_rule_speaks_still_goes_on_the_wire() -> None:
 def test_auto_without_families_is_unchanged() -> None:
     rules = {"quality": {"value_map": {"low": "low"}, "on_unmapped": "drop"}}
     _, adjustments = _run(_map(rules, families=False), {"quality": "auto"})
-    assert _warnings(adjustments)  # pre-C6 catalogs (live today): behaviour unchanged
+    assert _warnings(adjustments)  # pre-C6 catalogs (live today): behavior unchanged
 
 
 # ── 2. a declared drop is never native ───────────────────────────────────────

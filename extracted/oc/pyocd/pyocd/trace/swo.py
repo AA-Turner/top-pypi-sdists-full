@@ -1,5 +1,5 @@
 # pyOCD debugger
-# Copyright (c) 2017-2019 Arm Limited
+# Copyright (c) 2017-2019,2026 Arm Limited
 # Copyright (c) 2021-2022 Chris Reed
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -93,13 +93,14 @@ class SWOParser:
                 # queue separately.
                 if event.comparator == self._pending_data_trace.comparator:
                     # Merge the two data trace events.
+                    pending = self._pending_data_trace
                     ev = events.TraceDataTraceEvent(cmpn=event.comparator,
-                        pc=(event.pc or self._pending_data_trace.pc),
-                        addr=(event.address or self._pending_data_trace.address),
-                        value=(event.value or self._pending_data_trace.value),
-                        rnw=(event.is_read or self._pending_data_trace.is_read),
-                        sz=(event.transfer_size or self._pending_data_trace.transfer_size),
-                        ts=self._pending_data_trace.timestamp)
+                        pc=(event.pc if event.pc is not None else pending.pc),
+                        addr=(event.address if event.address is not None else pending.address),
+                        value=(event.value if event.value is not None else pending.value),
+                        rnw=(event.is_read if event.is_read is not None else pending.is_read),
+                        sz=(event.transfer_size if event.transfer_size is not None else pending.transfer_size),
+                        ts=pending.timestamp)
                 else:
                     ev = self._pending_data_trace
                 self._pending_events.append(ev)
@@ -174,7 +175,7 @@ class SWOParser:
                 c = (hdr >> 7) & 0x1
                 d = (hdr >> 4) & 0b111
                 # Local timestamp.
-                if (hdr & 0xf) == 0 and d not in (0x0, 0x3):
+                if (hdr & 0xf) == 0 and d not in (0x0, 0x7):
                     ts = 0
                     tc = 0
                     # Local timestamp packet format 1.
@@ -193,7 +194,10 @@ class SWOParser:
                 elif hdr in (0b10010100, 0b10110100):
                     # TODO handle global timestamp
                     # t = (hdr >> 5) & 0x1
-                    pass
+                    while True:
+                        byte = yield
+                        if (byte & 0x80) == 0:
+                            break
                 # Extension.
                 elif (hdr & 0x8) == 0x8:
                     sh = (hdr >> 2) & 0x1
@@ -279,6 +283,3 @@ class SWOParser:
                 # Invalid DWT 'a' value.
                 else:
                     invalid = True
-
-
-

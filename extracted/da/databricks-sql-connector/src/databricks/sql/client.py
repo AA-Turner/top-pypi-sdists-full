@@ -194,6 +194,13 @@ class Connection:
                 decision. This is an intentional divergence from the
                 Thrift/SEA paths, where an explicit ``True`` can still
                 be suppressed by the feature flag.
+            :param enable_geospatial_support: `bool`, optional (default is False)
+                Kernel backend only. Controls the public representation of
+                ``GEOMETRY`` and ``GEOGRAPHY`` result values. ``True`` returns
+                ``{"srid": int, "wkb": bytes}``; ``False`` returns WKT / EWKT
+                strings (for example ``"SRID=4326;POINT(1 2)"``). The
+                conversion is local to the kernel/driver and this option is
+                never sent to the SQL Execution API.
             :param use_hybrid_disposition: `bool`, optional (default is False)
                 Use the hybrid disposition instead of the inline disposition.
             :param server_hostname: Databricks instance host name.
@@ -315,6 +322,11 @@ class Connection:
                 This allows
                 1. cursor.tables() to return METRIC_VIEW table type
                 2. cursor.columns() to return "measure" column type
+            :param escape_catalog_name: `bool`, optional (default is False)
+                Escape unescaped underscores in catalog names for schemas(), tables(),
+                and columns() metadata requests. Existing escapes and % wildcards are
+                preserved. Kernel schemas() and columns() already use exact catalog
+                identifiers, so their catalog names are passed through unchanged.
             :param fetch_autocommit_from_server: `bool`, optional (default is False)
                 When True, the connection.autocommit property queries the server for current state
                 using SET AUTOCOMMIT instead of returning cached value.

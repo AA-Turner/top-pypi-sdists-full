@@ -47,7 +47,7 @@ MAX_EXTRA_REQUESTS_FIRST_CONTACT = 3
 
 @dataclass(frozen=True)
 class ProbeLimits:
-    """Protocol bounds of the probe (not behaviour an admin turns: the behaviour
+    """Protocol bounds of the probe (not behavior an admin turns: the behavior
     switch is the ``prefer_markdown_variant`` knob)."""
 
     #: The whole probe is abandoned after this long; the HTML result is unaffected.
@@ -128,7 +128,7 @@ def reset_host_cache() -> None:
     _hosts.clear()
 
 
-# ── recognising markdown ────────────────────────────────────────────────────
+# ── recognizing markdown ────────────────────────────────────────────────────
 
 _HTML_START = re.compile(r"^\s*(<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>])", re.I)
 _MD_SIGNS = (

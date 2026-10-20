@@ -1,7 +1,10 @@
 """Resolve an agent's DECLARED prompt blocks once, on the first turn.
 
 Ladder (owner ruling R1, 2026-10-10): personal (only when the runner is the agent's creator and the
-run organization's ``prompt_blocks/personal_rung`` knob is on) > the run's organization > system.
+run organization's ``prompt_blocks/personal_rung`` knob is on) > the run's organization > the
+organization that OWNS the agent definition (``config.agent_organization_id``, defect 39: a block
+the definition names must still be found when the run happens in another organization) > system.
+The run's organization keeps its override rung; the run itself stays stamped in it.
 A declared block with no row at any rung — or a skill-linked block whose skill is gone — refuses the
 run (:class:`PromptBlocksMissing`) before any provider call. Block text is a value: never filled.
 """
@@ -9,6 +12,7 @@ run (:class:`PromptBlocksMissing`) before any provider call. Block text is a val
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Any
 
 from matrx_ai.prompt_blocks.conditions import matches
@@ -59,6 +63,28 @@ def _pick(rows: list[BlockRow], allow_personal: bool) -> dict[str, BlockRow]:
     return chosen
 
 
+async def _agent_organization_rows(
+    source: BlockSource,
+    config: Any,
+    names: list[str],
+    run_rows: list[BlockRow],
+    run_organization_id: str | None,
+) -> list[BlockRow]:
+    """The agent's own organization's rows for every name the run's organization lacks.
+
+    Same ``BlockSource.candidates`` contract (asked with the agent's organization, no personal
+    rung); only its organization-level rows are kept, relabelled ``agent_organization``."""
+    agent_org = getattr(config, "agent_organization_id", None)
+    if not agent_org or str(agent_org) == str(run_organization_id or ""):
+        return []
+    have = {r.name for r in run_rows if r.level in ("personal", "organization")}
+    wanted = [n for n in names if n not in have]
+    if not wanted:
+        return []
+    rows = await source.candidates(wanted, organization_id=str(agent_org), personal_user_id=None)
+    return [replace(r, level="agent_organization") for r in rows if r.level == "organization"]
+
+
 async def resolve_declared_blocks(
     config: Any,
     *,
@@ -89,6 +115,7 @@ async def resolve_declared_blocks(
         organization_id=organization_id,
         personal_user_id=str(runner_id) if allow_personal else None,
     )
+    rows = list(rows) + await _agent_organization_rows(source, config, names, rows, organization_id)
     chosen = _pick(rows, allow_personal)
     missing = [n for n in names if n not in chosen]
 

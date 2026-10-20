@@ -402,10 +402,8 @@ class Unit:
             else:
                 units = self
             if data.dtype.kind not in ("f", "u", "i", "c"):
-                raise InvalidUnitOperation(
-                    f"Tried to multiply a Unit object with '{u}' (type {type(u)}). "
-                    "This behavior is undefined."
-                )
+                # we don't know how to handle this, but the other argument might
+                return NotImplemented
             if data.shape == ():
                 return _import_cache_singleton.uq(data, units, bypass_validation=True)
             return _import_cache_singleton.ua(data, units, bypass_validation=True)
@@ -442,10 +440,8 @@ class Unit:
 
                 return unyt_quantity(1.0, self) / u
             else:
-                raise InvalidUnitOperation(
-                    f"Tried to divide a Unit object by '{u}' (type {type(u)}). "
-                    "This behavior is undefined."
-                )
+                # we don't know how to handle this, but the other argument might
+                return NotImplemented
         elif self.dimensions is logarithmic and not u.is_dimensionless:
             raise InvalidUnitOperation(f"Tried to divide '{self}' and '{u}'.")
         elif u.dimensions is logarithmic and not self.is_dimensionless:
@@ -940,6 +936,23 @@ def _get_conversion_factor(old_units, new_units, dtype):
     new_basevalue = new_units.base_value
     new_baseoffset = new_units.base_offset
     ratio = old_basevalue / new_basevalue
+    if dtype is not None:
+        # Return the conversion factor (and offset, below) with the requested
+        # precision, as documented. Internal call sites in array.py used to
+        # re-cast the result manually because this argument was ignored; the
+        # cast belongs here. A minimum width of 2 bytes mirrors the pattern
+        # used in unyt/array.py, since 1-byte types have no float equivalent.
+        requested = np.dtype(dtype)
+        # A complex type stores two reals, so its matching real width is half
+        # the item size; asking for f16 on a 16-byte complex would name a
+        # float128 that does not exist on Windows or macOS.
+        width = (
+            requested.itemsize // 2
+            if requested.kind == "c"
+            else max(2, requested.itemsize)
+        )
+        float_dtype = np.dtype(f"f{width}")
+        ratio = float_dtype.type(ratio)
     if old_baseoffset == 0 and new_baseoffset == 0:
         return (ratio, None)
     else:
@@ -953,7 +966,10 @@ def _get_conversion_factor(old_units, new_units, dtype):
             new_prefix, _ = _split_prefix(str(new_units), new_units.registry.lut)
             if new_prefix != "":
                 new_baseoffset /= new_basevalue
-        return ratio, ratio * old_baseoffset - new_baseoffset
+        offset = ratio * old_baseoffset - new_baseoffset
+        if dtype is not None:
+            offset = float_dtype.type(offset)
+        return ratio, offset
 
 
 #

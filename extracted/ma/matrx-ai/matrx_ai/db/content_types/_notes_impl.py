@@ -386,6 +386,45 @@ class NotesManager(NotesBase):
         """Replace the entire content of a note."""
         return await self.update_note(note_id, content=content)
 
+    async def update_note_content_if_version(
+        self, note_id: str, content: str, expected_version: int
+    ) -> dict[str, Any]:
+        """Replace a note's content ONLY while it is still at ``expected_version``
+        (compare-and-swap on the row's ``version``, which the database bumps on every update).
+
+        Returns ``{"success": True, "note": …}`` when it landed, or
+        ``{"success": False, "conflict": True, "current_version": n}`` when somebody else's
+        write got there first — the caller re-reads and decides (context passthrough's
+        simultaneous-edit rule). Any other refusal is the usual structured error.
+        """
+        from matrx_orm.exceptions import OptimisticLockError
+
+        try:
+            note = await self._read_live(note_id)
+        except Exception as e:
+            return _err("update_note_content_if_version", note_id, e)
+        if note is None:
+            return _not_visible("update_note_content_if_version", note_id)
+        current = getattr(note, "version", None)
+        if current is not None and int(current) != int(expected_version):
+            return {"success": False, "conflict": True, "current_version": int(current)}
+        try:
+            async with self._governed_write():
+                note = await self._update_item(note, expected_version=int(expected_version), content=content)
+        except Exception as e:
+            lock = e if isinstance(e, OptimisticLockError) else getattr(e, "__cause__", None)
+            if isinstance(lock, OptimisticLockError) or "Optimistic lock conflict" in str(e):
+                now = await self._read_live(note_id)
+                return {
+                    "success": False,
+                    "conflict": True,
+                    "current_version": int(getattr(now, "version", 0) or 0) if now is not None else None,
+                }
+            return await self._explain_refused_write(
+                "update_note_content_if_version", note_id, current, e
+            )
+        return _ok(note)
+
     async def update_note_label(self, note_id: str, label: str) -> dict[str, Any]:
         """Rename a note."""
         return await self.update_note(note_id, label=label)

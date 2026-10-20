@@ -24404,3 +24404,58 @@ authenticatorTools_menu={
 #TriedToWake
 def authenticatorToolsLogger(Model=AuthenticatorTools,short_view=authenticatorTools_short_view,menu=authenticatorTools_menu):
     return ModelLogger(Model=AuthenticatorTools,short_view=authenticatorTools_short_view,menu=authenticatorTools_menu)
+
+
+def total_expense(Price=None,TaxRate=None,CRV=None):
+    try:
+        if Price in [None,]:
+            Price=detectGetOrSet(f"{sys._getframe().f_code.co_name} Price",0,setValue=False,literal=False)
+        if TaxRate in [None,]:
+            TaxRate=detectGetOrSet(f"{sys._getframe().f_code.co_name} TaxRate",0,setValue=False,literal=False)
+        if CRV in [None,]:
+            CRV=detectGetOrSet(f"{sys._getframe().f_code.co_name} CRV",0,setValue=False,literal=False)
+
+        fields={
+            'Price':{
+                'type':'float',
+                'default':Price,
+                'help':"The Price on the shelf.",
+                'ptext':"Retail Price"
+            },
+            'TaxRate':{
+                'type':'float',
+                'default':TaxRate,
+                'help':"The TaxRate for the item on the shelf.",
+                'ptext':"Retail TaxRate"
+            },
+            'CRV':{
+                'type':'float',
+                'default':CRV,
+                'help':"The CRV the quantity of containers sold in the item on the shelf.[Bottle Tax]",
+                'ptext':"Retail CRV"
+            },
+        }
+        fb=FormBuilder(data=fields,passThruText="Total_Expense=((Price+CRV)*TaxRate)+(Price+CRV)")
+        if fb in BooleanAnswers.NONE:
+            return
+        Price=fb['Price']
+        TaxRate=fb['TaxRate']
+        CRV=fb['CRV']
+
+        for i in fb:
+            if fb[i] != fields[i]['default']:
+                if i == 'CRV':
+                    CRV=detectGetOrSet(f"{sys._getframe().f_code.co_name} CRV",fb[i],setValue=True,literal=False)
+                if i == 'Price':
+                    Price=detectGetOrSet(f"{sys._getframe().f_code.co_name} Price",fb[i],setValue=True,literal=False)
+                if i == 'TaxRate':
+                    TaxRate=detectGetOrSet(f"{sys._getframe().f_code.co_name} TaxRate",fb[i],setValue=True,literal=False)
+        with localcontext() as ctx:
+            ctx.prec=50
+
+            fb['total expense']=((decc(Price)+decc(CRV))*decc(TaxRate))+((decc(Price)+decc(CRV)))
+
+            return results_def(fb)
+    except Exception as e:
+        print(e)
+        return

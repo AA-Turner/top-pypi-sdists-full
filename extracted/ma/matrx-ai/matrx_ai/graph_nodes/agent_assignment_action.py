@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Awaitable, Callable
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from matrx_assignment import (
@@ -56,6 +57,32 @@ class AssignmentAgentInput(AgentStartStrictInput, MandateSelectorInput):
     resolver refuses both.
     """
 
+
+
+def host_request_payload(
+    agent: AssignmentAgentInput, *, mandate_overrides: dict[str, Any] | None
+) -> dict[str, Any]:
+    """One item's host ``AgentStartRequest`` body from the batch's agent input (identity fields
+    are set per item by the caller). The config ladder is the plain agent step's, lowest →
+    highest: the mandate's config, the authored ``config_overrides``, the per-run
+    ``runtime_config_overrides`` — layered with THE one merge, never sent as a field the host
+    body would refuse (it was silently dropped before lane L43b)."""
+    from matrx_ai.config.llm_params import merge_llm_overrides
+    from matrx_ai.graph_nodes.agent_action import HOST_REQUEST_EXCLUDED_INPUTS
+
+    payload = agent.model_dump(
+        exclude_none=True,
+        exclude={*HOST_REQUEST_EXCLUDED_INPUTS, "conversation_id", "is_new"},
+    )
+    layered: dict[str, Any] = {}
+    for layer in (mandate_overrides, payload.get("config_overrides"), agent.runtime_config_overrides):
+        # The one merge: a class pin never rides onto another model.
+        layered = merge_llm_overrides(layered, dict(layer) if layer else None)
+    if layered:
+        payload["config_overrides"] = layered
+    else:
+        payload.pop("config_overrides", None)
+    return payload
 
 class AgentAssignmentBatchInput(BaseModel):
     """Strict runtime override for one durable coordinated agent session."""
@@ -210,19 +237,9 @@ async def run_agent_assignment_batch(
             request_id=request_id,
             operation_id=claim.attempt_id,
         )
-        payload = inputs.agent.model_dump(
-            exclude_none=True,
-            exclude={"agent_id", "mandate_key", "conversation_id", "is_new"},
-        )
+        payload = host_request_payload(inputs.agent, mandate_overrides=agent_mandate_overrides)
         payload["is_version"] = agent_is_version
         payload["max_iterations"] = limit.value
-        if agent_mandate_overrides:
-            from matrx_ai.config.llm_params import merge_llm_overrides
-
-            # The one merge: a class pin never rides onto another model.
-            payload["config_overrides"] = merge_llm_overrides(
-                agent_mandate_overrides, payload.get("config_overrides")
-            )
         payload["conversation_id"] = conversation_id
         exists = conversation_exists(conversation_id)
         if inspect.isawaitable(exists):

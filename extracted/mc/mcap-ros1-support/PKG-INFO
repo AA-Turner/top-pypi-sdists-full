@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mcap-ros1-support
-Version: 0.7.4
+Version: 0.9.0
 Summary: ROS1 support for the Python MCAP library
 Home-page: https://github.com/foxglove/mcap
 Classifier: Programming Language :: Python :: 3
@@ -8,7 +8,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Requires-Dist: mcap>=0.0.14
+Requires-Dist: mcap>=1.6.0
 Requires-Dist: pyyaml
 
 # Python MCAP Ros1 support

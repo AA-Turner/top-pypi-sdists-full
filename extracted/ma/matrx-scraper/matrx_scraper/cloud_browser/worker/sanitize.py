@@ -82,7 +82,7 @@ def sanitize_selector_shape(selector: str | None) -> str | None:
     """A selector describes WHERE an action landed, but a page can embed a secret
     in an attribute-value selector (``[value="123456"]``). We keep the tag/id/class
     shape and cap it; we never return an attribute-value selector verbatim beyond
-    the cap. The cap is the real defence — a value long enough to be a secret is
+    the cap. The cap is the real defense — a value long enough to be a secret is
     cut."""
     if selector is None:
         return None

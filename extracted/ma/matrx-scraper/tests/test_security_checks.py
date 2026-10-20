@@ -1,4 +1,4 @@
-"""The `security` catalogue category — every band, and every missing-evidence path.
+"""The `security` catalog category — every band, and every missing-evidence path.
 
 Four checks, two subjects. `https_enforcement` is per-page (a single http://
 page on an HTTPS site is the defect, so the verdict belongs to the page);
@@ -224,7 +224,7 @@ def test_no_page_probe_at_all_is_loud_but_never_fatal():
     )
 
     assert degraded is not None and "ORIGIN" in degraded
-    # Loud, but the sweep still scores — on the weaker evidence, labelled.
+    # Loud, but the sweep still scores — on the weaker evidence, labeled.
     assert facts.http_variant_probe["scope"] == "origin"
     assert check_https_enforcement(facts).status == "pass"
 

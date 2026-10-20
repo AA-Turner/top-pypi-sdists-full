@@ -67,7 +67,7 @@ def _config(supports_tools: bool) -> UnifiedConfig:
         {
             "model": "deepseek-ai/DeepSeek-V3",
             "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "Summarise the lease."}]}
+                {"role": "user", "content": [{"type": "text", "text": "Summarize the lease."}]}
             ],
         }
     )

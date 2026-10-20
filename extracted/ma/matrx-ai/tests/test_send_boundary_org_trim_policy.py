@@ -13,7 +13,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from matrx_ai.config import ToolResultContent, UnifiedMessage
+from matrx_ai.config import ToolCallContent, ToolResultContent, UnifiedMessage
 from matrx_ai.config.context_trim import (
     TRIM_POLICY_KNOB_KEYS,
     TrimPolicy,
@@ -27,11 +27,21 @@ PLAIN_ORG = "org-plain"
 
 
 def _config() -> SimpleNamespace:
-    # 6 results of 3,000 chars. Under the ruled tiers nothing is eligible (tier 1
-    # needs >8000 chars, tier 2 needs 24 positions back). TIGHT_ORG sets tier 1
-    # to 2 back / 1000 chars, so the first four (2-5 back) become eligible.
-    return SimpleNamespace(
-        messages=[
+    # 5 serial iterations of 3,000-char results. Under the ruled tiers nothing is
+    # eligible (tier 1 needs >8000 chars, tier 2 needs 24 positions back). TIGHT_ORG
+    # sets tier 1 to 2 back / 1000 chars, so the first four (1-4 iterations = 2-8
+    # positions back) become eligible; the newest, not yet acted on, never is.
+    messages: list[UnifiedMessage] = []
+    for i in range(5):
+        if i:
+            messages.append(
+                UnifiedMessage(
+                    role="assistant",
+                    position=None,
+                    content=[ToolCallContent(id=f"next-{i}", name="large_tool", arguments={})],
+                )
+            )
+        messages.append(
             UnifiedMessage(
                 role="tool",
                 position=None,
@@ -44,11 +54,8 @@ def _config() -> SimpleNamespace:
                     )
                 ],
             )
-            for i in range(6)
-        ],
-        system_instruction=None,
-        prompt_cache_key=None,
-    )
+        )
+    return SimpleNamespace(messages=messages, system_instruction=None, prompt_cache_key=None)
 
 
 async def _host_resolver(organization_id: str | None) -> TrimPolicy:
@@ -57,6 +64,10 @@ async def _host_resolver(organization_id: str | None) -> TrimPolicy:
         "tier_1_min_output_chars": 8000,
         "tier_2_min_positions_back": 24,
         "tier_2_min_output_chars": 2000,
+        "cache_gate_min_saved_tokens": 5000,
+        "payback_expected_remaining_calls": 20,
+        "payback_force_window_percent": 85,
+        "cache_gate_mode": "legacy",
     }
     if organization_id == TIGHT_ORG:
         rows.update(tier_1_min_positions_back=2, tier_1_min_output_chars=1000)

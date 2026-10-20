@@ -40,7 +40,7 @@ class AgentConfig:
             True, ONLY the agent's explicitly-declared Context Policies deliver
             — every undeclared key the surface offers is dropped before the
             model sees it. The switch stops AUTOMATIC injection; the agent's own
-            declarations still apply. Default False = today's behaviour
+            declarations still apply. Default False = today's behavior
             (undeclared context flows), now a named, visible setting rather than
             an unexamined default. See
             common-docs/systems/intelligence/mandates/STATE.md § "Context Policy — and the

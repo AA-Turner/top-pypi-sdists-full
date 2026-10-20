@@ -1,4 +1,4 @@
-"""Structural keys (tool_choice) now honour the api/offering control rule.
+"""Structural keys (tool_choice) now honor the api/offering control rule.
 
 Before: the rule was UI-only; a stored "required" reached the Anthropic
 translator's hardcoded switch and became {"type": "any"} — a 400 on Opus 5.5 /

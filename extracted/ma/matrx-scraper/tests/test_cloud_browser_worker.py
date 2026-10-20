@@ -8,7 +8,7 @@ the server half.
 The Definition of Done (EXECUTION.md WS-2) is proven here:
   * ordered-queue semantics,
   * fencing rejection of stale tokens,
-  * both run-mode behaviours,
+  * both run-mode behaviors,
   * page reconciliation after a simulated human episode,
   * the ``browser_controlled_by_human`` typed conflict.
 
@@ -36,6 +36,7 @@ from pydantic import ValidationError
 
 pytest.importorskip("playwright", reason="playwright not installed (browser extra)")
 
+from matrx_scraper.cloud_browser.worker.lease_watchdog import LeaseCheck  # noqa: E402
 from matrx_scraper.cloud_browser.worker import (  # noqa: E402
     BrowserWorker,
     InMemoryTokenAuthority,
@@ -578,7 +579,7 @@ async def test_replay_receipt_survives_worker_migration(profile_dir: str) -> Non
     await stub_b.shutdown()
 
 
-# ── DoD 3a: automation_only mode behaviour ──────────────────────────────────
+# ── DoD 3a: automation_only mode behavior ──────────────────────────────────
 
 
 @CHROMIUM
@@ -605,7 +606,7 @@ async def test_automation_only_mode(profile_dir: str) -> None:
     await stub2.shutdown()
 
 
-# ── DoD 3b: handoff_capable mode behaviour + D-5 keyring-free cookie scheme ──
+# ── DoD 3b: handoff_capable mode behavior + D-5 keyring-free cookie scheme ──
 
 
 @XVFB
@@ -629,6 +630,8 @@ async def test_handoff_capable_mode_and_keyring_free(profile_dir: str, xvfb) -> 
     assert "--password-store=basic" in worker2.launch_args
     assert "--use-mock-keychain" in worker2.launch_args
     assert "--disable-dev-shm-usage" in worker2.launch_args
+    # No "unsupported command-line flag: --no-sandbox" bar on Take control.
+    assert "--no-sandbox" not in worker2.launch_args or "--test-type" in worker2.launch_args
 
     # human_control is a legal destination for handoff_capable.
     t1 = await stub2.controller_transition(to_state="handoff_requested", reason="mfa_required")
@@ -1833,11 +1836,20 @@ async def test_restore_skips_the_download_for_an_adoptable_profile(monkeypatch, 
     assert runtime._profile_live_base(str(profile)) == "base777"
 
 
-async def test_lease_watchdog_ends_the_task_when_nobody_renews(monkeypatch, tmp_path) -> None:
+async def test_lease_watchdog_ends_the_task_when_the_server_says_the_run_ended(
+    monkeypatch, tmp_path
+) -> None:
     worker = BrowserWorker(worker_id="worker-test-watchdog")
     _unbootstrapped_but_admitted(worker, monkeypatch, str(tmp_path))
     ended = []
     worker._end_process = lambda: ended.append(True)
+
+    async def run_ended() -> LeaseCheck:
+        return LeaseCheck("ended")
+
+    # Silence alone no longer ends a worker (test_cloud_browser_lease_watchdog.py):
+    # the server has to say the run is over.
+    worker._lease_probe = run_ended
     closed = []
 
     class _Context:

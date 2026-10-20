@@ -1,7 +1,7 @@
 [project]
 requires-python = ">=3.10,<4.0"
 name = "astrapy"
-version = "2.3.1"
+version = "2.3.2"
 description = "A Python client for the Data API on DataStax Astra DB"
 authors = [
     {"name" = "Stefano Lottini", "email" = "stefano.lottini@ibm.com"},
@@ -15,9 +15,9 @@ dependencies = [
     "httpx[http2]>=0.25.2,<1",
     "h11 >= 0.16.0",
     "ipython >= 8.0.0",
-    "pymongo >= 3",
+    "pymongo >= 4.18.2",
     "toml >= 0.10.2,<1.0.0",
-    "typing-extensions >= 4.0",
+    "typing-extensions >= 4.16",
     "uuid6 >= 2024.1.12"
 ]
 classifiers = [
@@ -29,6 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Build Tools"
 ]
 
@@ -44,7 +45,7 @@ astrapy-repl = "astrapy.repl:main"
 
 [dependency-groups]
 dev = [
-    "blockbuster ~= 1.5.5",
+    "blockbuster >= 1.5.29, <1.6",
     "build >= 1.0.0",
     "cassandra-driver>=3.29.2; python_version < '3.13'",
     "cassio ~= 0.1.10; python_version < '3.13'",
@@ -63,9 +64,9 @@ dev = [
     "setuptools >= 61.0",
     "testcontainers ~= 3.7.1",
     "types-toml >= 0.10.8.7,<1.0.0",
-    "urllib3 >= 2.7.0",
+    "urllib3 >= 2.8.0",
     "virtualenv >= 20.36.1",
-    "werkzeug >= 3.1.5"
+    "werkzeug >= 3.1.9"
 ]
 
 [tool.hatch.build.targets.wheel]

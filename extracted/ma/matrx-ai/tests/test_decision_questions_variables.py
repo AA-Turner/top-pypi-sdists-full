@@ -29,8 +29,8 @@ _USER_MESSAGE = {
                 {
                     "name": "is_defect",
                     "type": "noul",
-                    "instructions": "Is this a defect on {{route}} rather than a request for new behaviour?",
-                    "criteria": {"true": "existing behaviour on {{route}} is wrong", "false": "new behaviour is wanted"},
+                    "instructions": "Is this a defect on {{route}} rather than a request for new behavior?",
+                    "criteria": {"true": "existing behavior on {{route}} is wrong", "false": "new behavior is wanted"},
                 },
                 {
                     "name": "owning_surface",
@@ -70,9 +70,9 @@ def test_variables_inside_questions_are_filled_through_the_config_door():
     typed = _questions_part(config).typed()
     by_name = {q.name: q for q in typed.questions}
     assert by_name["is_defect"].instructions == (
-        "Is this a defect on https://aimatrx.com/data-v2 rather than a request for new behaviour?"
+        "Is this a defect on https://aimatrx.com/data-v2 rather than a request for new behavior?"
     )
-    assert by_name["is_defect"].criteria["true"] == "existing behaviour on https://aimatrx.com/data-v2 is wrong"
+    assert by_name["is_defect"].criteria["true"] == "existing behavior on https://aimatrx.com/data-v2 is wrong"
     assert by_name["owning_surface"].instructions == "Which surface owns this bug?"
     assert by_name["urgency"].score_levels()[1] == "blocks https://aimatrx.com/data-v2"
     assert "{{" not in _questions_part(config).to_prose()

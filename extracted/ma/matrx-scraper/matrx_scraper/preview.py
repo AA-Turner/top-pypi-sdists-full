@@ -1,7 +1,7 @@
 """Quick site preview — used by the dashboard's New Crawl form.
 
 When the user blurs the URL field, the dashboard fires this endpoint and we:
-  1. Normalise whatever was typed to https://...
+  1. Normalize whatever was typed to https://...
   2. Fetch /robots.txt + the homepage in parallel
   3. Run the SEO audit on the homepage HTML
   4. Take a single desktop-viewport screenshot via Playwright (best-effort)

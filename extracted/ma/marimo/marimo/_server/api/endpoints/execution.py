@@ -11,6 +11,7 @@ from starlette.responses import JSONResponse, StreamingResponse
 from marimo import _loggers
 from marimo._code_mode.screenshot_meta import (
     SCREENSHOT_AUTH_TOKEN_KEY,
+    SCREENSHOT_FILE_KEY,
     SCREENSHOT_SERVER_URL_KEY,
 )
 from marimo._runtime.commands import HTTPRequest, UpdateUIElementCommand
@@ -336,7 +337,7 @@ async def execute_code(
 
     app_state = AppState(request)
     body = await parse_request(request, cls=ExecuteScratchpadRequest)
-    session = app_state.require_current_session()
+    session = app_state.require_current_session_with_stable_id()
 
     # Register cells into the graph without executing them so that
     # code_mode's run_cell can resolve dependencies. The kernel
@@ -367,8 +368,8 @@ async def execute_code(
         disconnect_task = asyncio.create_task(watch_disconnect())
         # Correlation ID: tags both the scratchpad command and the
         # listener so we wait for *our* completion and ignore
-        # ``CompletedRun`` events from other commands on this session
-        # (e.g. the ``session.instantiate`` call above, or concurrent
+        # `CompletedRun` events from other commands on this session
+        # (e.g. the `session.instantiate` call above, or concurrent
         # browser activity).
         run_id = str(uuid4())
         try:
@@ -383,6 +384,10 @@ async def execute_code(
                     )
                     http_req.meta[SCREENSHOT_SERVER_URL_KEY] = server_url
                     http_req.meta[SCREENSHOT_AUTH_TOKEN_KEY] = auth_token
+                    http_req.meta[SCREENSHOT_FILE_KEY] = (
+                        session.app_file_manager.path
+                        or session.initialization_id
+                    )
                     notebook_cells, cell_outputs = snapshot_for_scratchpad(
                         session
                     )

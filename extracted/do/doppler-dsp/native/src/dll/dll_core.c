@@ -40,6 +40,26 @@ xorshift32 (uint32_t *s)
   return (*s = x);
 }
 
+/* The taps' offsets as phase words (dp_dll_state_t::tap_grid and its
+ * siblings): the quarter-chip grid origin, the early/late spacing and this
+ * look's noise offset, each a fraction of one period in 32 bits, from sf,
+ * spacing and off_chips. The ONE place they are derived, called by
+ * draw_offset(), which every path through configure_geometry() (the one
+ * writer of sf and spacing) reaches by seed(), and by set_state -- so the
+ * per-sample taps add words and never divide (doppler#2397).
+ * Each goes through nco_norm_phase_to_word(), the one double-to-word
+ * conversion, which folds the period's fraction into [0, 1) first. The
+ * inputs are finite here: create's predicate and set_state's checks refuse
+ * a non-finite spacing or offset before this runs. */
+static void
+dll_taps_refresh (dp_dll_state_t *s)
+{
+  const double sfd = (double)s->sf;
+  s->tap_grid      = nco_norm_phase_to_word (0.25 / sfd);
+  s->tap_spacing   = nco_norm_phase_to_word (s->spacing / sfd);
+  s->tap_off       = nco_norm_phase_to_word (s->off_chips / sfd);
+}
+
 /* Draw the next epoch's offset (noise) tap code phase: a random whole-chip
  * offset in [guard, sf - guard) so it clears the prompt/early/late main lobe
  * (the offset correlation is then signal-free for a low-sidelobe code). */
@@ -48,12 +68,11 @@ draw_offset (dp_dll_state_t *s)
 {
   size_t guard = (size_t)(s->noise_guard + 0.999); /* ceil */
   if (2 * guard >= s->sf)
-    {
-      s->off_chips = 0.0; /* code too short to offset; degenerate */
-      return;
-    }
-  size_t span  = s->sf - 2 * guard;
-  s->off_chips = (double)(guard + xorshift32 (&s->rng) % span);
+    s->off_chips = 0.0; /* code too short to offset; degenerate */
+  else
+    s->off_chips
+        = (double)(guard + xorshift32 (&s->rng) % (s->sf - 2 * guard));
+  dll_taps_refresh (s);
 }
 
 /* Clear the lock detector's running state (statistic, reference, verify
@@ -529,17 +548,19 @@ dp_dll_set_telemetry (dp_dll_state_t *state, dp_tlm_t *tlm, const char *prefix,
       return DP_OK;
     }
   const char              *p      = prefix ? prefix : "code";
-  static const char *const sfx[4] = { "e", "rate", "lock", "locked" };
-  char                     name[4][DP_TLM_NAME_MAX];
-  for (size_t i = 0; i < 4; i++) /* all names before any registration */
+  static const char *const sfx[5] = { "e", "rate", "lock", "locked", "nco" };
+  char                     name[5][DP_TLM_NAME_MAX];
+  for (size_t i = 0; i < 5; i++) /* all names before any registration */
     if (dp_tlm_name_join (name[i], p, sfx[i]) != DP_OK)
       return DP_ERR_INVALID; /* overlong prefix: nothing registered */
   int id_e      = dp_tlm_probe (tlm, name[0], decim);
   int id_rate   = dp_tlm_probe (tlm, name[1], decim);
   int id_lock   = dp_tlm_probe (tlm, name[2], decim);
   int id_locked = dp_tlm_probe (tlm, name[3], decim);
-  if (id_e < 0 || id_rate < 0 || id_lock < 0 || id_locked < 0)
+  int id_nco    = dp_tlm_probe (tlm, name[4], decim);
+  if (id_e < 0 || id_rate < 0 || id_lock < 0 || id_locked < 0 || id_nco < 0)
     return DP_ERR_INVALID; /* table full: attach fails whole */
+  state->tlm.id_nco    = id_nco;
   state->tlm.id_e      = id_e;
   state->tlm.id_rate   = id_rate;
   state->tlm.id_lock   = id_lock;
@@ -555,6 +576,10 @@ dp_dll_tlm_flush (const dp_dll_state_t *s)
   dp_tlm_emit (s->tlm.ctx, s->tlm.id_rate, s->code_rate);
   dp_tlm_emit (s->tlm.ctx, s->tlm.id_lock, s->lock_stat);
   dp_tlm_emit (s->tlm.ctx, s->tlm.id_locked, (double)s->lock.locked);
+  /* What the NCO is commanded: phase_inc is code periods per sample as a
+     phase word, so over inv_tsamps it is periods per nominal period. */
+  dp_tlm_emit (s->tlm.ctx, s->tlm.id_nco,
+               nco_word_to_norm (s->code_nco.phase_inc) / s->inv_tsamps);
 }
 
 /* Serializable state — whole-struct snapshot (loop_filter child and the
@@ -653,8 +678,9 @@ dp_dll_set_state (dp_dll_state_t *s, const void *blob)
   /* Running fields that index or are cast to an index, held to what a live
      instance can carry -- get_state never writes anything outside these:
      the chunk being filled is one of the segments; the noise look's offset
-     is a code phase, finite and inside the code (`dll_replica` casts it to
-     size_t); the noise guard is a finite, non-negative distance in chips;
+     is a code phase, finite and inside the code (dll_taps_refresh turns
+     it into a phase word, and a non-finite value has none);
+     the noise guard is a finite, non-negative distance in chips;
      and an aided instance's period is finite and positive, its window
      shorter than its ring, its best hypothesis one of its hypotheses (it
      indexes aid_power), and its last look's end no later than the partials
@@ -675,8 +701,9 @@ dp_dll_set_state (dp_dll_state_t *s, const void *blob)
     return DP_ERR_INVALID;
   /* The retained config a live instance can only hold after create (or a
      retune) accepted it: the spacing places the early and late taps, and
-     dll_replica casts the offset it yields, so a NaN spacing indexed the
-     code out of bounds (doppler#2103, through set_state). The same
+     dll_taps_refresh turns it into a phase word, and a NaN has none
+     (it indexed the code out of bounds when a tap was a chip count,
+     doppler#2103, through set_state). The same
      predicate create uses, on the blob's own values. chip_pos stands in for
      create's init_chip: it is the running phase, and the predicate refuses
      it when non-finite. */
@@ -763,6 +790,10 @@ dp_dll_set_state (dp_dll_state_t *s, const void *blob)
      (validated above): a recompute on restore could not be bit-exact across
      compilers or against a coast, so none is done. */
   *s = t;
+  /* The taps' phase words are derived, like the reciprocals above: from
+     this blob's spacing and offset, both checked above, never the blob's
+     own words. */
+  dll_taps_refresh (s);
   if (n_seg)
     {
       memcpy (s->chunk_p, seg_p, n_seg * sizeof (*s->chunk_p));
@@ -1151,6 +1182,17 @@ held_phase_inc (const dp_dll_state_t *s)
   return nco_norm_freq_to_inc (s->inv_tsamps * (1.0 + s->rate_aid) + ctrl);
 }
 
+/* The rate a held loop reports: the same integrator through the steer's
+   rate table, without the proportional term held_phase_inc() leaves out,
+   so code_rate (dp_dll_get_code_rate(), the "<prefix>.rate" probe and
+   every status record that carries it) is the rate the held NCO runs at,
+   less the aid. */
+static double
+held_code_rate (const dp_dll_state_t *s)
+{
+  return 1.0 + s->inv_upd * s->rate_i * s->lf.integ;
+}
+
 void
 dp_dll_set_coast (dp_dll_state_t *state, int coast)
 {
@@ -1165,6 +1207,10 @@ dp_dll_set_coast (dp_dll_state_t *state, int coast)
          at chips per second (measured: +14 chips/s from one such steer). */
       state->lf                 = state->held_lf;
       state->code_nco.phase_inc = held_phase_inc (state);
+      /* And it reports that rate. Without this code_rate kept the last
+         steer's, from the noise-driven updates the restore just undid,
+         for as long as the loop coasted. */
+      state->code_rate = held_code_rate (state);
     }
   state->coast = coast;
 }

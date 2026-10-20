@@ -34,7 +34,9 @@ async def test_a_mandate_run_inside_a_tree_is_capped_by_the_trees_budget(monkeyp
     cost_budget.record_tree_cost(ROOT, 6.0)  # the parent tree has already spent $6
     seen: dict[str, Any] = {}
 
-    async def _spend(user_input: Any = None, *, max_iterations: Any = None) -> Any:
+    async def _spend(
+        user_input: Any = None, *, max_iterations: Any = None, host_turn: Any = None
+    ) -> Any:  # the real ``Agent.execute`` interface
         own = get_app_context().request_id
         # what the orchestrator does per billed call and before each tool round
         cost_budget.record_tree_cost(own, 3.0)

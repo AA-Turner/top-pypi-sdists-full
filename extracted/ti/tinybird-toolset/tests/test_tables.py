@@ -27,6 +27,14 @@ class TestTables(unittest.TestCase):
         ('SELECT * FROM t WHERE event_date IN system.query_log', [('', 't', ''), ('system', 'query_log', '')]),
         ('SELECT * FROM t WHERE event_date GLOBAL NOT IN system.query_log', [('', 't', ''), ('system', 'query_log', '')]),
         ('SELECT * FROM t WHERE event_date IN (Select * FROM system.query_log)', [('', 't', ''), ('system', 'query_log', '')]),
+        ('SELECT * APPLY(x -> (SELECT count() FROM system.trace_log)) FROM (SELECT 1 AS a)', [('system', 'trace_log', '')]),
+        ('SELECT * APPLY(x -> x IN (SELECT count() FROM system.tables)) FROM (SELECT 1 AS a)', [('system', 'tables', '')]),
+        ('SELECT * APPLY(x -> x IN system.tables) FROM (SELECT 1 AS a)', [('system', 'tables', '')]),
+        ('SELECT COLUMNS(\'a\') APPLY(x -> (SELECT max(b) FROM t2)) FROM t', [('', 't', ''), ('', 't2', '')]),
+        ('SELECT * APPLY(x -> (WITH c AS (SELECT b FROM t) SELECT count() FROM c)) FROM (SELECT 1 AS a)', [('', 't', '')]),
+        ('SELECT sum(a) OVER (PARTITION BY (SELECT count() FROM system.trace_log)) FROM (SELECT 1 AS a)', [('system', 'trace_log', '')]),
+        ('SELECT sum(a) OVER (ORDER BY a IN system.tables) FROM (SELECT 1 AS a)', [('system', 'tables', '')]),
+        ('SELECT sum(a) OVER w FROM (SELECT 1 AS a) WINDOW w AS (PARTITION BY (SELECT count() FROM system.trace_log))', [('system', 'trace_log', '')]),
     ]
 
     def test_json_all_paths_is_allowed(self):

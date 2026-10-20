@@ -3988,6 +3988,7 @@ class Strategy(enum.Enum):
     jsii_struct_bases=[],
     name_mapping={
         "branch": "branch",
+        "forward": "forward",
         "include": "include",
         "inputs": "inputs",
         "project": "project",
@@ -3999,6 +4000,7 @@ class Trigger:
         self,
         *,
         branch: typing.Optional[builtins.str] = None,
+        forward: typing.Optional[typing.Union["TriggerForward", typing.Dict[builtins.str, typing.Any]]] = None,
         include: typing.Optional[typing.Sequence[typing.Union["TriggerInclude", typing.Dict[builtins.str, typing.Any]]]] = None,
         inputs: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         project: typing.Optional[builtins.str] = None,
@@ -4009,6 +4011,7 @@ class Trigger:
         Read more:
 
         :param branch: (experimental) The branch name that a downstream pipeline will use.
+        :param forward: (experimental) Specify what to forward to the downstream pipeline.
         :param include: (experimental) A list of local files or artifacts from other jobs to define the pipeline.
         :param inputs: (experimental) Input parameters for the downstream pipeline when using spec:inputs.
         :param project: (experimental) Path to the project, e.g. ``group/project``, or ``group/sub-group/project``.
@@ -4017,9 +4020,12 @@ class Trigger:
         :see: https://docs.gitlab.com/ee/ci/yaml/README.html#trigger-syntax-for-child-pipeline
         :stability: experimental
         '''
+        if isinstance(forward, dict):
+            forward = TriggerForward(**forward)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__78aec6a6c462331cffb8d8af511a7a04ea96a7e260e03f8d857ba57103b6c89f)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
+            check_type(argname="argument forward", value=forward, expected_type=type_hints["forward"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
@@ -4027,6 +4033,8 @@ class Trigger:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if branch is not None:
             self._values["branch"] = branch
+        if forward is not None:
+            self._values["forward"] = forward
         if include is not None:
             self._values["include"] = include
         if inputs is not None:
@@ -4044,6 +4052,15 @@ class Trigger:
         '''
         result = self._values.get("branch")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def forward(self) -> typing.Optional["TriggerForward"]:
+        '''(experimental) Specify what to forward to the downstream pipeline.
+
+        :stability: experimental
+        '''
+        result = self._values.get("forward")
+        return typing.cast(typing.Optional["TriggerForward"], result)
 
     @builtins.property
     def include(self) -> typing.Optional[typing.List["TriggerInclude"]]:
@@ -4089,6 +4106,73 @@ class Trigger:
 
     def __repr__(self) -> str:
         return "Trigger(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.gitlab.TriggerForward",
+    jsii_struct_bases=[],
+    name_mapping={
+        "pipeline_variables": "pipelineVariables",
+        "yaml_variables": "yamlVariables",
+    },
+)
+class TriggerForward:
+    def __init__(
+        self,
+        *,
+        pipeline_variables: typing.Optional[builtins.bool] = None,
+        yaml_variables: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Specify what to forward to the downstream pipeline.
+
+        :param pipeline_variables: (experimental) Forward pipeline variables, such as manual, scheduled or API variables, to the downstream pipeline. Default: false
+        :param yaml_variables: (experimental) Forward the trigger job's variables defined in the YAML to the downstream pipeline. Default: true
+
+        :see: https://docs.gitlab.com/ee/ci/yaml/#triggerforward
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3296552091d4a948c2789a31cecb5a2ba2c46266dde1db461e09ed4227501c91)
+            check_type(argname="argument pipeline_variables", value=pipeline_variables, expected_type=type_hints["pipeline_variables"])
+            check_type(argname="argument yaml_variables", value=yaml_variables, expected_type=type_hints["yaml_variables"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if pipeline_variables is not None:
+            self._values["pipeline_variables"] = pipeline_variables
+        if yaml_variables is not None:
+            self._values["yaml_variables"] = yaml_variables
+
+    @builtins.property
+    def pipeline_variables(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Forward pipeline variables, such as manual, scheduled or API variables, to the downstream pipeline.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("pipeline_variables")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def yaml_variables(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Forward the trigger job's variables defined in the YAML to the downstream pipeline.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("yaml_variables")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TriggerForward(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -4596,6 +4680,7 @@ __all__ = [
     "Service",
     "Strategy",
     "Trigger",
+    "TriggerForward",
     "TriggerInclude",
     "VariableConfig",
     "VaultConfig",
@@ -5006,10 +5091,19 @@ def _typecheckingstub__1e209468a3f9aab6f0542611bc5e2b756bac42461413eaead1786a1b8
 def _typecheckingstub__78aec6a6c462331cffb8d8af511a7a04ea96a7e260e03f8d857ba57103b6c89f(
     *,
     branch: typing.Optional[builtins.str] = None,
+    forward: typing.Optional[typing.Union[TriggerForward, typing.Dict[builtins.str, typing.Any]]] = None,
     include: typing.Optional[typing.Sequence[typing.Union[TriggerInclude, typing.Dict[builtins.str, typing.Any]]]] = None,
     inputs: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     project: typing.Optional[builtins.str] = None,
     strategy: typing.Optional[Strategy] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3296552091d4a948c2789a31cecb5a2ba2c46266dde1db461e09ed4227501c91(
+    *,
+    pipeline_variables: typing.Optional[builtins.bool] = None,
+    yaml_variables: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

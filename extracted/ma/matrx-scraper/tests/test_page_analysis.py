@@ -578,7 +578,7 @@ def test_anchor_descriptiveness_is_the_catalogue_formula():
 
 
 def test_anchor_descriptiveness_passes_a_page_with_no_internal_links():
-    """The catalogue row is explicit: 100 when there are no internal links."""
+    """The catalog row is explicit: 100 when there are no internal links."""
     facts = make_facts()
     stats = healthy_stats(outlinks_total=6, internal_outlinks=0, descriptive_anchors=0)
     outcome = _check_anchor_text_descriptiveness(facts, linked_site(facts, stats))

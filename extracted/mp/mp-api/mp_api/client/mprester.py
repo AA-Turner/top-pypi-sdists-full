@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import itertools
 import json
+import logging
 import os
 import re
 import warnings
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from functools import cache, lru_cache
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
@@ -28,11 +30,31 @@ from pymatgen.io.vasp import Chgcar
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 from requests import Session, get
 
+from mp_api.client.core._display import (
+    DatabaseVersions,
+    mp_deprecation,
+    mp_warning,
+    print_notice,
+    status,
+)
+from mp_api.client.core._display import quiet as set_quiet
+from mp_api.client.core._entries import (
+    apply_corrections,
+    get_conventional_cell_entry,
+    mixing_scheme_class,
+    rescale_to_conventional,
+)
+from mp_api.client.core._external import in_current_context
 from mp_api.client.core._oxygen_evolution import OxygenEvolution
-from mp_api.client.core.client import _Rester
+from mp_api.client.core.client import (
+    LATEST_DB_VERSION,
+    S3_COLLECTION_NAMES,
+    STATIC_COLLECTIONS,
+    BaseRester,
+    _Rester,
+)
 from mp_api.client.core.exceptions import (
     MPRestError,
-    MPRestWarning,
     _emit_status_warning,
 )
 from mp_api.client.core.settings import (
@@ -44,6 +66,8 @@ from mp_api.client.core.utils import LazyImport, load_json, validate_ids
 from mp_api.client.routes import GENERIC_RESTERS
 from mp_api.client.routes.materials import MATERIALS_RESTERS
 from mp_api.client.routes.molecules import MOLECULES_RESTERS
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -63,6 +87,7 @@ if TYPE_CHECKING:
     from pymatgen.util.typing import SpeciesLike
 
     from mp_api.client.core.client import QueryBuilderWithCache
+    from mp_api.client.core.delta import DeltaCatalog
     from mp_api.client.core.schemas import _DictLikeAccess
 
 
@@ -80,6 +105,10 @@ GENERIC_RESTERS = {
     "doi": MATERIALS_RESTERS["doi"],
     **GENERIC_RESTERS,
 }
+
+# Routes whose S3 data isn't partitioned by database version, or that have
+# no S3 dataset at all (besides STATIC_COLLECTIONS)
+_UNVERSIONED_ROUTES = {"tasks", "similarity", "doi"}
 
 TOP_LEVEL_RESTERS = [
     "molecules/core",
@@ -101,6 +130,41 @@ def _all_subchemsyses(elements: Iterable[str]) -> list[str]:
     ]
 
 
+def _classify_chemsys_formula_ids(values: list[str]) -> dict[str, list[str]]:
+    """Sort `get_entries` inputs into chemical systems, formulas and IDs.
+
+    - chemical system: element symbols or "*" joined by "-" ("Li-Fe-O", "Si-*")
+    - formula: no "-", and a valid composition once "*" are removed ("Fe2O3", "Si*")
+    - anything else is taken to be an ID, validated later
+
+    Returns:
+        dict : {"chemsys": [...], "formula": [...], "material_ids": [...]},
+            leaving out kinds with no values, in that order
+    """
+    by_kind: dict[str, list[str]] = {"chemsys": [], "formula": [], "material_ids": []}
+    for value in values:
+        text = value.strip() if isinstance(value, str) else value
+        if not isinstance(text, str) or not text:
+            by_kind["material_ids"].append(value)
+            continue
+        parts = text.split("-")
+        if len(parts) > 1 and all(
+            part == "*" or Element.is_valid_symbol(part) for part in parts
+        ):
+            by_kind["chemsys"].append(text)
+            continue
+        if len(parts) == 1 and text.replace("*", ""):
+            try:
+                Composition(text.replace("*", ""))
+            except Exception:
+                pass
+            else:
+                by_kind["formula"].append(text)
+                continue
+        by_kind["material_ids"].append(value)
+    return {kind: found for kind, found in by_kind.items() if found}
+
+
 class MPRester(_Rester):
     """Access the new Materials Project API."""
 
@@ -119,7 +183,9 @@ class MPRester(_Rester):
         ) = MAPI_CLIENT_SETTINGS.LOCAL_DATASET_CACHE,
         force_renew: bool = False,
         query_builder: QueryBuilderWithCache | None = None,
+        delta_catalog: DeltaCatalog | None = None,
         notify_db_version: bool = False,
+        quiet: bool | None = None,
         **kwargs,
     ):
         """Initialize the MPRester.
@@ -147,23 +213,36 @@ class MPRester(_Rester):
             session: Session object to use. By default (None), the client will create one.
             headers: Custom headers for localhost connections.
             mute_progress_bars:  Whether to mute progress bars.
-            db_version (str) : EXPERIMENTAL, allows for accessing a different version of the database
-                than what is currently deployed. The Materials Project cannot guarantee that all
-                features will still work.
+            db_version (str) : Database version to use for data read from S3 (full dataset
+                downloads, phase diagrams), e.g. "2026.04.13". Defaults to the version
+                currently served by the API. REST queries always use the current database.
+                See `available_db_versions()` on a rester for the versions available.
             local_dataset_cache: Target directory for downloading full datasets. Defaults
                 to "mp_datasets" in the user's home directory
             force_renew: Option to overwrite existing local dataset
-            query_builder : Instance of QueryBuilderWithCache to use in querying delta tables
+            query_builder : DEPRECATED, use `delta_catalog`. Instance of QueryBuilderWithCache
+                whose catalog is used for querying delta tables.
                 NOTE: Must be a QueryBuilderWithCache, a deltalake.QueryBuilder will be ignored.
-            notify_db_version (bool): If True, the current MP database version will
-                be retrieved and logged locally in the ~/.mprester.log.yaml. If the database
-                version changes, you will be notified. The current database version is
-                also printed on instantiation. These local logs are not sent to
+            delta_catalog : Instance of DeltaCatalog to use for querying delta tables.
+                Share one instance across MPRester instances (e.g. one per web-server
+                worker) to reuse loaded table snapshots. If None, one is created and
+                shared by all resters under this MPRester.
+            notify_db_version (bool): If True, the current MP database version is
+                printed (to stderr) on instantiation and recorded locally in
+                ~/.mprester.log.yaml. If it changed since the last recorded version, this
+                is highlighted and an MPRestWarning is also emitted. These local logs are not sent to
                 materialsproject.org and are not associated with your API key, so be
                 aware that a notification may not be presented if you run MPRester
                 from multiple computing environments.
+            quiet (bool or None): If True, silence all client output for the whole
+                process: log messages, progress bars, notices and MPRestWarnings, see
+                `mp_api.client.quiet()`. False or None leave the current setting
+                (`MPRESTER_QUIET`, or an earlier `quiet()` call) unchanged.
             **kwargs: access to legacy kwargs that may be in the process of being deprecated
         """
+        if quiet:
+            # Before anything else, so nothing is printed while connecting
+            set_quiet(True)
         super().__init__(
             api_key=api_key,
             endpoint=endpoint,
@@ -176,6 +255,7 @@ class MPRester(_Rester):
             local_dataset_cache=local_dataset_cache,
             force_renew=force_renew,
             query_builder=query_builder,
+            delta_catalog=delta_catalog,
             **kwargs,
         )
 
@@ -224,23 +304,31 @@ class MPRester(_Rester):
             version.parse(emmet_version.base_version)
             < version.parse(MAPI_CLIENT_SETTINGS.MIN_EMMET_VERSION)
         ):
-            warnings.warn(
+            logger.warning(
                 "The installed version of the mp-api client may not be compatible with the API server. "
-                "Please install a previous version if any problems occur.",
-                category=MPRestWarning,
-                stacklevel=2,
+                "Please install a previous version if any problems occur."
             )
 
-        if self.db_version:
-            warnings.warn(
-                "Specifying an explicit database version is an experimental "
-                "feature. The Materials Project cannot guarantee "
-                "functionality at this time, use at your own risk!",
-                stacklevel=2,
-                category=MPRestWarning,
+        current_db_version = self._get_heartbeat_info(self.endpoint)[0]
+        # The version the REST API serves, may differ from self.db_version
+        self.current_db_version: str = current_db_version
+        rest_note = "REST queries use the " + (
+            f"current version, {current_db_version}."
+            if current_db_version
+            else "current version."
+        )
+        if not self.db_version:
+            self.db_version = current_db_version
+        elif self.db_version == LATEST_DB_VERSION:
+            logger.warning(
+                "Using the newest database version on S3 for each dataset (full "
+                f"dataset downloads, phase diagrams), which may be ahead of the API. {rest_note}"
             )
-        else:
-            self.db_version = self._get_heartbeat_info(self.endpoint)[0]
+        elif self.db_version != current_db_version:
+            logger.warning(
+                f"Using database version {self.db_version} for data read from S3 "
+                f"(full dataset downloads, phase diagrams). {rest_note}"
+            )
 
         if notify_db_version:
             self._db_version_check()
@@ -268,7 +356,7 @@ class MPRester(_Rester):
                         db_version=self.db_version,
                         local_dataset_cache=self.local_dataset_cache,
                         force_renew=self.force_renew,
-                        query_builder=self._query_builder,
+                        delta_catalog=self.delta_catalog,
                     ),
                 )
 
@@ -281,42 +369,44 @@ class MPRester(_Rester):
             - headers
             - session
             - use_document_model
+            - mute_progress_bars
 
+        Raises:
+            ImportError: if the optional MPContribs dependencies aren't installed.
+            MPRestError: if the client can't be created, e.g. the server is
+                unreachable. Nothing is cached, so a later access retries.
         """
         if self._contribs is None:
             try:
                 from mp_api.client.contribs.client import ContribsClient
+            except ImportError as error:
+                raise ImportError(
+                    "The MPContribs client needs optional dependencies: run "
+                    "`pip install 'mp-api[contribs]'`. It provides user-contributed "
+                    "data, also used by e.g. `get_pourbaix_entries` and "
+                    "`get_cohesive_energy`."
+                ) from error
 
+            try:
                 self._contribs = ContribsClient(
                     api_key=self.api_key,
                     headers=self.headers,
                     session=self.session,
                     use_document_model=self.use_document_model,
+                    mute_progress_bars=self.mute_progress_bars,
                     **self._contribs_kwargs,
                 )
-
-            except ImportError:
-                self._contribs = None
-                warnings.warn(
-                    "Run `pip install 'mp-api[contribs]'` to make use of the MPContribs client.",
-                    category=MPRestWarning,
-                    stacklevel=2,
-                )
             except Exception as error:
-                self._contribs = None
-                warnings.warn(
-                    f"Problem loading MPContribs client: {error}",
-                    category=MPRestWarning,
-                    stacklevel=2,
-                )
+                raise MPRestError(
+                    f"Problem loading the MPContribs client: {error}"
+                ) from error
         return self._contribs
 
     def __getattr__(self, attr):
         if attr in self._deprecated_attributes:
-            warnings.warn(
+            mp_deprecation(
                 f"Accessing {attr} data through MPRester.{attr} is deprecated. "
                 f"Please use MPRester.materials.{attr} instead.",
-                DeprecationWarning,
                 stacklevel=2,
             )
             return getattr(super().__getattribute__("materials"), attr)
@@ -333,7 +423,88 @@ class MPRester(_Rester):
         )
 
     def __repr__(self) -> str:
+        if self.db_version == LATEST_DB_VERSION:
+            return "MPRester(latest)"
         return f"MPRester({'v' + self.db_version if self.db_version else 'unknown version'})"
+
+    def _versioned_resters(self) -> dict[str, BaseRester]:
+        """Delta-backed resters, keyed by route (e.g. "summary"), not yet checked for versions."""
+        resters: dict[str, BaseRester] = {}
+        for parent in ("materials", "molecules"):
+            core = getattr(self, parent)
+            for route, lazy in core.sub_resters.items():
+                # Only collections/... datasets are partitioned by version. Tasks
+                # and static collections are skipped without loading their (large)
+                # logs, and checked by name first so their modules aren't
+                # imported (some are slow to import).
+                name = S3_COLLECTION_NAMES.get(
+                    f"{parent}/{route}", route.replace("_", "-")
+                )
+                if (
+                    route in resters
+                    or route in _UNVERSIONED_ROUTES
+                    or name in STATIC_COLLECTIONS
+                    or not getattr(lazy, "delta_backed", False)
+                ):
+                    continue
+                rester = getattr(core, route)._obj
+                if rester._s3_location()[2].startswith("collections/"):
+                    resters[route] = rester
+        return resters
+
+    def available_db_versions(
+        self, collection: str | None = None
+    ) -> DatabaseVersions | list[str]:
+        """Database versions available for full dataset downloads on S3.
+
+        Read from the DeltaTable logs, no data is downloaded. Pass any of these
+        as `db_version` to a rester's `search()` (with no filters) or to
+        `MPRester(db_version=...)`.
+
+        Args:
+            collection (str or None) : a single collection, e.g. "summary" or
+                "materials/summary". If None, every collection that is
+                partitioned by database version is listed; tables are loaded in
+                parallel, with a status line while that runs.
+
+        Returns:
+            list of str for one collection, e.g. ["2026.04.13", "2026.09.28"],
+            otherwise a dict of collection to list of str, which displays as a
+            table in a REPL or notebook. Collections that couldn't be loaded, or
+            have a single version, are left out.
+
+        Raises:
+            MPRestError: if `collection` is unknown or has a single version.
+        """
+        resters = self._versioned_resters()
+        if collection is not None:
+            route = collection.split("/", 1)[-1].replace("-", "_")
+            if route not in resters:
+                raise MPRestError(
+                    f"Unknown collection {collection!r}, expected one of: "
+                    f"{', '.join(sorted(resters))}."
+                )
+            return resters[route].available_db_versions()
+
+        def _list(route: str) -> tuple[str, list[str] | None]:
+            try:
+                return route, resters[route].available_db_versions()
+            except Exception as exc:
+                logger.debug(f"No database versions for {route}: {exc}")
+                return route, None
+
+        with (
+            status(
+                f"Fetching available database versions for {len(resters)} datasets...",
+                enabled=not self.mute_progress_bars,
+            ),
+            ThreadPoolExecutor(max_workers=min(8, len(resters) or 1)) as pool,
+        ):
+            found = list(pool.map(in_current_context(_list), sorted(resters)))
+        return DatabaseVersions(
+            {route: versions for route, versions in found if versions},
+            current=self.current_db_version,
+        )
 
     def get_task_ids_associated_with_material_id(
         self, material_id: str, calc_types: list[CalcType] | None = None
@@ -410,11 +581,10 @@ class MPRester(_Rester):
 
         Returns: database version as a string if accessible, None otherwise
         """
-        warnings.warn(
+        mp_deprecation(
             "`get_database_version` has been deprecated in favor of "
             "MPRester().db_version.",
             stacklevel=2,
-            category=MPRestWarning,
         )
         return self.db_version
 
@@ -458,11 +628,9 @@ class MPRester(_Rester):
             raise ValueError(
                 f"Multiple documents return for {task_id}, this should not happen, please report it!"
             )
-        warnings.warn(
+        logger.warning(
             f"No material found containing task {task_id}. "
-            "Please report it if you suspect a task has gone missing.",
-            category=MPRestWarning,
-            stacklevel=2,
+            "Please report it if you suspect a task has gone missing."
         )
         return None
 
@@ -485,7 +653,7 @@ class MPRester(_Rester):
         """Get all materials ids for a formula or chemsys.
 
         Args:
-            chemsys_formula (str, List[str]): A chemical system, list of chemical systems
+            chemsys_formula (str | list[str]): A chemical system, list of chemical systems
             (e.g., Li-Fe-O, Si-*, [Si-O, Li-Fe-P]), or single formula (e.g., Fe2O3, Si*).
 
         Returns:
@@ -512,7 +680,7 @@ class MPRester(_Rester):
         """Get a list of Structures corresponding to a chemical system or formula.
 
         Args:
-            chemsys_formula (str, List[str]): A chemical system, list of chemical systems
+            chemsys_formula (str | list[str]): A chemical system, list of chemical systems
                 (e.g., Li-Fe-O, Si-*, [Si-O, Li-Fe-P]), or single formula (e.g., Fe2O3, Si*).
             final (bool): Whether to get the final structure, or the list of initial
                 (pre-relaxation) structures. Defaults to True.
@@ -596,14 +764,21 @@ class MPRester(_Rester):
 
         This returns a list of ComputedStructureEntry with final structures for all thermo types
         represented in the database. Each type corresponds to a different mixing scheme
-        (i.e. GGA/GGA+U, GGA/GGA+U/R2SCAN, R2SCAN). By default the thermo_type of the
-        entry is also returned.
+        (i.e. GGA/GGA+U, GGA/GGA+U/R2SCAN, R2SCAN).
+
+        Entries from different thermo types can share an ``entry_id`` and differ only
+        in their energy adjustments: e.g. the R2SCAN and GGA/GGA+U/R2SCAN entries of a
+        material are the same r2SCAN calculation, the latter with the mixing correction
+        applied. To get the entries of a single thermo type, pass it in
+        ``additional_criteria``, e.g. ``{"thermo_types": ["GGA_GGA+U_R2SCAN"]}``.
 
         Args:
-            chemsys_formula_mpids (str, List[str]): A chemical system, list of chemical systems
+            chemsys_formula_mpids (str | list[str]): A chemical system, list of chemical systems
                 (e.g., Li-Fe-O, Si-*, [Si-O, Li-Fe-P]), formula, list of formulas
                 (e.g., Fe2O3, Si*, [SiO2, BiFeO3]), Materials Project ID, or list of Materials
-                Project IDs (e.g., mp-22526, [mp-22526, mp-149]).
+                Project IDs (e.g., mp-22526, [mp-22526, mp-149]). A list may mix these
+                kinds (e.g., [Li-O, Fe2O3, mp-149]): each kind is queried separately and
+                the entries are combined. Invalid IDs are skipped with a warning.
             compatible_only (bool): Whether to return only "compatible"
                 entries. Compatible entries are entries that have been
                 processed using the MaterialsProject2020Compatibility class,
@@ -625,26 +800,18 @@ class MPRester(_Rester):
             List ComputedStructureEntry objects.
         """
         if kwargs.pop("inc_structure", None) is not None:
-            warnings.warn(
+            mp_deprecation(
                 "The `inc_structure` argument is deprecated as final structures "
                 "are always included in all returned ComputedStructureEntry objects.",
-                category=DeprecationWarning,
                 stacklevel=2,
             )
 
         if isinstance(chemsys_formula_mpids, str):
             chemsys_formula_mpids = [chemsys_formula_mpids]
 
-        try:
-            input_params = {"material_ids": validate_ids(chemsys_formula_mpids)}
-        except ValueError:
-            if any("-" in entry for entry in chemsys_formula_mpids):
-                input_params = {"chemsys": chemsys_formula_mpids}
-            else:
-                input_params = {"formula": chemsys_formula_mpids}
-
-        if additional_criteria:
-            input_params = {**input_params, **additional_criteria}
+        by_kind = _classify_chemsys_formula_ids(chemsys_formula_mpids)
+        if by_kind.get("material_ids"):  # report invalid IDs here, before any query
+            by_kind["material_ids"] = validate_ids(by_kind["material_ids"])
 
         entries: set[ComputedStructureEntry] = set()
 
@@ -654,11 +821,16 @@ class MPRester(_Rester):
             else ["entries", "thermo_type"] + property_data
         )
 
-        docs = self.materials.thermo.search(
-            **input_params,  # type: ignore
-            all_fields=False,
-            fields=fields,
-        )
+        # One query per kind of input (a query matches all of its filters)
+        docs = [
+            doc
+            for kind, values in by_kind.items()
+            for doc in self.materials.thermo.search(
+                **{kind: values, **(additional_criteria or {})},  # type: ignore[arg-type]
+                all_fields=False,
+                fields=fields,
+            )
+        ]
 
         for doc in docs:
             entry_list = (doc.model_dump() if isinstance(doc, BaseModel) else doc)[
@@ -675,30 +847,15 @@ class MPRester(_Rester):
                 ):  # merge property_data, retaining entry data (e.g. `oxidation_states`)
                     entry_dict["data"] |= {prop: doc[prop] for prop in property_data}
 
-                if conventional_unit_cell:
-                    entry_struct = Structure.from_dict(entry_dict["structure"])
-                    s = SpacegroupAnalyzer(
-                        entry_struct
-                    ).get_conventional_standard_structure()
-                    site_ratio = len(s) / len(entry_struct)
-                    new_energy = entry_dict["energy"] * site_ratio
-
-                    entry_dict["energy"] = new_energy
-                    entry_dict["structure"] = s.as_dict()
-                    entry_dict["correction"] = 0.0
-
-                    for element in entry_dict["composition"]:
-                        entry_dict["composition"][element] *= site_ratio
-
-                    for correction in entry_dict["energy_adjustments"]:
-                        if "n_atoms" in correction:
-                            correction["n_atoms"] *= site_ratio
-
                 # Need to store object to permit de-duplication
                 entries.add(
                     TypeAdapter(ComputedStructureEntryType).validate_python(entry_dict)
                 )
 
+        if conventional_unit_cell:
+            return rescale_to_conventional(
+                list(entries), enabled=not self.mute_progress_bars
+            )
         return list(entries)
 
     def get_pourbaix_entries(
@@ -829,20 +986,23 @@ class MPRester(_Rester):
             )
             compat = MaterialsProjectAqueousCompatibility(solid_compat=solid_compat)
         # suppress the warning about missing oxidation states
+        n = len(ion_ref_entries)
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore", message="Failed to guess oxidation states.*"
             )
-            ion_ref_entries = compat.process_entries(ion_ref_entries)  # type: ignore
+            ion_ref_entries = apply_corrections(
+                compat,
+                ion_ref_entries,
+                description="Applying aqueous corrections",
+                log=f"Applying aqueous corrections to {n:,} ion reference entries",
+                summary=f"Applied aqueous corrections to {n:,} entries ({{kept:,}} kept)",
+                enabled=not self.mute_progress_bars,
+            )
         # TODO - if the commented line above would work, this conditional block
         # could be removed
         if use_gibbs:
-            # replace the entries with GibbsComputedStructureEntry
-            from pymatgen.entries.computed_entries import GibbsComputedStructureEntry
-
-            ion_ref_entries = GibbsComputedStructureEntry.from_entries(
-                ion_ref_entries, temp=use_gibbs
-            )
+            ion_ref_entries = self._to_gibbs_entries(ion_ref_entries, use_gibbs)  # type: ignore[arg-type]
         ion_ref_pd = PhaseDiagram(ion_ref_entries)  # type: ignore
 
         ion_entries = self.get_ion_entries(ion_ref_pd, ion_ref_data=ion_data)
@@ -1089,6 +1249,22 @@ class MPRester(_Rester):
             )
         ]
 
+    _get_conventional_cell_entry = staticmethod(get_conventional_cell_entry)
+
+    def _to_gibbs_entries(
+        self, entries: Sequence[ComputedStructureEntry], temp: float
+    ) -> list[GibbsComputedStructureEntry]:
+        """Replace `entries` with GibbsComputedStructureEntry estimates at `temp` K."""
+        from pymatgen.entries.computed_entries import GibbsComputedStructureEntry
+
+        # pymatgen builds a phase diagram and converts each entry internally,
+        # with no hook to count progress, so this is a status line:
+        with status(
+            f"Estimating Gibbs free energies at {temp:g} K for {len(entries):,} entries...",
+            enabled=not self.mute_progress_bars,
+        ):
+            return GibbsComputedStructureEntry.from_entries(list(entries), temp=temp)
+
     def get_entries_in_chemsys(
         self,
         elements: str | list[str],
@@ -1110,11 +1286,16 @@ class MPRester(_Rester):
 
         Mixed entries are taken from the MP-built phase diagram for the whole chemical
         system, so they share one energy scale and reproduce the hull shown on
-        https://materialsproject.org. Narrowing the query with `additional_criteria`,
-        or passing ``compatible_only = False``, cannot be served that way and returns
-        entries that are *not* immediately suitable for constructing a phase diagram;
-        ``property_data`` and ``conventional_unit_cell`` re-apply the mixing scheme here
-        instead, which can differ slightly from MP. Warnings are thrown for these cases.
+        https://materialsproject.org; ``property_data`` fields are attached to the
+        served entries after the fact, and any further ``additional_criteria`` narrow
+        the served entries to the materials matching them (with MP's own semantics,
+        i.e. ``is_stable`` / ``energy_above_hull`` refer to each material's `own` thermo
+        doc; entries with no mixed-type thermo doc, which can occur when the mixing
+        scheme is re-applied locally when MP has no pre-built diagram, are then dropped).
+        Passing ``compatible_only = False`` cannot be served that way and returns
+        entries that are *not* immediately suitable for constructing a phase diagram,
+        with a warning. When MP has no pre-built diagram for the system, the mixing
+        scheme is re-applied locally (logged as a warning, with a progress bar).
 
         Args:
             elements (str or [str]): Parent chemical system string comprising element
@@ -1159,17 +1340,6 @@ class MPRester(_Rester):
 
         all_chemsyses = _all_subchemsyses(elements_set)
 
-        if additional_criteria is None:
-            warnings.warn(
-                "The default thermo type when retrieving entries has been changed from "
-                "the mixed/corrected PBE GGA and GGA+U hull (`thermo_type = GGA_GGA+U`) "
-                "to the joint PBE GGA / GGA+U / r2SCAN hull (`thermo_type = GGA_GGA+U_R2SCAN`). "
-                "To use the older behavior, call `get_entries_in_chemsys` with "
-                '`additional_criteria = {"thermo_types": ["GGA_GGA+U"]}`',
-                category=MPRestWarning,
-                stacklevel=2,
-            )
-
         additional_criteria = {
             **DEFAULT_THERMOTYPE_CRITERIA,
             **(additional_criteria or {}),
@@ -1181,56 +1351,90 @@ class MPRester(_Rester):
         # (issue #1104). Thus we serve MP's phase diagram; built with mixing applied across the
         # full system, thus self-consistent by construction and identical to the MP website:
         mixed = set(additional_criteria["thermo_types"]) == {"GGA_GGA+U_R2SCAN"}
-        consistent = (
-            mixed and compatible_only and set(additional_criteria) == {"thermo_types"}
-        )
+        consistent = mixed and compatible_only
+        extra_criteria = {
+            k: v for k, v in additional_criteria.items() if k != "thermo_types"
+        }
 
         entries: list[ComputedStructureEntry] | None = None
         if consistent:
-            if not (property_data or conventional_unit_cell):
-                phase_diagram = self.materials.thermo.get_phase_diagram_from_chemsys(
-                    "-".join(sorted(elements_set)),
-                    thermo_type=additional_criteria["thermo_types"][0],
-                )  # default, mixed thermotype; takes a single type, not a list
-                if phase_diagram is not None:
-                    entries = list(phase_diagram.all_entries)
+            phase_diagram = self.materials.thermo.get_phase_diagram_from_chemsys(
+                "-".join(sorted(elements_set)),
+                thermo_type=additional_criteria["thermo_types"][0],
+            )  # default, mixed thermotype; takes a single type, not a list
+            if phase_diagram is not None:
+                entries = list(phase_diagram.all_entries)
+
+                if property_data:  # decorate the served entries post-hoc
+                    docs = self.materials.thermo.search(
+                        chemsys=all_chemsyses,
+                        thermo_types=additional_criteria["thermo_types"],
+                        all_fields=False,
+                        fields=["material_id", *property_data],
+                    )
+                    props = {
+                        str(doc["material_id"]): {p: doc[p] for p in property_data}
+                        for doc in docs
+                    }
+                    for entry in entries:  # served entries carry `material_id`
+                        entry.data |= props[str(entry.data["material_id"])]
 
             if entries is None:
-                # MP has no pre-built diagram for this system, or the entries need reshaping
-                # first, so redo the mixing here as MP does when building PDs. Mixing scheme
-                # is chemical-system dependent, so this can anchor on a different hull than
-                # MP did/would, and it drops entries it cannot place:
-                from pymatgen.entries.mixing_scheme import (
-                    MaterialsProjectDFTMixingScheme,
+                # MP has no pre-built diagram for this system, so redo the mixing here as MP does when
+                # building PDs. Mixing scheme is chemical-system dependent, so this can anchor on a
+                # different hull than MP did/would, and it drops entries it cannot place.
+                # A data event the caller can't change, so a log record (not a warning):
+                MaterialsProjectDFTMixingScheme = mixing_scheme_class()
+
+                chemsys = "-".join(sorted(elements_set))
+                logger.warning(
+                    f"The Materials Project has no pre-built phase diagram for {chemsys}, "
+                    "so a common energy scale is being reconstructed locally with the "
+                    "GGA(+U)/r2SCAN mixing scheme. Energies and hull distances may differ "
+                    "slightly from https://materialsproject.org, and entries the mixing "
+                    "scheme cannot place are dropped."
+                )
+                unmixed = self._get_unmixed_entries(
+                    all_chemsyses, property_data=property_data, **kwargs
+                )
+                n = len(unmixed)
+                entries = apply_corrections(
+                    MaterialsProjectDFTMixingScheme(),
+                    unmixed,
+                    description="Re-mixing GGA(+U)/r2SCAN entries",
+                    log=f"Re-mixing {n:,} GGA(+U)/r2SCAN entries onto a common energy scale",
+                    summary=f"Re-mixed {n:,} entries onto a common energy scale "
+                    "({kept:,} kept)",
+                    enabled=not self.mute_progress_bars,
                 )
 
-                warnings.warn(
-                    "Reconstructing a common energy scale for these entries with the "
-                    "GGA(+U)/r2SCAN mixing scheme, as the Materials Project has no pre-built "
-                    "phase diagram to serve for this query. Energies and hull distances may "
-                    "differ slightly from https://materialsproject.org, and entries the mixing "
-                    "scheme cannot place are dropped.",
-                    category=MPRestWarning,
-                    stacklevel=2,
-                )
-                entries = MaterialsProjectDFTMixingScheme().process_entries(
-                    self._get_unmixed_entries(
-                        all_chemsyses,
-                        property_data=property_data,
-                        conventional_unit_cell=conventional_unit_cell,
-                        **kwargs,
+            if extra_criteria:
+                # narrow the common-scale entries post-hoc, with MP's own criteria semantics
+                # (querying with the criteria directly returns per-material corrected entries
+                # which do not share a common energy scale):
+                matching_ids = {
+                    str(doc["material_id"])
+                    for doc in self.materials.thermo.search(
+                        chemsys=all_chemsyses,
+                        thermo_types=additional_criteria["thermo_types"],
+                        all_fields=False,
+                        fields=["material_id"],
+                        **extra_criteria,
                     )
-                )
+                }
+                entries = [
+                    entry
+                    for entry in entries
+                    if str(entry.data["material_id"]) in matching_ids
+                ]
         else:  # non-consistent
             if mixed:
-                warnings.warn(
+                mp_warning(
                     "Mixed GGA(+U)/r2SCAN entries can only be placed on a common energy scale "
-                    "when the whole chemical system is retrieved with `compatible_only = True`, "
-                    "so these entries are not suitable for constructing a phase diagram. Either "
-                    "drop the extra `additional_criteria` (and filter the returned entries "
-                    "instead), or request a single functional with "
+                    "with `compatible_only = True`, so these uncorrected entries are not "
+                    "suitable for constructing a phase diagram. Either use "
+                    "`compatible_only = True`, or request a single functional with "
                     '`additional_criteria = {"thermo_types": ["GGA_GGA+U"]}`.',
-                    category=MPRestWarning,
                     stacklevel=2,
                 )
 
@@ -1238,16 +1442,19 @@ class MPRester(_Rester):
                 all_chemsyses,
                 compatible_only=compatible_only,
                 property_data=property_data,
-                conventional_unit_cell=conventional_unit_cell,
                 additional_criteria=additional_criteria,
                 **kwargs,
             )
 
-        if use_gibbs:
-            # replace the entries with GibbsComputedStructureEntry
-            from pymatgen.entries.computed_entries import GibbsComputedStructureEntry
+        if conventional_unit_cell:
+            # reshaped here rather than in the queries above, so that structure matching in the mixing
+            # scheme sees the original cells, and so that every energy adjustment is scaled appropriately:
+            entries = rescale_to_conventional(
+                entries, enabled=not self.mute_progress_bars
+            )
 
-            return GibbsComputedStructureEntry.from_entries(entries, temp=use_gibbs)
+        if use_gibbs:
+            return self._to_gibbs_entries(entries, use_gibbs)
 
         return entries
 
@@ -1268,7 +1475,7 @@ class MPRester(_Rester):
                 bandstructure, if available.
 
         Returns:
-            bandstructure (Union[BandStructure, BandStructureSymmLine]): BandStructure or BandStructureSymmLine object
+            bandstructure (BandStructure | BandStructureSymmLine): BandStructure or BandStructureSymmLine object
         """
         return self.materials.electronic_structure_bandstructure.get_bandstructure_from_material_id(  # type: ignore
             material_id=material_id,
@@ -1437,12 +1644,11 @@ class MPRester(_Rester):
             NoMaD repository. Each zip archive will contain a manifest.json with
             metadata info, e.g. the task/external_ids that belong to a directory.
         """
-        warnings.warn(
+        mp_warning(
             "Full downloads of raw data are being transitioned to "
             "Materials Project's AWS S3 OpenData buckets. "
             "These features for accessing legacy raw data via NOMAD "
             "are maintained but may not be supported in the future.",
-            category=MPRestWarning,
             stacklevel=2,
         )
 
@@ -1540,12 +1746,10 @@ class MPRester(_Rester):
     @staticmethod
     def _print_help_message(nomad_exist_task_ids, task_ids, file_patterns, calc_types):
         non_exist_ids = set(task_ids) - set(nomad_exist_task_ids)
-        warnings.warn(
+        logger.warning(
             f"For file patterns [{file_patterns}] and calc_types [{calc_types}], \n"
             f"the following ids are not found on NOMAD [{list(non_exist_ids)}]. \n"
-            f"If you need to upload them, please contact Patrick Huck at phuck@lbl.gov",
-            category=MPRestWarning,
-            stacklevel=2,
+            f"If you need to upload them, please contact Patrick Huck at phuck@lbl.gov"
         )
 
     def query(*args, **kwargs):
@@ -1752,7 +1956,7 @@ class MPRester(_Rester):
             corrector = MaterialsProject2020Compatibility()
 
         elif thermo_type_valid_str == ThermoType.GGA_GGA_U_R2SCAN.value:
-            from pymatgen.entries.mixing_scheme import MaterialsProjectDFTMixingScheme
+            MaterialsProjectDFTMixingScheme = mixing_scheme_class()
 
             corrector = MaterialsProjectDFTMixingScheme(run_type_2="r2SCAN")
 
@@ -1764,11 +1968,9 @@ class MPRester(_Rester):
             pd = None
 
         if not pd:
-            warnings.warn(
+            logger.warning(
                 f"No phase diagram data available for chemical system {chemsys_str} "
-                f"and thermo type {thermo_type_valid_str}.",
-                category=MPRestWarning,
-                stacklevel=2,
+                f"and thermo type {thermo_type_valid_str}."
             )
             return None
 
@@ -1783,11 +1985,31 @@ class MPRester(_Rester):
         # side by side), and silently drops every entry it cannot pair up -- so we fetch
         # separately in the mixed case
 
-        new_pd = PhaseDiagram(
-            corrector.process_entries(joint_entries)  # type: ignore[arg-type]
-            if corrector
-            else joint_entries  # type: ignore[list-item]
-        )
+        if corrector is None:
+            processed = list(joint_entries)
+        else:
+            n_mp = len(joint_entries) - len(entries)
+            mixing = thermo_type_valid_str == ThermoType.GGA_GGA_U_R2SCAN.value
+            action = "Re-mixing" if mixing else "Correcting"
+            processed = apply_corrections(
+                corrector,
+                joint_entries,
+                description=f"{action} your entries with MP's",
+                log=(
+                    f"{action} {len(entries):,} of your entries with {n_mp:,} MP entries "
+                    + (
+                        "onto a common GGA(+U)/r2SCAN energy scale"
+                        if mixing
+                        else f"using {type(corrector).__name__}"
+                    )
+                ),
+                summary=(
+                    f"{'Re-mixed' if mixing else 'Corrected'} {len(joint_entries):,} "
+                    "entries ({kept:,} kept)"
+                ),
+                enabled=not self.mute_progress_bars,
+            )
+        new_pd = PhaseDiagram(processed)  # type: ignore[arg-type]
 
         return [
             {
@@ -1864,7 +2086,7 @@ class MPRester(_Rester):
         )
 
     def _db_version_check(self) -> None:
-        """Check if the database version has drifted."""
+        """Print the database version and note if it has changed since last use."""
         import yaml  # type: ignore[import-untyped]
 
         old_db_version = None
@@ -1877,15 +2099,23 @@ class MPRester(_Rester):
             if not isinstance(old_db_version, str):
                 old_db_version = None
 
+        if old_db_version and old_db_version != self.db_version:
+            print_notice(
+                "Materials Project database version changed: "
+                f"v{old_db_version} → v{self.db_version}",
+                style="mp.warning",
+            )
+        else:
+            print_notice(f"Materials Project database version: v{self.db_version}")
+
         if old_db_version != self.db_version:
             MAPI_CLIENT_SETTINGS.LOG_FILE.write_text(
                 yaml.safe_dump({"MAPI_DB_VERSION": self.db_version})
             )
 
             if old_db_version:
-                warnings.warn(
+                mp_warning(
                     "Materials Project database version has changed "
                     f"from v{old_db_version} to v{self.db_version}.",
-                    category=MPRestWarning,
                     stacklevel=2,
                 )

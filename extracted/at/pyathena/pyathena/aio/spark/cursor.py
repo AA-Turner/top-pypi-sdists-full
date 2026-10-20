@@ -10,11 +10,12 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import uuid
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from pyathena.aio.util import async_retry_api_call
+from pyathena.aio.util import async_retry_api_call, create_in_thread, run_in_thread
 from pyathena.error import DatabaseError, NotSupportedError, OperationalError, ProgrammingError
 from pyathena.model import (
     AthenaCalculationExecution,
@@ -22,7 +23,10 @@ from pyathena.model import (
     AthenaQueryExecution,
 )
 from pyathena.spark.common import SparkBaseCursor, WithCalculationExecution
-from pyathena.util import override, parse_output_location
+from pyathena.util import override
+
+if TYPE_CHECKING:
+    from pyathena.connection import Connection
 
 _logger = logging.getLogger(__name__)
 
@@ -33,23 +37,50 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
     Overrides post-init I/O methods of ``SparkBaseCursor`` with async
     equivalents.  Session management (``_exists_session``,
     ``_start_session``, etc.) stays synchronous because ``__init__``
-    runs inside ``asyncio.to_thread``.
+    runs in a thread.
 
     Since ``SparkBaseCursor.__init__`` performs I/O (session management),
-    cursor creation must be wrapped in ``asyncio.to_thread``::
+    create the cursor with :meth:`create`, which runs it in a thread::
 
-        cursor = await asyncio.to_thread(conn.cursor)
+        cursor = await AioSparkCursor.create(conn)
 
     Example:
-        >>> import asyncio
         >>> async with await pyathena.aio_connect(
         ...     work_group="spark-workgroup",
         ...     cursor_class=AioSparkCursor,
         ... ) as conn:
-        ...     cursor = await asyncio.to_thread(conn.cursor)
+        ...     cursor = await AioSparkCursor.create(conn)
         ...     await cursor.execute("spark.sql('SELECT 1').show()")
         ...     print(await cursor.get_std_out())
     """
+
+    @classmethod
+    async def create(cls, connection: Connection[Any], **kwargs: Any) -> AioSparkCursor:
+        """Create a cursor with ``connection.cursor()`` in a thread.
+
+        The cursor starts or attaches to its Spark session as ``__init__``
+        describes, without blocking the event loop. If the caller is
+        cancelled, a cursor built after the cancellation terminates the
+        session as :meth:`close` would, also if the caller is cancelled
+        again (see :func:`~pyathena.aio.util.create_in_thread`).
+
+        Args:
+            connection: The connection of the cursor.
+            **kwargs: Arguments for ``connection.cursor()``, which override
+                the connection's ``cursor_kwargs``.
+
+        Returns:
+            The cursor.
+
+        Raises:
+            OperationalError: If the supplied session does not exist, or the
+                session cannot be started or does not become idle.
+        """
+        return await create_in_thread(
+            functools.partial(connection.cursor, cls, **kwargs),
+            # The blocking close of the base class, for a cursor that nobody awaits.
+            release=SparkBaseCursor.close,
+        )
 
     @property
     @override
@@ -278,20 +309,29 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
                 self._connection.client.stop_calculation_execution,
                 config=self._retry_config,
                 logger=_logger,
+                stoppable=False,
                 **request,
             )
         except Exception as e:
             _logger.exception("Failed to cancel calculation.")
             raise OperationalError(*e.args) from e
 
-    @override
-    async def _terminate_session(self) -> None:  # type: ignore[override]
+    async def _terminate_session(self) -> None:
+        """Terminate the cursor's Spark session with ``TerminateSession``.
+
+        The asyncio counterpart of ``_terminate_session_by_id()``, which the
+        blocking close uses. Cancellation does not stop its retries.
+
+        Raises:
+            OperationalError: If the request fails.
+        """
         request: dict[str, Any] = {"SessionId": self._session_id}
         try:
             await async_retry_api_call(
                 self._connection.client.terminate_session,
                 config=self._retry_config,
                 logger=_logger,
+                stoppable=False,
                 **request,
             )
         except Exception as e:
@@ -299,16 +339,8 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
             raise OperationalError(*e.args) from e
 
     @override
-    async def _read_s3_file_as_text(self, uri) -> str:  # type: ignore[override]
-        bucket, key = parse_output_location(uri)
-        response = await async_retry_api_call(
-            self._client.get_object,
-            config=self._retry_config,
-            logger=_logger,
-            Bucket=bucket,
-            Key=key,
-        )
-        return cast(str, response["Body"].read().decode("utf-8").strip())
+    async def _read_s3_file_as_text(self, uri: str) -> str:  # type: ignore[override]
+        return await run_in_thread(super()._read_s3_file_as_text, uri)
 
     # --- public API ---
 
@@ -317,7 +349,12 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
 
         Returns:
             The standard output as a string, or None if no output is available.
+
+        Raises:
+            ProgrammingError: If the cursor is closed.
+            OperationalError: If reading the file from S3 fails.
         """
+        self._ensure_open()
         if not self._calculation_execution or not self._calculation_execution.std_out_s3_uri:
             return None
         return await self._read_s3_file_as_text(self._calculation_execution.std_out_s3_uri)
@@ -327,7 +364,12 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
 
         Returns:
             The standard error as a string, or None if no error output is available.
+
+        Raises:
+            ProgrammingError: If the cursor is closed.
+            OperationalError: If reading the file from S3 fails.
         """
+        self._ensure_open()
         if not self._calculation_execution or not self._calculation_execution.std_error_s3_uri:
             return None
         return await self._read_s3_file_as_text(self._calculation_execution.std_error_s3_uri)
@@ -360,7 +402,9 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
             TypeError: If an unknown keyword argument is given.
             NotSupportedError: If ``parameters`` is not None.
             OperationalError: If the calculation does not complete successfully.
+            ProgrammingError: If the cursor is closed.
         """
+        self._ensure_open()
         self._validate_execute_kwargs(kwargs)
         if parameters is not None:
             raise NotSupportedError("Spark cursors do not support parameters.")
@@ -385,8 +429,9 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
         """Cancel the currently running calculation.
 
         Raises:
-            ProgrammingError: If no calculation is running.
+            ProgrammingError: If the cursor is closed or no calculation is running.
         """
+        self._ensure_open()
         if not self.calculation_id:
             raise ProgrammingError("CalculationExecutionId is none or empty.")
         await self._cancel(self.calculation_id)
@@ -399,9 +444,12 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
         further calls do not terminate the session again; after a failed one,
         calling this method again retries it.
 
+        Later operations on the cursor raise ``ProgrammingError``.
+
         Raises:
             OperationalError: If terminating the session fails.
         """
+        self._closed = True
         if self._terminate_session_on_close:
             await self._terminate_session()
             # Terminated; later calls do nothing.
@@ -414,12 +462,25 @@ class AioSparkCursor(SparkBaseCursor, WithCalculationExecution):
         seq_of_parameters: list[dict[str, Any] | list[str] | None],
         **kwargs,
     ) -> None:
+        """Reject ``executemany()``, which Spark cursors do not support.
+
+        Args:
+            operation: The code to run.
+            seq_of_parameters: Sequence of parameter sets.
+            **kwargs: Additional arguments.
+
+        Raises:
+            NotSupportedError: If the cursor is open.
+            ProgrammingError: If the cursor is closed.
+        """
+        self._ensure_open()
         raise NotSupportedError
 
     def __aiter__(self):
         return self
 
     async def __anext__(self):
+        self._ensure_open()
         raise StopAsyncIteration
 
     async def __aenter__(self):

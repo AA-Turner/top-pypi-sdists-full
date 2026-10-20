@@ -91,7 +91,11 @@ def test_no_orchestrator_gate_builds_a_user_turn_by_hand():
     offenders: list[str] = []
     for path in (root / "orchestrator").rglob("*.py"):
         source = path.read_text(encoding="utf-8")
-        for match in re.finditer(r"UnifiedMessage\(\s*role=\"user\"", source):
+        # ``append_user_message`` / ``append_user_text`` build the same bare user turn one
+        # call away (recovery_logic's retry notice did, census C7 2026-10-17).
+        for match in re.finditer(
+            r"UnifiedMessage\(\s*role=\"user\"|\.append_user_(?:message|text)\(", source
+        ):
             line = source.count("\n", 0, match.start()) + 1
             offenders.append(f"{path.relative_to(root)}:{line}")
     assert offenders == [], (

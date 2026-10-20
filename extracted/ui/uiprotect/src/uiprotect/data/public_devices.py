@@ -64,6 +64,7 @@ from .types import (
     FobButton,
     FobButtonLabels,
     LightModeEnableType,
+    LightModePreset,
     LightModeType,
     LiveviewCycleMode,
     ModelType,
@@ -1179,6 +1180,16 @@ class PublicLightDeviceSettings(ProtectBaseObject):
         return None if self.pir_duration is None else round(self.pir_duration / 1000)
 
 
+_LIGHT_MODE_PRESET_SETTINGS: dict[
+    LightModePreset, tuple[LightModeType, LightModeEnableType | None]
+] = {
+    LightModePreset.MOTION: (LightModeType.MOTION, LightModeEnableType.ALWAYS),
+    LightModePreset.MOTION_DARK: (LightModeType.MOTION, LightModeEnableType.DARK),
+    LightModePreset.WHEN_DARK: (LightModeType.WHEN_DARK, LightModeEnableType.DARK),
+    LightModePreset.OFF: (LightModeType.MANUAL, None),
+}
+
+
 class PublicLight(PublicDeviceModel):
     """Public API light device (``GET /v1/lights``)."""
 
@@ -1199,6 +1210,21 @@ class PublicLight(PublicDeviceModel):
     def last_motion_dt(self) -> datetime | None:
         """``last_motion`` as a timezone-aware UTC ``datetime``."""
         return convert_to_datetime(self.last_motion)
+
+    @property
+    def light_mode_preset(self) -> LightModePreset | None:
+        """Trigger as shown in the Protect app, ``None`` for unmapped settings."""
+        settings = self.light_mode_settings
+        if settings.mode is LightModeType.MANUAL:
+            return LightModePreset.OFF
+        if settings.mode is LightModeType.WHEN_DARK:
+            return LightModePreset.WHEN_DARK
+        if settings.mode is LightModeType.MOTION:
+            if settings.enable_at is LightModeEnableType.DARK:
+                return LightModePreset.MOTION_DARK
+            if settings.enable_at in (LightModeEnableType.ALWAYS, None):
+                return LightModePreset.MOTION
+        return None
 
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
@@ -1308,6 +1334,11 @@ class PublicLight(PublicDeviceModel):
             )
             self._apply_from_response(updated)
         return self
+
+    async def set_light_mode_preset(self, preset: LightModePreset) -> PublicLight:
+        """Set the Protect app trigger preset; ``OFF`` keeps ``enable_at``."""
+        mode, enable_at = _LIGHT_MODE_PRESET_SETTINGS[LightModePreset(preset)]
+        return await self.set_light_mode(mode, enable_at)
 
     async def set_light_settings(
         self,
@@ -1839,6 +1870,13 @@ class PublicChime(PublicDeviceModel):
     camera_ids: list[str] = Field(default_factory=list)
     ring_settings: list[PublicRingSettings] = Field(default_factory=list)
 
+    def get_ring_setting(self, camera_id: str) -> PublicRingSettings | None:
+        """Return the ring setting for the given camera, or ``None`` if not paired."""
+        for rs in self.ring_settings:
+            if rs.camera_id == camera_id:
+                return rs
+        return None
+
     async def _api_update(self, data: dict[str, Any]) -> None:
         raise BadRequest(
             "Chime mutations must go through the dedicated public API helpers "
@@ -1896,21 +1934,43 @@ class PublicChime(PublicDeviceModel):
             self._apply_from_response(updated)
         return self
 
+    async def set_volume_for_all_cameras(self, level: int) -> PublicChime:
+        """Set the ring volume for every paired camera via the public API."""
+        level = _coerce_public_int("volume", level, _PUBLIC_RING_VOLUME_RANGE)
+        async with self._update_sync.lock:
+            if not self.ring_settings:
+                return self
+            body = self._ring_settings_body(None, volume=level)
+            updated = await self._api.update_chime_public(self.id, ring_settings=body)
+            self._apply_from_response(updated)
+        return self
+
+    async def set_repeat_times_for_all_cameras(self, value: int) -> PublicChime:
+        """Set the ring repeat count for every paired camera via the public API."""
+        value = _coerce_public_int("repeat_times", value, _PUBLIC_RING_REPEAT_RANGE)
+        async with self._update_sync.lock:
+            if not self.ring_settings:
+                return self
+            body = self._ring_settings_body(None, repeat_times=value)
+            updated = await self._api.update_chime_public(self.id, ring_settings=body)
+            self._apply_from_response(updated)
+        return self
+
     def _ring_settings_body(
         self,
-        camera_id: str,
+        camera_id: str | None,
         *,
         volume: int | None = None,
         repeat_times: int | None = None,
     ) -> list[PublicApiChimeRingSettingRequest]:
-        """Build a full ring-settings PATCH body overriding one camera's entry."""
-        if not any(rs.camera_id == camera_id for rs in self.ring_settings):
+        """Build a full ring-settings PATCH body; ``None`` overrides every entry."""
+        if camera_id is not None and self.get_ring_setting(camera_id) is None:
             raise BadRequest(f"Camera {camera_id} is not paired with chime")
         body: list[PublicApiChimeRingSettingRequest] = []
         for rs in self.ring_settings:
             if not rs.ringtone_id:
                 raise ChimeRingtoneNotSetError(rs.camera_id or "")
-            override = rs.camera_id == camera_id
+            override = camera_id is None or rs.camera_id == camera_id
             entry: PublicApiChimeRingSettingRequest = {
                 "cameraId": rs.camera_id or "",
                 "ringtoneId": rs.ringtone_id,
@@ -2425,6 +2485,27 @@ class LinkStation(PublicDeviceModel):
             for key, value in raw.items()
             if isinstance(key, str) and key.isdigit() and isinstance(value, dict)
         }
+
+    def get_alarm_hub_input(self, input_id: int) -> AlarmHubInput | None:
+        """Return the input zone with the given id, or ``None`` if not found."""
+        if (raw := self._alarm_hub_zone("input", input_id)) is None:
+            return None
+        return AlarmHubInput.from_unifi_dict(**raw)
+
+    def get_alarm_hub_output(self, output_id: int) -> AlarmHubOutput | None:
+        """Return the output channel with the given id, or ``None`` if not found."""
+        if (raw := self._alarm_hub_zone("output", output_id)) is None:
+            return None
+        return AlarmHubOutput.from_unifi_dict(**raw)
+
+    def _alarm_hub_zone(self, section: str, zone_id: int) -> dict[str, Any] | None:
+        if not self.is_alarm_hub or self.alarm_hub is None:
+            return None
+        raw = self.alarm_hub.get(section)
+        if not isinstance(raw, dict):
+            return None
+        value = raw.get(str(zone_id))
+        return value if isinstance(value, dict) else None
 
 
 class PublicArmSchedule(ProtectBaseObject):

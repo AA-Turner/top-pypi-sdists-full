@@ -9,6 +9,9 @@ pub const CONNECTION_SOURCE_KEY: &str = "source";
 pub const DBT_PROFILE_CONNECTION_SOURCE: &str = "dbt_profile";
 pub const DUCKDB_ADAPTER: &str = "duckdb";
 pub const DUCKDB_MEMORY_DATABASE: &str = ":memory:";
+/// Adapters whose connection names a local database file, and the key that names it.
+pub const LOCAL_DATABASE_PATH_KEYS: [(&str, &str); 2] =
+    [(DUCKDB_ADAPTER, "database"), ("sqlite", "path")];
 pub const LOCAL_CONFIG_FILENAME: &str = "sqlbuild_local.toml";
 /// Connection keys a dbt profile connection routes on rather than connects with.
 pub const DBT_PROFILE_ROUTING_KEYS: [&str; 5] =
@@ -22,7 +25,7 @@ pub(crate) const SETTING_SNIPPET_INDENT: &str = "            ";
 /// Two quotes around at least one character.
 pub(crate) const MIN_QUOTED_IDENTIFIER_LENGTH: usize = 3;
 /// The warehouse group each CLI command selects a target's default warehouse from.
-pub const COMMAND_WAREHOUSE_GROUPS: [(&str, Option<&str>); 29] = [
+pub const COMMAND_WAREHOUSE_GROUPS: [(&str, Option<&str>); 30] = [
     ("audit", Some("build")),
     ("build", Some("build")),
     ("check", Some("build")),
@@ -37,6 +40,7 @@ pub const COMMAND_WAREHOUSE_GROUPS: [(&str, Option<&str>); 29] = [
     ("diff", Some("query")),
     ("freshness", Some("query")),
     ("query", Some("query")),
+    ("recall", Some("query")),
     ("janitor", Some("query")),
     ("scenario", Some("query")),
     ("test", Some("query")),

@@ -112,9 +112,9 @@ class AgentBudget(BaseModel):
         default=None,
         alias="maxCostDollars",
         description=(
-            "Maximum spend for the run in US dollars. Only accepted by the API "
-            "for `auto` and `ultra`; the server validates the allowed range and "
-            "applies defaults when omitted."
+            "Maximum spend for the run in US dollars, from 1 to 100. Only for "
+            "`auto` and `ultra` effort. Defaults to 5 for `auto` and 20 for "
+            "`ultra`."
         ),
     )
     max_duration_seconds: Optional[int] = Field(
@@ -216,5 +216,7 @@ class CreateAgentRunParams(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     data_sources: Optional[List[AgentDataSource]] = Field(default=None, alias="dataSources")
     """Exa Connect data providers to enable for the run."""
+    user_identifier: Optional[str] = Field(default=None, alias="userIdentifier")
+    """Opaque, non-personal identifier of the end user the run is made on behalf of."""
 
     model_config = {"populate_by_name": True, "extra": "allow"}

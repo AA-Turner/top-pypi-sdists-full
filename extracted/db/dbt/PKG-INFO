@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt
-Version: 2.0.8
+Version: 2.0.9
 Summary: Build analytics the way engineers build applications
 Requires-Python: >=3.10
 Requires-Dist: mashumaro[msgpack]>=3.14

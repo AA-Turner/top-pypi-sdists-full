@@ -2,8 +2,8 @@
 
 Commissioned 2026-08-08 (Arman's ruling: `web.analysis_result` had been empty
 platform-wide since design). This module is the zero-token half of the analysis
-catalogue: every check is a NAMED ``web.analysis_item`` row (extend the
-catalogue, never invent ad-hoc keys), computed purely from evidence the crawler
+catalog: every check is a NAMED ``web.analysis_item`` row (extend the
+catalog, never invent ad-hoc keys), computed purely from evidence the crawler
 already persists — snapshot metrics, head tags, headings, image inventory,
 content fingerprints, and link edges. No network, no model calls.
 
@@ -25,7 +25,7 @@ Write contract (all DB-enforced, see ``web.validate_cross_pointers``):
 - ``web.analysis_result`` is IMMUTABLE — insert-only observations. ``status``
   pass|warn|fail requires ``score`` 1–100; ``n_a``/``error`` require NULL.
   Denormalized ``item_key``/``category``/``subcategory`` must match the
-  catalogue row. Page subjects carry ``subject_id == page_id``.
+  catalog row. Page subjects carry ``subject_id == page_id``.
 - ``web.finding`` is the mutable lifecycle register: at most ONE open finding
   per (site, subject, item). A warn/fail result opens or refreshes it; a pass
   resolves it. Suppression is user-owned — never touched here.
@@ -177,7 +177,7 @@ NOFOLLOW_INTERNAL_EXCESSIVE = ("fail", 45)
 #: Internal links that SHOULD be nofollow: they point at utility endpoints, not
 #: content a search engine ought to rank, so nofollow on them is the correct
 #: setting rather than "an accident of a plugin" (437 findings; 85% of them were
-#: share-button and comment-form links). Matched on the normalised anchor text or
+#: share-button and comment-form links). Matched on the normalized anchor text or
 #: on a path/query token of the target.
 NOFOLLOW_UTILITY_ANCHORS = frozenset(
     {
@@ -260,7 +260,7 @@ INLINK_COVERAGE_BANDS: tuple[tuple[int, str, int], ...] = (
 )
 INLINK_COVERAGE_HEALTHY = ("pass", 100)
 
-# `orphan_pages` — the site-wide formula from the catalogue row:
+# `orphan_pages` — the site-wide formula from the catalog row:
 # score = round(100 * (1 - orphans / known_live_pages)), floored when orphans
 # are the majority of the site.
 ORPHAN_MAJORITY_RATIO = 0.5
@@ -277,14 +277,14 @@ ORPHAN_SCORE_FLOOR = 5
 LINK_GRAPH_MIN_CAPTURE_RATIO = 0.8
 
 # `internal_link_equity` — percentile rank of the canonical `web.page.link_score`
-# PageRank. The catalogue contract adds one deliberate override: a prioritized
+# PageRank. The catalog contract adds one deliberate override: a prioritized
 # page (`target_keyword` set) in the bottom quartile can score no higher than 40.
 LINK_EQUITY_PRIORITY_QUARTILE = 25
 LINK_EQUITY_PRIORITY_SCORE_CAP = 40
 LINK_EQUITY_PASS_SCORE = 80
 #: A percentile among fewer pages than this is a rank among a handful.
 LINK_EQUITY_MIN_PAGES = 30
-#: A confirmed orphan carries its OWN score. The catalogue formula scores the
+#: A confirmed orphan carries its OWN score. The catalog formula scores the
 #: SITE (`OrphanCensus.site_score`, quoted in the reasoning); stamping it on each
 #: orphaned page made one orphan on a 300-page site read "score 99" yet fail.
 ORPHAN_PAGE_SCORE = 40
@@ -292,7 +292,7 @@ ORPHAN_UNCAPTURED_PAGE_SCORE = 50
 LINK_EQUITY_WARN_SCORE = 50
 
 # --- `search_signals` — what GOOGLE ITSELF reported, not what we inferred ---
-# Every threshold below comes from the catalogue row's `score_contract`; the
+# Every threshold below comes from the catalog row's `score_contract`; the
 # one thing the contracts do NOT supply is the position→CTR curve, declared
 # once here. All of it reads `web.gsc_page_stat`, whose rows are written by
 # `gsc_sync` (dimensions date × page).
@@ -540,7 +540,7 @@ class SiteAggregates:
 class OrphanCensus:
     """Site-wide orphan accounting for the `orphan_pages` formula.
 
-    The catalogue row scores the SITE ("share of live known pages that are
+    The catalog row scores the SITE ("share of live known pages that are
     orphaned") while this sweep records per-page subjects, so the site score is
     computed once here and stamped on each orphaned page's result.
 
@@ -578,7 +578,7 @@ class OrphanCensus:
         return self.complete and self.capture_ratio >= LINK_GRAPH_MIN_CAPTURE_RATIO
 
     def site_score(self) -> int:
-        """The catalogue row's formula, verbatim."""
+        """The catalog row's formula, verbatim."""
         if self.known_live_pages <= 0:
             return 100
         ratio = self.total / self.known_live_pages
@@ -691,7 +691,7 @@ class SiteGscEvidence:
 class SiteBusinessEvidence:
     """The business entity this SITE declares, gathered from every page.
 
-    `local_business_markup` is a SITE-level catalogue item — its score contract
+    `local_business_markup` is a SITE-level catalog item — its score contract
     asks whether Organization/LocalBusiness markup exists "anywhere on site"
     and whether NAP values agree "across own pages". Neither question can be
     answered from one page, which is why the check is cross-page even though
@@ -949,7 +949,7 @@ def _normalize_anchor(anchor: str | None) -> str:
 
 
 def _is_descriptive_anchor(anchor: str | None) -> bool:
-    """Deterministic only — no model call, ever (the catalogue row says so).
+    """Deterministic only — no model call, ever (the catalog row says so).
 
     Non-descriptive means: nothing at all (an empty anchor, which is also how
     an image link with no alt text arrives), a bare URL, or a phrase from the
@@ -1065,7 +1065,7 @@ def _check_anchor_text_descriptiveness(facts: PageFacts, site: SiteAggregates) -
         descriptive = stats.descriptive_anchors
         generic_targets = stats.generic_anchor_targets
     if judged == 0:
-        # The catalogue row is explicit: "100 when no internal links".
+        # The catalog row is explicit: "100 when no internal links".
         return CheckOutcome("pass", 100, "This page emits no internal links to describe.")
     score = clamp_score(round(100 * descriptive / judged))
     generic = judged - descriptive
@@ -1099,7 +1099,7 @@ def _check_crawl_depth(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
         )
     depth = site.depth_by_page.get(facts.page_id)
     if depth is None:
-        # Deliberately NOT a fail: the catalogue row hands unreachable pages to
+        # Deliberately NOT a fail: the catalog row hands unreachable pages to
         # `orphan_pages`, and two items scoring the same defect double-counts it.
         return CheckOutcome(
             "n_a",
@@ -1265,7 +1265,7 @@ def _weigh_noindex_page(
     if graph_known and inlinks >= NOINDEX_PROMOTED_INLINKS:
         promoted_by.append(f"{inlinks:,} of your own pages link to it")
     # Built with dict(...) so the payload guard attributes these keys to the
-    # catalogue item (declared in `MetaRobotsConflictsEvidence`), not to this helper.
+    # catalog item (declared in `MetaRobotsConflictsEvidence`), not to this helper.
     evidence = dict(
         **(outcome.evidence or {}),
         inlink_pages=inlinks if graph_known else None,
@@ -1362,7 +1362,7 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
         # A percentile is a RANK: whatever the site, a third of its pages sit below
         # the 33rd percentile, so scoring the rank warned/failed ~half of every
         # site (1,483 of 1,488 open findings were unprioritized pages, none of
-        # them wrong in any way a person could act on). The catalogue contract
+        # them wrong in any way a person could act on). The catalog contract
         # itself only singles out PRIORITIZED pages. Pages with no inbound links at
         # all are `orphan_pages` / `internal_inlink_coverage`'s to report.
         return CheckOutcome(
@@ -1402,7 +1402,7 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
         )
     priority_note = (
         f' It is prioritized for "{facts.target_keyword}", so its bottom-quartile '
-        "position is capped at 40 by the catalogue contract."
+        "position is capped at 40 by the catalog contract."
         if priority_penalty
         else ""
     )
@@ -1874,10 +1874,10 @@ def index_page_facts(facts_list: list[PageFacts], aggregates: SiteAggregates) ->
             )
 
 
-#: Catalogue items whose verdict belongs to the SITE even though the check lives
+#: Catalog items whose verdict belongs to the SITE even though the check lives
 #: in the per-page family because it needs the cross-page aggregate. They are
 #: evaluated ONCE per run and written as a single `subject_type='site'` row; the
-#: old behaviour (the same verdict on every page — 809 identical findings) is
+#: old behavior (the same verdict on every page — 809 identical findings) is
 #: retired, and `reconcile_findings` resolves the leftover page-subject rows.
 SITE_SCOPED_CROSS_PAGE_CHECKS: frozenset[str] = frozenset({"local_business_markup"})
 
@@ -1890,7 +1890,7 @@ def _check_local_business_markup(facts: PageFacts, site: SiteAggregates) -> Chec
 def local_business_outcome(site: SiteAggregates) -> CheckOutcome:
     """Does this SITE declare a complete, self-consistent business entity?
 
-    The catalogue row is site-level by construction — "anywhere on site" and
+    The catalog row is site-level by construction — "anywhere on site" and
     "across own pages" are questions one page cannot answer — so the verdict is
     computed from the site aggregate and recorded ONCE, on the site subject.
     """
@@ -2117,7 +2117,7 @@ BASELINE_SECURITY_HEADERS: tuple[str, ...] = (
 )
 SECURITY_HEADER_MISSING_PENALTY = 15
 SECURITY_HEADER_MIN_SCORE = 40
-# How many pages' header sets one site verdict samples. The catalogue row says
+# How many pages' header sets one site verdict samples. The catalog row says
 # "sampled across the site"; a full census would read every snapshot to answer
 # a question a couple of dozen pages already answer.
 SECURITY_HEADER_SAMPLE_LIMIT = 25
@@ -2175,7 +2175,7 @@ class SiteFacts:
     )
     near_duplicates: NearDuplicateReport | None = None
     #: page id -> URL, so evidence that arrives keyed by page id (Search Console
-    #: query x page splits) can name the pages a person would recognise.
+    #: query x page splits) can name the pages a person would recognize.
     page_urls: dict[str, str] = field(default_factory=dict)
 
 
@@ -2467,7 +2467,7 @@ def _site_check_near_duplicate_content(site: SiteFacts) -> CheckOutcome:
     )
 
 
-# Registry: catalogue item key -> site check. Each key MUST be a builtin
+# Registry: catalog item key -> site check. Each key MUST be a builtin
 # `web.analysis_item` row whose `metadata.subject` is `site`.
 def _adapt_crawlability(key: str) -> Callable[[SiteFacts], CheckOutcome]:
     """Give a crawlability check the site-registry signature. No logic, ever."""
@@ -2491,7 +2491,7 @@ def _adapt_crawlability(key: str) -> Callable[[SiteFacts], CheckOutcome]:
 def _site_check_gsc_keyword_cannibalization(site: SiteFacts) -> CheckOutcome:
     """The cannibalization verdict, with every page NAMED and one action stated.
 
-    The score is `gsc_cannibalization`'s (the catalogue formula, unchanged); this
+    The score is `gsc_cannibalization`'s (the catalog formula, unchanged); this
     adds what a reader needs: the page URL beside each id, which page wins the
     query, and the one thing to do about it.
     """
@@ -2584,11 +2584,11 @@ def _build_site_facts(site_id: str, facts_list: list[PageFacts]) -> SiteFacts:
 
 
 # Per-page checks this sweep emits — each name is a `seo_audit.PAGE_CHECKS`
-# entry that also has a builtin `web.analysis_item` catalogue row. It is NOT a
+# entry that also has a builtin `web.analysis_item` catalog row. It is NOT a
 # second implementation list: the function comes from `seo_audit`, this tuple
-# only says which of them the catalogue can currently record.
+# only says which of them the catalog can currently record.
 #
-# A canonical check missing from this tuple has no catalogue row yet. That is
+# A canonical check missing from this tuple has no catalog row yet. That is
 # NOT allowed to be silent — `analyze_site_pages` screams about the gap on
 # every run (see `_uncatalogued_page_checks`).
 CATALOGUED_PAGE_CHECKS: tuple[str, ...] = (
@@ -2626,7 +2626,7 @@ CATALOGUED_PAGE_CHECKS: tuple[str, ...] = (
     "canonical_conflicts",
     "meta_refresh_redirect",
     # Transport + pagination. Every one of these existed ONLY in the deleted
-    # aidream `IssueDetector`; each maps to a catalogue row that predated the
+    # aidream `IssueDetector`; each maps to a catalog row that predated the
     # code by months and had never been populated by anything.
     "broken_page_4xx",
     "server_error_5xx",
@@ -2673,7 +2673,7 @@ def _adapt(key: str) -> Callable[[PageFacts, SiteAggregates], CheckOutcome]:
     return lambda facts, _site: check(facts)
 
 
-# Registry: catalogue item key -> check function. Adding a PER-PAGE check means
+# Registry: catalog item key -> check function. Adding a PER-PAGE check means
 # adding it to `seo_audit.PAGE_CHECKS`, adding a `web.analysis_item` row, then
 # naming it in CATALOGUED_PAGE_CHECKS. Never implement one here.
 PAGE_CHECKS: dict[str, Callable[[PageFacts, SiteAggregates], CheckOutcome]] = {
@@ -2693,7 +2693,7 @@ def _uncatalogued_page_checks() -> list[str]:
 
     A non-empty list means `seo_audit` gained a check whose `web.analysis_item`
     row was never seeded — real SEO evidence the platform computes and then
-    throws away. Loud on every run until the catalogue catches up.
+    throws away. Loud on every run until the catalog catches up.
     """
     return sorted(set(SEO_PAGE_CHECKS) - set(CATALOGUED_PAGE_CHECKS))
 
@@ -2753,7 +2753,7 @@ def _extract_page_facts(page: WebPage, snap: WebSnapshot) -> PageFacts:
     simhash64 = fingerprint.get("simhash64")
 
     # Transport evidence the capture already persisted. Carried even while the
-    # matching catalogue rows are missing, so the transport checks light up the
+    # matching catalog rows are missing, so the transport checks light up the
     # moment those rows land — no second pass over the snapshots.
     perf = snap.perf or {}
     redirect_chain = extracted.get("redirect_chain")
@@ -3146,7 +3146,7 @@ async def _load_lab_performance(facts_list: list[PageFacts]) -> None:
     a one-click "measure this page" — never an invented pass.
 
     MOBILE wins when both strategies were sampled: Google's Core Web Vitals
-    thresholds (and the catalogue rows' bands) are the mobile ones, and mobile
+    thresholds (and the catalog rows' bands) are the mobile ones, and mobile
     is the indexing crawler.
 
     One query per batch, `DISTINCT ON (page_id, strategy)` — at most two rows
@@ -3539,7 +3539,7 @@ async def _load_link_stats(
 
 
 # ---------------------------------------------------------------------------
-# Catalogue + provider resolution
+# Catalog + provider resolution
 
 
 async def _resolve_catalogue() -> tuple[WebProvider, dict[str, WebAnalysisItem]]:
@@ -3547,7 +3547,7 @@ async def _resolve_catalogue() -> tuple[WebProvider, dict[str, WebAnalysisItem]]
     if provider is None:
         raise RuntimeError(
             f"analysis provider '{RULES_PROVIDER_KEY}' is missing from web.provider — "
-            "the catalogue is the contract; seed it before running analysis"
+            "the catalog is the contract; seed it before running analysis"
         )
     registered = list(PAGE_CHECKS) + list(SITE_CHECKS)
     items = await WebAnalysisItem.filter(
@@ -3558,13 +3558,13 @@ async def _resolve_catalogue() -> tuple[WebProvider, dict[str, WebAnalysisItem]]
         if item.key in by_key:
             raise RuntimeError(
                 f"analysis_item key '{item.key}' has multiple builtin rows — "
-                "catalogue integrity violation; fix the catalogue first"
+                "catalog integrity violation; fix the catalog first"
             )
         by_key[item.key] = item
     missing = sorted(set(registered) - set(by_key))
     if missing:
         raise RuntimeError(
-            "analysis catalogue is missing builtin item(s) for registered checks: "
+            "analysis catalog is missing builtin item(s) for registered checks: "
             + ", ".join(missing)
         )
     return provider, by_key
@@ -3755,7 +3755,7 @@ async def analyze_site_pages(
             "seo_audit defines per-page check(s) with no builtin web.analysis_item "
             "row — they are NOT being recorded: " + ", ".join(uncatalogued)
         )
-        logger.error("ANALYSIS CATALOGUE BEHIND CODE — %s", message)
+        logger.error("ANALYSIS CATALOG BEHIND CODE — %s", message)
         summary.errors.append(message)
 
     provider, items_by_key = await _resolve_catalogue()

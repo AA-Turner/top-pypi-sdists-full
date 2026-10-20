@@ -111,12 +111,7 @@ def get_connection_name(args):
                 "reading connection name from FIVETRAN_CONNECTION_NAME environment variable",
                 Logging.Level.INFO, log_icon=Logging.LogIcon.INFO
             )
-    if ft_connection and not is_connection_name_valid(ft_connection):
-        print_library_log(
-            f"invalid connection name: '{ft_connection}'", Logging.Level.SEVERE)
-        print_library_log("connection names must use only [a-z0-9_] and begin with '_' or a lowercase letter", Logging.Level.SEVERE)
-        sys.exit(1)
-    return ft_connection
+    return validate_connection_name(ft_connection)
 
 def get_api_key(args):
     ft_deploy_key = args.api_key if args.api_key else None
@@ -147,15 +142,7 @@ def get_hd_agent_id(args, prompt_mode: PromptMode):
     return hd_agent_id
 
 def get_proxy_id(args):
-    proxy_id = getattr(args, "proxy_id", None)
-    if proxy_id is None:
-        return None
-    if not proxy_id.strip():
-        print_library_log(
-            "--proxy-id was provided with an empty value; please provide a valid Proxy Agent ID.",
-            Logging.Level.SEVERE)
-        sys.exit(1)
-    return proxy_id.strip()
+    return validate_proxy_id(getattr(args, "proxy_id", None))
 
 def get_proxy_host_config_key(args):
     proxy_host_config_key = getattr(args, "proxy_host_config_key", None)
@@ -191,13 +178,18 @@ def validate_naming(naming):
     """Validate naming value, return uppercase or exit on error.
 
     Args:
-        naming (str): The naming strategy value to validate.
+        naming: The naming strategy value to validate. CLI/env callers always pass a str or
+            None; an options-file profile value can be any TOML type, so a non-str, non-None
+            value is coerced to str() before validation rather than silently treated as absent
+            -- a wrong-type value is an invalid value, not a missing one.
 
     Returns:
-        str: Uppercase validated naming value, or None if input is None.
+        str: Uppercase validated naming value, or None if input is None or an empty string.
     """
-    if not naming:
+    if naming is None or naming == "":
         return None
+    if not isinstance(naming, str):
+        naming = str(naming)
     value_upper = naming.strip().upper()
     if value_upper in (SOURCE_NAMING_VALUE, FIVETRAN_NAMING_VALUE):
         return value_upper
@@ -479,6 +471,58 @@ def is_connection_name_valid(connection: str):
 
     pattern = re.compile(CONNECTION_SCHEMA_NAME_PATTERN)
     return pattern.match(connection)
+
+
+def validate_connection_name(connection):
+    """Validate a connection name, return it unchanged or exit on error. Shared by the CLI/env
+    path (`get_connection_name`) and the options-file profile path, so both sources fail the
+    same way for the same reason.
+
+    Args:
+        connection: The connection name to validate. CLI/env callers always pass a str or None;
+            an options-file profile value can be any TOML type, so a non-str, non-None value is
+            coerced to str() before validation -- a wrong-type value is invalid, not missing.
+
+    Returns:
+        str: The validated connection name, or None if input is None or an empty string (an
+            empty connection is treated as not provided, not a validation failure).
+    """
+    if connection is None or connection == "":
+        return None
+    if not isinstance(connection, str):
+        connection = str(connection)
+    if not is_connection_name_valid(connection):
+        print_library_log(f"invalid connection name: '{connection}'", Logging.Level.SEVERE)
+        print_library_log(
+            "connection names must use only [a-z0-9_] and begin with '_' or a lowercase letter",
+            Logging.Level.SEVERE)
+        sys.exit(1)
+    return connection
+
+
+def validate_proxy_id(proxy_id):
+    """Validate a Proxy Agent ID, return it stripped or exit on error. Shared by the CLI path
+    (`get_proxy_id`) and the options-file profile path. Unlike connection/naming, an empty
+    proxy_id is an explicit error rather than "not provided".
+
+    Args:
+        proxy_id: The Proxy Agent ID to validate. CLI callers always pass a str or None; an
+            options-file profile value can be any TOML type, coerced to str() first for the same
+            reason as `validate_connection_name`/`validate_naming`.
+
+    Returns:
+        str: The stripped proxy_id, or None if input is None (key absent).
+    """
+    if proxy_id is None:
+        return None
+    if not isinstance(proxy_id, str):
+        proxy_id = str(proxy_id)
+    if not proxy_id.strip():
+        print_library_log(
+            "--proxy-id was provided with an empty value; please provide a valid Proxy Agent ID.",
+            Logging.Level.SEVERE)
+        sys.exit(1)
+    return proxy_id.strip()
 
 
 def is_port_in_use(port: int):
@@ -1687,9 +1731,25 @@ def update_package_project(
         remove_dir_if_empty(os.path.join(project_path, OUTPUT_FILES_DIR))
 
 
+def confirm_shared_package_update(package_id: str, package: dict, prompt_mode: PromptMode) -> None:
+    """Exits(1) if the package is used by more than 1 connection and the user declines to proceed."""
+    connection_count = _package_connection_count(package)
+    if connection_count > 1:
+        prompt = get_package_update_prompt(package_id, connection_count)
+        if not resolve_confirmation(prompt, False, prompt_mode):
+            print_library_log("update cancelled", log_icon=Logging.LogIcon.FAILURE)
+            sys.exit(1)
+
+
 def package_update(project_path: str, package_id: str, api_key: str, prompt_mode: PromptMode,
                    configuration_form_method: Optional[Callable] = None):
     """Packages connector code and replaces the artifact for an existing package."""
+    package = get_package(package_id, api_key)
+    if package is None:
+        print_library_log(f"package-id not found: {package_id}", level=Logging.Level.SEVERE,
+                          log_icon=Logging.LogIcon.FAILURE)
+        sys.exit(1)
+    confirm_shared_package_update(package_id, package, prompt_mode)
     validate_package_dependencies(project_path, prompt_mode)
     update_package_project(project_path, package_id, api_key, configuration_form_method)
     sys.exit(0)
@@ -2397,3 +2457,14 @@ def get_rebind_prompt(connection: str, group: str, target_package_id: str, confi
     prompt += "continue with update? (y/N): "
 
     return prompt
+
+
+def get_package_update_prompt(package_id: str, connection_count: int) -> str:
+    """
+    Generates the warning prompt for updating a package used by more than 1 connection.
+    """
+    return (
+        f"{connection_count} connections are linked to the package '{package_id}' and will use the updated code "
+        "on their next sync.\n"
+        "continue with the update? (y/N): "
+    )

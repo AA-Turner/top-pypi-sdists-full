@@ -6,7 +6,7 @@
 The contract below is not this file's opinion: every line of it is read from
 ``platform.client_callable_door.argument_rules`` and ``.contract_probe``, the
 structured door rules migration 0796 made queryable. A door that changes its
-declaration changes this file; a door whose BODY stops honouring its declaration
+declaration changes this file; a door whose BODY stops honoring its declaration
 makes this file go red, by name.
 
 What it asserts, per door:

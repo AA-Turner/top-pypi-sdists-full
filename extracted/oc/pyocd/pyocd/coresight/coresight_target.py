@@ -26,16 +26,19 @@ from ..core import exceptions
 from ..flash.flash import Flash
 from . import (dap, discovery)
 from ..debug.svd.loader import SVDLoader
+from ..debug.sequences.delegates import TraceSetup
+from ..trace.sink import TraceBufferSinks
 from ..utility.sequencer import CallSequence
 from ..target.pack.flm_region_builder import FlmFlashRegionBuilder
 
 if TYPE_CHECKING:
+    from ..core.core_target import CoreTarget
     from ..core.session import Session
-    from ..core.memory_map import MemoryMap
     from .ap import (APAddressBase, AccessPort)
     from ..debug.svd.model import SVDDevice
 
 LOG = logging.getLogger(__name__)
+
 
 class CoreSightTarget(SoCTarget):
     """@brief Represents an SoC that uses CoreSight debug infrastructure.
@@ -55,6 +58,7 @@ class CoreSightTarget(SoCTarget):
         self._svd_load_thread: Optional[SVDLoader] = None
         self._irq_table: Optional[Dict[int, str]] = None
         self._discoverer: Optional[Callable] = None
+        self._trace_buffer_sinks: Optional[TraceBufferSinks] = None
 
         self.session.context_state.is_performing_pre_reset = False
 
@@ -375,26 +379,90 @@ class CoreSightTarget(SoCTarget):
             return None
         return sorted(self.aps.values(), key=lambda v: v.address)[0]
 
+    @property
+    def trace_enabled(self) -> bool:
+        """@brief Whether trace capture and flush handling is enabled."""
+        return self.session.options.get('enable_swv') or super().trace_enabled
+
     def trace_start(self) -> None:
-        result = self.call_delegate('trace_start', target=self, mode=0)
-        if not result and self.has_debug_sequence('TraceStart', pname=self.selected_core_or_raise.node_name):
-            assert self.debug_sequence_delegate
-            self.debug_sequence_delegate.run_sequence('TraceStart',
-                    pname=self.selected_core_or_raise.node_name)
-            result = True
-        return result
+        if not self.trace_enabled:
+            return
+
+        self._ensure_trace_buffer_sinks()
+        try:
+            result = self.call_delegate('trace_start', target=self, mode=0)
+            if not result:
+                self._run_trace_sequence('TraceStart')
+        except Exception:
+            self._shutdown_trace_buffer_sinks()
+            raise
 
     def trace_stop(self) -> None:
-        result = self.call_delegate('trace_stop', target=self, mode=0)
-        if not result and self.has_debug_sequence('TraceStop', pname=self.selected_core_or_raise.node_name):
+        if not self.trace_enabled:
+            return
+
+        try:
+            result = self.call_delegate('trace_stop', target=self, mode=0)
+            if not result:
+                self._run_trace_sequence('TraceStop')
+        finally:
+            self._shutdown_trace_buffer_sinks()
+
+    def _run_trace_sequence(self, name: str) -> None:
+        delegate = self.debug_sequence_delegate
+        if delegate is None:
+            return
+
+        for seq in delegate.all_sequences:
+            if seq.name == name:
+                delegate.run_sequence(name, pname=seq.pname)
+
+    def trace_capture(self, core: Optional["CoreTarget"] = None) -> None:
+        pname = core.node_name if core else None
+
+        result = self.call_delegate('trace_capture', target=self, mode=0)
+        if not result and self.has_debug_sequence('TraceCapture', pname=pname):
             assert self.debug_sequence_delegate
-            self.debug_sequence_delegate.run_sequence('TraceStop',
-                    pname=self.selected_core_or_raise.node_name)
-            result = True
-        return result
+            if self.debug_sequence_delegate.trace_setup == TraceSetup.FULL:
+                self.debug_sequence_delegate.run_sequence('TraceCapture', pname=pname)
 
-    def trace_capture(self) -> None:
-        pass
+        if (ctrace_run := self.session.ctrace_run) is not None:
+            with ctrace_run.update():
+                changed = ctrace_run.load()
+                if changed:
+                    ctrace_run.apply_disable(self)
+                self.session.notify(self.session.Event.TRACE_DATA_CAPTURE, self.session, ctrace_run.reloaded)
+                if changed:
+                    ctrace_run.apply_refs(self)
+                ctrace_run.itm_force_sync(core if core is not None else self.primary_core)
+        else:
+            self.session.notify(self.session.Event.TRACE_DATA_CAPTURE, self.session, False)
 
-    def trace_flush(self) -> None:
-        pass
+    def trace_flush(self, core: Optional["CoreTarget"] = None) -> None:
+        pname = core.node_name if core else None
+
+        result = self.call_delegate('trace_flush', target=self, mode=0)
+        if not result and self.has_debug_sequence('TraceFlush', pname=pname):
+            assert self.debug_sequence_delegate
+            if self.debug_sequence_delegate.trace_setup == TraceSetup.FULL:
+                self.debug_sequence_delegate.run_sequence('TraceFlush', pname=pname)
+
+        self.session.notify(self.session.Event.TRACE_DATA_FLUSH, self.session)
+
+    def write_trace_buffer(self, name: str, data: bytes) -> int:
+        """Write data to a configured trace buffer output."""
+        if self._trace_buffer_sinks is None:
+            raise ValueError("Trace buffer output is not initialized")
+        return self._trace_buffer_sinks.write(name, data)
+
+    def _ensure_trace_buffer_sinks(self) -> None:
+        delegate = self.debug_sequence_delegate
+        if self._trace_buffer_sinks is None and delegate is not None:
+            trace_buffers = delegate.trace_buffers
+            if trace_buffers:
+                self._trace_buffer_sinks = TraceBufferSinks(self.session, trace_buffers)
+
+    def _shutdown_trace_buffer_sinks(self) -> None:
+        if self._trace_buffer_sinks is not None:
+            self._trace_buffer_sinks.shutdown()
+            self._trace_buffer_sinks = None

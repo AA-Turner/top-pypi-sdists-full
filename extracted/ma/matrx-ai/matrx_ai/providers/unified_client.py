@@ -117,7 +117,7 @@ async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire
     return plan
 
 
-#: Wires whose translator honours the long-cache setting itself (config/cache_marks.py).
+#: Wires whose translator honors the long-cache setting itself (config/cache_marks.py).
 _LONG_CACHE_WIRES = frozenset({"anthropic_chat", "openai_chat"})
 
 
@@ -135,7 +135,7 @@ def _note_long_cache_without_knob(config: Any, profile: Any, wire_format: str) -
 
 
 async def _announce_flag_notes(notes: list[str]) -> None:
-    """Every flag the model could not honour natively is SAID, never dropped silently."""
+    """Every flag the model could not honor natively is SAID, never dropped silently."""
     try:
         from matrx_connect.context.app_context import try_get_app_context
         from matrx_connect.context.events import InfoPayload
@@ -157,12 +157,26 @@ async def _announce_flag_notes(notes: list[str]) -> None:
 
 
 def _finish_message_flags(response: Any, plan: Any) -> Any:
-    """Make the answer carry its prefill (native) or say how it was honoured."""
+    """Make the answer carry its prefill (native) or say how it was honored."""
     if plan is None or not getattr(plan, "prefill_mode", None):
         return response
     from matrx_ai.config.message_flags import apply_prefill_to_reply
 
-    apply_prefill_to_reply(getattr(response, "messages", None) or [], plan)
+    record = apply_prefill_to_reply(getattr(response, "messages", None) or [], plan)
+    if record and record.get("mode") == "convert" and record.get("starts_with_prefill") is False:
+        # Asked for, not forced — and the model did not comply. SAID, never silent:
+        # the run's info channel carries it beside the pre-call notice.
+        note = (
+            f"{getattr(plan, 'prefill_model_label', None) or 'The model'} did not begin its reply "
+            "with the prefill text it was asked to use."
+        )
+        vcprint(note, "[message flags]", color="yellow")
+        try:
+            import asyncio
+
+            asyncio.get_running_loop().create_task(_announce_flag_notes([note]))
+        except RuntimeError:
+            pass  # no running loop (sync caller) — the console line above is the record
     return response
 
 
@@ -186,6 +200,27 @@ def _build_provider_wire_config(config: Any, profile: Any) -> Any:
     # Guard: tests/test_wire_sanitize_never_moves_the_persisted_history.py.
     wire_config.messages = _wire_message_list(getattr(config, "messages", None))
     return wire_config
+
+
+def _provider_view(config: Any, messages: Any) -> Any:
+    """A shallow config for THIS provider call carrying ``messages`` (converted media).
+
+    The executor counts ``config.messages`` positionally and checks its trigger by
+    identity, so a provider-side conversion never replaces it. The view keeps the
+    ledger's per-turn channels (context + tail blocks), which a freshly built
+    ``MessageList`` starts without.
+    """
+    from matrx_ai.config.message_config import MessageList
+
+    ledger = getattr(config, "messages", None)
+    if not isinstance(messages, MessageList):
+        messages = MessageList(_messages=list(messages or []))
+    if isinstance(ledger, MessageList):
+        messages._turn_context_blocks = dict(ledger._turn_context_blocks)
+        messages._tail_context_blocks = dict(ledger._tail_context_blocks)
+    view = copy(config)
+    view.messages = messages
+    return view
 
 
 def _wire_message_list(messages: Any) -> Any:
@@ -306,7 +341,7 @@ def _downgrade_response_format(
 def _warn_and_strip_unsupported_search(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
 ) -> ToolAdaptation | None:
-    """Drop provider-native search flags a model can't honour, loudly.
+    """Drop provider-native search flags a model can't honor, loudly.
 
     Both flags map 1:1 onto a member of the model's declared
     ``native_capabilities`` (the SET of provider-hosted tools):
@@ -500,7 +535,7 @@ def _resolve_tool_structured_output_conflict(
     """Drop the request's tools so the output contract survives, and RECORD it.
 
     🚨 The second place a capability is genuinely thrown away above every
-    translator: registered tools, inline tools AND MCP servers all go, to honour a
+    translator: registered tools, inline tools AND MCP servers all go, to honor a
     response format the endpoint refuses to combine with them. ``tools_shed`` is
     the issue class built for exactly this outcome, and until 2026-09-27 this
     announced itself only to a console — the other reason that class held zero
@@ -534,7 +569,7 @@ def _resolve_tool_structured_output_conflict(
         },
         title=(
             f"⚠️  CAPABILITY ADJUSTMENT [{caps.model_name}]: tools dropped to "
-            f"honour {rf['type']} — {wire_format} rejects tools combined with "
+            f"honor {rf['type']} — {wire_format} rejects tools combined with "
             "structured output. The output contract is kept so the request does "
             "not fail. If this run requires tools, bind it to an offering that "
             "supports the combination."
@@ -753,6 +788,69 @@ def apply_capability_gates(
     _strip_chat_decorations_if_non_fc(config, caps)
     _apply_tts_aliases_for_non_native(config, caps, wire_format)
     return adapt_tools_for_call(config, caps, wire_format)
+
+
+def strip_hosted_tools_the_rules_drop(config: Any, controls: Any, *, model: Any = "?") -> list[Any]:
+    """A setting the rules DROP removes every wire effect — the hosted tool included (L16).
+
+    ``internal_web_search`` / ``internal_url_context`` / ``internal_x_search`` never reach
+    ``outbound`` (they are not scalar request params): the translators read the flag off the
+    config and append the provider's own tool (Anthropic ``web_search_*``, OpenAI
+    ``web_search_preview``, Google ``google_search`` / ``url_context``, xAI search). So a
+    declared drop in ``ai.offering_rules_compiled`` removed the settings key and left the
+    tool on the wire (PB-03 defect 45). Here the same rule verdict clears the flag on the
+    config the wire copy is built from, and each clear is an Adjustment for
+    ``settings_adjusted`` / the request snapshot. Runs AFTER the capability gates so a model
+    without hosted search still gets the ``web`` tool translation. A passthrough map (no
+    rules), an undeclared key and a processor-owned key are left alone. Returns the
+    Adjustments; the caller publishes them.
+    """
+    from matrx_ai.catalog.models import Adjustment
+
+    rules = getattr(controls, "rules", None) or {}
+    if not rules:
+        return []
+    owned, _unsupported, _declared = controls._surface()  # noqa: SLF001 — same partition outbound applies
+    out: list[Any] = []
+    for flag in tool_adaptation_flags():
+        rule = rules.get(flag)
+        if rule is None or not getattr(config, flag, None) or flag in owned:
+            continue
+        if not (rule.drop or rule.supported is False):
+            continue
+        out.append(
+            Adjustment(
+                key=flag,
+                action="dropped",
+                canonical_value=getattr(config, flag),
+                sent_value=None,
+                reason=(
+                    f"{getattr(rule, 'why', None) or flag + ' is not carried by this offering'}"
+                    " — the hosted tool was removed from the request too"
+                ),
+                expected=True,
+                provenance="declared",
+            )
+        )
+        setattr(config, flag, None)
+    return out
+
+
+def tool_adaptation_flags() -> tuple[str, ...]:
+    from matrx_ai.providers.tool_adaptation import INTERNAL_TOOL_FLAGS
+
+    return INTERNAL_TOOL_FLAGS
+
+
+def _publish_rule_drops(config: Any, profile: Any) -> None:
+    """Apply + tell: the hosted tools the offering's rules drop (see the strip function)."""
+    from matrx_ai.providers.outbound_params import publish_settings_adjustments
+
+    adjustments = strip_hosted_tools_the_rules_drop(
+        config, getattr(profile, "controls", None), model=getattr(config, "model", "?")
+    )
+    if adjustments:
+        publish_settings_adjustments(adjustments, model=getattr(config, "model", "?"), seam="chat")
 
 
 def simulate_capability_gates(
@@ -1681,6 +1779,14 @@ class UnifiedAIClient:
         config = request.config
         debug = request.debug
 
+        # THE CHILD-SAFETY GATE (providers/child_safety_gate.py): every chat and media call, whoever
+        # started it, refuses an unconsented under-13 and swaps a minor's age-restricted model to
+        # its safe fallback HERE, before the catalog resolves the model, so the swapped model is
+        # the one resolved. A door that already ran the same step makes this a cache hit.
+        from matrx_ai.providers.child_safety_gate import admit_child_safety
+
+        await admit_child_safety(config)
+
         # The catalog resolves EVERYTHING about this call in one shot: which client
         # to dispatch to (client_attr), what model id goes on the wire
         # (provider_model_id), what the model can do (capabilities), how its controls
@@ -1693,6 +1799,19 @@ class UnifiedAIClient:
             getattr(config, "tts_quality", None),
             offering_id=getattr(config, "routing_offering_id", None),
         )
+        # THE FREE-TIER MODEL CEILING (FREE-ALLOWANCE.md): a guest or free account never runs a
+        # premium model, whatever the client asked for. This is the one place every chat/media
+        # call resolves its model, so /ai/chat, /ai/manual, agents, workflows and tool loops all
+        # inherit it. A premium model is swapped to its in-ceiling stand-in (the person is told
+        # in one line); with no stand-in the seam backstop below refuses it.
+        from matrx_ai.providers.free_tier_models import swap_for_free_tier
+
+        if await swap_for_free_tier(config, profile):
+            profile = await resolve_tts_call_profile(
+                config.model,
+                getattr(config, "tts_quality", None),
+                offering_id=getattr(config, "routing_offering_id", None),
+            )
 
         model_name = profile.model_name
         caps = profile.capabilities
@@ -1888,9 +2007,18 @@ class UnifiedAIClient:
         # notice + a loud log for each. Conversion failure is terminal: continuing
         # would let provider serializers silently omit media while answering as if
         # they had seen it.
+        #
+        # 🚨 Conversions land on the PROVIDER's own list, never on ``config.messages``.
+        # When the send boundary built no wire clone, ``request.config`` IS the
+        # executor's live config: assigning the converted list there swapped every
+        # history message for a new object, the turn barrier found its trigger "gone"
+        # and refused to store the reply (``persisted_history_shifted``, defect 50,
+        # PB-05 2026-10-19). ``_provider_view`` gives the rest of this call a shallow
+        # config of its own carrying the converted list and the ledger's per-turn
+        # channels. Guard: tests/test_provider_conversion_never_loses_the_reply.py.
         from matrx_ai.processing.media_fallback import preprocess_unsupported_media
 
-        config.messages, _media_usage = await preprocess_unsupported_media(
+        _converted, _media_usage = await preprocess_unsupported_media(
             config.messages,
             wire_format,
             model_name=model_name,
@@ -1899,6 +2027,8 @@ class UnifiedAIClient:
         )
         for _u in _media_usage:
             request.add_usage(_u)
+        if _converted is not config.messages:
+            config = _provider_view(config, _converted)
 
         # Check if audio needs transcription (either explicitly requested or the
         # model doesn't accept audio input)
@@ -1917,11 +2047,13 @@ class UnifiedAIClient:
                         color="yellow",
                     )
 
-            config.messages, transcription_usage_list = await preprocess_audio_in_messages(
+            _transcribed, transcription_usage_list = await preprocess_audio_in_messages(
                 config.messages,
                 debug=debug,
                 supports_audio_input=caps.supports_audio_input,
             )
+            if _transcribed is not config.messages:
+                config = _provider_view(config, _transcribed)
 
             # Add transcription usage to request history
             for usage in transcription_usage_list:
@@ -1939,7 +2071,7 @@ class UnifiedAIClient:
         # conflicts, non-FC decoration strip, TTS aliases, leaked-tool guard).
         # ``translate_request`` — the build-only chokepoint the BATCH lane sends
         # through — calls the SAME function, so a batch payload can never carry a
-        # contract this model cannot honour. Never inline a copy here.
+        # contract this model cannot honor. Never inline a copy here.
         # THE DECLARED CONTRACT, recorded before the gates can overwrite it.
         # `_downgrade_response_format` replaces `config.response_format` outright,
         # so this is the last moment the schema the CALLER asked for still exists —
@@ -1950,6 +2082,7 @@ class UnifiedAIClient:
 
         authored_flags = authored_tool_flags(config)
         tool_adaptations = apply_capability_gates(config, caps, wire_format)
+        _publish_rule_drops(config, profile)
         await announce_tool_adaptations(tool_adaptations)
 
         # Resolve server-generated media refs added by tool results mid-loop.
@@ -2090,9 +2223,17 @@ class UnifiedAIClient:
         # THE HELD-RUN SEAM — any gate below that refuses hands the host what this run was about
         # to send (config, profile, the agent's variables) so a person can watch it run once.
         # Recording never changes the refusal. See providers/held_run_seam.py.
+        #
+        # THE CHILD-SAFETY GATE, refuse-only — every paid call: the direct seam callers (STT,
+        # decisions, rerank, extraction, embeddings) never pass ``_execute_dispatch``, so an
+        # unconsented under-13 is refused here too. No config: the model is already resolved, so
+        # nothing is swapped. Outside the held-run block on purpose: a child's refused call is
+        # never kept for replay. See providers/child_safety_gate.py.
+        from matrx_ai.providers.child_safety_gate import admit_child_safety
         from matrx_ai.providers.guardrail_gate import note_paid_result
         from matrx_ai.providers.request_capture import is_capturing
 
+        await admit_child_safety(None)
         try:
             if is_capturing():
                 # CAPTURE MODE (request_capture.py): nothing is sent, nothing is
@@ -2122,6 +2263,12 @@ class UnifiedAIClient:
             from matrx_ai.providers.model_tier_gate import admit_model_tier
 
             admit_model_tier(profile)
+            # THE FREE-TIER MODEL BACKSTOP — same seam, every paid call: a premium model that
+            # reached the wire for a guest / free account (no stand-in, or a direct seam caller
+            # such as STT, decisions or Live) is refused. See providers/free_tier_models.py.
+            from matrx_ai.providers.free_tier_models import admit_free_tier_model
+
+            await admit_free_tier_model(profile)
             # THE AUTOMATION GUARDRAIL GATE — same seam, asked on EVERY paid call: an automatic run
             # (schedule / workflow trigger) is stopped at its max turns, max cost per run and its
             # daily / weekly / monthly caps, and refused when it carries no limits. Turns already
@@ -2448,6 +2595,7 @@ class UnifiedAIClient:
         usage = TokenUsage(
             input_tokens=result.usage.input_tokens,
             output_tokens=result.usage.output_tokens,
+            cached_input_tokens=getattr(result.usage, "cached_input_tokens", 0) or 0,
             matrx_model_name=result.usage.matrx_model_name,
             provider_model_name=result.usage.provider_model_name,
             api=result.usage.api,
@@ -2667,6 +2815,7 @@ class UnifiedAIClient:
         # paid, deferred item nobody was watching).
         authored_flags = authored_tool_flags(config)
         adaptations = apply_capability_gates(config, profile.capabilities, profile.wire_format)
+        _publish_rule_drops(config, profile)
         await announce_tool_adaptations(adaptations)
         wire_config = _build_provider_wire_config(config, profile)
         apply_wire_additions(wire_config, adaptations)
@@ -2874,7 +3023,7 @@ class UnifiedAIClient:
             if getattr(item, "is_resolved", False) and (
                 getattr(item, "base64_data", None) or getattr(item, "resolved_url", None)
             ):
-                # The boundary normaliser resolves with ``vision_class=None``
+                # The boundary normalizer resolves with ``vision_class=None``
                 # (no class set when client uploads). Re-resolve with the
                 # newly-stamped class so the variant fires.
                 if current is None and getattr(item, "file_id", None):
@@ -3077,6 +3226,10 @@ async def _resolve_media_ref_item(fm: Any, item: Any) -> None:
         value = getattr(proxy, field_name, None)
         if value is not None:
             setattr(item, field_name, value)
+    name = (getattr(proxy, "metadata", None) or {}).get("file_name")
+    metadata = getattr(item, "metadata", None)
+    if isinstance(name, str) and name and isinstance(metadata, dict) and not metadata.get("file_name"):
+        metadata["file_name"] = name
 
 
 def _build_text_placeholder_for_stripped_image(item: Any, model_name: str | None) -> Any:

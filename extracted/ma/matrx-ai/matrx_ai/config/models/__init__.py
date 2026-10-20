@@ -12,7 +12,7 @@ Why pydantic at all: ``model_json_schema()`` is what
 schema. ``UnifiedConfig`` being a dataclass is precisely why the most important
 type in the system has no cross-language definition today.
 
-Every field here is modelled on the CORPUS, not on the old type hints — see
+Every field here is modeled on the CORPUS, not on the old type hints — see
 FIELD_TRUTH.md. Where the two disagree, the corpus wins and the disagreement is
 recorded in the field's own comment.
 """

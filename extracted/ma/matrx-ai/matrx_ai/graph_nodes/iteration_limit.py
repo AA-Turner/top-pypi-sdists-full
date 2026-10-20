@@ -15,7 +15,7 @@ Precedence, lowest → highest:
   2. the step's own ``max_iterations`` when its author set one
 
 The node input's ``le=500`` stays a constant: it is the SAFETY ceiling a runaway loop
-can never pass whatever anyone sets, not a behavioural choice.
+can never pass whatever anyone sets, not a behavioral choice.
 
 When a step stops at a limit that came from the SETTING, the failure says so and names
 the setting — a person reading the run knows which knob to turn, instead of reading a

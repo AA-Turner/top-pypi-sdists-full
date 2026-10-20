@@ -549,7 +549,8 @@ class TestProfile:
     def test_save_json(self, boost, installed):
         first = json.loads(boost("profile", "save", "daily", "--json").out)
         assert first == {"name": "daily", "updated": False, "was_skills": None,
-                          "skills": 1, "rules_not_captured": 0,
+                          "skills": 1, "sidelined_not_captured": [],
+                          "rules_not_captured": 0,
                           "workflows_not_captured": 0}
         boost("install", "tdd-workflow")
         second = json.loads(boost("profile", "save", "daily", "--json").out)
@@ -1088,6 +1089,34 @@ class TestWho:
         assert cols[3] == "1"   # installs
         assert "USER" in r.out and "LAST ACTIVE" in r.out
         assert "based on the local journal" in r.out
+
+    def test_an_update_is_not_counted_as_an_install(self, boost, installed):
+        # `boost update`/`reinstall` journal "install" with via=update/
+        # reinstall; INSTALLS must count what `boost trending` counts.
+        journal.log("install", "brainstorming", via="update")
+        journal.log("install", "brainstorming", via="reinstall")
+        r = boost("who")
+        cols = next(l for l in r.out.splitlines()
+                    if l.startswith(USER)).split()
+        assert cols[1] == "4"   # every event is still an event
+        assert cols[3] == "1"   # but only one put the skill here
+        assert json.loads(boost("who", "--json").out)[USER]["installs"] == 1
+
+    def test_a_real_update_counts_one_install(
+            self, boost, fixture_tap_src, tmp_path):
+        import subprocess
+        tap_dir = tmp_path / "who-tap"
+        shutil.copytree(fixture_tap_src, tap_dir)
+        boost("tap", tap_dir)
+        boost("install", "brainstorming")
+        md = tap_dir / "skills" / "brainstorming" / "SKILL.md"
+        md.write_text(md.read_text(encoding="utf-8").replace("1.4.0", "1.5.0"),
+                      encoding="utf-8")
+        subprocess.run(["git", "-c", "user.email=t@t.test", "-c", "user.name=t",
+                        "commit", "-qam", "bump"], cwd=str(tap_dir),
+                       check=True, capture_output=True)
+        assert "upgraded brainstorming" in boost("update").out
+        assert json.loads(boost("who", "--json").out)[USER]["installs"] == 1
 
     def test_aggregate_json(self, boost, installed):
         r = boost("who", "--json")

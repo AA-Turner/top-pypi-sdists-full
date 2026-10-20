@@ -1,10 +1,18 @@
 """PROV-N output correctness: local-part metacharacter escaping (#223, PROV-N
-[53]/[55]) and Mention keyword rendering (#248)."""
+[53]/[55]), Mention keyword rendering (#248) and string quoting."""
+
+import warnings
 
 import pytest
 
-from prov.identifier import Namespace
-from prov.model import Literal, ProvDocument, ProvWarning
+from prov.identifier import Identifier, Namespace
+from prov.model import (
+    Literal,
+    ProvDocument,
+    ProvFutureRejectionWarning,
+    ProvWarning,
+    encoding_provn_value,
+)
 
 METACHARS = "='(),:;[]"
 
@@ -106,7 +114,8 @@ def test_dash_and_dot_local_parts(local, written) -> None:
 )
 def test_unrepresentable_chars_are_percent_encoded(local, escaped) -> None:
     document = _doc()
-    document.entity(f"ex:{local}")
+    with pytest.warns(ProvFutureRejectionWarning):
+        document.entity(f"ex:{local}")
     provn = document.get_provn()
     assert f"entity(ex:{escaped})" in provn
     # Documented non-round-trip: the reloaded local part is the
@@ -117,8 +126,26 @@ def test_unrepresentable_chars_are_percent_encoded(local, escaped) -> None:
 
 
 def test_percent_encoding_warns_that_the_iri_changes() -> None:
+    with pytest.warns(ProvFutureRejectionWarning):
+        qname = Namespace("ex", "http://example.org/")["a b"]
     with pytest.warns(ProvWarning, match="percent"):
-        assert NS["a b"].provn_bare_representation() == "ex:a%20b"
+        assert qname.provn_bare_representation() == "ex:a%20b"
+
+
+def test_bare_percent_is_written_as_25_with_a_warning() -> None:
+    # "%25" reads back as that text, not as '%', so the IRI changes.
+    namespace = Namespace("ex", "http://example.org/")
+    with pytest.warns(ProvFutureRejectionWarning):
+        qname = namespace["50%"]
+    with pytest.warns(ProvWarning, match="percent-encoded") as record:
+        assert qname.provn_bare_representation() == "ex:50%25"
+    assert len(record) == 1
+
+
+def test_percent_escape_is_written_unchanged_without_a_warning() -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ProvWarning)
+        assert NS["a%20b"].provn_bare_representation() == "ex:a%20b"
 
 
 def test_lone_surrogate_is_percent_encoded() -> None:
@@ -138,6 +165,32 @@ def test_leading_name_char_that_cannot_start_a_local_part_is_encoded(first) -> N
     assert len(list(doc.get_records())) == 1
 
 
+def test_fast_path_skips_only_local_parts_written_unchanged() -> None:
+    from prov.identifier import _PROVN_LOCAL_NOT_PLAIN, _provn_escape_local
+
+    # Every BMP character, lone surrogates included, and one astral character,
+    # in the three positions the escaping rules tell apart.
+    chars = [chr(cp) for cp in (*range(0x10000), 0x1F600)]
+    local_parts = [lp for ch in chars for lp in (ch + "a", "a" + ch + "a", "a" + ch)]
+    skipped = [lp for lp in local_parts if not _PROVN_LOCAL_NOT_PLAIN.search(lp)]
+
+    assert 0 < len(skipped) < len(local_parts)
+    assert [lp for lp in skipped if _provn_escape_local(lp) != (lp, False)] == []
+
+
+def test_writable_fast_path_skips_only_local_parts_written_unencoded() -> None:
+    from prov.identifier import _PROVN_LOCAL_WRITABLE, _provn_escape_local
+
+    # The same characters and positions as the test above, for the check
+    # QualifiedName runs on every new name (#524).
+    chars = [chr(cp) for cp in (*range(0x10000), 0x1F600)]
+    local_parts = [lp for ch in chars for lp in (ch + "a", "a" + ch + "a", "a" + ch)]
+    skipped = [lp for lp in local_parts if _PROVN_LOCAL_WRITABLE.fullmatch(lp)]
+
+    assert 0 < len(skipped) < len(local_parts)
+    assert [lp for lp in skipped if _provn_escape_local(lp)[1]] == []
+
+
 def test_empty_langtag_literal_written_as_plain_string() -> None:
     """An empty langtag has no PROV-N spelling, so the writer treats it as none.
 
@@ -146,7 +199,8 @@ def test_empty_langtag_literal_written_as_plain_string() -> None:
     the JSON/XML/RDF/JSON-LD codecs still keep the empty tag, e.g. PROV-XML's
     ``xml:lang=""``, which this task leaves untouched.
     """
-    literal = Literal("hi", langtag="")
+    with pytest.warns(ProvFutureRejectionWarning, match="empty"):
+        literal = Literal("hi", langtag="")
     assert literal.langtag == ""
     document = _doc()
     document.entity("ex:e1", {"ex:note": literal})
@@ -164,7 +218,9 @@ def test_langtag_underscore_written_as_hyphen() -> None:
     other fixes here.
     """
     document = _doc()
-    document.entity("ex:e1", {"ex:note": Literal("hi", langtag="en_US")})
+    with pytest.warns(ProvFutureRejectionWarning, match="en_US"):
+        literal = Literal("hi", langtag="en_US")
+    document.entity("ex:e1", {"ex:note": literal})
     provn = document.get_provn()
     assert '[ex:note="hi"@en-US]' in provn
     reloaded = ProvDocument.deserialize(content=provn, format="provn")
@@ -250,3 +306,34 @@ def test_strict_flag_changes_nothing_without_a_mention() -> None:
     document = _doc()
     document.entity("ex:e1", {"ex:k": "v"})
     assert document.get_provn(strict=True) == document.get_provn()
+
+
+def test_code_point_escapes_round_trip() -> None:
+    text = (
+        "document\nprefix ex <http://example.org/>\n"
+        'entity(ex:e, [ex:k="caf\\u00E9 \\U0001F600"])\nendDocument\n'
+    )
+    document = ProvDocument.deserialize(content=text, format="provn")
+    assert '"café \U0001f600"' in _roundtrips(document)
+
+
+def test_any_uri_value_with_quote_and_backslash_round_trips() -> None:
+    document = _doc()
+    document.entity("ex:e", {"ex:v": Identifier('http://example.org/a"b\\c')})
+    assert '"http://example.org/a\\"b\\\\c" %% xsd:anyURI' in _roundtrips(document)
+
+
+@pytest.mark.parametrize("uri", ["http://example.org/a\nb", "http://example.org/a\rb"])
+def test_any_uri_value_with_a_line_break_round_trips(uri) -> None:
+    document = _doc()
+    document.entity("ex:e", {"ex:v": Identifier(uri)})
+    _roundtrips(document)
+
+
+class _Shouted(str):
+    def __str__(self) -> str:
+        return self.upper()
+
+
+def test_string_subclass_is_written_through_its_str() -> None:
+    assert encoding_provn_value(_Shouted('a"b')) == '"A\\"B"'

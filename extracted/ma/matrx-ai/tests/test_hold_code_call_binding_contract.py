@@ -100,18 +100,18 @@ async def test_variable_mapping_renames_onto_the_holders_variables(monkeypatch, 
     assert records == []
 
 
-async def test_spilled_values_reach_the_request(monkeypatch, records) -> None:
+async def test_a_spill_is_refused_never_written_into_the_turn(monkeypatch, records) -> None:
+    """A held code call has no context channel, and a spilled value is never text
+    added to a turn (injection census #28, 2026-10-17): it refuses, recorded."""
     agent = _Agent({})
     _install(
         monkeypatch,
         mandates.MandateResolution(source=_Source(agent), spill_variables=frozenset({"notes"})),
     )
 
-    held = await mandates.hold_code_call("x.y", consumer="t", variables={"notes": "remember X"})
-
-    assert held.spilled_text and "remember X" in held.spilled_text
-    config = mandates.held_request_config(held)
-    assert any("remember X" in str(m.content) for m in config.messages)
+    with pytest.raises(mandates.MandateResolutionUnavailable):
+        await mandates.hold_code_call("x.y", consumer="t", variables={"notes": "remember X"})
+    assert records and "notes" in records[0]["reason"]
 
 
 async def test_blocking_mapping_is_refused_and_recorded(monkeypatch, records) -> None:

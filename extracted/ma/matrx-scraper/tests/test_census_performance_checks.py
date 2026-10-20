@@ -1,6 +1,6 @@
 """Census fixes for the performance checks (2026-10-14 live census B).
 
-Each test fails on the pre-fix behaviour: stale lab numbers stated as fact, lab
+Each test fails on the pre-fix behavior: stale lab numbers stated as fact, lab
 graded against field thresholds, summed overlapping savings, third-party cache
 files and the provider cap presented as the owner's problem, TTFB without a
 date, and tracking pixels / tiny pages failing the modern-format check.

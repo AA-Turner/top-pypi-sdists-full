@@ -904,6 +904,7 @@ class CreateS3BucketResourceTypeDef(TypedDict):
 class DestinationPropertiesTypeDef(TypedDict):
     DestinationArn: NotRequired[str]
     KmsKeyArn: NotRequired[str]
+    ExpectedBucketOwner: NotRequired[str]
 
 class CreateSampleFindingsRequestTypeDef(TypedDict):
     DetectorId: str

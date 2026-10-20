@@ -40,7 +40,7 @@ def _spawn_bg_shielded(coro: Any) -> None:
     """Like _spawn_bg, but the inner write survives caller cancellation.
 
     The OM cost record (cx_observational_memory_event) must land even when
-    the request is cancelled mid-call — otherwise the tokens we just spent
+    the request is canceled mid-call — otherwise the tokens we just spent
     on the Observer/Reflector LLM vanish with no trace. asyncio.shield keeps
     the write running through the cancellation unwind.
     """
@@ -207,8 +207,8 @@ class MemoryLLMAdapter:
             # skip the error bookkeeping below and the spend would be recorded
             # as a phantom success (or not at all). Mark it, let the finally
             # write the cost row (shielded), then re-raise.
-            error_text = "cancelled mid-stream (client disconnect or shutdown)"
-            logger.warning("[OM:llm_adapter] LLM call cancelled mid-stream")
+            error_text = "canceled mid-stream (client disconnect or shutdown)"
+            logger.warning("[OM:llm_adapter] LLM call canceled mid-stream")
             raise
         except Exception as exc:
             error_text = f"{type(exc).__name__}: {exc}"

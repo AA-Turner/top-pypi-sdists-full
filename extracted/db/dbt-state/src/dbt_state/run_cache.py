@@ -2075,7 +2075,14 @@ class RunCache:
         return {PERSISTED_DOCS_HASH_KEY: docs_hash}
 
     def _build_dbt_node_state(self, node: ModelOrSnapshotOrTestNode) -> shared_models.DbtNodeState:
-        calculator = create_node_hash_calculator(node, self._manifest, self._config)
+        calculator = create_node_hash_calculator(
+            node,
+            self._manifest,
+            self._config,
+            include_runtime_vars=self._run_cache_config.resolve_compare_unrendered_code(
+                node.config
+            ),
+        )
 
         node_contract_hash: t.Optional[str] = None
         if isinstance(calculator, ModelNodeHashCalculator):

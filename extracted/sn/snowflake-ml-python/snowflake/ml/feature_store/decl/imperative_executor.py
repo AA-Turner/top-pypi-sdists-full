@@ -1,0 +1,3487 @@
+"""Imperative executor for the declarative feature store.
+
+Maps ``PlanOp`` objects to ``FeatureStore`` method calls.  All imports from
+``snowflake.ml.feature_store`` are **lazy** (inside functions) so this module
+can be included in the standalone ``decl`` wheel without pulling in heavy
+transitive dependencies at import time.
+
+This module MUST NOT import from ``snowflake.ml.dataset``,
+``snowflake.ml.data``, or any other heavy snowml package.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Callable
+
+from snowflake.ml.feature_store.decl.compiler import (
+    _decode_join_keys,
+    to_comparison_identifier,
+)
+from snowflake.ml.feature_store.decl.enums import OpKind
+from snowflake.ml.feature_store.decl.errors import (
+    DependencyError,
+    FeatureStoreNotInitializedError,
+)
+from snowflake.ml.feature_store.decl.spec_models import (
+    _is_interval_duration_refresh_freq,
+)
+from snowflake.ml.feature_store.decl.types import (
+    ApplyResult,
+    ObjectKind,
+    Plan,
+    PlanOptions,
+)
+from snowflake.ml.feature_store.spec.enums import ENTITY_TAG_PREFIX
+
+logger = logging.getLogger(__name__)
+
+# Optional per-row progress callback threaded through the read-path
+# fetch helpers.  Invoked as ``on_progress(completed, total, label)``:
+# once as ``(0, total, "")`` right after the listing ``collect()``
+# returns (the moment ``total`` first exists), then once per translated
+# row as ``(completed, total, name)`` with a 1-based ``completed``.  The
+# library NEVER prints — it only invokes the callback the caller
+# supplies (the CLI renders the stderr progress bar).  ``None`` (the
+# default) is a no-op so every existing call site is unaffected.
+ProgressCallback = Callable[[int, int, str], None]
+
+# ``OpKind.RECREATE_SOURCE`` is owned by W1A (``decl/enums.py``).  We
+# discover it via :func:`getattr` so the source-lifecycle dispatch in
+# :func:`execute_plan` degrades gracefully on a stale wheel that
+# pre-dates the enum extension — without the value the dispatch simply
+# never sees a ``RECREATE_SOURCE`` op.
+_RECREATE_SOURCE_OP_KIND: Any = getattr(OpKind, "RECREATE_SOURCE", None)
+
+
+def _qualify_table(name: str, database: str, schema: str) -> str:
+    """Prefix a bare table name with ``database.schema``; a dotted name is already qualified.
+
+    Guards against the double-prefix bug where an already-qualified
+    ``DB.SCHEMA.TABLE`` is re-prefixed to the unresolvable
+    ``DB.SCHEMA.DB.SCHEMA.TABLE``.
+
+    Args:
+        name: The table reference, either bare (``EVENTS``) or already
+            qualified (``DB.SCHEMA.EVENTS``).
+        database: Database to prepend when ``name`` is bare.
+        schema: Schema to prepend when ``name`` is bare.
+
+    Returns:
+        ``name`` unchanged when it already contains a ``.``; otherwise
+        ``database.schema.name``.
+    """
+    if "." in name:
+        return name
+    return f"{database}.{schema}.{name}"
+
+
+def _type_fallback(op_kind: Any) -> str:
+    """Derive a coarse object-type label from an ``OpKind`` alone.
+
+    Used only when a plan op carries no ``payload["kind"]`` (e.g. a
+    hand-built op or a legacy plan) — the payload kind is the precise
+    source of truth (``BatchFeatureView`` vs ``StreamingFeatureView``),
+    whereas the op-kind suffix can only distinguish the coarse family.
+
+    Args:
+        op_kind: The :class:`OpKind` (or its string value) for the op.
+
+    Returns:
+        An ObjectKind label string, or ``""`` when the op-kind maps to
+        no object family (e.g. ``NO_CHANGE``).
+    """
+    name = op_kind.value if hasattr(op_kind, "value") else str(op_kind)
+    if name.endswith("_ENTITY"):
+        return ObjectKind.ENTITY
+    if name.endswith("_FG"):
+        return ObjectKind.FEATURE_GROUP
+    if name.endswith("_FV"):
+        return ObjectKind.FEATURE_VIEW
+    if name.endswith("_SOURCE"):
+        return ObjectKind.DATASOURCE
+    return ""
+
+
+def _op_type_label(op: Any) -> str:
+    """Return the object-type label for a plan op's display row.
+
+    Prefers the exact spec kind stamped on ``op.payload["kind"]``
+    (``BatchFeatureView``, ``StreamingFeatureView``, ``Entity``,
+    ``FeatureGroup``, ``BatchSource`` / ``StreamingSource``), falling back
+    to :func:`_type_fallback` when the payload omits it.
+
+    Args:
+        op: A :class:`PlanOp`.
+
+    Returns:
+        The object-type label string (may be ``""`` when unknown).
+    """
+    payload = getattr(op, "payload", None)
+    if isinstance(payload, dict):
+        kind = payload.get("kind")
+        if isinstance(kind, str) and kind:
+            return kind
+    return _type_fallback(getattr(op, "kind", ""))
+
+
+def _op_version(op: Any) -> str:
+    """Extract the target object's version string from a plan op.
+
+    Object identity is ``(name, version)``, so the ops table surfaces the
+    version to disambiguate operations on two same-named FeatureViews /
+    FeatureGroups.  The value is read from the op payload — either a
+    top-level ``version`` (authoring shape) or ``metadata.version``
+    (compiled shape).  Unversioned kinds (Entity / Datasource) yield ``""``.
+
+    Args:
+        op: The :class:`PlanOp` whose payload is inspected.
+
+    Returns:
+        The upper-case-preserving version string, or ``""`` when absent.
+    """
+    payload = getattr(op, "payload", None)
+    if not isinstance(payload, dict):
+        return ""
+    version = payload.get("version")
+    if not version:
+        metadata = payload.get("metadata")
+        if isinstance(metadata, dict):
+            version = metadata.get("version")
+    return str(version) if version else ""
+
+
+def _op_result_row(op: Any, *, status: str | None = None, error: str | None = None) -> dict[str, Any]:
+    """Build a plan/apply display row with ``type`` and ``version`` before ``name``.
+
+    Single source of truth for the ordered op dict rendered by
+    ``snow feature plan`` / ``snow feature apply``.  Key insertion order
+    is the column order: ``type``, ``name``, ``version``, ``operation``,
+    ``reason``, ``destructive`` (then ``status`` / ``error`` when supplied).
+
+    Args:
+        op: The :class:`PlanOp` this row describes.
+        status: Per-op apply status (``success`` / ``skipped`` / ``error``
+            / ``refused``).  Omitted for read-only plan rows.
+        error: Error string to attach when *status* is ``error``.
+
+    Returns:
+        An ordered dict suitable for the CLI ops table / JSON payload.
+    """
+    row: dict[str, Any] = {
+        "type": _op_type_label(op),
+        "name": op.name,
+        "version": _op_version(op),
+        "operation": op.kind.value,
+        "reason": op.reason,
+        "destructive": op.destructive,
+    }
+    if status is not None:
+        row["status"] = status
+    if error is not None:
+        row["error"] = error
+    return row
+
+
+def _resolve_online_target_lag(payload: dict[str, Any]) -> str | None:
+    """Pick the OFT ``target_lag`` string from a plan payload.
+
+    The authoring ``target_lag`` / ``target_lag_sec`` field is OFT
+    staleness only — strictly the value the imperative
+    ``OnlineConfig.target_lag`` receives (which Snowflake then writes
+    into ``CREATE ONLINE FEATURE TABLE … TARGET_LAG='<val>'``).  The
+    Dynamic Table refresh cadence is a separate authoring knob
+    (``refresh_freq``) and is **not** read from here.
+
+    Streaming and realtime feature views always run at 0 seconds target
+    lag — the Snowflake runtime stamps ``target_lag_sec: 0`` regardless
+    of the authored value, the Pydantic validator
+    (``FeatureView._reject_target_lag_on_stream_or_realtime``) rejects
+    any authored value on the loader path, and the spec compiler strips
+    the key from streaming / realtime compiled specs.  As defence-in-
+    depth this helper short-circuits to ``None`` for streaming /
+    realtime kinds so a hand-built payload that bypasses the compiler
+    strip cannot leak a non-zero value into ``OnlineConfig.target_lag``.
+    The caller's ``"0 seconds"`` default fires instead — which is the
+    only value Snowflake accepts for streaming / realtime OFTs.
+
+    Resolution order for non-streaming/realtime kinds (first match wins):
+
+    1. ``target_lag`` (raw authoring shape — string or int seconds).
+    2. ``target_lag_sec`` (the post-``normalize_durations`` integer shape
+       that the loader writes for every YAML).  Formatted as
+       ``"<n> seconds"`` when only the integer key is present.
+
+    Returns ``None`` when neither key is set, so the caller can fall
+    back to its own default — ``_POSTGRES_BATCH_OFT_TARGET_LAG`` for an
+    online ``BatchFeatureView`` (declarative online storage is Postgres),
+    or ``"0 seconds"`` for streaming / realtime / FG payloads.
+
+    Args:
+        payload: A plan op payload dict (post-``model_to_dict`` /
+            ``normalize_durations``).
+
+    Returns:
+        A target-lag string ready for ``OnlineConfig(target_lag=...)``,
+        or ``None`` when the payload omits both keys (or carries a
+        streaming / realtime kind).
+    """
+    kind = payload.get("kind", "") if isinstance(payload.get("kind"), str) else ""
+    if "Streaming" in kind or "Realtime" in kind:
+        return None
+    raw = payload.get("target_lag")
+    if isinstance(raw, str) and raw.strip():
+        return raw
+    if isinstance(raw, int):
+        return f"{raw} seconds"
+    sec = payload.get("target_lag_sec")
+    if isinstance(sec, int) and sec > 0:
+        return f"{sec} seconds"
+    if isinstance(sec, str) and sec.strip().isdigit():
+        return f"{int(sec)} seconds"
+    return None
+
+
+def assert_feature_store_initialized(
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str,
+) -> Any:
+    """Construct a ``FeatureStore(FAIL_IF_NOT_EXIST)`` or raise a clean
+    init-required error pointing operators at ``snow feature init``.
+
+    This is the single enforcement point for the declarative client's
+    init-first invariant: every ``snow feature`` command except ``init``
+    must fail fast if the target schema lacks the bootstrap tags
+    (``SNOWML_FEATURE_STORE_OBJECT`` / ``SNOWML_FEATURE_VIEW_METADATA``).
+    The snowml-core ``FeatureStore`` constructor already enforces that
+    invariant by raising a ``NOT_FOUND`` ``SnowflakeMLException`` when
+    either tag is absent (see ``_check_internal_objects_exist_or_throw``);
+    we catch that specific error code and rewrap it as
+    :class:`FeatureStoreNotInitializedError` so the CLI can render a
+    one-line, actionable error instead of leaking snowml-core internals.
+
+    The constructed ``FeatureStore`` is pinned to
+    ``OnlineServiceAccess.PUBLIC`` so ``snow feature ingest`` / ``query``
+    always reach the Online Service on its public REST URL rather than
+    auto-routing to the PrivateLink host, which is unresolvable from
+    networks without PrivateLink DNS. PrivateLink is an SDK-only opt-in
+    for now (a CLI selector can be added later); the imperative
+    ``FeatureStore`` default (auto-routing) is unchanged for direct SDK
+    callers.
+
+    Args:
+        session: Snowpark ``Session`` to bind to the new ``FeatureStore``.
+        database: Snowflake database name.
+        schema: Snowflake schema name (the ``FeatureStore`` "name").
+        warehouse: Default warehouse for the ``FeatureStore``.
+
+    Returns:
+        A constructed ``FeatureStore`` bound to ``database.schema`` so
+        callers can reuse it without paying for a second
+        ``FAIL_IF_NOT_EXIST`` check.
+
+    Raises:
+        FeatureStoreNotInitializedError: If the schema is missing the
+            internal bootstrap tags or does not exist as a feature
+            store.  Triggered either by a ``SnowflakeMLException`` with
+            ``error_code == NOT_FOUND`` (direct call-path) or by a
+            ``ValueError`` whose ``str()`` starts with the
+            ``(<NOT_FOUND>)`` marker (snowml-core's telemetry
+            decorator unwraps ``SnowflakeMLException`` to its
+            ``original_exception`` before re-raising).
+        snowml_exceptions.SnowflakeMLException: Any other
+            ``SnowflakeMLException`` raised by ``FeatureStore.__init__``
+            (e.g. auth, permissions, warehouse) is propagated verbatim
+            — only ``NOT_FOUND`` is rewrapped as the init-required error.
+    """
+    from snowflake.ml._internal.exceptions import (
+        error_codes,
+        exceptions as snowml_exceptions,
+    )
+    from snowflake.ml.feature_store.feature_store import CreationMode, FeatureStore
+    from snowflake.ml.feature_store.online_service import OnlineServiceAccess
+
+    not_found_prefix = f"({error_codes.NOT_FOUND})"
+
+    try:
+        return FeatureStore(
+            session,
+            database,
+            schema,
+            warehouse,
+            creation_mode=CreationMode.FAIL_IF_NOT_EXIST,
+            online_service_access=OnlineServiceAccess.PUBLIC,
+        )
+    except snowml_exceptions.SnowflakeMLException as exc:
+        # Direct (un-telemetry-wrapped) path: ``FeatureStore.__init__``
+        # raised the typed snowml-core exception verbatim.  Happens in
+        # unit tests and when the imperative codepath is invoked
+        # without telemetry context.
+        if exc.error_code == error_codes.NOT_FOUND:
+            raise FeatureStoreNotInitializedError(database, schema, exc) from exc
+        raise
+    except ValueError as exc:
+        # Telemetry-unwrapped path: in real execution
+        # ``snowflake.ml._internal.telemetry`` catches the
+        # ``SnowflakeMLException`` raised by
+        # ``_check_internal_objects_exist_or_throw`` and re-raises
+        # ``e.original_exception`` (a ``ValueError`` whose ``str()``
+        # starts with the ``(<error_code>)`` marker).  We match the
+        # ``(2101)`` prefix because ``error_code`` is no longer
+        # available on the unwrapped exception.
+        if str(exc).startswith(not_found_prefix):
+            raise FeatureStoreNotInitializedError(database, schema, exc) from exc
+        raise
+
+
+def _collect_with_retry(
+    collect_fn: Callable[[], Any],
+    *,
+    attempts: int = 3,
+    description: str = "list query",
+) -> Any:
+    """Run a Snowpark ``.collect()`` with a bounded retry on transient failure.
+
+    ``FeatureStore.list_entities()`` (and the sibling ``list_*`` reads)
+    are ``SHOW … .select(…)`` DataFrames, so Snowpark appends a
+    warehouse-bound ``SELECT … FROM TABLE(RESULT_SCAN(…))`` to the
+    ``.collect()``.  On an idle-then-auto-suspending warehouse that
+    ``RESULT_SCAN`` SELECT can lose a race and raise
+    ``"Warehouse … was suspended while SQL was waiting to be
+    scheduled. SQL execution canceled."`` even though the schema is
+    perfectly valid.  Re-running the collect triggers warehouse
+    auto-resume, so a single retry almost always succeeds.
+
+    This helper deliberately re-invokes ``collect_fn`` (which rebuilds
+    the DataFrame and collects) rather than issuing an explicit
+    ``SELECT 1`` warm-up: the entity read path is pinned by
+    ``test_no_entity_tag_sql_in_decl.py`` to make **zero** raw
+    ``session.sql`` calls, and the retry itself is enough to resume the
+    warehouse.  When every attempt fails the last exception is
+    re-raised — the caller must surface a real error, never silently
+    degrade to an empty result (an empty applied-state entity set
+    spuriously produces ``MISSING_ENTITY`` for every referencing FV).
+
+    Args:
+        collect_fn: Zero-argument callable that performs the
+            ``.collect()`` and returns its result.  Re-invoked once per
+            attempt.
+        attempts: Total number of tries (including the first).  Must be
+            ``>= 1``.
+        description: Short label used in the retry debug log line.
+
+    Returns:
+        The value returned by the first successful ``collect_fn`` call.
+
+    Raises:
+        Exception: The last exception raised by ``collect_fn`` when all
+            ``attempts`` are exhausted (re-raised verbatim so callers and
+            :func:`assert_feature_store_initialized` error mapping still
+            see the original type/message).
+    """
+    total = max(1, attempts)
+    for attempt in range(1, total + 1):
+        try:
+            return collect_fn()
+        except Exception as exc:  # noqa: BLE001 — retried, then re-raised
+            if attempt >= total:
+                raise
+            logger.debug(
+                "%s attempt %d/%d failed (%s); retrying to let the warehouse auto-resume",
+                description,
+                attempt,
+                total,
+                exc,
+            )
+
+
+def fetch_entity_rows(
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str = "",
+    *,
+    on_progress: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch entity tag rows by delegating to ``FeatureStore.list_entities()``.
+
+    The read-path counterpart to the entity-DDL ops in
+    :func:`execute_plan` — both route through the imperative
+    ``FeatureStore`` API so the declarative module never emits raw
+    entity-tag SQL.  When the target schema lacks the bootstrap
+    tags, :func:`assert_feature_store_initialized` rewraps the
+    snowml-core ``NOT_FOUND`` as
+    :class:`FeatureStoreNotInitializedError` so the CLI surfaces a
+    clear "run ``snow feature init``" message.
+
+    The imperative ``list_entities()`` returns a Snowpark DataFrame whose
+    rows have keys ``NAME`` (with the ``SNOWML_FEATURE_STORE_ENTITY_``
+    prefix already stripped), ``JOIN_KEYS`` (a JSON-decodable string),
+    ``DESC``, and ``OWNER``.  The legacy CLI applied-state parser
+    (:func:`state._build_entity_object`) and the list-renderer
+    (:func:`api.enrich_list_results`) both expect the raw ``SHOW TAGS``
+    shape (``name`` *with* the prefix, ``database_name``, ``schema_name``,
+    ``allowed_values``, ``comment``).  This function translates between
+    those two shapes so existing consumers keep working unchanged.
+
+    Args:
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name to scope the listing to.
+        schema: Snowflake schema name (the FeatureStore "name") to scope
+            the listing to.
+        warehouse: Default warehouse for the imperative ``FeatureStore``
+            constructor.  ``list_entities()`` is ``SHOW TAGS …
+            .select(…)``: Snowpark runs the trailing ``.select`` as a
+            ``SELECT … FROM TABLE(RESULT_SCAN(…))`` that **does** require
+            a running warehouse (the ``SHOW TAGS`` alone would not), so a
+            real value is recommended and the ``.collect()`` is wrapped
+            in :func:`_collect_with_retry` to survive a transient
+            warehouse-auto-suspend race.  An empty string is still
+            accepted for callers that rely on the connection default.
+        on_progress: Optional per-row progress callback (see
+            :data:`ProgressCallback`).  Invoked as ``(0, n, "")`` once
+            after the ``list_entities()`` collect, then ``(i, n, name)``
+            after each translated entity (``name`` is the unprefixed
+            entity name).  ``None`` (the default) is a no-op.
+
+    Returns:
+        A list of row dicts in the SHOW TAGS shape.  Returns an empty
+        list only when no entities are registered — never as a
+        fallback for a failed lookup (a transient failure is retried
+        and, if unrecoverable, re-raised).
+    """
+    fs = assert_feature_store_initialized(session, database, schema, warehouse)
+    # ``list_entities()`` is ``SHOW TAGS … .select(…)``; Snowpark runs the
+    # trailing ``.select`` as a warehouse-bound ``RESULT_SCAN`` SELECT, which
+    # can lose a race against warehouse auto-suspend.  Retry once (the retry
+    # resumes the warehouse); if it still fails, the exception propagates —
+    # we never degrade a transient failure into an empty entity set.
+    listed = _collect_with_retry(
+        lambda: fs.list_entities().collect(),
+        description="list_entities()",
+    )
+
+    total = len(listed)
+    if on_progress is not None:
+        on_progress(0, total, "")
+
+    translated: list[dict[str, Any]] = []
+    for row in listed:
+        if hasattr(row, "as_dict"):
+            data = row.as_dict()
+        elif isinstance(row, dict):
+            data = dict(row)
+        else:
+            try:
+                data = dict(row)
+            except (TypeError, ValueError):
+                logger.debug("Skipping un-mappable entity row: %r", row)
+                continue
+
+        # ``FeatureStore.list_entities()`` returns rows with the
+        # ``SNOWML_FEATURE_STORE_ENTITY_`` prefix already stripped, plus
+        # ``JOIN_KEYS`` (JSON string), ``DESC``, ``OWNER``.  Re-add the
+        # prefix and copy the JSON join_keys / desc into the SHOW TAGS
+        # column names that downstream consumers
+        # (``state._build_entity_object``, ``api.enrich_list_results``)
+        # expect.
+        raw_name = data.get("NAME") or data.get("name") or ""
+        if not raw_name:
+            continue
+        tag_name = f"{ENTITY_TAG_PREFIX}{raw_name}"
+        allowed = data.get("JOIN_KEYS") or data.get("join_keys") or ""
+        comment = data.get("DESC") or data.get("desc") or ""
+        owner = data.get("OWNER") or data.get("owner") or ""
+
+        translated.append(
+            {
+                "name": tag_name,
+                "database_name": database,
+                "schema_name": schema,
+                "allowed_values": allowed,
+                "comment": comment,
+                "owner": owner,
+            }
+        )
+        if on_progress is not None:
+            on_progress(len(translated), total, str(raw_name))
+
+    return translated
+
+
+# Suffix appended to offline Dynamic Table backing every FV.  The
+# imperative ``FeatureView._get_physical_name`` joins ``<NAME>`` and
+# ``<VERSION>`` with this delimiter; the offline DT carries no
+# ``$ONLINE`` suffix (that suffix is reserved for the OFT).
+_OFFLINE_DT_DELIMITER = "$"
+
+
+def _parse_online_enabled(raw: Any) -> bool:
+    """Decide whether an FV row's ``online_config`` indicates the OFT
+    is enabled.
+
+    ``FeatureStore.list_feature_views`` emits ``online_config`` as a
+    JSON string that is either ``OnlineConfig.to_json()`` (when the
+    OFT exists — ``enable=True``) or a default config with
+    ``enable=False`` when the OFT is absent.  This helper handles
+    both the JSON-string shape and the unlikely raw-dict shape; any
+    other value collapses to ``False`` so the merge logic in
+    :func:`state.fetch_applied_state` defaults to "no OFT, this is
+    an offline-only FV" — the safe direction (the OFT path will
+    overwrite the offline path when both are present, never the
+    other way around).
+
+    Args:
+        raw: The ``online_config`` cell value from a
+            ``FeatureStore.list_feature_views`` row.
+
+    Returns:
+        ``True`` when ``online_config.enable`` is truthy; ``False`` for
+        absent / falsey / unparsable values.
+    """
+    import json
+
+    if isinstance(raw, dict):
+        return bool(raw.get("enable"))
+    if isinstance(raw, str) and raw.strip():
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, ValueError):
+            return False
+        if isinstance(decoded, dict):
+            return bool(decoded.get("enable"))
+    return False
+
+
+def _parse_entities_cell(raw: Any) -> list[str]:
+    """Coerce the ``entities`` column of a list-FV row to a ``list[str]``.
+
+    Snowpark surfaces ARRAY columns as Python lists when the cell is
+    materialised through ``Row.as_dict()``.  When the row crosses a
+    cursor boundary that does not understand ARRAY types, the cell
+    arrives as a JSON-string.  Both shapes carry the same data; this
+    helper normalises to a Python list so callers can iterate without
+    branching.
+
+    Args:
+        raw: The ``entities`` cell value from a
+            ``FeatureStore.list_feature_views`` row.
+
+    Returns:
+        A list of entity-name strings.  Returns ``[]`` for ``None``,
+        non-string / non-list values, or unparsable JSON.
+    """
+    import json
+
+    if isinstance(raw, list):
+        return [str(x) for x in raw if x is not None]
+    if isinstance(raw, str) and raw.strip():
+        try:
+            decoded = json.loads(raw)
+        except (TypeError, ValueError):
+            return []
+        if isinstance(decoded, list):
+            return [str(x) for x in decoded if x is not None]
+    return []
+
+
+def fetch_feature_view_rows(
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str = "",
+    *,
+    on_progress: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch feature-view rows by delegating to ``FeatureStore.list_feature_views()``.
+
+    Mirror of :func:`fetch_entity_rows` for FeatureView enumeration.
+    The imperative ``FeatureStore.list_feature_views`` walks the
+    ``SHOW DYNAMIC TABLES`` / ``SHOW VIEWS`` backends and returns one
+    row per FV — including offline-only ``BatchFeatureView``s that
+    have no Online Feature Table.  Without this path the declarative
+    ``fetch_applied_state`` cannot see offline-only BFVs and the
+    planner re-emits ``CREATE_FV`` on every plan after a successful
+    ``apply`` (see ``plans/offline_bfv_state_fix_b9da0006.plan.md``).
+
+    The returned rows match the Phase-1 contract documented in
+    Section 7 of that plan: a narrow dict that
+    :func:`state.fetch_applied_state` translates into an
+    ``AppliedObject`` for offline-only FVs.
+
+    Args:
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name.
+        schema: Snowflake schema name (the FeatureStore "name").
+        warehouse: Default warehouse forwarded to the imperative
+            ``FeatureStore`` constructor; an empty string is accepted.
+        on_progress: Optional per-row progress callback (see
+            :data:`ProgressCallback`).  Invoked as ``(0, n, "")`` once
+            after the ``list_feature_views()`` collect, then
+            ``(i, n, name)`` after each translated FV — the tick fires
+            AFTER the per-BatchFV ``get_feature_view`` serialization so
+            it reflects the real per-FV network cost.  ``None`` (the
+            default) is a no-op.
+
+    Returns:
+        A list of FV row dicts.  Each row carries:
+        ``name``, ``version``, ``database_name``, ``schema_name``,
+        ``kind`` (``BATCH`` / ``STREAMING`` / ``REALTIME``),
+        ``entities`` (parsed ``list[str]``),
+        ``online_enabled`` (bool), ``target_lag``,
+        ``refresh_freq``, ``warehouse``, ``desc``, and
+        ``physical_dt_name`` (``<NAME>$<VERSION>`` for
+        ``dt_text_map`` lookup).  Returns ``[]`` when no FV is
+        registered.  Init-first symmetry with
+        :func:`fetch_entity_rows` — :func:`assert_feature_store_initialized`
+        bubbles up :class:`FeatureStoreNotInitializedError` when the
+        target schema lacks the bootstrap feature-store tags.
+    """
+    fs = assert_feature_store_initialized(session, database, schema, warehouse)
+    listed = fs.list_feature_views(verbose=True).collect()
+
+    total = len(listed)
+    if on_progress is not None:
+        on_progress(0, total, "")
+
+    translated: list[dict[str, Any]] = []
+    for row in listed:
+        if hasattr(row, "as_dict"):
+            data = row.as_dict()
+        elif isinstance(row, dict):
+            data = dict(row)
+        else:
+            try:
+                data = dict(row)
+            except (TypeError, ValueError):
+                logger.debug("Skipping un-mappable feature-view row: %r", row)
+                continue
+
+        name = _row_get(data, "name") or ""
+        version = _row_get(data, "version") or ""
+        if not name or not version:
+            logger.debug("Skipping list-FV row with missing name/version: %r", data)
+            continue
+
+        kind_raw = _row_get(data, "kind") or ""
+        kind = str(kind_raw).upper() if kind_raw else ""
+        physical_dt = f"{str(name)}{_OFFLINE_DT_DELIMITER}{str(version)}"
+
+        row_dict: dict[str, Any] = {
+            "name": str(name),
+            "version": str(version),
+            "database_name": _row_get(data, "database_name") or database,
+            "schema_name": _row_get(data, "schema_name") or schema,
+            "kind": kind,
+            "entities": _parse_entities_cell(_row_get(data, "entities")),
+            "online_enabled": _parse_online_enabled(_row_get(data, "online_config")),
+            "target_lag": _row_get(data, "target_lag") or "",
+            "refresh_freq": _row_get(data, "refresh_freq") or "",
+            "warehouse": _row_get(data, "warehouse") or "",
+            "cluster_by": _row_get(data, "cluster_by") or "",
+            "refresh_mode": _row_get(data, "refresh_mode") or "",
+            # ``append_only`` is a ``BooleanType`` column on
+            # ``list_feature_views()``; it is the source of truth for the
+            # snapshot-accumulation flag on applied-state recovery
+            # (``state._inject_batch_fv_fields_from_list_row``).  Kept as the
+            # raw cell (``None`` for legacy FVs) so the coercion / default
+            # stripping happens in one place downstream.
+            "append_only": _row_get(data, "append_only"),
+            "desc": _row_get(data, "desc") or "",
+            "physical_dt_name": physical_dt,
+            # ``source_refs`` is a JSON-encoded list[dict] populated by
+            # the ``_LIST_FEATURE_VIEW_SCHEMA.source_refs`` projection
+            # (plan section A1).  ``None`` / missing for legacy FVs that
+            # pre-date the metadata row; ``decl/state.fetch_applied_state``
+            # then leaves ``spec.sources`` empty and warns that the FV will
+            # be recreated on the next apply to stamp the metadata.
+            "source_refs": _decode_json_cell(_row_get(data, "source_refs")),
+        }
+
+        # Enrich BatchFV rows with the full ``FeatureViewSpec`` dict so the
+        # applied-state recovery can populate ``features``, ``timestamp_field``,
+        # ``feature_granularity_sec``, ``aggregation_secondary_keys``,
+        # ``cluster_by``, ``initialize``, and ``refresh_mode`` for FVs whose
+        # online presence is absent (``online: false``) and therefore cannot
+        # be recovered via ``DESCRIBE … TYPE = SPECIFICATION``.  Failures
+        # are logged at debug and fall through to the legacy minimal-payload
+        # reconstruction, which remains the fallback so this path is purely
+        # additive.
+        if kind == "BATCH":
+            spec_dict = _serialize_batch_fv_spec(fs, session, row_dict)
+            if spec_dict is not None:
+                row_dict["spec_text"] = spec_dict
+
+        translated.append(row_dict)
+        # Tick AFTER the (possibly slow) BatchFV ``get_feature_view``
+        # serialization above so the progress reflects the real
+        # per-FV network cost.
+        if on_progress is not None:
+            on_progress(len(translated), total, str(name))
+
+    return translated
+
+
+def fetch_feature_view_object(
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str,
+    name: str,
+    version: str,
+) -> Any:
+    """Return a fully-rehydrated ``FeatureView`` object for ``(name, version)``.
+
+    Lazy-imports :class:`FeatureStore` and delegates to
+    :meth:`FeatureStore.get_feature_view`, surfacing the same
+    ``FeatureStoreNotInitializedError`` rewrap on missing bootstrap
+    tags so callers get a uniform init-first error story.
+
+    Used by the applied-state recovery in :mod:`decl.state` to read
+    imperative-only fields that the list-FV row does not carry
+    (``initialize``, ``aggregation_specs``, ``aggregation_secondary_keys``,
+    ``feature_granularity``, ``timestamp_col``, ``source_refs``) without
+    re-parsing the offline DT's CREATE statement.  Plan section B2 calls
+    this helper once per tiled BatchFV during the OFT enrichment pass.
+
+    Args:
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name.
+        schema: Snowflake schema name (the FeatureStore "name").
+        warehouse: Default warehouse forwarded to the ``FeatureStore``
+            constructor.
+        name: FeatureView name (case-canonical).
+        version: FeatureView version string.
+
+    Returns:
+        FeatureView object — the same instance
+        :meth:`FeatureStore.get_feature_view` would have returned, with
+        every metadata-restored attribute populated (``source_refs``,
+        ``aggregation_secondary_keys``, ``feature_granularity``, …).
+        Errors from :func:`assert_feature_store_initialized` (which
+        rewraps the missing-bootstrap-tags case as
+        ``FeatureStoreNotInitializedError``) and any
+        ``snowml_exceptions.SnowflakeMLException`` raised by
+        :meth:`FeatureStore.get_feature_view` (FV not found, auth, etc.)
+        propagate to the caller unchanged.
+    """
+    fs = assert_feature_store_initialized(session, database, schema, warehouse)
+    return fs.get_feature_view(name, version)
+
+
+def _serialize_batch_fv_spec(
+    fs: Any,
+    session: Any,
+    row_dict: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Serialize a registered BatchFV into a SPECIFICATION-shaped dict.
+
+    Calls the imperative ``FeatureStore.get_feature_view()`` to compose a
+    fully-populated :class:`FeatureView`, then runs the same internal
+    ``_build_batch_feature_view_spec`` the OFT ``CREATE … FROM
+    SPECIFICATION`` path uses so the dict shape matches what
+    :func:`state.fetch_applied_state` would have parsed out of a live
+    ``DESCRIBE … TYPE = SPECIFICATION`` payload.
+
+    Returns ``None`` on any failure so the caller can fall back to the
+    legacy minimal reconstruction in
+    :func:`state._build_offline_fv_object`.
+
+    Args:
+        fs: A live ``FeatureStore`` instance for the target schema.
+        session: A live ``snowflake.snowpark.Session``; used to resolve
+            the offline Dynamic Table's materialised schema for tiled
+            BFVs (the ``_build_batch_feature_view_spec`` contract requires
+            ``offline_materialized_schema`` when ``is_tiled``).
+        row_dict: The translated row dict (must carry ``name``,
+            ``version``, ``database_name``, ``schema_name``,
+            ``physical_dt_name``, and any cadence fields).
+
+    Returns:
+        A dict matching :meth:`FeatureViewSpec.to_dict` output, or
+        ``None`` when reconstruction failed.
+    """
+    try:
+        fv = fs.get_feature_view(row_dict["name"], row_dict["version"])
+    except Exception as exc:  # noqa: BLE001 — defensive: keep legacy fallback
+        # A silent ``None`` here is invisible in exactly the way that hid the
+        # ``MY_ADV_BFV_DECL`` recovery gap: the caller falls back to the
+        # minimal spec, which can re-emit ``RECREATE_FV`` on later plans. Keep
+        # the fallback behavior, but leave a debug breadcrumb naming the FV.
+        logger.debug(
+            "decl.imperative_executor: could not load BatchFV %s/%s for state "
+            "recovery (%s); falling back to the minimal spec",
+            row_dict.get("name", ""),
+            row_dict.get("version", ""),
+            exc,
+        )
+        return None
+
+    # ``_build_batch_feature_view_spec`` parses ``target_lag`` as a *duration*
+    # (``<number> <unit>``); a CRON ``refresh_freq`` (required for append-only
+    # BFVs, e.g. ``*/2 * * * * UTC``) drives a companion Task, not a DT lag, and
+    # crashes that parser ("Invalid interval format").  For a CRON cadence pass
+    # a benign zero duration — the resulting ``target_lag_sec`` is a
+    # ``_RUNTIME_STAMPED_SPEC_KEYS`` member stripped before hashing on both
+    # sides, so recovery stays symmetric with the compiler (which likewise
+    # derives no ``target_lag_sec`` from a CRON ``refresh_freq``).
+    refresh_freq_cell = row_dict.get("refresh_freq") or ""
+    if refresh_freq_cell and _is_interval_duration_refresh_freq(refresh_freq_cell):
+        target_lag = refresh_freq_cell
+    else:
+        target_lag = row_dict.get("target_lag") or "0 seconds"
+
+    offline_materialized_schema = None
+    if getattr(fv, "is_tiled", False):
+        db = row_dict.get("database_name", "")
+        sch = row_dict.get("schema_name", "")
+        physical_dt = row_dict.get("physical_dt_name", "")
+        fq = f"{db}.{sch}.{physical_dt}"
+        try:
+            offline_materialized_schema = session.table(fq).schema
+        except Exception as exc:  # noqa: BLE001
+            # Recovery is not lost here — the ``output_schema`` fallback below
+            # keeps serialization alive — but leave a debug breadcrumb so a
+            # transiently-unreadable offline table is diagnosable.
+            logger.debug(
+                "decl.imperative_executor: could not read the offline table "
+                "schema %s for BatchFV %s/%s (%s); falling back to the "
+                "rehydrated output schema",
+                fq,
+                row_dict.get("name", ""),
+                row_dict.get("version", ""),
+                exc,
+            )
+            offline_materialized_schema = None
+        # ``_build_batch_feature_view_spec`` REQUIRES a non-``None``
+        # ``offline_materialized_schema`` for tiled BFVs (it raises
+        # otherwise).  A tiled BFV authored with ``initialize: ON_CREATE``
+        # can leave the physical DT schema momentarily unreadable
+        # immediately after registration (no data has triggered the first
+        # aggregation yet), so the ``session.table(...).schema`` read above
+        # can fail even though ``source_refs`` are correctly stamped.  Fall
+        # back to the rehydrated FeatureView's ``output_schema`` — the same
+        # source snowml uses for non-tiled batch FVs — so recovery still
+        # produces a spec instead of a silent ``None`` (which would loop the
+        # planner on ``RECREATE_FV``).  ``offline_configs`` is stripped
+        # before hashing (``_DERIVED_TOP_LEVEL_KEYS``), so a fallback DT
+        # schema never perturbs the round-trip hash.
+        if offline_materialized_schema is None:
+            offline_materialized_schema = getattr(fv, "output_schema", None)
+
+    # snowml's ``FeatureStore.get_feature_view()`` reconstructs ``fv.feature_df``
+    # from the materialized DT (post-aggregation: ``USER_ID, …, TILE_START,
+    # _PARTIAL_SUM_AMOUNT``) for tiled BFVs.  ``_build_batch_feature_view_spec``
+    # then validates ``aggregation_specs`` against this schema — failing with
+    # ``Column 'AMOUNT' not found in resolution pool`` because the raw source
+    # column ``AMOUNT`` no longer exists.  Recover the raw source schema by
+    # reading ``fv.source_refs`` (populated authoritatively from
+    # ``FV_SOURCE_REFS`` metadata — see plan section A1) and substitute a
+    # synthetic empty DataFrame carrying that schema onto ``fv._feature_df``
+    # so the spec builder's validation pool matches the aggregation source
+    # columns.  Replaces the legacy ``SHOW DYNAMIC TABLES`` + regex parse of
+    # the DT body (Phase B1 — no SQL/DT-text parsing in ``decl/``).
+    if getattr(fv, "is_tiled", False) and not getattr(fv, "is_rollup", False):
+        try:
+            source_refs = getattr(fv, "source_refs", None) or []
+            src_ref = source_refs[0] if source_refs and isinstance(source_refs[0], dict) else None
+            raw_schema = None
+            if src_ref is not None:
+                # Preferred: rebuild the raw-source schema from the stamped
+                # ``columns`` (authoritative ``FV_SOURCE_REFS`` metadata).
+                # This needs no live raw-table read and works even when the
+                # source ref omits ``table`` (e.g. a query-backed source) or
+                # the raw table is transiently unreadable.
+                columns = src_ref.get("columns")
+                if isinstance(columns, list) and columns:
+                    try:
+                        raw_schema = _spec_columns_to_struct_type(columns)
+                    except Exception:  # noqa: BLE001 — malformed/unsupported column type
+                        raw_schema = None
+                # Fallback: read the physical raw table's live schema when no
+                # usable ``columns`` were stamped but a ``table`` binding is.
+                if raw_schema is None:
+                    raw_source = str(src_ref.get("table") or "")
+                    if raw_source:
+                        if "." in raw_source:
+                            fq = raw_source
+                        else:
+                            src_db = str(src_ref.get("source_database") or "") or row_dict.get("database_name", "")
+                            src_schema = str(src_ref.get("source_schema") or "") or row_dict.get("schema_name", "")
+                            fq = f"{src_db}.{src_schema}.{raw_source}"
+                        raw_schema = session.table(fq).schema
+            if raw_schema is not None:
+                # The stamped source columns may omit ``aggregation_secondary_keys``
+                # (the operator is not required to list the secondary key in the
+                # authored ``BatchSource.columns``).  The tiled aggregation set
+                # nonetheless carries a synthesized ``_SECONDARY_KEY_ARRAY`` spec
+                # whose ``source_column`` is that key, so the resolution pool the
+                # spec builder validates against must include it.  Union the
+                # missing keys into the schema, typed from the materialized DT
+                # schema (``fv._feature_df`` is still the post-aggregation DT
+                # schema at this point) or the offline materialized schema —
+                # both physically carry the secondary key.  Without this the
+                # spec build raises "not found in resolution pool" and the FV
+                # loops on ``RECREATE_FV`` forever.
+                secondary_keys = getattr(fv, "aggregation_secondary_keys", None)
+                if secondary_keys:
+                    fallback_schemas: list[Any] = []
+                    dt_df = getattr(fv, "_feature_df", None)
+                    dt_schema = getattr(dt_df, "schema", None) if dt_df is not None else None
+                    if dt_schema is not None:
+                        fallback_schemas.append(dt_schema)
+                    if offline_materialized_schema is not None:
+                        fallback_schemas.append(offline_materialized_schema)
+                    raw_schema = _augment_schema_with_secondary_keys(raw_schema, secondary_keys, fallback_schemas)
+                empty_df = session.create_dataframe([], schema=raw_schema)
+                fv._feature_df = empty_df
+        except Exception as exc:  # noqa: BLE001
+            # The spec build below is still attempted — and its own ``except``
+            # logs a warning if it then fails — so keep this best-effort and
+            # only leave a debug breadcrumb for the swallowed substitution.
+            logger.debug(
+                "decl.imperative_executor: could not substitute the raw-source "
+                "schema for BatchFV %s/%s (%s); attempting spec build anyway",
+                row_dict.get("name", ""),
+                row_dict.get("version", ""),
+                exc,
+            )
+
+    try:
+        from snowflake.ml._internal.utils.sql_identifier import SqlIdentifier as _SqlId
+
+        physical_dt_name = _SqlId(row_dict.get("physical_dt_name", ""))
+        spec = fs._build_batch_feature_view_spec(
+            feature_view=fv,
+            feature_view_name=physical_dt_name,
+            version=row_dict["version"],
+            target_lag=target_lag,
+            offline_materialized_schema=offline_materialized_schema,
+        )
+        result: dict[str, Any] = spec.to_dict()
+        _emulate_quake_postprocess(result)
+        _canonicalize_enums_in_place(result)
+        # snowml's spec builder stamps the default ``online_store_type``
+        # onto every BatchFV result even when the authoring YAML has
+        # ``online: false`` (no OFT will be created).  The local-compile
+        # side omits the key entirely for offline-only FVs, so leaving
+        # the stamped value in would trigger a spurious ``UPDATE_FV``
+        # via :func:`planner._batch_fv_operational_drift`.  Strip it
+        # whenever the row reports no online deployment.
+        if not row_dict.get("online_enabled"):
+            result.pop("online_store_type", None)
+        # The applied-state recovery has no in-spec carrier for the
+        # refresh ``warehouse`` (DESCRIBE … TYPE = SPECIFICATION omits
+        # it and ``_inject_advanced_bfv_fields_from_dt_text`` does not
+        # yet parse it from DT text).  ``planner._warehouse_drifted``
+        # treats an authored-but-not-recovered warehouse as drift, so
+        # an offline-only BFV that authors ``warehouse:`` always
+        # flagged ``UPDATE_FV`` after a clean apply.  ``list_feature_views``
+        # already surfaces the deployed warehouse on the FV row; inject
+        # it into ``spec.warehouse`` so the planner's drift comparison
+        # finds a match on a clean round-trip.
+        warehouse = row_dict.get("warehouse") or ""
+        inner = result.get("spec") if isinstance(result.get("spec"), dict) else None
+        if warehouse and isinstance(inner, dict) and "warehouse" not in inner:
+            inner["warehouse"] = warehouse
+        return result
+    except Exception as exc:  # noqa: BLE001
+        # Returning ``None`` is the intended contract — the caller falls
+        # back to :func:`state._build_offline_fv_object`'s minimal spec.  But
+        # the failure must be observable: a silent ``None`` here is exactly
+        # what made the ``MY_ADV_BFV_DECL`` recovery gap invisible.  For a
+        # tiled BFV the usual cause is missing/incomplete ``source_refs`` (a
+        # raw aggregation source column cannot be resolved); log an actionable
+        # warning naming the FV.
+        #
+        # NOTE: the fallback minimal spec's hash will not match the local
+        # compiled spec, so the next plan emits ``RECREATE_FV`` — and because
+        # a recreate re-stamps the SAME (incomplete) source columns, that op
+        # can recur on every plan rather than converging.  Do NOT promise a
+        # one-time recreate here; direct the operator at the underlying cause
+        # instead (e.g. a secondary key absent from the source columns is now
+        # auto-healed, so a persistent loop indicates a different unresolved
+        # column).
+        logger.warning(
+            "decl.imperative_executor: could not serialize BatchFV %s/%s for "
+            "state recovery (%s); falling back to the minimal spec, which will "
+            "emit RECREATE_FV. If this recurs on every plan the FV is not "
+            "converging — inspect the stamped FV_SOURCE_REFS columns against "
+            "the aggregation source/secondary-key columns.",
+            row_dict.get("name", ""),
+            row_dict.get("version", ""),
+            exc,
+        )
+        return None
+
+
+def _canonicalize_enums_in_place(obj: Any) -> None:
+    """Recursively replace any :class:`enum.Enum` value with its ``.value``.
+
+    ``FeatureViewSpec.to_dict()`` returns a dict whose ``kind`` and
+    ``feature_aggregation_method`` carry the source ``FeatureViewKind`` /
+    ``FeatureAggregationMethod`` enum instances rather than their canonical
+    string values — the live ``DESCRIBE … TYPE = SPECIFICATION`` JSON
+    path always returns strings (Snowflake serialises the spec server-side
+    before sending it over the wire), so the divergence is invisible to
+    the online-OFT recovery codepath and only surfaces when the
+    offline-only enrichment in :func:`_serialize_batch_fv_spec` short-circuits
+    through ``spec.to_dict()`` directly.
+
+    Without canonicalisation, the exporter writes the enum-bearing payload
+    through PyYAML's safe-load contract and emits the
+    ``!!python/object/apply:snowflake.ml.feature_store.spec.enums.<Enum>``
+    tag.  The next ``snow feature plan`` then fails the YAML safe-load with
+    ``could not determine a constructor for the tag …`` because the
+    loader uses ``yaml.safe_load``, which (correctly) rejects Python
+    object reconstruction tags.
+
+    Mutates ``obj`` in place: walks nested dicts and lists, replacing every
+    ``Enum`` leaf with its ``.value``.  Non-enum leaves are left untouched.
+
+    Args:
+        obj: Any value.  Dicts and lists are recursed; ``Enum`` instances
+            are replaced with their ``.value`` in the parent container;
+            other types are no-ops.
+    """
+    from enum import Enum
+
+    if isinstance(obj, dict):
+        for key, value in list(obj.items()):
+            if isinstance(value, Enum):
+                obj[key] = value.value
+            else:
+                _canonicalize_enums_in_place(value)
+    elif isinstance(obj, list):
+        for idx, value in enumerate(obj):
+            if isinstance(value, Enum):
+                obj[idx] = value.value
+            else:
+                _canonicalize_enums_in_place(value)
+
+
+def _emulate_quake_postprocess(result: dict[str, Any]) -> None:
+    """Mirror Snowflake-server's Quake transforms on a client-side spec dict.
+
+    ``FeatureStore._build_batch_feature_view_spec`` returns snowml's
+    *pre-deploy* spec shape: secondary keys are surfaced via
+    ``ordered_secondary_key_column_names``, the aggregation builder
+    auto-emits ``<SK>_KEYS_<window>s`` array features per secondary key,
+    and tiled output columns are wrapped in ``ArrayType`` with an inner
+    ``element_type``.  When the OFT is created via ``CREATE … FROM
+    SPECIFICATION``, the Snowflake server (Quake) strips the secondary
+    keys back out, drops the SK array features, and unwraps tiled
+    ``ArrayType`` output columns to their base element type before
+    persisting.  The applied-side ``DESCRIBE … TYPE = SPECIFICATION``
+    JSON returns this post-Quake shape — which is what the local-compile
+    side already produces from the YAML.  For offline-only tiled BFVs
+    (no OFT), we have to apply the same transform client-side so the
+    hash round-trip matches.
+
+    Mutates ``result`` in place.  Operates only on
+    ``kind == "BatchFeatureView"`` payloads; other kinds are a no-op so
+    the helper is safe to invoke unconditionally.
+
+    Args:
+        result: A ``FeatureViewSpec.to_dict()`` payload (``{kind,
+            metadata, offline_configs, online_store_type, spec}``).
+    """
+    if not isinstance(result, dict) or result.get("kind") != "BatchFeatureView":
+        return
+    inner = result.get("spec")
+    if not isinstance(inner, dict):
+        return
+
+    sks_raw = inner.pop("ordered_secondary_key_column_names", None)
+    sks: list[str] = []
+    if isinstance(sks_raw, list):
+        sks = [str(k) for k in sks_raw if k]
+    # The SK and the entity/source columns can arrive in different identifier
+    # provenances (bare stored form vs re-quoted SQL syntax), so compare them
+    # through the shared fold rather than a raw ``.upper()``.
+    sks_uc = {to_comparison_identifier(s) for s in sks}
+    if sks:
+        inner["aggregation_secondary_keys"] = sks
+        entities = inner.get("ordered_entity_column_names")
+        if isinstance(entities, list):
+            inner["ordered_entity_column_names"] = [e for e in entities if to_comparison_identifier(e) not in sks_uc]
+
+    features = inner.get("features")
+    if isinstance(features, list):
+        cleaned: list[Any] = []
+        for feat in features:
+            if not isinstance(feat, dict):
+                cleaned.append(feat)
+                continue
+            src = feat.get("source_column")
+            src_name = to_comparison_identifier(src.get("name", "")) if isinstance(src, dict) else ""
+            if sks_uc and src_name in sks_uc and "function" not in feat:
+                continue
+            oc = feat.get("output_column")
+            if isinstance(oc, dict) and oc.get("type") == "ArrayType":
+                elem = oc.get("element_type")
+                if isinstance(elem, str) and elem:
+                    oc["type"] = elem
+                    oc.pop("element_type", None)
+            cleaned.append(feat)
+        inner["features"] = cleaned
+
+
+def _decode_json_cell(raw: Any) -> Any:
+    """Coerce a JSON-string cell to a Python object.
+
+    The metadata store persists ``SOURCES`` and ``OUTPUT_COLUMNS`` as JSON
+    variants.  Snowpark surfaces those columns as JSON strings via
+    ``Row.as_dict()``; the cursor path may surface them already-decoded
+    (a Python list / dict).  This helper accepts either.
+
+    Args:
+        raw: The cell value from a ``FeatureStore.list_feature_groups()`` row.
+
+    Returns:
+        The JSON-decoded Python object (typically ``list``); the original
+        value when it was already a list / dict; ``None`` when the cell
+        is missing, empty, or unparsable.
+    """
+    import json
+
+    if raw is None:
+        return None
+    if isinstance(raw, (list, dict)):
+        return raw
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None
+        try:
+            return json.loads(text)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def fetch_feature_group_rows(
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str = "",
+    *,
+    on_progress: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch FeatureGroup rows by delegating to ``FeatureStore.list_feature_groups()``.
+
+    Mirror of :func:`fetch_feature_view_rows` for FeatureGroup enumeration.
+    The imperative ``FeatureStore.list_feature_groups`` reads from
+    :class:`FeatureGroupMetadata` rows and returns one row per registered
+    ``(name, version)``.  This function lazy-imports
+    ``snowflake.ml.feature_store.feature_store.FeatureStore`` and
+    constructs it via :func:`assert_feature_store_initialized` so an
+    uninitialised schema raises :class:`FeatureStoreNotInitializedError`
+    (matching the entity / FV reads), letting the CLI emit the actionable
+    "run ``snow feature init``" message.
+
+    The returned rows decode the JSON-string ``SOURCES`` / ``OUTPUT_COLUMNS``
+    columns into native Python objects so downstream consumers
+    (``state.fetch_applied_state``, ``exporter.export_specs``) can iterate
+    without re-parsing.
+
+    Args:
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name.
+        schema: Snowflake schema name (the FeatureStore "name").
+        warehouse: Default warehouse forwarded to the imperative
+            ``FeatureStore`` constructor; an empty string is accepted.
+        on_progress: Optional per-row progress callback (see
+            :data:`ProgressCallback`).  Invoked as ``(0, n, "")`` once
+            after the ``list_feature_groups()`` collect, then
+            ``(i, n, name)`` after each translated FG.  ``None`` (the
+            default) is a no-op.
+
+    Returns:
+        A list of FG row dicts in a narrow shape with keys ``name``,
+        ``version``, ``desc``, ``owner``, ``auto_prefix``, ``sources``
+        (list of ``{fv_name, fv_version, slice_columns?, alias?}``),
+        ``output_columns`` (``list[str] | None`` — ``None`` for legacy
+        rows written before the column existed), ``database_name``,
+        and ``schema_name``.  Returns ``[]`` when no FG is registered.
+
+    Raises:
+        ValueError: If any row returned by
+            ``FeatureStore.list_feature_groups()`` maps to an empty
+            ``name`` or ``version``.  Silently skipping such a row
+            would mask upstream metadata drift (Snowpark column rename
+            on ``_LIST_FEATURE_GROUP_SCHEMA``, corrupt metadata, or a
+            legacy FG written without a version) and surface as a
+            spurious ``CREATE_FG`` on the next ``snow feature plan``.
+    """
+    fs = assert_feature_store_initialized(session, database, schema, warehouse)
+    listed = fs.list_feature_groups().collect()
+
+    total = len(listed)
+    if on_progress is not None:
+        on_progress(0, total, "")
+
+    translated: list[dict[str, Any]] = []
+    for row in listed:
+        if hasattr(row, "as_dict"):
+            data = row.as_dict()
+        elif isinstance(row, dict):
+            data = dict(row)
+        else:
+            try:
+                data = dict(row)
+            except (TypeError, ValueError):
+                logger.debug("Skipping un-mappable feature-group row: %r", row)
+                continue
+
+        name = _row_get(data, "name") or ""
+        version = _row_get(data, "version") or ""
+        if not name or not version:
+            # Strict-fail (was silent-skip): a row mapping to empty
+            # name/version signals either Snowpark column-rename drift
+            # on _LIST_FEATURE_GROUP_SCHEMA, a corrupt metadata entry,
+            # or a legacy FG written without a version.  Skipping it
+            # masks the root cause — the next snow feature plan would
+            # diff against an empty applied state and surface a
+            # spurious CREATE_FG instead of pointing at the broken
+            # row.  Raising here puts the offending row shape in the
+            # operator's hands so they can fix the source.
+            raise ValueError(
+                f"FeatureStore.list_feature_groups() returned a row with "
+                f"missing name/version: name={name!r}, version={version!r}, "
+                f"row={data!r} — refusing to silently drop it"
+            )
+
+        sources_decoded = _decode_json_cell(_row_get(data, "sources"))
+        if not isinstance(sources_decoded, list):
+            sources_decoded = []
+        output_cols_decoded = _decode_json_cell(_row_get(data, "output_columns"))
+        if output_cols_decoded is not None and not isinstance(output_cols_decoded, list):
+            output_cols_decoded = None
+
+        translated.append(
+            {
+                "name": str(name),
+                "version": str(version),
+                "desc": _row_get(data, "desc") or "",
+                "owner": _row_get(data, "owner") or "",
+                "auto_prefix": bool(_row_get(data, "auto_prefix")),
+                "sources": sources_decoded,
+                "output_columns": output_cols_decoded,
+                "database_name": _row_get(data, "database_name") or database,
+                "schema_name": _row_get(data, "schema_name") or schema,
+            }
+        )
+        if on_progress is not None:
+            on_progress(len(translated), total, str(name))
+
+    return translated
+
+
+def _row_get(data: dict[str, Any], key: str) -> Any:
+    """Return ``data[key]`` accepting either lower- or upper-cased keys.
+
+    ``list_feature_views`` lowercases column names per the
+    ``_LIST_FEATURE_VIEW_SCHEMA`` definition; cursor paths may surface
+    them upper-cased.  Both shapes carry the same data; callers never
+    see the divergence.
+
+    Args:
+        data: A row dict from ``Row.as_dict()`` or ``DictCursor``.
+        key: Lower-case column name to read.
+
+    Returns:
+        The matching column value, or ``None`` when neither casing is
+        present.
+    """
+    if key in data:
+        return data[key]
+    up = key.upper()
+    if up in data:
+        return data[up]
+    return None
+
+
+def fetch_stream_source_rows(
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str = "",
+    *,
+    on_progress: ProgressCallback | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch stream-source rows by delegating to ``FeatureStore.list_stream_sources()``.
+
+    Mirror of :func:`fetch_entity_rows` / :func:`fetch_feature_view_rows` /
+    :func:`fetch_feature_group_rows` for the streaming-source read path.
+    The imperative ``FeatureStore.list_stream_sources()`` returns a
+    Snowpark DataFrame whose rows carry ``NAME``, ``SCHEMA`` (JSON
+    string), ``DESC``, and ``OWNER`` columns (see
+    ``feature_store.py:list_stream_sources``).  Decoding the ``SCHEMA``
+    JSON into a ``list[{"name", "type"}]`` here keeps downstream
+    consumers (:mod:`state` and the planner's source-diff helper) free
+    of JSON-parsing boilerplate.
+
+    Init-first symmetry: :func:`assert_feature_store_initialized`
+    rewraps the snowml-core ``NOT_FOUND`` as
+    :class:`FeatureStoreNotInitializedError` so the CLI surfaces a clear
+    "run ``snow feature init``" message when the target schema lacks
+    the bootstrap tags.  Malformed ``SCHEMA`` JSON degrades that row's
+    ``schema`` to ``[]`` (logged at ``debug`` level) so the planner can
+    fall through to a ``recreate`` decision rather than crashing on
+    metadata drift.
+
+    See ``plans/stream_source_contract.md`` §3 for the row-shape
+    contract this function pins.
+
+    Args:
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name.
+        schema: Snowflake schema name (the FeatureStore "name").
+        warehouse: Default warehouse forwarded to the imperative
+            ``FeatureStore`` constructor; an empty string is accepted.
+        on_progress: Optional per-row progress callback (see
+            :data:`ProgressCallback`).  Invoked as ``(0, n, "")`` once
+            after the ``list_stream_sources()`` collect, then
+            ``(i, n, name)`` after each translated stream source.
+            ``None`` (the default) is a no-op.
+
+    Returns:
+        A list of row dicts in the contract §3 shape::
+
+            {
+                "name": str,
+                "schema": list[{"name": str, "type": str}],
+                "desc": str,
+                "owner": str,
+            }
+
+        Returns ``[]`` when no stream source is registered.
+    """
+    import json
+
+    fs = assert_feature_store_initialized(session, database, schema, warehouse)
+    listed = fs.list_stream_sources().collect()
+
+    total = len(listed)
+    if on_progress is not None:
+        on_progress(0, total, "")
+
+    translated: list[dict[str, Any]] = []
+    for row in listed:
+        if hasattr(row, "as_dict"):
+            data = row.as_dict()
+        elif isinstance(row, dict):
+            data = dict(row)
+        else:
+            try:
+                data = dict(row)
+            except (TypeError, ValueError):
+                logger.debug("Skipping un-mappable stream-source row: %r", row)
+                continue
+
+        name = data.get("NAME") or data.get("name") or ""
+        if not name:
+            logger.debug("Skipping stream-source row with missing NAME: %r", data)
+            continue
+
+        raw_schema = data.get("SCHEMA") or data.get("schema") or ""
+        parsed_schema: list[dict[str, Any]] = []
+        if isinstance(raw_schema, list):
+            parsed_schema = [c for c in raw_schema if isinstance(c, dict)]
+        elif isinstance(raw_schema, str) and raw_schema.strip():
+            try:
+                decoded = json.loads(raw_schema)
+            except (TypeError, ValueError) as exc:
+                logger.debug(
+                    "Stream source %s has malformed SCHEMA JSON; degrading to []: %s",
+                    name,
+                    exc,
+                )
+                decoded = None
+            if isinstance(decoded, list):
+                parsed_schema = [c for c in decoded if isinstance(c, dict)]
+
+        translated.append(
+            {
+                "name": str(name),
+                "schema": parsed_schema,
+                "desc": data.get("DESC") or data.get("desc") or "",
+                "owner": data.get("OWNER") or data.get("owner") or "",
+            }
+        )
+        if on_progress is not None:
+            on_progress(len(translated), total, str(name))
+
+    return translated
+
+
+def execute_plan(
+    plan: Plan,
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str,
+    options: PlanOptions,
+) -> ApplyResult:
+    """Execute a Plan by delegating each PlanOp to FeatureStore methods.
+
+    All ``snowflake.ml.feature_store`` imports are lazy — they happen here,
+    not at module level.  After the upstream lazy-import fixes (dataset and
+    circular feature_store imports made lazy), importing these classes does
+    NOT pull in numpy/pandas/pyarrow.
+
+    Args:
+        plan: The execution plan from ``generate_plan``.
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name.
+        schema: Snowflake schema name (FeatureStore "name").
+        warehouse: Snowflake warehouse name.
+        options: Plan options (overwrite, allow_recreate, etc.).
+
+    Returns:
+        ApplyResult with per-operation status.
+
+    Raises:
+        Exception: If any plan operation fails during execution.
+    """
+    # Destructive-op guard (apply-time policy enforcement).
+    #
+    # The planner is policy-free: it always emits ``RECREATE_FV`` /
+    # ``DROP_FV`` / ``DROP_ENTITY`` for destructive diffs so operators
+    # can see them in the ``snow feature plan`` output before deciding
+    # whether to apply.  The ``allow_recreate`` flag is the operator
+    # opt-in that gates *apply*, not plan generation — refusing here
+    # (before any FV side-effect or even ``FeatureStore`` construction)
+    # leaves the plan file unrenamed under L5 (Mark-Failed-Stays-
+    # Unapplied) so a follow-up ``snow feature apply --destructive``
+    # consumes the same plan.  See BUG_BASH §14 and
+    # plans/apply_allow_recreate_destructive_gate_*.plan.md.
+    if not options.allow_recreate:
+        destructive_ops = [op for op in plan.ops if op.destructive]
+        if destructive_ops:
+            refused_rows = [_op_result_row(op, status="refused") for op in destructive_ops]
+            skipped_rows = [_op_result_row(op, status="skipped") for op in plan.ops if not op.destructive]
+            return ApplyResult(
+                status="refused",
+                ops=refused_rows + skipped_rows,
+                warnings=list(plan.warnings),
+                errors=[
+                    f"Apply refused: {len(destructive_ops)} destructive "
+                    f"operation(s) require --destructive. "
+                    f"Re-run with `snow feature apply --destructive <path>`."
+                ],
+            )
+
+    # Eager ``FeatureStore`` construction.  Every entity + FV op now
+    # routes through the imperative API (no raw entity-tag SQL
+    # remains in this module), so the init-first invariant must fire
+    # uniformly across entity-only, FV-only, and mixed plans:
+    # ``assert_feature_store_initialized`` rewraps the snowml-core
+    # ``NOT_FOUND`` as :class:`FeatureStoreNotInitializedError` so
+    # the CLI's outer handler can surface the
+    # "run ``snow feature init``" guidance.
+    fs = assert_feature_store_initialized(session, database, schema, warehouse)
+
+    ops: list[dict[str, Any]] = []
+    errors: list[str] = []
+
+    for op in plan.ops:
+        if op.kind == OpKind.NO_CHANGE:
+            ops.append(_op_result_row(op, status="skipped"))
+            continue
+
+        # Source-side ops dispatch table (contract §4 of
+        # ``plans/stream_source_contract.md``).  ``StreamingSource`` ops
+        # route through the imperative ``FeatureStore`` stream-source
+        # API; ``BatchSource`` ops are informational no-ops because
+        # ``BatchSource`` is virtual at the runtime level (its identity
+        # lives inside the consuming FV's offline Dynamic Table).  Each
+        # ``_execute_*_stream_source`` helper handles the
+        # ``payload['kind']`` branching internally so this dispatcher
+        # stays flat; the legacy ``CREATE_SOURCE`` branch is kept
+        # explicit because it pre-dates the StreamingSource read path
+        # and its informational no-op for non-StreamingSource kinds
+        # historically reported ``status: skipped`` (preserve that
+        # back-compat shape for ``CREATE_SOURCE`` only).
+        if op.kind == OpKind.CREATE_SOURCE:
+            if op.payload.get("kind") == "StreamingSource":
+                try:
+                    _execute_create_stream_source(fs, op.payload)
+                    ops.append(_op_result_row(op, status="success"))
+                except Exception as e:
+                    logger.error("Failed to execute %s for %s: %s", op.kind.value, op.name, e)
+                    ops.append(_op_result_row(op, status="error", error=str(e)))
+                    errors.append(f"{op.kind.value} {op.name}: {e}")
+                    raise
+            else:
+                ops.append(_op_result_row(op, status="skipped"))
+            continue
+
+        if (
+            op.kind == OpKind.UPDATE_SOURCE
+            or op.kind == OpKind.DROP_SOURCE
+            or (_RECREATE_SOURCE_OP_KIND is not None and op.kind == _RECREATE_SOURCE_OP_KIND)
+        ):
+            try:
+                if op.kind == OpKind.UPDATE_SOURCE:
+                    _execute_update_stream_source(fs, op)
+                elif op.kind == OpKind.DROP_SOURCE:
+                    _execute_drop_stream_source(fs, op)
+                else:
+                    _execute_recreate_stream_source(fs, op)
+                ops.append(_op_result_row(op, status="success"))
+            except Exception as e:
+                logger.error("Failed to execute %s for %s: %s", op.kind.value, op.name, e)
+                ops.append(_op_result_row(op, status="error", error=str(e)))
+                errors.append(f"{op.kind.value} {op.name}: {e}")
+                raise
+            continue
+
+        try:
+            _execute_op(fs, session, op, database, schema, warehouse, options)
+            ops.append(_op_result_row(op, status="success"))
+        except Exception as e:
+            logger.error("Failed to execute %s for %s: %s", op.kind.value, op.name, e)
+            ops.append(_op_result_row(op, status="error", error=str(e)))
+            errors.append(f"{op.kind.value} {op.name}: {e}")
+            raise
+
+    status = "applied" if not errors else "partial_failure"
+    return ApplyResult(
+        status=status,
+        ops=ops,
+        warnings=list(plan.warnings),
+        errors=errors,
+    )
+
+
+def _payload_is_append_only(payload: Any) -> bool:
+    """Return ``True`` when an op payload describes an append-only BatchFV.
+
+    Mirrors the ``append_only`` opt-in gate in :func:`_build_feature_view`
+    (``kind == "BatchFeatureView" and payload["append_only"]``) so the
+    register-overwrite guard keys off the same authoring signal that decides
+    whether ``FeatureView(append_only=True)`` is constructed.  Used only to
+    force ``overwrite=False`` on the CREATE_FV / RECREATE_FV register calls —
+    core rejects the append_only + ``overwrite=True`` combination outright.
+
+    Args:
+        payload: The plan op payload (authoring-shape dict) or any value.
+
+    Returns:
+        ``True`` iff *payload* is a dict for a ``BatchFeatureView`` with a
+        truthy top-level ``append_only``; ``False`` otherwise.
+    """
+    return bool(isinstance(payload, dict) and payload.get("kind") == "BatchFeatureView" and payload.get("append_only"))
+
+
+def _execute_op(
+    fs: Any,
+    session: Any,
+    op: Any,
+    database: str,
+    schema: str,
+    warehouse: str,
+    options: PlanOptions,
+) -> None:
+    """Dispatch a single PlanOp to the appropriate executor.
+
+    All entity + FV ops route through the imperative ``FeatureStore``
+    instance ``fs`` — no raw entity-tag SQL is issued from this
+    module.  The ``fs`` is constructed eagerly by
+    :func:`execute_plan` via
+    :func:`assert_feature_store_initialized`, so the init-first
+    invariant has already fired by the time this dispatcher runs.
+
+    Args:
+        fs: The constructed ``FeatureStore`` instance bound to
+            ``database.schema``.  Reused across every op in the plan.
+        session: Snowpark session for ``_build_feature_view`` /
+            ``_build_feature_df`` (DataFrame construction).
+        op: The plan op to execute.
+        database: Default database for entity / FV resolution.
+        schema: Default schema for entity / FV resolution.
+        warehouse: Default warehouse forwarded to FV constructors.
+        options: Plan-wide execution options (e.g. ``overwrite``).
+    """
+    if op.kind == OpKind.CREATE_ENTITY:
+        _execute_create_entity(fs, op)
+
+    elif op.kind == OpKind.DROP_ENTITY:
+        _execute_drop_entity(fs, op)
+
+    elif op.kind == OpKind.UPDATE_ENTITY:
+        _execute_update_entity(fs, op)
+
+    elif op.kind == OpKind.CREATE_FV:
+        fv, version = _build_feature_view(op.payload, session, database, schema, warehouse, fs=fs)
+        backfill_block = op.payload.get("backfill") if isinstance(op.payload, dict) else None
+        backfill_overwrite = bool(backfill_block.get("overwrite")) if isinstance(backfill_block, dict) else False
+        # ``PlanOptions.overwrite`` is the legacy global opt-in (force-apply
+        # past version-conflict checks); the FV-level ``backfill.overwrite``
+        # is the per-FV opt-in for the imperative "backfill cost" path.  A
+        # True from either source forwards as ``register_feature_view(overwrite=True)``.
+        create_overwrite = options.overwrite or backfill_overwrite
+        # Append-only FVs reject ``overwrite=True`` unconditionally in core
+        # (``register_feature_view`` raises "append_only feature views do not
+        # support overwrite=True" even when nothing exists to overwrite,
+        # because the combination can leave a stale ``$SNAPSHOTS`` table).  A
+        # fresh append-only CREATE never needs overwrite; a same-name
+        # collision is handled by the RECREATE_FV delete-then-register path.
+        if _payload_is_append_only(op.payload):
+            create_overwrite = False
+        fs.register_feature_view(
+            fv,
+            version,
+            overwrite=create_overwrite,
+        )
+
+    elif op.kind == OpKind.UPDATE_FV:
+        _execute_update_feature_view(fs, op, warehouse)
+
+    elif op.kind == OpKind.EVOLVE_FV:
+        _execute_evolve_feature_view(fs, op, session, database, schema, warehouse)
+
+    elif op.kind == OpKind.RECREATE_FV:
+        name = op.payload.get("name", "")
+        version = op.payload.get("version", "V1")
+        # Build (and resolve entities) before deleting: the build reads only
+        # this payload's own sources and the entity registry, never the FV
+        # being recreated, so a resolution failure here must leave the deployed
+        # FV intact rather than drop it first and strand the schema.
+        fv, new_version = _build_feature_view(op.payload, session, database, schema, warehouse, fs=fs)
+        try:
+            fs.delete_feature_view(name, version)
+        except Exception as e:
+            logger.warning("delete_feature_view(%s, %s) failed during RECREATE: %s", name, version, e)
+        # Append-only targets MUST re-register with ``overwrite=False`` — core
+        # rejects append_only + ``overwrite=True`` outright — and the
+        # ``delete_feature_view`` above already cleared the prior object (and
+        # its ``$SNAPSHOTS`` companion).  For the non-append-only recreate we
+        # keep ``overwrite=True`` (Bug F): when ``delete_feature_view`` raises
+        # (e.g. FV referenced by a FeatureGroup) the re-register would
+        # otherwise hit a version conflict and loop RECREATE forever.
+        recreate_overwrite = False if _payload_is_append_only(op.payload) else (options.allow_recreate or True)
+        fs.register_feature_view(fv, new_version, overwrite=recreate_overwrite)
+
+    elif op.kind == OpKind.DROP_FV:
+        name = op.payload.get("name", "")
+        version = op.payload.get("version", "V1")
+        fs.delete_feature_view(name, version)
+
+    elif op.kind == OpKind.CREATE_FG:
+        _execute_create_feature_group(fs, op)
+
+    elif op.kind == OpKind.DROP_FG:
+        _execute_drop_feature_group(fs, op)
+
+
+def _execute_create_feature_group(fs: Any, op: Any) -> None:
+    """Apply ``OpKind.CREATE_FG`` via ``FeatureStore.register_feature_group``.
+
+    Two variants share this entry point:
+
+    * **Non-destructive create** (``op.destructive is False``): register the
+      newly-built ``FeatureGroup`` directly.  The ``--destructive`` gate
+      did not refuse the plan because no existing FG is being clobbered.
+    * **Destructive recreate** (``op.destructive is True``): delete-then-
+      register pair.  ``delete_feature_group`` is best-effort — a missing
+      existing FG must not fail the recreate (snowml-core makes the OFT
+      drop ``IF EXISTS`` and the metadata delete idempotent, but a stale
+      schema where the OFT was already dropped manually still has to
+      succeed).  Mirrors the FV-level ``RECREATE_FV`` pattern.
+
+    The ``--destructive`` gate at :func:`execute_plan` already refused
+    destructive FG plans before calling this function, so by the time we
+    get here the operator has explicitly opted in.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        op: The ``CREATE_FG`` plan op carrying the FG payload.
+    """
+    payload = op.payload or {}
+    name = str(payload.get("name", "") or op.name)
+    version = str(payload.get("version", "V1") or "V1")
+
+    if op.destructive:
+        # Best-effort delete; a missing FG is a no-op.  The error is
+        # logged for diagnostics but does not bubble up — the register
+        # half is the load-bearing side-effect.
+        try:
+            fs.delete_feature_group(name, version)
+        except Exception as exc:  # noqa: BLE001 — defensive, see docstring
+            logger.warning(
+                "delete_feature_group(%s, %s) failed during destructive CREATE_FG: %s",
+                name,
+                version,
+                exc,
+            )
+
+    fg, fg_version = _build_feature_group(fs, payload, version)
+    fs.register_feature_group(fg, fg_version)
+
+
+def _execute_drop_feature_group(fs: Any, op: Any) -> None:
+    """Apply ``OpKind.DROP_FG`` via ``FeatureStore.delete_feature_group``."""
+    payload = op.payload or {}
+    name = str(payload.get("name", "") or op.name)
+    version = str(payload.get("version", "V1") or "V1")
+    fs.delete_feature_group(name, version)
+
+
+def _build_feature_group(
+    fs: Any,
+    payload: dict[str, Any],
+    version: str,
+) -> tuple[Any, str]:
+    """Construct an imperative ``FeatureGroup`` from a CREATE_FG payload.
+
+    **Critical contract (do NOT relax)**.  Each source ref is hydrated by
+    calling ``fs.get_feature_view(fv_name, fv_version)`` — never by
+    instantiating ``FeatureView(...)`` from a payload.  Rationale: the
+    imperative ``get_feature_view`` is the only code path that knows about
+    the six advanced BFV fields (``warehouse``, ``cluster_by``,
+    ``refresh_mode``, ``initialize``, ``storage_config``,
+    ``aggregation_secondary_keys``) and every future FV authoring field.
+    Reconstructing an FV from the FG payload would silently strip those
+    fields; going through ``get_feature_view`` makes the FG path forward-
+    compatible with the advanced BFV plan and any successor by construction.
+
+    Slice and alias are layered on top of the hydrated FV:
+
+    * ``slice_columns`` (if present) → ``fv.slice(slice_columns)``.
+    * ``alias`` (if present, including ``alias = ""`` which means
+      "no prefix" overriding ``auto_prefix``) → ``.with_name(alias)``.
+    * ``alias = None`` (the default) is left alone — the FG's
+      ``auto_prefix`` flag determines column naming at register time.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        payload: A CREATE_FG plan-op payload (dict) carrying ``name``,
+            ``desc``, ``auto_prefix``, and ``feature_views[]`` of
+            ``{name, version, slice_columns?, alias?}`` refs.
+        version: User-facing FG version (passed through; the imperative
+            ``register_feature_group`` takes this on its second positional
+            argument).
+
+    Returns:
+        Tuple of ``(FeatureGroup, version)``.  ``register_feature_group``
+        consumes both directly.
+
+    Raises:
+        ValueError: If any source ref in ``payload['feature_views']`` is
+            missing the required ``name`` or ``version`` field.
+    """
+    # Lazy import — keeps ``execute_plan`` import-light and matches the
+    # pattern used by ``_build_feature_view``.
+    from snowflake.ml.feature_store.feature_group import FeatureGroup as ImperativeFG
+
+    name = str(payload.get("name", ""))
+    desc = str(payload.get("desc", "") or "")
+    auto_prefix = bool(payload.get("auto_prefix", True))
+
+    features: list[Any] = []
+    for fv_ref in payload.get("feature_views", []) or []:
+        if not isinstance(fv_ref, dict):
+            continue
+        fv_name = str(fv_ref.get("name", ""))
+        fv_version = str(fv_ref.get("version", ""))
+        if not fv_name or not fv_version:
+            raise ValueError(f"FeatureGroup '{name}' has a source ref missing name or version: {fv_ref!r}")
+
+        # The single-line load-bearing call.  See the docstring above for
+        # why direct ``FeatureView(...)`` reconstruction is forbidden.
+        item = fs.get_feature_view(fv_name, fv_version)
+
+        slice_cols = fv_ref.get("slice_columns")
+        if slice_cols:
+            item = item.slice(list(slice_cols))
+
+        if "alias" in fv_ref and fv_ref["alias"] is not None:
+            # ``alias = ""`` is preserved (semantically: "no prefix");
+            # only ``alias = None`` skips the call.
+            item = item.with_name(fv_ref["alias"])
+
+        features.append(item)
+
+    fg = ImperativeFG(
+        name,
+        features=features,
+        desc=desc,
+        auto_prefix=auto_prefix,
+    )
+    return fg, version
+
+
+# UPDATE_FV is now valid for all three FV kinds.  Each kind has its
+# own operational subset (see ``planner._FV_OPERATIONAL_FIELDS_BY_KIND``):
+#
+# * BatchFeatureView   — full surface: desc, refresh_freq, warehouse,
+#   online_config.
+# * StreamingFeatureView — desc, and (only for a DT-backed tiled
+#   streaming FV) refresh_freq + warehouse.  A tiled streaming FV
+#   materialises its aggregate as an offline Dynamic Table *only when it
+#   carries refresh_freq* — that DT's cadence is refresh_freq and its
+#   refresh warehouse is warehouse.  A streaming FV without refresh_freq
+#   (non-tiled/continuous, or tiled-without-refresh_freq) compiles to a
+#   zero-lag VIEW — ``FeatureViewStatus.STATIC`` — which rejects both
+#   refresh_freq and warehouse at the ``FeatureStore.update_feature_view``
+#   layer (error 2110).  The spec validator
+#   ``FeatureView._reject_refresh_freq_on_stream_or_realtime`` mirrors the
+#   refresh_freq half of this boundary; tiled streaming REQUIRES
+#   ``refresh_freq`` (``STREAM_FV_TILING_REFRESH``).  A5 extended
+#   ``FeatureStore.update_feature_view`` to route the DT-backed streaming
+#   kwargs through the ALTER DT + ALTER OFT + ALTER TASK helpers.
+#   ``online_config`` is intentionally NOT forwarded for a streaming
+#   UPDATE_FV: a streaming FV is always online by design, so ``online:
+#   true`` in the full authoring payload is the default authored value,
+#   not an in-place toggle (the OFT was created at CREATE_FV time).
+#   Forwarding it would run the OFT-create path, which asserts
+#   ``feature_view.stream_config is not None`` — ``None`` for a STATIC
+#   streaming FV recovered from applied state — and surfaces as the
+#   empty-message ``(1300) Update feature view <NAME>/V1 failed:``.  So
+#   ``_execute_update_feature_view`` omits ``online_config`` for streaming
+#   and applies only the other operational edits; ``online: true`` alone
+#   is a no-op.  Genuinely changing a streaming FV's online routing is
+#   recreate-only (``RECREATE_FV``; see
+#   ``plans/done.bug_update_fv_error_1300.md``).
+# * RealtimeFeatureView — restricted surface: only desc + online_config.
+#   ``refresh_freq`` / ``warehouse`` are not forwarded because A5
+#   rejects them at the ``FeatureStore.update_feature_view`` layer
+#   (RTFVs are OFT-only — no Dynamic Table, no refresh Task).
+_UPDATE_FV_SUPPORTED_KINDS: frozenset[str] = frozenset(
+    {"BatchFeatureView", "StreamingFeatureView", "RealtimeFeatureView"}
+)
+
+
+def _payload_has_aggregation_windows(payload: dict[str, Any]) -> bool:
+    """Whether a plan payload describes a tiled FV — i.e. any feature
+    declares an aggregation window.
+
+    Mirrors the compiler's ``has_windows`` check and the imperative
+    ``FeatureView.is_tiled``: a tiled FV materialises its tiles as a
+    managed Dynamic Table whose ``TARGET_LAG`` is driven by
+    ``refresh_freq``.
+
+    Args:
+        payload: The FV authoring/plan payload dict.
+
+    Returns:
+        ``True`` if any ``features[]`` entry carries ``window`` or
+        ``window_sec``, else ``False``.
+    """
+    return any(
+        isinstance(f, dict) and (f.get("window") is not None or f.get("window_sec") is not None)
+        for f in (payload.get("features") or [])
+    )
+
+
+def _payload_forwards_refresh_freq(payload: dict[str, Any]) -> bool:
+    """Whether ``refresh_freq`` should reach the imperative FV surface for
+    this payload.
+
+    ``refresh_freq`` is the offline Dynamic Table cadence, so it is
+    forwarded only for kinds that build an offline DT: BatchFeatureView,
+    and **tiled** StreamingFeatureView (whose tiles are a managed DT).
+    Non-tiled streaming FVs materialise to a zero-lag VIEW and realtime
+    FVs compute on lookup — neither has a DT to schedule — so the field
+    is dropped there as defence-in-depth against a hand-built payload
+    that bypassed the spec validator.
+
+    Args:
+        payload: The FV authoring/plan payload dict.
+
+    Returns:
+        ``True`` if ``refresh_freq`` should be forwarded for this kind.
+    """
+    kind = payload.get("kind") or ""
+    if kind == "BatchFeatureView":
+        return True
+    if kind == "StreamingFeatureView":
+        return _payload_has_aggregation_windows(payload)
+    return False
+
+
+def _fv_operational_update_kwargs(payload: dict[str, Any], default_warehouse: str) -> dict[str, Any]:
+    """Build the operational ``FeatureStore.update_feature_view`` kwargs for a payload.
+
+    Shared by ``_execute_update_feature_view`` (the ``UPDATE_FV`` fast path)
+    and ``_execute_evolve_feature_view`` (the append-only ``EVOLVE_FV`` path)
+    so a single ``snow feature apply`` that drifts both a structural
+    (transformation) field and an operational knob realises the whole authored
+    spec in one imperative call.  Before this helper, ``EVOLVE_FV`` forwarded
+    only ``updated_feature_df`` + ``desc`` and the warehouse / refresh cadence /
+    online-routing drift was silently deferred to a second apply.
+
+    Each operational field is kind-gated so a hand-built payload cannot smuggle
+    a kwarg onto a kind that ``FeatureStore.update_feature_view`` rejects:
+
+    * ``refresh_freq`` — the offline Dynamic Table cadence.  BatchFeatureView
+      always accepts it; a *tiled* StreamingFeatureView accepts it too (its
+      aggregate is an offline DT).  A non-tiled streaming FV (zero-lag VIEW)
+      and a RealtimeFeatureView (OFT-only) both reject it — the spec validator
+      ``FeatureView._reject_refresh_freq_on_stream_or_realtime`` enforces the
+      same boundary; ``STREAM_FV_TILING_REFRESH`` requires it on tiled
+      streaming.  On a tiled streaming update forwarding it alters the tile DT
+      ``TARGET_LAG`` (``ALTER DYNAMIC TABLE … SET TARGET_LAG``).
+    * ``warehouse`` — the managed Dynamic Table refresh warehouse, valid only
+      for FVs that materialise as a DT: every BatchFeatureView, and a
+      StreamingFeatureView only when it is tiled AND carries ``refresh_freq``.
+      A streaming FV without ``refresh_freq`` (non-tiled/continuous, or
+      tiled-without-refresh_freq) compiles to a zero-lag VIEW —
+      ``FeatureViewStatus.STATIC`` — which ``FeatureStore.update_feature_view``
+      rejects with error 2110 ("Static feature view '<NAME>' does not support
+      refresh_freq, warehouse, and initialization_warehouse.").  RealtimeFV
+      (OFT-only) never accepts it either.  Because ``payload`` is the full
+      authoring spec, ``refresh_freq`` presence is a reliable DT signal even
+      when only ``warehouse`` / ``desc`` drifted.  An append-only
+      BatchFeatureView always carries a cron ``refresh_freq`` (snapshot
+      accumulation requires it), so the warehouse is always forwarded on the
+      ``EVOLVE_FV`` path.
+    * ``online_config`` — intentionally NOT forwarded for a
+      StreamingFeatureView.  A streaming FV is *always online by design* (the
+      spec validator ``FeatureView._enforce_always_online_for_stream_or_realtime``
+      defaults ``online=True`` and rejects an explicit ``online=False``), so the
+      full authoring payload always carries ``online: true`` — the default
+      authored value, not a request to toggle online routing in place (the OFT
+      was already materialised at ``CREATE_FV`` time).  Forwarding
+      ``online_config=OnlineConfig(enable=True, ...)`` would drive
+      ``FeatureStore.update_feature_view`` into its enable path
+      ``_create_online_feature_table``, whose streaming branch asserts
+      ``feature_view.stream_config is not None``.  A StreamingFV recovered from
+      applied state as a zero-lag VIEW carries no ``stream_config``, so the
+      assertion fails and surfaces as the empty-message ``(1300) Update feature
+      view <NAME>/V1 failed:`` (see ``plans/done.bug_update_fv_error_1300.md``).
+      Genuinely changing a streaming FV's online routing is recreate-only.
+      ``BatchFeatureView`` (batch OFT path) and ``RealtimeFeatureView``
+      (OFT-only, non-streaming) still route online through here — so an
+      append-only BFV authoring ``online: false`` against a deployed-online FV
+      drops the OFT inside the same ``EVOLVE_FV`` apply (correct convergence).
+
+    ``initialization_warehouse`` is deliberately not modelled in ``decl/`` and
+    is therefore never forwarded here.
+
+    Args:
+        payload: The authoring-format spec dict from the plan op.
+        default_warehouse: Connection warehouse when the payload omits one
+            (only forwarded for a DT-materialising kind).
+
+    Returns:
+        A kwargs dict for ``FeatureStore.update_feature_view`` holding only the
+        operational fields that apply to this payload's kind.  Empty when no
+        operational field applies.
+    """
+    from snowflake.ml.feature_store.feature_view import OnlineConfig, OnlineStoreType
+
+    kind = payload.get("kind", "")
+    is_batch = kind == "BatchFeatureView"
+    is_tiled_streaming = kind == "StreamingFeatureView" and _payload_has_aggregation_windows(payload)
+
+    kwargs: dict[str, Any] = {}
+    if _payload_forwards_refresh_freq(payload):
+        schedule = payload.get("refresh_freq")
+        if schedule:
+            kwargs["refresh_freq"] = str(schedule)
+
+    materializes_as_dt = is_batch or (is_tiled_streaming and bool(payload.get("refresh_freq")))
+    if materializes_as_dt:
+        wh = payload.get("warehouse") or default_warehouse
+        if wh:
+            kwargs["warehouse"] = wh
+
+    if "description" in payload:
+        kwargs["desc"] = str(payload.get("description") or "")
+
+    online = payload.get("online")
+    if online is not None and kind != "StreamingFeatureView":
+        target_lag = _resolve_online_target_lag(payload)
+        if target_lag is None:
+            # Kind-aware default mirroring the CREATE_FV path:
+            #
+            # * ``BatchFeatureView`` → ``_POSTGRES_BATCH_OFT_TARGET_LAG``.
+            #   Declarative online storage is Postgres.
+            #   The spec validator ``_reject_target_lag_on_offline_batch_fv``
+            #   only allows authored ``target_lag`` on online BFVs, so this
+            #   branch covers an online BFV that elided the field.
+            # * ``StreamingFeatureView`` / ``RealtimeFeatureView`` →
+            #   ``"0 seconds"``.  The spec validator
+            #   ``_reject_target_lag_on_stream_or_realtime`` forbids
+            #   authoring ``target_lag`` on these kinds entirely
+            #   (Snowflake stamps ``target_lag_sec: 0`` on the deployed
+            #   OFT regardless and rejects any non-zero value), so the
+            #   default MUST be ``"0 seconds"`` — using the batch
+            #   default here is rejected for those kinds.
+            if kind == "BatchFeatureView":
+                from snowflake.ml.feature_store.feature_view import (
+                    _POSTGRES_BATCH_OFT_TARGET_LAG,
+                )
+
+                target_lag = _POSTGRES_BATCH_OFT_TARGET_LAG
+            else:
+                target_lag = "0 seconds"
+        kwargs["online_config"] = OnlineConfig(
+            enable=bool(online),
+            target_lag=target_lag,
+            store_type=OnlineStoreType.POSTGRES,
+        )
+
+    return kwargs
+
+
+def _execute_update_feature_view(fs: Any, op: Any, default_warehouse: str) -> None:
+    """Apply ``OpKind.UPDATE_FV`` via ``FeatureStore.update_feature_view``.
+
+    Routes the planner's operational-drift edits through the imperative
+    update path via :func:`_fv_operational_update_kwargs`.  Post-B7, all
+    three FV kinds are supported — see the :data:`_UPDATE_FV_SUPPORTED_KINDS`
+    docstring (and the helper) for the per-kind operational surface.
+
+    The recreate-only authoring fields (``stream_source``,
+    ``transformation_fn``, ``feature_granularity``,
+    ``aggregation_secondary_keys``, ``backfill_table``,
+    ``backfill_start_time``, ``source_refs``) are intentionally not
+    alterable here — mutating any of them requires a destructive
+    ``RECREATE_FV`` via :meth:`delete_feature_view` +
+    :meth:`register_feature_view`.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        op: Plan op whose ``payload`` is the authoring-format spec dict.
+        default_warehouse: Connection warehouse when the payload omits one.
+
+    Raises:
+        ValueError: If ``payload["kind"]`` is not a supported FV kind.
+    """
+    payload = op.payload or {}
+    name = str(payload.get("name", "") or op.name)
+    version = str(payload.get("version", "V1") or "V1")
+    kind = payload.get("kind", "")
+    if kind not in _UPDATE_FV_SUPPORTED_KINDS:
+        raise ValueError(
+            f"UPDATE_FV is only supported for {sorted(_UPDATE_FV_SUPPORTED_KINDS)} in the "
+            f"declarative client; got kind={kind!r} for {name}/{version}."
+        )
+
+    kwargs = _fv_operational_update_kwargs(payload, default_warehouse)
+    # If online is the *only* payload signal on a streaming FV, ``kwargs``
+    # stays empty and we return without an imperative call — a no-op, never
+    # the false-1300 path described in the helper docstring.
+    if not kwargs:
+        return
+
+    fs.update_feature_view(name, version, **kwargs)
+
+
+def _execute_evolve_feature_view(
+    fs: Any,
+    op: Any,
+    session: Any,
+    database: str,
+    schema: str,
+    default_warehouse: str,
+) -> None:
+    """Apply ``OpKind.EVOLVE_FV`` — snapshot-preserving append-only evolution.
+
+    The planner emits ``EVOLVE_FV`` only for a schema-preserving (or
+    feature-append) edit to an append-only ``BatchFeatureView``.  Instead of the
+    destructive ``delete_feature_view`` + ``register_feature_view`` pair (which
+    would drop the ``$SNAPSHOTS`` history, ``SNOWML_SNAPSHOT_STATUS``, and the
+    snapshot-append Task), this routes through
+    ``FeatureStore.update_feature_view(updated_feature_df=...)``.  Core's
+    ``_recreate_append_only_feature_view_atomically`` reinitialises the backing
+    Dynamic Table from the new DataFrame while retaining the accumulated
+    snapshots.
+
+    ``updated_feature_df`` is merged with the operational kwargs from
+    :func:`_fv_operational_update_kwargs` (refresh cadence, warehouse, desc,
+    online routing) so a single ``snow feature apply`` that drifts both the
+    transformation *and* an operational knob realises the whole authored spec
+    in one call.  Core's ``updated_feature_df`` path applies those kwargs to the
+    desired-state FV before the DT ``CREATE OR REPLACE`` (see
+    ``FeatureStore.update_feature_view`` and
+    ``_recreate_append_only_feature_view_atomically``), so no redundant
+    follow-up ``UPDATE_FV`` is needed.  Without this merge the operational drift
+    was silently deferred to a second apply — the refresh would keep running on
+    the stale warehouse until then.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        op: Plan op whose ``payload`` is the authoring-format spec dict.
+        session: Snowpark session used to build the replacement DataFrame.
+        database: Default database for resolving unqualified source tables.
+        schema: Default schema for resolving unqualified source tables.
+        default_warehouse: Connection warehouse forwarded as the refresh
+            warehouse when the payload omits one (append-only BFVs always
+            materialise as a Dynamic Table).
+    """
+    payload = op.payload or {}
+    name = str(payload.get("name", "") or op.name)
+    version = str(payload.get("version", "V1") or "V1")
+    updated_feature_df = _build_feature_df(payload, session, database, schema)
+    kwargs = _fv_operational_update_kwargs(payload, default_warehouse)
+    kwargs["updated_feature_df"] = updated_feature_df
+    # Re-stamp FV_SOURCE_REFS with the authored sources (mirrors the CREATE_FV
+    # stamp) so the next plan recovers the new binding instead of the stale one
+    # and the EVOLVE loop converges to NO_CHANGE.
+    source_refs_payload = payload.get("sources")
+    if isinstance(source_refs_payload, list) and source_refs_payload:
+        canonical_refs = [dict(s) for s in source_refs_payload if isinstance(s, dict)]
+        if canonical_refs:
+            kwargs["_source_refs"] = canonical_refs
+    fs.update_feature_view(name, version, **kwargs)
+
+
+def _build_entity(payload: dict[str, Any]) -> Any:
+    """Construct an Entity from a spec payload dict.
+
+    Args:
+        payload: Dict from a PlanOp with kind=CREATE_ENTITY.
+            Expected keys: name, join_keys (list of dicts with "name").
+
+    Returns:
+        An ``Entity`` instance.
+    """
+    from snowflake.ml.feature_store.entity import Entity
+
+    name = payload.get("name", "")
+    join_keys_raw = payload.get("join_keys", [])
+    join_keys = [jk["name"] if isinstance(jk, dict) else str(jk) for jk in join_keys_raw]
+    desc = payload.get("description", "") or ""
+    return Entity(name=name, join_keys=join_keys, desc=desc)
+
+
+def _spec_columns_to_struct_type(columns: list[Any]) -> Any:
+    """Translate a spec ``columns:`` list to a Snowpark ``StructType``.
+
+    The spec compiler normalises column types to the
+    ``snowflake.snowpark.types`` class names listed in
+    :data:`snowflake.ml.feature_store.stream_source._TYPE_NAME_TO_CLASS`
+    (``StringType``, ``LongType``, ``DoubleType``, ``DecimalType``,
+    ``BooleanType``, ``TimestampType``, ``BinaryType``).  ``ArrayType`` is
+    also accepted (honoring an optional scalar ``element_type``) because the
+    tiled serializer (``spec.models._columns_from_tiled_struct_type``) — used
+    to auto-stamp ``FV_SOURCE_REFS`` on imperative registration — can emit
+    ``BinaryType`` and ``ArrayType`` columns that state recovery must rebuild.
+    This helper maps that string-typed authoring shape onto the real Snowpark
+    types that ``StreamSource``'s schema validator and batch-FV recovery
+    expect.
+
+    Args:
+        columns: List of spec column dicts; each carries ``name`` and
+            ``type`` plus optional precision / scale / length / tz.
+
+    Returns:
+        A ``snowflake.snowpark.types.StructType`` matching ``columns``.
+
+    Raises:
+        ValueError: If a column carries an unsupported type name.
+        RuntimeError: If ``snowflake-snowpark-python`` is not installed —
+            the decl wheel does not pull it in transitively, so streaming
+            registration requires the imperative feature-store stack.
+    """
+    try:
+        from snowflake.snowpark.types import (
+            ArrayType,
+            BinaryType,
+            BooleanType,
+            DecimalType,
+            DoubleType,
+            FloatType,
+            IntegerType,
+            LongType,
+            StringType,
+            StructField,
+            StructType,
+            TimestampType,
+        )
+    except ImportError as e:
+        raise RuntimeError(
+            "snowflake-snowpark-python is required to register streaming sources "
+            "or streaming feature views from a declarative spec; install it via the "
+            "imperative feature-store wheel."
+        ) from e
+
+    type_map: dict[str, Any] = {
+        "StringType": StringType,
+        "LongType": LongType,
+        "DoubleType": DoubleType,
+        "DecimalType": DecimalType,
+        "BooleanType": BooleanType,
+        "TimestampType": TimestampType,
+        # ``BinaryType`` raw-source columns (e.g. HLL-sketch inputs) are
+        # serialized by :func:`spec.models._make_fs_column`; recovery must
+        # rebuild them symmetrically.
+        "BinaryType": BinaryType,
+        # Narrow numeric authoring types.  Batch-source ``columns:`` may
+        # carry the un-widened forms (a ``BatchSource`` datasource authors
+        # ``AMOUNT: FloatType``); the tiled-BFV state-recovery path in
+        # :func:`_serialize_batch_fv_spec` rebuilds the raw-source schema
+        # from these stamped columns, so both must resolve here.
+        "FloatType": FloatType,
+        "IntegerType": IntegerType,
+    }
+
+    fields: list[Any] = []
+    for col in columns:
+        if not isinstance(col, dict):
+            raise ValueError(f"Stream-source column entry is not a dict: {col!r}")
+        col_name = col.get("name", "")
+        type_name = col.get("type", "")
+        if type_name == "ArrayType":
+            # List-aggregation partials (``last_distinct_n`` / ``last_n``) and
+            # raw array columns serialize as ``ArrayType`` with an optional
+            # scalar ``element_type`` name (see
+            # :func:`spec.models._make_tiled_fs_column`). A physical
+            # ``ARRAY_AGG`` tile reports no usable element type, so
+            # ``element_type`` may be absent -> rebuild a bare ``ArrayType``.
+            element_name = col.get("element_type")
+            element_cls = type_map.get(element_name) if element_name else None
+            dt = ArrayType(element_cls()) if element_cls is not None else ArrayType()
+            fields.append(StructField(col_name, dt))
+            continue
+        cls = type_map.get(type_name)
+        if cls is None:
+            raise ValueError(
+                f"Unsupported column type '{type_name}' for stream-source field '{col_name}'. "
+                f"Supported: {sorted(type_map) + ['ArrayType']}"
+            )
+        if type_name == "DecimalType":
+            dt = cls(col.get("precision", 38), col.get("scale", 0))
+        elif type_name == "StringType":
+            dt = cls(col.get("length")) if col.get("length") else cls()
+        else:
+            dt = cls()
+        fields.append(StructField(col_name, dt))
+    return StructType(fields)
+
+
+def _augment_schema_with_secondary_keys(
+    raw_schema: Any,
+    secondary_keys: list[str] | None,
+    fallback_schemas: list[Any],
+) -> Any:
+    """Return ``raw_schema`` with any missing secondary-key columns appended.
+
+    A tiled ``BatchFeatureView`` synthesizes a ``_SECONDARY_KEY_ARRAY``
+    aggregation spec whose ``source_column`` is the secondary key, so the
+    aggregation resolution pool — rebuilt from ``FV_SOURCE_REFS`` columns
+    during state recovery in :func:`_serialize_batch_fv_spec` — MUST contain
+    every ``aggregation_secondary_keys`` column.  When the operator omitted the
+    secondary key from the authored ``BatchSource.columns`` the stamped schema
+    lacks it and recovery fails with ``Column '<SK>' not found in resolution
+    pool``, which loops the planner on ``RECREATE_FV`` forever.  Union each
+    missing secondary key into the schema, sourcing its Snowpark field
+    definition from the first ``fallback_schemas`` entry that carries it (the
+    materialized DT schema and the FV's ``output_schema`` both physically
+    contain the secondary key).
+
+    Args:
+        raw_schema: The Snowpark ``StructType`` rebuilt from the stamped source
+            columns.
+        secondary_keys: The FV's ``aggregation_secondary_keys`` (may be
+            ``None`` or empty).
+        fallback_schemas: Snowpark ``StructType`` values (in priority order)
+            to source the missing secondary-key field definitions from.
+
+    Returns:
+        ``raw_schema`` unchanged when there is nothing to add, otherwise a new
+        Snowpark ``StructType`` with the missing secondary-key fields appended.
+    """
+    if not secondary_keys:
+        return raw_schema
+    from snowflake.snowpark.types import StructType
+
+    existing = {to_comparison_identifier(f.name) for f in raw_schema.fields}
+    additions: list[Any] = []
+    for sk in secondary_keys:
+        sk_norm = to_comparison_identifier(sk)
+        if not sk_norm or sk_norm in existing:
+            continue
+        field = None
+        for fb in fallback_schemas:
+            if fb is None:
+                continue
+            for f in getattr(fb, "fields", []):
+                if to_comparison_identifier(f.name) == sk_norm:
+                    field = f
+                    break
+            if field is not None:
+                break
+        if field is not None:
+            additions.append(field)
+            existing.add(sk_norm)
+    if not additions:
+        return raw_schema
+    return StructType(list(raw_schema.fields) + additions)
+
+
+def _augment_source_ref_columns_with_secondary_keys(
+    source_refs: list[Any],
+    secondary_keys: list[str] | None,
+    schema: Any,
+) -> None:
+    """Ensure each batch source ref's ``columns`` include the secondary keys.
+
+    Mutates ``source_refs`` in place so the persisted ``FV_SOURCE_REFS``
+    metadata records every ``aggregation_secondary_keys`` column even when the
+    operator omitted it from the authored ``BatchSource.columns``.  Each
+    missing key's type is taken from ``schema`` (the resolved ``feature_df``
+    schema, which physically carries the secondary key).  Refs that already
+    list the key, and keys absent from ``schema``, are left untouched.
+
+    Args:
+        source_refs: The ``_source_refs`` list about to be stamped onto the
+            FeatureView (each entry is a source-ref dict with a ``columns``
+            list).
+        secondary_keys: The FV's ``aggregation_secondary_keys`` (may be
+            ``None`` or empty).
+        schema: The Snowpark ``StructType`` of the FV's resolved
+            ``feature_df``; the source of the missing keys' column types.
+    """
+    if not secondary_keys or not source_refs or schema is None:
+        return
+    schema_types: dict[str, str] = {}
+    for f in getattr(schema, "fields", []):
+        schema_types[to_comparison_identifier(f.name)] = type(f.datatype).__name__
+    if not schema_types:
+        return
+    for ref in source_refs:
+        if not isinstance(ref, dict):
+            continue
+        cols = ref.get("columns")
+        if not isinstance(cols, list):
+            continue
+        present = {to_comparison_identifier(c.get("name")) for c in cols if isinstance(c, dict)}
+        for sk in secondary_keys:
+            sk_norm = to_comparison_identifier(sk)
+            if not sk_norm or sk_norm in present:
+                continue
+            type_name = schema_types.get(sk_norm)
+            if type_name is None:
+                continue
+            cols.append({"name": str(sk), "type": type_name})
+            present.add(sk_norm)
+
+
+def _execute_create_stream_source(fs: Any, payload: dict[str, Any]) -> Any:
+    """Register a streaming source in Snowflake's feature-store metadata.
+
+    Mirrors the imperative form: ``fs.register_stream_source(StreamSource
+    (name, schema, desc=...))``.  Idempotent — if the source is already
+    registered, snowml-core emits a ``UserWarning`` and returns the
+    existing object without raising.
+
+    Args:
+        fs: A ``FeatureStore`` instance.
+        payload: ``CREATE_SOURCE`` op payload with ``name``, ``columns``,
+            and optional ``description``.
+
+    Returns:
+        The registered ``StreamSource`` (or the pre-existing one when
+        idempotency triggers).
+
+    Raises:
+        ValueError: If ``payload['name']`` is empty.
+    """
+    from snowflake.ml.feature_store.stream_source import StreamSource
+
+    name = payload.get("name", "")
+    if not name:
+        raise ValueError("CREATE_SOURCE for StreamingSource requires a non-empty 'name'.")
+    desc = payload.get("description", "") or payload.get("desc", "") or ""
+    schema = _spec_columns_to_struct_type(payload.get("columns", []))
+    stream_source = StreamSource(name=name, schema=schema, desc=desc)
+    return fs.register_stream_source(stream_source)
+
+
+def _execute_update_stream_source(fs: Any, op: Any) -> Any:
+    """Apply ``OpKind.UPDATE_SOURCE`` for a stream-source plan op.
+
+    ``StreamingSource`` payloads route to
+    ``fs.update_stream_source(name, desc=desc)`` — the only field
+    ``FeatureStore.update_stream_source`` accepts is ``desc`` (see
+    ``feature_store.py:update_stream_source``).  ``BatchSource`` payloads
+    are informational no-ops because ``BatchSource`` is virtual at the
+    runtime level (its identity lives inside the consuming FV's offline
+    Dynamic Table); the planner still emits ``UPDATE_SOURCE`` for parity
+    with the StreamingSource diff path so the operator sees the change in
+    the plan output, but the executor must NOT call any FS method.
+
+    See ``plans/stream_source_contract.md`` §4 for the dispatch table
+    that pins this behaviour.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        op: The ``UPDATE_SOURCE`` plan op carrying the source payload.
+
+    Returns:
+        The updated ``StreamSource`` (or ``None`` for the BatchSource
+        no-op path).  The dispatcher only inspects the absence of an
+        exception, so the return value is informational.
+
+    Raises:
+        ValueError: If the StreamingSource payload is missing ``name``.
+    """
+    payload = op.payload or {}
+    kind = payload.get("kind", "")
+    if kind != "StreamingSource":
+        # ``BatchSource`` (or any future virtual source kind) — no
+        # runtime metadata to update; informational success status is
+        # recorded by the dispatcher when this function returns
+        # without raising.
+        return None
+
+    name = str(payload.get("name", "") or op.name)
+    if not name:
+        raise ValueError("UPDATE_SOURCE for StreamingSource requires a non-empty 'name'.")
+    desc = payload.get("description", "") or payload.get("desc", "") or ""
+    return fs.update_stream_source(name, desc=desc)
+
+
+def _execute_recreate_stream_source(fs: Any, op: Any) -> Any:
+    """Apply ``OpKind.RECREATE_SOURCE`` for a stream-source plan op.
+
+    Destructive form for streaming-source schema or binding changes that
+    ``update_stream_source`` cannot express (it only supports ``desc``).
+    ``StreamingSource`` payloads dispatch a two-step
+    ``fs.delete_stream_source(name)`` followed by
+    ``_execute_create_stream_source(fs, payload)``; the delete-first
+    order matters because :func:`_execute_create_stream_source` is
+    idempotent in snowml-core (re-registering an existing source emits a
+    ``UserWarning`` and returns the existing object without rewriting
+    the schema), so a register-without-delete would silently fail to
+    apply the new schema.  ``BatchSource`` payloads are informational
+    no-ops for the same reason as
+    :func:`_execute_update_stream_source` — the actual recreate flows
+    through the consuming FVs' ``RECREATE_FV`` ops.
+
+    The ``--destructive`` gate at the top of :func:`execute_plan`
+    refuses the plan when ``destructive=True`` and the operator did not
+    opt in, so by the time this function runs the operator has already
+    consented to the destructive change.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        op: The ``RECREATE_SOURCE`` plan op carrying the source payload.
+
+    Returns:
+        The newly-registered ``StreamSource`` (or ``None`` for the
+        BatchSource no-op path).
+
+    Raises:
+        ValueError: If the StreamingSource payload is missing ``name``.
+    """
+    payload = op.payload or {}
+    kind = payload.get("kind", "")
+    if kind != "StreamingSource":
+        return None
+
+    name = str(payload.get("name", "") or op.name)
+    if not name:
+        raise ValueError("RECREATE_SOURCE for StreamingSource requires a non-empty 'name'.")
+    fs.delete_stream_source(name)
+    return _execute_create_stream_source(fs, payload)
+
+
+def _execute_drop_stream_source(fs: Any, op: Any) -> None:
+    """Apply ``OpKind.DROP_SOURCE`` for a stream-source plan op.
+
+    ``StreamingSource`` payloads dispatch ``fs.delete_stream_source(name)``.
+    Snowml-core's ``delete_stream_source`` raises a
+    ``SNOWML_DELETE_FAILED`` error when the source has ``ref_count > 0``
+    (any FV still references it); the imperative branch must let that
+    exception propagate so the planner's op records
+    ``status: partial_failure`` and the operator can see it (contract
+    §4).  ``BatchSource`` payloads are informational no-ops.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        op: The ``DROP_SOURCE`` plan op carrying the source payload.
+
+    Raises:
+        ValueError: If the StreamingSource payload is missing ``name``.
+    """
+    payload = op.payload or {}
+    kind = payload.get("kind", "")
+    if kind != "StreamingSource":
+        return
+
+    name = str(payload.get("name", "") or op.name)
+    if not name:
+        raise ValueError("DROP_SOURCE for StreamingSource requires a non-empty 'name'.")
+    fs.delete_stream_source(name)
+
+
+def _execute_create_entity(fs: Any, op: Any) -> None:
+    """Materialise an ``OpKind.CREATE_ENTITY`` via ``FeatureStore.register_entity``.
+
+    Delegates fully to the imperative API.  ``register_entity`` is
+    idempotent: when the entity tag already exists snowml-core emits
+    a ``UserWarning`` and returns the pre-existing object instead of
+    raising, which means re-applying an unchanged plan is a no-op
+    (matching the planner's ``NO_CHANGE`` contract for entities).
+
+    Args:
+        fs: The constructed ``FeatureStore`` instance (built in
+            :func:`execute_plan` via
+            :func:`assert_feature_store_initialized`).
+        op: The ``CREATE_ENTITY`` plan op carrying the entity payload.
+
+    Raises:
+        ValueError: When ``op.payload`` does not carry an entity name.
+    """
+    from snowflake.ml.feature_store.entity import Entity
+
+    payload = op.payload
+    name = payload.get("name", "") or op.name
+    if not name:
+        raise ValueError(f"CREATE_ENTITY op {op.name} has no entity name in its payload.")
+
+    join_keys_raw = payload.get("join_keys", [])
+    join_keys = [jk["name"] if isinstance(jk, dict) else str(jk) for jk in join_keys_raw]
+    desc = payload.get("description", "") or payload.get("desc", "") or ""
+
+    entity = Entity(name=name, join_keys=join_keys, desc=desc)
+    fs.register_entity(entity)
+
+
+def _execute_drop_entity(fs: Any, op: Any) -> None:
+    """Materialise an ``OpKind.DROP_ENTITY`` via ``FeatureStore.delete_entity``.
+
+    Delegates fully to the imperative API.  Two snowml-core failure
+    modes need rewrapping for the declarative caller:
+
+    * ``NOT_FOUND`` — the entity was already deleted out-of-band (or
+      a previous partial apply removed it).  Treat as a soft skip so
+      re-applying the plan stays idempotent; the planner's
+      ``NO_CHANGE`` contract assumes drops are best-effort.
+    * ``SNOWML_DELETE_FAILED`` — Snowflake rejected the underlying
+      ``DROP TAG`` because an active feature view still references
+      the entity.  Rewrap as :class:`DependencyError` so the CLI can
+      surface a clear "drop the FV first" message instead of a
+      generic backend error.
+
+    Args:
+        fs: The constructed ``FeatureStore`` instance (built in
+            :func:`execute_plan` via
+            :func:`assert_feature_store_initialized`).
+        op: The ``DROP_ENTITY`` plan op carrying the entity payload.
+
+    Raises:
+        DependencyError: When the entity is still referenced by an
+            active feature view.  The original exception is chained.
+        snowml_exceptions.SnowflakeMLException: Any other
+            ``SnowflakeMLException`` raised by ``delete_entity`` (e.g.
+            permissions / connection errors) is propagated verbatim.
+    """
+    from snowflake.ml._internal.exceptions import (
+        error_codes,
+        exceptions as snowml_exceptions,
+    )
+
+    payload = op.payload or {}
+    name = payload.get("name", "") or op.name
+
+    try:
+        fs.delete_entity(name)
+    except snowml_exceptions.SnowflakeMLException as exc:
+        if exc.error_code == error_codes.NOT_FOUND:
+            logger.info(
+                "delete_entity(%s) — entity already absent; treating DROP_ENTITY as no-op.",
+                name,
+            )
+            return
+        if exc.error_code == error_codes.SNOWML_DELETE_FAILED:
+            raise DependencyError(
+                f"Cannot drop entity {name!r} because it is still referenced "
+                "by one or more deployed feature views. Drop the FV first, "
+                f"then re-apply. Underlying error: {exc}"
+            ) from exc
+        raise
+
+
+def _execute_update_entity(fs: Any, op: Any) -> None:
+    """Materialise an ``OpKind.UPDATE_ENTITY`` via ``FeatureStore.update_entity``.
+
+    Delegates fully to the imperative API.  Entity join keys are
+    immutable after creation (2026-07-31 design decision).  Only
+    ``desc`` is forwarded; join-key changes are rejected at plan time
+    by the ``ENTITY_JOIN_KEY_IMMUTABLE`` invariant before this function
+    is ever reached, so no ``join_keys=`` keyword is passed to the
+    desc-only imperative ``update_entity``.
+
+    Args:
+        fs: The constructed ``FeatureStore`` instance (built in
+            :func:`execute_plan` via
+            :func:`assert_feature_store_initialized`).
+        op: The ``UPDATE_ENTITY`` plan op carrying the new payload.
+
+    Raises:
+        ValueError: When ``op.payload`` does not carry an entity name.
+    """
+    payload = op.payload
+    name = payload.get("name", "") or op.name
+    if not name:
+        raise ValueError(f"UPDATE_ENTITY op {op.name} has no entity name in its payload.")
+
+    desc = payload.get("description", "") or ""
+
+    fs.update_entity(name, desc=desc)
+
+
+def _build_features(raw: list[dict[str, Any]]) -> list[Any]:
+    """Convert planner-payload feature dicts to imperative Feature objects.
+
+    The planner payload encodes each aggregated feature as a dict shaped
+    like::
+
+        {
+            "function": "sum",
+            "window_sec": 3600,
+            "offset_sec": 0,                  # optional
+            "function_params": {"n": 10},     # optional, e.g. last_n
+            "source_column": {"name": "AMOUNT", "type": "DoubleType"},
+            "output_column": {"name": "AMOUNT_SUM_1H", "type": "DoubleType"},
+        }
+
+    The imperative ``Feature`` builder accepts ``window`` / ``offset`` as
+    duration strings (``"3600s"``, ``"60s"``) which round-trip through
+    ``interval_to_seconds`` to identical seconds — choosing the
+    seconds-suffix form means we never have to pretty-print durations
+    here, and matches the shape ``DESCRIBE ... TYPE = SPECIFICATION``
+    returns.  ``function`` strings map to ``AggregationType`` via the
+    enum's value (case-insensitive lookup so the BUG_BASH-style
+    lower-case ``"sum"`` / ``"max"`` payloads work as-is).  Any
+    ``function_params`` dict is forwarded as ``**params`` to support
+    ``last_n``-family / ``approx_percentile`` aggregations.
+
+    Both ``Feature`` and ``AggregationType`` are imported lazily so
+    importing this module does not pull in numpy/pandas/pyarrow at
+    package load time — the architectural decl-isolation rule.
+
+    Args:
+        raw: The payload's ``features`` list (post-compile, with
+            ``window_sec`` integers rather than authoring strings).
+
+    Returns:
+        A list of imperative ``Feature`` builders, each with its alias
+        set to the payload's ``output_column.name``.  An empty input
+        produces an empty list (the caller skips the kwarg entirely in
+        that case so non-aggregated streaming FVs stay on the existing
+        ``stream_config``-only path).
+    """
+    from snowflake.ml.feature_store.aggregation import AggregationType
+    from snowflake.ml.feature_store.decl.spec_compiler import _normalize_function_params
+    from snowflake.ml.feature_store.feature import Feature
+
+    features: list[Any] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        fn_name = entry.get("function")
+        if not fn_name:
+            continue
+
+        agg_type = AggregationType(str(fn_name).lower())
+
+        src_col_raw = entry.get("source_column", "")
+        if isinstance(src_col_raw, dict):
+            column = src_col_raw.get("name", "")
+        else:
+            column = str(src_col_raw)
+        if not column:
+            continue
+
+        window_sec = entry.get("window_sec")
+        if window_sec is None:
+            continue
+        window = f"{int(window_sec)}s"
+
+        offset_sec = entry.get("offset_sec")
+        offset = f"{int(offset_sec)}s" if offset_sec else "0"
+
+        params = entry.get("function_params") or {}
+        if not isinstance(params, dict):
+            params = {}
+        # Apply consumes the raw model_to_dict payload, which keeps authoring
+        # aliases (e.g. acd's ``precision``); normalise to the internal key
+        # (``hll_lg_k``) the Feature/AggregationSpec validator expects.
+        params = _normalize_function_params(fn_name, params)
+
+        feat = Feature(agg_type, column, window, offset, **params)
+
+        out_col_raw = entry.get("output_column")
+        if isinstance(out_col_raw, dict):
+            alias = out_col_raw.get("name", "")
+        else:
+            alias = str(out_col_raw or "")
+        if alias:
+            feat = feat.alias(alias)
+
+        features.append(feat)
+
+    return features
+
+
+def _get_entity_for_feature_view_ref(fs: Any, ref: str) -> Any:
+    """Resolve a single ``entities`` entry to an ``Entity``.
+
+    Authoring YAML usually lists **join-key column names** here (the same
+    strings ``validate_specs`` checks against entity ``join_keys``).  The
+    imperative ``FeatureStore.get_entity`` API keys off the **entity tag
+    name** instead.  When the two coincide (``name: USER_ID`` with join key
+    ``USER_ID`` — the streaming BUG_BASH shape) a direct ``get_entity`` lookup
+    succeeds.  When they differ (``name: USER_BATCH_DECL`` with join key
+    ``USER_ID``) we fall back to ``list_entities`` and match on declared join
+    keys, then re-fetch by canonical entity name.
+
+    Args:
+        fs: Active ``FeatureStore`` instance.
+        ref: One entry from the FV's ``entities`` list (already a plain
+            string — dict ``{"name": ...}`` entries are flattened by callers).
+
+    Returns:
+        The ``Entity`` instance returned by ``fs.get_entity``.
+
+    Raises:
+        ValueError: When ``ref`` is empty, no entity matches, or multiple entities
+            declare the same join key (ambiguous).
+        RuntimeError: When ``list_entities().collect()`` fails during join-key
+            resolution (after a ``NOT_FOUND`` direct lookup).
+        snowml_exceptions.SnowflakeMLException: Propagated from ``get_entity`` /
+            ``list_entities`` for non-``NOT_FOUND`` failures.
+    """
+    from snowflake.ml._internal.exceptions import (
+        error_codes,
+        exceptions as snowml_exceptions,
+    )
+
+    ref_n = str(ref or "").strip()
+    ref_key = to_comparison_identifier(ref_n)
+    if not ref_key:
+        raise ValueError("FeatureView `entities` entry is empty.")
+
+    try:
+        return fs.get_entity(ref_n)
+    except snowml_exceptions.SnowflakeMLException as exc:
+        if exc.error_code != error_codes.NOT_FOUND:
+            raise
+    except ValueError:
+        # A parser-rejected ref never names a tag; fall through to the join-key
+        # scan rather than aborting partway through a recreate.
+        pass
+
+    try:
+        rows = fs.list_entities().collect()
+    except Exception as e:
+        raise RuntimeError(f"list_entities() failed while resolving entity ref {ref_n!r}: {e}") from e
+
+    # The ref arrives in authoring SQL syntax (``"userId"``) while a deployed
+    # join key is Snowflake stored form (bare ``userId``); fold both to one
+    # comparison key so the provenance difference cannot miss a match.
+    matches: list[str] = []
+    for row in rows:
+        r = row.as_dict() if hasattr(row, "as_dict") else dict(row)
+        name = str(r.get("NAME", "") or "").strip()
+        if not name:
+            continue
+        norm_keys = {to_comparison_identifier(k) for k in _decode_join_keys(r.get("JOIN_KEYS", ""))}
+        if ref_key in norm_keys:
+            matches.append(name)
+
+    if len(matches) == 1:
+        return fs.get_entity(matches[0])
+    if not matches:
+        raise ValueError(
+            f"No entity registered with name {ref_n!r} and no entity declares join key {ref_n!r} "
+            f"(compared as {ref_key!r})."
+        )
+    raise ValueError(
+        f"Ambiguous entity resolution for join key {ref_n!r}: " f"multiple entities declare it: {sorted(matches)!r}"
+    )
+
+
+def _build_feature_view(
+    payload: dict[str, Any],
+    session: Any,
+    database: str,
+    schema: str,
+    warehouse: str,
+    *,
+    fs: Any,
+) -> tuple[Any, str]:
+    """Construct a FeatureView from a spec payload dict.
+
+    Resolves each entry in the payload's ``entities`` (the authoring-side
+    name; matches the imperative ``FeatureView(entities=...)`` kwarg)
+    against the live ``FeatureStore`` registry.  Entries may be
+    **entity tag names** (direct ``get_entity`` hit) or **join-key
+    column names** declared on exactly one entity in the store (see
+    :func:`_get_entity_for_feature_view_ref`).  The planner
+    topologically orders ``CREATE_ENTITY`` ops before dependent
+    ``CREATE_FV`` ops so registration already exists when this runs.
+
+    Args:
+        payload: Dict from a PlanOp with kind=CREATE_FV/UPDATE_FV/RECREATE_FV.
+        session: Snowpark Session for DataFrame construction.
+        database: Default database.
+        schema: Default schema.
+        warehouse: Default warehouse.
+        fs: The ``FeatureStore`` instance constructed eagerly by
+            :func:`execute_plan`.  Used to look up each declared
+            entity by name.
+
+    Returns:
+        Tuple of (FeatureView, version_string).
+    """
+    from snowflake.ml.feature_store.feature_view import (
+        FeatureView,
+        OnlineConfig,
+        OnlineStoreType,
+    )
+
+    name = payload.get("name", "")
+    version = payload.get("version", "V1")
+
+    # The planner builds ``PlanOp.payload`` from ``model_to_dict`` so
+    # the dict already speaks the new authoring vocabulary (``entities``
+    # / ``timestamp_col``).  Translation to the wire-form names only
+    # happens inside :func:`spec_compiler.compile_to_spec`, which the
+    # planner runs separately for hashing.
+    entity_cols = payload.get("entities", [])
+    entity_refs = [col["name"] if isinstance(col, dict) else str(col) for col in entity_cols]
+    entities: list[Any] = []
+    seen_entity_names: set[str] = set()
+    for ref in entity_refs:
+        ref_s = str(ref or "").strip()
+        if not ref_s:
+            continue
+        ent = _get_entity_for_feature_view_ref(fs, ref_s)
+        ename = str(getattr(ent, "name", "") or "")
+        if ename and ename not in seen_entity_names:
+            seen_entity_names.add(ename)
+            entities.append(ent)
+
+    # Optional parameters
+    kwargs: dict[str, Any] = {}
+    if payload.get("timestamp_col"):
+        kwargs["timestamp_col"] = payload["timestamp_col"]
+    # ``refresh_freq`` resolution.
+    #
+    # ``refresh_freq`` (free-form Dynamic-Table cadence string) is the
+    # **single source of truth** for the offline DT refresh.  Same name
+    # on both sides — the declarative authoring key and the imperative
+    # ``FeatureView(refresh_freq=...)`` constructor kwarg agree, so no
+    # rename layer remains here.  The authoring-side ``target_lag`` /
+    # ``target_lag_sec`` field is OFT staleness only (it maps to
+    # ``OnlineConfig.target_lag``) and is NOT read here.
+    #
+    # ``refresh_freq`` is the offline Dynamic Table cadence, so it is
+    # forwarded only for kinds that build an offline DT: BatchFeatureView
+    # and **tiled** StreamingFeatureView (see
+    # ``_payload_forwards_refresh_freq``).  Non-tiled streaming and
+    # realtime kinds have no DT to schedule — the spec validator
+    # (``FeatureView._reject_refresh_freq_on_stream_or_realtime``) rejects
+    # authoring on them and the runtime stamps ``target_lag_sec=0`` — so
+    # the field is dropped there as defence-in-depth against a hand-built
+    # payload that bypassed the validator.
+    #
+    # Tiled FVs (batch AND streaming) REQUIRE ``refresh_freq``:
+    # snowml-core's ``FeatureView`` constructor raises otherwise (the
+    # tile-based check in ``feature_view.py:_validate``), matching the
+    # declarative-side invariants ``BATCH_FV_TILING_REFRESH`` /
+    # ``STREAM_FV_TILING_REFRESH``.  There is no granularity-based
+    # default: a tiled FV without an authored ``refresh_freq`` hits the
+    # imperative error verbatim.
+    if _payload_forwards_refresh_freq(payload) and payload.get("refresh_freq"):
+        kwargs["refresh_freq"] = payload["refresh_freq"]
+    if payload.get("warehouse", warehouse):
+        kwargs["warehouse"] = payload.get("warehouse", warehouse)
+    if payload.get("description"):
+        kwargs["desc"] = payload["description"]
+    # Advanced BFV structural knobs.  ``cluster_by`` is the only one wired
+    # up so far (Phase 2); subsequent phases add ``refresh_mode``,
+    # ``initialize``, ``storage_config``, and ``aggregation_secondary_keys``
+    # at this same insertion point.  Each is forwarded verbatim as a kwarg
+    # to the imperative ``FeatureView(...)`` constructor below.
+    cluster_by = payload.get("cluster_by")
+    if isinstance(cluster_by, list) and cluster_by:
+        kwargs["cluster_by"] = [str(c) for c in cluster_by]
+    refresh_mode = payload.get("refresh_mode")
+    if isinstance(refresh_mode, str) and refresh_mode:
+        kwargs["refresh_mode"] = refresh_mode.upper()
+    # ``append_only`` opts into the imperative snapshot-accumulation path.  The
+    # spec validator has already enforced the companion requirements
+    # (refresh_mode: FULL, CRON refresh_freq, timestamp_col, no tiling); forward
+    # the flag verbatim so ``FeatureStore.register_feature_view`` creates the
+    # ``$SNAPSHOTS`` table + CRON refresh Task.
+    if payload.get("kind") == "BatchFeatureView" and payload.get("append_only"):
+        kwargs["append_only"] = True
+    storage_config_dict = payload.get("storage_config")
+    if isinstance(storage_config_dict, dict) and storage_config_dict:
+        from snowflake.ml.feature_store.feature_view import StorageConfig, StorageFormat
+
+        fmt_raw = str(storage_config_dict.get("format", "snowflake")).lower()
+        try:
+            fmt = StorageFormat(fmt_raw)
+        except ValueError:
+            fmt = StorageFormat.SNOWFLAKE
+        kwargs["storage_config"] = StorageConfig(
+            format=fmt,
+            external_volume=storage_config_dict.get("external_volume"),
+            base_location=storage_config_dict.get("base_location"),
+        )
+    secondary_keys = payload.get("aggregation_secondary_keys")
+    if isinstance(secondary_keys, list) and secondary_keys:
+        kwargs["aggregation_secondary_keys"] = [str(c) for c in secondary_keys]
+    if payload.get("feature_granularity"):
+        fg = payload["feature_granularity"]
+        kwargs["feature_granularity"] = str(fg) if isinstance(fg, int) else fg
+
+    # Plan section A1 (Phase E A-bis fix-up) — stamp ``_source_refs``
+    # onto the FeatureView so ``FeatureStore.register_feature_view``
+    # persists the authored source bindings as
+    # ``MetadataType.FV_SOURCE_REFS``.  Without this stamp the write
+    # gate at ``feature_store.py:if feature_view.source_refs:`` is
+    # forever false on declarative apply paths and replan recovery
+    # falls back to the legacy DT-text shim (Phase B4), which leaves
+    # ``BatchFeatureView.sources`` empty and triggers spurious
+    # ``RECREATE_FV`` ops on the second plan for offline tiled BFVs
+    # (the live-verify AS2 invalidation symptom on ``MY_ADV_BFV_DECL``).
+    # ``payload["sources"]`` is the canonical ``list[dict]`` produced
+    # by the planner's ``model_to_dict`` over ``SourceRef`` entries;
+    # it already has the ``name`` / ``source_type`` / ``table`` (or
+    # ``query``) / ``columns`` shape ``FvSourceRefsMetadata`` expects
+    # so it flows through verbatim without translation.  Defensive:
+    # skip the stamp on an empty list so the write-gate behaviour
+    # matches the imperative-callers contract.
+    source_refs_payload = payload.get("sources")
+    if isinstance(source_refs_payload, list) and source_refs_payload:
+        canonical_refs = [dict(s) for s in source_refs_payload if isinstance(s, dict)]
+        if canonical_refs:
+            kwargs["_source_refs"] = canonical_refs
+
+    # ``initialize`` resolution.  Phase 4 of the advanced BFV plan
+    # promoted ``initialize`` to a first-class top-level authoring key,
+    # but the legacy nested ``backfill.initialize`` shape is still
+    # accepted for back-compat.  Resolution order (highest priority first):
+    #
+    #   1. ``payload["initialize"]``    — top-level value (the new
+    #                                     canonical form).
+    #   2. ``payload["backfill"].initialize`` — legacy nested form.
+    #
+    # Streaming FVs use StreamConfig lifecycle and never carry initialize on
+    # the constructor (the spec validator already rejects this combination).
+    fv_kind = payload.get("kind", "")
+    if fv_kind == "BatchFeatureView":
+        initialize = payload.get("initialize")
+        if not initialize:
+            backfill_block = payload.get("backfill") if isinstance(payload.get("backfill"), dict) else None
+            if backfill_block:
+                initialize = backfill_block.get("initialize")
+        if initialize:
+            kwargs["initialize"] = str(initialize).upper()
+
+    # Online config — resolve ``OnlineConfig.target_lag`` from EITHER the
+    # raw ``target_lag`` field (rare; the loader's ``normalize_durations``
+    # pass rewrites human-friendly strings to ``target_lag_sec`` integers
+    # before this executor runs) OR the normalised ``target_lag_sec``.
+    #
+    # Authoring ``target_lag`` is OFT staleness only — strictly the
+    # value the imperative ``OnlineConfig.target_lag`` receives (see
+    # ``feature_view.py:build_oft_create_sql`` for the
+    # ``CREATE ONLINE FEATURE TABLE … TARGET_LAG='<val>'`` clause it
+    # ends up driving).  The DT refresh comes from ``refresh_freq``
+    # (above) and never crosses into this resolution path.
+    #
+    # Default policy when ``target_lag`` is absent:
+    # * ``BatchFeatureView`` → ``_POSTGRES_BATCH_OFT_TARGET_LAG``, the
+    #   Postgres batch default ``register_feature_view`` applies when
+    #   ``target_lag`` is omitted. Snowflake rejects ``"0 seconds"`` for
+    #   batch OFTs. Hybrid tables keep ``_BATCH_OFT_TARGET_LAG``; this path
+    #   is Postgres.
+    # * ``StreamingFeatureView`` / ``RealtimeFeatureView`` /
+    #   ``FeatureGroup`` → ``"0 seconds"`` (Snowflake requires this for
+    #   those kinds — the runtime enforces it regardless).
+    if payload.get("online", False):
+        target_lag = _resolve_online_target_lag(payload)
+        if target_lag is None:
+            online_kind = payload.get("kind", "") if isinstance(payload.get("kind"), str) else ""
+            if online_kind == "BatchFeatureView":
+                from snowflake.ml.feature_store.feature_view import (
+                    _POSTGRES_BATCH_OFT_TARGET_LAG,
+                )
+
+                target_lag = _POSTGRES_BATCH_OFT_TARGET_LAG
+            else:
+                target_lag = "0 seconds"
+        kwargs["online_config"] = OnlineConfig(
+            enable=True,
+            target_lag=target_lag,
+            store_type=OnlineStoreType.POSTGRES,
+        )
+
+    # Streaming feature views go through StreamConfig — snowml-core's
+    # streaming preamble (run_streaming_preamble) requires it to create
+    # the udf_transformed and $BACKFILL tables.  Passing a stub
+    # ``feature_df`` here would fall back to the batch CREATE VIEW path
+    # and emit ``CREATE VIEW name () ... AS query`` (empty column list)
+    # because schema introspection on an unresolvable placeholder
+    # silently sets ``feature_descs = None``.
+    if payload.get("kind") == "StreamingFeatureView":
+        kwargs["stream_config"] = _build_stream_config(payload, session, database, schema, fs=fs)
+
+        # Aggregation triple (BUG_BASH step 7) — when the planner
+        # payload carries ``features`` + ``feature_granularity_sec`` +
+        # ``feature_aggregation_method`` (the canonical streaming-FV
+        # tiled aggregation shape), thread all three through to the
+        # imperative ``FeatureView`` constructor so snowml-core's
+        # ``is_tiled`` branch fires and ``_feature_desc`` is keyed off
+        # the windowed-aggregation outputs (e.g. ``TOTAL_ENGAGEMENT_1H``)
+        # instead of the UDF's raw output columns
+        # (e.g. ``ENGAGEMENT_SCORE``).  See
+        # :func:`_build_features` for the per-feature conversion.
+        feature_granularity_sec = payload.get("feature_granularity_sec")
+        if feature_granularity_sec:
+            kwargs["feature_granularity"] = f"{int(feature_granularity_sec)}s"
+
+        aggregation_method = payload.get("feature_aggregation_method")
+        if aggregation_method:
+            # ``FeatureAggregationMethod`` lives in ``feature_store.spec.enums``,
+            # which the wheel-isolation tests forbid this module from
+            # importing directly.  ``feature_view.py`` already re-exports
+            # the enum (it imports it at module top-level for type hints),
+            # so we go through that allowed path — same module we already
+            # import ``FeatureView`` from on the line above.
+            from snowflake.ml.feature_store import feature_view as _fv
+
+            FeatureAggregationMethod = _fv.FeatureAggregationMethod  # type: ignore[attr-defined]
+            kwargs["feature_aggregation_method"] = FeatureAggregationMethod(aggregation_method)
+
+        features = _build_features(payload.get("features", []) or [])
+        if features:
+            kwargs["features"] = features
+
+        # ``refresh_freq`` for a tiled streaming FV was already added to
+        # ``kwargs`` above by the ``_payload_forwards_refresh_freq`` gate:
+        # it drives the offline tile Dynamic Table's ``TARGET_LAG`` (the
+        # tiles are a managed DT), and snowml-core's ``_validate`` requires
+        # it for every tiled kind.  A non-tiled streaming FV never reaches
+        # that gate (no aggregation windows) and materialises to a zero-lag
+        # VIEW instead.  The OFT's ``target_lag_sec`` is a separate knob the
+        # runtime stamps to 0 on the ingest path and is not read here.
+
+        fv = FeatureView(
+            name=name,
+            entities=entities,
+            **kwargs,
+        )
+        return fv, version
+
+    feature_df = _build_feature_df(payload, session, database, schema)
+
+    if payload.get("kind") == "BatchFeatureView":
+        # Ensure ``aggregation_secondary_keys`` are recorded in the stamped
+        # ``FV_SOURCE_REFS`` columns so state recovery's resolution pool always
+        # contains them (see :func:`_serialize_batch_fv_spec`).  Authoring may
+        # legitimately omit the secondary key from ``BatchSource.columns``;
+        # derive its column type from the resolved ``feature_df`` schema, which
+        # physically carries the key.
+        sks = kwargs.get("aggregation_secondary_keys")
+        stamped_refs = kwargs.get("_source_refs")
+        if sks and isinstance(stamped_refs, list):
+            _augment_source_ref_columns_with_secondary_keys(stamped_refs, sks, getattr(feature_df, "schema", None))
+
+        tiled = _build_features(payload.get("features", []) or [])
+        if tiled:
+            feature_granularity_sec = payload.get("feature_granularity_sec")
+            if feature_granularity_sec:
+                kwargs["feature_granularity"] = f"{int(feature_granularity_sec)}s"
+
+            # NOTE: snowml-core's ``FeatureView.__init__`` rejects
+            # ``feature_aggregation_method`` for non-streaming FVs (see
+            # ``feature_view.py:974-977``: "feature_aggregation_method is
+            # only supported for streaming feature views.").  For BFVs
+            # the *tiled* shape is conveyed implicitly via
+            # ``features=[FeatureSpec(function=..., window=...)]``; the
+            # ``feature_aggregation_method:`` authoring key is accepted
+            # (and round-tripped) but MUST NOT be forwarded as a kwarg
+            # here.  Forwarding it broke the live ADVANCED_BVT bug-bash
+            # apply with the exact error above.
+
+            kwargs["features"] = tiled
+            # The pre-fix ``feature_granularity → refresh_freq`` default
+            # is removed: tiled BFVs without an authored ``refresh_freq``
+            # now hit the imperative-side ``ValueError("refresh_freq is
+            # required for tile-based aggregations.")`` directly.  The
+            # validator side surfaces the friendlier
+            # ``BATCH_FV_TILING_REFRESH`` message before apply runs.
+
+    fv = FeatureView(
+        name=name,
+        entities=entities,
+        feature_df=feature_df,
+        **kwargs,
+    )
+
+    return fv, version
+
+
+def _build_stream_config(
+    payload: dict[str, Any],
+    session: Any,
+    database: str,
+    schema: str,
+    *,
+    fs: Any,
+) -> Any:
+    """Construct a snowml-core ``StreamConfig`` from a streaming-FV payload.
+
+    Wires three concerns:
+
+    - ``stream_source``: the ``sources[0].name`` from the FV spec.  The
+      planner's ``CREATE_SOURCE`` op (driven by
+      :func:`fetch_stream_source_rows`-populated applied state) is the
+      single source of truth for stream-source registration now — see
+      ``plans/stream_source_contract.md`` §3 for the read-path contract
+      and §4 for the planner's four-way source decision.  The previous
+      defensive ``_execute_create_stream_source`` call inside this helper
+      was the second source of ``UserWarning: StreamSource <name> already
+      exists. Skip registration.`` noise the user reported; the planner
+      now emits exactly one ``CREATE_SOURCE`` per genuinely-new source
+      before any ``CREATE_FV`` op runs (topological-sort contract in
+      :mod:`dependencies`), so the FV-side defensive register has been
+      removed.  The resolved ``stream_source_name`` extracted from
+      ``payload['sources']`` still flows through to ``StreamConfig`` so
+      the streaming preamble's ``get_stream_source`` lookup names the
+      correct source.
+    - ``transformation_fn``: a real Python callable compiled from
+      ``payload['udf']['function_definition']`` via
+      :func:`udf_loader.compile_udf_callable`.  ``inspect.getsource``
+      succeeds on the result so ``StreamConfig.__post_init__``'s AST
+      import-guard runs end-to-end.
+    - ``backfill_df``: a Snowpark DataFrame.  Resolved from the
+      FV-level ``backfill.table`` FQN when declared
+      (``session.table(<fqn>)``), else synthesized as a typed
+      one-row in-memory DataFrame from the source's ``columns:``
+      so the streaming preamble's ``.limit(10).to_pandas()`` probe
+      is non-empty.
+    - ``backfill_start_time``: optional ``datetime`` forwarded from
+      the FV-level ``backfill.start_time`` (parsed from ISO 8601
+      strings via :func:`_coerce_backfill_start_time`).  When unset,
+      ``StreamConfig`` defaults to ``None`` (no time filter).
+
+    Args:
+        payload: ``CREATE_FV`` payload with ``kind == 'StreamingFeatureView'``.
+        session: Snowpark session used for ``session.table`` /
+            ``session.create_dataframe``.
+        database: FeatureStore target database used to qualify an
+            unqualified ``backfill.table`` name (threaded into
+            :func:`_build_streaming_backfill_df`).
+        schema: FeatureStore target schema (same role as ``database``).
+        fs: The ``FeatureStore`` instance constructed eagerly by
+            :func:`execute_plan`.  Reserved for future use; kept on the
+            signature so :func:`_build_feature_view` callers do not have
+            to special-case the streaming branch.
+
+    Returns:
+        A ``StreamConfig`` instance.
+
+    Raises:
+        ValueError: If the spec is missing required fields (no streaming
+            source in ``sources[]`` or no UDF / function_definition).
+    """
+    from snowflake.ml.feature_store.decl.udf_loader import compile_udf_callable
+    from snowflake.ml.feature_store.stream_config import StreamConfig
+
+    del fs  # reserved for future stream-source ops
+
+    sources = payload.get("sources", []) or []
+    stream_source_spec = next(
+        (s for s in sources if isinstance(s, dict)),
+        None,
+    )
+    if stream_source_spec is None or not stream_source_spec.get("name"):
+        raise ValueError(
+            f"StreamingFeatureView '{payload.get('name', '')}' must declare a "
+            "stream source in 'sources[]' with a 'name'."
+        )
+    stream_source_name: str = str(stream_source_spec["name"])
+
+    udf = payload.get("udf") or {}
+    if not isinstance(udf, dict):
+        raise ValueError(
+            f"StreamingFeatureView '{payload.get('name', '')}' has a malformed "
+            "'udf' field — expected a dict with 'name' and 'function_definition'."
+        )
+    function_definition = udf.get("function_definition")
+    udf_name = udf.get("name", "")
+    if not function_definition or not udf_name:
+        raise ValueError(
+            f"StreamingFeatureView '{payload.get('name', '')}' must declare a "
+            "'udf' with both 'name' and inlined 'function_definition' source."
+        )
+    if not isinstance(function_definition, str):
+        # The compiler ordinarily inlines the .py file as a string; if a
+        # caller passed an already-compiled callable, accept it verbatim.
+        if callable(function_definition):
+            transformation_fn = function_definition
+        else:
+            raise ValueError(
+                f"StreamingFeatureView '{payload.get('name', '')}': "
+                "'udf.function_definition' must be a Python source string "
+                "(the spec compiler inlines udf.file as text)."
+            )
+    else:
+        transformation_fn = compile_udf_callable(function_definition, udf_name)
+
+    backfill_block = payload.get("backfill") or {}
+    if not isinstance(backfill_block, dict):
+        backfill_block = {}
+    backfill_df = _build_streaming_backfill_df(backfill_block, stream_source_spec, session, database, schema)
+    backfill_start_time = _coerce_backfill_start_time(backfill_block.get("start_time"))
+    sc_kwargs: dict[str, Any] = {
+        "stream_source": stream_source_name,
+        "transformation_fn": transformation_fn,
+        "backfill_df": backfill_df,
+    }
+    if backfill_start_time is not None:
+        sc_kwargs["backfill_start_time"] = backfill_start_time
+    # Plan section A3 (Phase E A-bis fix-up) — stamp ``backfill_table``
+    # onto the StreamConfig so ``streaming_registration.save_streaming_metadata``
+    # persists the authored FQN into ``StreamingMetadata.backfill_table``.
+    # Without this stamp the exporter / list-FV row cannot re-emit the
+    # operator's ``backfill.table:`` block on the second plan and the
+    # planner trips ``UPDATE_FV`` / ``RECREATE_FV`` whenever the
+    # authored YAML carries ``backfill.table:`` (the L2 limitation
+    # closure on streaming FVs).  ``backfill_table`` is the
+    # pre-expansion FQN string exactly as authored — distinct from
+    # ``backfill_df`` (the resolved Snowpark DataFrame) which already
+    # flows through above; both live on ``StreamConfig`` per the
+    # ``stream_config.py`` contract.
+    raw_backfill_table = backfill_block.get("table")
+    if isinstance(raw_backfill_table, str) and raw_backfill_table.strip():
+        sc_kwargs["backfill_table"] = raw_backfill_table.strip()
+    return StreamConfig(**sc_kwargs)
+
+
+def _coerce_backfill_start_time(value: Any) -> Any:
+    """Coerce the FV-level ``backfill.start_time`` field into a ``datetime``.
+
+    Authoring YAML supplies an ISO 8601 string (e.g.
+    ``"2026-05-18T22:00:00"``) but ``StreamConfig.backfill_start_time`` is
+    typed as ``Optional[datetime.datetime]``.  This helper accepts:
+
+    * ``None`` → ``None`` (no filter applied).
+    * ``datetime.datetime`` → returned unchanged.
+    * ``str`` → parsed via :meth:`datetime.datetime.fromisoformat`; a
+      trailing ``Z`` is treated as UTC (``datetime.fromisoformat``
+      rejected ``Z`` before Python 3.11; we strip it manually for
+      forward compatibility with operator-friendly timestamps).
+
+    Any other shape is returned verbatim so the underlying
+    ``StreamConfig`` validator surfaces a clean type error.
+
+    Args:
+        value: The raw ``backfill.start_time`` value from the spec dict.
+
+    Returns:
+        ``None``, a ``datetime``, or the original value when no coercion
+        applies.
+    """
+    import datetime as _dt
+
+    if value is None:
+        return None
+    if isinstance(value, _dt.datetime):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            return _dt.datetime.fromisoformat(text)
+        except ValueError:
+            return value
+    return value
+
+
+def _build_streaming_backfill_df(
+    backfill_block: dict[str, Any],
+    stream_source_spec: dict[str, Any],
+    session: Any,
+    database: str = "",
+    schema: str = "",
+) -> Any:
+    """Return a Snowpark DataFrame to use as ``StreamConfig.backfill_df``.
+
+    Two-tier resolution:
+
+    1. If the FV-level ``backfill.table`` is set, resolve via
+       ``session.table(<fqn>)`` so backfill rows come from a real
+       historical table.  An *unqualified* name (no ``.``) is prefixed
+       with the FeatureStore's target ``<database>.<schema>`` so the
+       lookup lands in the apply target schema rather than the Snowpark
+       session's connection-profile default schema — otherwise a
+       deployment whose target schema differs from the connection
+       profile schema resolves the backfill table in the wrong schema
+       (fails with "Object … does not exist" or, worse, silently reads a
+       same-named table in an unintended schema).  A *fully-qualified*
+       name (containing a ``.``) is passed through verbatim so
+       cross-schema backfill tables remain valid.
+    2. Otherwise synthesize a single typed-sentinel row from the stream
+       source's ``columns:`` and return
+       ``session.create_dataframe([row], schema=...)``.  This satisfies
+       the streaming preamble's ``.limit(10).to_pandas()`` probe (which
+       fails on zero rows) without requiring a Snowflake round-trip —
+       REST stream sources without a historical backfill table still
+       register cleanly.
+
+    Args:
+        backfill_block: The FV-level ``backfill`` block (may be empty).
+            Carries the optional ``table`` field.
+        stream_source_spec: The dict for the streaming source as it
+            appears in the FV's ``sources[]`` list (carries ``name`` and
+            ``columns``).  Used for the synthesized fallback only.
+        session: Snowpark session.
+        database: FeatureStore target database used to qualify an
+            unqualified ``backfill.table`` name.  When empty (or the name
+            is already qualified) no prefix is applied.
+        schema: FeatureStore target schema, paired with ``database`` for
+            the qualification above.
+
+    Returns:
+        A Snowpark DataFrame suitable as ``StreamConfig.backfill_df``.
+    """
+    backfill_table = backfill_block.get("table") if isinstance(backfill_block, dict) else None
+    if backfill_table:
+        table_ref = str(backfill_table)
+        if "." not in table_ref and database and schema:
+            table_ref = f"{database}.{schema}.{table_ref}"
+        return session.table(table_ref)
+
+    columns = stream_source_spec.get("columns", []) or []
+    schema = _spec_columns_to_struct_type(columns)
+    sentinel_row = _typed_sentinel_row(columns)
+    return session.create_dataframe([sentinel_row], schema)
+
+
+def _typed_sentinel_row(columns: list[Any]) -> list[Any]:
+    """Return one type-zero sentinel value per column for synthetic backfill.
+
+    snowml-core's streaming preamble probes ``backfill_df.limit(10).to_pandas()``
+    and rejects empty frames; one synthetic row is enough to pass.  Using
+    ``None`` for every column would lose type information at the Snowpark
+    serialisation boundary, so we emit type-zero values instead — empty
+    string, ``0`` / ``0.0``, ``False``, and a real ``datetime`` — which
+    snowml's pandas-dtype inference can resolve.
+
+    Args:
+        columns: The spec's ``columns:`` list (each entry has ``type``).
+
+    Returns:
+        A list of one Python value per column, in spec order.
+    """
+    import datetime
+    from decimal import Decimal
+
+    sentinels: dict[str, Any] = {
+        "StringType": "",
+        "LongType": 0,
+        "DoubleType": 0.0,
+        "BooleanType": False,
+        "TimestampType": datetime.datetime.now(),
+        "DecimalType": Decimal(0),
+    }
+    row: list[Any] = []
+    for col in columns:
+        type_name = col.get("type", "") if isinstance(col, dict) else ""
+        row.append(sentinels.get(type_name, ""))
+    return row
+
+
+def _build_feature_df(
+    payload: dict[str, Any],
+    session: Any,
+    database: str,
+    schema: str,
+) -> Any:
+    """Construct a Snowpark DataFrame from a non-streaming FV's sources.
+
+    Two first-class source shapes are supported per
+    :class:`~snowflake.ml.feature_store.decl.spec_models.BatchSource`:
+
+    * ``table:`` — returns ``session.table(<src_db>.<src_schema>.<table>)``.
+      Source-side qualifiers (``source_database`` / ``source_schema``)
+      override the FV's deployment qualifier when present; the FV's
+      database / schema are the fallback for unqualified tables.
+
+    * ``query:`` — returns ``session.sql(query)``. The SQL body is
+      passed verbatim; whitespace normalization is a compile-time
+      concern handled by
+      :func:`snowflake.ml.feature_store.decl.compiler.normalize_sql_whitespace`.
+      The Phase-4 DT-text recovery path
+      (:func:`snowflake.ml.feature_store.decl.state._inject_batch_fv_source_from_dt_text`)
+      reconstructs the same shape from the deployed
+      ``CREATE DYNAMIC TABLE … AS <query>`` body so re-applies are
+      no-ops — see ``docs/ARCHITECTURE.md`` apply pipeline section.
+      Source-side qualifiers are ignored for query-backed sources;
+      any qualification belongs in the SQL itself.
+
+    ``table:`` takes precedence over ``query:`` if both are present
+    (defensive — the spec validator
+    :class:`~snowflake.ml.feature_store.decl.spec_models.BatchSource`
+    already rejects this combination at authoring time).
+
+    Streaming feature views never reach this function — they go through
+    :func:`_build_stream_config` instead.  An older revision of this code
+    fell back to a synthetic ``SELECT cols FROM <db>.<schema>.PLACEHOLDER
+    WHERE 1=0`` query for streaming sources without a table; that query
+    is unresolvable at registration time and caused snowml-core to emit
+    ``CREATE VIEW name () AS query`` (empty column list) — see
+    BUG_BASH §6 for the original bug.  The fallback is removed; a
+    non-streaming FV without a resolvable source now fails loudly.
+
+    Args:
+        payload: Parsed feature view spec dict.  Must NOT have
+            ``kind == 'StreamingFeatureView'`` — caller routes streaming
+            FVs through :func:`_build_stream_config`.
+        session: A ``snowflake.snowpark.Session`` instance.
+        database: Snowflake database name for resolving unqualified tables.
+        schema: Snowflake schema name for resolving unqualified tables.
+
+    Returns:
+        A Snowpark DataFrame representing the feature view's source query.
+
+    Raises:
+        ValueError: If no source declares a usable ``table`` or ``query``.
+    """
+    sources = payload.get("sources", [])
+
+    for src in sources:
+        if isinstance(src, dict):
+            table = src.get("table")
+            if table:
+                src_db = src.get("source_database", database)
+                src_schema = src.get("source_schema", schema)
+                # Guard against the double-prefix bug: an already-qualified
+                # ``DB.SCHEMA.EVENTS`` must not be re-prefixed to the
+                # unresolvable ``DB.SCHEMA.DB.SCHEMA.EVENTS`` (which fails the
+                # FV (re)create).  The schema-recovery and backfill sites
+                # already guard inline; this one did not.
+                fqn = _qualify_table(str(table), src_db, src_schema)
+                return session.table(fqn)
+
+            query = src.get("query")
+            if query:
+                return session.sql(query)
+
+    raise ValueError(
+        f"FeatureView '{payload.get('name', '')}' (kind={payload.get('kind', '')}) "
+        "has no resolvable source: at least one entry in 'sources[]' must "
+        "declare 'table' or 'query', or the spec must declare "
+        "'kind: StreamingFeatureView' (which uses a StreamConfig instead)."
+    )

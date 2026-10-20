@@ -5,7 +5,7 @@ recipe_backend, extractor_runner). Each one that the web-crawl service fails to
 pass produces NO error and NO log — the crawl just silently runs without that
 capability. That is exactly how per-host domain policy stayed dark: the
 domain-rules UI wrote `scraper.scrape_domain` rows, the quick-scrape lane
-honoured them, and every site crawl ignored them for months.
+honored them, and every site crawl ignored them for months.
 
 These tests pin the wiring so a future refactor of `_build_crawler` cannot drop
 a seam quietly.

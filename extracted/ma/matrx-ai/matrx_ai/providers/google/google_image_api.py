@@ -277,7 +277,7 @@ class GoogleImageGeneration(BaseMediaGeneration):
                 if not data:
                     continue
                 # `data` may already be raw bytes (newer SDK) or a base64 str
-                # (older versions). Normalise to bytes.
+                # (older versions). Normalize to bytes.
                 if isinstance(data, str):
                     import base64
 

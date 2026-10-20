@@ -1,0 +1,58 @@
+//! `chematic-smarts` — SMARTS query language and VF2 subgraph isomorphism.
+//!
+//! # Usage
+//! ```
+//! // (doc example omitted — requires chematic-smiles)
+//! ```
+
+#![forbid(unsafe_code)]
+
+pub mod cache;
+pub(crate) mod clock;
+pub mod cx;
+pub(crate) mod hybridization;
+pub(crate) mod match_chirality;
+pub mod match_vf2;
+pub mod mcs;
+pub mod merge_hydrogens;
+pub mod parser;
+pub mod perceived;
+pub mod query;
+pub mod rdkit_parity_match;
+pub mod rdkit_ring_model;
+
+pub use cache::{SmartsCache, named_pattern};
+pub use cx::{CxQueryAtomProp, CxSmarts, parse_cxsmarts};
+pub use hybridization::{rdkit_bond_is_conjugated, rdkit_hybridization};
+pub use match_vf2::{
+    MatchConfig, MatchOutcome, find_matches, find_matches_with_config, find_matches_with_rings,
+    find_matches_with_rings_and_config, find_matches_with_rings_and_config_checked,
+    first_anchored_match_per_atom, for_each_embedding, has_match_bounded, has_match_with_config,
+};
+pub use mcs::{
+    AtomCompare, BondCompare, McsConfig, McsOutcome, find_mcs, find_mcs_with_config,
+    find_mcs_with_config_checked,
+};
+pub use merge_hydrogens::{QueryHydrogenError, merge_query_hydrogens};
+pub use parser::{SmartsError, parse_smarts};
+pub use perceived::{
+    find_match_atom_sets_perceived, find_matches_perceived, has_match_perceived,
+    with_perceived_target,
+};
+pub use query::{
+    AtomPrimitive, AtomQuery, BondPrimitive, BondQuery, QueryAtom, QueryBond, QueryMolecule,
+};
+pub use rdkit_parity_match::{
+    RdkitParityConfig, RdkitRingCountModel, find_match_atom_sets_rdkit_parity,
+    find_matches_rdkit_parity, has_match_rdkit_parity_bounded,
+};
+pub use rdkit_ring_model::{
+    RdkitParityError, RdkitParityRingModel, RdkitRingModelBudget, build_rdkit_parity_ring_model,
+    build_shared_symmetrized_ring_model,
+};
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(test)]
+mod matching_boundary_contract_tests;

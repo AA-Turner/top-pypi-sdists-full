@@ -27,6 +27,7 @@ import logging
 from collections.abc import AsyncIterator, Iterator, Sequence
 from contextlib import asynccontextmanager, contextmanager
 from contextvars import ContextVar
+from datetime import UTC
 from typing import Any
 
 from matrx_connect.lane import FinalizerContext, get_current_lane
@@ -178,7 +179,7 @@ def get_coordinator() -> Coordinator | None:
     """Return the current request's :class:`Coordinator`, lazily creating it on first call.
 
     The Coordinator wraps a :class:`matrx_orm.Session` and is flushed by
-    the lane finalizer on every exit path (stream_end / error / cancelled).
+    the lane finalizer on every exit path (stream_end / error / canceled).
     Returns ``None`` when there is no lane to bind to (out-of-request
     code paths log + drop the queue call).
 
@@ -255,7 +256,45 @@ def get_coordinator() -> Coordinator | None:
     _ensure_cx_registered()
     if lane_accepts_finalizers:
         _register_lane_finalizer(coord, lane)
+    else:
+        # Minted against a lane that already stopped draining: the lane is its
+        # (terminal) owner, so its first queued write is the defect captured.
+        coord._owner_lane = lane
     return coord
+
+
+def live_owner_is_terminal(lane_probe: Any = None) -> bool:
+    """True when the only owner a write here could have is a request lane that
+    has stopped draining — the caller must take its own background path.
+
+    Ownership is the COORDINATOR'S, not the ambient lane's (L25c, 2026-10-18).
+    A child agent run inherits its parent request's lane through copy_context
+    but owns its Coordinator outright; when the parent finishes first, the
+    helper's own Coordinator is still the right home for its writes, in its own
+    write order. Judging by the ambient lane sent a helper's late writes around
+    its Coordinator — past FK parents still pending inside it.
+    """
+    state = try_get_execution_state()
+    existing: Coordinator | None = (
+        getattr(state, "writes", None) if state is not None else None
+    ) or _coordinator_cv.get(None)
+    if existing is not None:
+        owner = getattr(existing, "_owner_lane", None)
+        return owner is not None and getattr(owner, "phase", None) != "active"
+    lane = (lane_probe or get_current_lane)()
+    return lane is not None and getattr(lane, "phase", None) != "active"
+
+
+def get_live_coordinator() -> Coordinator | None:
+    """The Coordinator that owns writes here AND can still commit them in order.
+
+    Returns None — never mints — when :func:`live_owner_is_terminal`; the caller
+    then takes its own background path (a standalone scope or a governed direct
+    write).
+    """
+    if live_owner_is_terminal():
+        return None
+    return get_coordinator()
 
 
 @asynccontextmanager
@@ -432,28 +471,50 @@ async def _child_coordinator_scope(label: str, child_ctx: Any):
         pass
 
     try:
-        # Pin the child's owner before its body can spawn work.  asyncio tasks
-        # copy ContextVars at creation time; leaving this scope lazily bound to
-        # None lets a child-created task outlive the request lane and first
-        # materialize a terminal coordinator after drain.  This is the child
-        # equivalent of the MCP edge's eager owner pin.
+        # THE CHILD OWNS ITS OWN PERSISTENCE LANE (L25c, 2026-10-18).  A child
+        # agent run is pinned to a Coordinator it owns outright, minted before
+        # its body can spawn work (asyncio tasks copy ContextVars at creation),
+        # and NEVER registered as a finalizer on the parent request's lane.
+        #
+        # Why never the parent's lane: a child may outlive its parent — the
+        # ``agent`` tool hands a helper off and the parent request finishes
+        # first; a foreground helper can outlast its wait window mid-run; a
+        # wake-up or a continued helper starts after the parent closed.  A
+        # Coordinator registered on the parent's lane was drained and SEALED
+        # when the parent finished, so every later helper write (its assistant
+        # message, its conversation's status and message_count, its request
+        # snapshot) took a late one-shot outside the helper's own write order
+        # and filed persistence_after_lane_drain (PB-08 turn 2: three per run).
+        # The child's Coordinator commits synchronously at the child's own
+        # exit (standalone_coordinator: finalize, or drain_and_confirm on an
+        # error) and is then sealed, so a fire-and-forget tail still lands as a
+        # durable one-shot.  The parent's lane drains only the parent's writes.
         lane = get_current_lane()
-        if lane is not None and getattr(lane, "phase", None) == "active":
-            get_coordinator()
-            yield
-        elif lane is not None:
-            # A child may be launched by an already-scheduled callback after
-            # its request lane has completed.  The inherited terminal lane is
-            # not an owner: registering a finalizer is impossible and lazily
-            # creating against it is precisely persistence_after_lane_drain.
-            # Give this independent child an explicit synchronous lifetime.
-            async with standalone_coordinator(
-                reason="child_agent_after_parent_lane",
-                request_id=getattr(child_ctx, "request_id", None),
-                user_id=getattr(child_ctx, "user_id", None),
-                conversation_id=getattr(child_ctx, "conversation_id", None),
-            ):
-                yield
+        if lane is not None:
+            parent_active = getattr(lane, "phase", None) == "active"
+            body_finished = False
+            try:
+                async with standalone_coordinator(
+                    reason=(
+                        "child_agent_exit" if parent_active else "child_agent_after_parent_lane"
+                    ),
+                    request_id=getattr(child_ctx, "request_id", None),
+                    user_id=getattr(child_ctx, "user_id", None),
+                    conversation_id=getattr(child_ctx, "conversation_id", None),
+                ):
+                    yield
+                    body_finished = True
+            except Exception as exc:
+                if not body_finished:
+                    raise
+                # The join commit failed AFTER the child's work finished. The
+                # failure is already on system_write_failure (finalize captures
+                # before it raises); the child's result stands, as before.
+                vcprint(
+                    f"[child_coordinator_scope] child flush failed: "
+                    f"{type(exc).__name__}: {exc}. Captured to system_write_failure.",
+                    color="red",
+                )
         else:
             yield
     finally:
@@ -550,6 +611,7 @@ def _register_lane_finalizer(coord: Coordinator, lane: Any) -> None:
 
     try:
         lane.add_finalizer(_finalize, name="coordinator.commit")
+        coord._owner_lane = lane
     except Exception as exc:
         vcprint(
             f"[Coordinator] failed to register lane finalizer: "
@@ -719,22 +781,19 @@ def _queue_or_drop(
 
     coord = get_coordinator()
     if coord is None:
-        # No lane → no coordinator → this write would VANISH. Callers that can
-        # run out-of-request (e.g. persist_completed_request, the executor's
-        # message reservation) now guard against this with a direct-cxm fallback
-        # or by skipping; reaching here means an UNGUARDED queue call in a
-        # background scope — a silent-data-loss bug. SCREAM so it can never hide
-        # the way the 2026-06-15 cx_message loss did (910 conversations, no
-        # system_write_failure, just a quiet log).
-        _pk = primary_key[1] if primary_key else (payload.get("id") or "?")
-        vcprint(
-            f"[Coordinator] DATA LOSS: queue {op_type} on {table} (pk={_pk}) "
-            f"called with NO coordinator/lane — op DROPPED. This write needs a "
-            f"direct-cxm fallback or a streaming lane. See queue_helpers._queue_or_drop.",
-            color="red",
+        # No coordinator is visible HERE (a programmatic door's send, a task outside any lane):
+        # the write is NEVER dropped. It goes out through a standalone, synchronously committed
+        # coordinator under the run's own actor and organization; if even that fails the
+        # failure is recorded (system_error / system_write_failure), not just printed.
+        return _write_without_coordinator(
+            table, payload, op_type=op_type, primary_key=primary_key, depends_on=depends_on
         )
-        return ""
-    lane = get_current_lane()
+    # The boundary is the COORDINATOR'S OWN lane, never the ambient one. A
+    # child agent run (a background helper, a wake-up, a continued helper)
+    # inherits its parent request's lane through copy_context but owns its
+    # Coordinator outright (_child_coordinator_scope) — the parent's lane
+    # closing says nothing about where the helper's writes go.
+    lane = getattr(coord, "_owner_lane", None)
     if (
         lane is not None
         and getattr(lane, "phase", None) != "active"
@@ -761,6 +820,182 @@ def _queue_or_drop(
         primary_key=primary_key,
         depends_on=depends_on,
     )
+
+
+
+async def _direct_conversation_update(
+    conversation_id: str, fields: dict[str, Any]
+) -> int:
+    """One governed direct UPDATE of a conversation row whose ``metadata`` is merged key by key
+    (``JsonbMerge``), so a coordinator-less patch can never erase another writer's keys."""
+    from matrx_orm import (
+        COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+        JsonbMerge,
+        allow_direct_coordinator_write,
+    )
+
+    _ensure_cx_registered()
+    Conversation = get_model("chat.conversation")
+    values = dict(fields)
+    values["metadata"] = JsonbMerge("metadata", values["metadata"])
+    with allow_direct_coordinator_write(
+        Conversation,
+        reason="conversation write from a send with no write coordinator (never dropped)",
+        acknowledgement=COORDINATOR_BYPASS_ACKNOWLEDGEMENT,
+    ):
+        written = await Conversation.update_where({"id": str(conversation_id)}, **values)
+    return int(written.rows_affected or 0)
+
+
+async def _persist_without_coordinator(
+    table: str,
+    payload: dict[str, Any],
+    *,
+    op_type: str,
+    primary_key: tuple[str, str] | None,
+    depends_on: Sequence[tuple[str, str]],
+) -> bool:
+    """Write one op with no coordinator. True when it landed; False when it failed (and the
+    failure was recorded as far as the recorder itself could reach)."""
+    ctx = _resolve_app_context()
+    request_id = getattr(ctx, "request_id", None) if ctx else None
+    user_id = getattr(ctx, "user_id", None) if ctx else None
+    conversation_id = getattr(ctx, "conversation_id", None) if ctx else None
+    try:
+        if (
+            table == "chat.conversation"
+            and op_type == "update"
+            and primary_key
+            and isinstance(payload.get("metadata"), dict)
+        ):
+            touched = await _direct_conversation_update(primary_key[1], payload)
+            if not touched:
+                raise LookupError(f"conversation {primary_key[1]} has no row to update")
+            return True
+        async with standalone_coordinator(
+            reason="queue_without_coordinator",
+            request_id=request_id,
+            user_id=user_id,
+            conversation_id=conversation_id,
+        ) as coord:
+            coord.queue(table, payload, op_type=op_type, primary_key=primary_key, depends_on=depends_on)  # type: ignore[arg-type]
+        return True
+    except Exception as exc:  # noqa: BLE001 - recorded, never just a console line
+        vcprint(
+            f"[Coordinator] write with NO coordinator FAILED: {op_type} on {table} "
+            f"(pk={primary_key[1] if primary_key else payload.get('id')}): {type(exc).__name__}: {exc}",
+            color="red",
+        )
+        try:
+            from matrx_connect.streaming.error_capture import capture_error
+
+            await capture_error(
+                exc,
+                kind="write_without_coordinator_failed",
+                request_id=request_id,
+                user_id=user_id,
+                conversation_id=str(conversation_id) if conversation_id else None,
+                route="matrx_ai.persistence.queue_helpers",
+                error_type=type(exc).__name__,
+                context={
+                    "table": table,
+                    "op_type": op_type,
+                    "row_id": primary_key[1] if primary_key else str(payload.get("id") or ""),
+                    "payload_keys": sorted(payload),
+                },
+            )
+        except Exception:  # noqa: BLE001
+            vcprint("[Coordinator] could not record the failed coordinator-less write", color="red")
+    return False
+
+
+def _spill_write_failure(
+    table: str, payload: dict[str, Any], *, op_type: str, primary_key: tuple[str, str] | None, error: str
+) -> bool:
+    """The SYNCHRONOUS record of a write that could not be made: one replayable
+    ``system_write_failure`` row spilled to disk (the server drains it into the table and replays
+    it). Needs no event loop and no database. True when the spill landed."""
+    try:
+        import traceback
+        from datetime import datetime
+
+        from matrx_orm.session.fallback import _op_failure_row, _spill_ops_to_disk
+        from matrx_orm.session.op import make_delete, make_insert, make_update
+
+        pk = primary_key or (("id", str(payload["id"])) if payload.get("id") is not None else None)
+        if pk is None:
+            return False
+        _ensure_cx_registered()
+        model_cls = get_model(table)
+        if op_type == "insert":
+            op = make_insert(model_cls, {**payload, pk[0]: payload.get(pk[0], pk[1])}, pk_value=pk[1])
+        elif op_type == "update":
+            op = make_update(model_cls, pk[1], dict(payload))
+        else:
+            op = make_delete(model_cls, pk[1])
+        ctx = _resolve_app_context()
+        row = _op_failure_row(
+            op,
+            request_id=getattr(ctx, "request_id", None) if ctx else None,
+            session_id=None,
+            safe_user_id=getattr(ctx, "user_id", None) if ctx else None,
+            safe_conversation_id=getattr(ctx, "conversation_id", None) if ctx else None,
+            organization_id=getattr(ctx, "organization_id", None) if ctx else None,
+            error_text=error,
+            tb_text=traceback.format_exc(),
+            failed_at=datetime.now(UTC),
+        )
+        spilled, _ = _spill_ops_to_disk([row])
+        return spilled == 1
+    except Exception as exc:  # noqa: BLE001
+        vcprint(f"[Coordinator] could not spill the failed write ({type(exc).__name__}: {exc})", color="red")
+        return False
+
+
+def _write_without_coordinator(
+    table: str,
+    payload: dict[str, Any],
+    *,
+    op_type: str,
+    primary_key: tuple[str, str] | None,
+    depends_on: Sequence[tuple[str, str]],
+) -> str:
+    """Persist the write of a queue call that found no coordinator. Never drops it.
+
+    With a running loop: scheduled detached. With none (a worker thread, a script): run
+    synchronously on a short-lived private loop, so the write has landed when this returns; if that
+    fails too, the failure is spilled synchronously as a replayable ``system_write_failure`` row."""
+    import asyncio
+
+    args = dict(payload)
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        error = "no event loop and the private loop could not write it"
+        try:
+            if asyncio.run(
+                _persist_without_coordinator(
+                    table, args, op_type=op_type, primary_key=primary_key, depends_on=tuple(depends_on)
+                )
+            ):
+                return "written-without-coordinator"
+        except Exception as exc:  # noqa: BLE001
+            error = f"{type(exc).__name__}: {exc}"
+        spilled = _spill_write_failure(table, args, op_type=op_type, primary_key=primary_key, error=error)
+        vcprint(
+            f"[Coordinator] queue {op_type} on {table} had no coordinator and no event loop: the "
+            f"private-loop write failed ({error}); "
+            + ("spilled for replay." if spilled else "COULD NOT BE SPILLED either (DATA LOSS)."),
+            color="red",
+        )
+        return "spilled-without-coordinator" if spilled else ""
+    detached_task(
+        _persist_without_coordinator(
+            table, args, op_type=op_type, primary_key=primary_key, depends_on=tuple(depends_on)
+        ),
+        name="write_without_coordinator",
+    )
+    return "written-without-coordinator"
 
 
 # ---------- cx_conversation -----------------------------------------------
@@ -955,7 +1190,7 @@ def queue_user_request_update(id: str, **fields: Any) -> str:
 # row's statement, because the commit happens inside the coordinator's flush —
 # long after this function returned.
 #
-# A row whose role we don't recognise (system/tool rows) declares NOTHING, and
+# A row whose role we don't recognize (system/tool rows) declares NOTHING, and
 # the DB resolver applies its documented default exactly as before.
 _ROLE_ACTORS: dict[str, tuple[str, str]] = {
     "user": ("user", "chat_user_turn"),
@@ -963,10 +1198,19 @@ _ROLE_ACTORS: dict[str, tuple[str, str]] = {
 }
 
 
+# An AUTHORED input turn (a few-shot pair, a template a client carried) was written by the agent's
+# author, copied in by the platform — not typed by this person and not generated by the model. It
+# declares its own author, and every op on the row keeps it, so the whole authored block lands in
+# ONE flush group, queued first: the flush runs one group per declared author in first-appearance
+# order and positions are allocated by APPEND, so mixing user/agent authors in the block put the
+# example's assistant turn after the person's trigger (live 2026-10-16).
+AUTHORED_TURN_ACTOR: tuple[str, str] = ("system", "chat_authored_turn")
+
+
 @contextmanager
-def _declaring_role_actor(role: Any) -> Iterator[None]:
+def _declaring_role_actor(role: Any, *, authored: bool = False) -> Iterator[None]:
     """Declare the author implied by a chat row's ``role``, if we know it."""
-    declared = _ROLE_ACTORS.get(role) if isinstance(role, str) else None
+    declared = AUTHORED_TURN_ACTOR if authored else (_ROLE_ACTORS.get(role) if isinstance(role, str) else None)
     if declared is None:
         yield
         return
@@ -1018,7 +1262,44 @@ def _with_running_agent(fields: dict[str, Any]) -> dict[str, Any]:
     return {**fields, "agent_id": agent_id}
 
 
-def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str:
+# WHO SENT THIS ROW — the request's own actor, stamped at the ONE write funnel (defect 55,
+# 2026-10-18). chat.message is a COMPONENT of chat.conversation: the trigger
+# ``zzz_component_created_by`` rewrites ``created_by`` to the conversation OWNER on every
+# insert (db-rules §6d-1), so ``created_by`` can never name the sender. The sender is
+# ``updated_by`` (``component_saver``), which ``platform._stamp_actor`` fills only from
+# ``app.user_id`` / ``auth.uid()`` — both empty on the server's privileged connection. Without
+# this, an editor's turn on a shared conversation landed naming ONLY the owner (PB-06 L10).
+# The carried AppContext is the authority (context is carried, never rebuilt); a caller's
+# ``created_by`` is used only when no request actor is in scope (a detached record-driven
+# write). An UPDATE that names no author field is bookkeeping and keeps the row's sender.
+_SENDER_FIELDS: frozenset[str] = frozenset({"created_by", "role", "content", "user_content"})
+
+
+def _valid_person_id(value: Any) -> str | None:
+    from uuid import UUID
+
+    if not value:
+        return None
+    try:
+        return str(UUID(str(value)))
+    except (ValueError, TypeError):
+        return None
+
+
+def _with_sender(fields: dict[str, Any], *, creating: bool) -> dict[str, Any]:
+    if _valid_person_id(fields.get("updated_by")):
+        return fields
+    if not creating and not (_SENDER_FIELDS & fields.keys()):
+        return fields
+    ctx = _resolve_app_context()
+    sender = _valid_person_id(getattr(ctx, "user_id", None) if ctx is not None else None)
+    sender = sender or _valid_person_id(fields.get("created_by"))
+    if sender is None:
+        return fields
+    return {**fields, "updated_by": sender}
+
+
+def queue_message_create(*, id: str, conversation_id: str, authored: bool = False, **fields: Any) -> str:
     # DD-187: chat.message.content is a JSON ARRAY of content blocks, never a
     # bare string. A caller that passes ``content="some text"`` (a test lane
     # did, producing a row `reconstruct_content` could not read back) writes a
@@ -1032,8 +1313,8 @@ def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str
             '[{"type": "text", "text": ...}]), never a bare string — wrap it '
             "before calling queue_message_create."
         )
-    fields = _with_running_agent(fields)
-    with _declaring_role_actor(fields.get("role")):
+    fields = _with_sender(_with_running_agent(fields), creating=True)
+    with _declaring_role_actor(fields.get("role"), authored=authored):
         return _queue_or_drop(
             "chat.message",
             {"id": id, "conversation_id": conversation_id, **fields},
@@ -1042,7 +1323,7 @@ def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str
         )
 
 
-def queue_message_update(id: str, **fields: Any) -> str:
+def queue_message_update(id: str, authored: bool = False, **fields: Any) -> str:
     # DD-187: same refusal as queue_message_create — an UPDATE can corrupt a
     # previously-well-formed row's content just as easily as an INSERT can.
     if "content" in fields and isinstance(fields["content"], str):
@@ -1054,8 +1335,8 @@ def queue_message_update(id: str, **fields: Any) -> str:
     # An UPDATE that names the role re-declares the row's author; one that
     # doesn't stays silent and keeps whatever the INSERT declared (coalescing
     # preserves the last DECLARED author for the row).
-    fields = _with_running_agent(fields)
-    with _declaring_role_actor(fields.get("role")):
+    fields = _with_sender(_with_running_agent(fields), creating=False)
+    with _declaring_role_actor(fields.get("role"), authored=authored):
         return _queue_or_drop(
             "chat.message",
             fields,

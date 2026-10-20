@@ -200,7 +200,7 @@ def test_the_send_boundary_emits_nothing_anthropic_rejects(case: str) -> None:
     """THE CLASS TEST. For every shape the live API refused, the wire schema the
     boundary produces carries no remaining violation — asserted by the same
     subset checker the translator screams through, so a NEW Pydantic shape that
-    nobody normalised shows up here instead of as a 400 in production."""
+    nobody normalized shows up here instead of as a 400 in production."""
     schema, provider_message = REJECTED_SHAPES[case]
     violations = structured_output_schema_violations(wire(schema))
     assert violations == [], (
@@ -268,7 +268,7 @@ def test_a_narrowing_is_never_silent() -> None:
 
 
 def test_a_property_named_like_a_keyword_is_never_touched() -> None:
-    """Only schema KEYWORDS are normalised. A contract with properties named
+    """Only schema KEYWORDS are normalized. A contract with properties named
     ``discriminator``, ``allOf`` and ``not`` keeps every one of them."""
     schema = obj(
         discriminator={"type": "string"},

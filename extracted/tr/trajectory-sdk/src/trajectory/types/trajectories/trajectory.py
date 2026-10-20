@@ -31,6 +31,7 @@ class RewardComponent(BaseModel):
 
 class Trajectory(BaseModel):
   trajectory_id: str
+  """Trajectory ID, returned as tid by the create endpoint."""
 
   organization_id: str
 
@@ -53,6 +54,12 @@ class Trajectory(BaseModel):
   source: str
 
   status: str | None = None
+
+  termination_reason: str | None = None
+  """
+    Recorded reason the trajectory ended, independent of rollout state; null when not
+    recorded.
+    """
 
   reward: float | None = None
 

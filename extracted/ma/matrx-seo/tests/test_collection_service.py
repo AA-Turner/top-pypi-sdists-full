@@ -822,7 +822,7 @@ async def test_provider_call_identity_prevents_cost_double_count_on_resume() -> 
 
 @pytest.mark.asyncio
 async def test_cancelled_collect_terminalizes_run_as_cancelled() -> None:
-    """A cancelled collect must not leave the run 'processing' forever.
+    """A canceled collect must not leave the run 'processing' forever.
 
     Before the CancelledError handler existed, cancellation propagated
     straight through collect() and only the lease expiry (via the host
@@ -851,7 +851,7 @@ async def test_cancelled_collect_terminalizes_run_as_cancelled() -> None:
     assert row["status"] == "cancelled"
     assert row["error"] == {
         "type": "CancelledError",
-        "message": "SEO collection task was cancelled",
+        "message": "SEO collection task was canceled",
     }
     assert row["lease_owner"] is None
     assert row["lease_expires_at"] is None

@@ -1,4 +1,4 @@
-"""Focused contract tests for deterministic cross-page catalogue checks."""
+"""Focused contract tests for deterministic cross-page catalog checks."""
 
 from matrx_scraper.web_crawl.analysis import (
     CROSS_PAGE_CHECKS,
@@ -30,7 +30,7 @@ _MIN_PAGES = 30
 
 def test_internal_link_equity_uses_inclusive_site_percentiles() -> None:
     # 30-page site (min-pages rule), scores 1..30 -> percentile = score/30.
-    # Prioritized pages are the only ones judged by rank (the catalogue
+    # Prioritized pages are the only ones judged by rank (the catalog
     # contract). Unprioritized pages never open a finding — see the test below.
     pages = [
         _page(n, n, target_keyword="kw" if n in (3, 15, 30) else None)

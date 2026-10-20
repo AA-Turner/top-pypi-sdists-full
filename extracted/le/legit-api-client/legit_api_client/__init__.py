@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.1.5447"
+__version__ = "1.1.5452"
 
 # Define package exports
 __all__ = [
@@ -160,6 +160,7 @@ __all__ = [
     "IntegrationFreshnessState",
     "IntegrationHealthBlockerCode",
     "IntegrationHealthBlockerDto",
+    "IntegrationHealthBlockerSeverity",
     "IntegrationHealthBrokerDto",
     "IntegrationHealthCollectionDto",
     "IntegrationHealthConnectionDto",
@@ -423,6 +424,7 @@ from legit_api_client.models.integration_failing_reason import IntegrationFailin
 from legit_api_client.models.integration_freshness_state import IntegrationFreshnessState as IntegrationFreshnessState
 from legit_api_client.models.integration_health_blocker_code import IntegrationHealthBlockerCode as IntegrationHealthBlockerCode
 from legit_api_client.models.integration_health_blocker_dto import IntegrationHealthBlockerDto as IntegrationHealthBlockerDto
+from legit_api_client.models.integration_health_blocker_severity import IntegrationHealthBlockerSeverity as IntegrationHealthBlockerSeverity
 from legit_api_client.models.integration_health_broker_dto import IntegrationHealthBrokerDto as IntegrationHealthBrokerDto
 from legit_api_client.models.integration_health_collection_dto import IntegrationHealthCollectionDto as IntegrationHealthCollectionDto
 from legit_api_client.models.integration_health_connection_dto import IntegrationHealthConnectionDto as IntegrationHealthConnectionDto

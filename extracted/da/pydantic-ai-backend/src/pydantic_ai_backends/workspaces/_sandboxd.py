@@ -3,20 +3,25 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import re
 import uuid
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 
 import anyio
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.workspaces import (
     CommandResult,
+    FileEntry,
     SupportsCommands,
+    SupportsFilesystem,
+    SupportsRealpath,
+    Workspace,
     WorkspaceBackend,
     WorkspaceCommand,
     WorkspaceRef,
@@ -32,6 +37,8 @@ from pydantic_ai_backends.workspaces._commands import (
     command_result,
     layered_env,
 )
+
+logger = logging.getLogger(__name__)
 
 SANDBOXD_PROVIDER = "sandboxd"
 """Default `WorkspaceRef.provider` of a `sandboxd` workspace."""
@@ -49,6 +56,14 @@ STOP_GRACE_SECONDS = 5.0
 OPENING_RETRY_SECONDS = 0.2
 """Pause before asking again for a named session another client is opening."""
 
+DEFAULT_OPENING_TIMEOUT = 600.0
+"""Seconds opening a session may take. It can include building the runtime's
+image on the service host, which is minutes on a cold cache - far past a
+request that runs no command."""
+
+WAIT_NOTICE_SECONDS = 3.0
+"""How long opening may take before `on_wait` is told it is waiting."""
+
 _GONE = frozenset({404, 410})
 """Statuses meaning the session or its sandbox no longer exists."""
 
@@ -60,16 +75,88 @@ class _Session:
     session_id: str
     token: str
     execute_timeout: float
+    native_reads: bool = False
+    native_writes: bool = False
+    native_realpath: bool = False
 
 
-class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
+_PATH_ERRORS: dict[str, type[Exception]] = {
+    "FileNotFoundError": FileNotFoundError,
+    "IsADirectoryError": IsADirectoryError,
+    "NotADirectoryError": NotADirectoryError,
+    "FileExistsError": FileExistsError,
+    "ValueError": ValueError,
+}
+"""The path errors a native file route reports, by the name it sends."""
+
+
+_ENTRIES: TypeAdapter[list[wire.FileEntry]] = TypeAdapter(list[wire.FileEntry])
+
+
+def _entry(row: wire.FileEntry) -> FileEntry:
+    return FileEntry(name=row.name, path=row.path, is_dir=row.is_dir, size=row.size)
+
+
+def _path_error(response: httpx.Response) -> Exception | None:
+    """The builtin error a native route reported, if it reported one."""
+    if response.status_code not in (400, 404):
+        return None
+    try:
+        detail = response.json().get("detail")
+    except ValueError:
+        return None
+    if not isinstance(detail, dict):
+        return None
+    kind = _PATH_ERRORS.get(str(detail.get("error")))
+    return None if kind is None else kind(str(detail.get("message", "")))
+
+
+class _CommandsOnly:
+    """A backend seen through its commands alone, for the shell-derived file operations.
+
+    `Workspace` derives every file operation from `run` when its backend has no
+    native filesystem. Wrapped in this, the sandboxd backend is such a backend
+    again, which is the path a native route hands an operation back to.
+    """
+
+    def __init__(self, backend: SandboxdWorkspaceBackend) -> None:
+        self._backend = backend
+
+    @property
+    def ref(self) -> WorkspaceRef | None:
+        return self._backend.ref
+
+    async def working_dir(self) -> str:
+        return await self._backend.working_dir()
+
+    async def run(
+        self,
+        command: WorkspaceCommand,
+        *,
+        shell: bool = False,
+        env: Mapping[str, str] | None = None,
+        timeout: float | None = None,
+    ) -> CommandResult:
+        return await self._backend.run(command, shell=shell, env=env, timeout=timeout)
+
+
+class SandboxdWorkspaceBackend(
+    WorkspaceBackend, SupportsCommands, SupportsFilesystem, SupportsRealpath
+):
     """One `sandboxd` session, as the environment an agent run works in.
 
     Commands go through the service's `/run`, which keeps stdout and stderr
-    apart, reports a vanished sandbox as one and can be stopped; `Workspace`
-    derives file operations through them. The session's files live on the
-    service host, so a ref still attaches after the container was reaped, for as
-    long as the service keeps the workspace (its `workspace_ttl`).
+    apart, reports a vanished sandbox as one and can be stopped. The session's
+    files live on the service host, so a ref still attaches after the container
+    was reaped, for as long as the service keeps the workspace (its
+    `workspace_ttl`).
+
+    **File operations are served off that host directory** where the service
+    says it can (`ServicePolicy.native_files`): a read or a write is then one
+    request handled in a millisecond, instead of the one to nine `docker exec`s
+    the shell derivation costs. A path the service hands back - a symlink, a
+    special file, anything outside the work directory - and every operation on
+    a service that does not offer this, goes through the shell as before.
 
     Every command is bounded by the service's `execute_timeout`, including one
     asking for no timeout: the service enforces its ceiling on every caller.
@@ -88,6 +175,13 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
         client: An `httpx.AsyncClient` to share. Owned by the caller, who
             closes it; without one each request uses a client of its own.
         request_timeout: Seconds for a request that runs no command.
+        opening_timeout: Seconds opening the session may take, waiting on the
+            service included. Longer than `request_timeout` because an open can
+            build the runtime's image first.
+        on_wait: Awaited once when opening takes longer than a few seconds -
+            the service is building the runtime, or another client is opening
+            the same name - so a caller can say why nothing is happening yet.
+            A failure in it is logged and does not stop the open.
         session_name: A session id chosen by whoever configures the workspace
             rather than by the service: with no ref, the first operation opens
             the session under it, or attaches when it is open or its files are
@@ -109,6 +203,8 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
         client: httpx.AsyncClient | None = None,
         request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
         session_name: str | None = None,
+        opening_timeout: float = DEFAULT_OPENING_TIMEOUT,
+        on_wait: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         if ref is not None and ref.provider != provider:
             raise ValueError(f"expected a {provider!r} workspace ref, got {ref.provider!r}")
@@ -126,6 +222,8 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
         self._client = client
         self._request_timeout = request_timeout
         self._session_name = session_name
+        self._opening_timeout = max(opening_timeout, request_timeout)
+        self._on_wait = on_wait
         self._session: _Session | None = None
         self._working_dir: str | None = None
         self._lock = anyio.Lock()
@@ -159,8 +257,12 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
                 timeout=timeout,
             )
 
-    async def _open(self) -> _Session:
-        """Open or attach to the session, then learn the service's command ceiling."""
+    async def _create(self) -> httpx.Response:
+        """Ask the service for the session, waiting for as long as opening may take.
+
+        The request itself gets `opening_timeout`, because the service builds a
+        runtime's image inside the first open that needs it.
+        """
         named = self._ref is None and self._session_name is not None
         request = wire.CreateSessionRequest(
             session_id=self._session_name if self._ref is None else self._ref.id,
@@ -169,18 +271,48 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
             reuse=named,
             attach=self._ref is not None,
         )
+        give_up = anyio.current_time() + self._opening_timeout
         response = await self._post(
-            "/sessions", request, token=self._token, timeout=self._request_timeout
+            "/sessions", request, token=self._token, timeout=self._opening_timeout
         )
         # With `reuse` a 409 means another client is opening the same name right
-        # now - two first runs of one conversation, say. It is theirs a moment
-        # later, so ask again rather than fail one of them.
-        give_up = anyio.current_time() + self._request_timeout
+        # now - two first runs of one conversation, say, or one of them waiting on
+        # an image build. It is theirs a moment later, so ask again rather than
+        # fail one of them.
         while named and response.status_code == 409 and anyio.current_time() < give_up:
             await anyio.sleep(OPENING_RETRY_SECONDS)
             response = await self._post(
-                "/sessions", request, token=self._token, timeout=self._request_timeout
+                "/sessions", request, token=self._token, timeout=self._opening_timeout
             )
+        return response
+
+    @staticmethod
+    async def _announce_wait(on_wait: Callable[[], Awaitable[None]]) -> None:
+        """Tell `on_wait` once that opening is taking a while; cancelled if it is not."""
+        await anyio.sleep(WAIT_NOTICE_SECONDS)
+        try:
+            await on_wait()
+        except Exception:
+            # A notice is decoration: the session it is about must still open.
+            logger.warning("sandboxd_wait_notice_failed", exc_info=True)
+
+    async def _open(self) -> _Session:
+        """Open or attach to the session, then learn the service's command ceiling."""
+        # Kept out of the task group: an exception leaving its body comes out as an
+        # `ExceptionGroup`, and a caller of `run` catches `httpx.HTTPError`.
+        failure: Exception | None = None
+        response: httpx.Response | None = None
+        async with anyio.create_task_group() as group:
+            if self._on_wait is not None:
+                group.start_soon(self._announce_wait, self._on_wait)
+            try:
+                response = await self._create()
+            except Exception as exc:
+                failure = exc
+            group.cancel_scope.cancel()
+        if failure is not None:
+            raise failure
+        assert response is not None
         if self._ref is not None and response.status_code == 404:
             raise WorkspaceUnavailableError(f"sandboxd session {self._ref.id!r} no longer exists")
         response.raise_for_status()
@@ -202,6 +334,9 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
             session_id=created.session.session_id,
             token=created.token,
             execute_timeout=float(policy.execute_timeout),
+            native_reads=policy.native_files,
+            native_writes=policy.native_writes,
+            native_realpath=policy.native_realpath,
         )
 
     async def _connect(self) -> _Session:
@@ -294,6 +429,115 @@ class SandboxdWorkspaceBackend(WorkspaceBackend, SupportsCommands):
             outcome, timeout=applied, limit=ran.output_limit or MAX_RUN_OUTPUT_BYTES
         )
 
+    async def read_bytes(self, path: str) -> bytes:
+        """A file's contents; see `SupportsFilesystem.read_bytes`."""
+        response = await self._native("read", path, writes=False)
+        return (await self._shell().read_bytes(path)) if response is None else response.content
+
+    async def write_bytes(self, path: str, data: bytes) -> None:
+        """Write a file, creating its parents; see `SupportsFilesystem.write_bytes`."""
+        if await self._native("write", path, writes=True, content=data) is None:
+            await self._shell().write_bytes(path, data)
+
+    async def stat(self, path: str) -> FileEntry:
+        """A path's metadata; see `SupportsFilesystem.stat`."""
+        response = await self._native("stat", path, writes=False)
+        if response is None:
+            return await self._shell().stat(path)
+        return _entry(wire.FileEntry.model_validate_json(response.content))
+
+    async def list_dir(self, path: str) -> list[FileEntry]:
+        """A directory's entries; see `SupportsFilesystem.list_dir`."""
+        response = await self._native("list", path, writes=False)
+        if response is None:
+            return list(await self._shell().list_dir(path))
+        rows = _ENTRIES.validate_json(response.content)
+        return [_entry(row) for row in rows]
+
+    async def make_dir(self, path: str) -> None:
+        """`mkdir -p`; see `SupportsFilesystem.make_dir`."""
+        if await self._native("mkdir", path, writes=True) is None:
+            await self._shell().make_dir(path)
+
+    async def remove(self, path: str) -> None:
+        """Remove a file or a tree; see `SupportsFilesystem.remove`."""
+        if await self._native("remove", path, writes=True) is None:
+            await self._shell().remove(path)
+
+    async def exists(self, path: str) -> bool:
+        """Whether something is at `path`; see `SupportsFilesystem.exists`."""
+        try:
+            await self.stat(path)
+        except (FileNotFoundError, NotADirectoryError):
+            return False
+        return True
+
+    async def realpath(self, path: str) -> str:
+        """`path` with its links resolved; see `SupportsRealpath.realpath`.
+
+        A path check - the console's guard, a confined workspace - asks this
+        before every read and write. Answered by the service for a path with no
+        link in it; a link, and a service that does not offer this, resolve in
+        the sandbox as before.
+        """
+        session = await self._connect()
+        if session.native_realpath:
+            response = await self._native("realpath", path, writes=False)
+            if response is not None:
+                return wire.RealpathResponse.model_validate_json(response.content).path
+        return await self._shell().realpath(path)
+
+    def _shell(self) -> Workspace:
+        """The shell-derived file operations, for what the service hands back."""
+        return Workspace(_CommandsOnly(self))
+
+    async def _native(
+        self, op: str, path: str, *, writes: bool, content: bytes | None = None
+    ) -> httpx.Response | None:
+        """Ask the service to do one file operation itself.
+
+        Returns:
+            The answer, or `None` when the service does not do this one natively
+            - it said so in its policy, or handed this path back - and the shell
+            has to.
+
+        Raises:
+            The builtin path error the service reported, or
+            `WorkspaceUnavailableError` for a session that is gone.
+        """
+        session = await self._connect()
+        if not (session.native_writes if writes else session.native_reads):
+            return None
+        route = f"/sessions/{session.session_id}/files/{op}"
+        headers = {wire.TOKEN_HEADER: session.token}
+        async with self._http() as client:
+            if content is None:
+                response = await client.post(
+                    self._url(route),
+                    json={"path": path},
+                    headers=headers,
+                    timeout=self._request_timeout,
+                )
+            else:
+                response = await client.post(
+                    self._url(route),
+                    params={"path": path},
+                    content=content,
+                    headers={**headers, "content-type": "application/octet-stream"},
+                    timeout=self._request_timeout,
+                )
+        if response.status_code == wire.NOT_NATIVE_STATUS:
+            return None
+        error = _path_error(response)
+        if error is not None:
+            raise error
+        if response.status_code in _GONE:
+            raise WorkspaceUnavailableError(
+                f"sandboxd session {session.session_id!r} is gone: {response.text}"
+            )
+        response.raise_for_status()
+        return response
+
     async def purge(self) -> None:
         """Close this backend's session and delete its files. Already gone is fine.
 
@@ -375,7 +619,19 @@ class SandboxdWorkspace(AbstractCapability[object]):
     """Variables every command gets. Nothing is read from the host's environment."""
 
     client: httpx.AsyncClient | None = field(default=None, repr=False, compare=False)
-    """An `httpx.AsyncClient` to share across runs, owned and closed by the caller."""
+    """An `httpx.AsyncClient` to share across runs, owned and closed by the caller.
+
+    Without one, use the capability as an async context manager so it owns a
+    client for its lifetime. Otherwise each request opens a client of its own -
+    a new connection every time, which costs a native file operation four times
+    its own duration (AUD-1019-09)."""
+
+    opening_timeout: float = DEFAULT_OPENING_TIMEOUT
+    """Seconds opening a session may take; it can include building the runtime's image."""
+
+    on_wait: Callable[[], Awaitable[None]] | None = field(default=None, repr=False, compare=False)
+    """Awaited once when opening a session takes more than a few seconds, so a caller
+    can say why nothing is happening yet. A failure in it does not stop the open."""
 
     session_name: str | None = None
     """One session for every run, named by you: opened on first use, attached after.
@@ -386,12 +642,26 @@ class SandboxdWorkspace(AbstractCapability[object]):
     to another capability.
     """
 
+    _owned: httpx.AsyncClient | None = field(default=None, init=False, repr=False, compare=False)
+
     def __post_init__(self) -> None:
         if self.defer_loading:
             raise UserError(
                 "`SandboxdWorkspace` does not support `defer_loading=True`: "
                 "the workspace is selected before deferred capabilities load."
             )
+
+    async def __aenter__(self) -> SandboxdWorkspace:
+        """Own one client for every backend made inside, unless `client` was given."""
+        if self.client is None and self._owned is None:
+            self._owned = httpx.AsyncClient()
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        """Close the client entering opened; a `client` passed in stays the caller's."""
+        owned, self._owned = self._owned, None
+        if owned is not None:
+            await owned.aclose()
 
     def backend(self, ref: WorkspaceRef | None = None) -> SandboxdWorkspaceBackend:
         """A backend for `ref`, or for a new session; no I/O until its first operation."""
@@ -403,8 +673,10 @@ class SandboxdWorkspace(AbstractCapability[object]):
             runtime=self.runtime,
             tenant=self.tenant,
             env=self.env,
-            client=self.client,
+            client=self.client or self._owned,
             session_name=self.session_name,
+            opening_timeout=self.opening_timeout,
+            on_wait=self.on_wait,
         )
 
     def get_workspace(

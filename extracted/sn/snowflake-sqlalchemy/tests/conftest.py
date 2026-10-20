@@ -7,6 +7,7 @@ import base64
 import json
 import logging.handlers
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -15,16 +16,21 @@ from logging import getLogger
 from typing import Literal
 
 import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.exc import ProgrammingError as SAProgrammingError
-from sqlalchemy.pool import NullPool
-
 import snowflake.connector
 import snowflake.connector.connection
 import snowflake.connector.errors
 from snowflake.connector.compat import IS_WINDOWS
-from snowflake.connector.network import WORKLOAD_IDENTITY_AUTHENTICATOR
+
+try:
+    from snowflake.connector.network import WORKLOAD_IDENTITY_AUTHENTICATOR
+except ImportError:  # snowflake-connector-python >= 5.x removed this constant
+    WORKLOAD_IDENTITY_AUTHENTICATOR = "WORKLOAD_IDENTITY"
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.exc import ProgrammingError as SAProgrammingError
+from sqlalchemy.pool import NullPool
+from syrupy.extensions.amber import AmberSnapshotExtension
+
 from snowflake.sqlalchemy import URL, dialect
 from snowflake.sqlalchemy._constants import (
     APPLICATION_NAME,
@@ -34,6 +40,8 @@ from snowflake.sqlalchemy._constants import (
     SNOWFLAKE_SQLALCHEMY_VERSION,
 )
 from snowflake.sqlalchemy.snowdialect import _URL_QUERY_BLOCKED_KWARGS
+
+from .util import random_string
 
 try:
     from .parameters import CONNECTION_PARAMETERS
@@ -59,29 +67,34 @@ snowflake.connector.connection.DEFAULT_CONFIGURATION[
 TEST_SCHEMA = f"sqlalchemy_tests_{str(uuid.uuid4()).replace('-', '_')}"
 
 
+# Connector 5.x appends per-request identifiers to server error messages, e.g.
+# ``... does not exist. (request_id=<uuid>, sfqid=<uuid>)``.  Those values are
+# unique to every execution, so any snapshot capturing an exception would be
+# unmatchable.  Strip the trailing identifier group during serialization, keeping
+# the snapshots portable across connector versions.
+_SNAPSHOT_REQUEST_IDS_RE = re.compile(r"\s*\((?:request_id|sfqid)=[^)]*\)")
+
+
+class _RequestIdNormalizingExtension(AmberSnapshotExtension):
+    """Amber serializer that drops connector request/query identifiers."""
+
+    def serialize(self, data, **kwargs) -> str:
+        return _SNAPSHOT_REQUEST_IDS_RE.sub("", super().serialize(data, **kwargs))
+
+
+@pytest.fixture
+def snapshot(snapshot):
+    """Project-wide ``snapshot`` fixture with connector identifiers normalized."""
+    return snapshot.use_extension(_RequestIdNormalizingExtension)
+
+
 def pytest_addoption(parser):
-    parser.addoption(
-        "--ignore_v20_test",
-        action="store_true",
-        default=False,
-        help="skip sqlalchemy 2.0 exclusive tests",
-    )
     parser.addoption(
         "--case-sensitive",
         action="store_true",
         default=False,
         help="run tests with case_sensitive_identifiers=True",
     )
-
-
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--ignore_v20_test"):
-        skip_feature_v2 = pytest.mark.skip(
-            reason="need remove --ignore_v20_test option to run"
-        )
-        for item in items:
-            if "feature_v20" in item.keywords:
-                item.add_marker(skip_feature_v2)
 
 
 logger = getLogger(__name__)
@@ -239,13 +252,50 @@ def db_parameters():
     yield get_db_parameters()
 
 
-@pytest.fixture(scope="session")
-def external_volume():
-    db_parameters = get_db_parameters()
-    if "external_volume" in db_parameters:
-        yield db_parameters["external_volume"]
-    else:
-        raise ValueError("External_volume is not set")
+@pytest.fixture()
+def db_table_name() -> str:
+    """A unique scratch-table name for tests that create ad-hoc tables.
+
+    Function-scoped so each test (and each xdist worker) gets a distinct name,
+    avoiding cross-test/worker collisions. Kept separate from the connection
+    parameters so it is never sent to the driver.
+    """
+    return random_string(10, prefix="sqlalchemy_tests_")
+
+
+@pytest.fixture()
+def external_volume(engine_testaccount):
+    """Create a uniquely-named external volume for the test and drop it after.
+
+    The name carries a random suffix so CI identities that share a Snowflake
+    account (e.g. the public repo and the internal mirror) never collide or
+    fight over ownership: whichever role creates the volume owns it and drops
+    it. The storage location is a placeholder — the external volume object is
+    created without validating S3 access.
+    """
+    external_volume_name = f"exvol_{uuid.uuid4().hex}"
+    create_external_volume = f"""
+        CREATE EXTERNAL VOLUME {external_volume_name}
+          STORAGE_LOCATIONS =
+          (
+            (
+                NAME = 'my-s3-us-west-2'
+                STORAGE_PROVIDER = 'S3'
+                STORAGE_BASE_URL = 's3://myexamplebucket/'
+                STORAGE_AWS_ROLE_ARN = 'arn:aws:iam::123456789012:role/myrole'
+                ENCRYPTION=(TYPE='AWS_SSE_KMS' KMS_KEY_ID='1234abcd-12ab-34cd-56ef-1234567890ab')
+            )
+          )
+        """
+    with engine_testaccount.connect() as connection:
+        connection.exec_driver_sql(create_external_volume)
+    try:
+        yield external_volume_name
+    finally:
+        with engine_testaccount.connect() as connection:
+            connection.exec_driver_sql(
+                f"DROP EXTERNAL VOLUME IF EXISTS {external_volume_name}"
+            )
 
 
 @pytest.fixture(scope="session")
@@ -337,28 +387,7 @@ def get_db_parameters() -> dict:
     if "host" in ret and ret["host"] == DEFAULT_PARAMETERS["host"]:
         ret["host"] = ret["account"] + ".snowflakecomputing.com"
 
-    # a unique table name
-    ret["name"] = ("sqlalchemy_tests_" + str(uuid.uuid4())).replace("-", "_")
     ret["schema"] = TEST_SCHEMA
-
-    # This reduces a chance to exposing password in test output.
-    ret["a00"] = "dummy parameter"
-    ret["a01"] = "dummy parameter"
-    ret["a02"] = "dummy parameter"
-    ret["a03"] = "dummy parameter"
-    ret["a04"] = "dummy parameter"
-    ret["a05"] = "dummy parameter"
-    ret["a06"] = "dummy parameter"
-    ret["a07"] = "dummy parameter"
-    ret["a08"] = "dummy parameter"
-    ret["a09"] = "dummy parameter"
-    ret["a10"] = "dummy parameter"
-    ret["a11"] = "dummy parameter"
-    ret["a12"] = "dummy parameter"
-    ret["a13"] = "dummy parameter"
-    ret["a14"] = "dummy parameter"
-    ret["a15"] = "dummy parameter"
-    ret["a16"] = "dummy parameter"
 
     return ret
 
@@ -374,9 +403,8 @@ def _without_blocked_query_params(url):
     the connector defaults, and ``host``/``port`` are unaffected because they
     live in the URL authority rather than the query.
 
-    Tests that specifically exercise the legacy URL behaviour enable
-    ``SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS`` themselves and do not use this
-    helper.
+    The legacy URL-params compatibility shim was removed in the major release,
+    so blocked query params are now always rejected — there is no opt-out.
     """
     url = make_url(url)
     query = {k: v for k, v in url.query.items() if k not in _URL_QUERY_BLOCKED_KWARGS}

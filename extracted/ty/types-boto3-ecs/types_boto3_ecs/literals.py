@@ -125,6 +125,7 @@ __all__ = (
     "SchedulingStrategyType",
     "ScopeType",
     "ServiceConnectAccessLoggingFormatType",
+    "ServiceConnectContainerLogLevelType",
     "ServiceConnectIncludeQueryParametersType",
     "ServiceDeploymentLifecycleStageType",
     "ServiceDeploymentRollbackMonitorsStatusType",
@@ -324,6 +325,7 @@ ScaleUnitType = Literal["PERCENT"]
 SchedulingStrategyType = Literal["DAEMON", "REPLICA"]
 ScopeType = Literal["shared", "task"]
 ServiceConnectAccessLoggingFormatType = Literal["JSON", "TEXT"]
+ServiceConnectContainerLogLevelType = Literal["debug", "info"]
 ServiceConnectIncludeQueryParametersType = Literal["DISABLED", "ENABLED"]
 ServiceDeploymentLifecycleStageType = Literal[
     "BAKE_TIME",
@@ -565,6 +567,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -639,6 +642,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -773,6 +777,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

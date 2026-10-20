@@ -82,7 +82,7 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 )
 
 # Error-CLASS signatures that are SELF-HEALING — a later sweep simply succeeds
-# once the world catches up, with no code change and no human judgement needed:
+# once the world catches up, with no code change and no human judgment needed:
 #
 #   * ForeignKeyViolationError — the op references a parent row that wasn't in
 #     the DB yet at flush time (the canonical case: a sub-agent CHILD
@@ -114,7 +114,7 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 #     means a user is billed again for output we are already holding.
 #   * commit hard-deadline — a Coordinator background flush exceeded its hard
 #     database deadline. The full operation payload was durably captured after
-#     the transaction was cancelled, so replay is the required completion of a
+#     the transaction was canceled, so replay is the required completion of a
 #     transient infrastructure failure, not a blind retry of ambiguous SQL.
 #   * QueryTimeoutError — the failed transaction has already rolled back and
 #     its operation was captured on a fresh connection. A fresh replay is the

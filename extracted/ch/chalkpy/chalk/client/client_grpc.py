@@ -62,6 +62,7 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
 from chalk._gen.chalk.protosql.v1.sql_service_pb2_grpc import SqlServiceStub
 from chalk._gen.chalk.scalinggroup.v1 import service_pb2 as scalinggroup_service_pb2
 from chalk._gen.chalk.scalinggroup.v1.service_pb2_grpc import ScalingGroupManagerServiceStub
+from chalk._gen.chalk.server.v1.auth_pb2 import SERVICE_KIND_DATAPLANE_API_SERVER
 from chalk._gen.chalk.server.v1.auth_pb2_grpc import AuthServiceStub
 from chalk._gen.chalk.server.v1.branches_pb2 import DeleteBranchRequest
 from chalk._gen.chalk.server.v1.branches_pb2_grpc import BranchServiceStub
@@ -861,11 +862,8 @@ class StubProvider:
         ]
 
         self._engine_channel: Optional[grpc.Channel] = None
-        # Retained so direct/queue calls can dial the engine ingress without re-parsing.
-        self._engine_grpc_target: Optional[tuple[str, bool]] = None
         if query_server is not None:
             parsed_uri = _parse_uri_for_engine(query_server_uri=query_server)
-            self._engine_grpc_target = (parsed_uri.uri_without_scheme, parsed_uri.use_tls)
             self._engine_channel = grpc.intercept_channel(
                 (
                     grpc.secure_channel(
@@ -894,15 +892,28 @@ class StubProvider:
             metadata.append((CHALK_ENV_ID_HEADER_LOWERCASE, self.environment_id))
         return metadata
 
-    def get_queue_call_metadata(self) -> List[tuple[str, str]]:
-        """Direct-call metadata plus the header that routes to the function-queue server."""
-        return [*self.get_remote_call_metadata(), (CHALK_DEPLOYMENT_TYPE_HEADER_LOWERCASE, "function-queue")]
+    def get_queue_call_metadata(self) -> list[tuple[str, str]]:
+        """Authentication metadata for an enqueue/poll against the dataplane API server."""
+        return self.get_remote_call_metadata()
 
-    def get_engine_grpc_target(self) -> tuple[str, bool]:
-        """``(target, use_tls)`` of the environment's grpc-engine ingress."""
-        if self._engine_grpc_target is None:
-            raise ValueError("No query server is configured for this environment")
-        return self._engine_grpc_target
+    def get_dataplane_api_server_target(self) -> tuple[str, bool]:
+        """Resolve the DPA target from the auth response's service URI metadata."""
+        if self._token_refresher is None:
+            raise ValueError("Dataplane API routing metadata is unavailable without token exchange")
+        token = self._token_refresher.get_token()
+        environment_id = self.environment_id or ""
+        authority = token.environment_id_to_authority.get(environment_id, "")
+        service_prefix = token.service_prefixes.get(SERVICE_KIND_DATAPLANE_API_SERVER, "")
+        if not authority or not service_prefix:
+            raise ValueError(
+                "No dataplane API server endpoint found for Chalk environment "
+                + f"{environment_id!r}; the auth response is missing service URI metadata"
+            )
+        dataplane_url = urlparse(f"https://{service_prefix}.{authority}")
+        target = dataplane_url.netloc
+        if dataplane_url.port is None:
+            target += ":443"
+        return target, True
 
 
 class StubRefresher:
@@ -1063,8 +1074,8 @@ class StubRefresher:
     def get_queue_call_metadata(self) -> List[tuple[str, str]]:
         return self._stub.get_queue_call_metadata()
 
-    def get_engine_grpc_target(self) -> tuple[str, bool]:
-        return self._stub.get_engine_grpc_target()
+    def get_dataplane_api_server_target(self) -> tuple[str, bool]:
+        return self._stub.get_dataplane_api_server_target()
 
 
 def _python_value_to_proto(v: Any) -> "struct_pb2.Value":
@@ -6113,9 +6124,9 @@ class ChalkGRPCClient:
         """gRPC metadata for an enqueue/poll against the function-queue server."""
         return self._stub_refresher.get_queue_call_metadata()
 
-    def _get_engine_grpc_target(self) -> tuple[str, bool]:
-        """``(target, use_tls)`` of the grpc-engine ingress that fronts the function queue."""
-        return self._stub_refresher.get_engine_grpc_target()
+    def _get_dataplane_api_server_target(self) -> tuple[str, bool]:
+        """``(target, use_tls)`` of the dataplane API server used by the function queue."""
+        return self._stub_refresher.get_dataplane_api_server_target()
 
     def _get_queue_client(self) -> Any:
         """

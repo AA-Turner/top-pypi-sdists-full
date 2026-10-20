@@ -679,12 +679,23 @@ def test_the_pattern_decks_print_their_patterns(driver, tmp_path):
     medium at a range (the LOWER MEDIUM line) with the average gain, rows
     past the horizon over a perfect ground, a whole sphere and a second card
     in free space, a loaded inverted V at a range with negative theta -- and
-    is compared byte for byte by the corpus test above."""
+    is compared byte for byte by the corpus test above.
+
+    Except the two-card deck, which the deck core now declines as a
+    "sequence" (momwire 0.80.0): its second RP runs on the standing solution
+    and NEC-5 (x13) echoes it between the two patterns, which the Python
+    sequence reading prints and the C++ core does not yet."""
     pc = _printout_compare_module()
     if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
         pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
-    decks = sorted(RP_DECKS.glob("*.nec"))
-    assert len(decks) == 4
+    every = sorted(RP_DECKS.glob("*.nec"))
+    assert len(every) == 4
+    sequence = RP_DECKS / "rp_free_sphere_two_cards.nec"
+    decks = [p for p in every if p != sequence]
+    (declined,) = pc.run_driver(
+        driver[0]["nec5_razor_printout_driver"], [sequence], tmp_path
+    )
+    assert declined["route"] == "declined", declined["route"]
     answers = pc.run_driver(driver[0]["nec5_razor_printout_driver"], decks, tmp_path)
     for path, ans in zip(decks, answers, strict=True):
         assert (ans["route"], ans["seam"], ans["raised"]) == (
@@ -783,14 +794,13 @@ def test_the_buried_decks_print_with_their_tables_filled_in_cxx(
     node charges, the below/below table filled in C++ (`_somm_below_fill_core`,
     the integrand `_somm_below_six_inline.h` shared with the extension), and
     the run half's split rows and transmitted far field -- each deck printed,
-    none declined, and each printout the launcher's bytes. Exact tables, the
-    default since momwire#1535: the anchors' sweep state lives per process,
-    and the driver and this process see different histories, so an inherited
-    opt-in is cleared."""
+    none declined, and each printout the launcher's bytes. Exact tables
+    (MOMWIRE_BELOW_ANCHORS=off): the anchors' sweep state lives per process,
+    and the driver and this process see different histories."""
     pc = _printout_compare_module()
     if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
         pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
-    monkeypatch.delenv("MOMWIRE_BELOW_ANCHORS", raising=False)
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
     answers = pc.run_driver(
         driver[0]["nec5_razor_printout_driver"], BURIED_DECKS, tmp_path
     )
@@ -1160,7 +1170,7 @@ def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
     (its sentence not yet ported) and the exact kernel's radius-step cross
     job, by name, and nothing else. A one-radius crossing node is served
     (step 4b), a node gap on one included (its KCL row, momwire#1282 /
-    #1569); a two-radius one is declined."""
+    #1569), and a two-radius one (antennaknobs plan U5, 0.79.2)."""
     # The wholly-buried decks have their own test below (their Python fills
     # are the slow ones), so this one keeps its pre-step-4 time.
     decks = [
@@ -1176,7 +1186,10 @@ def test_deck_text_to_printout_in_cxx_alone_is_bsplines(driver, tmp_path):
     assert counts.get("raised|frame", 0) >= 3, counts
     assert counts.get("runs", 0) >= 100, counts
     assert set(reasons) <= {
-        "front:bspline-buried-two-radius",
+        # a deck read as a program (momwire 0.79.2): Python serves it
+        "sequence",
+        "front:bspline-buried-two-radius-spread",
+        "front:bspline-buried-two-radius-nodes",
         "front:bspline-buried-mixed",
         "front:bspline-buried-refusal-crossing",
         "front:bspline-buried-refusal-medium",

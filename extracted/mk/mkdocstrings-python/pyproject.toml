@@ -15,7 +15,7 @@ license-files = [
     "LICENSE",
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = []
 dynamic = []
 classifiers = [
@@ -24,7 +24,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -36,12 +35,12 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "mkdocstrings>=0.30",
+    "mkdocstrings>=1.0.8",
     "mkdocs-autorefs>=1.4",
     "griffelib>=2.0",
     "typing-extensions>=4.0; python_version < '3.11'",
 ]
-version = "2.0.9"
+version = "2.0.10"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/python"
@@ -130,5 +129,4 @@ docs = [
     "mkdocs-section-index>=0.3",
     "mkdocstrings>=0.29",
     "pydantic>=2.10",
-    "tomli>=2.0; python_version < '3.11'",
 ]

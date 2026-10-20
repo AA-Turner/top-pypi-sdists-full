@@ -84,8 +84,8 @@ class TrainingStepSummary(BaseModel):
 
   no_signal_groups: int
   """
-    Completed groups whose rewards are all identical. GRPO advantages are zero for them, so
-    they contribute no gradient whether or not the trainer consumed them.
+    Completed groups whose rewards are all identical. Group-relative algorithms give them
+    zero advantage; other algorithms can train on them.
     """
 
   all_success_groups: int
@@ -96,8 +96,8 @@ class TrainingStepSummary(BaseModel):
 
   used_groups: int
   """
-    Completed groups with reward contrast that the trainer consumed (training_step set on at
-    least one rollout).
+    Completed groups with non-identical rewards that the trainer consumed. This count need
+    not equal the number of groups in the optimizer batch.
     """
 
   discarded_groups: int

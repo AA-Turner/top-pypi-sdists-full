@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.273.1
+Version: 0.277.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -522,6 +522,37 @@ the bytes to match. Private notes support `--append` when concurrent
 handoffs must not overwrite one another. A line containing only
 `[README](https://github.com/owner/repo)` embeds that repository's README at that
 point in any of those visible documents.
+
+### The Probe service (`probe service`)
+
+One small process per user per machine (`python -m probe.service`, standard
+library only) that agent sessions, the desktop app and the CLI talk to over
+`~/.local/state/probe/service/service.sock` (JSON-RPC 2.0 lines; the contract is
+`probe.service.protocol`). It is never a login item: the first session that needs
+it starts it, and it exits a few seconds after the last live session and the last
+open app window are gone.
+
+Off by default in its first release. Turn it on for a machine with
+`PROBE_SERVICE=on` in the environment, or `"service": "on"` at the top level of
+`~/.config/probe/config.json` (`PROBE_SERVICE=off` wins over the file). While it
+is on, every `tap watch` registers its session (daemon, inline or off) and pi
+starts it at session start; an `off` session never starts or holds it.
+
+While it is on, the service is also the machine's only automatic updater (when
+automatic updates are on in the wizard): every 6 hours, and when the CLI or the
+plugin's session start asks, it updates the CLI's install and every agent's
+plugins in one `probe wizard` Update, then the desktop app through the app's own
+updater, and restarts itself on a new CLI. It updates only when nothing is
+running that it could break -- a daemon recording a session, a training run, a
+wizard -- and otherwise tries again later; `probe doctor` and `probe service
+status` say why. The desktop app runs its setup actions through it too.
+
+```bash
+probe service status --json   # service.status, or {"running": false} (exit 1)
+probe service start           # start it now, whatever the switch says
+probe service stop            # stop it now; sessions start it again when needed
+probe service check-now       # check for updates now (deferred on a busy machine)
+```
 
 ### Curves in the terminal (`probe metrics plot`)
 

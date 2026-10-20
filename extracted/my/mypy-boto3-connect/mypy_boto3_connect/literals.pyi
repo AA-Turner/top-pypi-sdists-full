@@ -63,6 +63,7 @@ __all__ = (
     "ContactParticipantRoleType",
     "ContactRecordingTypeType",
     "ContactStateType",
+    "ContentDispositionType",
     "CurrentMetricNameType",
     "DataTableAttributeValueTypeType",
     "DataTableLockLevelType",
@@ -427,6 +428,7 @@ ContactStateType = Literal[
     "PENDING",
     "REJECTED",
 ]
+ContentDispositionType = Literal["ATTACHMENT", "INLINE"]
 CurrentMetricNameType = Literal[
     "AGENTS_AFTER_CONTACT_WORK",
     "AGENTS_AVAILABLE",
@@ -533,7 +535,7 @@ FailureReasonCodeType = Literal[
     "MISSING_QUEUE_ID_AND_SYSTEM_ENDPOINT",
     "REQUEST_THROTTLED",
 ]
-FileStatusTypeType = Literal["APPROVED", "FAILED", "PROCESSING", "REJECTED"]
+FileStatusTypeType = Literal["APPROVED", "DRAFTING", "FAILED", "PROCESSING", "REJECTED"]
 FileUseCaseTypeType = Literal[
     "ATTACHMENT",
     "CONTACT_ANALYSIS",

@@ -51,6 +51,35 @@ from matrx_scraper.web_crawl.service import PreparedCrawl, WebCrawlService, get_
 
 logger = logging.getLogger(__name__)
 
+#: KNOB MIRROR: knowledge.scraper `crawl.scheduled_time_budget_minutes` (migration wf_088): how long ONE scheduled
+#: crawl may run before it stops cleanly (0 = no budget). A scheduled crawl is background work nobody waits on, so
+#: its default is generous; a site too big for one budget is CONTINUED by the schedule's next occurrence
+#: (`prepare_rescrape(continue_time_budget_partial=True)`) instead of restarting from page one.
+SCHEDULED_TIME_BUDGET_KNOB = "crawl.scheduled_time_budget_minutes"
+SCHEDULED_TIME_BUDGET_MIRROR = 120
+
+
+async def scheduled_time_budget_seconds(claim: Any) -> int | None:
+    """The time budget of this schedule's crawl, in seconds (None = no budget), resolved for its organization,
+    creator and site so an organization's override applies to it and to nobody else."""
+    from matrx_scraper.parser.knobs import KnobScope, scoped_parser_knobs
+
+    values = await scoped_parser_knobs(
+        {SCHEDULED_TIME_BUDGET_KNOB: SCHEDULED_TIME_BUDGET_MIRROR},
+        KnobScope(
+            organization_id=str(claim.organization_id),
+            user_id=str(claim.created_by) if claim.created_by else None,
+            site_id=str(claim.site_id),
+        ),
+    )
+    try:
+        minutes = int(values[SCHEDULED_TIME_BUDGET_KNOB])
+    except (TypeError, ValueError):
+        logger.error("knob %s is not a whole number; the scheduled crawl runs with the default", SCHEDULED_TIME_BUDGET_KNOB)
+        minutes = SCHEDULED_TIME_BUDGET_MIRROR
+    return minutes * 60 if minutes > 0 else None
+
+
 # CAPS constants — a code push to change, never env vars.
 #
 # The lease is short on purpose: it only has to cover "claim → create a crawl
@@ -710,6 +739,8 @@ async def _dispatch_one(
                 str(claim.site_id),
                 preset_id=str(claim.preset_id) if claim.preset_id else None,
                 trigger="scheduled",
+                time_budget_seconds=await scheduled_time_budget_seconds(claim),
+                continue_time_budget_partial=True,
             )
     except RuntimeError as exc:
         # The site is already crawling. That is the single-active-crawl rule

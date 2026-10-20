@@ -1,6 +1,6 @@
 [project]
 name = "sqlalchemy_exasol"
-version = "7.1.4"
+version = "7.2.0"
 description = "EXASOL dialect for SQLAlchemy"
 authors = [
     { name = "Exasol AG", email = "opensource@exasol.com" },
@@ -38,7 +38,7 @@ classifiers = [
 ]
 dependencies = [
     "packaging>=21.3",
-    "pyexasol>=0.26.0,<3.0",
+    "pyexasol>=0.26.0,<4.0",
     "sqlalchemy>=2.0.0,<3",
 ]
 license-files = ["LICENSE"]

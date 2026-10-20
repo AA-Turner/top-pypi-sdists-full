@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cassetter
-Version: 0.14.0
+Version: 0.15.2
 Classifier: Development Status :: 3 - Alpha
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers

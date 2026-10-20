@@ -10,7 +10,7 @@ constant every door (SMS, voice, the signed-in ``/staff`` app) agrees on;
 ``_run_labeling`` must check it and refuse to spend an LLM call or write a
 title/description/keywords when it is set.
 
-Proven failing at the pre-fix behaviour (asserted directly against
+Proven failing at the pre-fix behavior (asserted directly against
 ``_is_staff_channel_conversation`` and by exercising ``_run_labeling`` end to
 end with every downstream call stubbed to record whether it ran), then
 passing after the guard: a staff-channel conversation makes zero calls past

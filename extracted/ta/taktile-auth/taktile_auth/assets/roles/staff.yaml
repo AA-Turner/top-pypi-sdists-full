@@ -7,10 +7,14 @@ oncall_write:
 taktile_d_admin:
     - d_admin/*
     - d_owner/*
-    - r:internal_resources/*
-    - w+d:workspace_management/*,*,{env=*,type=*}
-    - r+w:workspace_feature_query/*,*,{env=*,component=*,current_status_live=*}
-    - r+w+d:workspace_prebuilt_agent_management/*,*
+    - taktile_d_admin_org/*
+# Carries taktile_d_admin's own grants on an org_id, so they survive scoping a token to an org.
+taktile_d_admin_org/org_id:
+    - r:internal_resources/org_id
+    - r:aws_account/org_id
+    - w+d:workspace_management/org_id,*,{env=*,type=*}
+    - r+w:workspace_feature_query/org_id,*,{env=*,component=*,current_status_live=*}
+    - r+w+d:workspace_prebuilt_agent_management/org_id,*
 fwd_d/org_id:
     - d_admin/org_id
     - fwd_viewer/org_id

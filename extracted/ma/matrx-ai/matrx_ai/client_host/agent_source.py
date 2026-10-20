@@ -75,6 +75,12 @@ class ExecutionAgentDefinition(BaseModel):
     # Declared prompt blocks (``[{"name": ...}]``) and the agent's creator (personal rung).
     prompt_blocks: list[Any] = Field(default_factory=list)
     created_by: str | None = None
+    # The organization the definition belongs to (its owner). Pieces the definition NAMES
+    # (declared prompt blocks) resolve here when the run's organization has none — a run in
+    # another organization is still stamped there. In-process only: ``exclude=True`` keeps it
+    # off the portable wire shape and out of ``content_hash`` (installed client hosts validate
+    # that shape with ``extra="forbid"``).
+    organization_id: str | None = Field(default=None, exclude=True)
 
     @model_validator(mode="after")
     def _execution_safety_gate(self) -> ExecutionAgentDefinition:
@@ -214,6 +220,9 @@ def definition_from_row(row: Any, *, is_version: bool) -> ExecutionAgentDefiniti
             "created_by": (
                 str(row.created_by) if getattr(row, "created_by", None) else None
             ),
+            "organization_id": (
+                str(row.organization_id) if getattr(row, "organization_id", None) else None
+            ),
         }
     )
     return definition.with_content_hash()
@@ -253,6 +262,7 @@ def definition_to_agent_config(definition: ExecutionAgentDefinition) -> AgentCon
 
     config.prompt_blocks = declared_names(definition.prompt_blocks)
     config.prompt_block_creator = definition.created_by
+    config.agent_organization_id = definition.organization_id
     if definition.output_schema:
         config.response_format = {
             "type": "json_schema",

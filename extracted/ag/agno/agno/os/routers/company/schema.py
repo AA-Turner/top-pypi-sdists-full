@@ -122,11 +122,13 @@ class ProjectTransition(BaseModel):
 
 
 class TaskCreate(BaseModel):
+    executor_type: Optional[Literal["agent", "team", "workflow"]] = None
+    executor_id: Optional[str] = Field(None, min_length=1)
     model_config = ConfigDict(extra="forbid")
     product_id: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1)
     brief: Optional[str] = None
-    project_id: Optional[str] = None
+    project_id: str = Field(..., min_length=1)
     evidence: Optional[List[Dict[str, Any]]] = None
 
     @field_validator("title")
@@ -138,6 +140,8 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
+    executor_type: Optional[Literal["agent", "team", "workflow"]] = None
+    executor_id: Optional[str] = Field(None, min_length=1)
     model_config = ConfigDict(extra="forbid")
     title: Optional[str] = None
     brief: Optional[str] = None
@@ -153,11 +157,21 @@ class TaskUpdate(BaseModel):
 
 
 class TaskResponse(BaseModel):
+    @field_validator("transitions", mode="before")
+    @classmethod
+    def public_transitions(cls, value):
+        from agno.db.schemas.tasks import public_task
+
+        return public_task({"transitions": value})["transitions"]
+
     product_id: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1)
     brief: Optional[str] = None
     project_id: Optional[str] = None
     evidence: Optional[List[Dict[str, Any]]] = None
+    origin: Optional[str] = None
+    routine_id: Optional[str] = None
+    dedupe_key: Optional[str] = None
     id: str
     status: TaskStatus
     user_id: Optional[str] = None
@@ -172,6 +186,8 @@ class TaskResponse(BaseModel):
 
     session_id: Optional[str] = None
     job_id: Optional[str] = None
+    sandboxed: bool = False
+    metadata: Optional[Dict[str, Any]] = None
     result: Optional[Dict[str, Any]] = None
 
 
@@ -187,7 +203,7 @@ class TaskTransition(BaseModel):
             raise ValueError("A transition requires a non-empty reason")
         return value
 
-    executor_type: Optional[Literal["agent", "team", "workflow", "engineering"]] = None
+    executor_type: Optional[Literal["agent", "team", "workflow"]] = None
     executor_id: Optional[str] = Field(None, min_length=1)
 
     @model_validator(mode="after")

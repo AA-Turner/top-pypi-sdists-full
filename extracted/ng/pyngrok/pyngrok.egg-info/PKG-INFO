@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: pyngrok
-Version: 8.1.2
-Summary: A Python wrapper for ngrok
+Version: 9.0.0
+Summary: A Python wrapper for ngrok; programmatic tunnels for ingress, webhooks, demos, and APIs
 Author-email: Alex Laird <contact@alexlaird.com>
 Maintainer-email: Alex Laird <contact@alexlaird.com>
 License-Expression: MIT
@@ -13,6 +13,7 @@ Keywords: tunnel,webhook,reverse-proxy,ngrok,localhost,ingress,tunneling
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
+Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -29,17 +30,17 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Topic :: Database :: Database Engines/Servers
 Classifier: Topic :: Internet :: Proxy Servers
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Networking
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: PyYAML>=5.1
+Requires-Dist: PyYAML>=6.0.3
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: coverage[toml]; extra == "dev"
@@ -52,14 +53,18 @@ Requires-Dist: Sphinx<8.2; extra == "docs"
 Requires-Dist: sphinx-notfound-page; extra == "docs"
 Requires-Dist: sphinx_autodoc_typehints==1.25.2; extra == "docs"
 Requires-Dist: sphinx-substitution-extensions; extra == "docs"
+Requires-Dist: sphinx-sitemap; extra == "docs"
+Requires-Dist: sphinxext-opengraph; extra == "docs"
+Requires-Dist: furo; extra == "docs"
+Requires-Dist: sphinxcontrib-googleanalytics; extra == "docs"
 Requires-Dist: mypy; extra == "docs"
 Requires-Dist: types-PyYAML; extra == "docs"
 Dynamic: license-file
 
-<p align="center"><img alt="pyngrok - a Python wrapper for ngrok" src="https://pyngrok.readthedocs.io/en/latest/_images/logo.png" /></p>
+<p align="center"><img alt="pyngrok - A Python wrapper for ngrok; programmatic tunnels for ingress, webhooks, demos, and APIs" src="https://pyngrok.readthedocs.io/en/latest/_images/logo.png" /></p>
 
 [![Version](https://img.shields.io/pypi/v/pyngrok)](https://pypi.org/project/pyngrok)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/pyngrok)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/pyngrok)](https://pypistats.org/packages/pyngrok)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pyngrok.svg)](https://pypi.org/project/pyngrok)
 [![Coverage](https://img.shields.io/codecov/c/github/alexdlaird/pyngrok)](https://codecov.io/gh/alexdlaird/pyngrok)
 [![Build](https://img.shields.io/github/actions/workflow/status/alexdlaird/pyngrok/build.yml)](https://github.com/alexdlaird/pyngrok/actions/workflows/build.yml)
@@ -67,12 +72,12 @@ Dynamic: license-file
 [![Docs](https://img.shields.io/readthedocs/pyngrok)](https://pyngrok.readthedocs.io/en/latest)
 [![GitHub License](https://img.shields.io/github/license/alexdlaird/pyngrok)](https://github.com/alexdlaird/pyngrok/blob/main/LICENSE)
 
-`pyngrok` is a Python wrapper for `ngrok` that manages its own binary, making `ngrok` available via a convenient Python
-API and the command line.
+`pyngrok` is a Python wrapper for `ngrok` that provides programmatic tunnels for ingress, webhooks, demos, and APIs. It
+downloads and manages the `ngrok` agent for you, making it available through a Python API and the command line. It
+runs anywhere the `ngrok` agent does. The library is mature and stable, and it tracks new `ngrok` releases.
 
 [`ngrok`](https://ngrok.com) is a reverse proxy that opens secure tunnels from public URLs to localhost. It's perfect
-for rapid
-development (test webhooks, demo local websites, enable SSH access), establishing ingress to external
+for rapid development (test webhooks, demo local websites, enable SSH access), establishing ingress to external
 networks and devices, building production APIs (traffic policies, OAuth, load balancing), and more. And
 it's made even more powerful with native Python integration through the `pyngrok` client.
 
@@ -120,7 +125,7 @@ named_tunnel = ngrok.connect(name="my-config-file-tunnel")
 # Open an Internal Endpoint that's load balanced
 # <NgrokTunnel: "https://some-endpoint.internal" -> "http://localhost:9000">
 internal_endpoint = ngrok.connect(addr="9000",
-                                  domain="some-endpoint.internal",
+                                  url="https://some-endpoint.internal",
                                   pooling_enabled=True)
 ```
 
@@ -175,6 +180,7 @@ on [Read the Docs](https://pyngrok.readthedocs.io).
 
 - [Flask](https://pyngrok.readthedocs.io/en/latest/integrations.html#flask)
 - [Django](https://pyngrok.readthedocs.io/en/latest/integrations.html#django)
+- [MCP Servers](https://pyngrok.readthedocs.io/en/latest/integrations.html#mcp-servers)
 - [Docker](https://pyngrok.readthedocs.io/en/latest/integrations.html#docker)
 - [Google Colab](https://pyngrok.readthedocs.io/en/latest/integrations.html#google-colaboratory)
 - [End-to-End Testing](https://pyngrok.readthedocs.io/en/latest/integrations.html#end-to-end-testing)

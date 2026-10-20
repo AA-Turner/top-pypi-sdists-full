@@ -153,7 +153,7 @@ class TestOutbound:
 
     def test_value_map_missing_key_drops_by_default(self):
         # on_unmapped is EXPLICIT "drop" here — the default is "nearest" (THE
-        # EQUIVALENCE LAW, 2026-08-17). A declared drop is still honoured:
+        # EQUIVALENCE LAW, 2026-08-17). A declared drop is still honored:
         # a value with no map entry is dropped LOUDLY, never sent as-is.
         compiled = _compiled({"reasoning_effort": {"value_map": {"low": "low"}}})
         out, adj = compiled.outbound({"reasoning_effort": "medium"})

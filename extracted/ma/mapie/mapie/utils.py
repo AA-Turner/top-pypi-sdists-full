@@ -814,26 +814,32 @@ def _compute_regression_quantile(
 
     # Adjust alpha w.r.t quantile correction
     alpha_cor = np.ceil(alpha_ref * (n_calib + 1)) / n_calib
-    alpha_cor = np.clip(alpha_cor, a_min=0, a_max=1)
 
-    # Compute the target quantiles:
-    # If unbounded is True and alpha is greater than or equal to 1,
-    # the quantile is set to infinity.
-    # Otherwise, the quantile is calculated as the corrected lower
-    # quantile of the signed conformity scores.
-    quantile: NDArray = signed * np.column_stack(
-        [
-            np.nanquantile(
+    # The conformal quantile at a level does not exist when the corrected
+    # level exceeds 1.0 (i.e. ceil(alpha_ref * (n + 1)) > n)
+    quantile: NDArray = np.empty((n_ref, len(alpha_np)))
+    for j, (_alpha, _alpha_cor) in enumerate(zip(alpha_ref, alpha_cor)):
+        if _alpha_cor > 1.0:
+            if unbounded:
+                quantile[:, j] = signed * np.inf
+            else:
+                # TODO: use external function to compute number of needed samples
+                need = int(np.ceil((_alpha) * (n_calib + 1)))
+                raise ValueError(
+                    "The number of calibration samples "
+                    f"({n_calib}) is too low to reach the requested "
+                    f"level. The corrected quantile level "
+                    f"({_alpha_cor:.4f}) exceeds 1.0. Increase the "
+                    f"calibration set size to at least {need} or set "
+                    "unbounded=True."
+                )
+        else:
+            quantile[:, j] = signed * np.nanquantile(
                 signed * conformity_scores,
                 _alpha_cor,
                 axis=axis,
                 method="lower",
             )
-            if not (unbounded and _alpha >= 1)
-            else np.inf * np.ones(n_ref)
-            for _alpha, _alpha_cor in zip(alpha_ref, alpha_cor)
-        ]
-    )
     return quantile
 
 
@@ -841,6 +847,12 @@ def _compute_classification_quantile(
     conformity_scores: NDArray, alpha_np: NDArray
 ) -> NDArray:
     """Compute the desired quantiles of conformity scores for classification.
+
+    Uses the same ``ceil()``-based finite-sample correction as
+    ``_compute_regression_quantile``: quantile level
+    ``ceil((1 - alpha) * (n + 1)) / n`` with numpy ``method="lower"``, so the
+    returned value is the ``ceil((1 - alpha) * (n + 1))``-th smallest
+    conformity score, i.e. the split-conformal order statistic.
 
     Parameters
     ----------
@@ -863,8 +875,8 @@ def _compute_classification_quantile(
             [
                 np.quantile(
                     conformity_scores,
-                    ((n + 1) * (1 - _alpha)) / n,
-                    method="higher",
+                    np.ceil((n + 1) * (1 - _alpha)) / n,
+                    method="lower",
                 )
                 for _alpha in alpha_np
             ]

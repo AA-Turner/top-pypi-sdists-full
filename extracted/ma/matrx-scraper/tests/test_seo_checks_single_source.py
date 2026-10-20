@@ -238,7 +238,7 @@ def flagged(evidence: PageEvidence) -> set[str]:
 
 
 def test_sweep_registry_entries_are_the_seo_audit_functions():
-    """Every catalogued per-page check dispatches into `seo_audit`.
+    """Every cataloged per-page check dispatches into `seo_audit`.
 
     Not "produces the same answer" — literally closes over the same function
     object. A re-implementation in analysis.py fails here immediately.
@@ -379,7 +379,7 @@ def test_every_catalogued_key_is_a_canonical_check():
 
 
 def test_uncatalogued_checks_are_reported_not_swallowed():
-    """A canonical check with no catalogue row must be nameable, and loud.
+    """A canonical check with no catalog row must be nameable, and loud.
 
     `analyze_site_pages` writes this list into `summary.errors` on every run;
     the failure mode this prevents is a check quietly computing nothing.
@@ -674,7 +674,7 @@ def test_page_weight_grades_the_html_document_only():
 
     Subresource transfer sizes are never captured — the crawl reads subresource
     URLs out of the markup and never fetches them — so there is no total page
-    weight to grade, and the catalogue row must not promise one. This test is
+    weight to grade, and the catalog row must not promise one. This test is
     the pin: if total weight ever IS captured, this fails and the row, the
     check, and its bands move together.
     """
@@ -719,7 +719,7 @@ def test_heading_hierarchy_separates_the_outline_bands():
     )
     assert starts_low.status == "pass"
 
-    # No headings is only a defect once there is content to organise.
+    # No headings is only a defect once there is content to organize.
     assert seo_audit.check_heading_hierarchy(healthy(headings=[])).status == "warn"
     assert seo_audit.check_heading_hierarchy(healthy(headings=[], word_count=10)).status == "pass"
 
@@ -922,7 +922,7 @@ def test_meta_refresh_separates_a_redirect_from_a_page_reload():
         healthy(head_meta={"viewport": "width=device-width", "refresh": "5; url=/b"})
     )
     # No target: the page refreshes ITSELF. Not a redirect, so not this check's
-    # defect — the catalogue row is about standing in for an HTTP redirect.
+    # defect — the catalog row is about standing in for an HTTP redirect.
     reload_only = seo_audit.check_meta_refresh_redirect(
         healthy(head_meta={"viewport": "width=device-width", "refresh": "30"})
     )

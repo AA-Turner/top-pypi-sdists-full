@@ -41,6 +41,8 @@ from .paginator import (
     ListKnowledgeBaseDocumentsPaginator,
     ListKnowledgeBasesPaginator,
     ListPromptsPaginator,
+    ListRetrievalInstructionsPaginator,
+    ListRetrievalInstructionVersionsPaginator,
     ListVpcConfigurationsPaginator,
 )
 from .type_defs import (
@@ -68,6 +70,10 @@ from .type_defs import (
     CreatePromptResponseTypeDef,
     CreatePromptVersionRequestTypeDef,
     CreatePromptVersionResponseTypeDef,
+    CreateRetrievalInstructionRequestTypeDef,
+    CreateRetrievalInstructionResponseTypeDef,
+    CreateRetrievalInstructionVersionRequestTypeDef,
+    CreateRetrievalInstructionVersionResponseTypeDef,
     CreateVpcConfigurationRequestTypeDef,
     CreateVpcConfigurationResponseTypeDef,
     DeleteAgentActionGroupRequestTypeDef,
@@ -93,6 +99,8 @@ from .type_defs import (
     DeletePromptResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteResourcePolicyResponseTypeDef,
+    DeleteRetrievalInstructionRequestTypeDef,
+    DeleteRetrievalInstructionResponseTypeDef,
     DeleteVpcConfigurationRequestTypeDef,
     DeleteVpcConfigurationResponseTypeDef,
     DisassociateAgentCollaboratorRequestTypeDef,
@@ -127,6 +135,8 @@ from .type_defs import (
     GetPromptResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    GetRetrievalInstructionRequestTypeDef,
+    GetRetrievalInstructionResponseTypeDef,
     GetVpcConfigurationRequestTypeDef,
     GetVpcConfigurationResponseTypeDef,
     IngestKnowledgeBaseDocumentsRequestTypeDef,
@@ -159,6 +169,10 @@ from .type_defs import (
     ListKnowledgeBasesResponseTypeDef,
     ListPromptsRequestTypeDef,
     ListPromptsResponseTypeDef,
+    ListRetrievalInstructionsRequestTypeDef,
+    ListRetrievalInstructionsResponseTypeDef,
+    ListRetrievalInstructionVersionsRequestTypeDef,
+    ListRetrievalInstructionVersionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListVpcConfigurationsRequestTypeDef,
@@ -195,6 +209,8 @@ from .type_defs import (
     UpdateKnowledgeBaseResponseTypeDef,
     UpdatePromptRequestTypeDef,
     UpdatePromptResponseTypeDef,
+    UpdateRetrievalInstructionRequestTypeDef,
+    UpdateRetrievalInstructionResponseTypeDef,
     ValidateFlowDefinitionRequestTypeDef,
     ValidateFlowDefinitionResponseTypeDef,
 )
@@ -371,6 +387,27 @@ class AgentsforBedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#create_prompt_version)
         """
 
+    def create_retrieval_instruction(
+        self, **kwargs: Unpack[CreateRetrievalInstructionRequestTypeDef]
+    ) -> CreateRetrievalInstructionResponseTypeDef:
+        """
+        Creates a new retrieval instruction.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_retrieval_instruction.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#create_retrieval_instruction)
+        """
+
+    def create_retrieval_instruction_version(
+        self, **kwargs: Unpack[CreateRetrievalInstructionVersionRequestTypeDef]
+    ) -> CreateRetrievalInstructionVersionResponseTypeDef:
+        """
+        Creates an immutable numbered version from the retrieval instruction's current
+        reviewed content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_retrieval_instruction_version.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#create_retrieval_instruction_version)
+        """
+
     def create_vpc_configuration(
         self, **kwargs: Unpack[CreateVpcConfigurationRequestTypeDef]
     ) -> CreateVpcConfigurationResponseTypeDef:
@@ -500,6 +537,16 @@ class AgentsforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_resource_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#delete_resource_policy)
+        """
+
+    def delete_retrieval_instruction(
+        self, **kwargs: Unpack[DeleteRetrievalInstructionRequestTypeDef]
+    ) -> DeleteRetrievalInstructionResponseTypeDef:
+        """
+        Deletes a retrieval instruction or a single version of it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_retrieval_instruction.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#delete_retrieval_instruction)
         """
 
     def delete_vpc_configuration(
@@ -679,6 +726,16 @@ class AgentsforBedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_resource_policy)
         """
 
+    def get_retrieval_instruction(
+        self, **kwargs: Unpack[GetRetrievalInstructionRequestTypeDef]
+    ) -> GetRetrievalInstructionResponseTypeDef:
+        """
+        Gets a retrieval instruction.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_retrieval_instruction.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_retrieval_instruction)
+        """
+
     def get_vpc_configuration(
         self, **kwargs: Unpack[GetVpcConfigurationRequestTypeDef]
     ) -> GetVpcConfigurationResponseTypeDef:
@@ -838,6 +895,26 @@ class AgentsforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_prompts.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#list_prompts)
+        """
+
+    def list_retrieval_instruction_versions(
+        self, **kwargs: Unpack[ListRetrievalInstructionVersionsRequestTypeDef]
+    ) -> ListRetrievalInstructionVersionsResponseTypeDef:
+        """
+        Lists the numbered versions of a retrieval instruction, newest first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_retrieval_instruction_versions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#list_retrieval_instruction_versions)
+        """
+
+    def list_retrieval_instructions(
+        self, **kwargs: Unpack[ListRetrievalInstructionsRequestTypeDef]
+    ) -> ListRetrievalInstructionsResponseTypeDef:
+        """
+        Lists the retrieval instructions in the caller's account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_retrieval_instructions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#list_retrieval_instructions)
         """
 
     def list_tags_for_resource(
@@ -1026,6 +1103,16 @@ class AgentsforBedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#update_prompt)
         """
 
+    def update_retrieval_instruction(
+        self, **kwargs: Unpack[UpdateRetrievalInstructionRequestTypeDef]
+    ) -> UpdateRetrievalInstructionResponseTypeDef:
+        """
+        Updates the content of a retrieval instruction.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/update_retrieval_instruction.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#update_retrieval_instruction)
+        """
+
     def validate_flow_definition(
         self, **kwargs: Unpack[ValidateFlowDefinitionRequestTypeDef]
     ) -> ValidateFlowDefinitionResponseTypeDef:
@@ -1183,6 +1270,28 @@ class AgentsforBedrockClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_prompts"]
     ) -> ListPromptsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_retrieval_instruction_versions"]
+    ) -> ListRetrievalInstructionVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_retrieval_instructions"]
+    ) -> ListRetrievalInstructionsPaginator:
         """
         Create a paginator for an operation.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agilicus
-Version: 1.441.3
+Version: 1.442.2
 Summary: Agilicus SDK
 License: MIT
 License-File: LICENSE.txt
@@ -17,7 +17,7 @@ Provides-Extra: billing
 Requires-Dist: PyJWT (>=2.13.0)
 Requires-Dist: appdirs (>=1.4.4)
 Requires-Dist: babel (>=2.18.0)
-Requires-Dist: certifi (==2026.7.22)
+Requires-Dist: certifi (==2026.10.18)
 Requires-Dist: click (>=8.4.1)
 Requires-Dist: click-shell (>=2.1)
 Requires-Dist: colorama (>=0.4.6)

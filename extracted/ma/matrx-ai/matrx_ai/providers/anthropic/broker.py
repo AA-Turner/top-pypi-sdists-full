@@ -14,7 +14,7 @@ import httpx
 
 MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 COUNT_TOKENS_URL = "https://api.anthropic.com/v1/messages/count_tokens"
-#: The Admin API root — organisation usage and cost REPORTS, never a model call.
+#: The Admin API root — organization usage and cost REPORTS, never a model call.
 #: It lives here for the same reason the two above do: a provider endpoint
 #: spelled at a call site is an independent transport boundary, and the
 #: mandate/provider scan has to read it as a bypass because from the outside it

@@ -20,6 +20,7 @@ Layout:
 
     <preconfigured_skills>
     - <skill_id> — <description> [(needs tooling not in AI Matrx yet: …)]
+      [sections (N chars; get one with section=<number>): 1 Title (2k) · 1.1 …]
     </preconfigured_skills>
 
     <active_skills>
@@ -84,7 +85,14 @@ def render_listed_line(hint: SkillHint) -> str:
     until it loads the body, so the warning cannot live in the body alone."""
     marker = not_runnable_marker(hint.not_runnable)
     line = f"- {hint.skill_id} — {hint.description}"
-    return f"{line} {marker}" if marker else line
+    if marker:
+        line = f"{line} {marker}"
+    if hint.outline:
+        # A long reference document: name its sections so the model can fetch exactly
+        # one with skill(action="get", skill_id=..., section=<number or id>).
+        size = f"{hint.total_chars:,} chars; " if hint.total_chars else ""
+        line = f"{line}\n  sections ({size}get one with section=<number>): {hint.outline}"
+    return line
 
 
 def render_preamble(preamble: SkillPreamble) -> str:
@@ -108,6 +116,12 @@ def render_preamble(preamble: SkillPreamble) -> str:
 
     if preamble.listed_skills:
         parts.append("<preconfigured_skills>")
+        if preamble.demoted_count:
+            parts.append(
+                f"({preamble.demoted_count} attached skill(s), {preamble.demoted_chars:,} chars, are listed "
+                f"instead of included: they pass the {preamble.body_budget_chars:,}-char attach budget. "
+                f"Read what you need with skill(action=\"get\", skill_id=..., section=...).)"
+            )
         for hint in preamble.listed_skills:
             parts.append(render_listed_line(hint))
         parts.append("</preconfigured_skills>")

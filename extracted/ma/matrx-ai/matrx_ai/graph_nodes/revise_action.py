@@ -175,7 +175,14 @@ async def conversation_revise(
 
     label = result.warning_label()
     if label is not None:
-        await ctx.warn(label, _sentence(result), payload=result.payload())
+        # A revision is a redo the first answer should not have needed — a review flag
+        # on the workflow (0117), not just a warning.
+        await ctx.flag_for_review(
+            label,
+            _sentence(result),
+            category="rework" if result.outcome == "revised" else "validation_failed",
+            payload=result.payload(),
+        )
     if budget_left == 0 and max_revisions > 0 and result.outcome not in ("passed", "revised"):
         await ctx.warn(
             "response_check.run_budget_reached",

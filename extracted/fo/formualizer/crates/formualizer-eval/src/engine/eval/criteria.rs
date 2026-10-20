@@ -19,7 +19,7 @@
 //! kernel, so every row gets the mask's own verdict. It then walks the
 //! matching rows of its most selective criterion in row order, checks the
 //! others by class, and reduces as the builtin does: a count, or per driver
-//! row chunk the Arrow sum (`exact::sum_f64`) of the filtered target lane,
+//! row chunk sequential addition into the same running accumulator,
 //! with the non-null count for averages.
 //!
 //! Whole columns (`$F:$F`) and open-ended columns (`$F$2:$F`) are views of
@@ -33,7 +33,7 @@
 //! evaluation fails, and `COUNTIF` whose criterion matches an empty cell
 //! (it counts logical cells past the data).
 
-use super::exact::{LaneSlice, sum_f64};
+use super::exact::{LaneSlice, add_f64};
 use super::*;
 use crate::args::CriteriaPredicate as P;
 use crate::engine::arena::{AstNodeData, CompactRefType, DataStore};
@@ -61,7 +61,7 @@ pub(super) struct CriteriaPlan {
 /// two rows) or open (`$F:$F`, `$F$2:$F`: its view is the used extent, the
 /// same for every member).
 fn invariant_column(ds: &DataStore, arg: AstNodeId) -> bool {
-    match ds.get_node(arg) {
+    match ds.expanded_node(arg).as_ref() {
         Some(AstNodeData::Reference {
             ref_type:
                 CompactRefType::Range {
@@ -87,14 +87,14 @@ fn invariant_column(ds: &DataStore, arg: AstNodeId) -> bool {
 
 impl CriteriaPlan {
     pub(super) fn plan(
-        functions: &dyn crate::traits::FunctionProvider,
+        functions: &crate::interpreter::ResolvedFunctions,
         ds: &DataStore,
         template: AstNodeId,
     ) -> Option<Self> {
         let AstNodeData::Function { name_id, .. } = ds.get_node(template)? else {
             return None;
         };
-        let fun = functions.get_function("", ds.resolve_ast_string(*name_id))?;
+        let fun = functions.get(*name_id)?;
         if fun.family_kernel() != Some(FamilyKernel::CriteriaAggregate) {
             return None;
         }
@@ -130,7 +130,7 @@ impl CriteriaPlan {
             }
             // A criterion that is itself a range is not one value.
             if matches!(
-                ds.get_node(pair[1]),
+                ds.expanded_node(pair[1]).as_ref(),
                 Some(AstNodeData::Reference {
                     ref_type: CompactRefType::Range { .. },
                     ..
@@ -283,6 +283,7 @@ where
         let AstNodeData::Reference { ref_type, .. } = ds.get_node(arg)? else {
             return None;
         };
+        let ref_type = ds.compact_ref(*ref_type);
         let reference = ds.reconstruct_reference_type_for_eval(ref_type, self.graph.sheet_reg());
         self.resolve_range_view(&reference, current_sheet).ok()
     }
@@ -688,9 +689,7 @@ where
                         values: &buf,
                         validity: (nulls > 0).then_some((&bits[..], 0)),
                     };
-                    if let Some(s) = sum_f64(slice) {
-                        total_sum += s;
-                    }
+                    add_f64(&mut total_sum, slice);
                     total_count += (buf.len() - nulls) as i64;
                 }
                 debug_assert!(it.next().is_none(), "matched rows past the last chunk");

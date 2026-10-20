@@ -222,7 +222,7 @@ class CrawlPause:
             left = self.remaining()
             if left <= 0:
                 break
-            step = min(left, 0.25)  # short steps so halt() is honoured promptly
+            step = min(left, 0.25)  # short steps so halt() is honored promptly
             await asyncio.sleep(step)
             waited += step
         return waited

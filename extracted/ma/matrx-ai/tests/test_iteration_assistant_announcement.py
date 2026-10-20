@@ -365,7 +365,7 @@ def _build_prefill_completed() -> CompletedRequest:
         UnifiedMessage(
             role="assistant",
             content=[TextContent(text="Dear")],
-            metadata={"is_visible_to_user": False},
+            metadata={"is_visible_to_user": False, "flags": {"prefill": True}},
         ),
         UnifiedMessage(
             role="assistant",
@@ -409,9 +409,10 @@ async def test_an_authored_prefill_row_is_written_but_never_announced(persist_ha
         "an input row (the authored prefill) must not be announced as an "
         "iteration — the client would write the answer onto it"
     )
-    # The prefill is still written (hidden from the person), and the reply
-    # stays on its own reservation.
-    prefill_rows = [kw for kw in creates if kw.get("role") == "assistant"]
-    assert len(prefill_rows) == 1
-    assert prefill_rows[0].get("is_visible_to_user") is False
+    # The consumed prefill is NOT stored as its own row: the reply row is
+    # reserved first, so a prefill INSERT would land after the full reply
+    # (conversation 7d2ac34a stored a bare "Dear" as the newest assistant row).
+    assert [kw for kw in creates if kw.get("role") == "assistant"] == [], (
+        "a consumed authored prefill must never be persisted as a trailing row"
+    )
     assert state.reserved_message_ids[2] == reply_id

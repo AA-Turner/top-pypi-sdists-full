@@ -87,10 +87,10 @@ def error_remedy_for(message: str | None) -> ErrorRemedy | None:
 
 
 def annotate_tool_error(error: Any) -> Any:
-    """Attach cause + remedy to a ``ToolError`` whose class we recognise.
+    """Attach cause + remedy to a ``ToolError`` whose class we recognize.
 
     Mutates and returns the error so the caller can inline it. A class we do not
-    recognise is left exactly as it was — this never invents a diagnosis.
+    recognize is left exactly as it was — this never invents a diagnosis.
 
     A tool's OWN ``suggested_action`` is kept and the remedy is APPENDED after
     it as ``"<tool's own> Also: <remedy>"``: the tool names the next call with

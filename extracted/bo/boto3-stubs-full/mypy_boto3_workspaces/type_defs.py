@@ -54,6 +54,7 @@ from .literals import (
     EndpointEncryptionModeType,
     ImageComputeTypeType,
     ImageTypeType,
+    ImageValidationModeType,
     LogUploadEnumType,
     ModificationResourceEnumType,
     ModificationStateEnumType,
@@ -1462,6 +1463,7 @@ ImportCustomWorkspaceImageRequestTypeDef = TypedDict(
         "Platform": Literal["WINDOWS"],
         "OsVersion": OSVersionType,
         "Tags": NotRequired[Sequence[TagTypeDef]],
+        "ImageValidationMode": NotRequired[ImageValidationModeType],
     },
 )
 

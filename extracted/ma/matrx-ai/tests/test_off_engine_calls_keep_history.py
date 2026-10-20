@@ -113,7 +113,7 @@ def funnel(monkeypatch):
     monkeypatch.setattr(persistence_pkg, "standalone_coordinator", _coord)
     monkeypatch.setattr(persistence_mod, "ai_model_manager_instance", _StubModelManager())
     monkeypatch.setattr(persistence_mod, "_get_coordinator", lambda: _StubCoordinator())
-    monkeypatch.setattr(persistence_mod, "get_current_lane", lambda: None)
+    monkeypatch.setattr(persistence_mod, "_get_live_coordinator", lambda: _StubCoordinator())
 
     def _msg_create(**kw):
         calls["message_create"].append(kw)

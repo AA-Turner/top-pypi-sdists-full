@@ -1,7 +1,7 @@
 """Catalog routing bounds — host-bound `platform.feature_knob` values (feature ``agents.model_catalog``).
 
 Authority: ``common-docs/policies/limits-are-knobs-agents-set-them.md`` (Arman,
-2026-08-20) and USD-5 (2026-09-10): a behavioural value is a registry row an
+2026-08-20) and USD-5 (2026-09-10): a behavioral value is a registry row an
 admin turns, never a constant nobody can see. This package must not import
 aidream, so the host injects a ONE-ARGUMENT reader (``key -> value``) here —
 aidream binds ``knob_*_sync("agents.model_catalog", key)`` in ``package_integration`` —

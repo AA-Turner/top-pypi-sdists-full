@@ -2,7 +2,7 @@
 
 A slow site commits its document long before its content shows. Capturing at
 DOMContentLoaded (or right after `commit`) yields a nearly white frame — and a
-screenshot taken that way is evidence of nothing. Two defences, both bounded
+screenshot taken that way is evidence of nothing. Two defenses, both bounded
 and neither ever raising:
 
 1. ``wait_until_painted`` — wait for ``load`` and a short ``networkidle``, then
@@ -37,7 +37,7 @@ MIN_VISIBLE_CHARS = 60
 
 BLANK_RETRIES = 2
 BLANK_RETRY_WAIT_MS = 4_000
-# Share of (downscaled) pixels within BLANK_TOLERANCE of the dominant colour at
+# Share of (downscaled) pixels within BLANK_TOLERANCE of the dominant color at
 # or above which the frame is judged blank.
 BLANK_DOMINANT_SHARE = 0.985
 BLANK_TOLERANCE = 6
@@ -169,7 +169,7 @@ async def wait_until_painted(
 
 
 def png_looks_blank(png: bytes, width: int, height: int) -> bool:
-    """True when a screenshot is (nearly) a single flat colour.
+    """True when a screenshot is (nearly) a single flat color.
 
     Pillow gives the real answer (dominant-colour share of a downscaled frame).
     Without it, fall back to how well the PNG compressed — a flat frame is tiny.

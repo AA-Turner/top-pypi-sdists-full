@@ -676,6 +676,14 @@ class ElevenLabsChat:
         # dialogue turn) — ElevenLabs streams raw bytes with no usage object. See
         # build_character_billed_usage for the basis-aware contract.
         usage = await self._billed_characters(total_chars, matrx_model_name, model)
+        from matrx_ai.speech.take_check import raise_if_truncated_take
+
+        raise_if_truncated_take(
+            provider="elevenlabs",
+            audio_size_bytes=len(all_audio_bytes),
+            characters=total_chars,
+            usage=usage,
+        )
         try:
             return await self._store_and_emit(
                 all_audio_bytes=all_audio_bytes,

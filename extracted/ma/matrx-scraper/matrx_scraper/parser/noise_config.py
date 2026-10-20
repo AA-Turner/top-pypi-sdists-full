@@ -135,7 +135,7 @@ NOISE_DATA_CONTENT: list[str] = []
 # or `<article>`, sits inside one, contains one, or holds more than half of the
 # body's text — a badly named wrapper around the page's content is still the
 # page. The guard applies to this heuristic only; exact NOISE_* matches above
-# keep their long-standing behaviour.
+# keep their long-standing behavior.
 NOISE_NAV_MARKER: list[str] = [
     "nav",
     "navbar",

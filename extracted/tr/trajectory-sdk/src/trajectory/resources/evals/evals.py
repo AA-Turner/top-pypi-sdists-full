@@ -37,7 +37,7 @@ class Evals(APIResource):
   def create(
     self,
     *,
-    idempotency_key: str | None | Omit = omit,
+    idempotency_key: str | Omit = omit,
     bench_id: str | None | Omit = omit,
     agent_name: str | None | Omit = omit,
     benchmark_name: str | None | Omit = omit,
@@ -86,23 +86,28 @@ class Evals(APIResource):
     tasks.
 
     Args:
-      idempotency_key: Required with `Trajectory-API-Version: tmp-contract`, which rejects a missing,
-        blank or over-long key, including an SDK call that passes `idempotency_key=None`.
-        Optional for legacy callers, whose key the API generates. Reuse this key when
-        retrying a submission; the SDK generates one per call and reuses it across
-        automatic retries.
+      idempotency_key: Required. A missing, blank or over-long key is rejected, including an SDK call
+        that passes `idempotency_key=None`. Reuse this key when retrying a submission; the
+        SDK generates one per call and reuses it across automatic retries.
 
-      benchmark_name: Resolve the latest version and run its benchmark ID.
+      bench_id: Benchmark ID; use instead of agent_name and benchmark_name.
+
+      agent_name: Use with benchmark_name to select its latest benchmark version.
+
+      benchmark_name: Use with agent_name to select the latest benchmark version.
 
       bypass_ownership: Allow a supplied agent to differ from the benchmark owner within the same
         organization; run attribution uses the benchmark owner.
+
+      agent_id: Optional agent for ownership checks; not a benchmark selector.
 
       base_model_slug: Registered base model; mutually exclusive with deployment_id.
 
       options: Run settings; omission, null, and an empty object preserve defaults.
 
       parent_checkpoint_id: Checkpoint to resume training from or evaluate; must match the selected base
-        model.
+        model. Checkpoint evaluations inherit supported token and turn limits from the
+        source training run unless the evaluation overrides them.
 
       deployment_id: Evaluate the exact hosted checkpoint and pool of a ready deployment.
 

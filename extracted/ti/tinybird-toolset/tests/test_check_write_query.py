@@ -154,6 +154,37 @@ class TestCreateTable(unittest.TestCase):
         """
         self.assertEqual(query.format(query.check_valid_write_query(q)), query.format(q))
 
+    def test_create_table_column_list_functions(self):
+        restricted = [
+            "CREATE TABLE t (a Int32, b String DEFAULT hostName()) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int32, b UInt8 MATERIALIZED sleep(1)) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int32, b String ALIAS hostName()) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int32, b String DEFAULT a IN (SELECT hostName())) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int32, d Date, b Int32 TTL d + toIntervalDay(toUInt8(sleep(1)))) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int32 CODEC(ZSTD(toUInt64(hostName())))) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int32, INDEX i hostName() TYPE minmax) ENGINE = MergeTree ORDER BY a",
+        ]
+        for q in restricted:
+            with self.subTest(q=q), self.assertRaisesRegex(ValueError, "Usage of function .* is restricted"):
+                query.check_valid_write_query(q)
+
+        with self.assertRaisesRegex(ValueError, "CREATE TABLE: Unsupported subquery: in INDEX declaration"):
+            query.check_valid_write_query(
+                "CREATE TABLE t (a Int32, INDEX i a IN (SELECT 1 FROM system.tables) TYPE minmax) ENGINE = MergeTree ORDER BY a"
+            )
+        with self.assertRaisesRegex(ValueError, "CREATE TABLE: Unsupported function dictGetUInt8: in column TTL declaration"):
+            query.check_valid_write_query(
+                "CREATE TABLE t (a Int32, d Date, b Int32 TTL d + toIntervalDay(dictGetUInt8('d', 'x', a))) ENGINE = MergeTree ORDER BY a"
+            )
+
+        for q in [
+            "CREATE TABLE t (a Int32, b String DEFAULT dictGetString('d', 'x', a)) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Nullable(Int32) CODEC(Delta, ZSTD(3)), b LowCardinality(String) DEFAULT toString(a)) ENGINE = MergeTree ORDER BY tuple()",
+            "CREATE TABLE t (a Int32, d Date, b Int32 TTL d + INTERVAL 1 DAY, INDEX i a * 2 TYPE bloom_filter(0.01) GRANULARITY 1) ENGINE = MergeTree ORDER BY a",
+        ]:
+            with self.subTest(q=q):
+                query.check_valid_write_query(q)
+
     def test_create_table_with_subqueries_in_alias_definition__is_ok(self):
         q = """
             CREATE TABLE visits4
@@ -262,6 +293,56 @@ class TestCreateTable(unittest.TestCase):
                 ENGINE = MergeTree
                 ORDER BY id
             """)
+
+    def test_create_table_with_apply(self):
+        restricted = [
+            "CREATE TABLE t (a Int8, PROJECTION p (SELECT * APPLY(x -> hostName()))) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int8, PROJECTION p (SELECT * APPLY(sleepEachRow))) ENGINE = MergeTree ORDER BY a",
+            "CREATE TABLE t (a Int8) ENGINE = MergeTree ORDER BY tuple(* APPLY(x -> hostName()))",
+        ]
+        for q in restricted:
+            with self.subTest(q=q), self.assertRaisesRegex(ValueError, "Usage of function .* is restricted"):
+                query.check_valid_write_query(q)
+
+        subqueries = [
+            "CREATE TABLE t (a Int8) ENGINE = MergeTree ORDER BY tuple(* APPLY(x -> (SELECT 1 FROM system.tables)))",
+            "CREATE TABLE t (a Int8) ENGINE = MergeTree ORDER BY tuple(* APPLY(x -> x IN (SELECT 1 FROM system.tables)))",
+        ]
+        for q in subqueries:
+            with self.subTest(q=q), self.assertRaisesRegex(ValueError, "CREATE TABLE: Unsupported subquery: in ORDER BY declaration"):
+                query.check_valid_write_query(q)
+
+        with self.assertRaisesRegex(ValueError, "CREATE TABLE: Unsupported function dictGetString: in ORDER BY declaration"):
+            query.check_valid_write_query("CREATE TABLE t (a Int8) ENGINE = MergeTree ORDER BY tuple(COLUMNS('a') APPLY(dictGetString))")
+
+    def test_create_table_with_ttl_group_by(self):
+        restricted = [
+            "CREATE TABLE t (a Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d GROUP BY a SET a = toInt32OrZero(hostName())",
+            "CREATE TABLE t (a Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d GROUP BY a SET a = toInt32(sleep(3))",
+        ]
+        for q in restricted:
+            with self.subTest(q=q), self.assertRaisesRegex(ValueError, "Usage of function .* is restricted"):
+                query.check_valid_write_query(q)
+
+        query.check_valid_write_query(
+            "CREATE TABLE t (a Int32, b Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d GROUP BY a SET b = max(b)"
+        )
+        query.check_valid_write_query(
+            "CREATE TABLE t (a Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d RECOMPRESS CODEC(ZSTD(12))"
+        )
+        query.check_valid_write_query(
+            "CREATE TABLE t (a Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d RECOMPRESS CODEC(Delta, LZ4)"
+        )
+
+    def test_create_table_with_ttl_recompress_codec_arguments(self):
+        with self.assertRaisesRegex(ValueError, "Usage of function .* is restricted"):
+            query.check_valid_write_query(
+                "CREATE TABLE t (a Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d RECOMPRESS CODEC(ZSTD(toUInt64(hostName())))"
+            )
+        with self.assertRaisesRegex(ValueError, "CREATE TABLE: Unsupported subquery: in TTL declaration"):
+            query.check_valid_write_query(
+                "CREATE TABLE t (a Int32, d Date) ENGINE = MergeTree ORDER BY a TTL d RECOMPRESS CODEC(ZSTD((SELECT 1 FROM system.tables)))"
+            )
 
     def test_create_table_with_join_engine_is_forbidden(self):
         with self.assertRaisesRegex(ValueError, "Creation of tables with ENGINE Join is not supported"):

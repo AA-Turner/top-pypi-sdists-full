@@ -1,10 +1,10 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: unyt
-Version: 3.1.0
+Version: 3.2.0
 Summary: A package for handling numpy arrays with units
 Keywords: unyt
 Author-email: The yt project <yt-dev@python.org>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-Expression: BSD-3-Clause
 Classifier: Development Status :: 5 - Production/Stable
@@ -14,12 +14,13 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE
-Requires-Dist: numpy>=1.21.3, <3.0
+Requires-Dist: numpy>=1.23.2, <3.0
 Requires-Dist: sympy>=1.9.0
-Requires-Dist: packaging>=20.9
+Requires-Dist: packaging>=22.0
 Project-URL: Changelog, https://unyt.readthedocs.io/en/stable/history.html
 Project-URL: Documentation, https://unyt.readthedocs.io/en/stable/index.html
 Project-URL: Homepage, https://github.com/yt-project/unyt
+Import-Name: unyt
 
 ====
 unyt

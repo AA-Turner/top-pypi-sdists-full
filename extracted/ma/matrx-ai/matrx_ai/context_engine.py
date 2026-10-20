@@ -530,6 +530,116 @@ def _present_system_keys(
     }
 
 
+# ---------------------------------------------------------------------------
+# AN ORGANIZATION'S OWN VALUE FOR A SYSTEM ITEM (defect 5, PB-01 S12, 2026-10-17).
+#
+# A curated System item (``company_name`` = "AI Matrx") is the platform DEFAULT. An organization
+# writes its own value through ``custom.context_value_write`` (``organization_id``, no
+# ``scope_id``) into ``context.system_context_item_org_value``; the resolvers still hand back the
+# System row's value, and THIS step — in the one body every resolver answer passes through (run,
+# dry run, preview, compare) — replaces it with the value of the organization the run is admitted
+# for. Order of supply: scope item sharing the key › ambient (computed) › organization › System.
+# ---------------------------------------------------------------------------
+_ORG_VALUES_TTL_SECONDS = _CONTEXT_TTL_SECONDS
+_org_values_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_org_values_reader: Callable[[str], Awaitable[Any]] | None = None
+_org_values_announced = False
+
+
+def configure_organization_system_values(reader: Callable[[str], Awaitable[Any]] | None) -> None:
+    """Bind (or unbind) the host's async reader of one organization's own System item values
+    (``{system_context_item_id: value}``; aidream reads ``context.system_item_org_values``)."""
+    global _org_values_reader, _org_values_announced
+    _org_values_reader = reader
+    _org_values_announced = False
+    _org_values_cache.clear()
+
+
+async def organization_system_values(organization_id: str) -> dict[str, Any]:
+    """``{system_context_item_id: value}`` — the organization's own values for System items.
+
+    One read per organization per TTL (the same 30 s the resolver answer is cached for). No
+    reader bound, or a failed read: no organization values, announced — never a silent default."""
+    global _org_values_announced
+    now = time.monotonic()
+    hit = _org_values_cache.get(organization_id)
+    if hit is not None and (now - hit[0]) < _ORG_VALUES_TTL_SECONDS:
+        return hit[1]
+    if _org_values_reader is None:
+        if not _org_values_announced:
+            _org_values_announced = True
+            logger.warning(
+                "[context_engine] no host reader is bound for organizations' own System item "
+                "values; every organization gets the platform values (bind one with "
+                "configure_organization_system_values())."
+            )
+        return {}
+    try:
+        values = await _org_values_reader(organization_id)
+    except Exception as exc:  # noqa: BLE001 — announced; the platform values answer this turn
+        logger.error(
+            "[context_engine] organization %s's own System item values could not be read (%r); "
+            "this turn carries the platform values.",
+            organization_id,
+            exc,
+        )
+        return {}
+    if not isinstance(values, dict):
+        logger.error(
+            "[context_engine] the organization System value reader returned %s, expected a dict; "
+            "this turn carries the platform values.",
+            type(values).__name__,
+        )
+        return {}
+    _org_values_cache[organization_id] = (now, values)
+    return values
+
+
+async def _apply_organization_values(
+    organization_id: str | None,
+    variables: dict[str, Any],
+    cell_values: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Replace each present System cell's value with the organization's own, when it has one.
+
+    Runs after the naming (an unnamed item is never read) and before the ambient refresh (a
+    computed item is always computed). A same-key scope entry keeps its own value: only System
+    cells — and an entry whose own source is System — change."""
+    if not organization_id:
+        return
+    present_ids = {
+        str(c.get("context_item_id") or item_id)
+        for item_id, cells in cell_values.items()
+        for c in cells
+        if _is_system_cell(c)
+    } | {
+        str(c.get("context_item_id"))
+        for entry in variables.values()
+        if isinstance(entry, dict)
+        for c in (entry.get("cells") or [])
+        if _is_system_cell(c) and c.get("context_item_id")
+    }
+    if not present_ids:
+        return
+    own = await organization_system_values(str(organization_id))
+    if not own:
+        return
+    for cells in cell_values.values():
+        for cell in cells:
+            cid = str(cell.get("context_item_id") or "")
+            if _is_system_cell(cell) and cid in own:
+                cell["value"] = own[cid]
+    for entry in variables.values():
+        if not isinstance(entry, dict):
+            continue
+        for cell in entry.get("cells") or []:
+            cid = str(cell.get("context_item_id") or "")
+            if _is_system_cell(cell) and cid in own:
+                cell["value"] = own[cid]
+                if entry.get("source") == "system":
+                    entry["value"] = own[cid]
+
+
 def _apply_ambient(
     user_id: str | None,
     variables: dict[str, Any],
@@ -705,7 +815,11 @@ async def build_agent_context(
                 "resolve_full_context",
                 user_id,
                 entity_type,
-                entity_id,
+                # No entity yet (a mandate Holder's inputs, resolved before any conversation
+                # exists) is NULL, never "": p_entity_id is a uuid and "" crashed every mandate
+                # door with a scope-bound Holder variable (live, 2026-10-19). NULL still
+                # resolves the caller's scope selection.
+                entity_id or None,
                 ArrayArg(scope_ids or None),
                 # p_system_item_refs text[] — ALWAYS an explicit array: '{}' reads no System item,
                 # while NULL (an old caller that does not know the argument) is the knob's
@@ -793,6 +907,12 @@ async def agent_context_from_resolved(
     # ambient refresh, so an unnamed computed item is never computed.
     names = await system_names_in_force(system_names)
     system_delivered, system_withheld = _admit_named_system_items(variables, cell_values, names)
+
+    # The organization's own value for a System item beats the platform default — the run's
+    # organization first, the entity's when the run named none.
+    await _apply_organization_values(
+        organization_id or context_scope.get("organization_id"), variables, cell_values
+    )
 
     # Ambient System items — override their value with the freshly computed one. The person's
     # timezone is read only when a date, date-time or timezone item survived the naming.
@@ -1006,7 +1126,7 @@ class AgentContext:
             for key, var_data in self.direct_variables.items():
                 # `variables` is keyed by the BARE item key, which is not unique: two scope
                 # types can both define `status`, and two active scopes of one type both
-                # define their own `case_number`. Render EVERY contributing cell, labelled by
+                # define their own `case_number`. Render EVERY contributing cell, labeled by
                 # its scope, instead of the single scalar — otherwise the model is shown one
                 # client's contact details and never learns the other client exists.
                 cells = [c for c in (var_data.get("cells") or []) if isinstance(c, dict)]

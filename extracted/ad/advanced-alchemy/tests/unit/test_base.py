@@ -6,14 +6,19 @@ import sys
 import types
 import uuid as uuid_module
 import warnings
+from dataclasses import dataclass
 from typing import cast
 
 import pytest
 from sqlalchemy import Table, create_engine
 from sqlalchemy.dialects import mssql, oracle, postgresql
-from sqlalchemy.orm import declarative_mixin
+from sqlalchemy.orm import DeclarativeBase, Mapped, declarative_mixin, mapped_column
 from sqlalchemy.schema import CreateTable
 
+from advanced_alchemy._typing import MSGSPEC_INSTALLED
+from advanced_alchemy.base import ModelProtocol, UUIDBase, create_registry, orm_registry
+from advanced_alchemy.repository import SQLAlchemySyncRepository
+from advanced_alchemy.types import JsonB
 from tests.helpers import purge_module
 
 _MISSING = object()
@@ -282,3 +287,114 @@ def test_identity_works_with_sqlite() -> None:
 
     # Should not raise any errors
     assert True  # If we get here, it worked
+
+
+def test_registry_type_annotation_map_has_no_protocol_keys() -> None:
+    """Regression test for https://github.com/litestar-org/advanced-alchemy/issues/477.
+
+    ``type_annotation_map`` is resolved by SQLAlchemy through an exact/``__mro__``
+    dictionary lookup that rejects supertype matches. A ``Protocol`` (such as the
+    now-removed ``DataclassProtocol`` entry) is never present in the ``__mro__`` of
+    a class that structurally satisfies it, so a Protocol key can never match and
+    is misleading dead configuration. Guard against reintroducing one.
+    """
+    protocol_keys = [key for key in orm_registry.type_annotation_map if getattr(key, "_is_protocol", False)]
+    assert protocol_keys == []
+
+
+def test_dataclass_column_resolves_via_custom_annotation_map() -> None:
+    """A concrete dataclass resolves only when registered explicitly.
+
+    This is the supported replacement for the removed ``DataclassProtocol`` entry:
+    users map their own concrete dataclass type, which lands in the registry as an
+    exact key and therefore resolves.
+    """
+
+    @dataclass
+    class ExtraData:
+        before: int
+
+    registry = create_registry(custom_annotation_map={ExtraData: JsonB})
+
+    resolved = registry._resolve_type(ExtraData)  # pyright: ignore[reportPrivateUsage]
+    assert resolved is not None
+
+
+def test_registry_type_annotation_map_has_no_msgspec_struct_key() -> None:
+    """Regression test for https://github.com/litestar-org/advanced-alchemy/issues/772.
+
+    ``type_annotation_map`` is resolved by SQLAlchemy through an exact/``__mro__``
+    dictionary lookup that rejects supertype matches (``_resolve_for_python_type``
+    returns ``None`` unless ``python_type is matched_on_flattened``). A base ``Struct``
+    key is therefore found in a concrete struct's ``__mro__`` but rejected, so it only
+    ever matched the literal ``Mapped[Struct]`` annotation and never a user-defined
+    subclass -- the realistic case. Like the removed ``DataclassProtocol`` entry, it
+    was misleading dead configuration. Guard against reintroducing it.
+    """
+    if not MSGSPEC_INSTALLED:
+        pytest.skip("msgspec not installed")
+
+    from msgspec import Struct
+
+    assert Struct not in orm_registry.type_annotation_map
+
+
+def test_struct_column_resolves_via_custom_annotation_map() -> None:
+    """A concrete msgspec struct resolves only when registered explicitly.
+
+    This is the supported replacement for the removed ``Struct`` entry: users map
+    their own concrete struct type, which lands in the registry as an exact key and
+    therefore resolves.
+    """
+    if not MSGSPEC_INSTALLED:
+        pytest.skip("msgspec not installed")
+
+    from msgspec import Struct
+
+    class MyStruct(Struct):
+        a: int
+
+    registry = create_registry(custom_annotation_map={MyStruct: JsonB})
+
+    resolved = registry._resolve_type(MyStruct)  # pyright: ignore[reportPrivateUsage]
+    assert resolved is not None
+
+
+class PlainDeclarativeBase(DeclarativeBase):
+    """A declarative base with no Advanced Alchemy mixins."""
+
+
+class PlainModel(PlainDeclarativeBase):
+    """A model built directly on ``sqlalchemy.orm.DeclarativeBase``."""
+
+    __tablename__ = "test_model_protocol_plain"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+
+class AAModel(UUIDBase):
+    """A model built on Advanced Alchemy's own base."""
+
+    __tablename__ = "test_model_protocol_aa"
+
+
+class PlainModelRepository(SQLAlchemySyncRepository[PlainModel]):
+    """The ``ModelT`` bound must accept plain declarative models."""
+
+    model_type = PlainModel
+
+
+class AAModelRepository(SQLAlchemySyncRepository[AAModel]):
+    """The ``ModelT`` bound must accept Advanced Alchemy models."""
+
+    model_type = AAModel
+
+
+def test_plain_declarative_model_satisfies_protocol_statically() -> None:
+    instance: ModelProtocol = PlainModel(id=1)
+    assert isinstance(instance, ModelProtocol)
+
+
+def test_advanced_alchemy_model_satisfies_protocol_statically() -> None:
+    instance: ModelProtocol = AAModel()
+    assert isinstance(instance, ModelProtocol)

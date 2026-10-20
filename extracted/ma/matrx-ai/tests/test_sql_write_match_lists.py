@@ -1,4 +1,4 @@
-"""The sql tool's write paths honour the same `match` contract as reads:
+"""The sql tool's write paths honor the same `match` contract as reads:
 a list is IN, None is IS NULL. 2026-09-12: an `update` with
 match={"id": [three uuids]} bound the list as one uuid and failed."""
 

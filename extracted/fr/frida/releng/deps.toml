@@ -1,5 +1,5 @@
 [dependencies]
-version = "20261018"
+version = "20261019"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -249,7 +249,7 @@ dependencies = [
 [glib-networking]
 when = "not machine.is_freestanding"
 name = "glib-networking"
-version = "c44d658e7360e24c279815cfb34da760bc4bddc5"
+version = "c8d811a906659f59eabc9f4dc3ad2ba22772bf0f"
 url = "https://github.com/frida/glib-networking.git"
 options = [
     "-Dgnutls=disabled",
@@ -479,7 +479,7 @@ when = """ \
        and not machine.is_freestanding \
        """
 name = "V8"
-version = "741be483d1b04daf828102d6cffcfc6cc29e2003"
+version = "f6d7f6610f2f21e2817ed180b72ea750a3f63ce8"
 url = "https://github.com/frida/v8.git"
 options = [
     "-Ddebug=false",

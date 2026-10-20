@@ -8,7 +8,7 @@ the user has already watched raw JSON accumulate — the defect Arman reported o
 the 2026-08-21 Study Pack run.
 
 Property order cannot live in the registry: ``emitted_json_schema`` is ``jsonb``
-and Postgres normalises key order on write. So it is reconstructed at the wire,
+and Postgres normalizes key order on write. So it is reconstructed at the wire,
 beside the strict/portable adaptation this binder already performs.
 
 Contract: ``common-docs/systems/architecture/content-ir/FEATURE.md`` §6.

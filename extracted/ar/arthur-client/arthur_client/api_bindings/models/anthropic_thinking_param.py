@@ -47,8 +47,8 @@ class AnthropicThinkingParam(BaseModel):
         if value is None:
             return value
 
-        if value not in set(['summarized', 'omitted']):
-            raise ValueError("must be one of enum values ('summarized', 'omitted')")
+        if value not in set(['summarized', 'omitted', 'updates']):
+            raise ValueError("must be one of enum values ('summarized', 'omitted', 'updates')")
         return value
 
     model_config = ConfigDict(

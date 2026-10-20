@@ -222,7 +222,7 @@ def test_every_durable_vfs_branch_checks_first():
     Seven ``fs_*`` tools take the same fallback today. The next one somebody
     writes will copy a neighbour and will not remember this file exists — and
     the failure it reintroduces is SILENT, which is why a grep-shaped guard is
-    worth more here than another behavioural test.
+    worth more here than another behavioral test.
     """
 
     from matrx_ai.tools.implementations import filesystem

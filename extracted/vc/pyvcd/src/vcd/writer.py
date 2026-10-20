@@ -143,8 +143,8 @@ class VCDWriter:
             for vector variable types, a tuple of int. When the size is expressed as a
             tuple, the *value* passed to :meth:`change()` must also be a tuple of same
             arity as the *size* tuple. Some variable types ('integer', 'real',
-            'realtime', and 'event') have a default size and thus *size* may be ``None``
-            for those variable types.
+            'realtime', 'real_parameter', 'shortreal', and 'event') have a default
+            size and thus *size* may be ``None`` for those variable types.
         :type size: int or tuple(int) or None
         :param init: Optional initial value; defaults to 'x'.
         :param bit_index:
@@ -188,8 +188,15 @@ class VCDWriter:
             )
 
         if size is None:
-            if var_type in [VarType.integer, VarType.real, VarType.realtime]:
+            if var_type in [
+                VarType.integer,
+                VarType.real,
+                VarType.realtime,
+                VarType.real_parameter,
+            ]:
                 size = 64
+            elif var_type == VarType.shortreal:
+                size = 32
             elif var_type in [VarType.event, VarType.string]:
                 size = 1
             else:
@@ -218,7 +225,12 @@ class VCDWriter:
             elif not isinstance(init, (bool, int)):
                 raise ValueError("event init value must be int, bool, or None")
             var = EventVariable(ident, var_type, size, init)
-        elif var_type == VarType.real:
+        elif var_type in [
+            VarType.real,
+            VarType.realtime,
+            VarType.shortreal,
+            VarType.real_parameter,
+        ]:
             if init is None:
                 init = 0.0
             elif not isinstance(init, (float, int)):
@@ -288,7 +300,8 @@ class VCDWriter:
                 f"Duplicate var {name} in scope {self._scope_sep.join(scope_tuple)}"
             )
 
-        var_str = f"$var {var.type} {var.size} {var.ident} {name} $end"
+        var_size = sum(var.size) if isinstance(var.size, Sequence) else var.size
+        var_str = f"$var {var.type} {var_size} {var.ident} {name} $end"
         self._scope_var_strs.setdefault(scope_tuple, []).append(var_str)
         scope_names.add(name)
 

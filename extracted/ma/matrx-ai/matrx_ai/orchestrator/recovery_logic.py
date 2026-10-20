@@ -9,6 +9,30 @@ from matrx_ai.config.unified_config import (
 from matrx_ai.orchestrator.requests import AIMatrixRequest
 
 
+#: A provider refusal with nothing written is re-asked ONCE (see
+#: ``handle_finish_reason``) before the run fails. Live 2026-10-18: Claude Opus 5.5 declined the Studio Debrief
+#: (stop_reason=refusal, 0 output tokens, a blank assistant turn) in about 4 of 6
+#: tries and answered the other 2 — the classifier is not deterministic, and a
+#: zero-token refusal costs nothing to ask again.
+
+
+def response_has_no_output(response: UnifiedResponse) -> bool:
+    """True when the turn holds nothing a person can see and no tool call."""
+    from matrx_ai.config import TextContent, ThinkingContent
+
+    messages = response.messages
+    if not isinstance(messages, (list, tuple)):
+        messages = [messages]
+    for message in messages:
+        for content in getattr(message, "content", None) or []:
+            if isinstance(content, ThinkingContent):
+                continue
+            if isinstance(content, TextContent) and not (content.text or "").strip():
+                continue
+            return False
+    return True
+
+
 def handle_finish_reason(
     response: UnifiedResponse,
     request: AIMatrixRequest,
@@ -89,6 +113,14 @@ def handle_finish_reason(
         verbose=True,
     )
 
+    # ── EMPTY REFUSAL: ask again once, nothing is added to the conversation ──
+    if (
+        finish_reason == FinishReason.REFUSAL
+        and retry_attempt < min(max_retries, 1)
+        and response_has_no_output(response)
+    ):
+        return "retry"
+
     # ── RETRYABLE ─────────────────────────────────────────────────────────────
     if finish_reason.is_retryable():
         if retry_attempt < max_retries:
@@ -119,7 +151,13 @@ def handle_finish_reason(
                     "guess. Inform the user and avoid further complication."
                 )
 
-            request.config.append_user_message(tools_message)
+            # A HOST-authored turn (census C7, 2026-10-17): stamped so it is never stored or
+            # read back as something the person said (guard: test_host_authored_user_turns.py).
+            from matrx_ai.config.message_config import host_authored_user_turn
+
+            request.config.messages.append(
+                host_authored_user_turn(tools_message, reason="retry_after_failed_call")
+            )
             vcprint(f"📝 Added retry context: {tools_message}", color="cyan", verbose=debug)
             return "retry"
         else:

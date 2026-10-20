@@ -329,7 +329,7 @@ class ExactCaptureSpec:
     """One exact render: the viewer's width, theme and pixel ratio, full page.
 
     Unlike the named device kinds (fixed fold presets), this is what a person
-    SAW: the frame width their screen gave the page, their colour scheme.
+    SAW: the frame width their screen gave the page, their color scheme.
     """
 
     width: int
@@ -584,7 +584,7 @@ async def capture_screenshots(
             )
             continue
         width, height = png_dimensions(png)
-        # A frame that is one flat colour is a page that had not painted, not
+        # A frame that is one flat color is a page that had not painted, not
         # evidence. Wait and shoot again; keep the last frame if it never fills.
         for attempt in range(1, BLANK_RETRIES + 1):
             if not png_looks_blank(png, width, height):
@@ -1241,6 +1241,22 @@ class PlaywrightBrowserPool:
             dom_selector_found=primary.get("dom_selector_found"),
             screenshots=ordered,
             screenshot_failures=screenshot_failures,
+        )
+
+    async def inspect_inline(
+        self,
+        html: str,
+        *,
+        measure_script: str | None,
+        widths: list[int],
+        themes: list[str],
+        screenshot: bool = True,
+    ) -> list[Any]:
+        """Render caller-supplied HTML (no URL) and measure it — see `inline_inspect`."""
+        from matrx_scraper.inline_inspect import run_inline_inspection
+
+        return await run_inline_inspection(
+            self, html, measure_script=measure_script, widths=widths, themes=themes, screenshot=screenshot
         )
 
     @property

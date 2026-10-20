@@ -29,7 +29,7 @@ from __future__ import annotations
 # Our honest self-identification. This is what a site owner should see in their
 # access log when they ask "what is hitting my server?", and it is the value
 # behind the "Our crawler" preset. It is NOT applied automatically: leaving the
-# override unset preserves today's transport behaviour exactly (see FEATURE.md).
+# override unset preserves today's transport behavior exactly (see FEATURE.md).
 MATRX_CRAWLER_USER_AGENT = "MatrxCrawler/1.0 (+https://aimatrx.com/crawler)"
 
 # A UA header longer than this is a defect, not a preference. Real-world agents

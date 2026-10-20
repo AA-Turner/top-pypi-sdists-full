@@ -571,7 +571,7 @@ def main() -> int:
                 )
             except Exception as exc:  # noqa: BLE001
                 pointer["original_page_evaluate_after_human_close"] = f"ERROR {exc!r}"
-            log("page-pointer behaviour: " + json.dumps(pointer, indent=2))
+            log("page-pointer behavior: " + json.dumps(pointer, indent=2))
             gone_from_pages = (
                 target is not None and target.url not in pointer["pages_after_human_close"]  # type: ignore[operator]
             )

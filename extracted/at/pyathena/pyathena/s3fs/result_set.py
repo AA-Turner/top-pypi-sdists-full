@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from io import TextIOWrapper
+from itertools import repeat
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from fsspec import AbstractFileSystem
@@ -193,27 +194,29 @@ class AthenaS3FSResultSet(AthenaResultSet):
         bucket, key = parse_output_location(self.output_location)
         path = f"{bucket}/{key}"
 
-        csv_file = None
         try:
             csv_file = self._fs._open(path, mode="rb", **self._get_csv_open_options())
-            text_wrapper = TextIOWrapper(csv_file, encoding="utf-8")
+            try:
+                text_wrapper = TextIOWrapper(csv_file, encoding="utf-8")
 
-            if self.output_location.endswith(".txt"):
-                # Tab-separated format (no header row)
-                csv_reader = self._csv_reader_class(text_wrapper, delimiter="\t")
-            else:
-                # Standard CSV format (has header row, skip it)
-                csv_reader = self._csv_reader_class(text_wrapper, delimiter=",")
-                next(csv_reader)
-            self._csv_reader = csv_reader
-
-        except Exception as e:
-            _logger.exception(f"Failed to open {path}.")
-            if csv_file is not None:
+                if self.output_location.endswith(".txt"):
+                    # Tab-separated format (no header row)
+                    csv_reader = self._csv_reader_class(text_wrapper, delimiter="\t")
+                else:
+                    # Standard CSV format (has header row, skip it)
+                    csv_reader = self._csv_reader_class(text_wrapper, delimiter=",")
+                    next(csv_reader)
+            except BaseException:
+                # Also on KeyboardInterrupt, as nobody else can close the file.
                 try:
                     csv_file.close()
                 except Exception:
                     _logger.exception(f"Failed to close {path}.")
+                raise
+            self._csv_reader = csv_reader
+
+        except Exception as e:
+            _logger.exception(f"Failed to open {path}.")
             raise OperationalError(*e.args) from e
 
     @override
@@ -222,11 +225,13 @@ class AthenaS3FSResultSet(AthenaResultSet):
         if not self._csv_reader:
             return
 
+        col_names = self._column_names
         col_types = self._column_types
-        if not col_types:
+        if not col_names or not col_types:
             description = self.description if self.description else []
+            col_names = tuple(d[0] for d in description)
             col_types = tuple(d[1] for d in description)
-        col_hints = self._column_type_hints
+        col_hints = self._column_type_hints or repeat(None)
 
         rows_fetched = 0
         while rows_fetched < self._arraysize:
@@ -238,38 +243,10 @@ class AthenaS3FSResultSet(AthenaResultSet):
                 self._csv_reader = None
                 break
 
-            if col_hints:
-                converted_row = tuple(
-                    self._converter.convert(col_type, value, type_hint=hint)
-                    if hint
-                    else self._converter.convert(col_type, value)
-                    for col_type, value, hint in zip(col_types, row, col_hints, strict=False)
-                )
-            else:
-                converted_row = tuple(
-                    self._converter.convert(col_type, value)
-                    for col_type, value in zip(col_types, row, strict=False)
-                )
-            self._rows.append(converted_row)
+            self._rows.append(
+                tuple(self._convert_values(self._converter, row, col_names, col_types, col_hints))
+            )
             rows_fetched += 1
-
-    @override
-    def fetchone(
-        self,
-    ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        """Fetch the next row of the result set.
-
-        Returns:
-            A tuple representing the next row, or None if no more rows.
-        """
-        if not self._rows:
-            self._fetch()
-        if not self._rows:
-            return None
-        if self._rownumber is None:
-            self._rownumber = 0
-        self._rownumber += 1
-        return self._rows.popleft()
 
     @override
     def close(self) -> None:

@@ -15,6 +15,11 @@ from typing import Any, cast
 from urllib.parse import urlparse
 
 from prov import serializers
+from prov._warnings import (
+    ProvFutureRejectionWarning,
+    future_rejection_message,
+    warn,
+)
 from prov.constants import (
     PROV,
     PROV_ACTIVITY,
@@ -67,6 +72,7 @@ from prov.constants import (
     PROV_TYPE,
     PROV_USAGE,
     PROV_VALUE,
+    XSI,
 )
 from prov.identifier import Namespace, QualifiedName, _provn_escape_local_and_warn
 from prov.model.namespaces import NamespaceManager
@@ -79,6 +85,7 @@ from prov.model.records import (
     EntityRef,
     GenerationRef,
     InfluencerRef,
+    Literal,
     NameValuePair,
     NSCollection,
     OptionalID,
@@ -110,6 +117,8 @@ from prov.model.records import (
     UsageRef,
     _attribute_pairs,
     _ensure_datetime,
+    _rebuild,
+    _rebuilding,
 )
 
 logger = logging.getLogger(__name__)
@@ -156,11 +165,9 @@ def _check_provn_iri(namespace: Namespace) -> None:
 # *identified* relations, enumerated explicitly below as ``_IDENTIFIED_RELATIONS``.
 # Alternate/Specialization/Mention/Membership are NOT in that set -- PROV-DM's
 # abstract syntax gives them no identifier parameter, so the specification has
-# no opinion on an id they happen to share with anything (they normally reach
-# `ProvBundle`'s ``_id_map`` only via `new_record()`/deserialization, since the
-# `.alternate()`/`.specialization()`/`.mention()`/`.membership()` convenience
-# methods always pass ``identifier=None``) -- such a pairing is therefore left
-# out of scope, not rejected.
+# nothing to merge them on and no opinion on an id they happen to share with
+# anything. ``_unified_records`` leaves them out of the merge
+# (``_KEYLESS_RELATIONS``), so they never reach these checks.
 #
 # Constraint 53 (impossible-property-overlap): "identifiers of basic
 # relationships are disjoint": for r != s both in {used, wasGeneratedBy,
@@ -195,6 +202,60 @@ _IDENTIFIED_RELATIONS = frozenset(
 )
 # Constraint 53's nine pairwise-disjoint relations -- see the comment above.
 _PAIRWISE_DISJOINT_RELATIONS = _IDENTIFIED_RELATIONS - {PROV_DERIVATION, PROV_INFLUENCE}
+# Relations PROV-DM and PROV-Links give no identifier; unified() never merges them.
+_KEYLESS_RELATIONS = frozenset(
+    {PROV_ALTERNATE, PROV_SPECIALIZATION, PROV_MENTION, PROV_MEMBERSHIP}
+)
+
+
+# Non-expandable positions, from PROV-CONSTRAINTS Definition 4 and Table 3. An
+# absent value in one of them is the constant "none", which unifies only with
+# itself. Generation and usage are non-expandable only on a derivation that
+# names no activity.
+_NON_EXPANDABLE = {
+    PROV_ASSOCIATION: (PROV_ATTR_PLAN,),
+    PROV_DERIVATION: (PROV_ATTR_ACTIVITY, PROV_ATTR_GENERATION, PROV_ATTR_USAGE),
+}
+
+
+def _warn_absent_non_expandable(records: list[ProvRecord]) -> None:
+    """Warn if an absent non-expandable formal meets a present one in ``records``.
+
+    Only the first such position in ``FORMAL_ATTRIBUTES`` order warns, since
+    3.3.0 raises there. The group has already unified, so its records agree on
+    every position where they all have a value.
+    """
+    positions = _NON_EXPANDABLE.get(PROV_BASE_CLS[records[0].get_type()])
+    if positions is None:
+        return
+    formal_values = [dict(record.formal_attributes) for record in records]
+    for attr_name in positions:
+        present = [
+            values[attr_name]
+            for values in formal_values
+            if values[attr_name] is not None
+        ]
+        if present and len(present) < len(records):
+            condition = (
+                " on a derivation with no activity"
+                if attr_name in (PROV_ATTR_GENERATION, PROV_ATTR_USAGE)
+                else ""
+            )
+            warn(
+                future_rejection_message(
+                    f"{records[0].identifier}: an absent {attr_name}{condition} "
+                    f"means none, so it does not unify with {present[0]}; "
+                    f"unified() merges the records and keeps {present[0]}",
+                    "raise ProvUnificationError",
+                    issue=547,
+                ),
+                ProvFutureRejectionWarning,
+            )
+            return
+        if attr_name == PROV_ATTR_ACTIVITY and present:
+            # A derivation that names its activity has expandable generation
+            # and usage.
+            return
 
 
 def _incompatible_types(type_a: QualifiedName, type_b: QualifiedName) -> bool:
@@ -209,10 +270,8 @@ def _incompatible_types(type_a: QualifiedName, type_b: QualifiedName) -> bool:
         return True  # Constraint 54: an object type vs an identified relation
     # Constraint 53: two distinct pairwise-disjoint relations. Everything else
     # (this expression's False case) is either a spec-permitted overlap
-    # (agent+entity, agent+activity) or out of the specification's scope (any
-    # pairing involving a keyless relation kind -- Alternate/Specialization/
-    # Mention/Membership -- or a relation pair Constraint 53 does not cover,
-    # such as derivation+generation or derivation+influence).
+    # (agent+entity, agent+activity) or a relation pair Constraint 53 does not
+    # cover, such as derivation+generation or derivation+influence.
     return (
         type_a in _PAIRWISE_DISJOINT_RELATIONS
         and type_b in _PAIRWISE_DISJOINT_RELATIONS
@@ -224,12 +283,14 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
 
     Formal attributes are unified positionally: an absent value is an
     existential ("unknown") that unifies with anything, equal concrete values
-    unify, and two different concrete values do not unify. Non-formal ("extra")
-    attributes are unioned. The merged record is newly constructed from the
-    unified formal attributes, so no *formal-attribute* conflict is ever
-    routed through :meth:`ProvRecord.add_attributes`' single-value guard --
-    a conflict between two records' *extra* attributes still is, since those
-    are reasserted through the merged record's constructor unchanged.
+    unify, and two different concrete values do not unify. An absent value in
+    a non-expandable position also unifies, and ``_warn_absent_non_expandable``
+    warns once the merged record is built. Non-formal ("extra") attributes are
+    unioned. The merged record is newly constructed from the unified formal
+    attributes, so no *formal-attribute* conflict is ever routed through
+    :meth:`ProvRecord.add_attributes`' single-value guard -- a conflict between
+    two records' *extra* attributes still is, since those are reasserted
+    through the merged record's constructor unchanged.
 
     Args:
         records: Two or more records of the same base record type, carrying
@@ -253,9 +314,10 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
         unified_value = None
         for _, value in pairs:
             if value is None:
-                # An absent formal attribute is an existential variable: the
+                # An absent formal attribute is an existential variable. The
                 # model cannot express PROV-N's placeholder `-`, so absent
-                # unifies with any concrete value.
+                # unifies with any concrete value; the non-expandable positions
+                # warn after the merge.
                 continue
             if unified_value is None:
                 unified_value = value
@@ -275,7 +337,11 @@ def _unify_same_type_group(records: list[ProvRecord]) -> ProvRecord:
     for record in records:
         attributes.extend(record.extra_attributes)
 
-    return PROV_REC_CLS[record_type](first_record.bundle, identifier, attributes)
+    merged = _rebuild(
+        PROV_REC_CLS[record_type], first_record.bundle, identifier, attributes
+    )
+    _warn_absent_non_expandable(records)
+    return merged
 
 
 def _unify_record_group(records: list[ProvRecord]) -> dict[ProvRecord, ProvRecord]:
@@ -354,8 +420,10 @@ class ProvBundle:
             namespaces, parent=(document._namespaces if document is not None else None)
         )
         if records:
-            for record in records:
-                self.add_record(record)
+            # Consume the iterable first: records it builds are assertions,
+            # not copies.
+            records = list(records)
+            _rebuild(self._add_record_copies, records)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self._identifier}>"
@@ -447,6 +515,11 @@ class ProvBundle:
             it could not be resolved.
         """
         return self._namespaces.valid_qualified_name(identifier)
+
+    def _unresolved_reason(self, text: str) -> str | None:
+        """Return why ``text`` resolves to no qualified name in this bundle by
+        its prefix alone, or ``None`` when it resolves."""
+        return self._namespaces._unresolved_reason(text)
 
     def mandatory_valid_qname(
         self, identifier: QualifiedNameCandidate
@@ -560,6 +633,22 @@ class ProvBundle:
         )
         return f"{prefix}:{localpart}", extra_prefix
 
+    def _uses_xsi(self) -> bool:
+        """Whether a record in this bundle, not its sub-bundles, names an ``xsi:`` term."""
+
+        def in_xsi(value: object) -> bool:
+            return isinstance(value, QualifiedName) and value.namespace.uri == XSI.uri
+
+        for record in self._records:
+            if in_xsi(record.identifier):
+                return True
+            for name, value in record.attributes:
+                if in_xsi(name) or in_xsi(value):
+                    return True
+                if isinstance(value, Literal) and in_xsi(value.datatype):
+                    return True
+        return False
+
     def _provn_namespace_lines(
         self,
         default_namespace: Namespace | None,
@@ -607,6 +696,19 @@ class ProvBundle:
         # otherwise, start the bundle
         default_namespace = self._namespaces.get_default_namespace()
         registered_namespaces = list(self._namespaces.get_registered_namespaces())
+        record_lines = [record.get_provn(strict=strict) for record in self._records]
+        # PROV-N predeclares only prov and xsd. The writer spells every xsi
+        # name as "xsi:...", so the substring scan skips the record walk for
+        # documents without one; _uses_xsi() then rules out string values.
+        if (
+            any("xsi:" in line for line in record_lines)
+            and self._uses_xsi()
+            and not any(
+                ns.prefix == XSI.prefix and ns.uri == XSI.uri
+                for ns in registered_namespaces
+            )
+        ):
+            registered_namespaces.append(XSI)
         bundle_id, extra_prefix = self._provn_header_id(
             default_namespace, registered_namespaces
         )
@@ -618,7 +720,7 @@ class ProvBundle:
         )
 
         #  adding all the records
-        lines.extend([record.get_provn(strict=strict) for record in self._records])
+        lines.extend(record_lines)
         if self.is_document():
             # Print out bundles
             lines.extend(
@@ -677,7 +779,13 @@ class ProvBundle:
                 # more than one record having the same identifier: unify them,
                 # per base record type (usually one type, but PROV-CONSTRAINTS
                 # permits an id to carry more than one, e.g. agent + entity)
-                merged_records.update(_unify_record_group(records))
+                keyed = [
+                    record
+                    for record in records
+                    if record.get_type() not in _KEYLESS_RELATIONS
+                ]
+                if len(keyed) > 1:
+                    merged_records.update(_unify_record_group(keyed))
         if not merged_records:
             # No merging done, just return the list of original records
             return list(self._records)
@@ -709,8 +817,15 @@ class ProvBundle:
         attributes are unified position by position — an absent formal
         attribute is an existential that unifies with any concrete value,
         equal concrete values unify, and two different concrete values do not
-        — while their remaining attributes are unioned. Records with a unique
-        identifier, or no identifier, pass through unchanged.
+        — while their remaining attributes are unioned. In the non-expandable
+        positions of PROV-CONSTRAINTS Table 3 (the plan of an association,
+        the activity of a derivation, and the generation and usage of a
+        derivation with no activity) an absent value means "none"; it still
+        unifies with a concrete value, with a warning. Records with a unique
+        identifier, or no identifier, pass through unchanged. So do
+        ``alternateOf``, ``specializationOf``, ``mentionOf`` and ``hadMember``
+        records, even when several share an identifier, since PROV-DM and
+        PROV-Links give these relations no identifier to merge on.
 
         This is not the specification's full normalization: the uniqueness
         constraints keyed on something other than the record identifier
@@ -725,6 +840,11 @@ class ProvBundle:
                 identifier hold different concrete values for the same formal
                 attribute, or if two records sharing an identifier have
                 incompatible types.
+
+        Warns:
+            ProvFutureRejectionWarning: If two records sharing an identifier
+                pair an absent non-expandable formal attribute with a present
+                one. prov 3.3.0 raises ProvUnificationError instead.
         """
         unified_records = self._unified_records()
         bundle = ProvBundle(records=unified_records, identifier=self.identifier)
@@ -747,8 +867,7 @@ class ProvBundle:
                     "ProvBundle.update(): The other bundle is a document with "
                     "sub-bundle(s)."
                 )
-            for record in other.get_records():
-                self.add_record(record)
+            _rebuild(self._add_record_copies, other.get_records())
         else:
             raise ProvException(
                 "ProvBundle.update(): The other bundle is not a ProvBundle "
@@ -811,12 +930,22 @@ class ProvBundle:
         Returns:
             The newly created :class:`ProvRecord` belonging to this bundle.
         """
-        return self.new_record(
+        copy_args = (
             record.get_type(),
             record.identifier,
             record.formal_attributes,
             record.extra_attributes,
         )
+        if _rebuilding.get():
+            return self.new_record(*copy_args)
+        # A lone copy sets the rebuild guard; copies made in a loop share
+        # the guard _add_record_copies() holds.
+        return _rebuild(self.new_record, *copy_args)
+
+    def _add_record_copies(self, records: Iterable[ProvRecord]) -> None:
+        # Call through _rebuild(), which holds the guard for every copy.
+        for record in records:
+            self.add_record(record)
 
     def entity(
         self,
@@ -1731,8 +1860,10 @@ class ProvDocument(ProvBundle):
             bundled_records = itertools.chain(
                 *[b.get_records() for b in self._bundles.values()]
             )
-            for record in itertools.chain(self._records, bundled_records):
-                new_doc.add_record(record)
+            _rebuild(
+                new_doc._add_record_copies,
+                itertools.chain(self._records, bundled_records),
+            )
             return new_doc
         else:
             # returning the same document
@@ -1755,6 +1886,10 @@ class ProvDocument(ProvBundle):
                 the same scope hold different concrete values for the same
                 formal attribute, or have incompatible types (see
                 :meth:`ProvBundle.unified`).
+
+        Warns:
+            ProvFutureRejectionWarning: As for :meth:`ProvBundle.unified`, in
+                the document's top-level records or in any of its bundles.
         """
         document = ProvDocument(self._unified_records())
         document._namespaces = self._namespaces
@@ -1779,8 +1914,7 @@ class ProvDocument(ProvBundle):
                 subclass).
         """
         if isinstance(other, ProvBundle):
-            for record in other.get_records():
-                self.add_record(record)
+            _rebuild(self._add_record_copies, other.get_records())
             if other.has_bundles():
                 for bundle in other.bundles:
                     bundle_id = bundle.identifier

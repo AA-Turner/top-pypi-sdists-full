@@ -42,7 +42,9 @@ from zenrows.crawl.models import (
 )
 
 _DEFAULT_BASE_URL = "https://api.zenrows.com/v1"
-DEFAULT_USER_AGENT = f"zenrows-crawl-python/{__version__}"
+# The scraping client's User-Agent, so the API reads Crawl requests as
+# Python SDK traffic.
+DEFAULT_USER_AGENT = f"zenrows/{__version__} python"
 
 _log = logging.getLogger("zenrows.crawl.transport")
 
@@ -187,7 +189,9 @@ class ZenRowsCrawlClient:
         - `include_patterns` / `exclude_patterns`: substrings matched
           against each normalized URL. A URL is kept when it matches
           an include pattern (if any) and no exclude pattern. A crawl
-          stays on the start URL's registrable domain; subdomains count.
+          whose patterns reject every link ends `completed` with no
+          results and no `error`. A crawl stays on the start URL's
+          registrable domain; subdomains count.
         - `output_format="html"` or `"markdown"`: also fetch every kept
           URL's page, as HTML or as Markdown, readable with `content` /
           `download`. Omit for URLs only.
@@ -357,6 +361,8 @@ class ZenRowsCrawlClient:
         `failed`) or `timeout` seconds pass, and return it.
 
         A `failed` crawl is returned, not raised: read `error` on it.
+        So is a crawl that `stopped` because credits ran out or the API
+        key hit a credit cap; `error` says which.
         On timeout the crawl is returned still `running`; call `wait`
         again to keep waiting, or `stop` to end it.
         """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-sat
-Version: 1.9.dev16
+Version: 1.9.dev17
 Summary: A Python library for prototyping with SAT oracles
 Home-page: https://github.com/pysathq/pysat
 Author: Alexey Ignatiev, Joao Marques-Silva, Antonio Morgado
@@ -15,8 +15,10 @@ Provides-Extra: approxmc
 Requires-Dist: pyapproxmc>=4.1.8; extra == "approxmc"
 Provides-Extra: cryptosat
 Requires-Dist: pycryptosat>=5.11.18; extra == "cryptosat"
+Provides-Extra: pb
+Requires-Dist: pindakaas>=0.6.1; extra == "pb"
 Provides-Extra: pblib
-Requires-Dist: pypblib>=0.0.3; extra == "pblib"
+Requires-Dist: pindakaas>=0.6.1; extra == "pblib"
 Provides-Extra: unigen
 Requires-Dist: pyunigen>=4.1.20; extra == "unigen"
 Dynamic: author

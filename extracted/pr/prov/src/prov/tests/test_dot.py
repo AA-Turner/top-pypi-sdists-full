@@ -11,7 +11,7 @@ import pytest
 pydot = pytest.importorskip("pydot")
 
 from prov.dot import htlm_link_if_uri, prov_to_dot
-from prov.model import ProvDocument
+from prov.model import ProvDocument, ProvFutureRejectionWarning
 from prov.tests import examples
 
 MIN_SVG_SIZE = 850
@@ -219,7 +219,8 @@ def test_html_label_special_characters_are_escaped() -> None:
 def test_quoted_label_escapes_double_quote() -> None:
     doc = ProvDocument()
     doc.add_namespace("ex", "http://example.org/")
-    doc.entity('ex:e"1')
+    with pytest.warns(ProvFutureRejectionWarning):
+        doc.entity('ex:e"1')
 
     dot = prov_to_dot(doc)
     dot_text = dot.to_string()
@@ -287,3 +288,18 @@ def test_complete_relation_draws_without_warning() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         prov_to_dot(document)
+
+
+def test_absent_plan_against_a_plan_warns_at_the_prov_to_dot_call_site() -> None:
+    # prov_to_dot() unifies each bundle first, so the #547 warning fires
+    # through it and names this module, not a frame inside prov.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.association("ex:a1", agent="ex:ag1", identifier="ex:assoc1")
+    document.association("ex:a1", agent="ex:ag1", plan="ex:pl1", identifier="ex:assoc1")
+    with pytest.warns(
+        ProvFutureRejectionWarning, match="prov:plan means none"
+    ) as record:
+        prov_to_dot(document)
+    assert len(record) == 1
+    assert record[0].filename == __file__

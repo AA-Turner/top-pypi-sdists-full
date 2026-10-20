@@ -8,20 +8,10 @@ This test verifies that the global CompileState plugin registration does not
 break SQLAlchemy's with_loader_criteria for non-Snowflake dialects.
 """
 
-import pytest
-
-from snowflake.sqlalchemy.compat import IS_VERSION_20
-
-if not IS_VERSION_20:
-    pytest.skip(
-        "with_loader_criteria / DeclarativeBase require SQLAlchemy 2.0+",
-        allow_module_level=True,
-    )
-
-import sqlalchemy as sa  # noqa: E402
-from sqlalchemy import Column, ForeignKey, Integer, String  # noqa: E402
-from sqlalchemy.dialects import sqlite  # noqa: E402
-from sqlalchemy.orm import DeclarativeBase, with_loader_criteria  # noqa: E402
+import sqlalchemy as sa
+from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy.dialects import sqlite
+from sqlalchemy.orm import DeclarativeBase, with_loader_criteria
 
 
 class Base(DeclarativeBase):
@@ -70,9 +60,9 @@ def test_with_loader_criteria_in_subquery_non_snowflake_dialect():
             compile_kwargs={"literal_binds": True},
         )
     )
-    assert (
-        "is_active" in compiled
-    ), "with_loader_criteria did not inject filter into sealed subquery"
+    assert "is_active" in compiled, (
+        "with_loader_criteria did not inject filter into sealed subquery"
+    )
 
 
 def test_with_loader_criteria_in_subquery_snowflake_dialect():
@@ -99,6 +89,6 @@ def test_with_loader_criteria_in_subquery_snowflake_dialect():
             compile_kwargs={"literal_binds": True},
         )
     )
-    assert (
-        "is_active" in compiled
-    ), "with_loader_criteria did not inject filter into sealed subquery"
+    assert "is_active" in compiled, (
+        "with_loader_criteria did not inject filter into sealed subquery"
+    )

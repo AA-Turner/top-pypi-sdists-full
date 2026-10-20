@@ -14,8 +14,8 @@ tracking" (Engram VISION §3.3). Two writes make it work:
 Placement of the table (``platform.``, not ``hindsight.``) is argued in the
 migration `db/migrations/0373_judge_verdict_ledger.sql`.
 
-A ledger write NEVER fails a judgement. It screams and returns ``None`` — a lost
-accuracy row is a real loss, but killing a paid, already-completed judgement to
+A ledger write NEVER fails a judgment. It screams and returns ``None`` — a lost
+accuracy row is a real loss, but killing a paid, already-completed judgment to
 punish it would be worse.
 """
 

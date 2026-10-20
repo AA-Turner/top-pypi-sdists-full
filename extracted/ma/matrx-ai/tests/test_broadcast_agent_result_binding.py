@@ -21,7 +21,7 @@ Two rules are pinned here:
    the engine withholds the upstream identity (``matrx_graph.types
    .identity_inputs``) and the node mints one, so the continuation branch
    that raises the 409 is never entered;
-2. binding honours the DECLARATION — the result's bookkeeping is never a
+2. binding honors the DECLARATION — the result's bookkeeping is never a
    variable, and the one part of it that carries answers
    (``structured_output``) is projected onto the step's declared
    ``exposed_variables``.

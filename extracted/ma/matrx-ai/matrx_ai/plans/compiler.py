@@ -82,6 +82,17 @@ from matrx_ai.plans.validate import (
 )
 
 AGENT_PLAN_METADATA_KEY = "agent_plan"
+
+#: An ``ask`` step's answer, shaped as the agent result every downstream ref
+#: expects (``AiExecutionResult``): ``final_text`` is the first decision item's
+#: settled value (a decision gate), else the raw answer; who decided rides
+#: ``metadata.answered_by`` (the engine's ``matrx_decision``).
+ASK_RESULT_EXPRESSION = (
+    "{'conversation_id': '', 'request_id': '', 'iterations': 0, 'finish_reason': 'human_answer', "
+    "'final_text': ((str(inputs['decision'][0]['value']) if inputs['decision'][0]['value'] is not None else '') "
+    "if inputs['decision'] else ('' if inputs['answer'] is None else str(inputs['answer']))), "
+    "'metadata': {'answered_by': inputs['matrx_decision'], 'decision': inputs['decision']}}"
+)
 AGENT_PLAN_METADATA_VERSION = 1
 
 _X_SPACING = 340.0
@@ -108,7 +119,7 @@ def compile_plan(plan: AgentPlan) -> Definition:
         step = by_num[n]
         deps = deps_by_step[n]
         fire_args[n] = 0 if not deps else 1 + max(fire_out[m] for m in deps)
-        fire_out[n] = fire_args[n] + (3 if step.for_each is not None else 1)
+        fire_out[n] = fire_args[n] + (3 if step.for_each is not None else 2 if step.ask is not None else 1)
 
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
@@ -254,6 +265,28 @@ def compile_plan(plan: AgentPlan) -> Definition:
             _add_edge(map_id, empty_id, condition="inputs['dispatched'] == 0")
             _add_edge(empty_id, gather_id)
             result_map[str(n)] = {"node_id": gather_id, "kind": "list"}
+        elif step.ask is not None:
+            # A PERSON answers this step (host-built; e.g. an Orchestra seat member).
+            # args → the pause (control.human_input, the host's config verbatim) →
+            # step_N, which shapes the answer like an agent result so every
+            # downstream ``$steps.N.output.final_text`` reads it unchanged. One extra
+            # layer, accounted for in fire_out — the run waits durably at the pause.
+            ask_id = f"step_{n}_ask"
+            _add_node(
+                ask_id,
+                "control.human_input",
+                fire_args[n] + 1,
+                {"config": dict(step.ask), "label": step.purpose},
+            )
+            _add_node(
+                agent_id,
+                "data.transform",
+                fire_args[n] + 2,
+                {"config": {"expression": ASK_RESULT_EXPRESSION}, "label": f"Step {n} answer"},
+            )
+            _add_edge(args_id, ask_id)
+            _add_edge(ask_id, agent_id)
+            result_map[str(n)] = {"node_id": agent_id, "kind": "single"}
         else:
             _add_node(
                 agent_id,

@@ -111,7 +111,7 @@ def _chat():
             starts = [i * 0.06 for i in range(len(text))]
             return AudioWithTimestampsAndVoiceSegmentsResponseModel.model_validate(
                 {
-                    "audio_base64": base64.b64encode(b"ID3").decode(),
+                    "audio_base64": base64.b64encode(b"ID3" + b"\x00" * (len(text) * 25)).decode(),
                     "alignment": {
                         "characters": list(text),
                         "character_start_times_seconds": starts,

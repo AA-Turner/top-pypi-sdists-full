@@ -132,7 +132,7 @@ class Agent:
         self.auto_tools_disabled: bool = auto_tools_disabled
         # Mirror of auto_tools_disabled for the context channel. Carried from the
         # DB record so every consumer (routers, sub-agents, the programmatic
-        # runner) can honour it without a second lookup.
+        # runner) can honor it without a second lookup.
         self.auto_context_disabled: bool = auto_context_disabled
         self.output_schema: dict[str, Any] | None = output_schema
         # Opaque host-interpreted apply config (``agx_agent.matrx_actions``).
@@ -178,6 +178,19 @@ class Agent:
         # application; this package never interprets them. Set by callers such
         # as aidream's ``run_mandate`` consumption-map decomposition.
         self.request_context: dict[str, Any] = {}
+
+        # HOST DATA for a projected agent run (an Orchestra connection): what the caller's
+        # tool spec carried, the caller's raw ``hand_over`` argument and the host resolver's
+        # state. Opaque to this package — the host's prepare hook reads it. ``None`` for every
+        # run that was not started through a host-attached agent tool.
+        self.host_data: dict[str, Any] | None = None
+        # The CALLER's gated context values at call time (its serialized manifest), carried on
+        # the agent — never on the child's AppContext, so a child whose preparation is skipped
+        # can never read them through the ``context`` tool. Opaque; only the host reads it.
+        self.host_parent_context: list[Any] | None = None
+        # What the host could not pass (unknown / refused / blocked / cut values): returned to
+        # the caller in the tool result. Appended by the host resolver and the prepare hook.
+        self.host_notes: list[dict[str, Any]] = []
 
         # Identity of the agx_agent record this agent was loaded from, when
         # applicable. Set by ``Agent.from_agent`` (the agx loader); stays None
@@ -365,6 +378,17 @@ class Agent:
         # Structured-list choices become internal picklist refs and flow through the existing
         # secret-safe picklist resolver immediately below.
         final_values = _resolve_auto_assignment_final_values(self.variable_defaults, final_values)
+
+        # Required inputs (host knob): a declared-required name with no value after the whole
+        # ladder refuses the run here, before any model call, naming every missing input.
+        from matrx_ai.agents.required_variables import enforce_required_variables
+
+        enforce_required_variables(
+            self.variable_defaults,
+            final_values,
+            agent_name=self.name,
+            pinned_version=self.source_is_version,
+        )
 
         # Resolve picklist-bound variables (envelopes -> canonical placeholder tokens, plus
         # staged wire swaps that the executor injects into the provider send-clone only).
@@ -700,7 +724,9 @@ class Agent:
         # here so a raw tool UUID can never reach the provider boundary. Idempotent
         # for already-name'd tool lists, so the HTTP path re-normalizing is a no-op.
         if self.config.tools:
-            from matrx_ai.tools.merge import canonical_tool_names, drop_retired_tool_ids
+            from matrx_connect.context.app_context import try_get_app_context
+
+            from matrx_ai.tools.merge import resolve_stored_tools
 
             # The resolution above is only as good as the registry behind it:
             # ``canonical_tool_names`` returns the literal input when the
@@ -711,9 +737,13 @@ class Agent:
             # live 2026-08-30). Load the registry here, once, out loud, before
             # resolving — the direct-execution edge owns its own readiness.
             await _ensure_registry_can_resolve_ids(self.config.tools)
-            # A stored id whose tool was since deactivated never resolves: drop it,
-            # loudly, instead of failing the run at the provider boundary.
-            self.config.tools, _retired = drop_retired_tool_ids(canonical_tool_names(self.config.tools))
+            # Catalog Tools are never preloaded: resolve them for THIS run first
+            # (pinned on its context), then drop — loudly — only a stored id whose
+            # tool was since deactivated, instead of failing at the provider
+            # boundary. Dropping first removed a helper's own catalog tool (PB-08).
+            self.config.tools, _retired = await resolve_stored_tools(
+                self.config.tools, ctx=try_get_app_context()
+            )
 
         # A host may own richer resource semantics than this standalone
         # package can know about. HTTP/workflow starts prepare those resources
@@ -770,6 +800,7 @@ class Agent:
                 self.config,
                 execution_ctx,
                 [],
+                source="reconcile",
                 active_executors=active_tool_executors(execution_ctx),
             )
             set_app_context(execution_ctx)

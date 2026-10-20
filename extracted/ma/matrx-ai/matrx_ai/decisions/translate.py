@@ -726,7 +726,7 @@ def prepare_verbalized_decision(
     omit a question, which is the one thing a decision contract exists to stop.
 
     Returns ``None`` when there is nothing to do. Raises when the model cannot
-    honour the contract at all — a decision asked of a model that cannot return
+    honor the contract at all — a decision asked of a model that cannot return
     a structured answer would come back as prose nobody can score, and the
     compatibility law says say so, never guess.
     """

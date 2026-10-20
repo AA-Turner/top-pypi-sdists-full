@@ -40,7 +40,9 @@ def test_specialized_catalog_routes_are_not_turn_clients() -> None:
 
 
 def test_live_defaults_and_lyria_nonzero_weight() -> None:
-    assert GoogleLiveOptions().thinking_level == "minimal"
+    # Unset: the offering's cells decide (gemini-3.8-live rejects thinking_level).
+    assert GoogleLiveOptions().thinking_level is None
+    assert GoogleLiveOptions().context_window_compression is True
     with pytest.raises(ValueError, match="non-zero"):
         WeightedMusicPrompt(text="strings", weight=0)
 
@@ -78,6 +80,76 @@ async def test_live_runtime_builds_current_sdk_config(
     assert config.thinking_config.thinking_level == "HIGH"
     assert config.realtime_input_config.turn_coverage == "TURN_INCLUDES_ALL_INPUT"
     assert config.response_modalities == ["AUDIO"]
+    # Session speed defaults: 700 ms silence (a caller's key wins), sliding-window
+    # compression, resumption config present.
+    assert config.realtime_input_config.automatic_activity_detection.silence_duration_ms == 700
+    assert config.realtime_input_config.automatic_activity_detection.disabled is False
+    assert config.context_window_compression.sliding_window is not None
+    assert config.session_resumption is not None
+    assert config.tools is None
+
+
+@pytest.mark.asyncio
+async def test_live_session_declares_non_blocking_tools_and_answers_when_idle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from google.genai import types
+
+    seen: dict = {}
+    sent: dict = {}
+
+    class Session:
+        async def send_tool_response(self, **kwargs):
+            sent.update(kwargs)
+
+    class Context:
+        async def __aenter__(self):
+            return Session()
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class Live:
+        def connect(self, **kwargs):
+            seen.update(kwargs)
+            return Context()
+
+    client = SimpleNamespace(aio=SimpleNamespace(live=Live()))
+    monkeypatch.setattr("matrx_ai.providers.google.specialized.get_google_client", lambda: client)
+    options = GoogleLiveOptions(
+        tools=[
+            {"name": "ask_agent", "description": "Ask the deep agent", "parameters": {"type": "object"}}
+        ],
+        vad_config={"silence_duration_ms": 500},
+    )
+    async with GoogleLiveSession(_profile("google_live"), options) as session:
+        await session.send(
+            {
+                "type": "tool_response",
+                "responses": [{"id": "c2", "name": "ask_agent", "response": {}, "scheduling": None}],
+            }
+        )
+        with pytest.raises(ValueError, match="at least one"):
+            await session.send({"type": "tool_response", "responses": []})
+
+    declaration = seen["config"].tools[0].function_declarations[0]
+    assert declaration.name == "ask_agent"
+    assert declaration.behavior == types.Behavior.NON_BLOCKING
+    assert (
+        seen["config"].realtime_input_config.automatic_activity_detection.silence_duration_ms == 500
+    )
+    assert sent["function_responses"][0].scheduling is None
+
+
+def test_tool_response_defaults_to_when_idle() -> None:
+    from google.genai import types
+
+    from matrx_ai.providers.google.specialized import _tool_responses
+
+    [one] = _tool_responses({"responses": [{"id": "c1", "name": "t", "response": {"a": 1}}]})
+    assert one.scheduling == types.FunctionResponseScheduling.WHEN_IDLE
+    [two] = _tool_responses({"responses": [{"name": "t", "scheduling": "INTERRUPT"}]})
+    assert two.scheduling == types.FunctionResponseScheduling.INTERRUPT
 
 
 @pytest.mark.asyncio

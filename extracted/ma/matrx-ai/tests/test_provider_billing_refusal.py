@@ -6,7 +6,7 @@ Break this guards (live 2026-10-01, request 5c4a458e…): OpenAI raised a bare
 classifier fell through to the string fallback, called it a retryable
 ``unknown_error``, retried it 3× and told the person "An unexpected OpenAI error
 occurred". Any provider wording that reaches the fallback (or a 429/403/401
-branch) without being recognised as a billing refusal turns these red.
+branch) without being recognized as a billing refusal turns these red.
 
 Every message below is the provider's own wording for an out-of-credit or
 quota-exhausted account. The negative controls are genuine traffic limits that

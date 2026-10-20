@@ -7,8 +7,8 @@ contract closure 26 instead of 33.
 READ THE COVERAGE HONESTLY. Only 30 blocks of this family exist in production
 (input_notes 12, input_webpage 8, input_table 6, input_task 2, input_workbook 2);
 the other NINE types have never been persisted at all. A green suite here is
-structural conformance, not evidence about production behaviour — there is
-almost none to be evidence about. The types are modelled because the
+structural conformance, not evidence about production behavior — there is
+almost none to be evidence about. The types are modeled because the
 deserializer can return them and the contract must declare what it can return.
 """
 
@@ -91,7 +91,7 @@ def test_editable_tools_default_is_preserved_per_subclass(wire):
 @pytest.mark.parametrize("wire", WIRE_TYPES)
 def test_editable_tools_gate_is_identical(wire):
     """Only an EXPLICIT editable=True injects tools; None and False inject
-    nothing. The behaviour, not just the constant."""
+    nothing. The behavior, not just the constant."""
     old, new = STRUCTURED_INPUT_TYPE_MAP[wire], STRUCTURED_INPUT_MODEL_MAP[wire]
     for editable in (None, False, True):
         assert old(editable=editable).editable_tools() == new(editable=editable).editable_tools()
@@ -100,7 +100,7 @@ def test_editable_tools_gate_is_identical(wire):
 def test_both_shapes_refuse_the_private_kwarg_LOUDLY():
     """CUTOVER failure mode 9, measured — and it resolves better than predicted.
 
-    The catalogue warned that a private attribute is "silently dropped or
+    The catalog warned that a private attribute is "silently dropped or
     raises". A bare pydantic model DOES silently drop it: passing
     `_editable_tools=` to a model without `extra="forbid"` returns the default
     and says nothing. But these twins carry `extra="forbid"`, which turns that
@@ -125,7 +125,7 @@ def test_both_shapes_refuse_the_private_kwarg_LOUDLY():
 
 def test_extra_forbid_is_what_makes_that_refusal_loud():
     """Falsification of the line above: drop extra="forbid" and the silent
-    drop the catalogue warned about is exactly what you get. This is why the
+    drop the catalog warned about is exactly what you get. This is why the
     config choice is load-bearing rather than cosmetic."""
     from pydantic import BaseModel, ConfigDict, PrivateAttr
 

@@ -433,7 +433,12 @@ class TestProcessorEngine:
         )
         out, adj = compiled.outbound({"temperature": 0.7, "top_p": 0.9})
         assert out == {"combined": "0.7/0.9"}
-        assert adj == []  # consumed keys are skipped silently, not "dropped"
+        # Consumed keys skip the scalar pass (never "dropped"); since PB-03 (2026-10-17)
+        # each is recorded as TRANSLATED by its processor — nothing a processor reads is silent.
+        assert {(a.key, a.action, a.expected) for a in adj} == {
+            ("temperature", "mapped", True),
+            ("top_p", "mapped", True),
+        }
 
     def test_metadata_keys_never_reach_the_wire(self):
         compiled = _compiled({})

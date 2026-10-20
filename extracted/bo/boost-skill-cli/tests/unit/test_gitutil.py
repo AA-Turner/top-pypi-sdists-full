@@ -183,7 +183,9 @@ class TestCloneAndInspect:
     def test_clone_shallow_issues_exact_argv(self, tmp_path, monkeypatch):
         calls = _record_run(monkeypatch)
         gitutil.clone_shallow("git@example:x.git", tmp_path / "d", sparse=False)
-        (args, kw), = calls
+        # The clone, then the check that it holds a commit at all.
+        (args, kw), (verify, _) = calls
+        assert verify == ["-C", str(tmp_path / "d"), "rev-parse", "--verify", "--quiet", "HEAD"]
         assert args == ["clone", "--depth", "1", "--quiet",
                         "-c", "core.autocrlf=false", "-c", "core.eol=lf", "--",
                         "git@example:x.git", str(tmp_path / "d")]
@@ -193,7 +195,8 @@ class TestCloneAndInspect:
         """The default: same flags plus the blobless/sparse pair, then the cone."""
         calls = _record_run(monkeypatch)
         gitutil.clone_shallow("git@example:x.git", tmp_path / "d")
-        (clone_args, kw), (cone_args, _) = calls
+        (clone_args, kw), (cone_args, _), (verify, _) = calls
+        assert verify == ["-C", str(tmp_path / "d"), "rev-parse", "--verify", "--quiet", "HEAD"]
         assert clone_args == ["clone", "--depth", "1", "--quiet",
                               "-c", "core.autocrlf=false", "-c", "core.eol=lf",
                               "--filter=blob:none", "--sparse", "--",
@@ -226,8 +229,9 @@ class TestCloneAndInspect:
     def test_clone_shallow_allows_ordinary_https(self, tmp_path, monkeypatch):
         calls = _record_run(monkeypatch)
         gitutil.clone_shallow("https://github.com/o/r", tmp_path / "d")
-        # a normal remote clones, not rejected: the clone, then its sparse cone
-        assert len(calls) == 2
+        # a normal remote clones, not rejected: the clone, its sparse cone,
+        # then the check that it holds a commit
+        assert len(calls) == 3
         assert calls[0][0][0] == "clone"
         assert "sparse-checkout" in calls[1][0]
 
@@ -320,6 +324,128 @@ class TestPull:
 
         gitutil.pull(tmp_path / "clone")
         assert not any("FETCH_HEAD" in a for a in calls)
+
+
+def _git_out(*args, cwd):
+    return subprocess.run(["git", *args], cwd=str(cwd), check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+def _move_default_branch(origin, new="trunk", delete_old=False):
+    """Switch `origin`'s HEAD to a new branch carrying one more commit."""
+    old = _git_out("symbolic-ref", "--short", "HEAD", cwd=origin)
+    _git("checkout", "-qb", new, cwd=origin)
+    (origin / "trunk-only.md").write_text("new\n", encoding="utf-8")
+    (origin / "blob.bin").write_text("freight\n", encoding="utf-8")
+    _git("add", "-A", cwd=origin)
+    _git("commit", "-qm", "on " + new, cwd=origin)
+    if delete_old:
+        _git("branch", "-qD", old, cwd=origin)
+    return old
+
+
+class TestPullFollowsTheDefaultBranch:
+    """`--depth 1` implies one branch, so the refspec froze on the branch that
+    was default at clone time: a renamed or switched upstream default read as
+    "already up to date", and deleting the old branch broke every update."""
+
+    def test_follows_a_switched_default_branch(self, tmp_path):
+        origin = _make_repo(tmp_path / "origin-switch")
+        clone = tmp_path / "clone-switch"
+        gitutil.clone_shallow(origin.as_uri(), clone)
+        before = gitutil.head_commit(clone)
+        _move_default_branch(origin)
+
+        summary = gitutil.pull(clone)
+        after = gitutil.head_commit(clone)
+        assert after == gitutil.head_commit(origin)
+        assert summary == "%s → %s" % (before[:7], after[:7])
+        assert (clone / "trunk-only.md").is_file()
+        assert _git_out("config", "--get-all", "remote.origin.fetch",
+                        cwd=clone) == "+refs/heads/trunk:refs/remotes/origin/trunk"
+        assert _git_out("symbolic-ref", "refs/remotes/origin/HEAD",
+                        cwd=clone) == "refs/remotes/origin/trunk"
+
+    def test_survives_the_old_branch_being_deleted(self, tmp_path):
+        origin = _make_repo(tmp_path / "origin-rename")
+        clone = tmp_path / "clone-rename"
+        gitutil.clone_shallow(origin.as_uri(), clone)
+        _move_default_branch(origin, delete_old=True)
+
+        gitutil.pull(clone)
+        assert gitutil.head_commit(clone) == gitutil.head_commit(origin)
+        # a second run is a plain up-to-date pull, not a recurring failure
+        assert gitutil.pull(clone) == "already up to date"
+
+    def test_keeps_the_clone_shallow_blobless_and_sparse(self, tmp_path):
+        origin = _make_repo(tmp_path / "origin-sparse")
+        clone = tmp_path / "clone-sparse"
+        gitutil.clone_shallow(origin.as_uri(), clone)
+        _move_default_branch(origin, delete_old=True)
+
+        gitutil.pull(clone)
+        assert gitutil.is_shallow(clone)
+        assert gitutil.is_sparse(clone)
+        assert (clone / "trunk-only.md").is_file()
+        assert not (clone / "blob.bin").exists()     # outside the cone
+        assert _git_out("config", "remote.origin.partialclonefilter",
+                        cwd=clone) == "blob:none"
+
+    def test_parses_the_symref_line(self, tmp_path, monkeypatch):
+        calls = _record_run(
+            monkeypatch,
+            stdout="ref: refs/heads/dev/x\tHEAD\n%s\tHEAD\n" % ("a" * 40))
+        assert gitutil.remote_default_branch(tmp_path) == "dev/x"
+        (args, kw), = calls
+        assert args == ["-C", str(tmp_path), "ls-remote", "--symref",
+                        "origin", "HEAD"]
+        assert kw.get("check") is False
+
+    @pytest.mark.parametrize("stdout", [
+        "%s\tHEAD\n" % ("a" * 40),                  # no symref (old server)
+        "ref: refs/heads/main\trefs/heads/x\n",       # not HEAD's symref
+        "ref: refs/tags/v1\tHEAD\n",                  # not a branch
+        "",
+    ])
+    def test_no_branch_when_the_remote_names_none(self, tmp_path, monkeypatch,
+                                                  stdout):
+        _record_run(monkeypatch, stdout=stdout)
+        assert gitutil.remote_default_branch(tmp_path) == ""
+
+    def test_no_branch_when_ls_remote_fails(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            "boost_cli.core.gitutil.run",
+            lambda args, **kw: FakeProc(rc=128,
+                                        stdout="ref: refs/heads/m\tHEAD\n"))
+        assert gitutil.remote_default_branch(tmp_path) == ""
+
+    @pytest.mark.parametrize("have", [
+        "+refs/heads/main:refs/remotes/origin/main\n",
+        "+refs/heads/*:refs/remotes/origin/*\n",
+    ])
+    def test_leaves_a_covering_refspec_alone(self, tmp_path, monkeypatch, have):
+        calls = []
+
+        def rec(args, **kw):
+            calls.append(args)
+            if "ls-remote" in args:
+                return FakeProc(stdout="ref: refs/heads/main\tHEAD\n")
+            return FakeProc(stdout=have)
+        monkeypatch.setattr("boost_cli.core.gitutil.run", rec)
+        assert gitutil.follow_default_branch(tmp_path) == "main"
+        assert not any("--replace-all" in a for a in calls)
+
+    def test_no_refspec_change_when_the_remote_names_no_branch(
+            self, tmp_path, monkeypatch):
+        calls = _record_run(monkeypatch, stdout="")
+        assert gitutil.follow_default_branch(tmp_path) == ""
+        assert [a[2] for a, _ in calls] == ["ls-remote"]
+
+    def test_pull_without_a_named_branch_leaves_origin_head(self, tmp_path,
+                                                            monkeypatch):
+        calls = _record_run(monkeypatch, stdout="a" * 40 + "\n")
+        gitutil.pull(tmp_path / "clone")
+        assert not any("symbolic-ref" in a for a, _ in calls)
 
 
 class TestCredentialPromptTranslation:

@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 
 import cerebras.cloud.sdk as cerebras_sdk
 from cerebras.cloud.sdk import AsyncCerebras
-from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
 
 from matrx_ai.config import (
@@ -176,7 +175,7 @@ class CerebrasChat:
 
         # Native async API call - no executor needed!
         response = await self.client.chat.completions.create(
-            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="cerebras")
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="cerebras", snapshot=True)
         )
 
         vcprint("[Cerebras] API call completed, processing response...", color="cyan")
@@ -200,14 +199,7 @@ class CerebrasChat:
                 elif isinstance(content, TextContent):
                     await emitter.send_chunk(content.text)
                 elif isinstance(content, ToolCallContent):
-                    await emitter.send_info(
-                        InfoPayload(
-                            code="tool_processing",
-                            system_message=f"Executing {content.name}",
-                            user_message=f"Using tool {content.name}",
-                            metadata={"tool_call": content.name},
-                        )
-                    )
+                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
 
         vcprint("[Cerebras] Non-streaming execution completed successfully", color="green")
         return converted_response
@@ -224,7 +216,7 @@ class CerebrasChat:
 
         # Native async streaming - stream=True already in config_data from translator
         stream = await self.client.chat.completions.create(
-            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="cerebras")
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="cerebras", snapshot=True)
         )
 
         vcprint(

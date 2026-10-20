@@ -176,6 +176,8 @@ TABLE_PROMOTION_MODE_SETTING_KEY: str
 STAGED_PROMOTION_MODE: str
 STAGE_CAPTURE_DIR_ENV_VAR: str
 COMPILE_REUSE_DISABLE_ENV_VAR: str
+DELTA_COMPILE_DISABLE_ENV_VAR: str
+DELTA_COMPILE_VERIFY_ENV_VAR: str
 SQLBUILD_QUERY_TAG_APP: str
 STORE_TRACKED_ENVIRONMENT_PREFIXES: tuple[str, ...]
 STORE_UNTRACKED_ENVIRONMENT_NAMES: frozenset[str]
@@ -3045,6 +3047,7 @@ class NativeProgressProjector:
     def restore(self, token: Token[NativeProgressProjector | None]) -> None: ...
     def configure_resources(self, *, ordinals: Mapping[str, int], total: int) -> None: ...
     def expect_resource_enrichment(self, *, resource_name: str) -> None: ...
+    def record_audit_outcome(self, *, resource_attempt_id: str, outcome: str) -> None: ...
     def is_operation_active(self, *, operation_name: str) -> bool: ...
     def consume(self, event: LifecycleEvent) -> None: ...
     def consume_resource_terminal(
@@ -3320,6 +3323,20 @@ def invocation_context_from_environment(
     *, environment: Mapping[str, str] | None = None
 ) -> Mapping[str, object]: ...
 
+class RecallLifecycleSink:
+    """The invocation's Recall session as lifecycle and SQL artifact subscribers."""
+
+    def __call__(self, event: LifecycleEvent) -> None: ...
+    def record_sql(
+        self, *, sql: str, statement_id: str | None = None, resource_id: str | None = None
+    ) -> None: ...
+
+class RecallWriter:
+    """Publishes the records a Recall replacement sink keeps; valid only during the sink call."""
+
+    def publish_lifecycle(self, event: LifecycleEvent) -> None: ...
+    def publish_command_output(self, record: CommandOutputRecord) -> None: ...
+
 class LocalFilesystemComputeLogStorage:
     """Ordered fsync capture storage subject to underlying filesystem and hardware guarantees."""
 
@@ -3330,6 +3347,7 @@ class LocalFilesystemComputeLogStorage:
         root: Path | None = None,
         retention_count: int | None = 20,
     ) -> None: ...
+    def attach_recall(self, recall: RecallLifecycleSink) -> None: ...
     @property
     def root(self) -> Path: ...
     def start_capture(self, metadata: CaptureMetadata) -> None: ...
@@ -3643,6 +3661,18 @@ class CliNamespace:
     rules_command: str | None
     rules_rule_selector: str | None
     rules_skills_check: bool
+    recall_command: str | None
+    recall_sql: str | None
+    recall_backend: str
+    recall_format: str
+    recall_limit: int
+    recall_no_limit: bool
+    recall_max_cell_bytes: int | None
+    recall_state: bool
+    recall_relation: str | None
+    recall_invocation: str
+    recall_stream: str
+    recall_tail: int | None
     format_check: bool
     format_diff: bool
     format_fixtures_only: bool
@@ -4065,6 +4095,7 @@ def compile_frontier[T](
     native_stage: Callable[[], T] | None = None,
 ) -> T: ...
 def render_stage_capture(value: object) -> str: ...
+def claim_first_compile() -> bool: ...
 def digest_module_files(paths: Iterable[str], /) -> dict[str, str] | None: ...
 def module_digests_metadata(digests: dict[str, str], /) -> bytes: ...
 def unchanged_module_digests(
@@ -4720,7 +4751,9 @@ def normalize_sql_value(
     explicit_type: str | None = None,
     limits: SqlValueLimits | None = None,
 ) -> SqlValue: ...
-def render_state_sql_literal(*, value: object | None, declared_type: StateSqlValueType) -> str: ...
+def render_state_sql_literal(
+    *, value: object | None, declared_type: StateSqlValueType, timestamp_type: str | None = None
+) -> str: ...
 def format_diagnostics_console_record(record: logging.LogRecord, *, use_color: bool) -> str: ...
 def interpreter_identity() -> tuple[str, str, str, str]: ...
 def project_microbatch_coverage(
@@ -4749,7 +4782,10 @@ def deterministic_microbatch_event_id(
     completion_reason: str,
 ) -> str: ...
 def build_microbatch_insert_many_sql(
-    *, events: tuple[MicrobatchEvent, ...], render_qualified_name: Callable[..., str | None]
+    *,
+    events: tuple[MicrobatchEvent, ...],
+    render_qualified_name: Callable[..., str | None],
+    timestamp_type: str | None = None,
 ) -> str: ...
 def build_microbatch_existing_event_ids_sql(
     *, events: tuple[MicrobatchEvent, ...], render_qualified_name: Callable[..., str | None]
@@ -5286,6 +5322,7 @@ class MacroCallMemo:
     def stats(self) -> tuple[int, int, int]: ...
     def attach_store(self, path: str, environment: str) -> tuple[bytes, int]: ...
     def discard_store(self) -> None: ...
+    def store_allowed(self) -> bool: ...
     def store_needs_save(self) -> bool: ...
     def store_stats(self) -> tuple[int, int]: ...
     def save_store(self, path: str, metadata: bytes) -> int | None: ...
@@ -8715,6 +8752,7 @@ class CliEntrypointHandlers(NativeRecord):
     run_scope: ScopeCommandHandler
     run_contract: Callable[..., int] | None
     run_refactor: Callable[..., int] | None
+    run_recall: Callable[..., int] | None
     def __init__(
         self,
         run_compile: Callable[[CompileCommandRequest], int],
@@ -8749,6 +8787,7 @@ class CliEntrypointHandlers(NativeRecord):
         run_scope: ScopeCommandHandler,
         run_contract: Callable[..., int] | None = None,
         run_refactor: Callable[..., int] | None = None,
+        run_recall: Callable[..., int] | None = None,
     ) -> None: ...
 
 class CommandWarehouseScope(NativeRecord):
@@ -9548,6 +9587,7 @@ class CliCommand(StrEnum):
     CONTRACT = "contract"
     RENAME = "rename"
     MV = "mv"
+    RECALL = "recall"
 
 class ScopeCommandHandler(Protocol):
     def __call__(self, *, request: ScopeCommandRequest) -> int: ...
@@ -13749,6 +13789,7 @@ class SettingsConfig(NativeRecord):
     test_timeout_seconds: int | None
     scenario_timeout: str | None
     scenario_timeout_seconds: int | None
+    delta_compile: bool
     def __init__(
         self,
         sql_analysis: bool = ...,
@@ -13767,6 +13808,7 @@ class SettingsConfig(NativeRecord):
         test_timeout_seconds: int | None = ...,
         scenario_timeout: str | None = ...,
         scenario_timeout_seconds: int | None = ...,
+        delta_compile: bool = ...,
     ) -> None: ...
     @property
     def sql_validation(self) -> bool: ...
@@ -14398,6 +14440,7 @@ class SourceEntry(NativeRecord):
     database: str | None
     schema: str | None
     table: str | None
+    final: bool
     loader: str | None
     managed: bool
     integration_loader: IntegrationLoaderConfig | None
@@ -14419,6 +14462,7 @@ class SourceEntry(NativeRecord):
         database: str | None = ...,
         schema: str | None = ...,
         table: str | None = ...,
+        final: bool = ...,
         loader: str | None = ...,
         managed: bool = ...,
         integration_loader: IntegrationLoaderConfig | None = ...,
@@ -15702,9 +15746,12 @@ class ModelPlanEntry(NativeRecord):
     snapshot_full_refresh: str | None
     snapshot_schema_change: str | None
     table_type: str
+    physical_storage: dict[str, object]
+    expected_output_columns: tuple[str, ...] | None
     on_schema_change: OnSchemaChange | None
     type_enforcement: bool
     declared_columns: tuple[ColumnInfo, ...]
+    inferred_columns: tuple[ColumnInfo, ...]
     contract_enforced: bool
     contract_columns: tuple[ColumnInfo, ...]
     contract_dynamic_columns: tuple[SchemaDynamicColumnFamily, ...]
@@ -15785,9 +15832,12 @@ class ModelPlanEntry(NativeRecord):
         snapshot_full_refresh: str | None = ...,
         snapshot_schema_change: str | None = ...,
         table_type: str = ...,
+        physical_storage: dict[str, object] = ...,
+        expected_output_columns: tuple[str, ...] | None = ...,
         on_schema_change: OnSchemaChange | None = ...,
         type_enforcement: bool = ...,
         declared_columns: tuple[ColumnInfo, ...] = ...,
+        inferred_columns: tuple[ColumnInfo, ...] = ...,
         contract_enforced: bool = ...,
         contract_columns: tuple[ColumnInfo, ...] = ...,
         contract_dynamic_columns: tuple[SchemaDynamicColumnFamily, ...] = ...,
@@ -16881,12 +16931,16 @@ class DiscoveredRuntimeExtensions(NativeRecord):
     event_exporters: tuple[DiscoveredEventExporter, ...]
     command_output_sinks: tuple[DiscoveredCommandOutputSink, ...]
     lifecycle_shutdown_timeout_seconds: int | None
+    recall_lifecycle_sink: tuple[DiscoveredEventExporter, str] | None
+    recall_output_sink: tuple[DiscoveredCommandOutputSink, str] | None
     def __init__(
         self,
         providers: tuple[DiscoveredProvider, ...] = ...,
         event_exporters: tuple[DiscoveredEventExporter, ...] = ...,
         command_output_sinks: tuple[DiscoveredCommandOutputSink, ...] = ...,
         lifecycle_shutdown_timeout_seconds: int | None = ...,
+        recall_lifecycle_sink: tuple[DiscoveredEventExporter, str] | None = ...,
+        recall_output_sink: tuple[DiscoveredCommandOutputSink, str] | None = ...,
     ) -> None: ...
 
 class ProjectGraph:

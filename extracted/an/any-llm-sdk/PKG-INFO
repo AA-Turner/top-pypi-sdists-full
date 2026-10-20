@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.37.0
+Version: 1.38.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -96,7 +96,7 @@ Provides-Extra: deepinfra
 Provides-Extra: edenai
 Provides-Extra: telnyx
 Provides-Extra: typesafe
-Requires-Dist: typesafe-sdk<0.8,>=0.7.2; extra == "typesafe"
+Requires-Dist: typesafe-sdk<0.8,>=0.7.3; extra == "typesafe"
 Dynamic: license-file
 
 <p align="center">

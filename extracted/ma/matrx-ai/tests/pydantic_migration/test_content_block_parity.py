@@ -124,7 +124,7 @@ def test_text_accepts_the_one_stored_array():
     assert TextContentModel(text=[{"type": "text"}]).text == [{"type": "text"}]
 
 
-# ── construction-time behaviour ───────────────────────────────────────────────
+# ── construction-time behavior ───────────────────────────────────────────────
 
 
 @pytest.mark.parametrize("old,new", PAIRS, ids=lambda c: getattr(c, "__name__", ""))

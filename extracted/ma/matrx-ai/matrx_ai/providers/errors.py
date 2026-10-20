@@ -76,7 +76,7 @@ class RetryableError:
 # ---------------------------------------------------------------------------
 # A provider bills us the instant a call starts; the charge stands even when
 # the call then FAILS (raised error, ``response.failed``, an incomplete or a
-# mid-stream break) or is CANCELLED in-flight. The orchestrator historically
+# mid-stream break) or is CANCELED in-flight. The orchestrator historically
 # recorded usage ONLY on a successful provider return, so a failed cx_request
 # carried ``cost=0`` while we were really billed — the exact gap that let
 # mid-flight API rejections go un-costed (per the cost-tracking incident).
@@ -178,7 +178,7 @@ def wire_was_engaged(exc: BaseException) -> bool:
     # A bare cancel is EXCLUDED, and not because cancels aren't billed — they are,
     # and layer 1 captures them where it can. It is because layer 2 cannot judge
     # them: `stream_with_billed_usage` is an async generator, so when the task is
-    # cancelled while the CONSUMER's loop body is awaiting, the CancelledError is
+    # canceled while the CONSUMER's loop body is awaiting, the CancelledError is
     # raised in the consumer and the generator only ever sees GeneratorExit. The
     # adapter did everything right and still cannot mark that object. Alarming
     # here would fire on every stop-button press on four providers and say the
@@ -189,7 +189,7 @@ def wire_was_engaged(exc: BaseException) -> bool:
     if isinstance(exc, _NEVER_SENT_EXC):
         return False
     # `_extract_status_code` reads the status off the exception itself. Several
-    # SDK errors (httpx.HTTPStatusError, and anything modelled on it) instead
+    # SDK errors (httpx.HTTPStatusError, and anything modeled on it) instead
     # hang it on `.response`, so check both — missing it here would let a 400 or
     # 401 fall through to the httpx branch below and fire the alarm on a
     # rejection that cost nothing.
@@ -818,7 +818,7 @@ def _handle_billing_error(
 def classify_billing_refusal(exception: BaseException, provider: str) -> RetryableError | None:
     """A provider's refusal because the platform's account has no credit — any provider, any shape.
 
-    Recognised before any provider-specific branch because providers report it
+    Recognized before any provider-specific branch because providers report it
     every way there is: HTTP 402, 400 (Anthropic), 401 (ElevenLabs), 403 (xAI),
     429 (OpenAI / Google / Moonshot), or a status-less stream error (OpenAI).
     """
@@ -1346,7 +1346,7 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             user_message=message,
         )
 
-    # A message flag this model cannot honour, under the org's `refuse` mode
+    # A message flag this model cannot honor, under the org's `refuse` mode
     # (e.g. a Prefill on Claude Sonnet 5). Refused before any provider call;
     # retrying the same agent cannot change the answer, and the sentence names
     # the model and the three remedies.

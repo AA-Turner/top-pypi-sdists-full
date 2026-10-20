@@ -24,6 +24,7 @@ else:
 __all__ = (
     "ApplicationRevisionSortByType",
     "AutoRollbackEventType",
+    "AutoScalingGroupProcessType",
     "BundleTypeType",
     "CodeDeployServiceName",
     "ComputePlatformType",
@@ -78,6 +79,9 @@ __all__ = (
 ApplicationRevisionSortByType = Literal["firstUsedTime", "lastUsedTime", "registerTime"]
 AutoRollbackEventType = Literal[
     "DEPLOYMENT_FAILURE", "DEPLOYMENT_STOP_ON_ALARM", "DEPLOYMENT_STOP_ON_REQUEST"
+]
+AutoScalingGroupProcessType = Literal[
+    "AZRebalance", "InstanceRefresh", "ScheduledActions", "Terminate"
 ]
 BundleTypeType = Literal["JSON", "YAML", "tar", "tgz", "zip"]
 ComputePlatformType = Literal["ECS", "Lambda", "Server"]

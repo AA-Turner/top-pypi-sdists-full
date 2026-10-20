@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import collections
+import contextlib
 import logging
+import operator
 from datetime import datetime
+from itertools import islice, repeat
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     cast,
 )
 
@@ -18,11 +22,344 @@ from pyathena.model import AthenaQueryExecution
 from pyathena.util import RetryConfig, override, parse_output_location, retry_api_call
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
 
     from pyathena.connection import Connection
 
 _logger = logging.getLogger(__name__)
+
+_FETCH_FAILED_MESSAGE = "The result set cannot be fetched after a failed fetch."
+_CLOSED_MESSAGE = "AthenaResultSet is closed."
+
+
+class AthenaResultSetMetadataReader:
+    """Reads the metadata of the result set of a query execution from the Athena API.
+
+    It builds and sends the ``GetQueryResults`` requests of the result set,
+    parses their ``ResultSetMetadata``, and formats the DB API 2.0 column
+    descriptions. :meth:`read` reads the metadata and the update count from a
+    page of one row; :meth:`describe` returns the descriptions without the rows.
+    The result sets page through the same requests, so that the descriptions of
+    a result set and of its reader match. It reads no rows and holds no
+    resources to close.
+    """
+
+    _DML_SUBSTATEMENT_TYPES: frozenset[str] = frozenset({"INSERT", "UPDATE", "DELETE", "MERGE"})
+
+    def __init__(
+        self,
+        connection: Connection[Any],
+        query_execution: AthenaQueryExecution,
+        retry_config: RetryConfig,
+    ) -> None:
+        """Initialize the reader; it sends no request.
+
+        Args:
+            connection: The connection that ran the query.
+            query_execution: The query execution whose result set to read.
+            retry_config: The retry configuration for API calls.
+        """
+        self._connection = connection
+        self._query_execution = query_execution
+        self._retry_config = retry_config
+        self._metadata: tuple[dict[str, Any], ...] | None = None
+        self._update_count: int | None = None
+
+    @property
+    def query_execution(self) -> AthenaQueryExecution:
+        """The query execution whose result set the reader reads."""
+        return self._query_execution
+
+    @property
+    def is_unload(self) -> bool:
+        """Whether the query is an UNLOAD statement that the cursor runs for its result."""
+        return False
+
+    @property
+    def reads_unload_files(self) -> bool:
+        """Whether the result set is read from the Parquet files of the UNLOAD output."""
+        return False
+
+    @property
+    def metadata(self) -> tuple[dict[str, Any], ...] | None:
+        """The column metadata that :meth:`read` read; None before it."""
+        return self._metadata
+
+    @property
+    def update_count(self) -> int | None:
+        """The ``UpdateCount`` that :meth:`read` read, if the response has one."""
+        return self._update_count
+
+    def build_get_query_results_request(
+        self, max_results: int, next_token: str | None = None
+    ) -> dict[str, Any]:
+        """Build a ``GetQueryResults`` request for the query.
+
+        Args:
+            max_results: The maximum number of rows in the page.
+            next_token: The token of the page to get; the first page if None.
+
+        Returns:
+            The request parameters.
+
+        Raises:
+            ProgrammingError: If the query ID is missing or the query has not
+                succeeded.
+        """
+        if not self._query_execution.query_id:
+            raise ProgrammingError("QueryExecutionId is none or empty.")
+        if self._query_execution.state != AthenaQueryExecution.STATE_SUCCEEDED:
+            raise ProgrammingError("QueryExecutionState is not SUCCEEDED.")
+        request: dict[str, Any] = {
+            "QueryExecutionId": self._query_execution.query_id,
+            "MaxResults": max_results,
+        }
+        if next_token:
+            request["NextToken"] = next_token
+        return request
+
+    def get_query_results(self, max_results: int, next_token: str | None = None) -> dict[str, Any]:
+        """Get a page of query results with ``GetQueryResults``.
+
+        Args:
+            max_results: The maximum number of rows in the page.
+            next_token: The token of the page to get; the first page if None.
+
+        Returns:
+            The ``GetQueryResults`` response.
+
+        Raises:
+            ProgrammingError: If the query ID is missing or the query has not
+                succeeded.
+            OperationalError: If the request fails.
+        """
+        request = self.build_get_query_results_request(max_results, next_token)
+        try:
+            response = retry_api_call(
+                self._connection.client.get_query_results,
+                config=self._retry_config,
+                logger=_logger,
+                **request,
+            )
+        except Exception as e:
+            _logger.exception("Failed to fetch result set.")
+            raise OperationalError(*e.args) from e
+        else:
+            return cast(dict[str, Any], response)
+
+    def parse_metadata(self, response: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+        """Parse the column metadata of a ``GetQueryResults`` response.
+
+        Args:
+            response: The ``GetQueryResults`` response.
+
+        Returns:
+            The ``ColumnInfo`` of the response.
+
+        Raises:
+            DataError: If the response has no result metadata.
+        """
+        result_set = response.get("ResultSet")
+        if not result_set:
+            raise DataError("KeyError `ResultSet`")
+        metadata = result_set.get("ResultSetMetadata")
+        if not metadata:
+            raise DataError("KeyError `ResultSetMetadata`")
+        column_info = metadata.get("ColumnInfo")
+        if column_info is None:
+            raise DataError("KeyError `ColumnInfo`")
+        return tuple(column_info)
+
+    def read(self) -> None:
+        """Read the metadata and the update count from a ``GetQueryResults`` page of one row.
+
+        The rows of the page are not read.
+
+        Raises:
+            ProgrammingError: If the query ID is missing or the query has not
+                succeeded.
+            OperationalError: If the request fails.
+            DataError: If the response has no result metadata.
+        """
+        response = self.get_query_results(1)
+        self._metadata = self.parse_metadata(response)
+        self._update_count = response.get("UpdateCount")
+
+    def description(
+        self, metadata: tuple[dict[str, Any], ...] | None
+    ) -> list[tuple[str, str, None, None, int, int, str]] | None:
+        """Format the DB API 2.0 column descriptions of column metadata.
+
+        Args:
+            metadata: The column metadata.
+
+        Returns:
+            The descriptions; None without metadata, or for ``INSERT``, ``UPDATE``,
+            ``DELETE``, and ``MERGE``.
+        """
+        substatement_type = self._query_execution.substatement_type
+        if metadata is None or (
+            substatement_type and substatement_type.upper() in self._DML_SUBSTATEMENT_TYPES
+        ):
+            return None
+        return [
+            (
+                m["Name"],
+                m["Type"],
+                None,
+                None,
+                m["Precision"],
+                m["Scale"],
+                m["Nullable"],
+            )
+            for m in metadata
+        ]
+
+    def describe(self) -> list[tuple[str, str, None, None, int, int, str]] | None:
+        """Read the column descriptions of the result set without its rows.
+
+        Returns:
+            The descriptions, as :meth:`description` formats them; None if the
+            query has not succeeded, without a request.
+
+        Raises:
+            OperationalError: If reading the metadata fails.
+            ProgrammingError: If the query execution of an UNLOAD result has no
+                data manifest location.
+        """
+        if self._query_execution.state != AthenaQueryExecution.STATE_SUCCEEDED:
+            return None
+        self.read()
+        return self.description(self._metadata)
+
+
+class AthenaUnloadResultSetMetadataReader(AthenaResultSetMetadataReader):
+    """Reads the metadata of a result set that can be read from the output files of UNLOAD.
+
+    The pandas, Arrow, and Polars result sets read the Parquet files of an
+    UNLOAD query instead of its CSV result. This reader decides whether the
+    result set does, reads the data manifest of the query, and derives the
+    unload location. A result without data files has no columns; otherwise a
+    subclass reads the metadata from the Parquet files, as its result set
+    reads them (see :meth:`_read_parquet_metadata`). Other results are read
+    as the base class reads them.
+    """
+
+    def __init__(
+        self,
+        connection: Connection[Any],
+        query_execution: AthenaQueryExecution,
+        retry_config: RetryConfig,
+        unload: bool = False,
+        unload_location: str | None = None,
+    ) -> None:
+        """Initialize the reader; it sends no request.
+
+        Args:
+            connection: The connection that ran the query.
+            query_execution: The query execution whose result set to read.
+            retry_config: The retry configuration for API calls.
+            unload: Whether the cursor runs its queries as UNLOAD to Parquet.
+            unload_location: The S3 location of the UNLOAD output. If None, it is
+                derived from the first file in the data manifest.
+        """
+        super().__init__(connection, query_execution, retry_config)
+        self._unload = unload
+        self._unload_location = unload_location
+        self._data_manifest: list[str] = []
+
+    @property
+    @override
+    def is_unload(self) -> bool:
+        """Whether the query is an UNLOAD statement that the cursor runs for its result."""
+        query = self._query_execution.query
+        return bool(self._unload and query and query.strip().upper().startswith("UNLOAD"))
+
+    @property
+    @override
+    def reads_unload_files(self) -> bool:
+        """Whether the result set is read from the Parquet files of the UNLOAD output.
+
+        A query without a result location, as with managed query result storage,
+        is read from ``GetQueryResults``.
+        """
+        return self.is_unload and bool(self._query_execution.output_location)
+
+    @property
+    def unload_location(self) -> str | None:
+        """The S3 location of the UNLOAD output, given or derived by :meth:`read`."""
+        return self._unload_location
+
+    @property
+    def data_manifest(self) -> list[str]:
+        """The S3 paths of the Parquet files that :meth:`read` read from the data manifest."""
+        return self._data_manifest
+
+    @override
+    def read(self) -> None:
+        """Read the metadata, from the Parquet files of the UNLOAD output.
+
+        A result read from the files has no update count, and no
+        ``GetQueryResults`` request is sent for it.
+
+        Raises:
+            OperationalError: If reading the data manifest or the metadata fails.
+            ProgrammingError: If the query execution has no data manifest location.
+        """
+        if not self.reads_unload_files:
+            super().read()
+            return
+        self._data_manifest = self._read_data_manifest()
+        if not self._data_manifest:
+            self._metadata = ()
+            return
+        if not self._unload_location:
+            self._unload_location = "/".join(self._data_manifest[0].split("/")[:-1]) + "/"
+        self._metadata = self._read_parquet_metadata()
+
+    def _read_data_manifest(self) -> list[str]:
+        """Read the paths of the result files of an UNLOAD query from its data manifest.
+
+        Returns:
+            The S3 paths of the result files, or an empty list if the manifest lists
+            no files.
+
+        Raises:
+            ProgrammingError: If the query execution has no data manifest location.
+            OperationalError: If getting or reading the data manifest fails.
+        """
+        location = self._query_execution.data_manifest_location
+        if not location:
+            raise ProgrammingError("DataManifestLocation is none or empty.")
+        bucket, key = parse_output_location(location)
+        try:
+            response = retry_api_call(
+                self._connection.s3_client.get_object,
+                config=self._retry_config,
+                logger=_logger,
+                Bucket=bucket,
+                Key=key,
+            )
+            with contextlib.closing(response["Body"]) as body:
+                manifest: str = body.read().decode("utf-8").strip()
+        except Exception as e:
+            _logger.exception(f"Failed to read {bucket}/{key}.")
+            raise OperationalError(*e.args) from e
+        return manifest.split("\n") if manifest else []
+
+    def _read_parquet_metadata(self) -> tuple[dict[str, Any], ...]:
+        """Read the column metadata from the Parquet files of the UNLOAD output.
+
+        :meth:`read` calls this after it has read the data manifest, which lists
+        at least one file, and derived the unload location.
+
+        Returns:
+            The column metadata.
+
+        Raises:
+            NotImplementedError: Always; subclasses implement it.
+        """
+        raise NotImplementedError
 
 
 class AthenaResultSet(CursorIterator):
@@ -59,7 +396,11 @@ class AthenaResultSet(CursorIterator):
     # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
     # Athena complex types that benefit from type hint conversion.
     _COMPLEX_TYPES: frozenset[str] = frozenset({"array", "map", "row", "struct"})
-    _DML_SUBSTATEMENT_TYPES: frozenset[str] = frozenset({"INSERT", "UPDATE", "DELETE", "MERGE"})
+    # The class that reads the metadata of the result set, which the result set class
+    # determines; AsyncCursor.description() reads with it too.
+    _metadata_reader_class: ClassVar[type[AthenaResultSetMetadataReader]] = (
+        AthenaResultSetMetadataReader
+    )
 
     def __init__(
         self,
@@ -81,7 +422,9 @@ class AthenaResultSet(CursorIterator):
                 ``fetchmany()`` size.
             retry_config: The retry configuration for API calls.
             _pre_fetch: Whether to fetch the first page here when the query succeeded.
-                The async result set passes False and fetches it itself.
+                The async result set passes False and fetches it itself, and so do
+                the result sets that read their result with their own metadata
+                reader.
             result_set_type_hints: Athena type signatures for complex-type columns,
                 keyed by column name (case-insensitive) or zero-based column index.
 
@@ -96,6 +439,10 @@ class AthenaResultSet(CursorIterator):
         if not self._query_execution:
             raise ProgrammingError("Required argument `query_execution` not found.")
         self._retry_config = retry_config
+        # Sends the GetQueryResults requests and describes the result set; see _reader.
+        # A result set whose reader takes its read options sets it in its constructor.
+        # None once closed.
+        self._metadata_reader: AthenaResultSetMetadataReader | None = None
         self._hints_by_name: dict[str, str] = {}
         self._hints_by_index: dict[int, str] = {}
         if result_set_type_hints:
@@ -113,6 +460,8 @@ class AthenaResultSet(CursorIterator):
             collections.deque()
         )
         self._next_token: str | None = None
+        # Whether a fetch raised, after which the position of the next row is unknown.
+        self._fetch_failed = False
 
         if self.state == AthenaQueryExecution.STATE_SUCCEEDED:
             self._rownumber = 0
@@ -296,16 +645,16 @@ class AthenaResultSet(CursorIterator):
 
     @property
     def is_unload(self) -> bool:
-        """Check if the query is an UNLOAD statement.
+        """Whether the query is an UNLOAD statement that the cursor runs for its result.
+
+        Its result is read from the Parquet files of the UNLOAD output when the query
+        has a result location; without one, as with managed query result storage, it
+        is read from ``GetQueryResults``.
 
         Returns:
-            True if the query is an UNLOAD statement, False otherwise.
+            True if the metadata reader of the result set finds an UNLOAD result.
         """
-        return bool(
-            getattr(self, "_unload", False)
-            and self.query
-            and self.query.strip().upper().startswith("UNLOAD")
-        )
+        return not self.is_closed and self._reader.is_unload
 
     @property
     def encryption_option(self) -> str | None:
@@ -370,59 +719,40 @@ class AthenaResultSet(CursorIterator):
         """The DB API 2.0 column descriptions.
 
         None without result metadata, or for ``INSERT``, ``UPDATE``, ``DELETE``, and ``MERGE``.
+        The metadata reader of the result set formats them (see
+        ``AthenaResultSetMetadataReader.description()``). A subclass that changes the
+        descriptions does so in its reader class (``_metadata_reader_class``), which
+        ``AsyncCursor.description()`` also reads with.
         """
-        if self._metadata is None or (
-            self.substatement_type
-            and self.substatement_type.upper() in self._DML_SUBSTATEMENT_TYPES
-        ):
+        if self._metadata is None:
             return None
-        return [
-            (
-                m["Name"],
-                m["Type"],
-                None,
-                None,
-                m["Precision"],
-                m["Scale"],
-                m["Nullable"],
+        return self._reader.description(self._metadata)
+
+    @property
+    def _reader(self) -> AthenaResultSetMetadataReader:
+        """The metadata reader of the result set, while it is open.
+
+        A result set whose reader takes its read options sets its own in its
+        constructor; otherwise the reader of ``_metadata_reader_class`` is created
+        on first use. Either way, the result set has one reader.
+
+        Raises:
+            ProgrammingError: If the result set is closed.
+        """
+        self._ensure_open()
+        if self._metadata_reader is None:
+            self._metadata_reader = self._metadata_reader_class(
+                cast("Connection[Any]", self._connection),
+                cast(AthenaQueryExecution, self._query_execution),
+                self._retry_config,
             )
-            for m in self._metadata
-        ]
+        return self._metadata_reader
 
     @property
     def connection(self) -> Connection[Any]:
         """The connection of the result set; raises ``ProgrammingError`` if closed."""
-        if self.is_closed:
-            raise ProgrammingError("AthenaResultSet is closed.")
+        self._ensure_open()
         return cast("Connection[Any]", self._connection)
-
-    def _build_get_query_results_request(
-        self, max_results: int, next_token: str | None = None
-    ) -> dict[str, Any]:
-        """Build a ``GetQueryResults`` request for the result set's query.
-
-        Args:
-            max_results: The maximum number of rows in the page.
-            next_token: The token of the page to get; the first page if None.
-
-        Returns:
-            The request parameters.
-
-        Raises:
-            ProgrammingError: If the query ID is missing or the query has not
-                succeeded.
-        """
-        if not self.query_id:
-            raise ProgrammingError("QueryExecutionId is none or empty.")
-        if self.state != AthenaQueryExecution.STATE_SUCCEEDED:
-            raise ProgrammingError("QueryExecutionState is not SUCCEEDED.")
-        request: dict[str, Any] = {
-            "QueryExecutionId": self.query_id,
-            "MaxResults": max_results,
-        }
-        if next_token:
-            request["NextToken"] = next_token
-        return request
 
     def _get_query_results(self, max_results: int, next_token: str | None = None) -> dict[str, Any]:
         """Get a page of query results with ``GetQueryResults``.
@@ -439,31 +769,21 @@ class AthenaResultSet(CursorIterator):
                 succeeded, or the result set is closed.
             OperationalError: If the request fails.
         """
-        request = self._build_get_query_results_request(max_results, next_token)
-        if self.is_closed:
-            raise ProgrammingError("AthenaResultSet is closed.")
-        try:
-            response = retry_api_call(
-                self.connection.client.get_query_results,
-                config=self._retry_config,
-                logger=_logger,
-                **request,
-            )
-        except Exception as e:
-            _logger.exception("Failed to fetch result set.")
-            raise OperationalError(*e.args) from e
-        else:
-            return cast(dict[str, Any], response)
+        return self._reader.get_query_results(max_results, next_token)
 
     def _fetch(self) -> None:
-        """Fetch the next page of rows into the result set.
+        """Fetch the next rows, if any, into the buffer.
+
+        The default result set fetches the next page; it fetches nothing when no
+        page remains.
 
         Raises:
-            ProgrammingError: If there is no next page.
+            ProgrammingError: If the next page is requested and the query ID is
+                missing or the query has not succeeded.
             OperationalError: If the request fails.
         """
         if not self._next_token:
-            raise ProgrammingError("NextToken is none or empty.")
+            return
         response = self._get_query_results(self._arraysize, self._next_token)
         rows, self._next_token = self._parse_result_rows(response)
         self._process_rows(rows)
@@ -487,14 +807,25 @@ class AthenaResultSet(CursorIterator):
     def fetchone(
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
-        if not self._rows and self._next_token:
-            self._fetch()
-        if not self._rows:
-            return None
-        if self._rownumber is None:
-            self._rownumber = 0
-        self._rownumber += 1
-        return self._rows.popleft()
+        # As is_closed does, inline on the per-row path.
+        if self._connection is None:
+            raise ProgrammingError(_CLOSED_MESSAGE)
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
+        try:
+            if not self._rows:
+                self._fetch()
+                if not self._rows:
+                    return None
+            row = self._rows.popleft()
+            # As _count_rows() does, inline on the per-row path.
+            rownumber = self._rownumber
+            if rownumber is not None:
+                self._rownumber = rownumber + 1
+        except BaseException:
+            self._fetch_failed = True
+            raise
+        return row
 
     @override
     def fetchmany(
@@ -508,17 +839,22 @@ class AthenaResultSet(CursorIterator):
 
         Returns:
             The rows, fewer than ``size`` when the result is exhausted.
+
+        Raises:
+            TypeError: If ``size`` is not an integer and not replaced with ``arraysize``.
+            ProgrammingError: If the result set is closed or an earlier fetch failed.
         """
         if not size or size <= 0:
             size = self._arraysize
-        rows = []
-        for _ in range(size):
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
-        return rows
+        size = operator.index(size)
+        self._ensure_open()
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
+        try:
+            return self._take_rows(size)
+        except BaseException:
+            self._fetch_failed = True
+            raise
 
     @override
     def fetchall(
@@ -528,27 +864,111 @@ class AthenaResultSet(CursorIterator):
 
         Returns:
             The remaining rows.
+
+        Raises:
+            ProgrammingError: If the result set is closed or an earlier fetch failed.
         """
-        rows = []
-        while True:
-            row = self.fetchone()
-            if row:
-                rows.append(row)
-            else:
-                break
+        self._ensure_open()
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
+        try:
+            return self._take_rows(None)
+        except BaseException:
+            self._fetch_failed = True
+            raise
+
+    def _take_rows(self, size: int | None) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Take the next rows and count them in ``rownumber``.
+
+        The buffered rows are taken in bulk, and ``_fetch()`` refills the buffer when
+        it is empty. A subclass whose ``fetchone()`` does not use the buffer overrides
+        this method too.
+
+        Args:
+            size: The maximum number of rows, or None for all remaining rows.
+
+        Returns:
+            The rows, fewer than ``size`` when the result is exhausted.
+        """
+        rows: list[tuple[Any | None, ...] | dict[Any, Any | None]] = []
+        while size is None or len(rows) < size:
+            if not self._rows:
+                self._fetch()
+                if not self._rows:
+                    break
+            self._take_buffered_rows(rows, size)
         return rows
 
+    def _take_buffered_rows(
+        self, rows: list[tuple[Any | None, ...] | dict[Any, Any | None]], size: int | None
+    ) -> None:
+        """Move the buffered rows to ``rows`` and count them in ``rownumber``.
+
+        Args:
+            rows: The list that receives the rows.
+            size: The maximum length of ``rows``, or None for all buffered rows.
+        """
+        start = len(rows)
+        limit = None if size is None else size - start
+        if limit is not None and limit < len(self._rows):
+            # A row is never None, so popleft() runs until the limit.
+            rows.extend(islice(iter(self._rows.popleft, None), limit))
+        else:
+            rows.extend(self._rows)
+            self._rows.clear()
+        self._count_rows(len(rows) - start)
+
+    def _count_rows(self, count: int) -> None:
+        """Count the rows that a fetch took in ``rownumber``, unless it is None.
+
+        Args:
+            count: The number of rows taken.
+        """
+        if self._rownumber is not None:
+            self._rownumber += count
+
+    def _load_metadata(self) -> None:
+        """Read the metadata with the metadata reader, and set it, if the query succeeded.
+
+        The result sets that read their result with their own metadata reader call
+        this before they read their rows. The column metadata of a result read from
+        the Parquet files of an UNLOAD query is the metadata alone, without column
+        names, types, or type hints for ``GetQueryResults`` rows, and without an
+        update count.
+
+        Raises:
+            OperationalError: If reading the metadata fails.
+            ProgrammingError: If the query execution of an UNLOAD result has no
+                data manifest location.
+        """
+        if self.state != AthenaQueryExecution.STATE_SUCCEEDED:
+            return
+        reader = self._reader
+        reader.read()
+        if reader.reads_unload_files:
+            self._metadata = reader.metadata
+        else:
+            self._set_metadata(cast(tuple[dict[str, Any], ...], reader.metadata))
+            self._set_update_count(reader.update_count)
+
     def _process_metadata(self, response: dict[str, Any]) -> None:
-        result_set = response.get("ResultSet")
-        if not result_set:
-            raise DataError("KeyError `ResultSet`")
-        metadata = result_set.get("ResultSetMetadata")
-        if not metadata:
-            raise DataError("KeyError `ResultSetMetadata`")
-        column_info = metadata.get("ColumnInfo")
-        if column_info is None:
-            raise DataError("KeyError `ColumnInfo`")
-        self._metadata = tuple(column_info)
+        """Set the column metadata from a ``GetQueryResults`` response.
+
+        Args:
+            response: The response, which the metadata reader parses.
+
+        Raises:
+            DataError: If the response has no result metadata.
+        """
+        self._set_metadata(self._reader.parse_metadata(response))
+
+    def _set_metadata(self, metadata: tuple[dict[str, Any], ...]) -> None:
+        """Set the column metadata, and the column names, types, and type hints from it.
+
+        Args:
+            metadata: The ``ColumnInfo`` of the result set.
+        """
+        self._metadata = metadata
         self._column_types = tuple(m.get("Type", "") for m in self._metadata)
         self._column_names = tuple(m.get("Name", "") for m in self._metadata)
         if (self._hints_by_name or self._hints_by_index) and any(
@@ -586,7 +1006,19 @@ class AthenaResultSet(CursorIterator):
         return self._hints_by_name.get(col_name_lower)
 
     def _process_update_count(self, response: dict[str, Any]) -> None:
-        update_count = response.get("UpdateCount")
+        """Set the row count from the ``UpdateCount`` of a ``GetQueryResults`` response.
+
+        Args:
+            response: The response.
+        """
+        self._set_update_count(response.get("UpdateCount"))
+
+    def _set_update_count(self, update_count: int | None) -> None:
+        """Set the row count from an update count, for the statements that report one.
+
+        Args:
+            update_count: The ``UpdateCount`` of the result, if any.
+        """
         if (
             update_count is not None
             and self.substatement_type
@@ -609,35 +1041,78 @@ class AthenaResultSet(CursorIterator):
         converter: Converter | None = None,
     ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         conv = converter or self._converter
-        col_types = self._column_types
-        col_hints = self._column_type_hints
-        if col_hints and col_types:
-            return [
-                tuple(
-                    conv.convert(col_type, row.get("VarCharValue"), type_hint=hint)
-                    if hint
-                    else conv.convert(col_type, row.get("VarCharValue"))
-                    for col_type, row, hint in zip(
-                        col_types, rows[i].get("Data", []), col_hints, strict=False
-                    )
-                )
-                for i in range(offset, len(rows))
-            ]
-        if col_types:
-            return [
-                tuple(
-                    conv.convert(col_type, row.get("VarCharValue"))
-                    for col_type, row in zip(col_types, rows[i].get("Data", []), strict=False)
-                )
-                for i in range(offset, len(rows))
-            ]
+        names, types = self._get_column_names_and_types(metadata)
+        hints = self._column_type_hints or repeat(None)
         return [
             tuple(
-                conv.convert(meta.get("Type"), row.get("VarCharValue"))
-                for meta, row in zip(metadata, rows[i].get("Data", []), strict=False)
+                self._convert_values(
+                    conv,
+                    [data.get("VarCharValue") for data in rows[i].get("Data", [])],
+                    names,
+                    types,
+                    hints,
+                )
             )
             for i in range(offset, len(rows))
         ]
+
+    def _get_column_names_and_types(
+        self, metadata: tuple[Any, ...]
+    ) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+        """Get the names and types of the result columns.
+
+        Args:
+            metadata: The ``ColumnInfo`` of the result, for a result set whose column
+                types are not set.
+
+        Returns:
+            The names and the types, in column order.
+        """
+        if self._column_names and self._column_types:
+            return self._column_names, self._column_types
+        return (
+            tuple(m.get("Name") for m in metadata),
+            tuple(m.get("Type") for m in metadata),
+        )
+
+    def _convert_values(
+        self,
+        converter: Converter,
+        values: Iterable[str | None],
+        names: Iterable[Any],
+        types: Iterable[Any],
+        hints: Iterable[str | None],
+    ) -> Iterator[Any | None]:
+        """Convert the values of a row.
+
+        Args:
+            converter: The converter of the values.
+            values: The values as text, in column order.
+            names: The names of the columns.
+            types: The Athena types of the columns.
+            hints: The type hints of the columns, None for a column without one.
+
+        Yields:
+            The converted values. A row with fewer values than columns, or more, gives
+            as many values as the shorter of the two.
+
+        Raises:
+            DataError: If a value fails to convert, such as a ``timestamp with time
+                zone`` value with an unknown zone or a local time without one instant in
+                its zone. The message names the column.
+        """
+        # Unlike a loop that returns the values, a generator turns a StopIteration from
+        # the converter into a RuntimeError instead of ending an iteration of the rows.
+        for name, type_, hint, value in zip(names, types, hints, values, strict=False):
+            try:
+                converted = (
+                    converter.convert(type_, value, type_hint=hint)
+                    if hint
+                    else converter.convert(type_, value)
+                )
+            except DataError as e:
+                raise DataError(f"Column {name!r}: {e}") from e
+            yield converted
 
     def _parse_result_rows(
         self, response: dict[str, Any]
@@ -685,6 +1160,10 @@ class AthenaResultSet(CursorIterator):
         Yields:
             The rows of each page and the offset of their first data row, which is 1 when
             the first page starts with the column labels.
+
+        Raises:
+            ProgrammingError: If the result set is closed.
+            OperationalError: If a request fails.
         """
         _logger.warning(
             "output_location is not available (e.g. managed query result storage). "
@@ -718,7 +1197,9 @@ class AthenaResultSet(CursorIterator):
             List of converted row tuples.
 
         Raises:
-            ProgrammingError: If the metadata is not available.
+            ProgrammingError: If the metadata is not available or the result set
+                is closed.
+            OperationalError: If a request fails.
         """
         metadata = self._metadata
         if metadata is None:
@@ -747,7 +1228,9 @@ class AthenaResultSet(CursorIterator):
             The CSV text encoded in UTF-8, or empty bytes when the result has no columns.
 
         Raises:
-            ProgrammingError: If the metadata is not available.
+            ProgrammingError: If the metadata is not available or the result set
+                is closed.
+            OperationalError: If a request fails.
         """
         if self._metadata is None:
             raise ProgrammingError("Metadata is not available.")
@@ -786,34 +1269,29 @@ class AthenaResultSet(CursorIterator):
         else:
             return cast(int, response["ContentLength"])
 
-    def _read_data_manifest(self) -> list[str]:
-        if not self.data_manifest_location:
-            raise ProgrammingError("DataManifestLocation is none or empty.")
-        bucket, key = parse_output_location(self.data_manifest_location)
-        try:
-            response = retry_api_call(
-                self.connection.s3_client.get_object,
-                config=self._retry_config,
-                logger=_logger,
-                Bucket=bucket,
-                Key=key,
-            )
-        except Exception as e:
-            _logger.exception(f"Failed to read {bucket}/{key}.")
-            raise OperationalError(*e.args) from e
-        else:
-            manifest: str = response["Body"].read().decode("utf-8").strip()
-            return manifest.split("\n") if manifest else []
-
     @property
     def is_closed(self) -> bool:
         """Whether the result set is closed."""
         return self._connection is None
 
+    def _ensure_open(self) -> None:
+        """Reject an operation on a closed result set.
+
+        Raises:
+            ProgrammingError: If the result set is closed.
+        """
+        if self._connection is None:
+            raise ProgrammingError(_CLOSED_MESSAGE)
+
     def close(self) -> None:
-        """Close the result set and discard its query execution, metadata, and rows."""
+        """Close the result set and discard its query execution, metadata, and rows.
+
+        Later fetches raise ``ProgrammingError``. Closing a closed result set does
+        nothing.
+        """
         self._connection = None
         self._query_execution = None
+        self._metadata_reader = None
         self._metadata = None
         self._column_types = None
         self._column_names = None
@@ -857,48 +1335,21 @@ class AthenaDictResultSet(AthenaResultSet):
         converter: Converter | None = None,
     ) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
         conv = converter or self._converter
-        col_types = self._column_types
-        col_names = self._column_names
-        col_hints = self._column_type_hints
-        if col_hints and col_types and col_names:
-            return [
-                self.dict_type(
-                    (
-                        name,
-                        conv.convert(col_type, row.get("VarCharValue"), type_hint=hint)
-                        if hint
-                        else conv.convert(col_type, row.get("VarCharValue")),
-                    )
-                    for name, col_type, row, hint in zip(
-                        col_names,
-                        col_types,
-                        rows[i].get("Data", []),
-                        col_hints,
-                        strict=False,
-                    )
-                )
-                for i in range(offset, len(rows))
-            ]
-        if col_types and col_names:
-            return [
-                self.dict_type(
-                    (
-                        name,
-                        conv.convert(col_type, row.get("VarCharValue")),
-                    )
-                    for name, col_type, row in zip(
-                        col_names, col_types, rows[i].get("Data", []), strict=False
-                    )
-                )
-                for i in range(offset, len(rows))
-            ]
+        names, types = self._get_column_names_and_types(metadata)
+        hints = self._column_type_hints or repeat(None)
         return [
             self.dict_type(
-                (
-                    meta.get("Name"),
-                    conv.convert(meta.get("Type"), row.get("VarCharValue")),
+                zip(
+                    names,
+                    self._convert_values(
+                        conv,
+                        [data.get("VarCharValue") for data in rows[i].get("Data", [])],
+                        names,
+                        types,
+                        hints,
+                    ),
+                    strict=False,
                 )
-                for meta, row in zip(metadata, rows[i].get("Data", []), strict=False)
             )
             for i in range(offset, len(rows))
         ]
@@ -933,11 +1384,20 @@ class WithResultSet:
         self._result_set: AthenaResultSet | None = None
 
     def _reset_state(self) -> None:
+        """Reset the execution state, closing the result set."""
         self._rowcount = -1
         self.query_id = None
-        if self.result_set and not self.result_set.is_closed:
-            self.result_set.close()
-        self.result_set = None
+        self._close_result_set()
+
+    def _close_result_set(self) -> None:
+        """Detach the result set from the cursor and close it.
+
+        The cursor drops the result set before the close starts, so a failed
+        close leaves a cursor without it.
+        """
+        result_set, self.result_set = self.result_set, None
+        if result_set is not None and not result_set.is_closed:
+            result_set.close()
 
     @property
     def result_set(self) -> AthenaResultSet | None:
@@ -1259,7 +1719,12 @@ class WithResultSet:
         return self.result_set.rownumber if self.result_set else None
 
     def close(self) -> None:
-        """Close the cursor and release associated resources."""
+        """Close the cursor and its result set.
+
+        Later operations on the cursor raise ``ProgrammingError``, and ``query_id``
+        keeps the ID of the last query. Closing a closed cursor does nothing.
+        """
+        self._closed = True
         self._rowcount = -1
         if self.result_set and not self.result_set.is_closed:
             self.result_set.close()
@@ -1286,7 +1751,7 @@ class WithFetch(WithResultSet, BaseCursor, CursorIterator):
             more rows.
 
         Raises:
-            ProgrammingError: If no result set is available.
+            ProgrammingError: If the cursor is closed or has no result set.
         """
         if not self.has_result_set:
             raise ProgrammingError("No result set.")
@@ -1307,7 +1772,7 @@ class WithFetch(WithResultSet, BaseCursor, CursorIterator):
             The fetched rows.
 
         Raises:
-            ProgrammingError: If no result set is available.
+            ProgrammingError: If the cursor is closed or has no result set.
         """
         if not self.has_result_set:
             raise ProgrammingError("No result set.")
@@ -1324,7 +1789,7 @@ class WithFetch(WithResultSet, BaseCursor, CursorIterator):
             The remaining rows.
 
         Raises:
-            ProgrammingError: If no result set is available.
+            ProgrammingError: If the cursor is closed or has no result set.
         """
         if not self.has_result_set:
             raise ProgrammingError("No result set.")
@@ -1355,7 +1820,11 @@ class WithFetch(WithResultSet, BaseCursor, CursorIterator):
             **kwargs: Additional keyword arguments passed to each ``execute()``.
                 An empty parameter list makes no ``execute()`` call, so it does
                 not report unsupported keyword names.
+
+        Raises:
+            ProgrammingError: If the cursor is closed.
         """
+        self._ensure_open()
         self._reset_state()
         rowcount = 0
         try:
@@ -1365,8 +1834,8 @@ class WithFetch(WithResultSet, BaseCursor, CursorIterator):
                 rowcount = rowcount + count if rowcount >= 0 and count >= 0 else -1
         except BaseException:
             # Keep the query ID available for diagnostics and explicit cancellation.
-            self.close()
-            self.result_set = None
+            self._rowcount = -1
+            self._close_result_set()
             raise
         self._reset_state()
         self._rowcount = rowcount
@@ -1375,8 +1844,10 @@ class WithFetch(WithResultSet, BaseCursor, CursorIterator):
         """Cancel the currently executing query.
 
         Raises:
-            ProgrammingError: If no query is currently executing.
+            ProgrammingError: If the cursor is closed or no query is currently
+                executing.
         """
+        self._ensure_open()
         if not self.query_id:
             raise ProgrammingError("QueryExecutionId is none or empty.")
         self._cancel(self.query_id)

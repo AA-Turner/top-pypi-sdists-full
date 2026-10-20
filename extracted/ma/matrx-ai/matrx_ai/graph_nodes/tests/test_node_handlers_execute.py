@@ -556,6 +556,35 @@ def _fx_image_qc_judge(monkeypatch):
     )
 
 
+@node_fixture("ai.judge.resolve")
+def _fx_judge_resolve(monkeypatch):
+    from matrx_ai.code_call_mandate_keys import ARM_RESOLVER_MANDATE
+    from matrx_ai.graph_nodes.resolve_action import ResolveArmsInput
+    from matrx_ai.testing.holders import install_inline_holders
+
+    install_inline_holders(
+        monkeypatch,
+        {
+            ARM_RESOLVER_MANDATE: {
+                "model": "holder-model",
+                "messages": [
+                    {"role": "system", "content": "HOLDER"},
+                    {"role": "user", "content": "The Holder's authored user turn."},
+                ],
+            }
+        },
+    )
+
+    async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
+        return output_cls.model_validate(
+            {"verdict": "pick", "winner_arm_index": 0, "reasons": ["first"], "confidence": 0.5}
+        )
+
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", _fake_llm_to_pydantic)
+    monkeypatch.setattr("matrx_ai.evaluators.ledger._model", lambda: None)
+    return ResolveArmsInput(job="j", arms=["a", "b"]), _ctx()
+
+
 @node_fixture("ai.transcribe")
 def _fx_transcribe(monkeypatch):
     from matrx_ai.graph_nodes.transcribe_action import TranscribeInput

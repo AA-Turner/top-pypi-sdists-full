@@ -165,19 +165,21 @@ def test_the_frame_forbids_mentioning_the_block_at_all() -> None:
 
 def test_the_per_turn_block_never_costs_the_prompt_cache() -> None:
     """Anthropic: the system channel is the stable instruction alone (with the
-    breakpoint); the per-turn block is the LAST block of the request, after the
-    rolling breakpoint on her words, UNCACHED — so a block rebuilt every turn
-    cannot invalidate the cached system prompt or the cached history."""
+    breakpoint); the per-turn block is its own block BEFORE her words (2026-10-19: the
+    request ENDS with what the person typed), UNCACHED — no breakpoint sits on or after
+    it, so a block rebuilt every turn cannot invalidate the cached system prompt or the
+    cached history."""
     request, typed = _assembled()
     system = request["system"]
 
     assert isinstance(system, list) and len(system) == 1
     assert system[0]["cache_control"] == {"type": "ephemeral"}
     assert "<turn_context" not in system[0]["text"]
-    blocks = request["messages"][-1]["content"]
-    assert blocks[0]["text"] == typed and "cache_control" in blocks[0]
-    assert blocks[-1]["text"].startswith("<turn_context")
-    assert "cache_control" not in blocks[-1]
+    last = request["messages"][-1]["content"]
+    assert [b["text"] for b in last][-1] == typed, "her words, exactly as typed, end the request"
+    host = [b for b in last if b["text"].startswith("<turn_context")]
+    assert len(host) == 1 and last.index(host[0]) < len(last) - 1
+    assert all("cache_control" not in b for b in last[last.index(host[0]):])
 
 
 def test_nothing_from_the_turn_channel_can_reach_storage() -> None:
@@ -415,3 +417,56 @@ def test_a_seed_without_filled_variables_is_still_lifted() -> None:
 
     assert config.system_instruction.opening_turn
     assert [m.content[0].text for m in config.messages if m.role == "user"] == [typed]
+
+
+# ── A TEMPLATE FILLED WITH NOTHING IS NOT RUN CONTEXT (live 2026-10-19) ──────
+#
+# Content Writing Partner's authored user turn has two {{slots}}; a person who opens it and just
+# types gets both filled with "". The turn then differed from its template, read as "filled run
+# context", stayed in her first turn and was stored as words she never typed (conversation
+# 47da87f1, position 0: "I'd like your help writing something. Here is what I'm looking to
+# create:\n\n\n\nIf there is any existing content or draft …" before her own text).
+
+_WRITER_SEED = (
+    "I'd like your help writing something. Here is what I'm looking to create:\n\n{{content_goal}}\n\n"
+    "If there is any existing content or draft to build from, it is here:\n\n{{existing_content}}"
+)
+
+
+def _the_writer_turn(values: dict[str, str]) -> tuple[UnifiedConfig, str]:
+    config = UnifiedConfig.from_dict(
+        {
+            "model": "claude-sonnet-4-5",
+            "messages": [
+                {"role": "system", "content": "You are an expert content writing partner."},
+                {"role": "user", "content": [{"type": "text", "text": _WRITER_SEED}]},
+            ],
+        }
+    )
+    config.supports_tools = True
+    config.replace_variables(values)
+    typed = "RVW review test. Reply with one chart."
+    config.append_or_extend_user_input(typed)
+    return config, typed
+
+
+def test_a_template_filled_with_nothing_never_enters_her_turn() -> None:
+    config, typed = _the_writer_turn({"content_goal": "", "existing_content": ""})
+    stored = config.to_storage_dict()
+
+    assert stored["messages"] == [
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": typed}],
+            "user_content": [{"type": "text", "text": typed}],
+        }
+    ]
+    assert "I'd like your help writing something" in config.system_instruction.opening_turn
+
+
+def test_a_template_with_a_real_value_is_still_run_context() -> None:
+    config, typed = _the_writer_turn({"content_goal": "A launch post for our bakery.", "existing_content": ""})
+    users = [m for m in config.messages if m.role == "user"]
+
+    assert "A launch post for our bakery." in users[0].content[0].text
+    assert [c.text for c in users[0].user_content] == [typed]

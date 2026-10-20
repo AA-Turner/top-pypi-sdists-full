@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from matrx_ai.config import ToolResultContent, UnifiedMessage
+from matrx_ai.config import ToolCallContent, ToolResultContent, UnifiedMessage
 from matrx_ai.config.send_boundary import (
     STAGE_LOOP,
     STAGE_RESOLVE,
@@ -41,21 +41,41 @@ def _tool_result(chars: int) -> UnifiedMessage:
     )
 
 
-def _config(chars: int, count: int = 14) -> SimpleNamespace:
-    # 14 loop turns: with the ruled tier 1 (12 positions back, >8000 chars)
-    # exactly the first two results are eligible.
+def _turn(i: int) -> UnifiedMessage:
+    """The assistant message that reads a result and makes the next call: one
+    model iteration (distance is counted in iterations since 2026-10-17)."""
+    return UnifiedMessage(
+        role="assistant",
+        position=None,
+        content=[ToolCallContent(id=f"next-{i}", name="large_tool", arguments={"q": i})],
+    )
+
+
+def _serial(results: list[UnifiedMessage]) -> list[UnifiedMessage]:
+    """A serial loop: every result is followed by the assistant turn that acted on it."""
+    out: list[UnifiedMessage] = []
+    for i, msg in enumerate(results):
+        out.append(msg)
+        if i < len(results) - 1:
+            out.append(_turn(i))
+    return out
+
+
+def _config(chars: int, count: int = 8) -> SimpleNamespace:
+    # 8 serial iterations: with the ruled tier 1 (12 positions = 6 iterations
+    # back, >8000 chars) exactly the first two results are eligible.
     return SimpleNamespace(
-        messages=[_tool_result(chars) for _ in range(count)],
+        messages=_serial([_tool_result(chars) for _ in range(count)]),
         system_instruction=None,
         prompt_cache_key=None,
     )
 
 
 def _below_the_floor() -> SimpleNamespace:
-    # 13 turns: ONE eligible 9,000-char result — ~3.1K tokens by the one measured
+    # 7 iterations: ONE eligible 9,000-char result — ~3.1K tokens by the one measured
     # estimator (2.9 chars/token), under the 5K cache-gate floor. (Two eligible
     # results are >16,000 chars, which the measured estimator counts above it.)
-    return _config(9_000, count=13)
+    return _config(9_000, count=7)
 
 
 def _cache_state(age_secs: float) -> dict:

@@ -19,7 +19,7 @@ def install_required_packages():
         # We can't run child processes, so rely on required test packages
         # already being installed, e.g. in our wheel's <requires_dist>.
         return
-    packages = 'pytest fontTools pymupdf-fonts flake8 pylint codespell mypy'
+    packages = 'fontTools pymupdf-fonts flake8 pylint codespell mypy'
     packages += ' pipcl'
     if platform.system() == 'Windows' and int.bit_length(sys.maxsize+1) == 32:
         # No pillow wheel available, and doesn't build easily.
@@ -33,9 +33,35 @@ def install_required_packages():
         pass
     else:
         packages += ' psutil'
-    command = f'pip install --upgrade {packages}'
-    print(f'{__file__}:install_required_packages)(): Running: {command}', flush=1)
-    subprocess.run(command, shell=1, check=1)
+    
+    PYMUPDF_TEST_USE_LAYOUT = os.environ.get('PYMUPDF_TEST_USE_LAYOUT')
+    PYMUPDF_TEST_USE_4LLM = os.environ.get('PYMUPDF_TEST_USE_4LLM')
+    if PYMUPDF_TEST_USE_LAYOUT == '0' and PYMUPDF_TEST_USE_4LLM == '0':
+        # pymupdf_lite.
+        pass
+    else:
+        # Pymupdf contains layout and 4llm.
+        
+        # From pymupdf_layout/tests/conftest.py.
+        packages += ' opencv-python'
+
+        # From pymupdf4llm/tests/conftest.py.
+        packages += ' llama_index pytest-asyncio rapidocr-onnxruntime'
+    
+    PYMUPDF_SYSINSTALL_ROOT = os.environ.get('PYMUPDF_SYSINSTALL_ROOT')
+    if PYMUPDF_SYSINSTALL_ROOT == '-':
+        # Do not install any python packages.
+        pass
+    else:
+        if PYMUPDF_SYSINSTALL_ROOT:
+            # We do not specify `--upgrade`, because this appears to make pip
+            # attempt to upgrade system python packages.
+            pir = f' --root {PYMUPDF_SYSINSTALL_ROOT}'
+        else:
+            pir = ' --upgrade'
+        command = f'{sys.executable} -m pip install{pir} {packages}'
+        print(f'{__file__}:install_required_packages)(): Running: {command}', flush=1)
+        subprocess.run(command, shell=1, check=1)
 
 install_required_packages()
 
@@ -149,7 +175,7 @@ def wrap(request):
     
     _globals_post = get_members(pymupdf._globals)
     if _globals_post != _globals_pre:
-        print(f'Test has changed pymupdf._globals from {_globals_pre=} to {_globals_post=}')
+        print(f'Test has changed pymupdf._globals from\n    {_globals_pre=}\nto\n    {_globals_post=}')
         assert 0
     
     log_items = pymupdf._log_items()

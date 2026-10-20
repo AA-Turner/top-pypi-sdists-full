@@ -1,8 +1,8 @@
 from unittest import TestCase
 
 from mistune import BlockState, HTMLRenderer, create_markdown
-from mistune.renderers.rst import RSTRenderer
 from mistune.renderers.markdown import MarkdownRenderer
+from mistune.renderers.rst import RSTRenderer
 from tests import BaseTestCase
 
 
@@ -17,6 +17,17 @@ def load_renderer(renderer):
 
 load_renderer(RSTRenderer())
 load_renderer(MarkdownRenderer())
+
+
+class TestRSTRendererLineBreaks(TestCase):
+    def test_tight_list_hard_breaks(self):
+        render = create_markdown(renderer=RSTRenderer())
+        for text, expected in (
+            ("- first  \n  second\n", "- | first\n  | second\n"),
+            ("1. first\\\n   second\n", "1. | first\n   | second\n"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(render(text), expected)
 
 
 class TestMarkdownRendererRoundTrip(TestCase):
@@ -45,6 +56,32 @@ class TestMarkdownRendererRoundTrip(TestCase):
 
     def test_escaped_backtick(self):
         self.assert_round_trip(r"\`not code\`" + "\n")
+
+    def test_literal_inline_markers(self):
+        for text in (
+            r"\![label](https://example.com)" + "\n",
+            r"\\*emphasis*" + "\n",
+            r"\<b>text\</b>" + "\n",
+            r"\<https://example.com>" + "\n",
+            r"\&copy;" + "\n",
+            r"\&#65;" + "\n",
+            r"\&#x41;" + "\n",
+        ):
+            with self.subTest(text=text):
+                self.assert_round_trip(text)
+
+    def test_inline_punctuation_and_real_markup_controls(self):
+        for text in (
+            "Tom & Jerry!\n",
+            "Entities: &copy; &#65; &#x41; &notanentity;\n",
+            "C# and a.b.c, (parentheses), [unmatched brackets]\n",
+            "*emphasis* and `code &copy;`\n",
+            "![image](https://example.com/image.png)\n",
+            "<b>real HTML</b>\n",
+            "<https://example.com/?a=1&b=2>\n",
+        ):
+            with self.subTest(text=text):
+                self.assert_round_trip(text)
 
     def test_escaped_emphasis_markers(self):
         # an escaped "*"/"_" is a literal delimiter, not emphasis; re-emitting
@@ -87,6 +124,49 @@ class TestMarkdownRendererRoundTrip(TestCase):
         ):
             self.assert_round_trip(text)
 
+    def test_codespan_edge_spaces(self):
+        for text in (
+            "`  x  `",
+            "`   x   `",
+            "`  x `",
+            "` x  `",
+            "` `",
+            "`   `",
+            "``  a ` b  ``",
+        ):
+            with self.subTest(text=text):
+                self.assert_round_trip(text)
+
+    def test_image_alt_matching_url_stays_an_image(self):
+        for text in (
+            "![https://example.com](https://example.com)",
+            "![user@example.com](mailto:user@example.com)",
+            "[![https://example.com](https://example.com)](/target)",
+        ):
+            with self.subTest(text=text):
+                self.assert_round_trip(text)
+
+    def test_link_autolinks_still_render(self):
+        self.assertEqual(
+            self.reformat("[https://example.com](https://example.com)"),
+            "<https://example.com>\n",
+        )
+        self.assertEqual(
+            self.reformat("[user@example.com](mailto:user@example.com)"),
+            "<user@example.com>\n",
+        )
+
+    def test_indented_code_containing_fences(self):
+        parse = create_markdown(renderer="ast")
+        for indentation in range(4):
+            for markers in (("```",), ("~~~",), ("```", "~~~"), ("````", "~~~")):
+                with self.subTest(indentation=indentation, markers=markers):
+                    lines = ["before"] + [" " * indentation + marker for marker in markers] + ["after"]
+                    source = "".join("    " + line + "\n" for line in lines)
+                    tokens = parse(self.reformat(source))
+                    self.assertEqual([token["type"] for token in tokens], ["block_code"])
+                    self.assertEqual(tokens[0]["raw"], "\n".join(lines) + "\n")
+
     def test_link_title_containing_quote(self):
         # a double quote inside a link/image title must be escaped, or the
         # re-parse closes the title early and drops it
@@ -98,6 +178,31 @@ class TestMarkdownRendererRoundTrip(TestCase):
             '[t](/u "back\\\\slash \\" quote")\n',
         ):
             self.assert_round_trip(text)
+
+    def test_empty_reference_link_destination(self):
+        for reference in ("[text][r]", "[r][]", "[r]"):
+            for title in ("", ' "title"', " 'say \"hi\"'"):
+                with self.subTest(reference=reference, title=title):
+                    text = reference + "\n\n[r]: <>" + title + "\n"
+                    self.assertIn('href=""', self.to_html(text))
+                    self.assert_round_trip(text)
+
+    def test_empty_reference_image_destination(self):
+        for title in ("", ' "title"', " 'say \"hi\"'"):
+            with self.subTest(title=title):
+                text = "![alt][r]\n\n[r]: <>" + title + "\n"
+                self.assertIn('src=""', self.to_html(text))
+                self.assert_round_trip(text)
+
+    def test_unused_empty_reference_destination(self):
+        self.assertEqual(self.reformat("[r]: <>\n"), "[r]: <>\n")
+        self.assertEqual(self.reformat('[r]: <> "title"\n'), '[r]: <> "title"\n')
+
+    def test_nonempty_reference_destination_format(self):
+        for destination in ("/url", "https://example.com", "/path(a)"):
+            with self.subTest(destination=destination):
+                text = '[text][r]\n\n[r]: ' + destination + ' "title"\n'
+                self.assertEqual(self.reformat(text), text)
 
     def test_block_quote_content_ending_in_gt(self):
         # a block quote whose content ends with ">" (an autolink, an inline
@@ -135,6 +240,20 @@ class TestMarkdownRendererRoundTrip(TestCase):
         ):
             self.assert_round_trip(text)
 
+    def test_heading_literal_trailing_hashes(self):
+        for text in (
+            "foo #\n---\n",
+            "foo ###\n===\n",
+            "# foo \\#\n",
+            "###### \\###\n",
+            "foo\t###\n---\n",
+            "foo#\n---\n",
+            "# C#\n",
+            "# `foo #`\n",
+        ):
+            with self.subTest(text=text):
+                self.assert_round_trip(text)
+
     def test_prose_not_over_escaped(self):
         for text in (
             "snake_case_var\n",
@@ -143,6 +262,54 @@ class TestMarkdownRendererRoundTrip(TestCase):
             "ratio a/b is fine\n",
         ):
             self.assert_round_trip(text)
+
+    def test_leading_blank_lines_preserved(self):
+        # blank_line tokens at the start of the document were rendered as
+        # empty strings, so leading newlines disappeared on reformat
+        self.assertEqual(self.reformat("\nabc"), "\nabc\n")
+        self.assertEqual(self.reformat("\n\n\n\nabc"), "\n\n\n\nabc\n")
+
+
+class TestRendererListLineEndings(TestCase):
+    non_line_breaks = ("\v", "\f", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
+
+    def test_markdown_list_content(self):
+        reformat = create_markdown(renderer=MarkdownRenderer())
+        to_html = create_markdown(escape=False)
+        for separator in self.non_line_breaks:
+            content = "before" + separator + "after"
+            for template in (
+                "- {}\n",
+                "1. {}\n",
+                "- parent\n  - {}\n",
+                "- first\n\n- {}\n",
+                "- `{}`\n",
+                "- item\n\n  ```\n  {}\n  ```\n",
+            ):
+                with self.subTest(separator=repr(separator), template=template):
+                    source = template.format(content)
+                    result = reformat(source)
+                    self.assertIn(content, result)
+                    self.assertEqual(to_html(result), to_html(source))
+
+    def test_rst_list_content(self):
+        render = create_markdown(renderer=RSTRenderer())
+        for separator in self.non_line_breaks:
+            content = "before" + separator + "after"
+            for source, expected in (
+                ("- " + content + "\n", "- " + content + "\n"),
+                ("1. " + content + "\n", "1. " + content + "\n"),
+                ("- `" + content + "`\n", "- ``" + content + "``\n"),
+            ):
+                with self.subTest(separator=repr(separator), source=source):
+                    self.assertEqual(render(source), expected)
+
+    def test_markdown_list_line_endings(self):
+        reformat = create_markdown(renderer=MarkdownRenderer())
+        expected = "- first\n  continued\n- second\n"
+        for ending in ("\n", "\r", "\r\n"):
+            with self.subTest(ending=repr(ending)):
+                self.assertEqual(reformat(expected.replace("\n", ending)), expected)
 
 
 class TestRendererMethodRegistration(TestCase):
@@ -159,6 +326,33 @@ class TestRendererMethodRegistration(TestCase):
             renderer.render_token(token, BlockState()),
             '<a href="/wiki/python">Python</a>',
         )
+
+    def test_html_safety_helpers(self):
+        renderer = HTMLRenderer(escape=False)
+
+        self.assertFalse(renderer.escape_enabled)
+        self.assertEqual(renderer.escape_raw("<b>raw</b>"), "<b>raw</b>")
+        self.assertEqual(renderer.escape_attribute('a"<b>'), "a&quot;&lt;b&gt;")
+        self.assertEqual(
+            renderer.render_attrs({"class": 'a"b', "hidden": True, "empty": False, "missing": None}),
+            ' class="a&quot;b" hidden',
+        )
+        self.assertEqual(renderer.sanitize_url("javascript:marker"), "#harmful-link")
+        self.assertEqual(renderer.safe_url('https://example.com/?q="x"'), "https://example.com/?q=&quot;x&quot;")
+
+        renderer.escape_enabled = True
+        self.assertEqual(renderer.escape_raw("<b>raw</b>"), "&lt;b&gt;raw&lt;/b&gt;")
+
+        with self.assertRaises(ValueError):
+            renderer.render_attrs({'class" onclick': "marker"})
+
+    def test_escape_false_only_allows_raw_html(self):
+        md = create_markdown(escape=False)
+        html = md('<b>raw</b> [link](javascript:marker "a\\\"b")')
+
+        self.assertIn("<b>raw</b>", html)
+        self.assertIn('href="#harmful-link"', html)
+        self.assertIn('title="a&quot;b"', html)
 
 
 class TestMarkdownRendererPlugins(TestCase):
@@ -178,6 +372,31 @@ class TestMarkdownRendererPlugins(TestCase):
         md = create_markdown(renderer=MarkdownRenderer(), plugins=["table"])
         result = md("| A | B |\n|---|---|\n| 1 | 2 |\n")
         self.assertEqual(result, "| A | B |\n| --- | --- |\n| 1 | 2 |\n")
+
+    def test_table_codespan_escaped_pipes_round_trip(self):
+        md = create_markdown(renderer=MarkdownRenderer(), plugins=["table"])
+        to_html = create_markdown(plugins=["table"])
+        for cell in (r"`a\|b`", r"`a\\\|b`", r"`a\|b\|c`"):
+            for source in (
+                "| Header |\n| --- |\n| " + cell + " |\n",
+                "| " + cell + " |\n| --- |\n| Body |\n",
+            ):
+                with self.subTest(source=source):
+                    result = md(source)
+                    self.assertEqual(result, source)
+                    self.assertEqual(to_html(result), to_html(source))
+
+    def test_table_plain_escaped_pipe_round_trip(self):
+        md = create_markdown(renderer=MarkdownRenderer(), plugins=["table"])
+        to_html = create_markdown(plugins=["table"])
+        source = "| Header |\n| --- |\n| a \\| b |\n"
+        self.assertEqual(md(source), source)
+        self.assertEqual(to_html(md(source)), to_html(source))
+
+    def test_formatting_plugins_markdown(self):
+        md = create_markdown(renderer=MarkdownRenderer(), plugins=["strikethrough", "mark", "insert"])
+        self.assertEqual(md("~~gone~~, ==marked== and ^^inserted^^\n"), "~~gone~~, ==marked== and ^^inserted^^\n")
+        self.assertEqual(md("~~a **b** c~~\n"), "~~a **b** c~~\n")
 
     def test_standalone_list_item(self):
         renderer = MarkdownRenderer()

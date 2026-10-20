@@ -5,7 +5,9 @@ SUFFIX_WORDS = frozenset({
     # pending the within-script collision vetting the issue asks for;
     # 'ст' especially is a plausible false-positive risk (many two-
     # letter Cyrillic abbreviations exist), and both are short enough
-    # to worry about. Not shipped in this pass.
+    # to worry about. Not shipped in this pass. The spelled-out words
+    # ship since #661 (the block below 'vet'), and мл since #679, which
+    # found nothing it collides with in Cyrillic; ст stays deferred.
     'esq',
     'esquire',
     'jr',
@@ -27,6 +29,76 @@ SUFFIX_WORDS = frozenset({
     # literally instead of going through nickname/suffix disambiguation).
     'ret',
     'vet',
+
+    # #661: junior/senior in other languages, the spelled-out words
+    # written spaced AFTER the name ("Hans Holbein mlađi", "Плиний
+    # Младший"). Each was found in that position in real titles on its
+    # own language's Wikipedia, and none is borne as a name beyond noise
+    # (US Census, SSA, Wikidata via tools/name_usage.py; nuorempi has one
+    # Wikidata bearer each way). Feminine forms ship beside
+    # the masculine where the language has them. Left out, with reasons,
+    # in decisions/generational-words: kıdemli, sóisearach and
+    # sinsearach (rank words, not generations), Hungarian ifj./id.
+    # (written BEFORE the name), Bulgarian млада (a given name), and the
+    # abbreviations ml./st. (#679 ships мл.; see the deferral above).
+    'mlađi', 'mlađa', 'stariji', 'starija',          # hr/sr/bs Latin
+    'млађи', 'млађа', 'старији', 'старија',          # sr Cyrillic
+    'младши', 'младша', 'старши', 'старша',          # bg; старша is uk too
+    'млади', 'стари',                                # bg the Younger/the Elder
+    'младший', 'младшая', 'старший', 'старшая',      # ru
+    'молодший', 'молодша',                           # uk
+    'mladší', 'starší',                              # cs/sk
+    'nuorempi', 'vanhempi',                          # fi
+    'jaunesnysis', 'jaunesnioji',                    # lt
+    'vyresnysis', 'vyresnioji',                      # lt
+    'जूनियर', 'जुनियर', 'सीनियर',                    # hi, junior in both u spellings
+    # #679: the rest of CLDR's `generation` samples, vetted the same
+    # way. CLDR is a lead, not a source: where its word is a label
+    # translation, an adjective written BEFORE the name, or unused, the
+    # word the language's Wikipedia writes after names ships instead
+    # (lo, ti, or, ta, si, mk). Transliterations of "senior" ship, but
+    # not Hebrew סניור, which Israelis bear as a surname (אלי סניור), nor
+    # Japanese シニア (decisions/generational-words); English
+    # `senior` is not a suffix at all, Senior being a surname.
+    # Left out with reasons in decisions/generational-words,
+    # including fils/père and the Latin ml./st., which collide outside
+    # their languages and wait on a pack.
+    'yngri', 'eldri',                                # is
+    'jaunākais', 'jaunākā', 'vecākais', 'vecākā',    # lv
+    'малодшы', 'малодшая', 'старэйшы', 'старэйшая',  # be
+    'помладиот', 'постариот',                        # mk
+    'mlajši', 'mlajša', 'starejši', 'starejša',      # sl
+    'mladšia', 'staršia',                            # sk feminine
+    'мл',                                            # ru/bg/sr мл.
+    'τζούνιορ', 'σίνιορ',                            # el
+    'կրտսեր',                                        # hy
+    'უმცროსი', 'უფროსი',                             # ka
+    "ג'וניור", 'ג׳וניור', 'ג’וניור',                 # he, three apostrophes
+    'הבן', 'האב',                                    # he the son / the father
+    'الابن', 'الإبن', 'الأب',                        # ar the son / the father
+    'جونيور', 'سينيور',                              # ar
+    'جونیئر', 'جونيئر', 'جونئیر', 'سینئر', 'سینیئر',  # ur/sd
+    'جونیور', 'سینیور',                              # fa
+    'ज्युनियर', 'ज्यूनियर',                          # mr
+    'কনিষ্ঠ', 'জ্যেষ্ঠ', 'জুনিয়ৰ',                  # as
+    'জুনিয়র', 'সিনিয়র',                            # bn
+    'ਜੂਨੀਅਰ', 'ਸੀਨੀਅਰ',                              # pa
+    'જુનિયર', 'જૂનિયર', 'સિનિયર',                    # gu
+    'ଜୁନିଅର', 'ଜୁନିୟର୍',                             # or
+    'இளையவர்', 'மூத்தவர்', 'ஜூனியர்',                # ta
+    'జూనియర్', 'సీనియర్',                            # te
+    'ಜೂನಿಯರ್',                                       # kn
+    'ജൂനിയർ', 'സീനിയർ',                              # ml
+    'ජූනියර්',                                       # si
+    'ジュニア',                                       # ja
+    '주니어', '시니어',                               # ko
+    'จูเนียร์', 'ซีเนียร์',                          # th
+    'ຈູເນຍ',                                         # lo
+    'ဂျူနီယာ',                                       # my
+    'ၵျူႇၼီႇယႃႇ',                                    # shn
+    'ជូនៀរ',                                         # km
+    'ጁንየር', 'ጁኒየር',                                # ti, am
+    'ƙarami',                                        # ha the Younger
 
     # #269 follow-up: Hebrew post-nominals, both gershayim spellings
     # (ASCII '"' and U+05F4); the mid-word quote is inert in
@@ -93,6 +165,34 @@ SUFFIX_WORDS = frozenset({
     'さま',      # ja the kana spelling of 様
     'くん',      # ja the kana spelling of 君
     'ちゃん',    # ja familiar/diminutive
+    # #671: CJK credential, office and generational words. The
+    # spaced position is a token boundary the writer drew, so the
+    # vetting bar there is just "is a word standing alone ever a
+    # name?". The glued bar ("can it END a name?") was measured
+    # separately in #707 (decisions/W2), and every entry but
+    # 部長/部长 passed it and is in GLUED_HONORIFICS below. The
+    # Chinese pack's SEGMENTER is not a peel and exposes them after a
+    # listed surname regardless: 王二世 and 李部長 divide at the
+    # surname and the split-off word is then a whole-token suffix
+    # word, as 王博士 already reads.
+    # - 二世: Japanese/Chinese "II" (the generational numeral).
+    # - 議員/议员, 国会議員/國會議員: legislator, Diet member.
+    # - 太平紳士/太平绅士: Justice of the Peace (Hong Kong).
+    # - 医学博士/醫學博士: Doctor of Medicine.
+    # - 社長/部長/課長 and the simplified 社长/部长/课长: job titles
+    #   used as forms of address after a name (田中 社長, 李部长),
+    #   not credentials -- the same slot as 先生. Japanese president,
+    #   department head, section chief; Chinese society head,
+    #   minister, section chief. The simplified 长 never occurs in
+    #   Japanese text, so those entries touch no Japanese name.
+    #   部長/部长 stay spaced-only: 長 alone is a borne given name,
+    #   so 阿部長 can be 阿部 + 長 (#707 declined it on that argument
+    #   though Wikidata held no such bearer).
+    '二世',
+    '議員', '议员', '国会議員', '國會議員',
+    '太平紳士', '太平绅士',
+    '医学博士', '醫學博士',
+    '社長', '部長', '課長', '社长', '部长', '课长',
     # #346/#344/#343: spaced trailing honorifics, South Asian and
     # Tibetan. SPACED ONLY -- none of these is in GLUED_HONORIFICS
     # below, and none may be added to it. जी is the reason and the
@@ -100,7 +200,7 @@ SUFFIX_WORDS = frozenset({
     # written बनर्जी, मुखर्जी, चटर्जी, so a glued peel would strand a
     # fragment on a bare virama (बनर् + जी) -- the 殿 criterion in a
     # non-CJK script. गांधीजी therefore stays unpeeled, which is the
-    # accepted trade (decisions.md#indic-honorifics).
+    # accepted trade (decisions/indic-honorifics).
     # NOTE the leading/trailing split across the two scripts, which is
     # real and must not be "harmonized": Devanagari बाबू is a LEADING
     # honorific -- a TITLES entry (#344), not a suffix -- while Bengali
@@ -126,7 +226,7 @@ which fails this lookup too: an interior-period token that no whole-token
 set claims goes to ``period_joined_vocab``, which splits it on its periods
 and, no chunk being a title, calls the whole thing a suffix if ANY chunk is
 suffix vocabulary -- except where every chunk it matches is a SINGLE ASCII
-CHARACTER, which since 2.4 retires rather than claims (decisions.md#S2): the
+CHARACTER, which since 2.4 retires rather than claims (decisions/S3): the
 one-character suffix vocabulary is the Roman numerals and the digit "2" --
 ASCII is load-bearing there, since the seven single-character CJK
 honorifics in THIS set (様, 殿, 氏, 군, 님, 씨, 양 -- three of them also
@@ -136,7 +236,7 @@ built of single ASCII letters is not about generations. So "J.u.n.i.o.r."
 no longer reaches this set's "i" entry as a generational claim; it is
 read by POSITION instead, as an unlisted multi-chunk word
 (``Policy.unlisted_dotted_suffixes``, default on), and with words to
-spare it is still a suffix (rules.md#S3). A multi-character chunk match
+spare it is still a suffix (rules/S3). A multi-character chunk match
 is untouched -- "Msc.Ed." still derives from ``ed`` and reads as a
 suffix outright, and "Lt.Gov." still derives a TITLE from its own
 multi-character chunk match.
@@ -180,6 +280,21 @@ GLUED_HONORIFICS = frozenset({
     # its Han twin 博士 is not: that collision is Japanese (博士 =
     # ひろし) and the hangul spelling carries none of it.
     '씨', '님', '선생님', '교수님', '박사', '박사님',
+    # #707: the #671 credential, office and generational words. Vetted
+    # with tools/name_usage.py's ends-with row on 2026-10-17: no
+    # Wikidata name item with a CJK label ends in any of them (二世's
+    # one hit, 厄德二世, is the given name Odo with a regnal numeral in
+    # its label), and no person bears a family name and a given name
+    # that end in one together. 部長/部长 are absent on the 阿部 + 長
+    # argument (above), which a lower-bound zero does not refute.
+    # Accepted cost: a longer office word ending in one of these is
+    # split at it (田中 副社長 → given 副, suffix 社長; 獣医学博士 leaves
+    # 獣), since nothing longer is listed (decisions/W2, #707).
+    '二世',
+    '議員', '议员', '国会議員', '國會議員',
+    '太平紳士', '太平绅士',
+    '医学博士', '醫學博士',
+    '社長', '課長', '社长', '课长',
 })
 """
 
@@ -200,7 +315,7 @@ on -- these entries are recognized in the SPACED position only:
   মহারাজ) and Latin rinpoche are spaced-only for the same reason 殿 is:
   जी ends Banerjee/Mukherjee/Chatterjee (बनर्जी, मुखर्जी, चटर्जी) and a
   glued peel would strand बनर् on a bare virama. The criterion is not
-  CJK-specific, which is the point (decisions.md#indic-honorifics).
+  CJK-specific, which is the point (decisions/indic-honorifics).
 
 Three more are in NEITHER set, so neither spelling is recognized. 君: 王君 is
 a complete Chinese name (君 is a common given-name final), so the honorific
@@ -212,7 +327,7 @@ as address terms, and only their -님 forms ship.
 SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # Suffix acronyms that also commonly work as given-name nicknames on
     # their own (e.g. "Ed", "JD"). Read wherever the pipeline decides an
-    # acronym's bare reading (rules.md#S2) and by the delimited-content
+    # acronym's bare reading (rules/S4) and by the delimited-content
     # escape (content matching one of these stays a nickname, the more
     # common reading in ambiguous, delimiter-only context). _classify
     # also tags membership as "vocab:suffix-ambiguous".
@@ -227,7 +342,7 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # written in capitals inside a mixed-case name; inside a
     # mixed-case name any other cased form that is not wholly lower
     # ('Ma', 'MEng') reads as the name even with words to spare --
-    # rules.md#S2. The parse reports the fork where it decides one,
+    # rules/S4 and rules/S6. The parse reports the fork where it decides one,
     # so 'Jack Ma' keeps its family name.
     #
     # The other half of the criterion, added 2026-09-07 with #342.
@@ -259,7 +374,7 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     #
     # Removal takes the DOTTED spelling with it too, except by
     # accident: "John Smith R.A.I." still reads suffix 'R.A.I.' only
-    # because rules.md#S3 splits an interior-period token on its
+    # because rules/S3 splits an interior-period token on its
     # periods and the chunk 'i' happens to be a Roman numeral in
     # SUFFIX_WORDS. "John Smith R.A.X." reads family, and so does
     # "John Smith C.H.A." after the removal. Do not count on a dotted
@@ -268,7 +383,7 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # which is the answer this library gives for every
     # locale-specific vocabulary. The cost is stated and accepted:
     # with the entry gone, "John Smith RAI" reads family 'RAI'. See
-    # decisions.md#suffix-acronym-collisions.
+    # decisions/suffix-acronym-collisions.
     #
     # NOT 'ms' or 'sa', though #296's audit table put them here for the
     # leading-title collision (bare "Ms" the honorific, "M.S." the
@@ -277,13 +392,13 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
     # title 'MS', and 'Smith, Ms.' passed the gate on its one period
     # and read as a credential anyway. Both words are genuine duals --
     # title and unambiguous suffix -- and position decides, as for
-    # 'sr' and 'lt' (decisions.md#C1).
+    # 'sr' and 'lt' (decisions/C8).
     #
     # NOT 'se' or 'om' either, weighed 2026-09-07 with #342 and left
     # alone: no surname evidence worth standing behind, and OM is the
     # Order of Merit. And NOT 'mc' or 'vd', which are also PARTICLES:
     # #454 closed by design -- neither is a borne name, so a bare
-    # trailing one is the decoration, and rules.md#P6's Accepted
+    # trailing one is the decoration, and rules/P6's Accepted
     # clause names them as the two words whose positional reading
     # does not hold.
     'ba',
@@ -303,7 +418,7 @@ SUFFIX_ACRONYMS_AMBIGUOUS = frozenset({
 Acronym suffixes from SUFFIX_ACRONYMS that also plausibly collide with a
 word borne as a name -- a given name, nickname or surname. Not a
 partition of SUFFIX_ACRONYMS -- a small, standalone exception list, read
-wherever the pipeline decides an acronym's bare reading (rules.md#S2).
+wherever the pipeline decides an acronym's bare reading (rules/S4).
 
 """
 SUFFIX_ACRONYMS = frozenset({
@@ -316,7 +431,7 @@ SUFFIX_ACRONYMS = frozenset({
     # Arabic-script counterpart عبد is in that set only) -- the one
     # word in both sets, kept in both deliberately. Position decides
     # at the two ends but not in a family comma's given slot; see
-    # decisions.md#P5.
+    # decisions/P5.
     'abd',
     'abpp',
     'abr',
@@ -564,7 +679,6 @@ SUFFIX_ACRONYMS = frozenset({
     'cua',
     'cusp',
     'cva',
-    'cva[22]',
     'cvo',
     'cvp',
     'cvrs',
@@ -669,7 +783,6 @@ SUFFIX_ACRONYMS = frozenset({
     'fsa',
     'fsdp',
     'fws',
-    'gaee[14]',
     'gba',
     'gbe',
     'gc',
@@ -742,7 +855,6 @@ SUFFIX_ACRONYMS = frozenset({
     'lvt',
     'ma',
     'maaa',
-    'mai',
     'mba',
     'mbe',
     'mbs',
@@ -811,7 +923,6 @@ SUFFIX_ACRONYMS = frozenset({
     'ndtr',
     'nmd',
     'np',
-    'np[18]',
     'nraemt',
     'nremr',
     'nremt',
@@ -943,7 +1054,7 @@ assert SUFFIX_ACRONYMS_AMBIGUOUS <= SUFFIX_ACRONYMS, \
 # periods, the acronym test strips all of them -- so a word in both is
 # matched twice by two rules, and which one fired is unreadable from the
 # outside. The single overlap was 'esq', dropped 2026-09-08
-# (decisions.md#suffix-acronym-collisions), and the assert is what keeps
+# (decisions/suffix-acronym-collisions), and the assert is what keeps
 # a bulk import from quietly re-creating one. It guards the SHIPPED sets
 # only: Lexicon has no matching invariant, so a caller who wants the
 # overlap in their own vocabulary may still have it.

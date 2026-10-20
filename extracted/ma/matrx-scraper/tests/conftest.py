@@ -96,6 +96,18 @@ def _reset_shared_host_throttles() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _browser_engine_current_unless_testing_it(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The browser step defaults to the stealth engine (a real headful browser). Every
+    test written against the injected-pool / Playwright path keeps that path; the
+    stealth-step tests (module `test_stealth_browser_step`) see the shipped default."""
+    if request.module.__name__.endswith("test_stealth_browser_step"):
+        return
+    from matrx_scraper import stealth_browser
+
+    monkeypatch.setattr(stealth_browser, "DEFAULT_ENGINE", stealth_browser.ENGINE_CURRENT)
+
+
+@pytest.fixture(autouse=True)
 def _fast_pacing_knobs(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep the ramp WIRED but instantaneous for tests that aren't about pacing.
 
@@ -109,7 +121,7 @@ def _fast_pacing_knobs(monkeypatch: pytest.MonkeyPatch) -> None:
     ramp, the limiter wiring, the events and the memory hand-off all still run
     on every crawler test, so a regression in how pacing is WIRED still fails
     the suite here — only the waiting is removed. Tests that assert on pacing
-    BEHAVIOUR pass their own ``pacing_knobs=`` and are unaffected by this.
+    BEHAVIOR pass their own ``pacing_knobs=`` and are unaffected by this.
     """
     from matrx_scraper import crawler as crawler_module
     from matrx_scraper.host_pacing import PacingKnobs
@@ -150,7 +162,7 @@ def _a_test_process_has_a_block_ledger():
 #: Fast values for the crawler's `crawl.*` knobs (OPENSEO-TOOLS-SPEC §10) in tests
 #: that are not about them: pacing opens at 1000 req/s (so the `_fast_pacing_knobs`
 #: floor is not overridden by the 1 req/s registry default) and a 429 without
-#: Retry-After pauses for 0 s. Tests ABOUT these behaviours bind their own values.
+#: Retry-After pauses for 0 s. Tests ABOUT these behaviors bind their own values.
 FAST_CRAWL_KNOBS: dict[str, object] = {
     "crawl.rate_limit_initial_interval_ms": 1,
     "crawl.rate_limit_max_interval_s": 0.001,
@@ -161,6 +173,8 @@ FAST_CRAWL_KNOBS: dict[str, object] = {
     "crawl.html_max_bytes": 1_048_576,
     "crawl.link_first": True,
     "crawl.item_lease_seconds": 600,
+    # Not a crawl.* key, but CrawlKnobs.load_for asks for it, and a resolver answers every key asked.
+    "respect_robots": False,
 }
 
 

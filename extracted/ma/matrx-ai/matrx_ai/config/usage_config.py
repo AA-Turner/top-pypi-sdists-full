@@ -4,6 +4,7 @@ import asyncio
 import math
 import time
 from dataclasses import asdict, dataclass, field
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 from matrx_utils import vcprint
@@ -110,6 +111,7 @@ def openai_compatible_usage_counts(usage: Any) -> tuple[int, int, int]:
         or raw.get("cached_tokens")
         or raw.get("cache_read_input_tokens")
         or raw.get("prompt_cache_hit_tokens")
+        or raw.get("cached_prompt_text_tokens")  # xAI (a subset of prompt_tokens)
     )
     return prompt_tokens - min(prompt_tokens, cached_tokens), completion_tokens, min(
         prompt_tokens, cached_tokens
@@ -264,6 +266,15 @@ USAGE_BASIS_SPECS: dict[str | None, UsageBasisSpec] = {
         "$ / second",
         "Billed by output seconds. output_price is $/second.",
     ),
+    "audio_unit_output": UsageBasisSpec(
+        "output_tokens",
+        1_000_000,
+        "track",
+        False,
+        "$ / generated track",
+        "Music generation (Lyria): one generated track = 1 unit whatever its length. output_price is $/track. "
+        "The Google chat translator records the unit (apply_track_billing) because the provider reports tokens, not tracks.",
+    ),
     "minute": UsageBasisSpec(
         "input_tokens",
         1_000_000,
@@ -326,6 +337,81 @@ PROVIDER_SERVICE_COMPONENTS: dict[tuple[str, str], str] = {
     # matrx_ai/providers/google/google_research_agent.research_usage.
     ("google_interactions", "web_search"): "service.google_search",
 }
+
+
+# ADVISORY modality counts. A provider that reports its usage split by modality (Gemini's
+# ``promptTokensDetails`` / ``candidatesTokensDetails`` / ``cacheTokensDetails``) records each
+# non-text share as ``modality.<input|output|cached_input>.<audio|image|video>``. Unlike a
+# plain component, an advisory count with no catalog price is NOT a pricing gap: those tokens
+# simply stay in the base ``input_price`` / ``output_price`` pool (the price is the same until
+# the catalog says otherwise). When the tier prices ``input.audio`` (``component_prices`` or
+# ``modality_prices``) the audio share bills at that rate instead.
+ADVISORY_COMPONENT_PREFIX = "modality."
+#: Modalities that may carry their own price; text (and document) is the base rate.
+PRICED_MODALITIES: tuple[str, ...] = ("audio", "image", "video")
+
+
+def _modality_name(raw: Any) -> str:
+    value = getattr(raw, "value", raw)
+    text = str(value or "").strip()
+    if "." in text:
+        text = text.rsplit(".", 1)[-1]
+    return text.lower()
+
+
+def _modality_counts(details: Any) -> dict[str, int]:
+    """``[{modality: "AUDIO", token_count: N}, …]`` (dicts in either spelling, or SDK
+    ``ModalityTokenCount`` objects) -> ``{"audio": N, …}``."""
+    out: dict[str, int] = {}
+    for entry in details or []:
+        if isinstance(entry, dict):
+            modality = _modality_name(entry.get("modality"))
+            count = entry.get("token_count") or entry.get("tokenCount") or 0
+        else:
+            modality = _modality_name(getattr(entry, "modality", None))
+            count = getattr(entry, "token_count", 0) or 0
+        try:
+            count = int(count)
+        except (TypeError, ValueError):
+            count = 0
+        if modality and count > 0:
+            out[modality] = out.get(modality, 0) + count
+    return out
+
+
+def gemini_modality_counts(usage_metadata: Any) -> dict[str, int]:
+    """Gemini usage (generateContent ``candidates*`` or Live ``response*``; SDK object or
+    dict, snake or camel case) -> ``{"input.audio": n, "cached_input.audio": n,
+    "output.image": n, …}`` for the priced modalities. Cached counts come off the uncached
+    ones so no token is counted twice."""
+
+    def read(*names: str) -> Any:
+        for name in names:
+            value = usage_metadata.get(name) if isinstance(usage_metadata, dict) else getattr(usage_metadata, name, None)
+            if value:
+                return value
+        return None
+
+    prompt = _modality_counts(read("prompt_tokens_details", "promptTokensDetails"))
+    cached = _modality_counts(read("cache_tokens_details", "cacheTokensDetails"))
+    response = _modality_counts(
+        read(
+            "response_tokens_details",
+            "responseTokensDetails",
+            "candidates_tokens_details",
+            "candidatesTokensDetails",
+        )
+    )
+    counts: dict[str, int] = {}
+    for modality in PRICED_MODALITIES:
+        uncached = prompt.get(modality, 0) - cached.get(modality, 0)
+        if uncached > 0:
+            counts[f"input.{modality}"] = uncached
+        if cached.get(modality, 0) > 0:
+            counts[f"cached_input.{modality}"] = cached[modality]
+        if response.get(modality, 0) > 0:
+            counts[f"output.{modality}"] = response[modality]
+    return counts
 
 
 # Derived views — DO NOT edit directly; change USAGE_BASIS_SPECS instead.
@@ -438,8 +524,17 @@ class PricingTier:
     # priced differently (for example GPT Image text input vs image input).
     # Keys are canonical component names such as ``input.text``,
     # ``input.image``, ``cached_input.text``, ``output.image``, and paid
-    # provider units such as ``service.web_search``.
+    # provider units such as ``service.web_search``. A tier's ``modality_prices``
+    # ({"audio": {"input_price", "output_price", "cached_input_price"}, …}) is the
+    # same price written per modality; it is folded into these keys at parse.
     component_prices: dict[str, float] = field(default_factory=dict)
+    # ISO-8601 UTC instant this tier takes effect (a bare date is midnight UTC);
+    # None = always in effect. Per ``max_tokens`` threshold the tier with the
+    # latest ``effective_from`` at or before the request time wins.
+    effective_from: str | None = None
+
+    def effective_instant(self) -> datetime | None:
+        return _parse_effective_from(self.effective_from, "effective_from") if self.effective_from else None
 
 
 @dataclass(frozen=True)
@@ -464,16 +559,47 @@ class ModelPricing:
     api: str
     tiers: list[PricingTier]
 
-    def get_tier(self, total_input_tokens: int) -> PricingTier | None:
-        if not self.tiers:
-            return None
-        synthetic_only = all(t.usage_basis in SYNTHETIC_USAGE_BASES for t in self.tiers)
-        if synthetic_only and len(self.tiers) == 1:
-            return self.tiers[0]
+    def current_tiers(self, at: datetime | None = None) -> list[PricingTier]:
+        """The tiers in effect at ``at`` (default now, UTC), one per ``max_tokens`` threshold.
+
+        A tier without ``effective_from`` is in effect from the beginning of time, so a
+        pricing list with no dated tier is returned unchanged (today's behavior). Per
+        threshold, the tier with the latest ``effective_from`` at or before ``at`` wins
+        (a later list entry wins a tie); thresholds keep their first-listed order.
+        """
+        if not any(t.effective_from for t in self.tiers):
+            return self.tiers
+        when = _as_utc(at) if at is not None else datetime.now(UTC)
+        chosen: dict[int | None, tuple[datetime | None, PricingTier]] = {}
         for tier in self.tiers:
+            start = tier.effective_instant()
+            if start is not None and start > when:
+                continue
+            held = chosen.get(tier.max_tokens)
+            if held is None or held[0] is None or (start is not None and start >= held[0]):
+                chosen[tier.max_tokens] = (start, tier)
+        # A dated tier may add a threshold listed after the catch-all; order thresholds
+        # ascending (None = unlimited last) so get_tier's first match is the right one.
+        ordered = sorted(chosen.values(), key=lambda pair: (pair[1].max_tokens is None, pair[1].max_tokens or 0))
+        return [tier for _, tier in ordered]
+
+    def upcoming_tiers(self, at: datetime | None = None) -> list[PricingTier]:
+        """Announced tiers that are not in effect yet at ``at`` (default now), soonest first."""
+        when = _as_utc(at) if at is not None else datetime.now(UTC)
+        future = [t for t in self.tiers if (start := t.effective_instant()) is not None and start > when]
+        return sorted(future, key=lambda t: t.effective_instant() or when)
+
+    def get_tier(self, total_input_tokens: int, at: datetime | None = None) -> PricingTier | None:
+        tiers = self.current_tiers(at)
+        if not tiers:
+            return None
+        synthetic_only = all(t.usage_basis in SYNTHETIC_USAGE_BASES for t in tiers)
+        if synthetic_only and len(tiers) == 1:
+            return tiers[0]
+        for tier in tiers:
             if tier.max_tokens is None or total_input_tokens <= tier.max_tokens:
                 return tier
-        return self.tiers[-1]
+        return tiers[-1]
 
 
 _pricing_lookup_cache: dict[str, ModelPricing] | None = None
@@ -566,10 +692,86 @@ def _tiers_from_pricing_field(pricing_field: Any) -> list[PricingTier]:
                 cache_write_5m_price=_optional_float(tier_data.get("cache_write_5m_price"), f"{where}.cache_write_5m_price"),
                 cache_write_1h_price=_optional_float(tier_data.get("cache_write_1h_price"), f"{where}.cache_write_1h_price"),
                 cache_hit_price=_optional_float(tier_data.get("cache_hit_price"), f"{where}.cache_hit_price"),
-                component_prices=_float_map(tier_data.get("component_prices"), f"{where}.component_prices"),
+                component_prices=_component_prices(tier_data, where),
+                effective_from=_effective_from_field(tier_data.get("effective_from"), f"{where}.effective_from"),
             )
         )
     return tiers
+
+
+def _as_utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+def _parse_effective_from(value: Any, field_name: str) -> datetime:
+    """An ISO date (midnight UTC) or ISO datetime (naive = UTC). Anything else raises."""
+    if isinstance(value, datetime):
+        return _as_utc(value)
+    if isinstance(value, date):
+        return datetime(value.year, value.month, value.day, tzinfo=UTC)
+    if not isinstance(value, str) or not value.strip():
+        raise PricingShapeError(f"{field_name} must be an ISO date or datetime, got {str(value)[:120]!r}")
+    text = value.strip()
+    try:
+        if len(text) == 10:
+            parsed = date.fromisoformat(text)
+            return datetime(parsed.year, parsed.month, parsed.day, tzinfo=UTC)
+        return _as_utc(datetime.fromisoformat(text.replace("Z", "+00:00")))
+    except ValueError as exc:
+        raise PricingShapeError(f"{field_name} is not an ISO date or datetime: {text[:120]!r}") from exc
+
+
+def _effective_from_field(value: Any, field_name: str) -> str | None:
+    """Validated and normalized to an ISO UTC instant string (JSON-safe in pricing_snapshot)."""
+    if value is None or value == "":
+        return None
+    return _parse_effective_from(value, field_name).isoformat()
+
+
+#: ``modality_prices`` field -> the component-price prefix it fills.
+_MODALITY_PRICE_FIELDS: dict[str, str] = {
+    "input_price": "input",
+    "output_price": "output",
+    "cached_input_price": "cached_input",
+}
+
+
+def _component_prices(tier_data: dict[str, Any], where: str) -> dict[str, float]:
+    """``component_prices`` plus ``modality_prices`` folded into the same canonical keys.
+
+    ``{"modality_prices": {"audio": {"input_price": 3, "output_price": 12}}}`` is exactly
+    ``{"component_prices": {"input.audio": 3, "output.audio": 12}}``. Writing one price twice
+    with two different values is refused (the offering goes unpriced, loudly) — never a guess
+    about which one the catalog meant.
+    """
+    prices = _float_map(tier_data.get("component_prices"), f"{where}.component_prices")
+    modality_prices = tier_data.get("modality_prices")
+    if modality_prices is None:
+        return prices
+    if not isinstance(modality_prices, dict):
+        raise PricingShapeError(f"{where}.modality_prices must be an object, got {type(modality_prices).__name__}")
+    for modality, fields in modality_prices.items():
+        name = str(modality).strip().lower()
+        if not isinstance(fields, dict):
+            raise PricingShapeError(f"{where}.modality_prices.{name} must be an object of prices")
+        for field_name, value in fields.items():
+            prefix = _MODALITY_PRICE_FIELDS.get(field_name)
+            if prefix is None:
+                raise PricingShapeError(
+                    f"{where}.modality_prices.{name}.{field_name} is not a price field "
+                    f"(one of {sorted(_MODALITY_PRICE_FIELDS)})"
+                )
+            if value is None:
+                continue
+            key = f"{prefix}.{name}"
+            price = _price(value, f"{where}.modality_prices.{name}.{field_name}")
+            if key in prices and prices[key] != price:
+                raise PricingShapeError(
+                    f"{where} prices {key} twice: component_prices={prices[key]} vs "
+                    f"modality_prices.{name}.{field_name}={price}"
+                )
+            prices[key] = price
+    return prices
 
 
 def _optional_float(value: Any, field_name: str = "price") -> float | None:
@@ -662,15 +864,81 @@ UNPRICED_FALLBACK_INPUT_PER_M = 20.0
 UNPRICED_FALLBACK_OUTPUT_PER_M = 75.0
 
 
-def conservative_unpriced_cost(usage: Any) -> float:
-    """A deliberately HIGH cost estimate for a call whose real price is unknown.
+@dataclass(frozen=True)
+class UnpricedEstimate:
+    """How an unpriced call was estimated. ``kind`` is ``"tokens"`` (real provider tokens, priced at
+    the highest token rate), ``"units"`` (non-token usage priced in its OWN unit: ``unit`` x
+    ``units``), or ``"unknown_units"`` (non-token usage with no known unit price: ``cost_usd`` is 0.0
+    and the caller must announce it as unpriced; it is never priced as tokens)."""
 
-    Uses the highest token prices in the loaded price table (input, cached input, output), or the
-    Opus-class fallback when the table is empty. Never the recorded cost — the ledger keeps NULL;
-    this number exists so caps, run limits and alarms keep counting while the price is missing.
-    """
+    cost_usd: float
+    kind: str
+    unit: str = ""
+    units: float = 0.0
+    usage_basis: str | None = None
+
+
+def _usage_int(usage: Any, name: str) -> int:
+    try:
+        return max(0, int(getattr(usage, name, 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _non_token_basis(usage: Any) -> tuple[bool, str | None]:
+    """``(is_non_token, usage_basis)``: do this usage's token fields hold synthetic UNITS
+    (video seconds, images, tracks, minutes, characters) rather than real provider tokens?
+
+    Sources, strongest first: the media builder's recorded ``metadata.billing_kind``
+    (``synthetic:<basis>`` / ``synthetic_unpriced``), then the model's resolved price tier."""
+    meta = getattr(usage, "metadata", None)
+    kind = str(meta.get("billing_kind") or "") if isinstance(meta, dict) else ""
+    if kind.startswith("synthetic:"):
+        return True, kind.split(":", 1)[1] or None
+    if kind == "synthetic_unpriced":
+        return True, None
+    model = str(getattr(usage, "matrx_model_name", "") or "")
+    if model:
+        known, basis = resolve_usage_basis(
+            model, str(getattr(usage, "api", "") or ""), str(getattr(usage, "offering_id", "") or "")
+        )
+        if known and basis is not None:
+            return True, basis
+    return False, None
+
+
+def estimate_unpriced_call(usage: Any) -> UnpricedEstimate:
+    """THE one estimate for a call whose real price is unknown (spend caps, run limits, alarms).
+
+    Real provider tokens: a deliberately HIGH estimate at the highest token prices in the loaded
+    price table (Opus-class fallback when the table is empty). Non-token usage (the token fields
+    carry video seconds / images / tracks / minutes / characters): priced by its OWN unit, at the
+    highest price any tier of the same ``usage_basis`` charges, never at a token rate (21,000,000
+    video units x $75/M read as $1,575 and refused every call, 2026-10-18). With no known unit
+    price it returns ``unknown_units`` at $0.00 so the caller announces it instead of inventing
+    a number. The ledger keeps NULL either way; this number only keeps caps counting."""
     if usage is None:
-        return 0.0
+        return UnpricedEstimate(0.0, "tokens")
+    non_token, basis = _non_token_basis(usage)
+    if non_token:
+        spec = USAGE_BASIS_SPECS.get(basis) if basis is not None else None
+        field_name = spec.billing_field if spec is not None else "output_tokens"
+        per_unit = spec.tokens_per_unit if spec is not None else 1_000_000
+        units = _usage_int(usage, field_name) / per_unit
+        best = 0.0
+        for pricing in (_pricing_lookup_cache or {}).values():
+            for tier in pricing.tiers:
+                if basis is None:
+                    if tier.usage_basis is None:
+                        continue
+                elif tier.usage_basis != basis:
+                    continue
+                best = max(best, tier.input_price if field_name == "input_tokens" else tier.output_price)
+        unit = spec.unit if spec is not None else "unit"
+        if best <= 0 or units <= 0:
+            return UnpricedEstimate(0.0, "unknown_units", unit, units, basis)
+        return UnpricedEstimate(units * best, "units", unit, units, basis)
+
     max_in = max_out = 0.0
     for pricing in (_pricing_lookup_cache or {}).values():
         for tier in pricing.tiers:
@@ -681,17 +949,16 @@ def conservative_unpriced_cost(usage: Any) -> float:
     if max_in <= 0 and max_out <= 0:
         max_in, max_out = UNPRICED_FALLBACK_INPUT_PER_M, UNPRICED_FALLBACK_OUTPUT_PER_M
 
-    def _n(name: str) -> int:
-        try:
-            return max(0, int(getattr(usage, name, 0) or 0))
-        except (TypeError, ValueError):
-            return 0
-
-    tokens_in = _n("input_tokens") + _n("cached_input_tokens")
+    tokens_in = _usage_int(usage, "input_tokens") + _usage_int(usage, "cached_input_tokens")
     for extra in ("cache_write_5m_tokens", "cache_write_1h_tokens"):
-        tokens_in += _n(extra)
-    tokens_out = _n("output_tokens")
-    return (tokens_in * max_in + tokens_out * max_out) / 1_000_000
+        tokens_in += _usage_int(usage, extra)
+    tokens_out = _usage_int(usage, "output_tokens")
+    return UnpricedEstimate((tokens_in * max_in + tokens_out * max_out) / 1_000_000, "tokens")
+
+
+def conservative_unpriced_cost(usage: Any) -> float:
+    """Dollar figure of ``estimate_unpriced_call`` (kept for callers that only need the number)."""
+    return estimate_unpriced_call(usage).cost_usd
 
 
 async def _warm_pricing_from_host_catalog(catalog: Any) -> dict[str, ModelPricing]:
@@ -810,7 +1077,7 @@ async def warm_pricing_lookup() -> dict[str, ModelPricing]:
                     # PARKED is not ORPHANED. A model whose real offering exists and
                     # was deliberately marked unavailable (no harness yet, invite-only
                     # access — the reason lives in ai.offering.notes) is a recorded
-                    # decision every picker already honours; "INSERT an offering" is
+                    # decision every picker already honors; "INSERT an offering" is
                     # the wrong remedy for it. Only a model with NO well-formed
                     # offering at all is a dead row.
                     if ai_catalog_manager.parked_offerings_for(str(model.id)):
@@ -1120,9 +1387,10 @@ def resolve_usage_basis(
     if model_pricing is None:
         _pricing_miss(model_name, api)
         return (False, None)
-    if not model_pricing.tiers:
+    current = model_pricing.current_tiers()
+    if not current:
         return (False, None)
-    return (True, model_pricing.tiers[0].usage_basis)
+    return (True, current[0].usage_basis)
 
 
 @dataclass
@@ -1179,7 +1447,7 @@ class TokenUsage:
     offering_route: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
     # Verbatim provider usage block (dict-form). Preserves every field that
-    # ``from_<provider>`` normalises away — Anthropic's cache_creation,
+    # ``from_<provider>`` normalizes away — Anthropic's cache_creation,
     # service_tier, server_tool_use; OpenAI's reasoning_tokens; Gemini's
     # thoughtsTokenCount; modality breakdowns; etc. Persisted to
     # cx_request.raw_usage so any downstream consumer can recover the truth.
@@ -1214,24 +1482,27 @@ class TokenUsage:
         except (TypeError, ValueError):
             return 0
 
-    def calculate_cost(self, pricing_lookup: dict[str, ModelPricing] | None = None) -> float | None:
+    def calculate_cost(
+        self, pricing_lookup: dict[str, ModelPricing] | None = None, at: datetime | None = None
+    ) -> float | None:
         """Return our canonical catalog-calculated cost for this call.
 
         ``provider_charge`` is independent reconciliation evidence. It must
         never replace the amount written to request/runtime cost columns.
+        ``at`` is the request time the dated tiers are chosen for (default now).
         """
-        breakdown = self.calculate_cost_breakdown(pricing_lookup)
+        breakdown = self.calculate_cost_breakdown(pricing_lookup, at)
         return breakdown.total_cost if breakdown is not None else None
 
     def calculate_catalog_cost(
-        self, pricing_lookup: dict[str, ModelPricing] | None = None
+        self, pricing_lookup: dict[str, ModelPricing] | None = None, at: datetime | None = None
     ) -> float | None:
         """Return the catalog-derived estimate even when a provider charge exists."""
-        breakdown = self.calculate_cost_breakdown(pricing_lookup)
+        breakdown = self.calculate_cost_breakdown(pricing_lookup, at)
         return breakdown.total_cost if breakdown is not None else None
 
     def calculate_cost_breakdown(
-        self, pricing_lookup: dict[str, ModelPricing] | None = None
+        self, pricing_lookup: dict[str, ModelPricing] | None = None, at: datetime | None = None
     ) -> UsageCostBreakdown | None:
         if not self.matrx_model_name:
             return None
@@ -1273,8 +1544,13 @@ class TokenUsage:
             _pricing_miss(self.matrx_model_name, self.api)
             return None
 
-        total_input = self.input_tokens + self.cached_input_tokens
-        tier = model_pricing.get_tier(total_input)
+        # A multi-call answer (long-decode hops, segmented TTS) is priced at the tier its
+        # LARGEST single call reached — each call is its own request to the provider, so the
+        # summed prompt of N hops never crosses a context-length price break no hop crossed.
+        total_input = int(
+            self.metadata.get("tier_input_tokens") or (self.input_tokens + self.cached_input_tokens)
+        )
+        tier = model_pricing.get_tier(total_input, at)
         if not tier:
             vcprint(
                 f"\n\n⚠️  Pricing tier not found for model: {self.matrx_model_name} (total_input: {total_input:,} tokens)\n\n",
@@ -1306,7 +1582,9 @@ class TokenUsage:
         unpriced_components = {
             name: count
             for name, count in self.billing_components.items()
-            if count > 0 and name not in tier.component_prices
+            if count > 0
+            and not name.startswith(ADVISORY_COMPONENT_PREFIX)
+            and name not in tier.component_prices
         }
         if unpriced_components:
             _warn_billing_once(
@@ -1403,7 +1681,7 @@ class TokenUsage:
 
         component_costs: dict[str, float] = {}
         component_input = component_cached = component_output = 0
-        for component, count in self.billing_components.items():
+        for component, count in self._priced_components(tier).items():
             price = tier.component_prices.get(component)
             if price is None:
                 continue
@@ -1473,6 +1751,24 @@ class TokenUsage:
             component_costs=component_costs,
         )
 
+    def _priced_components(self, tier: PricingTier) -> dict[str, int]:
+        """Exact components, plus each advisory modality count the tier prices.
+
+        An advisory count the tier does not price is dropped here, so its tokens stay in
+        the base pool. An exact component of the same name wins over the advisory one.
+        """
+        out: dict[str, int] = {}
+        for name, count in self.billing_components.items():
+            if not name.startswith(ADVISORY_COMPONENT_PREFIX):
+                out[name] = out.get(name, 0) + count
+        for name, count in self.billing_components.items():
+            if not name.startswith(ADVISORY_COMPONENT_PREFIX):
+                continue
+            base = name[len(ADVISORY_COMPONENT_PREFIX) :]
+            if base in tier.component_prices and base not in out:
+                out[base] = count
+        return out
+
     def __add__(self, other: TokenUsage) -> TokenUsage:
         def merge_raw(left: Any, right: Any) -> Any:
             if isinstance(left, dict) and isinstance(right, dict):
@@ -1521,6 +1817,10 @@ class TokenUsage:
         # split out and billed at the cached rate, never double-counted into
         # plain input. ``thoughts_token_count`` is billed as output by Google
         # but is NOT part of ``candidates_token_count``, so it is added in.
+        #
+        # The per-modality split rides as ADVISORY components (``modality.input.audio``…):
+        # priced at the tier's modality rate when the catalog sets one, else billed at the
+        # base rate exactly as before.
         raw = _safe_to_dict(usage_metadata)
         prompt = int(usage_metadata.prompt_token_count or 0)
         cached = int(usage_metadata.cached_content_token_count or 0)
@@ -1535,6 +1835,10 @@ class TokenUsage:
             api="google",
             response_id=response_id,
             raw_usage=raw,
+            billing_components={
+                f"{ADVISORY_COMPONENT_PREFIX}{name}": count
+                for name, count in gemini_modality_counts(usage_metadata).items()
+            },
         )
 
     @classmethod
@@ -1568,10 +1872,13 @@ class TokenUsage:
         # INCLUDE cached tokens). So we must NOT subtract cache_read from it.
         # And cache_creation (cache-write) tokens are a real, billed cost — if
         # we drop them the bill silently under-records once caching is on. Fold
-        # them into input_tokens so they're billed at the base rate. (The 1.25x
-        # cache-write premium is a small, known underbill on the write portion
-        # only — it happens once per prefix — and the exact split is preserved
-        # in raw_usage for any consumer that wants to bill it precisely.)
+        # them into input_tokens. DECISION (2026-10-16): ``input_tokens`` stays
+        # INCLUSIVE (uncached + cache write) on Anthropic, as every consumer
+        # (total_tokens, ledgers, dashboards) already expects. The write portion is
+        # recorded separately via ``cache_write_tokens`` (-> chat.request.cache_write_tokens
+        # and runtime._ai_calls.tokens_cache_write), with the 5m/1h split kept in raw_usage.
+        # ``calculate_cost_breakdown`` re-derives uncached input from raw_usage and prices
+        # writes at the 5m/1h write rates, so the fold is NOT double counted in cost.
         raw = _safe_to_dict(usage)
         cache_read = raw.get("cache_read_input_tokens", 0) or 0
         cache_write = raw.get("cache_creation_input_tokens", 0) or 0
@@ -1729,6 +2036,32 @@ def build_character_billed_usage(
         response_id=response_id,
         metadata=metadata,
     )
+
+
+def apply_track_billing(usage: Any, *, tracks: int, matrx_model_name: str, api: str) -> bool:
+    """Bill ``tracks`` generated music track(s) on a usage whose model prices ``audio_unit_output``.
+
+    The provider (Lyria through the Gemini API) reports prompt/candidate TOKENS for a call that is priced per track.
+    When the model's pricing tier is ``audio_unit_output`` the reported tokens are kept in ``metadata`` as evidence and
+    the billable field becomes ``tracks`` units (1M synthetic tokens each). Any other basis is left untouched (a TTS or
+    chat model that happens to return audio is not a music track). Returns True when it billed tracks.
+    """
+    if usage is None or tracks <= 0:
+        return False
+    _known, basis = resolve_usage_basis(matrx_model_name, api)
+    if basis != "audio_unit_output":
+        return False
+    usage.metadata["provider_reported_tokens"] = {
+        "input_tokens": usage.input_tokens,
+        "output_tokens": usage.output_tokens,
+        "cached_input_tokens": usage.cached_input_tokens,
+    }
+    usage.input_tokens = 0
+    usage.cached_input_tokens = 0
+    usage.output_tokens = int(tracks) * 1_000_000
+    usage.metadata["billing_kind"] = "synthetic:audio_unit_output"
+    usage.metadata["billed_tracks"] = int(tracks)
+    return True
 
 
 async def build_character_billed_usage_async(
@@ -1895,9 +2228,22 @@ def validate_model_pricing(
         # (hosted web search). Without a component price the WHOLE call prices to
         # NULL — not to a token-only estimate — so an unpriced component silently
         # erases the cost of every run that uses it.
-        component_prices = tier.get("component_prices")
-        if not isinstance(component_prices, dict):
+        # Parsed exactly as the cost path parses it: nested and dotted component keys are the
+        # same price, ``modality_prices`` folds in, ``effective_from`` must be a real instant.
+        try:
+            component_prices = _component_prices(tier, f"tier[{idx}]")
+            _effective_from_field(tier.get("effective_from"), f"tier[{idx}].effective_from")
+        except PricingShapeError as exc:
+            add("error", "bad_tier_shape", f"{exc} — this offering is unpriced until fixed.")
             component_prices = {}
+        for modality in PRICED_MODALITIES:
+            if f"input.{modality}" in component_prices and f"cached_input.{modality}" not in component_prices:
+                add(
+                    "warning",
+                    "cached_modality_unpriced",
+                    f"tier[{idx}] prices input.{modality} but not cached_input.{modality} — cached "
+                    f"{modality} tokens bill at cached_input_price (the text rate).",
+                )
         for (component_wire, feature), component in PROVIDER_SERVICE_COMPONENTS.items():
             if wire_format != component_wire or feature not in capabilities.native_capabilities:
                 continue

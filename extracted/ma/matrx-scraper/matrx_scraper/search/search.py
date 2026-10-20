@@ -39,6 +39,32 @@ def extract_urls_from_search_results(
     return urls
 
 
+def site_icons_from_search_results(
+    queries_with_results: list[tuple[str, dict[str, Any] | None]],
+) -> dict[str, str]:
+    """Each result URL's own site icon, as Brave reports it (`meta_url.favicon`).
+
+    For the reader's screen only: the summary text the model reads never carries
+    these, so they cost no tokens and no share of the result budget.
+    """
+    icons: dict[str, str] = {}
+    for _query, result in queries_with_results:
+        if not result:
+            continue
+        items = (
+            result.get("web", {}).get("results", [])
+            + result.get("news", {}).get("results", [])
+            + result.get("news", {}).get("videos", [])
+            + result.get("videos", {}).get("results", [])
+        )
+        for item in items:
+            url = item.get("url")
+            favicon = (item.get("meta_url") or {}).get("favicon")
+            if url and isinstance(favicon, str) and favicon.startswith("https://") and url not in icons:
+                icons[url] = favicon
+    return icons
+
+
 def generate_search_text_summary(
     queries_with_results: list[tuple[str, dict[str, Any] | None]],
 ) -> str:
@@ -232,4 +258,5 @@ async def wrapped_brave_search(
     return {
         "original_results": original_results,
         "unique_text_summary": unique_text_summary,
+        "site_icons": site_icons_from_search_results(queries_with_results),
     }

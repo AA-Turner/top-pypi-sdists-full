@@ -4,8 +4,15 @@ import pytest
 
 nx = pytest.importorskip("networkx", reason="prov.graph requires the graph extra")
 
+from prov.constants import PROV_ATTR_COLLECTION, PROV_ATTR_ENTITY, PROV_MEMBERSHIP
 from prov.graph import graph_to_prov, prov_to_graph
-from prov.model import ProvActivity, ProvDocument, ProvEntity, ProvWarning
+from prov.model import (
+    ProvActivity,
+    ProvDocument,
+    ProvEntity,
+    ProvFutureRejectionWarning,
+    ProvWarning,
+)
 from prov.tests.examples import primer_example, tests
 
 
@@ -137,3 +144,29 @@ def test_ignores_edges_whose_relation_is_not_a_prov_record() -> None:
     prov_doc = graph_to_prov(g)
 
     assert list(prov_doc.get_records()) == []
+
+
+def test_equal_memberships_sharing_an_identifier_give_two_edges(document) -> None:
+    # unified() leaves hadMember out of the merge by identifier (#530), so two
+    # equal memberships with one identifier stay two edges.
+    document.entity("ex:c")
+    document.entity("ex:e")
+    attributes = {PROV_ATTR_COLLECTION: "ex:c", PROV_ATTR_ENTITY: "ex:e"}
+    for _ in range(2):
+        document.new_record(PROV_MEMBERSHIP, "ex:m", attributes)
+    assert prov_to_graph(document).number_of_edges() == 2
+
+
+def test_absent_plan_against_a_plan_warns_at_the_prov_to_graph_call_site() -> None:
+    # prov_to_graph() unifies first, so the #547 warning fires through it and
+    # names this module, not a frame inside prov.
+    document = ProvDocument()
+    document.add_namespace("ex", "http://example.org/")
+    document.association("ex:a1", agent="ex:ag1", identifier="ex:assoc1")
+    document.association("ex:a1", agent="ex:ag1", plan="ex:pl1", identifier="ex:assoc1")
+    with pytest.warns(
+        ProvFutureRejectionWarning, match="prov:plan means none"
+    ) as record:
+        prov_to_graph(document)
+    assert len(record) == 1
+    assert record[0].filename == __file__

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
   from trajectory.resources.agents import Agents
   from trajectory.resources.artifacts import Artifacts
   from trajectory.resources.benchmarks.benchmarks import Benchmarks
+  from trajectory.resources.billing import Billing
   from trajectory.resources.chat.chat import Chat
   from trajectory.resources.datasets import Datasets
   from trajectory.resources.deployments import Deployments
@@ -131,6 +132,12 @@ class Client(APIClient):
     from trajectory.resources.artifacts import Artifacts
 
     return Artifacts(self)
+
+  @cached_property
+  def billing(self) -> Billing:
+    from trajectory.resources.billing import Billing
+
+    return Billing(self)
 
   @cached_property
   def benchmarks(self) -> Benchmarks:

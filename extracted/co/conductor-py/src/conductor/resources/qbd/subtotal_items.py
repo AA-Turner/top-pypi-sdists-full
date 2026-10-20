@@ -80,6 +80,8 @@ class SubtotalItemsResource(SyncAPIResource):
           description: The subtotal item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
               this object in your external system. This field is immutable and can only be set
               during object creation.
@@ -195,6 +197,8 @@ class SubtotalItemsResource(SyncAPIResource):
           description: The subtotal item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           is_active: Indicates whether this subtotal item is active. Inactive objects are typically
               hidden from views and reports in QuickBooks. Defaults to `true`.
 
@@ -303,6 +307,9 @@ class SubtotalItemsResource(SyncAPIResource):
           name_from: Filter for subtotal items whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific subtotal items by their name(s), case-insensitive. Like
               `id`, `name` is a unique identifier for a subtotal item.
 
@@ -320,6 +327,9 @@ class SubtotalItemsResource(SyncAPIResource):
 
           name_to: Filter for subtotal items whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for subtotal items that are active, inactive, or both.
 
@@ -440,6 +450,8 @@ class AsyncSubtotalItemsResource(AsyncAPIResource):
           description: The subtotal item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
               this object in your external system. This field is immutable and can only be set
               during object creation.
@@ -555,6 +567,8 @@ class AsyncSubtotalItemsResource(AsyncAPIResource):
           description: The subtotal item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           is_active: Indicates whether this subtotal item is active. Inactive objects are typically
               hidden from views and reports in QuickBooks. Defaults to `true`.
 
@@ -663,6 +677,9 @@ class AsyncSubtotalItemsResource(AsyncAPIResource):
           name_from: Filter for subtotal items whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific subtotal items by their name(s), case-insensitive. Like
               `id`, `name` is a unique identifier for a subtotal item.
 
@@ -680,6 +697,9 @@ class AsyncSubtotalItemsResource(AsyncAPIResource):
 
           name_to: Filter for subtotal items whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for subtotal items that are active, inactive, or both.
 

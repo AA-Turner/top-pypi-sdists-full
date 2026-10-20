@@ -221,7 +221,11 @@ def _union_action_choices(
 
 
 def _normalize_google_schema(
-    node: dict[str, Any] | str, *, missing_items: list[str], path: str
+    node: dict[str, Any] | str,
+    *,
+    missing_items: list[str],
+    path: str,
+    dropped: list[tuple[str, str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Convert a loose internal param/JSON-schema node into a Gemini-valid schema.
 
@@ -257,14 +261,16 @@ def _normalize_google_schema(
             # such as seo_local's grid_size [3, 5] fails the SDK's validation
             # and kills the whole request). Keep the real type and tell the
             # model the allowed values in words; the executor still enforces them.
-            allowed = ", ".join(json.dumps(v) for v in enum)
-            s["description"] = f"{s.get('description', '').rstrip()} Allowed values: {allowed}.".lstrip()
+            # The enum is DROPPED from the schema and recorded (a visible
+            # settings adjustment) - never rewritten into description prose.
+            if dropped is not None:
+                dropped.append((path, "enum", enum))
 
     if ptype == "array":
         items = node.get("items")
         if isinstance(items, dict | str) and items != {}:
             s["items"] = _normalize_google_schema(
-                items, missing_items=missing_items, path=f"{path}[]"
+                items, missing_items=missing_items, path=f"{path}[]", dropped=dropped
             )
         else:
             # Gemini requires items on every array — inject a permissive default
@@ -275,7 +281,9 @@ def _normalize_google_schema(
 
     if ptype == "object" and "properties" in node:
         s["properties"] = {
-            k: _normalize_google_schema(v, missing_items=missing_items, path=f"{path}.{k}")
+            k: _normalize_google_schema(
+                v, missing_items=missing_items, path=f"{path}.{k}", dropped=dropped
+            )
             for k, v in node["properties"].items()
         }
         # Only a JSON-Schema required LIST belongs here. The internal notation's
@@ -289,7 +297,11 @@ def _normalize_google_schema(
 
 
 def _google_top_level_schema(
-    node: dict[str, Any] | str, *, missing_items: list[str], path: str
+    node: dict[str, Any] | str,
+    *,
+    missing_items: list[str],
+    path: str,
+    dropped: list[tuple[str, str, Any]] | None = None,
 ) -> dict[str, Any]:
     """:func:`_normalize_google_schema` for a TOP-LEVEL tool parameter.
 
@@ -311,8 +323,11 @@ def _google_top_level_schema(
     ):
         desc = str(node.get("description", "") or "").rstrip()
         hint = "Pass this as a JSON-encoded object string, e.g. '{\"key\": \"value\"}'."
+        if dropped is not None:
+            # Code-authored text the model reads: recorded, never silent.
+            dropped.append((path, "description_hint", hint))
         return {"type": "string", "description": f"{desc} {hint}".strip()}
-    return _normalize_google_schema(node, missing_items=missing_items, path=path)
+    return _normalize_google_schema(node, missing_items=missing_items, path=path, dropped=dropped)
 
 
 def _warn_google_missing_items(tool_name: str, missing_items: list[str]) -> None:
@@ -887,6 +902,12 @@ class ToolResult(BaseModel):
     # ``tool_step`` event the client's tool card renders as the shared diff.
     surface_write: Any = Field(default=None, exclude=True, repr=False)
 
+    # SITE ICONS (``matrx_ai.tools.site_icons``): result URL → that site's own
+    # icon as the provider reported it (e.g. Brave ``meta_url.favicon``). Out of
+    # band like ``surface_write`` — the model never reads them; the executor
+    # emits them as one persisted ``tool_step`` the client's cards draw from.
+    site_icons: dict[str, str] | None = Field(default=None, exclude=True, repr=False)
+
     # Content IR travels out-of-band beside the unchanged tool payload. These
     # fields are runtime/persistence metadata and are never sent in the model's
     # tool-call arguments or injected into ``output``.
@@ -1447,6 +1468,43 @@ _FORWARDED_CONSTRAINT_KEYS: tuple[str, ...] = (
 )
 
 
+def _publish_dropped_constraints(tool: str, dropped: list[tuple[str, str, Any]]) -> None:
+    """Tell the person (and the stored request snapshot) which tool-schema
+    constraints the provider's strict mode could not carry. Never raises."""
+    if not dropped:
+        return
+    try:
+        from matrx_ai.catalog.models import Adjustment
+        from matrx_ai.providers.outbound_params import publish_settings_adjustments
+
+        adjustments = [
+            Adjustment(
+                key=f"tool:{tool}.{path}.{keyword}",
+                action="mapped",
+                canonical_value="object",
+                sent_value=value,
+                reason="Google cannot take object-typed args; sent as JSON string",
+                expected=True,
+            )
+            if keyword == "description_hint"
+            else Adjustment(
+                key=f"tool:{tool}.{path}.{keyword}",
+                action="dropped",
+                canonical_value=value,
+                sent_value=None,
+                reason=(
+                    "this provider's strict tool schema cannot carry the keyword; it was removed "
+                    "from the schema (the platform still enforces it when the tool runs)"
+                ),
+                expected=True,
+            )
+            for path, keyword, value in dropped
+        ]
+        publish_settings_adjustments(adjustments, model=f"tool {tool}", seam="tool_schema")
+    except Exception:  # noqa: BLE001 - telling must never break the request
+        return
+
+
 def _marks_required(param: dict[str, Any]) -> bool:
     """True when a parameter's per-property ``required`` flag says it is required.
 
@@ -1576,6 +1634,15 @@ class ToolDefinition(BaseModel):
             "caller as a normal error tool_result."
         ),
     )
+    host_data: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "For agent-type tools: opaque data the HOST attached to this projection "
+            "(AgentToolSpec.host_data). matrx-ai never reads it; it rides to the child "
+            "agent run and to the host's hand-over resolver. Its presence also turns on "
+            "the optional `hand_over` argument."
+        ),
+    )
     mcp_server_url: str | None = None
     mcp_server_auth: dict[str, Any] | None = None
     mcp_transport: str | None = Field(
@@ -1609,7 +1676,7 @@ class ToolDefinition(BaseModel):
     # None = "this tool declares no ceiling of its own", and the dispatch
     # deadline resolves from the `agents.tool_dispatch` feature knob
     # (`matrx_ai.tools.knobs`). A LIMIT IS A KNOB: the old literal 120.0 default
-    # was unturnable, and on 2026-09-12 it cancelled the agent-builder mid-build.
+    # was unturnable, and on 2026-09-12 it canceled the agent-builder mid-build.
     timeout_seconds: float | None = None
     must_complete: bool = Field(
         default=False,
@@ -1854,11 +1921,20 @@ class ToolDefinition(BaseModel):
         return {**spec, "description": f"{base.rstrip()}\n{guide}" if base.strip() else guide}
 
     def _build_json_schema(
-        self, *, strip_openai_unsupported: bool = False, contract: bool = False
+        self,
+        *,
+        strip_openai_unsupported: bool = False,
+        contract: bool = False,
+        dropped: list[tuple[str, str, Any]] | None = None,
     ) -> dict[str, Any]:
         """The provider ``input_schema``. ``contract=True`` builds the full flattened
         per-action contract instead of an envelope row's lean advertised root — the
-        shape a call has after the executor unwraps its envelope."""
+        shape a call has after the executor unwraps its envelope.
+
+        ``dropped`` collects ``(path, keyword, value)`` for every constraint a
+        strict provider schema cannot carry and this build removed — the caller
+        publishes them (``_publish_dropped_constraints``). A dropped bound is
+        NEVER written into the description: that is text nobody authored."""
         properties: dict[str, Any] = {}
         required: list[str] = []
 
@@ -1881,7 +1957,8 @@ class ToolDefinition(BaseModel):
                 # `type` keep the historical type-first path below.)
                 prop = {
                     "anyOf": [
-                        self._process_nested(v, strip_openai_unsupported) for v in param["anyOf"]
+                        self._process_nested(v, strip_openai_unsupported, dropped, key)
+                        for v in param["anyOf"]
                     ],
                     "description": param.get("description", ""),
                 }
@@ -1918,7 +1995,9 @@ class ToolDefinition(BaseModel):
                 "description": param.get("description", ""),
             }
             if raw_type == "array" and "items" in param:
-                prop["items"] = self._process_nested(param["items"], strip_openai_unsupported)
+                prop["items"] = self._process_nested(
+                    param["items"], strip_openai_unsupported, dropped, f"{key}[]"
+                )
             # Every constraint the DISPATCHER enforces must reach the MODEL.
             # ``minLength``/``maxLength`` were missing from this list until
             # 2026-09-13: the ``user`` tool's ``header`` (maxLength 12) was
@@ -1928,20 +2007,19 @@ class ToolDefinition(BaseModel):
             for f in _FORWARDED_CONSTRAINT_KEYS:
                 if f in param and not strip_openai_unsupported:
                     prop[f] = param[f]
-            if strip_openai_unsupported:
-                # Strict mode cannot carry the bound, so the description does.
-                from matrx_ai.tools._dispatch_util import constraint_sentence
-
-                bound_text = constraint_sentence(param)
-                if bound_text and bound_text not in prop["description"]:
-                    prop["description"] = f"{prop['description'].rstrip()} {bound_text}".strip()
+            if strip_openai_unsupported and dropped is not None:
+                # Strict mode cannot carry the bound: it is dropped from the
+                # schema and RECORDED (never rewritten into the description).
+                for f in _FORWARDED_CONSTRAINT_KEYS:
+                    if f in param:
+                        dropped.append((key, f, param[f]))
             if "default" in param:
                 prop["default"] = param["default"]
             if "enum" in param:
                 prop["enum"] = param["enum"]
             if prop["type"] == "object" and "properties" in param:
                 prop["properties"] = {
-                    sk: self._process_nested(sv, strip_openai_unsupported)
+                    sk: self._process_nested(sv, strip_openai_unsupported, dropped, f"{key}.{sk}")
                     for sk, sv in param["properties"].items()
                 }
                 nested_required = param.get("required", [])
@@ -2025,35 +2103,48 @@ class ToolDefinition(BaseModel):
         return input_contract, output_contract
 
     @staticmethod
-    def _process_nested(schema: dict[str, Any] | str, strip_unsupported: bool) -> dict[str, Any]:
+    def _process_nested(
+        schema: dict[str, Any] | str,
+        strip_unsupported: bool,
+        dropped: list[tuple[str, str, Any]] | None = None,
+        path: str = "",
+    ) -> dict[str, Any]:
         if isinstance(schema, str):
             return {"type": schema}
         processed = schema.copy()
         if strip_unsupported:
-            # A bound the provider cannot carry still has to reach the model,
-            # or the model cannot comply (2026-10-09: ask_person's
-            # timeout_seconds floor of 30 was stripped and the call refused).
-            from matrx_ai.tools._dispatch_util import constraint_sentence
-
-            bound_text = constraint_sentence(processed)
+            # A bound the provider cannot carry is removed and recorded in
+            # ``dropped`` (surfaced as a settings adjustment) - never appended
+            # to the description as prose the author did not write. The
+            # dispatcher still enforces and clamps the bound.
             for f in _FORWARDED_CONSTRAINT_KEYS:
-                processed.pop(f, None)
-            if bound_text and bound_text not in str(processed.get("description", "")):
-                desc = str(processed.get("description", "") or "").rstrip()
-                processed["description"] = f"{desc} {bound_text}".strip()
+                if f in processed:
+                    if dropped is not None:
+                        dropped.append((path, f, processed[f]))
+                    processed.pop(f, None)
         if processed.get("type") == "object" and "properties" in processed:
             processed["additionalProperties"] = False
             nested_required = processed.get("required", [])
             processed["required"] = nested_required if isinstance(nested_required, list) else []
             processed["properties"] = {
-                k: ToolDefinition._process_nested(v, strip_unsupported)
+                k: ToolDefinition._process_nested(
+                    v, strip_unsupported, dropped, f"{path}.{k}" if path else k
+                )
                 for k, v in processed["properties"].items()
             }
         elif processed.get("type") == "array" and "items" in processed:
             processed["items"] = ToolDefinition._process_nested(
-                processed["items"], strip_unsupported
+                processed["items"], strip_unsupported, dropped, f"{path}[]"
             )
         return processed
+
+    def _strict_json_schema(self) -> dict[str, Any]:
+        """The strict-mode (OpenAI-family) schema; every constraint it had to
+        drop is published as a visible settings adjustment."""
+        dropped: list[tuple[str, str, Any]] = []
+        schema = self._build_json_schema(strip_openai_unsupported=True, dropped=dropped)
+        _publish_dropped_constraints(self.name, dropped)
+        return schema
 
     # ------------------------------------------------------------------
     # Provider format converters
@@ -2083,7 +2174,7 @@ class ToolDefinition(BaseModel):
             "function": {
                 "name": self.name,
                 "description": self.description,
-                "parameters": self._build_json_schema(strip_openai_unsupported=True),
+                "parameters": self._strict_json_schema(),
             },
         }
 
@@ -2092,7 +2183,7 @@ class ToolDefinition(BaseModel):
             "type": "function",
             "name": self.name,
             "description": self.description,
-            "parameters": self._build_json_schema(strip_openai_unsupported=True),
+            "parameters": self._strict_json_schema(),
             # Explicit, never omitted: the Responses API normalizes an omitted
             # ``strict`` INTO strict mode, which makes every property required,
             # so the model fills each optional argument (center {0,0}, "" ids,
@@ -2105,6 +2196,7 @@ class ToolDefinition(BaseModel):
         properties: dict[str, Any] = {}
         required: list[str] = []
         missing_items: list[str] = []
+        google_dropped: list[tuple[str, str, Any]] = []
         # Gemini keeps the row's own top-level properties (its union contract),
         # but takes three things from the flattened per-action contract every
         # other provider gets: the discriminator carrying each action's own
@@ -2124,12 +2216,15 @@ class ToolDefinition(BaseModel):
         for key, param in google_params.items():
             if key.startswith("$"):
                 continue  # internal meta ($variants, …) — not a tool parameter
-            properties[key] = _google_top_level_schema(param, missing_items=missing_items, path=key)
+            properties[key] = _google_top_level_schema(
+                param, missing_items=missing_items, path=key, dropped=google_dropped
+            )
             if isinstance(param, dict) and _marks_required(param):
                 required.append(key)
 
         if missing_items:
             _warn_google_missing_items(self.name, missing_items)
+        _publish_dropped_constraints(self.name, google_dropped)
 
         for key in self.required_params:
             if key in properties and key not in required:

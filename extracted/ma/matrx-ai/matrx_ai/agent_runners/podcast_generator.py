@@ -3549,7 +3549,7 @@ def _extract_dialogue(script: str) -> str:
     The hard rule: a script is ONLY the text inside a
     ``<podcast_dialogue>…</podcast_dialogue>`` block. If the agent returned prose,
     thinking, or a malformed/empty block, that is NOT a script and must never be
-    forwarded to the TTS stage. The old behaviour — ``return script`` on no match
+    forwarded to the TTS stage. The old behavior — ``return script`` on no match
     — is exactly what leaked raw reasoning text into Google TTS; it is gone.
 
     Takes the LONGEST block found (the real script is substantial; a stray tag a
@@ -3927,13 +3927,13 @@ async def generate_podcast(
     )
 
     # The ticker runs for the WHOLE pipeline (research is one of the longest,
-    # quietest stages) and is always cancelled in the finally.
+    # quietest stages) and is always canceled in the finally.
     ticker_task = asyncio.create_task(_ticker())
     # Strong reference held for the whole run (see _heartbeat): an unreferenced
     # task can be garbage-collected, which is one of the ways the pulse died.
     heartbeat_task = asyncio.create_task(_heartbeat())
     # Declared OUT here (not where it is assigned, deep inside the try) so the
-    # finally can always reach it. A task created inside a cancelled parent is
+    # finally can always reach it. A task created inside a canceled parent is
     # NOT auto-cancelled — without this, a client disconnect or a raising audio
     # stage would leave it detached, billing a gpt-image-2 render whose result
     # nothing ever reads.
@@ -4153,7 +4153,7 @@ async def generate_podcast(
         # Slot is the COUNT OF ANNOUNCED MANDATES, not `eff_images`: when the
         # metadata agent returns no image descriptions at all, `_pad_prompts`
         # yields [] regardless of the target, so `eff_images` would leave a hole
-        # (a lone card labelled "Image 6" with slots 0-4 never announced).
+        # (a lone card labeled "Image 6" with slots 0-4 never announced).
         feature_image_slot = len(image_descriptions)
         # Gated on the image budget too. `max_images=0` means "skip images" — a
         # deliberate fast/cheap mode — so it must skip this pair of agent calls
@@ -4370,7 +4370,7 @@ async def generate_podcast(
         # failed) so it can be picked up again from its last good stage.
         #
         # Reconciliation remains the sole owner of terminal status/cost so a
-        # cancelled pass cannot double-count. The cancellation itself is still
+        # canceled pass cannot double-count. The cancellation itself is still
         # captured immediately for human review before it is re-raised.
         from matrx_connect.streaming.error_capture import capture_error
 

@@ -1061,10 +1061,10 @@ class TransferReadOp(VectorTransferOperation):
     def parse(cls, parser: Parser) -> TransferReadOp:
         source = parser.parse_unresolved_operand()
         indices = parser.parse_comma_separated_list(
-            Parser.Delimiter.SQUARE, parser.parse_operand
+            Parser.Delimiter.SQUARE, lambda: parser.parse_operand(IndexType())
         )
         parser.parse_punctuation(",")
-        padding = parser.parse_operand()
+        padding = parser.parse_unresolved_operand()
         if parser.parse_optional_punctuation(","):
             mask_start_pos = parser.pos
             mask = parser.parse_unresolved_operand()
@@ -1106,7 +1106,7 @@ class TransferReadOp(VectorTransferOperation):
         return TransferReadOp(
             source=source,
             indices=indices,
-            padding=padding,
+            padding=parser.resolve_operand(padding, shaped_type.element_type),
             mask=mask,
             permutation_map=permutation_map,
             in_bounds=in_bounds,
@@ -1217,7 +1217,7 @@ class TransferWriteOp(VectorTransferOperation):
         parser.parse_punctuation(",")
         source = parser.parse_unresolved_operand()
         indices = parser.parse_comma_separated_list(
-            Parser.Delimiter.SQUARE, parser.parse_operand
+            Parser.Delimiter.SQUARE, lambda: parser.parse_operand(IndexType())
         )
         if parser.parse_optional_punctuation(","):
             mask_start_pos = parser.pos

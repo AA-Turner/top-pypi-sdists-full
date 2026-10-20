@@ -6,7 +6,7 @@ to each one, and we must resolve that reference back to our file ref with
 certainty. No provider offers this natively, so we build it:
 
 The four rules (PLAN §2):
-  1. **Documented idiom + checksum token.** Each file is labelled
+  1. **Documented idiom + checksum token.** Each file is labeled
      ``Image N [IMG-XXXX]:`` — the ordinal (what models are tuned for) plus an
      opaque token (what catches a miscount). Ask for BOTH back. Never our UUIDs.
   2. **Adjacency.** The label is its own text block IMMEDIATELY before its

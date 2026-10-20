@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 # ---------------------------------------------------------------------------
@@ -152,11 +152,16 @@ class SystemInstruction:
 
         Prefers the immutable ``date_anchor`` (host-pinned to conversation
         creation). Falls back to a single memoized ``now()`` so the value never
-        changes for the life of this object — no midnight drift within a run."""
+        changes for the life of this object — no midnight drift within a run.
+
+        Always the UTC date. The send boundary pins later turns to the
+        conversation's ``created_at`` in UTC; a host-local ``now()`` here made
+        turn one store a different date on any non-UTC host, so every later
+        turn raised a false cache-line alarm (309 in 72 h, adversarial I6)."""
         if self.date_anchor:
             return self.date_anchor
         if self._pinned_date is None:
-            self._pinned_date = datetime.now().strftime("%Y-%m-%d")
+            self._pinned_date = datetime.now(UTC).strftime("%Y-%m-%d")
         return self._pinned_date
 
     def inject_context_block(self, block: str) -> None:

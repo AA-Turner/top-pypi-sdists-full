@@ -497,7 +497,42 @@ async def _fetch_and_parse(
     the caller has already chosen the exit.
     """
     if request_type == RequestType.BROWSER:
-        if browser_pool is not None:
+        from matrx_scraper.stealth_browser import stealth_fetch, use_stealth
+
+        response = None
+        if use_stealth():
+            # knowledge.scraper.browser_engine = stealth: ONE path replaces both the
+            # injected pool and the module-level browser fetch below. A stealth
+            # failure (launch, timeout, closed target) is announced and the current
+            # engine then serves the page, so the knob can only add passes.
+            proxy = proxy_override or (get_required_random_proxy() if use_proxy else None)
+            try:
+                content, response_url, status_code, headers, title = await stealth_fetch(
+                    url, proxy=proxy, user_agent=user_agent
+                )
+            except Exception as exc:  # noqa: BLE001 - announced, then the current engine runs
+                logger.warning(
+                    "stealth browser failed for %s (%s); falling back to current engine",
+                    redact_url_secrets(url),
+                    redact_url_secrets(repr(exc)),
+                )
+            else:
+                response = Response(
+                    request_url=url,
+                    proxy_used=proxy is not None,
+                    request_type=RequestType.BROWSER,
+                    content_type=ContentType.HTML,
+                    extension="",
+                    content_type_raw="text/html",
+                    response_url=response_url,
+                    response_headers=headers,
+                    title=title,
+                    status_code=status_code,
+                    content=content,
+                )
+        if response is not None:
+            pass
+        elif browser_pool is not None:
             proxy = proxy_override or (get_required_random_proxy() if use_proxy else None)
             # `browser_pool` is a duck-typed injected seam — a host may supply
             # its own. Send the kwarg ONLY when there is something to override,
@@ -715,7 +750,7 @@ def _ladder_reason(result: ScrapeResult) -> str | None:
 
     `login_wall` is claimed only on login evidence: a 401, or a response that
     landed on a sign-in page. A bare 403 with a real failure class (`blocked`,
-    `bad_status`, `cloudflare_block`) is labelled by that class, so the trail
+    `bad_status`, `cloudflare_block`) is labeled by that class, so the trail
     does not call a bot wall a sign-in page (2026-10-15 audit).
     """
     real = result.failure_reason or result.content_warning
@@ -1407,7 +1442,7 @@ async def scrape_many_stream(
     Scrape multiple URLs concurrently and **yield each result the moment it
     finishes** — results are NOT batched.
 
-    Key behaviours
+    Key behaviors
     ──────────────
     - All ``len(urls)`` fetches are launched immediately (up to ``concurrency``
       in-flight at once).  Different sites run in parallel — there is no

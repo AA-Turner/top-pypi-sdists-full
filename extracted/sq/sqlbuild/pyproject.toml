@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "sqlbuild"
-version = "0.158.2"
+version = "0.162.1"
 description = "Typed, test-first SQL pipelines with local E2E testing"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
@@ -19,7 +19,7 @@ dependencies = [
   "pydantic-settings>=2,<3",
   "PyYAML>=6.0.2",
   "rich>=15.0.0",
-  "sqlbuild-cli==0.158.2",  # x-release-please-version
+  "sqlbuild-cli==0.162.1",  # x-release-please-version
 ]
 
 [project.optional-dependencies]
@@ -44,6 +44,9 @@ postgres = [
 ]
 sqlserver = [
   "pymssql>=2.3.0",
+]
+clickhouse = [
+  "clickhouse-connect>=0.8",
 ]
 ingestr = [
   "ingestr>=1.0.0",
@@ -110,6 +113,7 @@ markers = [
   "databricks: tests that require a live Databricks warehouse",
   "postgres: tests that require a live PostgreSQL database",
   "sqlserver: tests that require a live Microsoft SQL Server database",
+  "clickhouse: tests that require a live ClickHouse server",
   "motherduck: tests that require live MotherDuck credentials",
   "performance: opt-in performance guard tests",
   "cold_compile_performance: fresh-process semantic compile scaling guards",

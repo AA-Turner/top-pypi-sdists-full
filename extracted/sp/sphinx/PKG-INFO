@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: Sphinx
-Version: 9.1.0
+Version: 9.1.1
 Summary: Python documentation generator
 Author-email: Adam Turner <aa-turner@users.noreply.github.com>, Georg Brandl <georg@python.org>
 Requires-Python: >=3.12
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: 3.16
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Sphinx
@@ -68,12 +69,15 @@ Requires-Dist: requests>=2.30.0
 Requires-Dist: roman-numerals>=1.0.0
 Requires-Dist: packaging>=23.0
 Requires-Dist: colorama>=0.4.6; sys_platform == 'win32'
+Requires-Dist: defusedxml>=0.7.1 ; extra == "test"
 Project-URL: Changelog, https://www.sphinx-doc.org/en/master/changes.html
 Project-URL: Code, https://github.com/sphinx-doc/sphinx
 Project-URL: Documentation, https://www.sphinx-doc.org/
 Project-URL: Download, https://pypi.org/project/Sphinx/
 Project-URL: Homepage, https://www.sphinx-doc.org/
 Project-URL: Issue tracker, https://github.com/sphinx-doc/sphinx/issues
+Provides-Extra: test
+Import-Name: sphinx
 
 ========
  Sphinx

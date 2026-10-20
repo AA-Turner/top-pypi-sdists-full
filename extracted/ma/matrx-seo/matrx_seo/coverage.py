@@ -282,7 +282,7 @@ def classify_candidate(
     (`is_about_brand`), which is the only place it can honestly be settled.
 
     With no `source_matched`, the strict local rule still applies: that is the
-    right behaviour for a manually pasted URL, where nothing has filtered
+    right behavior for a manually pasted URL, where nothing has filtered
     anything.
     """
     try:

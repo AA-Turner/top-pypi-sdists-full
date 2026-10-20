@@ -23,11 +23,13 @@ if TYPE_CHECKING:
 
     from pydantic_ai_backends.types import CommandOutcome
 
-ALIVE_CACHE_SECONDS = 5.0
+ALIVE_CACHE_SECONDS = 30.0
 """How long a liveness answer is trusted before the daemon is asked again.
 
 `SessionManager.get_or_create` calls `is_alive()` on every request, so an
-uncached check bills a daemon round trip to each agent turn.
+uncached check bills a daemon round trip to each agent turn. A container that
+dies inside the window is not believed alive for the rest of it: the first
+command that finds it gone drops the cached answer.
 """
 
 DEFAULT_PIDS_LIMIT = 512
@@ -431,6 +433,19 @@ class DockerSandbox:
         self._alive_checked_at = now
         return self._alive
 
+    def container_user(self) -> str | None:
+        """The user the container runs as, as Docker reports it, or `None` before it exists.
+
+        An empty string is the image's default, which for every image this
+        library builds without `run_as_uid` is root. A name rather than a number
+        is the image's own user, whose uid only the container knows.
+        """
+        if self._container is None:
+            return None
+        config = self._container.attrs.get("Config") or {}
+        user = config.get("User")
+        return user if isinstance(user, str) else None
+
     def resource_usage(self) -> SandboxUsage | None:
         """Sample the container's current resource usage.
 
@@ -533,18 +548,22 @@ class DockerSandbox:
 
         from pydantic_ai_backends.backends.docker import _exec
 
-        await anyio.to_thread.run_sync(self._ensure_container)
+        await anyio.to_thread.run_sync(self._ensure_container, limiter=_exec.control_limiter())
         self._last_activity = time.time()
         assert self._container is not None
-        return await _exec.run_in_container(
-            self._container,
-            argv,
-            run_id=run_id,
-            env=env,
-            workdir=self._work_dir,
-            timeout=timeout,
-            output_limit=output_limit if output_limit is not None else MAX_RUN_OUTPUT_BYTES,
-        )
+        try:
+            return await _exec.run_in_container(
+                self._container,
+                argv,
+                run_id=run_id,
+                env=env,
+                workdir=self._work_dir,
+                timeout=timeout,
+                output_limit=output_limit if output_limit is not None else MAX_RUN_OUTPUT_BYTES,
+            )
+        except SandboxUnavailableError:
+            self._alive_checked_at = None
+            raise
 
     async def stop_command(self, run_id: str) -> None:
         """Stop a command :meth:`run_command` started, and everything it started.

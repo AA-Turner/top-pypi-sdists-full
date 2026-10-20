@@ -39,8 +39,8 @@ asking "where does it end" walks the continuations.
 suffix vocabulary, or an ambiguous acronym written with periods --
 at the TAG level 'M.A.' gets "vocab:suffix" while 'Ma' gets only
 "vocab:suffix-ambiguous"; what assign then does with a trailing
-ambiguous tag is the rest of rule S2's statement (the
-words-to-spare guard) and its Accepted consequences.
+ambiguous tag is rules S4 to S7 (the words-to-spare guard, the
+case, the company) and their Accepted consequences.
 The initial veto is assign's job, not classify's: 'V' carries both
 "vocab:suffix" and "initial".
 "shape:acronym" is the one tag in the shape: namespace and it records
@@ -62,7 +62,7 @@ from nameparser._pipeline._state import (
 )
 from nameparser._types import AmbiguityKind, Role
 from nameparser._pipeline._vocab import (
-    caps_shape_candidate, composed_len, is_initial, is_one_case,
+    _INITIAL, caps_shape_candidate, composed_len, is_initial, is_one_case,
     period_joined_vocab, suffix_as_written, tag_marker_runs,
 )
 from nameparser._pipeline._pieces import own_words
@@ -70,7 +70,7 @@ from nameparser._pipeline._pieces import own_words
 
 
 
-# rules.md#S2: "a trailing word of the suffix vocabulary reads as a
+# rules/S2: "a trailing word of the suffix vocabulary reads as a
 # suffix — generational forms and credential acronyms alike, and an
 # ambiguous acronym written with its periods, one after each
 # letter or one after each of two or more letter chunks, counts
@@ -80,7 +80,7 @@ from nameparser._pipeline._pieces import own_words
 # spare"
 def _tags_for(token: WorkToken, n: str, state: ParseState,
               marker_tag: str | None, one_case_own: bool,
-              one_case: bool) -> frozenset[str]:
+              one_case: bool, letter_one_case: bool) -> frozenset[str]:
     """`n` is _normalize(token.text), folded once by the caller and
     shared with the marker pass; `marker_tag` is what that pass decided
     for this token, or None. The marker DECISION is entirely
@@ -90,7 +90,7 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     `one_case_own` is true when the name's OWN words are written in one
     case AND this token is one of the name's own words -- a maiden clause
     and any delimited (nickname) content are not, so the fork never
-    reads them either (rules.md#P3): a clause's words are not the
+    reads them either (rules/P3): a clause's words are not the
     name's own words, and appending one must not change how THIS token
     reads.
 
@@ -106,7 +106,15 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     clause cut, never from the name's own writing (#516 review round,
     a second reviewer's finding). `single_letter_connective` below
     keeps `one_case_own`: that fork is genuinely about the OWN-WORDS
-    span, and reads a clause's word as no evidence on purpose."""
+    span, and reads a clause's word as no evidence on purpose.
+
+    `letter_one_case` is rules/T4's question for THIS token: the
+    own-words fact for one of the name's own words, and for a word
+    outside them -- a clause's, or past a declined marker -- the fact
+    about the WHOLE name, since the own words' case says nothing
+    about how the clause beside them was written: 'y' in 'MARIA
+    GARCIA NEE LOPEZ y FERNANDEZ' is a lower-case letter among
+    capitals, which T4 reads as no initial (#723's review)."""
     lex = state.lexicon
     tags = set(token.tags)
     if marker_tag is not None:
@@ -121,19 +129,19 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         tags.add("vocab:suffix-word")
     if n in lex.suffix_acronyms_ambiguous:
         tags.add(AMBIGUOUS_ACRONYM_TAG)
-    # rules.md#P7: "A one-letter word written with its period is an
+    # rules/P7: "A one-letter word written with its period is an
     # initial and not a particle" -- both particle tags, so 'Ó.' is
     # neither half of the vocabulary
     if n in lex.particles and not _spells_an_initial(n, token.text):
         tags.add("particle")
         if n in lex.particles_ambiguous:
             tags.add("vocab:particle-ambiguous")
-    # rules.md#P3: "a single-letter connective reads as an initial
+    # rules/P3: "a single-letter connective reads as an initial
     # where the writing says so: written as a bare Latin capital in a
     # name that is not written wholly in one case, or — in a name
     # written wholly in one case, where nothing says so — where the
     # letter is one the vocabulary marks as reading both ways"
-    # (#383/#479; history: decisions.md#P3)
+    # (#383/#479; history: decisions/P3)
     # one letter as the writer sees it: a decomposed 'й' is two code
     # points (#665), so non-ASCII text is counted composed, after the
     # C-level tests have declined everything else
@@ -159,7 +167,25 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         # the mixed-case rule, unchanged. v1's is_conjunction excludes
         # initials: 'e.' in 'john e. smith' is a middle initial, not
         # the Spanish conjunction 'e'
-        initial = is_initial(token.text)
+        # rules/T4: "in a name written wholly in one case, which says
+        # nothing about any letter in it, a bare letter is an initial
+        # wherever its capital would be" -- so every reader of the tag
+        # after classify reads 'j' as it reads 'J' (#723; the roman
+        # numerals first, #721). Readers that run before the tag
+        # exists, or ask the word's text rather than its tag -- the
+        # strict suffix test, which the honorific peel and
+        # `lenient_comma_suffixes=False` ask -- take the same fact as
+        # an argument (#727). `letter_one_case` is the own-words fact
+        # for an own word and the whole name's for a clause's
+        # (docstring). The capital is asked of the
+        # bare pattern at C level, no frame per one-letter word, and
+        # needs no script test: no capital `_INITIAL` matches is in a
+        # script without initials. 'é' and 'ж' stay as they were,
+        # their capitals being no initial either. A clause's letter
+        # asks the whole name's case (`letter_one_case`, docstring)
+        initial = is_initial(token.text) or (
+            letter_one_case and len(token.text) == 1
+            and _INITIAL.fullmatch(token.text.upper()) is not None)
         if n in lex.conjunctions and not initial:
             tags.add("conjunction")
         if initial:
@@ -178,9 +204,11 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     # title as a whole ('Lt.Gov.', and by the ANY rule 'Mr.Smith');
     # else ANY suffix chunk makes it a suffix ('JD.CPA'). Title wins
     # (v1's continue). The third and fourth are 2.4's by-shape halves
-    # (#516) and reach only a token NO vocabulary claimed: a dotted
-    # token of two or more alphabetic chunks, and -- where its switch
-    # is on -- an unlisted all-caps word. They are an `elif` chain
+    # (#516; rules/S9: "An unlisted word joins the ambiguous class
+    # (S4) by SHAPE where the caller asks for it") and reach only a
+    # token NO vocabulary claimed: a dotted token of two or more
+    # alphabetic chunks, and -- where its switch is on -- an unlisted
+    # all-caps word. They are an `elif` chain
     # with the dotted one first, so a dotted token never reaches the
     # caps test and the two shapes stay disjoint.
     #
@@ -246,7 +274,7 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
             # tags there when it binds the part (#564, #613), so the
             # reading carries the same marks under either setting --
             # case repair keeps 'XYZ' in 'John Smith, XYZ'
-            # (rules.md#R4) rather than title-casing a credential the
+            # (rules/R4) rather than title-casing a credential the
             # default admitted.
             # The setting comes FIRST, then C-level checks of what the
             # predicate would decline, so the default never calls it
@@ -268,7 +296,7 @@ def classify(state: ParseState) -> ParseState:
     folded = [_normalize(t.text) for t in state.tokens]
     marker_tags = tag_marker_runs(state.tokens, state.comma_offsets,
                                   state.lexicon.maiden_markers, folded)
-    # rules.md#P3 says a maiden marker, taken as one, and the words it
+    # rules/P3 says a maiden marker, taken as one, and the words it
     # takes, are not among the name's own words -- so the span and its
     # clause cut are _pieces.own_words', shared with the site that
     # needs the same answer two stages earlier (#289/#516). The marker
@@ -281,7 +309,7 @@ def classify(state: ParseState) -> ParseState:
     # ONE fact per parse, and it is recorded now (ParseState.one_case):
     # segment writes it first where C2's flag on a tail part asks, and
     # a fact two stages decide apart is what recording it prevents
-    # (decisions.md#S2).
+    # (decisions/S6).
     one_case = state.one_case
     if one_case is None:
         one_case = is_one_case(own)
@@ -290,11 +318,21 @@ def classify(state: ParseState) -> ParseState:
     # per token, and the fork and its emitter then agree with the case
     # class they consult. No extra frame -- it is one more boolean in a
     # comprehension that already walks every token.
+    # rules/T4 asks a word outside the own words about the WHOLE
+    # name's case (`_tags_for`'s `letter_one_case`). Where every token
+    # is an own word the two facts are one, so only a name with a
+    # clause pays the second test's frame.
+    whole_one_case = one_case and (
+        len(own) == len(state.tokens)
+        or is_one_case([t.text for t in state.tokens]))
     tokens = tuple(
         copy_with(
             t, tags=_tags_for(t, folded[i], state, marker_tags.get(i),
                               one_case_own=one_case and i < clause_at
-                              and t.role is None, one_case=one_case))
+                              and t.role is None, one_case=one_case,
+                              letter_one_case=whole_one_case or (
+                                  one_case and i < clause_at
+                                  and t.role is None)))
         for i, t in enumerate(state.tokens))
     # Delimited content whose vocabulary cannot settle it: extract's
     # escape sends an UNambiguous suffix straight through ("(MBA)" ->
@@ -321,23 +359,27 @@ def classify(state: ParseState) -> ParseState:
         # Of the two clauses beside it, one is load-bearing and one is
         # not. `conjunctions_ambiguous` is IMPLIED by the others for a
         # fresh parse -- the contrapositive of what it looks like:
-        # `is_initial` matches an ASCII capital only, so ONLY the
-        # fork's branch can tag a bare LOWERCASE letter "initial"
-        # ("jose e maria santos" tags a lowercase e), and it does so
-        # only for a conjunctions_ambiguous member. So for a letter of
-        # EITHER case, "initial" plus len 1 implies membership. It is
-        # kept only because `_tags_for` starts from `set(token.tags)`, so
+        # `is_initial` matches an ASCII capital only, so a bare
+        # LOWERCASE letter is tagged "initial" only by the fork's
+        # branch ("jose e maria santos" tags a lowercase e), for a
+        # conjunctions_ambiguous member, or by the one-case letter
+        # (#721, #723), which never tags an own word that is a
+        # single-letter connective (the fork's branch takes those
+        # first). So for a letter of EITHER case in `conjunctions`,
+        # "initial" plus len 1 implies membership. It is kept only because `_tags_for`
+        # starts from `set(token.tags)`, so
         # this clause is what keeps the emitter honest if a runner ever
         # hands classify tokens it did not build; no such path exists
         # today. `conjunctions` is the clause doing real work: it keeps
         # an orphan marker (a conjunctions_ambiguous entry no longer in
-        # conjunctions) inert rather than reported (decisions.md#P3).
+        # conjunctions) inert rather than reported (decisions/P3).
         # `i < clause_at and token.role is None` mirrors the fork's own
-        # "own words" test above, for the same reason (rules.md#P3): a
+        # "own words" test above, for the same reason (rules/P3): a
         # clause's words were never eligible for the fork, so they must
         # never be eligible to report either. Emitted at the decision
         # site (mechanisms.md#AMBIGUITY-AT-THE-DECISION-SITE), per
-        # token -- 'e and e' reports twice.
+        # token -- 'e and e e' emits twice; assemble withdraws the
+        # report on a letter no name word follows (rules/P3, #721).
         if (one_case and "initial" in token.tags
                 and folded[i] in state.lexicon.conjunctions_ambiguous
                 and folded[i] in state.lexicon.conjunctions

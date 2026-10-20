@@ -61,6 +61,7 @@ if typing.TYPE_CHECKING:
     from .conversation_message_content import ConversationMessageContent
     from .conversation_result import ConversationResult
     from .convert_excel_to_sheet_response_out import ConvertExcelToSheetResponseOut
+    from .convert_to_user_interface_response_out import ConvertToUserInterfaceResponseOut
     from .creatable_asset_type import CreatableAssetType
     from .create_asset_response_out import CreateAssetResponseOut
     from .create_new_sheet_tab_response import CreateNewSheetTabResponse
@@ -259,6 +260,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConversationMessageContent": ".conversation_message_content",
     "ConversationResult": ".conversation_result",
     "ConvertExcelToSheetResponseOut": ".convert_excel_to_sheet_response_out",
+    "ConvertToUserInterfaceResponseOut": ".convert_to_user_interface_response_out",
     "CreatableAssetType": ".creatable_asset_type",
     "CreateAssetResponseOut": ".create_asset_response_out",
     "CreateNewSheetTabResponse": ".create_new_sheet_tab_response",
@@ -479,6 +481,7 @@ __all__ = [
     "ConversationMessageContent",
     "ConversationResult",
     "ConvertExcelToSheetResponseOut",
+    "ConvertToUserInterfaceResponseOut",
     "CreatableAssetType",
     "CreateAssetResponseOut",
     "CreateNewSheetTabResponse",

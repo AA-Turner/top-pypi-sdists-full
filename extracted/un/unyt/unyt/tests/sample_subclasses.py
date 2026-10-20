@@ -840,7 +840,7 @@ def where(condition, *args):
     helper_result = _prepare_array_func_args(condition, *args)
     if len(args) == 0:  # just condition
         res = unyt_where(*helper_result["args"], **helper_result["kwargs"])
-    elif len(args) < 2:
+    elif len(args) < 2:  # pragma: no cover
         # error message borrowed from numpy 1.24.1
         raise ValueError("either both or neither of x and y should be given")
     res = unyt_where(*helper_result["args"], **helper_result["kwargs"])
@@ -1018,34 +1018,11 @@ class subclass_uarray(unyt_array):
             return
         self.extra_attr = getattr(obj, "extra_attr", None)
 
-    def __str__(self) -> str:
+    def __str__(self) -> str:  # pragma: no cover
         return super().__str__() + f" {self.extra_attr}"
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str:  # pragma: no cover
         return super().__repr__() + f" {self.extra_attr}"
-
-    def __reduce__(self) -> tuple:
-        """
-        Pickle reduction method.
-
-        Here we add an extra element at the start of the state tuple to store
-        the extra_attr.
-        """
-        np_ret = super().__reduce__()
-        obj_state = np_ret[2]
-        sub_state = (((self.extra_attr,),) + obj_state[:],)
-        new_ret = np_ret[:2] + sub_state + np_ret[3:]
-        return new_ret
-
-    def __setstate__(self, state: tuple) -> None:
-        """
-        Pickle setstate method.
-
-        Here we extract the extra info we added to the object
-        state and pass the rest to :meth:`unyt.array.unyt_array.__setstate__`.
-        """
-        super().__setstate__(state[1:])
-        (self.extra_attr,) = state[0]
 
     # Wrap functions that return copies of subclass_uarrays so that our
     # attribute gets passed through:
@@ -1079,77 +1056,6 @@ class subclass_uarray(unyt_array):
     ua = property(_propagate_extra_attr_to_result(np.ones_like))
     unit_array = property(_propagate_extra_attr_to_result(np.ones_like))
 
-    @classmethod
-    def __unyt_ufunc_prepare__(cls, ufunc: np.ufunc, method: str, *inputs, **kwargs):
-        helper_result = _prepare_array_func_args(*inputs, **kwargs)
-        return ufunc, method, helper_result["args"], helper_result["kwargs"]
-
-    @classmethod
-    def __unyt_ufunc_finalize__(
-        cls, result, ufunc: np.ufunc, method: str, *inputs, **kwargs
-    ):
-        helper_result = _prepare_array_func_args(*inputs, **kwargs)
-        # if we get a tuple we have multiple return values to deal with
-        if isinstance(result, tuple):
-            r = tuple(
-                (
-                    r.view(subclass_uquantity)
-                    if r.shape == ()
-                    else (
-                        r.view(subclass_uarray)
-                        if isinstance(r, unyt_array)
-                        and not isinstance(r, subclass_uarray)
-                        else r
-                    )
-                )
-                for r in result
-            )
-            for r in result:
-                if isinstance(r, subclass_uarray):  # also recognizes subclass_uquantity
-                    r.extra_attr = helper_result["extra_attr"]
-        elif isinstance(result, unyt_array):  # also recognizes subclass_uquantity
-            if not isinstance(result, subclass_uarray):
-                result = (
-                    result.view(subclass_uquantity)
-                    if result.shape == ()
-                    else result.view(subclass_uarray)
-                )
-            result.extra_attr = helper_result["extra_attr"]
-        if "out" in kwargs:
-            out = kwargs.pop("out")
-            if ufunc not in multiple_output_operators:
-                out = out[0]
-                if isinstance(out, unyt_array) and not isinstance(out, subclass_uarray):
-                    out = (
-                        out.view(subclass_uquantity)
-                        if out.shape == ()
-                        else out.view(subclass_uarray)
-                    )
-                if isinstance(
-                    out, subclass_uarray
-                ):  # also recognizes subclass_uquantity
-                    out.extra_attr = helper_result["extra_attr"]
-            else:
-                out = tuple(
-                    (
-                        (
-                            o.view(subclass_uquantity)
-                            if o.shape == ()
-                            else o.view(subclass_uarray)
-                        )
-                        if isinstance(o, unyt_array)
-                        and not isinstance(o, subclass_uarray)
-                        else o
-                    )
-                    for o in out
-                )
-                for o in out:
-                    if isinstance(
-                        o, subclass_uarray
-                    ):  # also recognizes subclass_uquantity
-                        o.extra_attr = helper_result["extra_attr"]
-        return result
-
     def __array_ufunc__(
         self, ufunc: np.ufunc, method: str, *inputs, **kwargs
     ) -> object:
@@ -1176,19 +1082,11 @@ class subclass_uarray(unyt_array):
             result.extra_attr = helper_result["extra_attr"]
         if "out" in kwargs:
             out = kwargs.pop("out")
-            if ufunc not in multiple_output_operators:
-                out = out[0]
-                if isinstance(
-                    out, subclass_uarray
-                ):  # also recognizes subclass_uquantity
-                    out.extra_attr = helper_result["extra_attr"]
-            else:
-                for o in out:
-                    if isinstance(
-                        o, subclass_uarray
-                    ):  # also recognizes subclass_uquantity
-                        o.extra_attr = helper_result["extra_attr"]
-
+            assert ufunc not in multiple_output_operators
+            out = out[0]
+            if isinstance(out, subclass_uarray):
+                # also recognizes subclass_uquantity
+                out.extra_attr = helper_result["extra_attr"]
         return result
 
     def __array_function__(
@@ -1215,7 +1113,7 @@ class subclass_uarray(unyt_array):
         # defining out own _UNSUPPORTED_FUNCTIONS in a _array_functions.py file
         _UNSUPPORTED_FUNCTIONS = _UNYT_UNSUPPORTED_FUNCTIONS
 
-        if func in _UNSUPPORTED_FUNCTIONS:
+        if func in _UNSUPPORTED_FUNCTIONS:  # pragma: no cover
             # following NEP 18, return NotImplemented as a sentinel value
             # which will lead to raising a TypeError, while
             # leaving other arguments a chance to take the lead
@@ -1270,6 +1168,27 @@ class subclass_uarray(unyt_array):
         else:
             return super().__rmul__(b)
 
+    def __truediv__(
+        self, b: int | float | np.ndarray | unyt.unit_object.Unit
+    ) -> "subclass_uarray":
+        """
+        Divide this ``subclass_uarray``.
+
+        We delegate most cases to ``unyt_array``, but we need to handle
+        the case where the second argument is a ``Unit``.
+        """
+        if getattr(b, "is_Unit", False):
+            return _copy_extra_attr_if_present(
+                self,
+                _ensure_result_is_subclass_uarray_or_uquantity((1 / b).__mul__)(
+                    self.view(unyt_quantity)
+                    if self.shape == ()
+                    else self.view(unyt_array)
+                ),
+            )
+        else:
+            return super().__truediv__(b)
+
 
 class subclass_uquantity(subclass_uarray, unyt_quantity):
     """
@@ -1302,7 +1221,9 @@ class subclass_uquantity(subclass_uarray, unyt_quantity):
                 extra_attr=extra_attr,
             )
 
-        if not isinstance(input_scalar, (numeric_type, np.number, np.ndarray)):
+        if not isinstance(
+            input_scalar, (numeric_type, np.number, np.ndarray)
+        ):  # pragma: no cover
             raise RuntimeError("subclass_uquantity values must be numeric")
 
         # Use values from kwargs, if None use values from input_scalar
@@ -1326,7 +1247,7 @@ class subclass_uquantity(subclass_uarray, unyt_quantity):
             name=name,
             extra_attr=extra_attr,
         )
-        if result.size > 1:
+        if result.size > 1:  # pragma: no cover
             raise RuntimeError("subclass_uquantity instances must be scalars")
         return result
 

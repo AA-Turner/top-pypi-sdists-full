@@ -211,7 +211,7 @@ def test_image_with_base64_defaults_to_image_png_when_mime_missing():
 
 def test_image_with_only_file_uri_drops_and_returns_none():
     """file_uri (gs:// and similar native URIs) is not consumable by local
-    OpenAI servers. The boundary normaliser should have resolved it;
+    OpenAI servers. The boundary normalizer should have resolved it;
     if we still see it here, the part is dropped."""
     img = ImageContent(file_uri="gs://bucket/path/img.png", mime_type="image/png")
     img.url = None

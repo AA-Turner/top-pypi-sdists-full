@@ -277,10 +277,14 @@ from .models.oauth_credentials import OauthCredentials
 from .models.open_api_specification import OpenAPISpecification
 from .models.open_api_specification_info import OpenAPISpecificationInfo
 from .models.page import Page
+from .models.probe_capability_config_status import ProbeCapabilityConfigStatus
+from .models.probe_capability_type import ProbeCapabilityType
 from .models.probe_check import ProbeCheck
 from .models.probe_check_name import ProbeCheckName
 from .models.probe_check_source import ProbeCheckSource
 from .models.probe_check_status import ProbeCheckStatus
+from .models.probe_config_finding import ProbeConfigFinding
+from .models.probe_config_finding_severity import ProbeConfigFindingSeverity
 from .models.probe_coverage_status import ProbeCoverageStatus
 from .models.probe_custom_attribute_result import ProbeCustomAttributeResult
 from .models.probe_entitlement_type_result import ProbeEntitlementTypeResult
@@ -292,6 +296,7 @@ from .models.probe_results import ProbeResults
 from .models.probe_sample import ProbeSample
 from .models.probe_sample_account import ProbeSampleAccount
 from .models.probe_sample_association import ProbeSampleAssociation
+from .models.probe_sample_capability_config import ProbeSampleCapabilityConfig
 from .models.probe_sample_custom_attribute import ProbeSampleCustomAttribute
 from .models.probe_sample_entitlement import ProbeSampleEntitlement
 from .models.probe_status import ProbeStatus
@@ -635,10 +640,14 @@ __all__ = [
     "OpenAPISpecification",
     "OpenAPISpecificationInfo",
     "Page",
+    "ProbeCapabilityConfigStatus",
+    "ProbeCapabilityType",
     "ProbeCheck",
     "ProbeCheckName",
     "ProbeCheckSource",
     "ProbeCheckStatus",
+    "ProbeConfigFinding",
+    "ProbeConfigFindingSeverity",
     "ProbeCoverageStatus",
     "ProbeCustomAttributeResult",
     "ProbeEntitlementTypeResult",
@@ -650,6 +659,7 @@ __all__ = [
     "ProbeSample",
     "ProbeSampleAccount",
     "ProbeSampleAssociation",
+    "ProbeSampleCapabilityConfig",
     "ProbeSampleCustomAttribute",
     "ProbeSampleEntitlement",
     "ProbeStatus",

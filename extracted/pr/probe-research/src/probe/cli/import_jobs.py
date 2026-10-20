@@ -764,6 +764,10 @@ def _launch(folder: Path) -> dict:
     try:
         descriptor = os.open(folder / "output.log", os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         with os.fdopen(descriptor, "ab", buffering=0) as output:
+            worker_env = dict(os.environ)
+            # Replay the approval's structured origin, not a blanket inherited
+            # human marker that would also reach the worker's coding agents.
+            worker_env.pop("PROBE_DESKTOP_HUMAN", None)
             child = subprocess.Popen(
                 [sys.executable, "-u", "-c",
                  "import sys; sys.path.insert(0, sys.argv.pop(1)); "
@@ -771,7 +775,7 @@ def _launch(folder: Path) -> dict:
                  str(_source_root()), folder.name,
                  "--directory", str(folder.parent)],
                 stdin=subprocess.DEVNULL, stdout=output, stderr=output,
-                cwd=folder, start_new_session=True, close_fds=True,
+                cwd=folder, start_new_session=True, close_fds=True, env=worker_env,
             )
     except OSError as exc:
         failed = _update(

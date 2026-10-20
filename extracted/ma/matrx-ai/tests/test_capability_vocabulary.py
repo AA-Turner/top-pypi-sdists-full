@@ -212,7 +212,7 @@ def test_the_stored_drift_turned_schema_output_off():
 
     raw = resolve_model_capabilities(_Model("gpt-6-astra", GPT_6_ASTRA))
     # the read path now normalizes the legacy spelling instead of resolving
-    # around it (while screaming), so schema mode is honoured
+    # around it (while screaming), so schema mode is honored
     assert raw.structured_output_mode is StructuredOutputMode.SCHEMA
     assert "code_execution" in raw.native_capabilities
 
@@ -264,3 +264,21 @@ def test_write_guard_canonicalizes_and_reports_provider_spellings():
 def test_write_guard_ignores_tables_it_does_not_own():
     rows = [{"capabilities": "anything at all"}]
     assert _guard_vocabulary("chat", "message", rows) == (None, [])
+
+
+def test_lora_adapter_shape_is_canonical():
+    """2026-10-16: the catalog migration wrote base_family + interaction=adapter, which
+    the vocabulary rejected and the frontend parser threw on, emptying every model picker."""
+    caps = {"input": ["text"], "output": ["image"], "features": [],
+            "interaction": "adapter", "base_family": "z-image"}
+    result = normalize_capabilities(caps, label="lora-x")
+    assert result.ok, result.rejections
+    assert result.value["base_family"] == "z-image"
+    assert not normalize_capabilities({**caps, "base_family": 3}).ok
+
+
+def test_detector_interaction_is_canonical():
+    """VAD and wake-word rows carry interaction 'detection' (live DB, 2026-10-16); the frontend
+    parser threw on them and emptied the model picker."""
+    caps = {"input": ["audio"], "output": ["text"], "features": [], "interaction": "detection"}
+    assert normalize_capabilities(caps, label="wake-word-x").ok

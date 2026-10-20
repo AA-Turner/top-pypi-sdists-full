@@ -25,8 +25,10 @@ from dashscope.acli.executor import Executor
 from dashscope.acli.hooks import HookBus, HookContext, create_hook_bus
 from dashscope.acli.memory.manager import MemoryManager
 from dashscope.acli.memory.reflection import (
+    compression_hint,
     convergence_hint,
     is_readonly_tool_call,
+    time_budget_hint,
 )
 from dashscope.acli.platforms.base import MemoryProvider
 from dashscope.acli.prompt_pipeline import PromptContext, default_pipeline
@@ -46,6 +48,7 @@ from dashscope.acli.utils import (
     text_of,
     tool_result_for_display,
     tool_result_for_history,
+    truncate,
 )
 
 console = Console()
@@ -121,52 +124,62 @@ Rules:
    reuse paths seen in training data (e.g. /Users/xxx/...)
 3. For clear-intent requests (git commit, read file, search), call tools
    directly without stating a plan first. For code changes, go straight to
-   the edit — but you must verify it afterwards (rule 18). Only for
+   the edit — but you must verify it afterwards (rule 17). Only for
    irreversible operations (delete, overwrite, force push) or complex
    multi-step tasks, briefly explain and wait for user confirmation
-4. If a task needs several steps (refactor, new feature, multi-file change),
-   call create_plan with the goal and its steps first, then execute them one
-   by one, marking each with complete_step — the plan is echoed back to you
-   as "## Current plan" on every later turn. For a 2-3 step task, skip the
-   plan and just do it
-5. When a tool call fails, do not retry the same call; report the error to
+4. When a tool call fails, do not retry the same call; report the error to
    the user with a suggestion
-6. Tools prefixed [MCP:xxx] come from Bailian MCP services; call them directly
-7. If the "user profile" contains info, personalize answers with it (e.g.
+5. Tools prefixed [MCP:xxx] come from Bailian MCP services; call them directly
+6. If the "user profile" contains info, personalize answers with it (e.g.
    recommend Python solutions for a Python user)
-8. When a request matches an "available Skill template" below, prefer that
+7. When a request matches an "available Skill template" below, prefer that
    flow — if the Skill's MCP is connected, call its tools directly; if not,
    connect first with mcp_connect, then call
-9. When a question may involve personal preferences, tech stack, or work
+8. When a question may involve personal preferences, tech stack, or work
    environment, proactively search the profile with memory_search for context
-10. If no suitable tool can complete the task, answer from your knowledge;
-    never call a nonexistent tool
-11. To switch model/Provider → call switch_model or switch_provider directly
-12. To use cloud services (time, code execution, doc parsing, etc.) → call
+9. If no suitable tool can complete the task, answer from your knowledge;
+   never call a nonexistent tool
+10. To switch model/Provider → call switch_model or switch_provider directly
+11. To use cloud services (time, code execution, doc parsing, etc.) → call
     mcp_connect directly
-13. To enable/disable capabilities → call capability_enable /
+12. To enable/disable capabilities → call capability_enable /
     capability_disable directly
-14. Never reply "please use the /xxx command" — if you have a tool that can
+13. Never reply "please use the /xxx command" — if you have a tool that can
     do it, just do it
-15. **Do not use run_command with python3 -c inline scripts to read/write
+14. **Do not use run_command with python3 -c inline scripts to read/write
     files** — it is inefficient. Read with read_file, write with write_file;
     shell tools like sed/grep are fine to use
-16. **If a question can be answered directly (no files, commands, or external
+15. **If a question can be answered directly (no files, commands, or external
     info needed), answer from your knowledge without calling tools** — e.g.
     self-introduction, explaining concepts, translating text, small talk
-17. **Multiple independent subtasks (e.g. "look at these 2 files", several
+16. **Multiple independent subtasks (e.g. "look at these 2 files", several
     unrelated tasks at once) → call delegate_parallel to fan out subagents**,
     or send multiple delegate calls in the same turn; a single independent
     but lengthy subtask (whole-file review, multi-file scan) → call
     subagent_invoke for isolated execution and take back only the conclusion.
     Do not grind through them serially yourself
-18. **Verify code changes before reporting done.** Run the tests that cover
+17. **Verify code changes before reporting done.** Run the tests that cover
     what you touched; if nothing covers it, add a focused test for the new
     behaviour and run that. Report the command and its pass/fail result —
     never claim a change works without having executed it. When the output
     transforms or joins data (ETL, CSV/JSON, migrations), also assert every
     cross-reference resolves — schema-valid output with dangling IDs still
-    fails
+    fails. When the task names a ground-truth tool or command for a check,
+    run the final verification with that exact tool and its stated
+    parameters — a calibrated substitute proves nothing about the grade
+18. **Snapshot a fragile artifact before inspecting it.** A tool meant to
+    read can still mutate what it opens — SQLite deletes an invalid WAL
+    when the connection closes, and destroyed evidence cannot be
+    re-downloaded. Copy the file to scratch space first (cp to /tmp), or
+    open it immutably (e.g. sqlite3 'file:...?immutable=1')
+19. **Read images with the vision model, not by proxy.** When a task
+    hinges on perceiving an image — text or digits in a picture, a chart,
+    a rendered layout — call view_image on the file itself; reading it
+    back through terminal-resolution ASCII art or hand-rolled pixel
+    scripts throws away exactly the detail the answer depends on. If the
+    artifact is data rather than an image (geometry, toolpaths, a
+    waveform), render it to a PNG first and then look at it with
+    view_image
 
 Reply style:
 - **Concise**. No filler like "let me see / let me help you / I'll analyze
@@ -239,6 +252,14 @@ class Agent:
             self.turn_retry_max = 2
         self.turn_retry_delay = 5.0
         self.turn_retry_backoff_cap = 30.0
+        # Empty-turn backstop (oneshot only): a turn that ends with no tool
+        # calls and no content is a provider failure shape, not "done". An
+        # autonomous run must not exit on it while budget remains — nudge
+        # and continue, bounded so a persistently empty endpoint still
+        # terminates. Interactive keeps the historical break: there the
+        # user sees the notice and simply speaks again.
+        self._empty_turns = 0
+        self._empty_turn_max = 2
         # Budget-aware convergence nudge (oneshot only): as the turn budget is
         # consumed, tell the agent to switch approach if plateaued, lock in an
         # already-passing result, then finalize. Covers productive-but-stuck
@@ -257,6 +278,34 @@ class Agent:
             )
         except ValueError:
             self.converge_hard_ratio = 0.85
+        # Wall-clock budget nudge (oneshot only): the turn-count convergence
+        # hint never fires when a run is few-but-huge generations, yet the
+        # harness kills the run on wall time all the same — and the hard-set
+        # tasks that died so (dna-assembly, write-compressor) all died with
+        # their deliverable never written. The bench adapter injects the
+        # in-container `timeout` value as ACLI_TIME_BUDGET_SEC; unset/<=0
+        # disables. Ratios: ACLI_TIME_SOFT / ACLI_TIME_HARD.
+        try:
+            self.time_budget_sec = float(
+                os.environ.get("ACLI_TIME_BUDGET_SEC", "0"),
+            )
+        except ValueError:
+            self.time_budget_sec = 0.0
+        try:
+            self.time_soft_ratio = float(
+                os.environ.get("ACLI_TIME_SOFT", "0.5"),
+            )
+        except ValueError:
+            self.time_soft_ratio = 0.5
+        try:
+            self.time_hard_ratio = float(
+                os.environ.get("ACLI_TIME_HARD", "0.8"),
+            )
+        except ValueError:
+            self.time_hard_ratio = 0.8
+        # Monotonic anchor for the budget above, set on the first turn: a
+        # wall clock would credit host-suspend time the process never had.
+        self._run_started: float | None = None
         # Silence nudge: one reminder per turn after N tool calls have gone by
         # without any prose reaching the user. Mode-independent on purpose —
         # the shape this exists for is an interactive turn of *distinct*
@@ -293,6 +342,14 @@ class Agent:
         if self.oneshot:
             self.system_prompt = (self.system_prompt or SYSTEM_PROMPT) + (
                 "\n\nTask execution policy (autonomous mode):\n"
+                "- Work from a written plan, not from memory: early in the "
+                "run, write a short plan file (goal, acceptance check, "
+                "ordered steps); after each step, record in it what is done "
+                "and what remains; before reporting completion, re-read it "
+                "and verify each item. Sketch the deliverable itself first, "
+                "then iterate on it. Never spend a whole turn only "
+                "thinking — every turn must land something on disk: a file, "
+                "a measurement, or an updated plan.\n"
                 "- If the request has a measurable acceptance criterion "
                 "(numeric threshold, size/time limit, test suite, "
                 "similarity/accuracy target), iterate until it is met: "
@@ -301,14 +358,27 @@ class Agent:
                 "toward the target — but once the criterion is met, lock it "
                 "in and finish rather than risk regressing a passing result. "
                 "Heed any budget-check hint: it tells you when to converge "
-                "or switch to a different approach.\n"
-                "- Before reporting completion, self-verify with the same "
-                "check the requester will apply (run the tests, recompute "
-                "the metric, validate the format). Fix what fails instead "
+                "or switch to a different approach. A wall-clock hint means "
+                "the run is killed when time runs out: get the required "
+                "deliverable written early, then keep improving it.\n"
+                "- Before reporting completion, turn every stated "
+                "requirement into its own executable check and run them "
+                "all — the measurable criterion, the format rules, and "
+                "any constraint that mentions components the deliverable "
+                "must contain. Where a check depends on domain facts, "
+                "state the fact explicitly first (a wrong assumption is "
+                "worse than a flagged unknown). Fix what fails instead "
                 "of handing back a near miss.\n"
                 "- When a check fails close to the target, treat it as "
                 "actionable feedback: change the approach based on what "
-                "the measurement shows, then re-measure."
+                "the measurement shows, then re-measure.\n"
+                "- Do not stake a large share of the remaining budget on "
+                "one long unverified command: before an install, compile "
+                "or download that could run for minutes, spend seconds "
+                "probing that the path can succeed at all (package "
+                "available, toolchain present); give long commands an "
+                "explicit timeout so a stuck one fails fast and frees "
+                "the rest of the budget."
             )
             if self._acceptance_gate.active:
                 # An armed gate implies oneshot — from_env hands back an empty
@@ -384,6 +454,11 @@ class Agent:
         # silence nudge has already been spent this turn.
         self._silent_tool_calls = 0
         self._silent_nudge_injected = False
+        # Compression observability toward the model: the event is set by
+        # either compression path and spent once by _compression_section;
+        # the ratio is refreshed by the mid-turn guard's estimate.
+        self._compression_event: tuple[int, int] | None = None
+        self._context_ratio = 0.0
         # Explicit /skill invocations to count on the next turn
         self._pending_skill_names: list[str] = []
 
@@ -597,6 +672,93 @@ class Agent:
             self.converge_hard_ratio,
         )
 
+    def _time_budget_section(self) -> str:
+        """Wall-clock budget nudge; see time_budget_hint for the rationale."""
+        if not self.oneshot or self._run_started is None:
+            return ""
+        return time_budget_hint(
+            time.monotonic() - self._run_started,
+            self.time_budget_sec,
+            self.time_soft_ratio,
+            self.time_hard_ratio,
+        )
+
+    def _compression_section(self) -> str:
+        """Tell the model about compression it would otherwise never see.
+
+        The compression event is spent once — after a compression the ratio
+        drops below the warn band anyway, so the state-based pre-hint alone
+        cannot double-fire. The ratio is refreshed by the mid-turn guard, so
+        the pre-hint can only fire from the second loop iteration on; the
+        first iteration of a turn is covered by the event path instead
+        (``_auto_compress`` runs just before the loop).
+        """
+        event = self._compression_event
+        self._compression_event = None
+        return compression_hint(event, self._context_ratio)
+
+    # Seconds of wall-clock budget a single run_command may never consume:
+    # the remainder minus a reserve for writing/finalizing the deliverable.
+    # Run 2026-10-12__reqenum-0612 lost 720s of an 1800s budget to two
+    # run_command timeouts (a 600s pip compile that could never succeed
+    # offline plus a 120s follow-up) and died with the deliverable never
+    # written; the hint alone can only ask, this enforces.
+    _CMD_TIMEOUT_RESERVE_SEC = 180
+    _CMD_TIMEOUT_MIN_SEC = 30
+
+    def _command_timeout_ceiling(self) -> int | None:
+        """Max seconds one run_command may take, or None when unbudgeted."""
+        if (
+            not self.oneshot
+            or self.time_budget_sec <= 0
+            or self._run_started is None
+        ):
+            return None
+        remaining = self.time_budget_sec - (
+            time.monotonic() - self._run_started
+        )
+        return max(
+            self._CMD_TIMEOUT_MIN_SEC,
+            int(remaining - self._CMD_TIMEOUT_RESERVE_SEC),
+        )
+
+    def _clamp_run_command_timeout(self, tool_call) -> str:
+        """Clamp run_command's timeout to the budget ceiling.
+
+        Mutates tool_call.arguments and returns a note for the tool
+        result when it clamped, "" otherwise. The note must ride the
+        result: the assistant's own tool_call entry in history keeps the
+        model's original arguments, so without it the model cannot see
+        why its 600s command died at 120s.
+        """
+        if tool_call.name != "run_command":
+            return ""
+        ceiling = self._command_timeout_ceiling()
+        if ceiling is None or self._run_started is None:
+            return ""
+        from dashscope.acli.tools.shell import default_timeout
+
+        raw = tool_call.arguments.get("timeout")
+        try:
+            current = (
+                int(raw) if raw not in (None, "", 0) else default_timeout()
+            )
+        except (TypeError, ValueError):
+            current = default_timeout()
+        if current <= ceiling:
+            return ""
+        tool_call.arguments["timeout"] = ceiling
+        remaining = self.time_budget_sec - (
+            time.monotonic() - self._run_started
+        )
+        return (
+            f"[timeout clamped from {current}s to {ceiling}s: "
+            f"{int(remaining)}s of wall-clock budget remain, "
+            f"{self._CMD_TIMEOUT_RESERVE_SEC}s reserved for finalizing. "
+            "Break the work into commands that fit, or pick a path that "
+            "does not need the long step at all.]\n"
+        )
+
     def _silence_section(self) -> str:
         """Inject one reminder when tool calls stop producing prose.
 
@@ -659,7 +821,15 @@ class Agent:
             console.print(f"\n[dim red](memory error: {e})[/dim red]")
 
     async def run_stream(self, user_input) -> AsyncIterator[str]:
-        self.messages.append({"role": "user", "content": user_input})
+        # A failed/interrupted turn can leave its user message as the last
+        # history entry; resubmitting the same text must not stack a second
+        # copy on top of it — the orphan is reused as this turn's input.
+        if not (
+            self.messages
+            and self.messages[-1].get("role") == "user"
+            and self.messages[-1].get("content") == user_input
+        ):
+            self.messages.append({"role": "user", "content": user_input})
 
         from dashscope.acli.audit import get_audit_logger
 
@@ -671,15 +841,40 @@ class Agent:
             async for chunk in self._run_stream_body(user_input):
                 _partial.append(chunk)
                 yield chunk
-        except BaseException:
+        except BaseException as e:
             # On cancellation / error, save whatever was received so the
             # user message and partial reply survive the next session load.
+            # A partial that is pure markdown scaffolding ("**", "```")
+            # carries no information and is dropped.
             partial_text = "".join(_partial).strip()
-            if partial_text:
+            if partial_text and any(ch.isalnum() for ch in partial_text):
                 self.messages.append(
                     {
                         "role": "assistant",
                         "content": partial_text + " [interrupted]",
+                    },
+                )
+            elif not isinstance(
+                e,
+                (
+                    UserAbortedTurn,
+                    KeyboardInterrupt,
+                    SystemExit,
+                    GeneratorExit,
+                    asyncio.CancelledError,
+                ),
+            ):
+                # A provider/turn failure with zero output otherwise leaves
+                # only the user message behind: the history then shows N
+                # stacked user prompts with no trace of why each attempt
+                # failed, and the model cannot learn the cause on resubmit.
+                self.messages.append(
+                    {
+                        "role": "assistant",
+                        "content": (
+                            "[Turn failed before any response: "
+                            f"{sanitize_text(str(e))[:500]}]"
+                        ),
                     },
                 )
             self.save_session()
@@ -703,6 +898,8 @@ class Agent:
 
         # Clear tool tracking for new turn
         self._current_turn_tools = []
+        if self._run_started is None:
+            self._run_started = time.monotonic()
         self.turn_tool_calls = 0
         self.turn_subagents = 0
         self.turn_mcp_calls = 0
@@ -761,10 +958,19 @@ class Agent:
                 shrink_old_tool_messages(self.messages)
             # Mid-turn guard: a long tool loop can overflow the window within
             # a single user turn. Estimate-only check; compress and rebuild
-            # the request list only past the hard threshold.
+            # the request list only past the hard threshold. The estimate is
+            # kept as the context-fill ratio for the compression hint below.
+            if _loop_i > 0:
+                used_tokens = (
+                    estimate_message_tokens(self.messages) + overhead_tokens
+                )
+                self._context_ratio = (
+                    used_tokens / self._context_window
+                    if self._context_window > 0
+                    else 0.0
+                )
             if _loop_i > 0 and (
-                estimate_message_tokens(self.messages) + overhead_tokens
-                >= int(self._context_window * HARD_THRESHOLD_RATIO)
+                used_tokens >= int(self._context_window * HARD_THRESHOLD_RATIO)
             ):
                 compressed = await safety_compress_if_needed(
                     self.messages,
@@ -775,6 +981,7 @@ class Agent:
                 if compressed is not None:
                     old_count = len(self.messages)
                     self.messages = compressed
+                    self._compression_event = (old_count, len(self.messages))
                     messages_with_system = [
                         {"role": "system", "content": system_prompt},
                         *self.messages,
@@ -798,15 +1005,22 @@ class Agent:
             # second one would replace the real prompt outright, and the Tongyi
             # converter only reads messages[0] as system.
             #
-            # All four sections are rebuilt every iteration because tracker
+            # All five sections are rebuilt every iteration because tracker
             # state changes as tools run; each returns "" when its condition
             # is not met, so an empty hint costs no message at all.
-            hint = (
-                self._reflection_section()
-                + self._stagnation_section()
-                + self._convergence_section(_loop_i)
-                + self._silence_section()
-            ).strip()
+            hint_parts = {
+                "reflection": self._reflection_section(),
+                "stagnation": self._stagnation_section(),
+                "convergence": self._convergence_section(_loop_i),
+                "time_budget": self._time_budget_section(),
+                "compression": self._compression_section(),
+                "silence": self._silence_section(),
+            }
+            hint = "".join(hint_parts.values()).strip()
+            # Which behaviour hints fired this call, and their sizes. Kept
+            # out of the prompt and logged with the llm_call event so hint
+            # efficacy is measurable from traces instead of guessed.
+            hint_chars = {k: len(v) for k, v in hint_parts.items() if v}
             request_messages = (
                 [*messages_with_system, {"role": "user", "content": hint}]
                 if hint
@@ -835,6 +1049,7 @@ class Agent:
             tool_calls: list[ToolCall] = []
             seen_tool_calls: set[tuple[str, str]] = set()
             last_chunk = None
+            finish_reason = ""
             llm_start = time.monotonic()
 
             # Turn-level retry around the streaming call, for providers that
@@ -844,9 +1059,14 @@ class Agent:
             # by turn_retry_max, which against a stalled endpoint measured
             # 819s of silent wall clock from a 60s configured timeout. A
             # budget spent failing fast is still re-attempted — see
-            # _budget_burned_slowly. We only retry when nothing has been
-            # streamed yet; once content is yielded, a retry would duplicate
-            # output, so that case degrades to a partial turn instead.
+            # _budget_burned_slowly. We only retry when nothing user-visible
+            # was streamed yet; once content is yielded, a retry would
+            # duplicate output, so that case degrades to a partial turn
+            # instead. Reasoning chunks do not count as emitted: they are
+            # never yielded to the user, so retrying a stream that carried
+            # only thinking duplicates nothing. A stalled stream of pure
+            # reasoning otherwise slipped past both retry layers and ended
+            # the run as an empty turn (dna-insert, 2026-10-12__fix-071).
             turn_attempt = 0
             while True:
                 full_content = ""
@@ -854,6 +1074,7 @@ class Agent:
                 tool_calls = []
                 seen_tool_calls = set()
                 last_chunk = None
+                finish_reason = ""
                 emitted = False
                 try:
                     async for chunk in self.provider.chat_stream(
@@ -873,7 +1094,6 @@ class Agent:
                             yield chunk.delta_content
 
                         if chunk.delta_reasoning_content:
-                            emitted = True
                             full_reasoning += chunk.delta_reasoning_content
 
                         if chunk.tool_calls:
@@ -897,6 +1117,8 @@ class Agent:
                         if chunk.usage:
                             self.executor.record_api_call(chunk.usage)
                             last_chunk = chunk
+                        if chunk.finish_reason:
+                            finish_reason = chunk.finish_reason
                     break
                 except Exception as e:
                     if (
@@ -928,9 +1150,32 @@ class Agent:
                     raise
 
             # Log LLM call trace
-            self.executor.record_prompt_composition(
+            prompt_stats = self.executor.record_prompt_composition(
                 request_messages,
                 tools_schema,
+            )
+            # Char-based estimate logged next to the provider's usage in the
+            # same event, so the two token accounts can be reconciled from
+            # traces instead of drifting silently apart.
+            prompt_stats["est_prompt_tokens"] = estimate_message_tokens(
+                request_messages,
+            ) + estimate_tokens(json.dumps(tools_schema, ensure_ascii=False))
+            if hint_chars:
+                prompt_stats["hint_chars"] = hint_chars
+            # Size of the cacheable request prefix: every bucket except the
+            # volatile trailing hint. A drop between consecutive llm_call
+            # events means the prefix changed byte-for-byte and the
+            # provider's prompt cache was defeated — this makes drift
+            # measurable from traces instead of guessed (dsh's tracker has
+            # the same lesson measured: 42% vs 99.8% cache hits).
+            prompt_stats["prefix_chars"] = (
+                prompt_stats["system_chars"]
+                + prompt_stats["user_chars"]
+                + prompt_stats["assistant_chars"]
+                + prompt_stats["tool_result_chars"]
+                + prompt_stats["tool_call_args_chars"]
+                + prompt_stats["tools_schema_chars"]
+                - len(hint)
             )
             self.trace_logger.log_llm_call(
                 messages=request_messages,
@@ -949,6 +1194,7 @@ class Agent:
                 },
                 duration_ms=int((time.monotonic() - llm_start) * 1000),
                 model=self.model_name,
+                prompt_stats=prompt_stats,
             )
 
             # If this iteration carried a reflection hint, its answer is the
@@ -969,6 +1215,8 @@ class Agent:
                 self._silent_tool_calls = 0
             else:
                 self._silent_tool_calls += len(tool_calls)
+            if full_content.strip() or tool_calls:
+                self._empty_turns = 0
             for tc in tool_calls:
                 if tc.name in ("delegate", "subagent_invoke"):
                     self.turn_subagents += 1
@@ -981,6 +1229,38 @@ class Agent:
                     self.turn_mcp_calls += 1
 
             if not tool_calls:
+                if finish_reason == "length":
+                    # Output cap cut the generation mid-turn: this is not a
+                    # final answer, so skip the gate and do not break. The
+                    # partial goes into history and the loop continues with
+                    # a shorter-chunks demand — which is also what makes
+                    # every between-iteration mechanism (time budget,
+                    # convergence, reflection) reachable again on the
+                    # monolithic-generation failure shape (2 requests per
+                    # 1800s in run 2026-10-12__time-069).
+                    partial = full_content or (
+                        "[response cut off by the output-length limit "
+                        "during planning, before any visible output]"
+                    )
+                    cut_msg: dict = {"role": "assistant", "content": partial}
+                    if full_reasoning:
+                        cut_msg["reasoning_content"] = full_reasoning
+                    self.messages.append(cut_msg)
+                    messages_with_system.append(cut_msg)
+                    nudge = (
+                        "[Output-length limit reached — your response was "
+                        "cut off. Continue working, but keep each response "
+                        "short: put plans and intermediate results into "
+                        "files with write_file in small pieces instead of "
+                        "one long response; if you were composing the "
+                        "deliverable, write it now in several smaller "
+                        "calls.]"
+                    )
+                    yield f"\n{nudge}\n"
+                    nudge_msg = {"role": "user", "content": nudge}
+                    self.messages.append(nudge_msg)
+                    messages_with_system.append(nudge_msg)
+                    continue
                 # Acceptance gate. This branch is the loop's only voluntary
                 # exit, so it is the one place where "the model is done" can
                 # be checked against something other than the model's own
@@ -1037,6 +1317,28 @@ class Agent:
                     self.messages.append(final_msg)
                     last_content = full_content
                 else:
+                    if (
+                        self.oneshot
+                        and self._empty_turns < self._empty_turn_max
+                    ):
+                        # A stall that slipped both retry layers (reasoning-
+                        # only stream, then a clean-but-empty stop) must not
+                        # pass for "done": with budget left, exiting here is
+                        # how dna-insert died at 562/1800s with the
+                        # deliverable never written (2026-10-12__fix-071).
+                        self._empty_turns += 1
+                        nudge = (
+                            "[Empty response: the model returned no content "
+                            "and no tool calls. The task is not finished — "
+                            "keep working: re-read your plan file and take "
+                            "the next step; if a deliverable file is "
+                            "required, make sure it exists on disk.]"
+                        )
+                        yield f"\n{nudge}\n"
+                        nudge_msg = {"role": "user", "content": nudge}
+                        self.messages.append(nudge_msg)
+                        messages_with_system.append(nudge_msg)
+                        continue
                     yield (
                         "\n[Model returned no content; the model name "
                         "may not exist or the service is unresponsive]\n"
@@ -1215,7 +1517,9 @@ class Agent:
 
         # Record experience for learning (only if tools were used)
         if self._current_turn_tools:
-            task_summary = text_of(user_input)[:100]  # Truncate for storage
+            # Flatten + ellipsis: raw prompts carry newlines, and a
+            # mid-word cut breaks the "Past Lessons" list rendering.
+            task_summary = truncate(" ".join(text_of(user_input).split()), 100)
             outcome = _classify_outcome(
                 self._turn_tool_successes,
                 self._turn_tool_failures,
@@ -1261,6 +1565,10 @@ class Agent:
         tool_def = registry.get(tool_call.name)
         if not tool_def:
             return f"Error: unknown tool '{tool_call.name}'"
+
+        # Budget back-pressure on the one tool that can burn minutes of
+        # wall clock in a single call; see _clamp_run_command_timeout.
+        budget_note = self._clamp_run_command_timeout(tool_call)
 
         # Track tool usage for experience recording (deduped, keep
         # first-use order)
@@ -1349,6 +1657,8 @@ class Agent:
         )
         duration_ms = int((time.time() - start_time) * 1000)
         result = outcome.text
+        if budget_note:
+            result = budget_note + result
         success = outcome.ok
         self.trace_logger.log_tool_execution(
             tool_call.name,
@@ -1482,6 +1792,7 @@ class Agent:
 
         old_count = len(self.messages)
         self.messages = compressed
+        self._compression_event = (old_count, len(self.messages))
         console.print(
             f"[dim]auto-compression: {old_count} messages → "
             f"{len(self.messages)}[/dim]",

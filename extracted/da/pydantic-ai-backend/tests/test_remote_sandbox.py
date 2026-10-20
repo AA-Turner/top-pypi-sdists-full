@@ -1449,6 +1449,35 @@ class TestWorkspaceArchiveRoutes:
             ).json()
             assert "escape.txt" not in [row["name"] for row in listed]
 
+    def test_a_listing_through_a_link_is_refused(self, stored):
+        harness, workspace = stored
+        (workspace / "elsewhere").symlink_to(workspace.parent.parent)
+        with harness.client() as client:
+            response = client.post(
+                "/workspaces/cold/ls", json={"path": "elsewhere"}, headers=_service_headers()
+            )
+        assert response.status_code == 400
+
+    def test_a_link_inside_the_workspace_is_not_followed_either(self, stored):
+        """Resolving and then opening left a window in which a live sandbox could
+        swap the target for a link out; so no link is followed at all now."""
+        harness, workspace = stored
+        (workspace / "real.txt").write_text("inside\n")
+        (workspace / "alias.txt").symlink_to("real.txt")
+
+        with harness.client() as client:
+            response = client.post(
+                "/workspaces/cold/read_bytes",
+                json={"path": "alias.txt"},
+                headers=_service_headers(),
+            )
+            listed = client.post(
+                "/workspaces/cold/ls", json={"path": "."}, headers=_service_headers()
+            ).json()
+
+        assert response.status_code == 400
+        assert "alias.txt" not in [row["name"] for row in listed]
+
     def test_an_absolute_host_path_lands_inside_the_workspace(self, stored):
         """`/etc/passwd` becomes `etc/passwd` under the workspace, so it is absent."""
         harness, _ = stored
@@ -1556,6 +1585,229 @@ PNG_BYTES = (
 )
 """A one-pixel PNG. Bytes that do not survive being decoded as text, which is
 the whole reason `read_bytes` exists."""
+
+
+class TestWorkspaceArchiveTree:
+    """A directory and everything under it, in the one request a file browser makes."""
+
+    @pytest.fixture
+    def stored(self, tmp_path):
+        harness = Harness(workspace_root=str(tmp_path))
+        workspace = tmp_path / "cold" / "workspace"
+        (workspace / "uploads" / "deep").mkdir(parents=True)
+        (workspace / "uploads" / "deep" / "c.txt").write_text("c")
+        (workspace / "uploads" / "b.txt").write_text("b")
+        (workspace / "a.md").write_text("a")
+        (workspace / "elsewhere").symlink_to("/etc")
+        return harness, workspace
+
+    @staticmethod
+    def _tree(harness, **body):
+        with harness.client() as client:
+            response = client.post("/workspaces/cold/tree", json=body, headers=_service_headers())
+        return response
+
+    def test_every_level_comes_back_breadth_first(self, stored):
+        harness, _ = stored
+        response = self._tree(harness)
+
+        assert response.status_code == 200
+        tree = wire.TreeResponse.model_validate(response.json())
+        assert [e.path for e in tree.entries] == [
+            "uploads",
+            "a.md",
+            "uploads/deep",
+            "uploads/b.txt",
+            "uploads/deep/c.txt",
+        ]
+        assert tree.truncated is False
+        # Links are left out, as `ls` leaves them, and nothing was started.
+        assert harness.built == {}
+
+    def test_one_level_is_ls_and_says_what_it_left_unopened(self, stored):
+        harness, _ = stored
+        tree = wire.TreeResponse.model_validate(self._tree(harness, max_depth=1).json())
+
+        assert [e.path for e in tree.entries] == ["uploads", "a.md"]
+        assert tree.truncated is True
+
+    def test_the_entry_bound_truncates_only_when_more_remain(self, stored):
+        harness, _ = stored
+        cut = wire.TreeResponse.model_validate(self._tree(harness, max_entries=2).json())
+        whole = wire.TreeResponse.model_validate(self._tree(harness, max_entries=5).json())
+
+        assert [e.path for e in cut.entries] == ["uploads", "a.md"]
+        assert cut.truncated is True
+        assert len(whole.entries) == 5
+        assert whole.truncated is False
+
+    def test_a_subdirectory_that_cannot_be_read_marks_the_listing(self, stored, monkeypatch):
+        """The sandbox may delete or relink a directory between two listings."""
+        from pydantic_ai_backends.remote import _workspace
+
+        harness, _ = stored
+        real = _workspace._scan
+
+        def flaky(root, path, *, limit):
+            if path == "uploads":
+                raise _workspace.WorkspacePathError("uploads became a link")
+            return real(root, path, limit=limit)
+
+        monkeypatch.setattr(_workspace, "_scan", flaky)
+        tree = wire.TreeResponse.model_validate(self._tree(harness).json())
+
+        assert [e.path for e in tree.entries] == ["uploads", "a.md"]
+        assert tree.truncated is True
+
+    def test_a_wide_directory_is_read_only_as_far_as_the_bound(self, tmp_path, monkeypatch):
+        """AUD-1019-12: `max_entries=1` used to stat and sort a thousand files."""
+        import os as os_module
+
+        from pydantic_ai_backends.remote import _workspace
+
+        workspace = tmp_path / "wide" / "workspace"
+        workspace.mkdir(parents=True)
+        for index in range(1000):
+            (workspace / f"f{index:04}").write_text("x")
+        read: list[str] = []
+        real_scandir = os_module.scandir
+
+        class Counting:
+            def __init__(self, fd):
+                self._inner = real_scandir(fd)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self._inner.close()
+
+            def __iter__(self):
+                for item in self._inner:
+                    read.append(item.name)
+                    yield item
+
+        monkeypatch.setattr(_workspace.os, "scandir", Counting)
+        entries, truncated = _workspace.walk_workspace(workspace, ".", max_depth=6, max_entries=1)
+
+        assert len(entries) == 1
+        assert truncated is True
+        # The entry wanted, one more to learn there are more, and the name past
+        # that which says the bound was reached - not the thousand.
+        assert len(read) == 3
+
+    def test_names_left_unread_mark_the_listing_even_short_of_the_bound(self, tmp_path):
+        """Links are read and left out, so a directory can be cut short while the
+        listing still holds fewer entries than it may."""
+        from pydantic_ai_backends.remote import _workspace
+
+        workspace = tmp_path / "linked" / "workspace"
+        workspace.mkdir(parents=True)
+        (workspace / "only.txt").write_text("x")
+        for index in range(3):
+            (workspace / f"link{index}").symlink_to("/etc")
+
+        entries, truncated = _workspace.walk_workspace(workspace, ".", max_depth=6, max_entries=2)
+
+        assert len(entries) <= 1
+        assert truncated is True
+
+    def test_the_start_is_checked_like_ls(self, stored):
+        harness, _ = stored
+
+        assert self._tree(harness, path="a.md").status_code == 404
+        assert self._tree(harness, path="../..").status_code == 400
+        assert self._tree(harness, path="elsewhere").status_code == 400
+
+    def test_the_bounds_are_validated(self, stored):
+        harness, _ = stored
+
+        assert self._tree(harness, max_depth=0).status_code == 422
+        assert self._tree(harness, max_entries=0).status_code == 422
+
+    def test_the_client_returns_a_workspace_tree(self, stored):
+        from pydantic_ai_backends.remote import WorkspaceArchive, WorkspaceTree
+
+        harness, _ = stored
+        with harness.client() as client:
+            tree = WorkspaceArchive(token=SERVICE_TOKEN, client=client).tree(
+                "cold", "uploads", max_depth=1
+            )
+
+        assert isinstance(tree, WorkspaceTree)
+        assert [e["path"] for e in tree.entries] == ["uploads/deep", "uploads/b.txt"]
+        assert tree.entries[1]["size"] == 1
+        assert tree.truncated is True
+
+
+class TestWorkspaceArchiveTrees:
+    """Several workspaces in one request, each answered on its own."""
+
+    @pytest.fixture
+    def stored(self, tmp_path):
+        harness = Harness(workspace_root=str(tmp_path))
+        for name, files in {"one": ["a.md"], "two": ["b.txt", "c.txt"]}.items():
+            workspace = tmp_path / name / "workspace"
+            workspace.mkdir(parents=True)
+            for file in files:
+                (workspace / file).write_text(file)
+        return harness
+
+    def test_each_workspace_answers_in_the_order_asked(self, stored):
+        with stored.client() as client:
+            response = client.post(
+                "/workspaces/trees",
+                json={"sessions": ["two", "missing", "one"]},
+                headers=_service_headers(),
+            )
+
+        assert response.status_code == 200
+        results = wire.TreesResponse.model_validate(response.json()).results
+        assert [r.session_id for r in results] == ["two", "missing", "one"]
+        assert [e.path for e in results[0].tree.entries] == ["b.txt", "c.txt"]
+        # One workspace that is not there is its own error, not the request's.
+        assert (results[1].tree, results[1].status_code) == (None, 404)
+        assert [e.path for e in results[2].tree.entries] == ["a.md"]
+        assert stored.built == {}
+
+    def test_the_request_is_bounded_and_needs_the_service_token(self, stored):
+        with stored.client() as client:
+            assert (
+                client.post(
+                    "/workspaces/trees", json={"sessions": []}, headers=_service_headers()
+                ).status_code
+                == 422
+            )
+            many = {"sessions": [f"s{i}" for i in range(wire.MAX_TREES + 1)]}
+            assert (
+                client.post("/workspaces/trees", json=many, headers=_service_headers()).status_code
+                == 422
+            )
+            assert (
+                client.post(
+                    "/workspaces/trees", json={"sessions": ["../etc"]}, headers=_service_headers()
+                ).status_code
+                == 422
+            )
+            assert client.post("/workspaces/trees", json={"sessions": ["one"]}).status_code == 401
+
+    def test_the_client_returns_a_tree_or_the_error_per_workspace(self, stored):
+        from pydantic_ai_backends.remote import (
+            WorkspaceArchive,
+            WorkspaceArchiveError,
+            WorkspaceTree,
+        )
+
+        with stored.client() as client:
+            trees = WorkspaceArchive(token=SERVICE_TOKEN, client=client).trees(
+                ["one", "missing"], max_depth=1
+            )
+
+        assert isinstance(trees["one"], WorkspaceTree)
+        assert [e["path"] for e in trees["one"].entries] == ["a.md"]
+        missing = trees["missing"]
+        assert isinstance(missing, WorkspaceArchiveError)
+        assert missing.status_code == 404
 
 
 class TestWorkspaceArchiveClient:
@@ -2123,11 +2375,107 @@ class TestPrewarming:
             default_runtime="z-fine",
         )
 
+        monkeypatch.setattr("pydantic_ai_backends.remote.server.time.sleep", lambda _s: None)
         with caplog.at_level("ERROR"):
             _default_prewarm(config)()
 
         assert pulled == ["python:3.12-slim"]
         assert "Could not prepare runtime a-broken" in caplog.text
+
+    def _fake_docker(self, monkeypatch, resolve) -> None:
+        client_module = types.ModuleType("pydantic_ai_backends.backends.docker._client")
+        client_module.docker_client = lambda: object()
+        monkeypatch.setitem(
+            sys.modules, "pydantic_ai_backends.backends.docker._client", client_module
+        )
+        image_module = types.ModuleType("pydantic_ai_backends.backends.docker._image")
+        image_module.pull_if_absent = lambda _client, _image: False
+        image_module.resolve_image = resolve
+        monkeypatch.setitem(
+            sys.modules, "pydantic_ai_backends.backends.docker._image", image_module
+        )
+
+    def test_a_build_that_fails_once_is_tried_again(self, monkeypatch, caplog):
+        """The first build of a changed runtime on a production host died
+        exporting a layer, and the next one succeeded."""
+        from pydantic_ai_backends.remote.server import SandboxRuntime, prepare_runtimes
+
+        tries: list[str] = []
+
+        def resolve(_client, runtime, _fallback):
+            tries.append(runtime.name)
+            if len(tries) == 1:
+                raise RuntimeError("failed to export layer: CreateDiff")
+
+        self._fake_docker(monkeypatch, resolve)
+        waited: list[float] = []
+        config = SandboxdConfig(
+            token="t",
+            runtimes={"lab": SandboxRuntime(runtime="python-datascience")},
+            default_runtime="lab",
+        )
+
+        with caplog.at_level("WARNING"):
+            failed = prepare_runtimes(config, attempts=2, pause=7, sleep=waited.append)
+
+        assert failed == []
+        assert tries == ["python-datascience", "python-datascience"]
+        assert waited == [7]
+        assert "attempt 1 of 2" in caplog.text
+
+    @pytest.mark.parametrize("sandbox_uid", [None, 10001])
+    def test_what_is_prepared_is_what_a_session_runs(self, monkeypatch, sandbox_uid):
+        """AUD-1019-08: prepare overrode the work directory and not the sandbox
+        user, so with `sandbox_uid` it built an image no session asked for."""
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _default_builder,
+            prepare_runtimes,
+        )
+
+        prepared: list[object] = []
+        self._fake_docker(monkeypatch, lambda _client, runtime, _fallback: prepared.append(runtime))
+        runtime = SandboxRuntime(runtime="python-datascience")
+        config = SandboxdConfig(
+            token="t", runtimes={"lab": runtime}, default_runtime="lab", sandbox_uid=sandbox_uid
+        )
+
+        prepare_runtimes(config, attempts=1)
+        session = _default_builder(config)("s-1", runtime)
+
+        assert prepared == [session._runtime]
+
+    def test_a_runtime_that_never_builds_is_named(self, monkeypatch):
+        from pydantic_ai_backends.remote.server import SandboxRuntime, prepare_runtimes
+
+        def resolve(_client, _runtime, _fallback):
+            raise RuntimeError("no space left on device")
+
+        self._fake_docker(monkeypatch, resolve)
+        config = SandboxdConfig(
+            token="t",
+            runtimes={
+                "lab": SandboxRuntime(runtime="python-datascience"),
+                "plain": "python:3.12-slim",
+            },
+            default_runtime="plain",
+        )
+
+        failed = prepare_runtimes(config, attempts=3, sleep=lambda _s: None)
+
+        assert failed == ["lab"]
+
+    def test_the_background_pass_tries_each_runtime_twice(self, monkeypatch):
+        from pydantic_ai_backends.remote import server as server_mod
+
+        calls: list[dict[str, object]] = []
+        monkeypatch.setattr(
+            server_mod, "prepare_runtimes", lambda _config, **kwargs: calls.append(kwargs) or []
+        )
+
+        server_mod._default_prewarm(SandboxdConfig(token="t"))()
+
+        assert calls == [{"attempts": 2}]
 
 
 class TestUsageSamplingScales:
@@ -2433,6 +2781,38 @@ class TestHibernation:
             await service._reap_hibernated()
 
             assert "forgotten" not in service._sessions
+
+    async def test_one_asleep_with_an_operation_under_way_is_kept(self, tmp_path):
+        """AUD-1019-06: a native read of a sleeping session was ended under it."""
+        harness = self._harness(tmp_path, idle_timeout=0)
+        with harness.client() as client:
+            _open_session(client, session_id="busy")
+            service = harness.app.state.service
+            await service.hibernate("busy")
+
+            with service.observe("busy", "read", "/workspace/a"):
+                await service._reap_hibernated()
+
+            assert "busy" in service._sessions
+
+    async def test_a_native_file_operation_on_one_asleep_counts_as_activity(self, tmp_path):
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _, token = _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+            service._sessions["asleep"].hibernated_at = time.time() - 500
+
+            response = client.post(
+                "/sessions/asleep/files/stat",
+                json={"path": "/workspace"},
+                headers={wire.TOKEN_HEADER: token},
+            )
+
+            assert response.status_code == 200
+            assert time.time() - service._sessions["asleep"].hibernated_at < 5
+            # Served without waking it.
+            assert "asleep" not in service.manager
 
     async def test_closing_one_forgets_it(self, tmp_path):
         """The manager has nothing to release, so nothing fires `on_release`."""
@@ -2900,6 +3280,26 @@ class TestSessionsThatVanishMidRequest:
 
 class TestConcurrentOpens:
     """Starting a sandbox suspends, so two requests can reach one id at once."""
+
+    async def test_an_open_whose_caller_is_cancelled_leaves_nothing_pending(self):
+        """AUD-1019-05: `except Exception` let a cancellation keep the id claimed."""
+        harness = Harness()
+        harness.next_start_gate = threading.Event()
+        with harness.client():
+            service = harness.app.state.service
+            body = wire.CreateSessionRequest(session_id="dropped")
+            opening = asyncio.create_task(service.open_session(body))
+            assert await _wait_until(lambda: "dropped" in service._pending)
+
+            opening.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await opening
+            harness.next_start_gate.set()
+            await asyncio.gather(*service.manager._opening)
+
+            assert "dropped" not in service._pending
+            # The start finished and its sandbox is the manager's to reap.
+            assert "dropped" in service.manager
 
     async def test_one_caller_wins_the_id_and_the_other_is_told(self):
         """The second request arrives while the id is claimed but not registered."""
@@ -3406,3 +3806,262 @@ class TestAsyncSandboxThroughTheService:
 
         assert _usage_of(NoUsage()) is None
         del app
+
+
+class TestNativeFiles:
+    """A live session's file operations, served off its host directory (#perf)."""
+
+    def _workspace(self, harness: Harness, session_id: str) -> Path:
+        assert harness.config.workspace_root is not None
+        return Path(harness.config.workspace_root) / session_id / "workspace"
+
+    def _call(self, client: TestClient, sid: str, token: str, op: str, path: str):
+        return client.post(
+            f"/sessions/{sid}/files/{op}", json={"path": path}, headers={wire.TOKEN_HEADER: token}
+        )
+
+    def test_the_policy_says_what_is_native(self, tmp_path: Path) -> None:
+        with Harness(workspace_root=str(tmp_path)).client() as client:
+            policy = client.get("/policy", headers=_service_headers()).json()
+        assert policy["native_files"] is True
+        assert policy["native_writes"] is True
+
+    def test_without_a_workspace_root_nothing_is(self, client: TestClient) -> None:
+        sid, token = _open_session(client)
+        policy = client.get("/policy", headers=_service_headers()).json()
+        assert (policy["native_files"], policy["native_writes"]) == (False, False)
+        response = self._call(client, sid, token, "read", "/workspace/a")
+        assert response.status_code == wire.NOT_NATIVE_STATUS
+
+    def test_a_runtime_running_as_another_user_keeps_its_writes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """AUD-1019-15: only the service-wide `sandbox_uid` was looked at."""
+        from pydantic_ai_backends.remote import server as server_module
+        from pydantic_ai_backends.types import RuntimeConfig
+
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, _ = _open_session(client)
+            service = harness.app.state.service
+            assert service.writes_natively(sid) is True
+            other = RuntimeConfig(
+                name="other", base_image="python:3.12-slim", run_as_uid=os.geteuid() + 1
+            )
+            monkeypatch.setattr(server_module, "_session_runtime", lambda _config, _runtime: other)
+            assert service.writes_natively(sid) is False
+            # A session this service holds no record of is judged by the
+            # service-wide rule alone.
+            assert service.writes_natively("unknown") is True
+
+    @pytest.mark.parametrize(
+        ("user", "native"),
+        [
+            ("", True),
+            ("root", True),
+            ("0:0", True),
+            (f"{os.geteuid()}:20", True),
+            ("node", False),
+            ("4242", False),
+        ],
+    )
+    def test_the_containers_own_user_decides(self, tmp_path: Path, user: str, native: bool) -> None:
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, _ = _open_session(client)
+            harness.built[sid].container_user = lambda: user  # type: ignore[attr-defined]
+            assert harness.app.state.service.writes_natively(sid) is native
+
+    def test_a_sandbox_of_another_user_keeps_its_writes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Files this service creates would be its own user's, not the sandbox's."""
+        from pydantic_ai_backends.remote import server as server_module
+
+        harness = Harness(workspace_root=str(tmp_path), sandbox_uid=os.geteuid())
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            # The service running as somebody else than the sandbox, after the open
+            # that needed them to match to hand the workspace over.
+            monkeypatch.setattr(server_module.os, "geteuid", lambda: 0)
+            (self._workspace(harness, sid) / "a.txt").write_text("readable")
+            assert (
+                client.get("/policy", headers=_service_headers()).json()["native_writes"] is False
+            )
+            assert self._call(client, sid, token, "read", "/workspace/a.txt").content == b"readable"
+            for op in ("mkdir", "remove"):
+                assert self._call(client, sid, token, op, "/workspace/x").status_code == 409
+            written = client.post(
+                f"/sessions/{sid}/files/write",
+                params={"path": "/workspace/b"},
+                content=b"x",
+                headers={wire.TOKEN_HEADER: token},
+            )
+            assert written.status_code == wire.NOT_NATIVE_STATUS
+
+    def test_a_round_trip_through_every_route(self, tmp_path: Path) -> None:
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            headers = {wire.TOKEN_HEADER: token}
+
+            written = client.post(
+                f"/sessions/{sid}/files/write",
+                params={"path": "/workspace/src/main.py"},
+                content=b"print(1)\n",
+                headers=headers,
+            )
+            assert written.status_code == 204
+            assert self._call(client, sid, token, "read", "/workspace/src/main.py").content == (
+                b"print(1)\n"
+            )
+            assert self._call(client, sid, token, "stat", "/workspace/src/main.py").json() == {
+                "name": "main.py",
+                "path": "/workspace/src/main.py",
+                "is_dir": False,
+                "size": 9,
+                "modified_at": None,
+            }
+            listed = self._call(client, sid, token, "list", "/workspace/src").json()
+            assert [row["name"] for row in listed] == ["main.py"]
+            assert self._call(client, sid, token, "mkdir", "/workspace/out").status_code == 204
+            assert self._call(client, sid, token, "remove", "/workspace/src").status_code == 204
+            assert not (self._workspace(harness, sid) / "src").exists()
+
+            ops = [
+                event["op"]
+                for event in client.get(f"/sessions/{sid}/events", headers=headers).json()["events"]
+            ]
+            assert ops == ["write", "read", "stat", "ls", "mkdir", "remove"]
+
+    def test_what_the_sandbox_must_resolve_is_handed_back(self, tmp_path: Path) -> None:
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            (self._workspace(harness, sid) / "link").symlink_to("/etc/hostname")
+
+            linked = self._call(client, sid, token, "read", "/workspace/link")
+            outside = self._call(client, sid, token, "read", "/etc/hostname")
+
+        assert linked.status_code == wire.NOT_NATIVE_STATUS
+        assert outside.status_code == wire.NOT_NATIVE_STATUS
+
+    def test_path_errors_carry_their_type(self, tmp_path: Path) -> None:
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            (self._workspace(harness, sid) / "dir").mkdir()
+
+            missing = self._call(client, sid, token, "read", "/workspace/absent")
+            directory = self._call(client, sid, token, "read", "/workspace/dir")
+            relative = self._call(client, sid, token, "read", "relative")
+
+        assert missing.status_code == 404
+        assert missing.json()["detail"]["error"] == "FileNotFoundError"
+        assert directory.status_code == 400
+        assert directory.json()["detail"]["error"] == "IsADirectoryError"
+        assert relative.json()["detail"]["error"] == "ValueError"
+
+    def test_a_file_the_service_may_not_open_is_handed_back(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The sandbox may still be able to read it."""
+        from pydantic_ai_backends.remote import _hostfs
+
+        def refused(*_args: Any, **_kwargs: Any) -> bytes:
+            raise PermissionError("denied")
+
+        monkeypatch.setattr(_hostfs, "read", refused)
+        with Harness(workspace_root=str(tmp_path)).client() as client:
+            sid, token = _open_session(client)
+            response = self._call(client, sid, token, "read", "/workspace/a")
+        assert response.status_code == wire.NOT_NATIVE_STATUS
+
+    def test_a_write_over_the_ceiling_is_the_sandboxs(self, tmp_path: Path) -> None:
+        with Harness(workspace_root=str(tmp_path), max_read_bytes=4).client() as client:
+            sid, token = _open_session(client)
+            response = client.post(
+                f"/sessions/{sid}/files/write",
+                params={"path": "/workspace/big"},
+                content=b"too large",
+                headers={wire.TOKEN_HEADER: token},
+            )
+        assert response.status_code == wire.NOT_NATIVE_STATUS
+
+    def test_realpath_of_a_plain_path_and_of_a_link(self, tmp_path: Path) -> None:
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            workspace = self._workspace(harness, sid)
+            (workspace / "a.txt").write_text("x")
+            (workspace / "l").symlink_to(workspace / "a.txt")
+            plain = self._call(client, sid, token, "realpath", "/workspace/a.txt")
+            linked = self._call(client, sid, token, "realpath", "/workspace/l")
+            policy = client.get("/policy", headers=_service_headers()).json()
+        assert plain.json() == {"path": "/workspace/a.txt"}
+        assert linked.status_code == wire.NOT_NATIVE_STATUS
+        assert policy["native_realpath"] is True
+
+    def test_a_chunked_write_over_the_ceiling_is_counted_not_trusted(self, tmp_path: Path) -> None:
+        """AUD-1019-02: a body with no length used to be written whole."""
+
+        def chunks():
+            yield b"1234"
+            yield b"5678"
+
+        harness = Harness(workspace_root=str(tmp_path), max_read_bytes=4)
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            response = client.post(
+                f"/sessions/{sid}/files/write",
+                params={"path": "/workspace/big"},
+                content=chunks(),
+                headers={wire.TOKEN_HEADER: token},
+            )
+        assert response.status_code == wire.NOT_NATIVE_STATUS
+        assert not (self._workspace(harness, sid) / "big").exists()
+
+    def test_a_chunked_write_within_the_ceiling_lands(self, tmp_path: Path) -> None:
+        def chunks():
+            yield b"ab"
+            yield b"cd"
+
+        harness = Harness(workspace_root=str(tmp_path), max_read_bytes=4)
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            response = client.post(
+                f"/sessions/{sid}/files/write",
+                params={"path": "/workspace/small"},
+                content=chunks(),
+                headers={wire.TOKEN_HEADER: token},
+            )
+        assert response.status_code == 204
+        assert (self._workspace(harness, sid) / "small").read_bytes() == b"abcd"
+
+    def test_a_file_operation_counts_as_activity(self, tmp_path: Path) -> None:
+        """A run that only edits files must not be reaped as idle."""
+        harness = Harness(workspace_root=str(tmp_path))
+        with harness.client() as client:
+            sid, token = _open_session(client)
+            touched: list[bool] = []
+            harness.built[sid].touch = lambda: touched.append(True)  # type: ignore[attr-defined]
+            self._call(client, sid, token, "stat", "/workspace")
+        assert touched == [True]
+
+
+async def test_the_service_sizes_the_command_pool_and_leaves_anyios_alone() -> None:
+    """Forty, anyio's default, made the forty-first command wait for a slot; the
+    commands now have a pool of their own (AUD-1019-04)."""
+    import anyio.to_thread
+
+    from pydantic_ai_backends.backends.docker import _exec
+
+    default = anyio.to_thread.current_default_thread_limiter().total_tokens
+    service = Harness(max_running_commands=123).app.state.service
+    service.startup()
+    try:
+        assert _exec.command_limiter().total_tokens == 123
+        assert anyio.to_thread.current_default_thread_limiter().total_tokens == default
+    finally:
+        await service.shutdown()
+        _exec.set_command_capacity(_exec.DEFAULT_COMMAND_CAPACITY)

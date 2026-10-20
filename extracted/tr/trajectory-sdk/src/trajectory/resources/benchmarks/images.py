@@ -25,8 +25,8 @@ class Images(APIResource):
     self,
     bench_id: str,
     *,
-    limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -56,8 +56,8 @@ class Images(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "limit": limit,
             "cursor": cursor,
+            "limit": limit,
           }
         ),
         extra_headers=extra_headers,

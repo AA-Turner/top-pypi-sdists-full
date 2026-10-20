@@ -255,6 +255,38 @@ def test_a_refused_connection_is_not_read_as_the_budget(tmp_path, monkeypatch):
     w.read_new()
     assert asyncio.run(w.run_bite("turn end")) is False
     assert w.released_reason != "budget"
+
+
+@pytest.mark.parametrize("status,body,changes", [
+    (429, {"code": "budget_exhausted"}, True),
+    (429, {"error": {"code": "budget_exhausted"}}, True),
+    (429, {"code": "rate_limited", "message": "budget"}, False),
+    (503, {"code": "budget_exhausted"}, False),
+    (402, {}, False),
+])
+def test_only_structured_monthly_quota_refusal_moves_live_worker_inline(tmp_path, monkeypatch, status, body, changes):
+    from pydantic_ai.exceptions import ModelHTTPError
+    from probe.sdk import session_marker
+    transcript, work = _session(tmp_path, monkeypatch)
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"))
+    assert w._quota_inline(ModelHTTPError(status, "default", body=body), "daemon") is changes
+    assert session_marker.is_inline(SID) is changes
+    assert session_marker.session_state(SID) == ("full" if changes else "daemon")
+
+
+def test_writer_model_quota_response_enters_inline_without_retrying_or_covering_events(tmp_path, monkeypatch):
+    from pydantic_ai.exceptions import ModelHTTPError
+    from probe.sdk import session_marker
+    transcript, work = _session(tmp_path, monkeypatch)
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    w = worker_mod.Worker(worker_mod.Session(SID, transcript, work, "claude_code", home=tmp_path / "home"),
+                          model=_raising(ModelHTTPError(429, "default", body={"code": "budget_exhausted"})))
+    w.read_new()
+    w._renew()
+    assert asyncio.run(w.run_bite("turn end")) is False
+    assert session_marker.is_inline(SID)
+    assert w.released_reason == "budget" and len(w.store.pending()) > 0
     assert w.store.recent_bites(1)[0]["outcome"] == "failed"
 
 

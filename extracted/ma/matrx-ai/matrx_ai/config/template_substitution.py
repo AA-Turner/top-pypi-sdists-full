@@ -385,3 +385,44 @@ def authored_template_messages(
         1 for m in list(wire_messages)[:count] if _role(m) not in _SYSTEM_ROLES and _kept(m)
     )
     return list(config_messages)[:authored]
+
+
+def fold_typed_turn_into_template(config_messages: Any, template_messages: list[Any]) -> bool:  # api-any-ok: the config's MessageList
+    """Join the typed turn onto the authored template's trailing user message, as its own block.
+
+    THE AGENT DOOR'S SHAPE, on every door. A saved agent's run appends the person's words to its
+    authored user message (``append_or_extend_user_text(own_block=True)``): ONE user message whose
+    ``content`` is template block(s) + typed block and whose ``user_content`` is only what she
+    typed. A client-carried door (``/ai/manual``, the Builder's Test run) sends the template and
+    the typed turn as two messages; the turn's trigger is the typed one, so only it was stored and
+    turn 2 reloaded a history without the filled template (PB-03, 2026-10-16: "Order name:
+    Benedita Raposo" gone, reply NOT PROVIDED). Folded here, the stored turn equals the agent
+    door's and the provider receives the same single user message.
+
+    Folds only when the last authored message is a user message and the very next message is the
+    new typed user turn (no DB id/position) and is the last one. Returns whether it folded."""
+    if not template_messages:
+        return False
+    from matrx_ai.config.message_config import Role
+
+    items = list(config_messages)
+    last_authored = template_messages[-1]
+    try:
+        index = next(i for i, m in enumerate(items) if m is last_authored)
+    except StopIteration:
+        return False
+    if index != len(items) - 2:
+        return False
+    typed = items[-1]
+    if last_authored.role != Role.USER or typed.role != Role.USER:
+        return False
+    if getattr(typed, "id", None) is not None and getattr(typed, "position", None) is not None:
+        return False
+    typed_blocks = list(typed.content or [])
+    if not typed_blocks:
+        return False
+    last_authored.content = list(last_authored.content or []) + typed_blocks
+    said = typed.user_content if typed.user_content is not None else typed_blocks
+    last_authored.user_content = list(said)
+    config_messages.pop(len(items) - 1)
+    return True

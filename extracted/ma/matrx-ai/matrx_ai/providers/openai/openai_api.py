@@ -30,7 +30,7 @@ from matrx_ai.providers.reasoning_stream_state import (
     reset_reasoning_state,
 )
 from matrx_ai.providers.sdk_drift import route_undeclared_params
-from matrx_ai.providers.snapshot import capture_request_payload
+from matrx_ai.providers.snapshot import capture_request_payload, recapture_final_payload
 
 from .translator import OpenAITranslator
 
@@ -252,6 +252,8 @@ class OpenAIChat:
         # ── Paid call returned. Storage retries alone; nothing below may
         # re-buy the audio (matrx_ai.providers.paid_output). ──
         from matrx_ai.config.usage_config import build_character_billed_usage_async
+        from matrx_ai.providers.errors import RetryableError, attach_billed_usage
+        from matrx_ai.speech.take_check import raise_if_truncated_take
         from matrx_ai.providers.paid_output import (
             mark_failed_after_paid_call,
             store_paid_output,
@@ -266,9 +268,14 @@ class OpenAIChat:
             provider_model_name=model,
             api="openai",
         )
+        audio_bytes = response.content
+        raise_if_truncated_take(
+            provider="openai",
+            audio_size_bytes=len(audio_bytes),
+            characters=len(input_text),
+            usage=usage,
+        )
         try:
-            audio_bytes = response.content
-
             mime_map = {
                 "mp3": "audio/mpeg",
                 "opus": "audio/opus",
@@ -372,7 +379,7 @@ class OpenAIChat:
 
         # Make API call
         response: OpenAIResponse = await self.client.responses.create(
-            **route_undeclared_params(self.client.responses.create, config_data_copy, provider="openai")
+            **route_undeclared_params(self.client.responses.create, config_data_copy, provider="openai", snapshot=True)
         )
 
         content = ""
@@ -440,6 +447,7 @@ class OpenAIChat:
             # transformed; extra_body overrides them with the real wire values.
             wire_body = dict(config_data)
             wire_body["stream"] = True
+            recapture_final_payload(wire_body)  # the stored request IS the wire body
             async with self.client.responses.stream(
                 input="",
                 model="wire-body",
@@ -512,7 +520,7 @@ class OpenAIChat:
         matrx_model_name: str,
     ) -> None:
         """Stamp billed ``TokenUsage`` from a terminal Response onto a failing /
-        cancelling exception so the orchestrator records real cost on the failed
+        canceling exception so the orchestrator records real cost on the failed
         cx_request row. Best-effort — never raises, never overwrites."""
         # LAYER 2: the mark means "an adapter LOOKED", which is true even when
         # there is nothing to attach — it must precede every early return.

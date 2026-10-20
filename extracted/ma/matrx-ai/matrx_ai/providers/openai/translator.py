@@ -21,7 +21,7 @@ from matrx_ai.config.message_config import (
 )
 from matrx_ai.config.tools_config import ToolCallContent
 from matrx_ai.config.unified_content import TextContent, ThinkingContent
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
 from matrx_ai.providers.cache_guard import normalize_openai_prompt_cache_key
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
@@ -72,7 +72,7 @@ class OpenAITranslator(BaseTranslator):
             )
 
         # Process all messages - delegate to message method
-        for msg in config.messages:
+        for msg in self.messages_for_wire(config):
             converted = msg.to_openai_items_modified()
             if self.debug:
                 rich.print(converted)
@@ -89,6 +89,7 @@ class OpenAITranslator(BaseTranslator):
             messages.append(
                 {"role": "developer", "content": [{"type": "input_text", "text": tail_text}]}
             )
+            record_platform_text_placement("openai", "own_host_turn", tail_text)
 
         # Build request
         openai_request = {"model": config.model, "input": messages}
@@ -234,7 +235,7 @@ class OpenAITranslator(BaseTranslator):
         # reject non-object roots up front, but we downgrade defensively to
         # json_object here so a slip-through still produces valid JSON instead of
         # a 400. This is a runtime ADJUSTMENT (schema is NOT enforced) — log it
-        # loudly so it's never mistaken for the configured behaviour.
+        # loudly so it's never mistaken for the configured behavior.
         downgrade_reason: str | None = None
         if not isinstance(schema, dict):
             downgrade_reason = "no JSON Schema was supplied with the json_schema request"
@@ -310,7 +311,7 @@ class OpenAITranslator(BaseTranslator):
         # ``strict`` is ALWAYS on: the schema above is translated to the strict
         # subset, so strict can no longer 400 it, and without strict OpenAI only
         # "tries" to follow the schema — the contract would not be enforced.
-        # A caller's explicit ``strict: false`` is honoured.
+        # A caller's explicit ``strict: false`` is honored.
         text_format: dict[str, Any] = {
             "type": "json_schema",
             "name": name or "response",

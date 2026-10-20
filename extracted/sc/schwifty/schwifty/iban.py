@@ -19,6 +19,10 @@ from schwifty.domain import Bank
 from schwifty.domain import IBANSpec
 
 
+_IBAN_STRUCTURE_RE = re.compile(r"[A-Z]{2}\d{2}[A-Z0-9]+")
+_iso7064_mod97_10 = ISO7064_mod97_10()
+
+
 if TYPE_CHECKING:
     from pydantic import GetCoreSchemaHandler
     from pydantic import GetJsonSchemaHandler
@@ -54,6 +58,8 @@ class IBAN(common.Base):
         iban (str): The IBAN code.
         allow_invalid (bool): If set to `True` IBAN validation is skipped on instantiation.
         validate_bban (bool): If set to `True` also check the country specific checksum of the BBAN.
+                              Countries without a registered checksum algorithm are reported with a
+                              :class:`.NationalChecksumNotVerified` warning instead.
 
     Raises:
         InvalidStructure: If the IBAN contains invalid characters or the BBAN does not match the
@@ -99,9 +105,10 @@ class IBAN(common.Base):
 
         .. versionadded:: 2024.01.2
         """
-        checksum_algo = ISO7064_mod97_10()
+        country_code = common.clean(country_code)
+        bban = common.clean(bban)
         return cls(
-            country_code + checksum_algo.compute([bban, country_code]) + bban,
+            country_code + _iso7064_mod97_10.compute([bban, country_code]) + bban,
             allow_invalid=allow_invalid,
             validate_bban=validate_bban,
         )
@@ -196,10 +203,11 @@ class IBAN(common.Base):
         """Validate the structural integrity of this IBAN.
 
         This function will verify the country specific format as well as the Luhn checksum in the
-        3rd and 4th position of the IBAN. For some countries (currently Belgium, Germany and Italy)
-        it will also verify the correctness of the country specific checksum within the BBAN if the
-        `validate_bban` parameter is set to `True`. For German banks it will pick the appropriate
-        algorithm based on the bank code and verify that the account code has the correct checksum.
+        3rd and 4th position of the IBAN. If the `validate_bban` parameter is set to `True` it will
+        also verify the correctness of the country specific checksum within the BBAN; for German
+        banks the appropriate algorithm is picked based on the bank code. Countries for which no
+        algorithm is registered cannot be verified: their check digits are accepted as they are and
+        a :class:`.NationalChecksumNotVerified` warning reports that they were not checked.
 
         Note:
             You have to use the `allow_invalid` paramter when constructing the :class:`IBAN`-object
@@ -229,7 +237,7 @@ class IBAN(common.Base):
         # digits that appear in most BBANs, so invalid characters after the
         # country/check-digit prefix slipped through. ``fullmatch`` over the
         # alphanumeric BBAN catches them.
-        if not re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]+", self):
+        if not _IBAN_STRUCTURE_RE.fullmatch(self):
             raise exceptions.InvalidStructure(f"Invalid characters in IBAN {self!s}")
 
     def _validate_length(self) -> None:
@@ -243,10 +251,12 @@ class IBAN(common.Base):
             )
 
     def _validate_iban_checksum(self) -> None:
-        checksum_algo = ISO7064_mod97_10()
-        if self.numeric % 97 != 1 or not checksum_algo.validate(
-            [self.bban, self.country_code], self.checksum_digits
-        ):
+        # Validating against the canonically computed check digits is stricter than a bare
+        # ``self.numeric % 97 == 1`` test: the ISO 7064 mod-97-10 algorithm only ever yields
+        # check digits in the range 02..98, whereas the raw mod-97 test additionally accepts the
+        # aliases 00, 01 and 99 (which no genuine IBAN carries). A passing ``validate`` always
+        # implies ``self.numeric % 97 == 1``, so the latter check is redundant.
+        if not _iso7064_mod97_10.validate([self.bban, self.country_code], self.checksum_digits):
             raise exceptions.InvalidChecksumDigits("Invalid checksum digits")
 
     @property

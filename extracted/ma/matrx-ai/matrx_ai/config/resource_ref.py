@@ -5,7 +5,7 @@ structured input uses to decide *how* an attached item should be resolved.
 A client attaches a resource (a note, a task, …) in one of two intents:
 
   1. **reference** — "include this resource by ID and keep it live." The server
-     fetches the current copy from the database every turn (honouring keep_fresh,
+     fetches the current copy from the database every turn (honoring keep_fresh,
      editable tools, ownership checks). This is the default and the normal case.
 
   2. **snapshot** — "include exactly the content I'm handing you, do not go to

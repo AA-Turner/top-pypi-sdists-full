@@ -287,10 +287,16 @@ class BaseMediaGeneration(ABC):
             vcprint(f"[media controls] {adjustment.reason}", color="yellow")
         # Same law as the chat seam: an unexpected drop reaches the user as a
         # warning (aspect_ratio / resolution / output_format live here).
-        from matrx_ai.providers.outbound_params import warn_client_about_dropped_settings
+        from matrx_ai.providers.outbound_params import (
+            publish_settings_adjustments,
+            warn_client_about_dropped_settings,
+        )
 
         warn_client_about_dropped_settings(
             adjustments, model=getattr(unified_config, "model", "?")
+        )
+        publish_settings_adjustments(
+            adjustments, model=getattr(unified_config, "model", "?"), seam="media"
         )
         return params
 

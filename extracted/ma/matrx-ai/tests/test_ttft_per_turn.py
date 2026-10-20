@@ -84,7 +84,7 @@ def _use(emitter: Any) -> None:
 
 def _request() -> AIMatrixRequest:
     messages = MessageList()
-    messages.append_or_extend_user_text("Summarise the quarterly numbers.")
+    messages.append_or_extend_user_text("Summarize the quarterly numbers.")
     return AIMatrixRequest(
         conversation_id=_CONVERSATION_ID,
         request_id=_REQUEST_ID,

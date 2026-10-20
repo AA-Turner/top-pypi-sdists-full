@@ -70,6 +70,7 @@ from sarj_python_lint.rules.no_invalid_argument_name_suppression import NoInvali
 from sarj_python_lint.rules.no_loguru_exc_info import NoLoguruExcInfo
 from sarj_python_lint.rules.no_loguru_printf_format import NoLoguruPrintfFormat
 from sarj_python_lint.rules.no_mocked_pydantic_value_object import NoMockedPydanticValueObject
+from sarj_python_lint.rules.no_mutating_container_transform import NoMutatingContainerTransform
 from sarj_python_lint.rules.no_nested_pydantic_field_validator import NoNestedPydanticFieldValidator
 from sarj_python_lint.rules.no_nullable_dependency_fallback import NoNullableDependencyFallback
 from sarj_python_lint.rules.no_offset_pagination import NoOffsetPagination
@@ -188,6 +189,7 @@ from sarj_python_lint.rules.require_public_dependency_contract import RequirePub
 from sarj_python_lint.rules.require_pydantic_for_external_json import (
     RequirePydanticForExternalJson,
 )
+from sarj_python_lint.rules.require_pydantic_for_mapping_shape import RequirePydanticForMappingShape
 from sarj_python_lint.rules.require_pydantic_for_structured_payload import RequirePydanticForStructuredPayload
 from sarj_python_lint.rules.require_pydantic_ordinal_lower_bound import (
     RequirePydanticOrdinalLowerBound,
@@ -251,6 +253,7 @@ REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         NoInterpreterSourceArguments.id: NoInterpreterSourceArguments,
         NoUnusedCopyResult.id: NoUnusedCopyResult,
         NoDiscardedValidationResult.id: NoDiscardedValidationResult,
+        NoMutatingContainerTransform.id: NoMutatingContainerTransform,
         NoBeforeValidatorInputMutation.id: NoBeforeValidatorInputMutation,
         NoInputModelMutation.id: NoInputModelMutation,
         NoDatabaseProgrammability.id: NoDatabaseProgrammability,
@@ -303,6 +306,7 @@ REGISTRY: Mapping[str, type[Rule]] = MappingProxyType(
         PreferMatchAssertNever.id: PreferMatchAssertNever,
         RequireKeywordOnlySwapProneParams.id: RequireKeywordOnlySwapProneParams,
         RequirePydanticForExternalJson.id: RequirePydanticForExternalJson,
+        RequirePydanticForMappingShape.id: RequirePydanticForMappingShape,
         PreferModuleLevelConstant.id: PreferModuleLevelConstant,
         PreferImmutableModuleConstant.id: PreferImmutableModuleConstant,
         PreferInjectedDependencyOverMonkeypatch.id: PreferInjectedDependencyOverMonkeypatch,

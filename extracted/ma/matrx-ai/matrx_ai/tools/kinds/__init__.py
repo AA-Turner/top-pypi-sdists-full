@@ -133,7 +133,7 @@ from matrx_ai.tools.kinds.tool_traces import (  # noqa: E402
     ToolTraceIncidentList,
     ToolTraceIncidentReport,
 )
-from matrx_ai.tools.kinds.tooling import ToolBundleListing  # noqa: E402
+from matrx_ai.tools.kinds.tooling import FoundTools, ToolBundleListing  # noqa: E402
 from matrx_ai.tools.kinds.udt_content import WorkbookResult  # noqa: E402
 from matrx_ai.tools.kinds.user_secrets import UserSecretReceipt  # noqa: E402
 from matrx_ai.tools.kinds.value_store import ValueStoreResult  # noqa: E402
@@ -346,6 +346,8 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     "sealed_case": SealedCaseToolResult,
     "research_run": ResearchRunState,
     "office": OfficeToolResult,
+    # Catalog discovery (third-party services L9): the Tools a catalog search found.
+    "find_tools": FoundTools,
 }
 
 #: Generated tool FAMILIES: one implementation serves every member, so the

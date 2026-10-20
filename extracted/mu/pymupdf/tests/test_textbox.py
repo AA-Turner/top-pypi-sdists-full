@@ -63,6 +63,9 @@ def test_textbox2():
 
 def test_textbox3():
     """Use TextWriter for text insertion."""
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        print(f'test_textbox3(): doing nothing in sysinstall.')
+        return
     doc = pymupdf.open()
     page = doc.new_page()
     font = pymupdf.Font("cjk")
@@ -128,7 +131,8 @@ def test_textbox5():
 
         blocks = page.get_text("blocks")
         bbox = pymupdf.Rect(blocks[0][:4])
-        assert bbox in r
+        # Need small allowance if pymupdf4llm is imported.
+        assert bbox in (r + pymupdf.Rect(-0.01, -0.01, +0.01, +0.01))
     finally:
         # Must restore small_glyph_heights, otherwise other tests can fail.
         pymupdf.TOOLS.set_small_glyph_heights(small_glyph_heights0)

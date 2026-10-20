@@ -27,7 +27,6 @@ from uuid import UUID
 
 # persistence.queue_helpers is lazy-imported by helpers below to break the
 # matrx_ai.persistence ↔ matrx_ai.db circular import.
-from matrx_connect.lane import get_current_lane
 from matrx_connect.reservations import try_get_tracker
 from matrx_utils import vcprint
 
@@ -233,6 +232,19 @@ def lift_promoted_message_columns(
                 )
                 continue
             promoted[key] = clean.pop(key)
+    if isinstance(promoted.get("model_context"), dict):
+        # The host may keep a run's inline context values off this client-readable row
+        # (db/stored_values_screen — aidream screens a mandate run's, values to its store).
+        from matrx_ai.context.app_context import try_get_app_context
+        from matrx_ai.db.stored_values_screen import MESSAGE_MODEL_CONTEXT, screen_stored_values
+
+        ctx = try_get_app_context()
+        promoted["model_context"] = screen_stored_values(
+            MESSAGE_MODEL_CONTEXT,
+            getattr(ctx, "conversation_id", None) if ctx is not None else None,
+            promoted["model_context"],
+            ctx,
+        )
     return (clean or None), promoted
 
 
@@ -291,6 +303,14 @@ def _get_coordinator():
     from matrx_ai.persistence.queue_helpers import get_coordinator as _gc
 
     return _gc()
+
+
+def _get_live_coordinator():
+    """The Coordinator that owns this write and can still commit it, or None
+    when the only possible owner is a request lane that stopped draining."""
+    from matrx_ai.persistence.queue_helpers import get_live_coordinator
+
+    return get_live_coordinator()
 
 
 async def _existing_row_metadata(kind: str, row_id: str) -> dict[str, Any]:
@@ -631,9 +651,18 @@ def structural_conversation_update(
     # exactly how a mandate-held thread got its belt frozen back on and then
     # reached the provider with zero authored tools.
     if live_structure.marks_live_structure(existing_config) or turn_mandate_key:
+        held_config = dict(assembled_config or {})
+        # THE HELD SYSTEM TEXT survives a turn that did not settle one (a door
+        # that never sent, a failed turn): the row keeps its frozen record.
+        if live_structure.HELD_PROMPT_KEY not in held_config and isinstance(
+            existing_config, dict
+        ):
+            prior = existing_config.get(live_structure.HELD_PROMPT_KEY)
+            if prior:
+                held_config[live_structure.HELD_PROMPT_KEY] = prior
         return StructuralConversationUpdate(
             config=live_structure.stamp_live_structure(
-                assembled_config,
+                held_config,
                 mandate_key=(
                     live_structure.mandate_key_of(existing_config) or turn_mandate_key
                 ),
@@ -772,6 +801,22 @@ def _call_request_settled_hook(
         vcprint(f"[CX PERSISTENCE] request_settled_hook failed (ignored): {exc}", color="yellow")
 
 
+
+def _row_role(msg: dict[str, Any]) -> Any:
+    role = msg.get("role")
+    return role.value if hasattr(role, "value") else role
+
+
+def _is_consumed_prefill(msg: dict[str, Any]) -> bool:
+    """An authored prefill already folded into the reply and hidden from the person."""
+    from matrx_ai.config.message_flags import flags_of
+
+    meta = msg.get("metadata") or {}
+    if meta.get("is_visible_to_user") is not False:
+        return False
+    return bool(flags_of(msg).get("prefill"))
+
+
 async def persist_completed_request(
     completed: CompletedRequest,
     conversation_id: str | None = None,
@@ -838,13 +883,10 @@ async def persist_completed_request(
     # whose exit is a synchronous durability barrier. The former bare-Session
     # fallback bypassed ownership for Conversation and Message and produced the
     # CoordinatorWriteViolation reported on 2026-08-17.
-    lane = get_current_lane()
-    inherited_terminal_lane = (
-        not _terminal_lane_isolated
-        and lane is not None
-        and getattr(lane, "phase", None) != "active"
-    )
-    if inherited_terminal_lane or _get_coordinator() is None:
+    # Ownership is the current Coordinator's own lane (get_live_coordinator):
+    # a helper that outlived its parent request writes through its OWN
+    # Coordinator, never a side scope that could commit past its pending rows.
+    if _get_live_coordinator() is None:
         from matrx_ai.persistence import standalone_coordinator
 
         resolved_conversation_id = conversation_id or getattr(
@@ -1096,6 +1138,17 @@ async def persist_completed_request(
                 )
                 if verified_parent:
                     update_kwargs["parent_conversation_id"] = verified_parent
+                    # A system process names its subject in metadata, never as a parent.
+                    from matrx_ai.db.conversation_gate import (
+                        _resolve_conversation_type,
+                        place_system_process_subject,
+                    )
+
+                    place_system_process_subject(
+                        update_kwargs,
+                        _resolve_conversation_type(_ctx, verified_parent),
+                        add_metadata=False,
+                    )
 
             # Record the most recent turn's OUTCOME on the conversation (lifecycle
             # `status` stays active|archived — this is the separate last-turn
@@ -1139,6 +1192,13 @@ async def persist_completed_request(
 
             if start_pos is not None and end_pos is not None:
                 write_from = trigger_pos if trigger_pos is not None else start_pos
+                # The authored block before the trigger is this turn's too (executor's
+                # ``persist_from_position``: one past the stored history). Reserved rows are
+                # UPDATEd in place; with no reservation (no streaming lane) they are created
+                # here, in order, before the trigger.
+                _persist_from = getattr(_exec_state, "persist_from_position", None)
+                if isinstance(_persist_from, int) and 0 <= _persist_from < write_from:
+                    write_from = _persist_from
                 # Per-turn commit barrier: only write rows ABOVE the high-water
                 # mark a prior turn's finalize() already committed. Prevents a
                 # rolled Session from re-INSERTing an already-committed row.
@@ -1150,9 +1210,28 @@ async def persist_completed_request(
                 if since_position is not None:
                     new_messages = [m for m in new_messages if m["position"] > since_position]
 
+            _has_reply_row = start_pos is not None and any(
+                _row_role(m) == "assistant" and m["position"] >= start_pos
+                for m in new_messages
+            )
             for msg in new_messages:
                 role_val = msg["role"]
                 role_val = role_val.value if hasattr(role_val, "value") else role_val
+                # A CONSUMED authored prefill is never stored as its own row.
+                # Its text already opens the reply (and the reply's metadata
+                # records it). The reply row is reserved at stream start, so a
+                # prefill INSERT here lands AFTER it — a bare "Dear" as the
+                # newest assistant message (conversation 7d2ac34a, 2026-10-17)
+                # that every reader taking the last assistant row mistook for
+                # the answer. Never replayed (a non-last prefill is consumed).
+                if (
+                    _has_reply_row
+                    and role_val == "assistant"
+                    and isinstance(msg.get("position"), int)
+                    and msg["position"] < start_pos
+                    and _is_consumed_prefill(msg)
+                ):
+                    continue
                 # Always persist with "active" — the in-memory status from the
                 # config may be "pending" if the message was loaded from a prior
                 # failed run; we want to mark it active now.
@@ -1244,6 +1323,12 @@ async def persist_completed_request(
                 # persist_completed_request establishes a request or standalone
                 # Coordinator before reaching this loop, so queue helpers cannot
                 # drop these writes for lack of an owner.
+                # The authored block (before this turn's trigger) keeps its own author on
+                # every op, so it stays one flush group ahead of the trigger (queue_helpers).
+                _authored_row = (
+                    trigger_pos is not None and isinstance(position, int) and position < trigger_pos
+                    and role_val in ("user", "assistant")
+                )
                 _msg_fields: dict[str, Any] = {
                     "role": role_val,
                     "status": status_val,
@@ -1273,7 +1358,7 @@ async def persist_completed_request(
                         # reservation INSERT into a single INSERT carrying both
                         # the reservation's status='pending' and this UPDATE's
                         # content/status.
-                        _queue_message_update(reserved_id, **_msg_fields)
+                        _queue_message_update(reserved_id, authored=_authored_row, **_msg_fields)
                         msg_id = reserved_id
 
                         if tracker and emitter:
@@ -1294,6 +1379,7 @@ async def persist_completed_request(
                             id=msg_id,
                             conversation_id=db_conversation_id,
                             position=APPEND_MESSAGE_POSITION,
+                            authored=_authored_row,
                             **_msg_fields,
                         )
                         if role_val == "assistant":
@@ -1616,10 +1702,10 @@ async def persist_completed_request(
             # iterations resolved from their response and keep the default
             # 'completed'. The structured error (with parsed status_code for
             # reporting) goes here; the exact payload is in cx_request_snapshot.
-            # A person's Stop ends the call it interrupted CANCELLED, never
-            # 'completed' (PB-05 run 2, ac170b56…: user_request said cancelled,
+            # A person's Stop ends the call it interrupted CANCELED, never
+            # 'completed' (PB-05 run 2, ac170b56…: user_request said canceled,
             # its stopped call's row said completed). Only the LAST call of a
-            # cancelled run, and only when it did not finish on its own — a
+            # canceled run, and only when it did not finish on its own — a
             # Stop that lands between calls leaves every call finished.
             if (
                 ur_data.get("status") == "cancelled"
@@ -1761,6 +1847,13 @@ async def persist_completed_request(
             # credentials (the sandbox bearer token): never into a durable row.
             request_metadata: dict[str, Any] = without_credential_fields(
                 dict(ur_data.get("metadata", {}))
+            )
+            # The host may keep some runs' values off this client-readable row
+            # (db/stored_values_screen — aidream screens a mandate run's watch frame and context).
+            from matrx_ai.db.stored_values_screen import USER_REQUEST_METADATA, screen_stored_values
+
+            request_metadata = screen_stored_values(
+                USER_REQUEST_METADATA, user_request_id, request_metadata, _ctx
             )
             if agg_cost_unknown:
                 request_metadata["cost_reconciliation"] = "incomplete_child_costs"
@@ -2007,6 +2100,52 @@ def _latest_trim_summary(req_list: list[dict[str, Any]]) -> dict[str, Any] | Non
     return None
 
 
+async def save_tool_declaration_record(
+    conversation_id: str, record: dict[str, Any]
+) -> bool:
+    """Save the conversation's provider tools array on its row NOW.
+
+    Called after an accepted provider send whose tools array changed
+    (matrx_ai/tools/declaration_ledger.py). The turn's own end-of-turn persist
+    writes the same key later; this standalone write exists so a crash in the
+    middle of a turn still resumes with the exact array the provider last saw.
+    Only the ``tool_declarations`` key of the stored config is replaced. A row
+    that does not exist yet (the conversation's first turn) is left to the
+    turn's own INSERT. Returns True when a write was queued.
+    """
+    try:
+        existing = await _cxm().conversation.load_conversation_by_id(conversation_id)
+    except Exception:
+        existing = None
+    if existing is None:
+        return False
+    stored = dict(getattr(existing, "config", None) or {})
+    from matrx_ai.tools.declaration_ledger import record_is_newer
+
+    if not record_is_newer(record, stored.get("tool_declarations")):
+        return False  # the row already holds this array or a newer one
+    stored["tool_declarations"] = record
+    try:
+        from matrx_ai.persistence import standalone_coordinator
+
+        async with standalone_coordinator(
+            reason="tool_declaration_record",
+            conversation_id=conversation_id,
+        ):
+            _queue_conversation_update(conversation_id, config=stored)
+        return True
+    except Exception as exc:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            exc,
+            kind="tool_declaration_record_save_failed",
+            route="matrx_ai.db.persistence.save_tool_declaration_record",
+            payload={"conversation_id": conversation_id},
+        )
+        return False
+
+
 async def _refresh_cache_state(
     conversation_id: str,
     req_rows: list[dict[str, Any]],
@@ -2072,7 +2211,9 @@ async def _refresh_cache_state(
             # Trim was eligible but skipped to protect cache — accumulate.
             gate = (trim_summary.get("policy") or {}).get("cache_gate") or {}
             est_tokens = int(gate.get("est_savings_tokens", 0) or 0)
-            est_chars = int(est_tokens * 4)  # rough chars conversion for UI
+            # The gate's own char count when it has one (2026-10-16); else the
+            # old rough conversion for rows written before it.
+            est_chars = int(gate.get("est_savings_chars") or est_tokens * 4)
             prior = int(existing_state.get("cumulative_trimmable_chars", 0) or 0)
             new_state["cumulative_trimmable_chars"] = prior + est_chars
 
@@ -2086,10 +2227,18 @@ async def _refresh_cache_state(
     # terminal request coordinator and report persistence_after_lane_drain.
     # This write already has an explicit background-owner path, so terminal
     # inherited lanes must use it directly.
-    lane = get_current_lane()
-    lane_is_terminal = lane is not None and getattr(lane, "phase", None) != "active"
-    if not lane_is_terminal and _get_coordinator() is not None:
-        _queue_conversation_update(conversation_id, cache_state=new_state)
+    # The last send's context breakdown rides the same UPDATE: what the
+    # context was made of, next to the cache facts about it (read by the
+    # context-state endpoint and the Advanced session panel).
+    from matrx_ai.config.send_boundary import take_context_breakdown
+
+    update_fields: dict[str, Any] = {"cache_state": new_state}
+    breakdown = take_context_breakdown(conversation_id)
+    if breakdown is not None:
+        update_fields["last_context_breakdown"] = breakdown
+
+    if _get_live_coordinator() is not None:
+        _queue_conversation_update(conversation_id, **update_fields)
         return
     try:
         from matrx_ai.persistence import standalone_coordinator
@@ -2098,7 +2247,7 @@ async def _refresh_cache_state(
             reason="refresh_conversation_cache_state",
             conversation_id=conversation_id,
         ):
-            _queue_conversation_update(conversation_id, cache_state=new_state)
+            _queue_conversation_update(conversation_id, **update_fields)
     except Exception as upd_err:
         vcprint(
             f"[CX PERSISTENCE] cache_state UPDATE failed: {upd_err}",

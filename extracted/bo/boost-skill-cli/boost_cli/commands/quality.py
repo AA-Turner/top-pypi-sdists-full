@@ -48,6 +48,7 @@ from ..core import (
     util,
 )
 from ..core import output as out
+from ..core import rules as rule_blocks
 from ..errors import BoostError
 from ._common import _iter_installed, _iter_installed_all, _require_lock_integrity, _s
 
@@ -196,10 +197,12 @@ def _broken_links() -> tuple[list[Path], list[Path]]:
 
     Two things this deliberately does NOT do.
 
-    **It does not look in a native-store agent's dir.** `linking_agents`, not
-    `enabled_agents`: boost never links into `~/.gemini/skills`, so anything
+    **It does not look in a native-store agent's dir.** `unlinking_agents`,
+    not `known_agents`: boost never links into `~/.gemini/skills`, so anything
     dangling there belongs to someone else and is none of this command's
-    business. The rest of `cmd_heal` already had this right.
+    business. A *disabled* agent's dir is looked in: boost linked there while
+    it was enabled, and a link it left behind still dangles where that agent
+    reads.
 
     **It does not report a link boost did not create as ours.** `heal` deletes
     what this returns first, and a broken link is not necessarily garbage — a
@@ -209,7 +212,7 @@ def _broken_links() -> tuple[list[Path], list[Path]]:
     """
     ours: list[Path] = []
     theirs: list[Path] = []
-    for adir in agents.linking_agents().values():
+    for adir in agents.unlinking_agents().values():
         # ``os.path``: ``Path.is_dir`` raises under a dotdir with no search
         # bit on Python 3.12 and 3.13, and doctor and heal exited 70 there.
         if not os.path.isdir(adir):  # noqa: FURB146
@@ -481,6 +484,22 @@ def _mat_remedy(off: list[tuple[str, str, str, str]]) -> str:
             "remove the artifact.%s" % (drop, tail))
 
 
+def _drifted(kind: str, name: str, entry: dict, bad) -> int:
+    """Name a rule/workflow whose written content no longer hashes to the
+    lock, and return the issue count it adds.
+
+    Doctor checked only that each materialization existed, so a hand edit
+    `boost verify` fails and `boost drift` calls a local edit left the verdict
+    "healthy". Asked through the function `verify` uses, so the two cannot
+    disagree about one file; only after the presence checks found nothing,
+    so a missing artifact is not reported twice.
+    """
+    if integrity.materialized_status(name, entry, kind) != integrity.STATUS_MODIFIED:
+        return 0
+    bad(kind, "%s %s modified since install — run `boost verify`" % (kind, name))
+    return 1
+
+
 def cmd_doctor(argv):
     ap = cliparse.parser(
         prog="boost doctor", description="Check installation health & report issues")
@@ -527,6 +546,13 @@ def cmd_doctor(argv):
     # skipped check that printed nothing would read as a passed one.
     agent_errs = agents.check()
     agents_ok = not agent_errs
+    # A row with no dir is skipped rather than refused, so it leaves the other
+    # checks on; it is still a broken config, and nothing else names it.
+    for aname in agents.dirless(claim=True):
+        bad("agent-config", "agents.%s has no dir, so boost skips it — set one "
+            "with `boost config set agents.%s.dir <dir>`, or remove the row "
+            "with `boost config unset agents.%s`" % (aname, aname, aname),
+            wrap=True)
     for aname, err in agent_errs:
         key = "agents.%s.dir" % aname
         bad("agent-config", "%s: %s — %s, or set a path with `boost config set "
@@ -660,6 +686,18 @@ def cmd_doctor(argv):
     for name, entry in sorted(skills.items()):
         sdir = store.skill_store_dir(name)
         if not sdir.is_dir():
+            # A pin over a moved source is a repair heal declines, so naming
+            # heal sent the user round doctor -> heal -> doctor. Whether the
+            # source moved is a hash of the tap source, and reading that goes
+            # through `source_dir_for`, which widens a sparse clone and can
+            # fetch. Doctor stays read-only and offline, so it names the
+            # preview that answers instead of asking itself.
+            if entry.get("pinned") and not store.is_url_import(entry):
+                bad("skill", "skill %s missing from store — it is pinned, so "
+                    "`boost heal --dry-run` shows whether heal can restore it"
+                    % name, wrap=True)
+                skill_issues += 1
+                continue
             fix = ("boost reinstall %s" % name if store.is_url_import(entry)
                    else "boost heal")
             bad("skill", "skill %s missing from store — run `%s`" % (name, fix))
@@ -851,6 +889,7 @@ def cmd_doctor(argv):
                         % (kind, name, m.get("agent", "?"), why), wrap=True)
                     mat_issues += 1
     for name, entry in sorted(rules.items()):
+        before = mat_issues
         for m in entry.get("materializations") or []:
             p = Path(m.get("path", ""))
             if m.get("unwritable"):
@@ -859,10 +898,21 @@ def cmd_doctor(argv):
                 continue
             if m.get("mode") == "claude":
                 try:
-                    present = p.exists() and ("boost:rule:%s start" % name) in \
-                        p.read_text(encoding="utf-8")
+                    text = p.read_text(encoding="utf-8") if p.exists() else ""
                 except OSError:
-                    present = False
+                    text = ""
+                present = ("boost:rule:%s start" % name) in text
+                # The start marker alone counted as present, while `verify`
+                # reads the same block as missing and the next write appends
+                # a second block after the orphan rather than replacing it.
+                if present and rule_blocks.unclosed_block(text, name):
+                    bad("rule", "rule %s's block in %s has a start marker and "
+                        "no end marker — restore its `%s` line or delete the "
+                        "orphaned block, then run `boost reinstall %s`"
+                        % (name, _tilde(p), rule_blocks.markers(name)[1], name),
+                        wrap=True)
+                    mat_issues += 1
+                    continue
             else:
                 # ``os.path``: ``Path.is_file`` raises under a dotdir with no
                 # search bit on Python 3.12 and 3.13.
@@ -871,7 +921,10 @@ def cmd_doctor(argv):
                 bad("rule", "rule %s missing its %s materialization — run "
                     "`boost reinstall %s`" % (name, m.get("agent", "?"), name))
                 mat_issues += 1
+        if mat_issues == before:
+            mat_issues += _drifted("rule", name, entry, bad)
     for name, entry in sorted(workflows.items()):
+        before = mat_issues
         for m in entry.get("materializations") or []:
             if not store.materialization_is_written("workflow", entry, m):
                 continue
@@ -885,6 +938,8 @@ def cmd_doctor(argv):
                         "`boost reinstall %s`"
                         % (name, m.get("agent", "?"), name))
                 mat_issues += 1
+        if mat_issues == before:
+            mat_issues += _drifted("workflow", name, entry, bad)
     # A note, not an issue: the workflow works for every agent with a workflow
     # format. Only an agent that reads skills alone (Codex) misses it.
     unreached = store.workflows_without_skill_copy() if agents_ok else []
@@ -974,7 +1029,13 @@ def cmd_doctor(argv):
     # read may have recorded is in none of them.
     if unrec is not None:
         mine = unrec["adoptable_store"]
-        if mine:
+        backup = lockfile.unrestored_corrupt() if mine else None
+        if backup:
+            # A rollback restores the lock as it was before its last change,
+            # so these may be what that change installed, not strays.
+            bad("unrecorded-skills", lockfile.unrestored_line(
+                len(mine), _first(mine), backup), wrap=True)
+        elif mine:
             bad("unrecorded-skills", "%d skill%s added outside boost (%s) — "
                 "`boost sync` records %s" % (len(mine), _s(len(mine)),
                                              _first(mine),
@@ -1351,7 +1412,8 @@ def cmd_lint(argv):
     else:
         names = args.names or []
         path_names = [n for n in names if catalog.is_path_target(n)]
-        other_names = [n for n in names if n not in path_names]
+        other_names = [store.installed_name(n) for n in names
+                       if n not in path_names]
         for n in path_names:
             p = catalog.resolve_path_target(n)
             targets.append((p.name, p))
@@ -1425,7 +1487,8 @@ def cmd_drift(argv):
     _require_lock_integrity()
 
     rows = []
-    for kind, name, entry in _iter_installed_all(args.names or None):
+    names = [store.installed_name(n) for n in args.names]
+    for kind, name, entry in _iter_installed_all(names or None):
         status = (_drift_status(name, entry) if kind == "skill"
                   else _drift_status_materialized(kind, name, entry))
         rows.append({"name": name, "kind": kind, "status": status,
@@ -1464,7 +1527,8 @@ def cmd_test(argv):
     # escapes for the table, which is display, not data — a consumer parsing
     # those would be parsing our palette.
     results: list[dict] = []
-    for name, entry in _iter_installed(args.names or None):
+    names = [store.installed_name(n) for n in args.names]
+    for name, entry in _iter_installed(names or None):
         sdir = store.skill_store_dir(name)
         md = sdir / "SKILL.md"
         meta, body = _read_skill(sdir)
@@ -1671,13 +1735,18 @@ def cmd_heal(argv):
         # lock)" where the live run reinstalls, and previewed no rule or
         # workflow repair at all.
         for msg in store.sync_preview(plan):
-            out.info(msg.replace(str(paths.home()), "~"))
+            (out.warn if store.is_unrepaired(msg) else out.info)(
+                msg.replace(str(paths.home()), "~"))
             actions.append(msg)
     else:
         for msg in store.sync_apply(plan):
             (out.warn if store.is_unrepaired(msg) else out.ok)(
                 msg.replace(str(paths.home()), "~"))
             actions.append(msg)
+    # A repair heal will not make (a pin over a moved source, a URL import it
+    # cannot re-clone) fails the run like any other thing it left: exiting 0
+    # over a skill still missing is what kept doctor and heal in a loop.
+    unrepaired = any(store.is_unrepaired(a) for a in actions)
 
     # Opt-in, unlike everything above it. The rest of `heal` repairs what boost
     # itself created; these entries boost did not create, so deleting one on a
@@ -1870,7 +1939,7 @@ def cmd_heal(argv):
                if declined_duplicates or declined_copies else "nothing to heal")
     if actions and not dry:
         journal.log("heal", "%d actions" % len(actions))
-    return 1 if cfg_err or stuck else 0
+    return 1 if cfg_err or stuck or unrepaired else 0
 
 
 def cmd_conflict(argv):

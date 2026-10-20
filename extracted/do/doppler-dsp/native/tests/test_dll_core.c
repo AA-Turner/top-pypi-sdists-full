@@ -15,6 +15,8 @@
  *   6c. Symbol-period aid: the code loop steers on the aided window, once
  *       per symbol, with bn kept per epoch (the rate is continuous across
  *       the switch)
+ *   6d. segments > 1: the discriminator's sums are coherent over its
+ *       window -- a residual carrier of one cycle per period nulls it
  *   7. Always-on lock detector: locks on signal, not on noise
  *   8. Long-run false-lock regression (segments=1, ~4188 periods, several
  *      noise seeds, zero Doppler/carrier)
@@ -473,6 +475,164 @@ refused_retune_changes_nothing (void)
   return fails;
 }
 
+/* The replica read at a PHASE WORD (doppler#2397) against its definition,
+ * in double: the code held at 2 samples/chip on a grid a quarter chip in,
+ * linearly interpolated between grid points. The word w is the tap's chip
+ * phase c = (w + tap_grid) / 2^32 * sf, already moved to the grid origin,
+ * so its grid position is 2c - 0.5 folded over 2*sf. Random words over the
+ * whole period, at a short code and a long one, plus the words on either
+ * side of the wrap, where the last grid point interpolates toward chip 0.
+ * The tolerance is the float weight's rounding and tap_grid's half word, a
+ * few 1e-7; a swapped weight or a missing wrap is an error near 2. Returns
+ * the number of failed checks. */
+static int
+replica_word_matches_its_definition (void)
+{
+  int          fails  = 0;
+  const size_t sfs[2] = { 7, 1023 };
+  for (int k = 0; k < 2; k++)
+    {
+      const size_t sf   = sfs[k];
+      uint8_t     *code = malloc (sf);
+      make_code (code, sf, 2397u + (uint32_t)sf);
+      dp_dll_state_t *d
+          = dp_dll_create (code, sf, 2, 0.0, 0.01, 0.707, 0.5, 1);
+      DP_CHECK (code != NULL && d != NULL);
+      if (!code || !d)
+        return fails + 1;
+      const double sf2   = 2.0 * (double)sf;
+      double       worst = 0.0;
+      uint32_t     rng   = 0x2397u;
+      for (int n = 0; n < 200000 + 4; n++)
+        {
+          uint32_t w;
+          if (n < 4) /* both sides of the wrap, and its two ends */
+            w = (uint32_t)((uint32_t[]){ 0u, 1u, 0xFFFFFFFFu,
+                                         0xFFFFFFFEu }[n]);
+          else
+            w = dp_xs32 (&rng);
+          const double c = ((double)(uint32_t)(w + d->tap_grid) / 4294967296.0)
+                           * (double)sf;
+          double       p = fmod (2.0 * c - 0.5 + sf2, sf2);
+          if (p >= sf2)
+            p -= sf2;
+          const size_t i  = (size_t)p;
+          const double mu = p - (double)i;
+          const size_t j  = (i + 1) % (2 * sf);
+          const double v0 = (code[i >> 1] & 1u) ? -1.0 : 1.0;
+          const double v1 = (code[j >> 1] & 1u) ? -1.0 : 1.0;
+          const double e  = fabs ((double)dll_replica_word (d, w)
+                                  - ((1.0 - mu) * v0 + mu * v1));
+          if (e > worst)
+            worst = e;
+        }
+      if (!(worst < 1e-5))
+        (void)DP_TEST_ERR ("  sf=%zu: replica off its definition by %g\n", sf,
+                           worst);
+      DP_CHECK (worst < 1e-5);
+      dp_dll_destroy (d);
+      free (code);
+    }
+  return fails;
+}
+
+/* Each tap's phase word is its input as a fraction of the period in 32
+ * bits, to within the half word llround leaves: tap_grid a quarter chip,
+ * tap_spacing the spacing, tap_off this look's noise offset. Returns the
+ * number of words that are not. */
+static int
+tap_words_off (const dp_dll_state_t *d, const char *when)
+{
+  const double per     = 4294967296.0 / (double)d->sf;
+  const double want[3] = { 0.25 * per, d->spacing * per, d->off_chips * per };
+  const uint32_t have[3] = { d->tap_grid, d->tap_spacing, d->tap_off };
+  int            off     = 0;
+  for (int k = 0; k < 3; k++)
+    {
+      /* The circular distance in words: 2^32 is the period itself. */
+      double gap = fabs ((double)have[k] - want[k]);
+      if (gap > 2147483648.0)
+        gap = 4294967296.0 - gap;
+      if (gap > 1.0)
+        {
+          (void)DP_TEST_ERR ("  %s: tap word %d is %u, its input says %.1f\n",
+                             when, k, have[k], want[k]);
+          off++;
+        }
+    }
+  return off;
+}
+
+/* The taps' phase words are DERIVED (doppler#2397), never stored apart from
+ * their inputs: right after create; after epochs whose boundaries redraw
+ * the noise offset; after reset; and after a set_state whose blob carries
+ * forged words, which must be recomputed from the blob's own spacing and
+ * offset rather than taken. Each writer of an input -- configure_geometry,
+ * draw_offset, set_state -- refreshes them; a writer that forgot would
+ * leave a tap reading the code at a stale phase, with no other symptom
+ * than a slightly wrong lock statistic. Returns the number of failed
+ * checks. */
+static int
+tap_words_track_their_inputs (void)
+{
+  int     fails = 0;
+  uint8_t code[31];
+  make_code (code, 31, 2397u);
+  dp_dll_state_t *d = dp_dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 4);
+  DP_CHECK (d != NULL);
+  if (!d)
+    return fails;
+  DP_CHECK (tap_words_off (d, "after create") == 0);
+
+  /* Epochs of noise: each boundary draws a new offset. */
+  enum
+  {
+    N = 31 * 2 * 40
+  };
+  static float _Complex x[N], out[N];
+  uint32_t st = 7u;
+  for (size_t i = 0; i < N; i++)
+    x[i] = dp_bit (&st) - 0.5f * I;
+  const double off0  = d->off_chips;
+  int          moved = 0;
+  for (size_t b = 0; b < N; b += 31 * 2)
+    {
+      (void)dp_dll_steps (d, x + b, 31 * 2, out, N);
+      moved |= d->off_chips != off0;
+      DP_CHECK (tap_words_off (d, "after an epoch") == 0);
+    }
+  DP_CHECK (moved); /* the check above saw a redraw, not one offset */
+
+  dp_dll_reset (d);
+  DP_CHECK (tap_words_off (d, "after reset") == 0);
+
+  (void)dp_dll_steps (d, x, N / 2, out, N);
+  const size_t   nb   = dp_dll_state_bytes (d);
+  unsigned char *blob = malloc (nb);
+  DP_CHECK (blob != NULL);
+  if (!blob)
+    return fails;
+  dp_dll_get_state (d, blob);
+  /* Forge the three words in the blob's struct image (it follows the
+     envelope header): set_state must derive them, not take them. */
+  const uint32_t junk = 0x12345678u;
+  const size_t   base = sizeof (dp_state_hdr_t);
+  memcpy (blob + base + offsetof (dp_dll_state_t, tap_grid), &junk, 4);
+  memcpy (blob + base + offsetof (dp_dll_state_t, tap_spacing), &junk, 4);
+  memcpy (blob + base + offsetof (dp_dll_state_t, tap_off), &junk, 4);
+  dp_dll_state_t *e = dp_dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 4);
+  DP_CHECK (e != NULL && dp_dll_set_state (e, blob) == DP_OK);
+  if (e)
+    {
+      DP_CHECK (tap_words_off (e, "after set_state of forged words") == 0);
+      DP_CHECK (e->off_chips == d->off_chips);
+      dp_dll_destroy (e);
+    }
+  free (blob);
+  dp_dll_destroy (d);
+  return fails;
+}
+
 /* set_state() refuses a forged blob or recomputes what a blob cannot be
  * trusted with (doppler#2103). An aided Dll is set up at a symbol period, so
  * the blob carries a real update interval and a held snapshot.
@@ -734,6 +894,70 @@ coast_order_resumes_exact (int order)
     }
   free (blob);
   dp_dll_destroy (a);
+  return fails;
+}
+
+/* A coast reports the rate it runs at. Entering the hold restores the
+ * filter to the last dp_dll_hold_here() and steers the NCO at that filter's
+ * integrator; code_rate -- dp_dll_get_code_rate(), the ".rate" probe, and
+ * the receiver's and the pool's status records -- must be that same rate,
+ * less the carrier aid, and not the last steer's. The loop is held on one
+ * code Doppler, then driven by another so the live integrator moves well
+ * off the held one, then coasted. Before the fix code_rate kept the last
+ * steer's value for the whole coast while the NCO ran the held filter. A
+ * new aid while coasting re-steers the NCO and must leave the two agreeing.
+ * Returns the number of failed checks. */
+static int
+coast_reports_the_held_rate (size_t segments)
+{
+  int          fails = 0;
+  const size_t sf = 63, sps = 4, nper = 800;
+  uint8_t     *code = malloc (sf);
+  make_code (code, sf, 23u);
+  float _Complex *rx  = malloc (sf * sps * nper * sizeof *rx);
+  float _Complex *sym = malloc (nper * segments * sizeof *sym);
+  dp_dll_state_t *d
+      = dp_dll_create (code, sf, sps, 0.0, 0.01, 0.707, 0.5, segments);
+  DP_REQUIRE (code && rx && sym && d);
+  const double aid = 1e-5;
+  dp_dll_set_rate_aid (d, aid);
+  size_t n = make_signal (rx, code, sf, sps, 3e-4, nper, 9u, 1);
+  (void)dp_dll_steps (d, rx, n, sym, nper * segments);
+  dp_dll_hold_here (d);
+  n = make_signal (rx, code, sf, sps, -3e-4, nper, 11u, 1);
+  (void)dp_dll_steps (d, rx, n, sym, nper * segments);
+  const double live = dp_dll_get_code_rate (d);
+  dp_dll_set_coast (d, 1);
+
+  /* One phase-increment step, in chips per chip: the NCO's resolution. */
+  const double q    = 1.0 / 4294967296.0 / d->inv_tsamps;
+  double       cmd  = (double)d->code_nco.phase_inc * q;
+  double       rate = dp_dll_get_code_rate (d);
+  DP_CHECK_MSG (fabs (live - rate) > 100.0 * q,
+                "the second Doppler moved the live integrator off the hold");
+  DP_CHECK_MSG (fabs (cmd - (rate + aid)) <= q,
+                "coasting, code_rate is the rate the NCO runs at, less the "
+                "aid");
+  if (fabs (cmd - (rate + aid)) > q)
+    DP_TEST_ERR ("  segments %zu: NCO %.9f, code_rate %.9f + aid %.1e\n",
+                 segments, cmd, rate, aid);
+
+  /* A new aid while coasting re-steers the held NCO; the rate stays. */
+  dp_dll_set_rate_aid (d, 4.0 * aid);
+  cmd = (double)d->code_nco.phase_inc * q;
+  DP_CHECK (dp_dll_get_code_rate (d) == rate);
+  DP_CHECK_MSG (fabs (cmd - (rate + 4.0 * aid)) <= q,
+                "a coasting loop's new aid reaches the NCO, not the rate");
+
+  /* And it stays so while coasting: no steer moves either. */
+  (void)dp_dll_steps (d, rx, n, sym, nper * segments);
+  DP_CHECK (dp_dll_get_code_rate (d) == rate);
+  DP_CHECK ((double)d->code_nco.phase_inc * q == cmd);
+
+  dp_dll_destroy (d);
+  free (sym);
+  free (rx);
+  free (code);
   return fails;
 }
 
@@ -1236,6 +1460,57 @@ main (void)
   }
 
   /* ---------------------------------------------------------------- *
+   * 6d. segments > 1: the discriminator's sums are coherent over its *
+   *     one-period window, so a residual carrier of one whole cycle  *
+   *     per period nulls it, and half a cycle does not               *
+   * ---------------------------------------------------------------- */
+  {
+    /* dp_dll_steps() promises: blind to the carrier's phase, not to its
+       frequency; a residual df costs a window of T seconds sinc^2(df*T) of
+       its power, and a whole 1/T cycle nulls it. Each partial spans a
+       quarter of that cycle, so a loop that combined its partials
+       non-coherently (sum|E_k|) would hold the code at one cycle too. A
+       held code (no Doppler, constant data, seeded on the code) isolates
+       the window: at 0 and half a cycle per period the loop stays on the
+       code; at one whole cycle it walks off it. */
+    const size_t sf = 63, sps = 4, K = 4, nper = 500;
+    const size_t te   = sf * sps;
+    uint8_t     *code = malloc (sf);
+    make_code (code, sf, 11u);
+    float _Complex *clean = malloc (te * nper * sizeof *clean);
+    float _Complex *rx    = malloc (te * nper * sizeof *rx);
+    float _Complex *out   = malloc (te * nper * sizeof *out);
+    size_t          n = make_signal (clean, code, sf, sps, 0.0, nper, 3u, 1);
+    const double    cycles[3] = { 0.0, 0.5, 1.0 }; /* per code period */
+    double          off[3];
+    for (int c = 0; c < 3; c++)
+      {
+        for (size_t i = 0; i < n; i++)
+          rx[i] = clean[i]
+                  * (float _Complex)cexp (I * 2.0 * M_PI * cycles[c]
+                                          * (double)i / (double)te);
+        dp_dll_state_t *d
+            = dp_dll_create (code, sf, sps, 0.0, 0.005, 0.707, 0.5, K);
+        dp_dll_steps (d, rx, n, out, n);
+        /* The incoming code is at phase 0 at every period boundary; fold
+           the loop's phase to the nearest, signed. */
+        double ph = dp_dll_get_code_phase (d);
+        off[c]    = ph > 0.5 * (double)sf ? ph - (double)sf : ph;
+        dp_dll_destroy (d);
+      }
+    printf ("  6d: code phase off after %zu periods, residual 0 / 0.5 / 1 "
+            "cycle per period: %+.3f / %+.3f / %+.3f chips\n",
+            nper, off[0], off[1], off[2]);
+    DP_CHECK (fabs (off[0]) < 0.05); /* no residual: on the code */
+    DP_CHECK (fabs (off[1]) < 0.05); /* half a cycle: -3.9 dB, still on */
+    DP_CHECK (fabs (off[2]) > 0.5);  /* a whole cycle nulls the window */
+    free (out);
+    free (rx);
+    free (clean);
+    free (code);
+  }
+
+  /* ---------------------------------------------------------------- *
    * 7. Always-on lock detector: locks on signal, not on noise        *
    * ---------------------------------------------------------------- */
   {
@@ -1401,15 +1676,27 @@ main (void)
     DP_CHECK (dp_tlm_probe_id (tlm, "code.rate") == d->tlm.id_rate);
     DP_CHECK (dp_tlm_probe_id (tlm, "code.lock") == d->tlm.id_lock);
     DP_CHECK (dp_tlm_probe_id (tlm, "code.locked") == d->tlm.id_locked);
+    DP_CHECK (dp_tlm_probe_id (tlm, "code.nco") == d->tlm.id_nco);
 
+    /* An aid the input does not carry: the NCO's command (".nco") then
+     * sits 1e-4 off the loop's own rate (".rate"), so a ".nco" that
+     * reported the rate instead would show. */
+    dp_dll_set_rate_aid (d, 1e-4);
     size_t k     = dp_dll_steps (d, rx, L, out, 256);
     size_t n_rec = dp_tlm_read (tlm, 512, recs, 512);
-    DP_CHECK (k > 0 && n_rec == 4 * k); /* e + rate + lock + locked / epoch */
-    /* The final epoch's rate/lock/locked records mirror the tracked state
-     * (flush order per epoch: e, rate, lock, locked). */
-    DP_CHECK (recs[n_rec - 3].value == (float)d->code_rate);
-    DP_CHECK (recs[n_rec - 2].value == (float)d->lock_stat);
-    DP_CHECK (recs[n_rec - 1].value == (float)dp_dll_get_locked (d));
+    DP_CHECK (k > 0 && n_rec == 5 * k); /* e, rate, lock, locked, nco */
+    /* The final epoch's records mirror the tracked state (flush order per
+     * epoch: e, rate, lock, locked, nco); ".nco" is the commanded
+     * increment in chips per chip. */
+    DP_CHECK (recs[n_rec - 4].value == (float)d->code_rate);
+    DP_CHECK (recs[n_rec - 3].value == (float)d->lock_stat);
+    DP_CHECK (recs[n_rec - 2].value == (float)dp_dll_get_locked (d));
+    const double nco_cmd
+        = nco_word_to_norm (d->code_nco.phase_inc) / d->inv_tsamps;
+    DP_CHECK (recs[n_rec - 1].value == (float)nco_cmd);
+    DP_CHECK_MSG (fabs (nco_cmd - d->code_rate) > 5e-5,
+                  "the aid separates the command from the loop's rate");
+    dp_dll_set_rate_aid (d, 0.0);
 
     /* segments > 1: the partial loop flushes once per epoch (an epoch is
      * `segments` emitted partials), through the same literal-tlm split. */
@@ -1418,9 +1705,9 @@ main (void)
     DP_CHECK (dp_dll_set_telemetry (s2, tlm, "code2", 1) == DP_OK);
     size_t k2 = dp_dll_steps (s2, rx, L, out, 256);
     size_t n2 = dp_tlm_read (tlm, 512, recs, 512);
-    DP_CHECK (k2 > 0 && n2 > 0 && n2 % 4 == 0);
+    DP_CHECK (k2 > 0 && n2 > 0 && n2 % 5 == 0);
     DP_CHECK (n2
-              <= 4 * (k2 / 2 + 1)); /* one flush per epoch, not per partial */
+              <= 5 * (k2 / 2 + 1)); /* one flush per epoch, not per partial */
     dp_dll_destroy (s2);
 
     /* Blobs zero the attachment (deterministic) and set_state into an
@@ -1859,10 +2146,14 @@ main (void)
   /* A refused retune changes nothing; a forged config is refused (#2103). */
   DP_CHECK (refused_retune_changes_nothing () == 0);
   DP_CHECK (forged_state_is_refused_or_recomputed () == 0);
+  DP_CHECK (replica_word_matches_its_definition () == 0);
+  DP_CHECK (tap_words_track_their_inputs () == 0);
   DP_CHECK (hold_then_retune_resumes_exact () == 0);
   DP_CHECK (coast_order_resumes_exact (0) == 0);
   DP_CHECK (coast_order_resumes_exact (1) == 0);
   DP_CHECK (coast_order_resumes_exact (2) == 0);
+  DP_CHECK (coast_reports_the_held_rate (1) == 0);
+  DP_CHECK (coast_reports_the_held_rate (4) == 0);
 
   /* dp_fmod_pos stays in [0, m) (doppler#2110). A negative remainder within
      half an ulp of zero rounded r + m up to exactly m, and dll_replica, which

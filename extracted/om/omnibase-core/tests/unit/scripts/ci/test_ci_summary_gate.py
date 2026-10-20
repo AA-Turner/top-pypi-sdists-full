@@ -965,12 +965,6 @@ EXPLICIT_EXEMPT_JOBS: dict[tuple[str, str], str] = {
         "triggers only on pull_request closed -- post-merge tag automation, "
         "structurally cannot gate the merge it fires after."
     ),
-    ("propagate-config.yml", "propagate"): (
-        "config-propagation automation scoped via on.pull_request.paths to "
-        "its own script/config files -- there is nothing to propagate-dry-run "
-        "when those paths are untouched, unlike a drift check meaningful on "
-        "every PR; not flagged as a required validator by this audit."
-    ),
     ("todo-audit-on-merge.yml", "todo-audit"): (
         "triggers only on pull_request closed -- post-merge TODO/ticket "
         "audit, structurally cannot be a merge gate (same class as "
@@ -1754,6 +1748,13 @@ class TestExternalDefaultDenySweep:
         )
 
 
+# The check-run name GitHub posts for propagate-config.yml's skipped job on a
+# path-matched pull request (omnibase_core#2047, run 39119407826).
+PROPAGATE_PLACEHOLDER = (
+    "Propagate ${{ (inputs.propagation_name || 'release-triggered') }}"
+)
+
+
 class TestExternalSweepExclusions:
     """OMN-17427: every tolerance is bounded, validated and visible."""
 
@@ -1768,6 +1769,7 @@ class TestExternalSweepExclusions:
         assert set(gate.EXTERNAL_SWEEP_EXCLUSIONS) == {
             "handshake-policy-gate",
             "Enable Auto-Merge",
+            PROPAGATE_PLACEHOLDER,
         }
         assert gate.validate_sweep_exclusions(gate.EXTERNAL_SWEEP_EXCLUSIONS) == []
         active, expired = gate.active_sweep_exclusions(
@@ -1779,12 +1781,14 @@ class TestExternalSweepExclusions:
         for entry in gate.EXTERNAL_SWEEP_EXCLUSIONS.values():
             assert entry.reason.strip()
             assert entry.ticket == "OMN-17427"
-            assert entry.added == "2026-10-17"
+            assert entry.added in {"2026-10-17", "2026-10-18"}
             assert entry.expires == "2026-12-20"
         with pytest.raises(FrozenInstanceError):
             self.ENTRY.reason = "changed"
 
-    @pytest.mark.parametrize("name", ["handshake-policy-gate", "Enable Auto-Merge"])
+    @pytest.mark.parametrize(
+        "name", ["handshake-policy-gate", "Enable Auto-Merge", PROPAGATE_PLACEHOLDER]
+    )
     def test_shipped_exclusions_admit_skips_but_not_unregistered_reds(
         self, name: str
     ) -> None:

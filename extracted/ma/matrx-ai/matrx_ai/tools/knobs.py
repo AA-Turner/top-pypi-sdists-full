@@ -1,7 +1,7 @@
 """Tool-dispatch ceilings — host-bound `platform.feature_knob` values (feature ``agents.tool_dispatch``).
 
 Authority: ``common-docs/policies/limits-are-knobs-agents-set-them.md`` — a
-behavioural ceiling is a registry row an admin turns, never a constant nobody
+behavioral ceiling is a registry row an admin turns, never a constant nobody
 can see. The executor's dispatch deadline used to be the literal ``120.0`` on
 ``ToolDefinition.timeout_seconds``, and on 2026-09-12 23:23 that constant is
 what stopped the Masterwork Conductor from re-teaching a desk's Writer: the

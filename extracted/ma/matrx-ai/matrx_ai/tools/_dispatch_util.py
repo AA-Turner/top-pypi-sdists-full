@@ -282,6 +282,7 @@ def coerce_stringified_containers(
 
     parsed_cache: dict[str, Any] = {}
     coerced: dict[str, Any] = {}
+    item_fixes: dict[str, list[Any]] = {}
 
     for e in errors:
         etype = e.get("type", "")
@@ -300,6 +301,22 @@ def coerce_stringified_containers(
         if field is None or field in coerced:
             continue
         supplied = arguments[field]
+        # ONE level down, list items only: ``operations: ["{\"op\": ...}"]`` — every item of a
+        # list-of-objects double-encoded (gemini-3.1-flash-lite on scope_system, 8 rejected turns,
+        # conversation a8b580e1, 2026-10-20). Loc ``(field, index)``; the item is decoded only when
+        # it parses into exactly the required container, same as a top-level field.
+        index = loc[loc.index(field) + 1] if loc.index(field) + 1 < len(loc) else None
+        if isinstance(supplied, list) and isinstance(index, int) and 0 <= index < len(supplied):
+            item = supplied[index]
+            if isinstance(item, str) and e.get("input") == item:
+                try:
+                    parsed_item = json.loads(item)
+                except (ValueError, TypeError):
+                    continue
+                if type(parsed_item) is want:
+                    items = item_fixes.setdefault(field, list(supplied))
+                    items[index] = parsed_item
+            continue
         # Top-level only: the failing value must BE the top-level field value
         # (discriminated-union locs like ('update', 'data') still resolve to
         # the top-level 'data' key; genuinely nested misses fail this check).
@@ -316,6 +333,9 @@ def coerce_stringified_containers(
         if type(parsed) is want:  # exact container match — never a scalar/subclass
             coerced[field] = parsed
 
+    for field, items in item_fixes.items():
+        if field not in coerced:
+            coerced[field] = items
     if not coerced:
         return None
     merged = dict(arguments)
@@ -514,7 +534,7 @@ def remove_flattened_variant_extras(
     was removed here and the call ran — returning the WHOLE table's number as a
     success. A notice beside a wrong number does not stop the number being
     repeated as the answer. An argument with a value carries meaning the selected
-    action cannot honour, so the call is REFUSED, by name, before anything runs;
+    action cannot honor, so the call is REFUSED, by name, before anything runs;
     only an empty placeholder a flattened schema made the model fill in is
     provably meaningless and may be dropped.
     """

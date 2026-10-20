@@ -107,6 +107,7 @@ __all__ = (
     "AgentCollaboratorOutputPayloadTypeDef",
     "AgenticRetrieveActionDetailsTypeDef",
     "AgenticRetrieveActionTypeDef",
+    "AgenticRetrieveAppliedInstructionTypeDef",
     "AgenticRetrieveBedrockGuardrailConfigurationTypeDef",
     "AgenticRetrieveBedrockRerankingConfigurationTypeDef",
     "AgenticRetrieveBedrockRerankingModelConfigurationTypeDef",
@@ -117,6 +118,7 @@ __all__ = (
     "AgenticRetrieveFullDocExpansionDetailsTypeDef",
     "AgenticRetrieveGeneratedResponseTypeDef",
     "AgenticRetrieveGuardrailWarningTypeDef",
+    "AgenticRetrieveInstructionConfigurationTypeDef",
     "AgenticRetrieveMemoryConfigurationTypeDef",
     "AgenticRetrieveMemoryMetadataFilterLeftTypeDef",
     "AgenticRetrieveMemoryMetadataFilterRightTypeDef",
@@ -535,6 +537,14 @@ class AgenticRetrieveMessageContentTypeDef(TypedDict):
 class AgenticRetrieveSourceRetrieverTypeDef(TypedDict):
     identifier: str
 
+AgenticRetrieveAppliedInstructionTypeDef = TypedDict(
+    "AgenticRetrieveAppliedInstructionTypeDef",
+    {
+        "id": str,
+        "version": NotRequired[str],
+    },
+)
+
 class AgenticRetrieveBedrockGuardrailConfigurationTypeDef(TypedDict):
     guardrailId: str
     guardrailVersion: str
@@ -557,6 +567,10 @@ AgenticRetrieveGuardrailWarningTypeDef = TypedDict(
         "message": NotRequired[str],
     },
 )
+
+class AgenticRetrieveInstructionConfigurationTypeDef(TypedDict):
+    retrievalInstructionId: str
+    version: NotRequired[str]
 
 class AgenticRetrieveMemorySessionBindingTypeDef(TypedDict):
     actorId: str
@@ -2064,6 +2078,7 @@ class AgenticRetrieveTraceEventAttributesTypeDef(TypedDict):
     status: AgenticRetrieveStatusType
     step: AgenticRetrieveStepType
     actions: NotRequired[list[AgenticRetrieveActionTypeDef]]
+    appliedInstruction: NotRequired[AgenticRetrieveAppliedInstructionTypeDef]
     failures: NotRequired[list[AgenticRetrieveFailureTypeDef]]
     retrievalMetadata: NotRequired[list[AgenticRetrieveSourceMetadataTypeDef]]
     retrievalResponse: NotRequired[list[AgenticRetrieveTraceResultItemTypeDef]]
@@ -2458,6 +2473,7 @@ class AgenticRetrieveStreamRequestTypeDef(TypedDict):
     memoryConfiguration: NotRequired[AgenticRetrieveMemoryConfigurationTypeDef]
     nextToken: NotRequired[str]
     policyConfiguration: NotRequired[AgenticRetrievePolicyConfigurationTypeDef]
+    retrievalInstructionConfiguration: NotRequired[AgenticRetrieveInstructionConfigurationTypeDef]
     userContext: NotRequired[UserContextTypeDef]
 
 AgentCollaboratorInputPayloadTypeDef = TypedDict(

@@ -1,7 +1,7 @@
 """The Brave engine speaks more than one endpoint — and each has its own truths.
 
 These are offline: they pin the parameter/URL contract per endpoint, which is
-what silently breaks. The live behaviour they encode was verified against the
+what silently breaks. The live behavior they encode was verified against the
 API on 2026-08-20 (each endpoint returned exactly its `max_count`).
 """
 

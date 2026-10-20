@@ -36,6 +36,13 @@
 #define _INFOSINK_INCLUDED_
 
 #include "../Include/Common.h"
+#if defined(__has_include)
+#if __cplusplus >= 201703L && __has_include(<filesystem>)
+#include <filesystem>
+#endif
+#elif __cplusplus >= 201703L
+#include <filesystem>
+#endif
 #include <cmath>
 
 namespace glslang {
@@ -103,8 +110,24 @@ public:
             snprintf(locText, maxSize, ":%d", loc.line);
         }
 
-        (void)absolute;
-        append(loc.getStringNameOrNum(false).c_str());
+        if(loc.getFilename() == nullptr && shaderFileName != nullptr && absolute) {
+        #if defined(__cpp_lib_filesystem)
+            append(std::filesystem::absolute(shaderFileName).string());
+        #else
+            append(shaderFileName);
+        #endif
+        } else {
+            std::string location = loc.getStringNameOrNum(false);
+            if (absolute) {
+        #if defined(__cpp_lib_filesystem)
+                append(std::filesystem::absolute(location).string());
+        #else
+                append(location);
+        #endif
+            } else {
+                append(location);
+            }
+        }
 
         append(locText);
         append(": ");

@@ -89,6 +89,8 @@ class SalesTaxGroupItemsResource(SyncAPIResource):
           description: The sales-tax group item's description that will appear on sales forms that
               include this item.
 
+              Maximum length: 4095 characters.
+
           external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
               this object in your external system. This field is immutable and can only be set
               during object creation.
@@ -208,6 +210,8 @@ class SalesTaxGroupItemsResource(SyncAPIResource):
           description: The sales-tax group item's description that will appear on sales forms that
               include this item.
 
+              Maximum length: 4095 characters.
+
           is_active: Indicates whether this sales-tax group item is active. Inactive objects are
               typically hidden from views and reports in QuickBooks. Defaults to `true`.
 
@@ -321,6 +325,9 @@ class SalesTaxGroupItemsResource(SyncAPIResource):
           name_from: Filter for sales-tax group items whose `name` is alphabetically greater than or
               equal to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific sales-tax group items by their name(s), case-insensitive.
               Like `id`, `name` is a unique identifier for a sales-tax group item.
 
@@ -338,6 +345,9 @@ class SalesTaxGroupItemsResource(SyncAPIResource):
 
           name_to: Filter for sales-tax group items whose `name` is alphabetically less than or
               equal to this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for sales-tax group items that are active, inactive, or both.
 
@@ -463,6 +473,8 @@ class AsyncSalesTaxGroupItemsResource(AsyncAPIResource):
           description: The sales-tax group item's description that will appear on sales forms that
               include this item.
 
+              Maximum length: 4095 characters.
+
           external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
               this object in your external system. This field is immutable and can only be set
               during object creation.
@@ -582,6 +594,8 @@ class AsyncSalesTaxGroupItemsResource(AsyncAPIResource):
           description: The sales-tax group item's description that will appear on sales forms that
               include this item.
 
+              Maximum length: 4095 characters.
+
           is_active: Indicates whether this sales-tax group item is active. Inactive objects are
               typically hidden from views and reports in QuickBooks. Defaults to `true`.
 
@@ -695,6 +709,9 @@ class AsyncSalesTaxGroupItemsResource(AsyncAPIResource):
           name_from: Filter for sales-tax group items whose `name` is alphabetically greater than or
               equal to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific sales-tax group items by their name(s), case-insensitive.
               Like `id`, `name` is a unique identifier for a sales-tax group item.
 
@@ -712,6 +729,9 @@ class AsyncSalesTaxGroupItemsResource(AsyncAPIResource):
 
           name_to: Filter for sales-tax group items whose `name` is alphabetically less than or
               equal to this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for sales-tax group items that are active, inactive, or both.
 

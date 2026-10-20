@@ -61,6 +61,7 @@ fails with a clean ``feature_unavailable``.
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
@@ -95,6 +96,9 @@ _AGENT_CALL_DEPTH_KEY = AGENT_DEPTH_METADATA_KEY
 # iteration of the ORIGINAL conversation (the exact cost class the tool-result
 # size gate exists for). CAPS constant per the config doctrine.
 REMEMBER_NOTE_MAX_CHARS = 20_000
+
+
+logger = logging.getLogger(__name__)
 
 
 def _fail(
@@ -153,18 +157,45 @@ async def load_agent_as_the_person(agent_id: str, app_ctx: Any) -> Any | None:
     lane is opened inside the same session, so the database's own admin arm —
     never app code — grants the wider reach (2026-09-25).
     """
-    from matrx_connect import admin_surface_active
+    from matrx_connect import admin_lane_active
 
     from matrx_ai.db.agx_manager import AgxDefinition
     from matrx_ai.tools.person_session import as_the_person
 
     async with as_the_person(app_ctx):
-        if admin_surface_active(app_ctx):
+        # admin_lane_active: the admin app's header lane OR an admin-mounted surface.
+        if admin_lane_active(app_ctx):
             from matrx_orm import admin_lane
 
             async with admin_lane(database=AgxDefinition._database):
                 return await AgxDefinition.load_by_id_or_none(agent_id)
         return await AgxDefinition.load_by_id_or_none(agent_id)
+
+
+def _version_model() -> Any:
+    from matrx_ai.db.agx_manager import AgxDefinitionVersion
+
+    return AgxDefinitionVersion
+
+
+async def load_agent_version_as_the_person(version_id: str, app_ctx: Any) -> Any | None:
+    """The ``agent.definition_version`` row AS THE CALLER SEES IT — None when missing.
+
+    Same session rules as :func:`load_agent_as_the_person`. The run gate is still
+    the PARENT definition's visibility (the caller checks it next): a pinned
+    version is runnable exactly when its agent is."""
+    from matrx_connect import admin_lane_active
+
+    from matrx_ai.tools.person_session import as_the_person
+
+    version_model = _version_model()
+    async with as_the_person(app_ctx):
+        if admin_lane_active(app_ctx):
+            from matrx_orm import admin_lane
+
+            async with admin_lane(database=version_model._database):
+                return await version_model.load_by_id_or_none(version_id)
+        return await version_model.load_by_id_or_none(version_id)
 
 
 async def _load_visible_conversation(conversation_id: str) -> Any | None:
@@ -202,8 +233,43 @@ async def _load_history_messages(conversation_id: str, up_to_position: int | Non
     return messages
 
 
-async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-    """Run a saved agent by id and return its result. See module docstring."""
+async def agent_call(
+    args: dict[str, Any],
+    ctx: ToolContext,
+    *,
+    run_in_conversation_id: str | None = None,
+    extra_child_metadata: dict[str, Any] | None = None,
+    mute_stream: bool = False,
+    is_version: bool = False,
+    on_child_result: Any = None,
+) -> ToolResult:
+    """Run a saved agent by id and return its result. See module docstring.
+
+    Three host-only keywords, never on the wire (the model never names them):
+
+    * ``run_in_conversation_id`` — the conversation the child runs in. A new id
+      starts the child there (so a host can hand out a stable handle before the
+      child runs); an id the caller can already open CONTINUES that child with
+      its own persisted history. A new id may borrow history with
+      ``history_mode='snapshot'``; never combined with ``history_mode='fork'``.
+    * ``extra_child_metadata`` — merged onto the child's context metadata (e.g.
+      the steerable-child marker that lets a running child drain its inbox).
+    * ``mute_stream`` — the child's tokens never reach the caller's wire. A
+      BACKGROUND helper sets it: its caller does not wait, its answer comes back
+      through the inbox, and its chunks carry no owner on the shared wire, so a
+      client glues them into the caller's own reply (conversation 727d95df…,
+      2026-10-18: a haiku and three Mars facts interleaved mid-sentence).
+    * ``is_version`` — ``agent_id`` names an ``agent.definition_version`` row and
+      exactly that version runs (a mandate binding's version pin). The run gate is
+      the parent definition's visibility; the result's ``agent_id`` is the parent
+      and ``agent_version_id`` the version. Never on the wire: a model names
+      agents, a server caller holding a pin names versions.
+    * ``on_child_result`` — ``async (AgentRunResult) -> None``, awaited once the
+      child run ends (success or failure) with its own result (ids, model,
+      success): how a server door records the run it caused (``mandate_call``
+      writes ``metadata.mandate_run``). A failing callback is captured, never
+      the call's failure.
+    """
     started_at = time.time()
 
     # Validate the declared arg contract (also makes the tool "verified" against
@@ -246,6 +312,34 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     from matrx_ai.tools.person_session import PersonSessionUnavailable
 
+    version_id: str | None = None
+    if is_version:
+        try:
+            version_row = await load_agent_version_as_the_person(agent_id, app_ctx)
+        except PersonSessionUnavailable as exc:
+            return _fail(ctx, started_at, error_type="unavailable", message=str(exc))
+        except Exception as exc:
+            return _fail(
+                ctx,
+                started_at,
+                error_type="database",
+                message=f"Failed to load agent version {agent_id}: {exc}",
+                is_retryable=True,
+                exc=exc,
+            )
+        if version_row is None or not getattr(version_row, "agent_id", None):
+            return _fail(
+                ctx,
+                started_at,
+                error_type="not_found",
+                message=f"Agent version {agent_id} was not found, or you do not have access "
+                "to it. Nothing ran.",
+                suggested_action="Rebind the mandate to an existing version, or to the "
+                "agent's latest.",
+            )
+        version_id = agent_id
+        agent_id = str(version_row.agent_id)
+
     try:
         row = await load_agent_as_the_person(agent_id, app_ctx)
     except PersonSessionUnavailable as exc:
@@ -279,25 +373,16 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             message=f"Agent {agent_id} is inactive or archived and cannot be run.",
         )
 
-    # ── Settings override → LLMParams ───────────────────────────────────
+    # ── Settings override: NEVER applied ────────────────────────────────
+    # The called agent runs with its OWN definition's model and settings; a caller
+    # (a model, or a prompt written for the retired tool) cannot change them
+    # (defect 63: `settings: {model: "gpt-4"}` from gpt-5-nano failed the child).
     config_overrides = None
     if parsed.settings:
-        from pydantic import ValidationError
-
-        from matrx_ai.config.llm_params import LLMParams
-
-        try:
-            config_overrides = LLMParams(**parsed.settings)
-        except ValidationError as exc:
-            return _fail(
-                ctx,
-                started_at,
-                error_type="invalid_arguments",
-                message=f"Invalid settings override: {exc}",
-                suggested_action="settings accepts LLM params like model, temperature, "
-                "max_output_tokens, reasoning_effort, top_p.",
-                exc=exc,
-            )
+        logger.warning(
+            "[agent_call] ignored a settings override %s: the called agent keeps its own",
+            sorted(parsed.settings),
+        )
 
     # ── Per-subtree execution budget ────────────────────────────────────
     from matrx_ai.orchestrator.subtree_budget import (
@@ -430,6 +515,53 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     "user-facing conversation.",
                 )
 
+    # ── Host-named run conversation: start fresh there, or continue it ──
+    continue_existing = False
+    pinned_conversation_id = (run_in_conversation_id or "").strip() or None
+    if pinned_conversation_id:
+        if history_mode == "fork":
+            return _fail(
+                ctx,
+                started_at,
+                error_type="invalid_arguments",
+                message="run_in_conversation_id cannot be combined with history_mode="
+                "'fork': a fork makes its own conversation.",
+            )
+        if pinned_conversation_id == str(getattr(app_ctx, "conversation_id", "") or ""):
+            return _fail(
+                ctx,
+                started_at,
+                error_type="invalid_arguments",
+                message="A child agent cannot run inside the conversation that is "
+                "calling it.",
+            )
+        try:
+            pinned_row = await _load_visible_conversation(pinned_conversation_id)
+        except PersonSessionUnavailable as exc:
+            return _fail(ctx, started_at, error_type="unavailable", message=str(exc))
+        except Exception as exc:
+            return _fail(
+                ctx,
+                started_at,
+                error_type="database",
+                message=f"Failed to read conversation {pinned_conversation_id}: {exc}",
+                is_retryable=True,
+                exc=exc,
+            )
+        # Present = a child this person can open: continue it. Absent = a new
+        # id: the conversation gate creates it on the child's first write.
+        # The host owns where the id came from (a freshly minted uuid, or a
+        # child it launched itself) — never an id the model typed.
+        continue_existing = pinned_row is not None
+        if continue_existing and history_mode != "none":
+            return _fail(
+                ctx,
+                started_at,
+                error_type="invalid_arguments",
+                message="A continued child already has its own history; history_mode "
+                "only applies when the child starts.",
+            )
+
     # ── Recursion guard ─────────────────────────────────────────────────
     try:
         depth = int(app_ctx.metadata.get(_AGENT_CALL_DEPTH_KEY, 0))
@@ -452,7 +584,8 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     try:
         agent = await Agent.from_agent(
-            agent_id,
+            version_id or agent_id,
+            is_version=version_id is not None,
             variables=parsed.variables or None,
             config_overrides=config_overrides,
         )
@@ -482,8 +615,36 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     # snapshot mode keeps the fresh child conversation and only borrows the
     # rebuilt messages in-memory (their source ids+positions make persistence
     # treat them as pre-existing — never re-written, never below-trigger).
-    run_conversation_id: str | None = None
+    run_conversation_id: str | None = pinned_conversation_id
     history_message_count = 0
+    if continue_existing and pinned_conversation_id:
+        # Continuing a child: its own persisted turns go in front of its
+        # authored messages, exactly as fork mode seeds a fork (same funnel).
+        try:
+            history = await _load_history_messages(pinned_conversation_id, None)
+        except Exception as exc:
+            return _fail(
+                ctx,
+                started_at,
+                error_type="database",
+                message=f"Failed to load history from conversation {pinned_conversation_id}: {exc}",
+                is_retryable=True,
+                exc=exc,
+            )
+        if history:
+            await agent.run_first_turn_pass()
+            # Only the instructions ride along: the authored opening turn was
+            # already asked the first time and is part of the history now.
+            own_messages = [
+                m
+                for m in agent.config.messages
+                if str(getattr(getattr(m, "role", None), "value", getattr(m, "role", "")))
+                in ("system", "developer")
+            ]
+            agent.config.messages.clear()
+            agent.config.messages.extend(history)
+            agent.config.messages.extend(own_messages)
+            history_message_count = len(history)
     if history_mode != "none" and source_conversation_id:
         if not (parsed.user_input or "").strip() and not list(agent.config.messages):
             # No new turn at all: the run's trigger would be the LAST BORROWED
@@ -545,7 +706,11 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     is_retryable=True,
                     exc=exc,
                 )
-        history_read_id = run_conversation_id or source_conversation_id
+        # Fork reads the fork it just made; a snapshot always reads its SOURCE
+        # (a host-pinned child conversation is empty and is not the source).
+        history_read_id = (
+            run_conversation_id if history_mode == "fork" else None
+        ) or source_conversation_id
         try:
             history = await _load_history_messages(
                 history_read_id,
@@ -576,6 +741,34 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             agent.config.messages.extend(own_messages)
             history_message_count = len(history)
 
+    # ── A child must arrive with something to answer ────────────────────
+    # An agent with instructions only and no user_input would reach the send
+    # boundary EMPTY (live 2026-10-16: a variables-only call to Lane Planner).
+    # Refuse here, naming the argument to send — never a run with nothing in it.
+    from matrx_ai.agents.child_turn import (
+        EMPTY_CONVERSATION_ERROR_TYPE,
+        MISSING_CHILD_INPUT_ERROR_TYPE,
+        empty_child_turn_guidance,
+        refuse_empty_child_turn,
+        undeclared_variable_names,
+    )
+
+    refusal = refuse_empty_child_turn(
+        agent,
+        user_input=parsed.user_input,
+        variables=parsed.variables,
+        input_arg="user_input",
+    )
+    if refusal is not None:
+        refusal_message, refusal_action = refusal
+        return _fail(
+            ctx,
+            started_at,
+            error_type=MISSING_CHILD_INPUT_ERROR_TYPE,
+            message=refusal_message,
+            suggested_action=refusal_action,
+        )
+
     label = f"agent_call:{getattr(agent, 'name', None) or agent_id}"[:60]
 
     # Carry the child depth via a task-local context rebinding, NEVER an
@@ -588,6 +781,13 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     from matrx_connect.context.app_context import set_app_context
 
     child_metadata = {**app_ctx.metadata, _AGENT_CALL_DEPTH_KEY: depth + 1}
+    # Steerability belongs to ONE child, the one its host launched as such —
+    # never inherited by that child's own children.
+    from matrx_ai.agents.conversation_type import STEERABLE_CHILD_KEY
+
+    child_metadata.pop(STEERABLE_CHILD_KEY, None)
+    if extra_child_metadata:
+        child_metadata.update(extra_child_metadata)
     # Lineage: every chat.tool_call row the child (and its own children) writes
     # names THIS call's row as its parent_call_id, so a reloaded transcript
     # nests the sub-agent's work under this card exactly as the live stream
@@ -618,6 +818,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     set_app_context(app_ctx.with_overrides(metadata=child_metadata))
     try:
         require_complete_output = parsed.result_mode in ("reference", "inline_once")
+        muted = parsed.result_mode == "reference" or mute_stream
         result = await run_agent(
             agent,
             label=label,
@@ -630,8 +831,10 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             # whose full output IS delivered this turn (see agent_tool.py
             # § NESTED-AGENT STREAM LEAK and
             # scripts/nested_agent_streams_baseline.json).
-            suppress_stream=parsed.result_mode == "reference",
-            allow_client_delegation=parsed.result_mode != "reference",
+            # A background helper (`mute_stream`) is muted the same way: nobody
+            # is reading its stream, and its answer arrives through the inbox.
+            suppress_stream=muted,
+            allow_client_delegation=not muted,
             require_complete_output=require_complete_output,
             max_iterations=int(max_iterations) if max_iterations else None,
         )
@@ -640,12 +843,30 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # leaking if calls ever run sequentially in the loop task).
         set_app_context(app_ctx)
 
+    if on_child_result is not None:
+        try:
+            await on_child_result(result)
+        except Exception as exc:  # noqa: BLE001 — the record is not the answer
+            from matrx_connect.streaming import capture_error
+
+            await capture_error(exc, kind="agent_call_child_result_hook", agent_id=agent_id)
+
     if not result.success:
         # The child's own exception rides the result: hand it to ToolError so
         # the operator gets its real type, message and stack — never only this
         # sentence (2026-10-01: an OpenAI out-of-credit refusal reached the
         # tool executor as "the tool swallowed its exception").
         child_error_type = (result.metadata or {}).get("error_type")
+        suggested_action = "Check the agent's variables and configuration."
+        if child_error_type == EMPTY_CONVERSATION_ERROR_TYPE:
+            # The send boundary refused an EMPTY child (nothing sent, nothing
+            # spent) — e.g. its authored turn was filled with nothing. Say what
+            # to send, never "check the configuration".
+            _, suggested_action = empty_child_turn_guidance(
+                str(getattr(agent, "name", None) or agent_id),
+                input_arg="user_input",
+                undeclared=undeclared_variable_names(agent, parsed.variables),
+            )
         return _fail(
             ctx,
             started_at,
@@ -654,7 +875,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 f"Agent '{getattr(agent, 'name', agent_id)}' failed"
                 f"{f' ({child_error_type})' if child_error_type else ''}: {result.error}"
             ),
-            suggested_action="Check the agent's variables and configuration.",
+            suggested_action=suggested_action,
             exc=result.exception,
             # The child's stack is for the operator; the calling model gets the
             # child's own plain sentence above, never a provider billing URL.
@@ -830,6 +1051,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             )
             output: dict[str, Any] = {
                 "agent_id": agent_id,
+                **({"agent_version_id": version_id} if version_id else {}),
                 "agent_name": getattr(agent, "name", None) or "",
                 "stored": descriptor,
                 **_child_conversation_extra(result, collab_extras),
@@ -881,6 +1103,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     media_refs = list(getattr(result, "media", None) or [])
     output: dict[str, Any] = {
         "agent_id": agent_id,
+        **({"agent_version_id": version_id} if version_id else {}),
         "agent_name": getattr(agent, "name", None) or "",
         "result": result_value,
         **_child_conversation_extra(result, collab_extras),

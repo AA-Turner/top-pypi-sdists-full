@@ -10,7 +10,7 @@ to operate.
 
 This module exposes a single decision point — ``sandbox_mode_active()`` —
 so every tool implementation that resolves a path or working dir gets
-consistent behaviour. Sandbox mode is the ``sandbox`` role from the unified
+consistent behavior. Sandbox mode is the ``sandbox`` role from the unified
 host-identity resolver (``matrx_utils.runtime_env``), which auto-detects the
 sandbox via the ``/opt/aidream-template`` marker that only the
 ``matrx-sandbox:aidream`` image bakes in.

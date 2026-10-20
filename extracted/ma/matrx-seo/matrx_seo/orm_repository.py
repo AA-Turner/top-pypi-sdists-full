@@ -945,6 +945,8 @@ class OrmSeoRepository(SeoRepository):
                     "monthly_searches": monthly,
                     "metrics_fetched_at": now,
                     "metrics_task_id": winner.metrics_task_id,
+                    # Stored as returned (owner ruling R-F3: white-label is a display rule, never a
+                    # storage rewrite). Screens that show a source scrub it when they draw it.
                     "raw": winner.raw,
                     "source_provider": run.provider,
                     "source_observation_id": winner_history_id,
@@ -953,7 +955,9 @@ class OrmSeoRepository(SeoRepository):
                         difficulty_winner.difficulty if difficulty_winner is not None else None
                     ),
                     "difficulty_source": (
-                        run.request.operation if difficulty_winner is not None else None
+                        run.request.operation
+                        if difficulty_winner is not None
+                        else None
                     ),
                     "difficulty_observed_at": (
                         difficulty_winner.observed_at if difficulty_winner is not None else None
@@ -1955,7 +1959,7 @@ class OrmSeoRepository(SeoRepository):
         )
 
     async def cancel_run(self, run: CollectionRun, error: dict[str, Any]) -> None:
-        """Best-effort terminal write for a cancelled collect.
+        """Best-effort terminal write for a canceled collect.
 
         Conditional on the row still being OURS and still in flight: if the
         lifecycle watchdog (or a reclaim) terminalized it first, their status
@@ -2276,7 +2280,7 @@ class OrmSeoRepository(SeoRepository):
            and is COUNTED instead, in ``unpriced_run_count``; ``matrx_seo.budget``
            charges each one the ``seo.unpriced_run_assumed_cost_usd`` knob.
         2. **It no longer looks only at ``status='completed'``.** A run that
-           failed or was cancelled after reaching the provider was billed in
+           failed or was canceled after reaching the provider was billed in
            full and was excluded from spend entirely (45 failed DataForSEO runs,
            26 of them carrying a real reported cost). The window is now
            ``started_at`` — set the moment a run is claimed — so in-flight and

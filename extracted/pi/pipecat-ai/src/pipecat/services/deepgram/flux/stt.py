@@ -43,6 +43,10 @@ class DeepgramFluxSTTService(DeepgramFluxSTTBase, WebsocketService):
     Supports configurable models, VAD events, and various audio processing options
     including advanced turn detection and EagerEndOfTurn events for improved conversational AI performance.
 
+    The transcript of a turn in progress is pushed as an ``InterimTranscriptionFrame``
+    on every Flux update, and the final transcript as a ``TranscriptionFrame`` at the
+    end of the turn.
+
     For multilingual use, set ``model="flux-general-multi"`` and pass
     ``language_hints`` to bias detection toward specific languages. Hints can
     be updated mid-stream via ``STTUpdateSettingsFrame`` (e.g. to implement a
@@ -412,15 +416,10 @@ class DeepgramFluxSTTService(DeepgramFluxSTTBase, WebsocketService):
 
         Yields:
             Frame: None (transcription results are delivered via WebSocket callbacks
-                rather than as return values from this method).
-
-        Raises:
-            Exception: If the WebSocket connection is not established or if there
-                are issues sending the audio data.
+                rather than as return values from this method), or
+                :class:`ErrorFrame` on send failure.
         """
-        if not self._websocket:
-            return
-
+        # With no socket (the first connect failed), send_with_retry reconnects.
         try:
             self._last_stt_time = time.monotonic()
             self._last_audio_chunk_duration = len(audio) / (self.sample_rate * 2)

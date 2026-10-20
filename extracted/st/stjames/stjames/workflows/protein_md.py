@@ -141,6 +141,8 @@ class ProteinMDSettingsMixin(Base):
         temperature: temperature, in K
         pressure_atm: pressure, in atm
         langevin_timescale_ps: timescale for the Langevin integrator, in ps⁻¹
+        random_seed: seed for OpenMM modeller setup, Langevin dynamics, the barostat, and initial velocities;
+            `None` uses automatic seeds
         timestep_fs: timestep, in femtoseconds
         hydrogen_mass: mass of hydrogen atoms, in amu
         constrain_hydrogens: use SHAKE to freeze bonds to hydrogen when true
@@ -163,6 +165,7 @@ class ProteinMDSettingsMixin(Base):
     temperature: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 300
     pressure_atm: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 1.0
     langevin_timescale_ps: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 1.0
+    random_seed: Annotated[PositiveInt, Field(strict=True, le=2147483647)] | None = None
 
     timestep_fs: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 4
     hydrogen_mass: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 3

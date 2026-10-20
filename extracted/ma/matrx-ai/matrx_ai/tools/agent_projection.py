@@ -83,6 +83,46 @@ AUTO_INPUT_DESCRIPTION = (
 )
 
 
+#: The optional argument every host-attached agent tool carries: values the CALLER holds,
+#: passed by name (the caller never reads or retypes them). Dispatch never routes it as a
+#: variable; the host's ``agent_tool_handover_resolver`` interprets it.
+HAND_OVER_ARG = "hand_over"
+
+_HAND_OVER_ENTRY_OBJECT: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "value": {"type": "string", "description": "A value name, a group, or 'all'."},
+        "as": {
+            "type": "string",
+            "enum": ["context", "field", "message"],
+            "description": "How it arrives: context (default), into one field, or as message text.",
+        },
+        "field": {"type": "string", "description": "The field to fill when as='field'."},
+        "show": {
+            "type": "string",
+            "enum": ["as_received", "whole", "pointer"],
+            "description": "as_received (default: the way it reached you), whole, or pointer.",
+        },
+    },
+    "required": ["value"],
+}
+
+HAND_OVER_PARAMETER: dict[str, Any] = {
+    "anyOf": [
+        {"type": "string"},
+        {"type": "array", "items": {"anyOf": [{"type": "string"}, _HAND_OVER_ENTRY_OBJECT]}},
+    ],
+    "description": (
+        "Values from YOUR context to pass to this agent by name, without reading or retyping "
+        "them: a value name, a group, or 'all' — a comma-separated string or a list. A list "
+        "entry may be an object to send a value into one of this agent's fields "
+        "({value, as:'field', field}) or as message text (as:'message'), and to show it "
+        "whole or as a pointer. Anything that cannot be passed comes back in the result."
+    ),
+    "required": False,
+}
+
+
 def _variable_definitions_to_parameters(
     variable_definitions: list | None,
 ) -> dict[str, Any]:
@@ -213,6 +253,12 @@ async def resolve_agent_specs(
                 },
             )
 
+        if spec.host_data is not None:
+            # A host-attached projection (an Orchestra connection) lets the caller pass
+            # values BY NAME. The host's hand-over resolver fills them; matrx-ai only
+            # carries the argument. An author variable of the same name wins.
+            parameters.setdefault(HAND_OVER_ARG, dict(HAND_OVER_PARAMETER))
+
         if spec.handoff and getattr(row, "output_schema", None):
             # A handoff target's final text IS the user-facing response —
             # structured-output agents would deliver raw JSON as the answer.
@@ -241,6 +287,7 @@ async def resolve_agent_specs(
             prompt_is_version=spec.is_version,
             result_mode=spec.result_mode if not spec.handoff else "inline",
             handoff_terminal=spec.handoff,
+            host_data=dict(spec.host_data) if spec.host_data is not None else None,
             max_calls_per_conversation=spec.max_calls_per_conversation,
             cost_cap_per_call=spec.cost_cap_per_call,
             must_complete=True,
@@ -312,3 +359,26 @@ def list_projected_tool_names() -> list[str]:
     if not projections:
         return []
     return list(projections.keys())
+
+
+#: The source recorded for a tool projected through a run's own metadata (TOOL-SOURCES P1).
+RUN_PROJECTION_SOURCE = "run_projection"
+
+
+def merge_run_projected_tools(config: Any, ctx: AppContext) -> AppContext:
+    """Offer every tool in ``ctx``'s projection map to the model, through THE merge, with its
+    source (TOOL-SOURCES P1, rule W) — never by appending names to ``config.tools`` by hand,
+    which reached the wire ``unrecorded``. For a run whose projected tool rides its metadata
+    (aidream ``agent_service.run_one_agent``: the Agent Factory proof run's dry page tool).
+    Returns the ctx carrying the recorded sources; the caller rebinds it."""
+    from matrx_ai.tools.merge import merge_request_tools
+
+    names = [str(n) for n in ((getattr(ctx, "metadata", None) or {}).get(PROJECTED_AGENT_TOOLS_KEY) or {})]
+    if not names:
+        return ctx
+    return merge_request_tools(
+        config,
+        ctx,
+        [RegisteredToolSpec(name=name) for name in names],
+        source=RUN_PROJECTION_SOURCE,
+    )

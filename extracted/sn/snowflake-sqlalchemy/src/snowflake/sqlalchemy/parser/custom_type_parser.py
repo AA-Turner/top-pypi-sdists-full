@@ -1,6 +1,8 @@
 #
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
-from typing import List
+from __future__ import annotations
+
+from typing import Any
 
 import sqlalchemy.sql.sqltypes as sqltypes
 from sqlalchemy.sql.sqltypes import (
@@ -17,12 +19,12 @@ from sqlalchemy.sql.sqltypes import (
     SMALLINT,
     TIME,
     TIMESTAMP,
+    UUID,
     VARCHAR,
     NullType,
 )
 from sqlalchemy.sql.type_api import TypeEngine
 
-from snowflake.sqlalchemy.compat import IS_VERSION_20
 from snowflake.sqlalchemy.custom_types import (
     _CUSTOM_DECIMAL,
     ARRAY,
@@ -77,22 +79,13 @@ ischema_names = {
     "ARRAY": ARRAY,
     "GEOGRAPHY": GEOGRAPHY,
     "GEOMETRY": GEOMETRY,
+    "UUID": UUID,
 }
-
-if IS_VERSION_20:
-    from sqlalchemy.sql.sqltypes import UUID as _sa_uuid
-
-    ischema_names["UUID"] = _sa_uuid
-    # Remove _sa_uuid from the module namespace after use. Without this,
-    # inspect.getmembers would expose it as a class visible in this module,
-    # breaking test_types_in_snowdialect which asserts every class here is
-    # also present in snowdialect.
-    del _sa_uuid
 
 NOT_NULL_STR = "NOT NULL"
 
 
-def tokenize_parameters(text: str, character_for_strip=",") -> list:
+def tokenize_parameters(text: str, character_for_strip: str = ",") -> list[str]:
     """
     Extracts parameters from a comma-separated string, handling parentheses.
 
@@ -128,7 +121,7 @@ def tokenize_parameters(text: str, character_for_strip=",") -> list:
     return output_parameters
 
 
-def parse_index_columns(columns: str) -> List[str]:
+def parse_index_columns(columns: str) -> list[str]:
     """
     Parses a string with a list of columns for an index.
 
@@ -140,7 +133,10 @@ def parse_index_columns(columns: str) -> List[str]:
     :example:
         For input `"[A, B, C]"`, the output is `['A', 'B', 'C']`.
     """
-    return [column.strip() for column in columns.strip("[]").split(",")]
+    inner = columns.strip("[]").strip()
+    if not inner:
+        return []
+    return [column.strip() for column in inner.split(",")]
 
 
 def parse_type(type_text: str) -> TypeEngine:
@@ -167,12 +163,14 @@ def parse_type(type_text: str) -> TypeEngine:
     )
 
     col_type_class = ischema_names.get(type_name, None)
-    col_type_kw = {}
+    col_type_kw: dict[str, Any] | None = {}
 
     if col_type_class is None:
         col_type_class = NullType
     else:
-        if issubclass(col_type_class, sqltypes.Numeric):
+        if issubclass(col_type_class, sqltypes.Uuid):
+            col_type_kw = {"as_uuid": False}
+        elif issubclass(col_type_class, sqltypes.Numeric):
             col_type_kw = __parse_numeric_type_parameters(parameters)
         elif issubclass(col_type_class, (sqltypes.String, sqltypes.BINARY)):
             col_type_kw = __parse_type_with_length_parameters(parameters)
@@ -188,11 +186,14 @@ def parse_type(type_text: str) -> TypeEngine:
             col_type_class = NullType
             col_type_kw = {}
 
+    assert col_type_kw is not None
     return col_type_class(**col_type_kw)
 
 
-def __parse_object_type_parameters(parameters):
-    object_rows = {}
+def __parse_object_type_parameters(
+    parameters: list[str],
+) -> dict[str, tuple[TypeEngine, bool]] | None:
+    object_rows: dict[str, tuple[TypeEngine, bool]] = {}
     not_null_parts = NOT_NULL_STR.split(" ")
     for parameter in parameters:
         parameter_parts = tokenize_parameters(parameter, " ")
@@ -210,7 +211,9 @@ def __parse_object_type_parameters(parameters):
     return object_rows
 
 
-def __parse_nullable_parameter(parameters):
+def __parse_nullable_parameter(
+    parameters: list[str],
+) -> dict[str, Any] | None:
     if len(parameters) < 1:
         return {}
     elif len(parameters) > 1:
@@ -234,7 +237,9 @@ def __parse_nullable_parameter(parameters):
     }
 
 
-def __parse_map_type_parameters(parameters):
+def __parse_map_type_parameters(
+    parameters: list[str],
+) -> dict[str, Any] | None:
     if len(parameters) != 2:
         return None
 
@@ -242,13 +247,15 @@ def __parse_map_type_parameters(parameters):
     value_type_str = parameters[1]
     key_type: TypeEngine = parse_type(key_type_str)
     value_type = __parse_nullable_parameter([value_type_str])
-    if isinstance(value_type, NullType) or isinstance(key_type, NullType):
+    if value_type is None or isinstance(key_type, NullType):
         return None
 
     return {"key_type": key_type, **value_type}
 
 
-def __parse_vector_type_parameters(parameters):
+def __parse_vector_type_parameters(
+    parameters: list[str],
+) -> dict[str, Any] | None:
     if len(parameters) != 2:
         return None
 
@@ -263,7 +270,7 @@ def __parse_vector_type_parameters(parameters):
     }
 
 
-def __parse_type_with_length_parameters(parameters):
+def __parse_type_with_length_parameters(parameters: list[str]) -> dict[str, int]:
     return (
         {"length": int(parameters[0])}
         if len(parameters) == 1 and str.isdigit(parameters[0])
@@ -271,8 +278,8 @@ def __parse_type_with_length_parameters(parameters):
     )
 
 
-def __parse_numeric_type_parameters(parameters):
-    result = {}
+def __parse_numeric_type_parameters(parameters: list[str]) -> dict[str, int]:
+    result: dict[str, int] = {}
     if len(parameters) >= 1 and str.isdigit(parameters[0]):
         result["precision"] = int(parameters[0])
     if len(parameters) == 2 and str.isdigit(parameters[1]):

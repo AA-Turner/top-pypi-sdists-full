@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) Alibaba, Inc. and its affiliates.
-# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position,undefined-all-variable
 
+import importlib
 import logging
 import warnings
 from logging import NullHandler
@@ -60,22 +61,6 @@ from dashscope.files import Files
 from dashscope.models import Models
 from dashscope.nlp.understanding import Understanding
 from dashscope.rerank import AioTextReRank, TextReRank
-from dashscope.assistants import Assistant, AssistantList, Assistants
-from dashscope.assistants.assistant_types import AssistantFile, DeleteResponse
-from dashscope.threads import (
-    MessageFile,
-    Messages,
-    Run,
-    RunList,
-    Runs,
-    RunStep,
-    RunStepList,
-    Steps,
-    Thread,
-    ThreadMessage,
-    ThreadMessageList,
-    Threads,
-)
 from dashscope.tokenizers import (
     Tokenization,
     Tokenizer,
@@ -125,6 +110,46 @@ def set_region(region: str, workspace_id: str = None):
     base_http_api_url = f"https://{host}/api/v1"
     base_compatible_api_url = f"https://{host}/compatible-mode/v1"
     base_websocket_api_url = f"wss://{host}/api-ws/v1/inference"
+
+
+# The Assistants API (dashscope.assistants / dashscope.threads) is deprecated.
+# Resolve its names lazily (PEP 562) so a plain `import dashscope` does not emit
+# the DeprecationWarning for code that never touches them; accessing any of these
+# names imports dashscope.assistants, which warns once.
+_DEPRECATED_LAZY_IMPORTS = {
+    "Assistant": "dashscope.assistants",
+    "AssistantList": "dashscope.assistants",
+    "Assistants": "dashscope.assistants",
+    "AssistantFile": "dashscope.assistants",
+    "DeleteResponse": "dashscope.assistants",
+    "MessageFile": "dashscope.threads",
+    "Messages": "dashscope.threads",
+    "Run": "dashscope.threads",
+    "RunList": "dashscope.threads",
+    "Runs": "dashscope.threads",
+    "RunStep": "dashscope.threads",
+    "RunStepList": "dashscope.threads",
+    "Steps": "dashscope.threads",
+    "Thread": "dashscope.threads",
+    "ThreadMessage": "dashscope.threads",
+    "ThreadMessageList": "dashscope.threads",
+    "Threads": "dashscope.threads",
+}
+
+
+def __getattr__(name):
+    module_name = _DEPRECATED_LAZY_IMPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}",
+        )
+    value = getattr(importlib.import_module(module_name), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_DEPRECATED_LAZY_IMPORTS))
 
 
 __all__ = [

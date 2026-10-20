@@ -5,7 +5,7 @@ The sweep runs every registry entry against a `PageFacts` built by
 `PageEvidence` the per-page checks are unit-tested against: it is assembled from
 snapshot jsonb, so a check can read a field the evidence class has and the facts
 class does not. That failure is invisible — the check raises, the sweep drops
-that one verdict, and the catalogue row simply never gets a result row. It looks
+that one verdict, and the catalog row simply never gets a result row. It looks
 exactly like "nothing to report".
 
 Both halves of this actually happened on 2026-08-09, hours apart, while the

@@ -104,12 +104,18 @@ def get_athena_type(dtype: Any) -> tuple[str, int, int]:
         if base_dtype == polars_type or dtype == polars_type:
             return athena_info
 
+    # Nested types are matched by their outer type, not by the types they contain.
+    if base_dtype == pl.List:
+        return ("array", 0, 0)
+    if base_dtype == pl.Struct:
+        return ("row", 0, 0)
+    # Polars 2.0 reads a Parquet map as Map; Polars 1.x reads it as a list of structs.
+    map_dtype = getattr(pl, "Map", None)
+    if map_dtype is not None and base_dtype == map_dtype:
+        return ("map", 0, 0)
+
     # Handle parameterized types that didn't match above
     dtype_str = str(dtype).lower()
-    if "list" in dtype_str:
-        return ("array", 0, 0)
-    if "struct" in dtype_str:
-        return ("row", 0, 0)
     if "decimal" in dtype_str:
         # Extract precision and scale from Decimal type if available
         if hasattr(dtype, "precision") and hasattr(dtype, "scale"):
@@ -117,3 +123,33 @@ def get_athena_type(dtype: Any) -> tuple[str, int, int]:
         return ("decimal", 38, 9)  # Default precision and scale
 
     return ("string", 2147483647, 0)
+
+
+def to_microseconds(dtype: Any, maps: bool = True) -> Any:
+    """Get a dtype whose nanosecond Datetimes, at any nesting level, are in microseconds.
+
+    Args:
+        dtype: The dtype.
+        maps: Whether to keep Map dtypes. If False, a Map that holds nanosecond
+            Datetimes is a List of Structs of its key and value, which Polars 2.0 needs
+            to read INT96 timestamps in a Parquet map at microseconds
+            (pola-rs/polars#30031).
+
+    Returns:
+        The dtype with microsecond Datetimes.
+    """
+    import polars as pl
+
+    if isinstance(dtype, pl.Datetime):
+        return pl.Datetime("us", dtype.time_zone) if dtype.time_unit == "ns" else dtype
+    if isinstance(dtype, pl.List):
+        return pl.List(to_microseconds(dtype.inner, maps))
+    if isinstance(dtype, pl.Struct):
+        return pl.Struct({f.name: to_microseconds(f.dtype, maps) for f in dtype.fields})
+    map_dtype = getattr(pl, "Map", None)
+    if map_dtype is not None and isinstance(dtype, map_dtype):
+        key, value = to_microseconds(dtype.key, maps), to_microseconds(dtype.value, maps)
+        if maps or (key, value) == (dtype.key, dtype.value):
+            return map_dtype(key, value)
+        return pl.List(pl.Struct({"key": key, "value": value}))
+    return dtype

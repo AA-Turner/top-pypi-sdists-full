@@ -228,7 +228,7 @@ class TextContent:
 
         ``self.text`` IS the pristine authored text — per-turn platform material
         never touches it any more (it travels in the context channel; see the
-        module header). ``metadata["original_text"]`` is honoured for rows that
+        module header). ``metadata["original_text"]`` is honored for rows that
         predate that change.
         """
         text = self.metadata.get("original_text", self.text)

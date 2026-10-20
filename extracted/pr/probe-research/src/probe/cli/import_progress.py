@@ -48,6 +48,13 @@ def counts(job):
     return min(done, total) if total is not None else done, total
 
 
+def is_partial(job):
+    """A finished worker is not proof that every approved item was received."""
+    completed, total = counts(job)
+    return (job["state"] == State.SUCCEEDED and completed is not None
+            and total is not None and completed < total)
+
+
 class Estimates:
     """Observe legacy workers too; no worker restart or journal writes required."""
 

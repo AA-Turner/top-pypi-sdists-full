@@ -1,6 +1,6 @@
 """Structured-data and international checks — pure logic, no DB, no network.
 
-These five catalogue items were the rare case where the CAPTURE was already
+These five catalog items were the rare case where the CAPTURE was already
 richer than anything reading it: `web.snapshot.structured_data` has kept every
 parsed JSON-LD document, every original script string INCLUDING the malformed
 ones, and the parse error each one produced, since the crawler was written.

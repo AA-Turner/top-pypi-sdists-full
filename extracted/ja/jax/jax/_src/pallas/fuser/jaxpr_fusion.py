@@ -17,7 +17,6 @@
 from collections.abc import Iterable, Sequence
 import contextlib
 import functools
-from typing import Any
 
 import jax
 from jax._src import api_util
@@ -65,6 +64,11 @@ def fuse(
 ):
   """Fuses a function into a single fusible.
 
+  There should be a single call to a `fusible` inside the body of `f`. `fuse`
+  returns a transformed function that will fuse the surrounding computation into
+  the fusible and invoke it. The fused function cannot take `jax.ref.Ref`s as
+  arguments (it must close over `Ref`s instead).
+
   Args:
     f: The function to fuse.
     resolve_fusion_dtypes: (experimental) whether or not to resolve fusion
@@ -77,9 +81,8 @@ def fuse(
     static_argnames: An optional string or collection of strings specifying
       which named arguments to treat as static (compile-time constant).
 
-  There should be a single call to a `fusible` inside the body of `f`. `fuse`
-  returns a transformed function that will fuse the surrounding computation into
-  the fusible and invoke it.
+  Returns:
+    A fused version of `f`, or a decorator if `f` is `None`.
   """
 
   def decorator(f):
@@ -125,16 +128,13 @@ def fuse(
         print("Jaxpr before fusion:")
         print(jaxpr)
       out_tree = out_avals_ft.tree
-      out_flat = fuse_jaxpr(jaxpr, out_tree, consts, *flat_args,
-                            strict_mode=strict_mode)
-      return tree_util.tree_unflatten(out_tree, out_flat)
-
-    if resolve_fusion_dtypes:
-      wrapper = fusible_dtype.physicalize(
-          wrapper,
-          static_argnums=static_argnums_,
-          static_argnames=static_argnames_,
+      fuse_fn = functools.partial(
+          fuse_jaxpr, jaxpr, out_tree, consts, strict_mode=strict_mode
       )
+      if resolve_fusion_dtypes and fusible_dtype.has_fusion_dtypes(jaxpr):
+        fuse_fn = fusible_dtype.physicalize(fuse_fn)
+      out_flat = fuse_fn(*flat_args)
+      return tree_util.tree_unflatten(out_tree, out_flat)
 
     @functools.wraps(f)
     def outer_wrapper(*args, **kwargs):
@@ -147,9 +147,6 @@ def fuse(
   if f is not None:
     return decorator(f)
   return decorator
-
-
-_fusible: dict[jax_core.Primitive, Any] = {}
 
 
 def _construct_fusion_jaxpr(
@@ -212,7 +209,7 @@ def _find_downstream(
       ensure_out_inst=False,
       saveable=lambda *_, **__: False,
   )
-  # NOTE: out_used[:len(jaxpr.outvars)] reports whether or not the the original
+  # NOTE: out_used[:len(jaxpr.outvars)] reports whether or not the original
   # outputs depend on the inputs for which `in_used` is True.
   # out_used[len(jaxpr.outvars):] reports whether or not the new outputs
   # (updates for discharged Refs) depend on thse inputs.

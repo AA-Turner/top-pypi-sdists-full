@@ -26,6 +26,62 @@ from matrx_connect.chat_timing import chat_timing_mark
 from matrx_ai.orchestrator.execution_state import try_get_execution_state
 
 
+def wire_json(value: Any) -> Any:
+    """The WIRE JSON of a captured provider request — what the SDK actually sends.
+
+    THE one serializer for ``chat.request_snapshot.request_payload`` (the snapshot
+    writer and ``picklist_runtime.redact_wire_payload`` both call it). An SDK
+    (pydantic) model — Google's ``GenerateContentConfig`` / ``Content`` — becomes
+    ``model_dump(mode="json", exclude_none=True)``, the same form the SDK puts on
+    the wire (bytes as base64, no ``None`` fields). Dicts / lists / dataclasses
+    recurse; anything else is left for the caller's JSON-safe fallback.
+
+    PB-03 defect 10 (2026-10-16): ``json.dumps(payload, default=str)`` in the
+    redaction step stored Google's config as its Python ``str()``.
+    """
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, dict):
+        return {str(k): wire_json(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [wire_json(v) for v in value]
+    if hasattr(value, "model_dump") and not isinstance(value, type):
+        try:
+            return value.model_dump(mode="json", exclude_none=True)
+        except Exception:  # noqa: BLE001 — fall through to the python-mode walk
+            try:
+                return wire_json(value.model_dump(mode="python", exclude_none=True))
+            except Exception:  # noqa: BLE001
+                pass
+    try:
+        from google.protobuf.json_format import MessageToDict
+        from google.protobuf.message import Message
+
+        if isinstance(value, Message):
+            return MessageToDict(value)
+    except Exception:  # noqa: BLE001 — protobuf absent / odd message: fall through
+        pass
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: wire_json(getattr(value, f.name, None)) for f in dataclasses.fields(value)}
+    return value
+
+
+def recapture_final_payload(final_kwargs: Any) -> None:
+    """Replace the iteration's stored request with the kwargs handed to the SDK.
+
+    ``capture_request_payload`` runs early in ``execute()``; the grammar ladder,
+    SDK-drift routing and other late rewrites change the request afterwards.
+    This runs at the SDK call itself and keeps the provider stamp from the early
+    capture. Silent no-op without an active executor. Never raises.
+    """
+    try:
+        state = try_get_execution_state()
+        if state is not None:
+            state.snapshot_payload = final_kwargs
+    except Exception:  # noqa: BLE001 — snapshotting must never interfere with the call
+        pass
+
+
 def capture_request_payload(
     config_data: Any,
     *,
@@ -39,7 +95,7 @@ def capture_request_payload(
     Never raises — snapshotting must never interfere with the actual API
     call.  Called once per iteration from each provider's ``execute()``.
     Silent no-op when no executor is active (e.g. a provider used outside
-    the orchestrator), which is the right behaviour for tests/scripts.
+    the orchestrator), which is the right behavior for tests/scripts.
 
     Also runs the dumb tool-set observer (``inspect_outbound_payload``)
     on the same payload — a third-party log of whether the SDK is about
@@ -97,8 +153,26 @@ def capture_request_payload(
     except Exception:
         pass
 
+    # The tools block across the conversation — the independent wire-level
+    # check that the provider tools array only ever grows by appending
+    # (cache_guard.observe_tool_declarations). Never raises.
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        from matrx_ai.providers.cache_guard import observe_tool_declarations
+
+        _ctx = try_get_app_context()
+        observe_tool_declarations(
+            provider=provider,
+            conversation_id=getattr(_ctx, "conversation_id", None) if _ctx else None,
+            payload=config_data,
+            model=str(config_data.get("model") or "") if isinstance(config_data, dict) else "",
+        )
+    except Exception:
+        pass
+
     # Opt-in human-readable per-provider rendering. Defaults to off so
-    # legacy call sites (no kwargs) get the existing behaviour exactly.
+    # legacy call sites (no kwargs) get the existing behavior exactly.
     # The formatter NEVER raises — any failure here is swallowed so a
     # broken debug path can never break the request path.
     if debug and provider:

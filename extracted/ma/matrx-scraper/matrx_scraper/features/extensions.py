@@ -2,7 +2,7 @@
 Optional extension functions for matrx-scraper.
 
 The scraper package has no dependency on matrx_ai (or any AI library).
-Apps that want AI-powered summarisation during scraping must call
+Apps that want AI-powered summarization during scraping must call
 ``configure_extensions()`` at startup, passing callables that the scraper
 can invoke without knowing anything about their internals.
 

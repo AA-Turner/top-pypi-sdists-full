@@ -95,6 +95,8 @@ class DiscountItemsResource(SyncAPIResource):
           description: The discount item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           discount_rate: The monetary amount to subtract from the total or subtotal when applying this
               discount item to a transaction, represented as a decimal string.
 
@@ -265,6 +267,8 @@ class DiscountItemsResource(SyncAPIResource):
           description: The discount item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           discount_rate: The monetary amount to subtract from the total or subtotal when applying this
               discount item to a transaction, represented as a decimal string.
 
@@ -433,6 +437,9 @@ class DiscountItemsResource(SyncAPIResource):
           name_from: Filter for discount items whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           name_starts_with: Filter for discount items whose `name` starts with this substring,
               case-insensitive.
 
@@ -441,6 +448,9 @@ class DiscountItemsResource(SyncAPIResource):
 
           name_to: Filter for discount items whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for discount items that are active, inactive, or both.
 
@@ -576,6 +586,8 @@ class AsyncDiscountItemsResource(AsyncAPIResource):
 
           description: The discount item's description that will appear on sales forms that include
               this item.
+
+              Maximum length: 4095 characters.
 
           discount_rate: The monetary amount to subtract from the total or subtotal when applying this
               discount item to a transaction, represented as a decimal string.
@@ -747,6 +759,8 @@ class AsyncDiscountItemsResource(AsyncAPIResource):
           description: The discount item's description that will appear on sales forms that include
               this item.
 
+              Maximum length: 4095 characters.
+
           discount_rate: The monetary amount to subtract from the total or subtotal when applying this
               discount item to a transaction, represented as a decimal string.
 
@@ -915,6 +929,9 @@ class AsyncDiscountItemsResource(AsyncAPIResource):
           name_from: Filter for discount items whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           name_starts_with: Filter for discount items whose `name` starts with this substring,
               case-insensitive.
 
@@ -923,6 +940,9 @@ class AsyncDiscountItemsResource(AsyncAPIResource):
 
           name_to: Filter for discount items whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for discount items that are active, inactive, or both.
 

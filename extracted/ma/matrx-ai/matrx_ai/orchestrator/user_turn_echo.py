@@ -12,7 +12,7 @@ and never inline bytes — ``TextContent.to_storage_dict`` /
 ``validate_message_content``). Echoing it on the frame lets every rejoining
 client render the real message immediately, from server truth.
 
-Bounded: inline bytes are stripped again here (defence in depth), and an
+Bounded: inline bytes are stripped again here (defense in depth), and an
 oversized echo is omitted rather than bloating the replay journal — the client
 then shows no row until the turn's own re-read lands, never an empty box.
 """

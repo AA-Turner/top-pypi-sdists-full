@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 import groq as groq_sdk
 from groq import AsyncGroq
-from matrx_connect.context.events import InfoPayload
 from matrx_utils import vcprint
 
 from matrx_ai.config import (
@@ -19,6 +18,7 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
     UnifiedResponse,
+    openai_compatible_usage_counts,
     serialize_provider_usage,
 )
 from matrx_ai.context.emitter_protocol import Emitter
@@ -207,8 +207,16 @@ class GroqChat:
             provider_model_name=model,
             api="groq",
         )
+        from matrx_ai.speech.take_check import raise_if_truncated_take
+
+        audio_bytes = await response.read()
+        raise_if_truncated_take(
+            provider="groq",
+            audio_size_bytes=len(audio_bytes),
+            characters=len(input_text),
+            usage=usage,
+        )
         try:
-            audio_bytes = await response.read()
 
             # Phase 2c — envelope path so the FE gets file_id +
             # durable URLs + canonical MediaGenerationMetadata.
@@ -291,7 +299,7 @@ class GroqChat:
 
         # Native async API call
         response = await self.client.chat.completions.create(
-            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="groq")
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="groq", snapshot=True)
         )
 
         vcprint("[Groq] API call completed, processing response...", color="cyan")
@@ -314,12 +322,7 @@ class GroqChat:
                 elif isinstance(content, TextContent):
                     await emitter.send_chunk(content.text)
                 elif isinstance(content, ToolCallContent):
-                    await emitter.send_info(InfoPayload(
-                        code="tool_processing",
-                        system_message=f"Executing {content.name}",
-                        user_message=f"Using tool {content.name}",
-                        metadata={"tool_call": content.name},
-                    ))
+                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
 
         # Citations captured by the translator onto text blocks — emit the
         # typed events at settle.
@@ -342,7 +345,7 @@ class GroqChat:
 
         # Native async streaming
         stream = await self.client.chat.completions.create(
-            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="groq")
+            **route_undeclared_params(self.client.chat.completions.create, config_data, provider="groq", snapshot=True)
         )
 
         vcprint(
@@ -480,9 +483,13 @@ class GroqChat:
         # Convert usage to TokenUsage
         token_usage = None
         if usage_data:
+            input_tokens, output_tokens, cached_input_tokens = openai_compatible_usage_counts(
+                usage_data
+            )
             token_usage = TokenUsage(
-                input_tokens=usage_data.prompt_tokens,
-                output_tokens=usage_data.completion_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cached_input_tokens=cached_input_tokens,
                 matrx_model_name=model,
                 provider_model_name=model,
                 api="groq",

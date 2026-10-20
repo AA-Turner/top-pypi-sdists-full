@@ -50,12 +50,10 @@ from plato.cli.vault.client import (
 )
 from plato.cli.vault.open_session import (
     DEFAULT_MINUTES,
-    DEFAULT_WORLD_PACKAGE,
     MAX_MINUTES,
     TERMINAL_STATUSES,
     OpenClient,
     build_open_launch,
-    check_save,
     check_world_schema,
     clone_defaults,
     close_tags,
@@ -1098,8 +1096,8 @@ def open_browser(
         bool,
         typer.Option(
             "--save",
-            help="When it ends, save the browser's login as the account's new snapshot "
-            "(VM browsers only, and only if it is still signed in). Like a bake, refused "
+            help="When it ends, save the browser's login as the account's newest one "
+            "(only if it is still signed in). Like a bake, refused "
             "while a bake or another saving open of the account is live",
         ),
     ] = False,
@@ -1109,8 +1107,8 @@ def open_browser(
     ] = True,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print what would launch; launches nothing")] = False,
     world_package: Annotated[
-        str, typer.Option("--world-package", hidden=True, help="Login world to launch (a dev build, say)")
-    ] = DEFAULT_WORLD_PACKAGE,
+        str | None, typer.Option("--world-package", hidden=True, help="Login world to launch (a dev build, say)")
+    ] = None,
     via: ViaArg = "chronos",
     chronos_url: ChronosUrlArg = None,
     api_key: ApiKeyArg = None,
@@ -1122,9 +1120,9 @@ def open_browser(
     It loads the account's latest saved login first and signs in for real only if
     that login no longer works. Then it prints a link to the live browser (noVNC,
     or Browserbase Live View) and keeps the browser open for --minutes. End it
-    early with `plato vault close <session>`. Nothing is saved unless --save
-    (VM browsers only; it saves only if an agent finds the browser still signed in
-    at the end). Refused while the account's live opens, bakes and runs reach its
+    early with `plato vault close <session>`. Nothing is saved unless --save (it
+    saves only if an agent finds the browser still signed in at the end; VM and
+    Browserbase alike). Refused while the account's live opens, bakes and runs reach its
     max sessions (1 unless set with `plato vault edit --max-sessions`); with
     --save, also while a bake or another saving open of it is live. Refused for
     an archived account, and for an app whose default account is archived
@@ -1158,13 +1156,15 @@ def open_browser(
             raise VaultConsoleError(
                 f"{lk}/{ac} has no login URL: set it with `plato vault edit {lk} -a {ac} --login-url <url>`"
             )
-        check_save(save, view.get("browser_mode"))
         base = target.chronos_url
         client = OpenClient(base, target.api_key)
         try:
             with chronos_errors(base):
+                # What the open launches: Chronos's login settings, or nothing.
+                settings = client.login_settings()
+                package = world_package or settings.world.package
                 # An older login world would run a real bake instead of opening.
-                check_world_schema(client.world_schema(world_package), world_package)
+                check_world_schema(client.world_schema(package), package)
                 # The saved login comes first: a real sign-in only when it fails.
                 seed = resolve_seed(base, target.api_key, lk, ac, view.get("browser_mode"))
                 live = client.live_sessions()
@@ -1180,6 +1180,7 @@ def open_browser(
                 refuse_if_busy(using, lk, ac, limit=max_sessions_of(view), save=save)
                 opened_by = client.me()
             plan = _open_plan(view, reason=reason, seed=seed, minutes=minutes, save=save, opened_by=opened_by)
+            plan.update(world=package, agent=settings.describe())
             body = build_open_launch(
                 login_key=lk,
                 account=ac,
@@ -1190,7 +1191,8 @@ def open_browser(
                 save=save,
                 opened_by=opened_by,
                 seed=seed,
-                world_package=world_package,
+                settings=settings,
+                world_package=package,
             )
             if dry_run:
                 if json_output:
@@ -1225,6 +1227,7 @@ def _open_after_launch(
             "  saved login: "
             + (escape(str(plan["saved_login"])) if plan["saved_login"] else "none - it will sign in for real")
         )
+        console.print(f"  agent: {escape(str(plan['agent']))}")
     result: dict[str, Any] = {
         "session_id": session_id or None,
         "session_url": session_url or None,

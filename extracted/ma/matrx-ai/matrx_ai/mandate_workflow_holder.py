@@ -32,7 +32,7 @@ Instead:
    inputs, so a funnel's parse-repair retry reattaches instead of paying twice
    (and is answered from this holding's cache without a second call at all).
    The caller's emitter carries the child's events when the request streams;
-   cancelling the caller cancels the awaited child.
+   canceling the caller cancels the awaited child.
 3. **Answer.** The workflow's deliverable comes back as the assistant message
    of a ``CompletedRequest`` — text (JSON text for a structured answer, which
    ``llm_to_pydantic`` then validates exactly as it validates a model's), plus

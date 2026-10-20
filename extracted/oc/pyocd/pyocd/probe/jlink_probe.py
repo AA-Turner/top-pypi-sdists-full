@@ -1,8 +1,9 @@
 # pyOCD debugger
-# Copyright (c) 2020,2025 Arm Limited
+# Copyright (c) 2020,2025-2026 Arm Limited
 # Copyright (c) 2021-2022 Chris Reed
 # Copyright (c) 2023 Marian Muller Rebeyrol
 # Copyright (c) 2026 Christophe Dufaza
+# Copyright (c) 2026 Aditya Nikam
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,9 +50,6 @@ class JLinkProbe(DebugProbe):
 
     # Bitmasks for AP register address fields.
     A32 = 0x0000000c
-    APBANKSEL = 0x000000f0
-    APSEL = 0xff000000
-    APSEL_APBANKSEL = APSEL | APBANKSEL
 
     @classmethod
     def _get_jlink(cls) -> Optional[pylink.JLink]:
@@ -160,7 +158,7 @@ class JLinkProbe(DebugProbe):
 
     @property
     def is_open(self):
-        return self._link.opened
+        return self._link.opened()
 
     @property
     def capabilities(self):
@@ -498,7 +496,10 @@ class JLinkProbe(DebugProbe):
 
     def swo_read(self):
         try:
-            return self._link.swo_read(0, self._link.swo_num_bytes(), True)
+            count = self._link.swo_num_bytes()
+            if count == 0:
+                return bytearray()
+            return self._link.swo_read(0, count, True)
         except JLinkException as exc:
             raise self._convert_exception(exc) from exc
 

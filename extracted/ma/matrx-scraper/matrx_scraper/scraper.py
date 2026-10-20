@@ -79,6 +79,14 @@ def _curl_pin_options(url: str, *, direct: bool) -> dict[Any, Any]:
     return {CurlOpt.RESOLVE: [f"{parts.hostname}:{port}:{pinned}"]}
 
 
+def _cookie_signature(session: Any) -> Any:
+    """What the session would send next: used to tell a cookie handshake from a loop."""
+    try:
+        return tuple(sorted((c.domain, c.name, c.value) for c in session.cookies.jar))
+    except Exception:  # noqa: BLE001 - unknown jar shape: fall back to "unchanged" (the old behavior)
+        return None
+
+
 def _curl_cffi_get_sync(
     url: str,
     *,
@@ -107,6 +115,12 @@ def _curl_cffi_get_sync(
         ttfb_us: int | None = 0
         max_redirects = 10
         redirect_loop = False
+        # url -> cookie-jar signature at the moment we last requested it. A
+        # REVISIT with a changed jar is a cookie handshake (ai.google.dev bounces
+        # original -> /oauth2authorize -> accounts.google.com -> /oauth2callback
+        # -> original, and only the second pass carries the session it set), not
+        # a loop. A revisit with the SAME jar can never produce a different answer.
+        visited_state: dict[str, Any] = {}
         for redirect_count in range(max_redirects + 1):
             # EVERY hop is checked before it is requested. On a direct
             # connection the hop is also PINNED: CURLOPT_RESOLVE makes curl
@@ -116,6 +130,7 @@ def _curl_cffi_get_sync(
             # check still runs (a refusal is final) but there is nothing of
             # ours to pin; a name only the proxy can resolve is let through.
             session.curl_options = _curl_pin_options(current_url, direct=proxy is None)
+            visited_state[current_url] = _cookie_signature(session)
             resp = session.get(
                 current_url,
                 headers=headers,
@@ -136,7 +151,9 @@ def _curl_cffi_get_sync(
                 {"status": int(resp.status_code), "url": response_url or current_url}
             )
             next_url = urljoin(response_url or current_url, location)
-            if any(hop.get("url") == next_url for hop in redirect_chain):
+            if any(hop.get("url") == next_url for hop in redirect_chain) and (
+                visited_state.get(next_url) == _cookie_signature(session)
+            ):
                 # A LOOP is an answer, not a transport failure: the server
                 # responded every time, it just never arrives anywhere. Record
                 # the revisit as the chain's last hop (so the loop is visible in
@@ -396,6 +413,20 @@ BLOCK_BODY_MARKERS = (
     "please complete the security check",          # Cloudflare legacy captcha ("One more step")
     "completing the captcha proves you are a human",  # Cloudflare legacy captcha
     "let's confirm you are human",                 # generic "Human Verification"
+    # Owner-approved wall phrases (advanced-reader design, 2026-10-16) — short pages only.
+    "verifying you are not a robot",
+    "verify you are not a robot",
+    "are you human",
+    "robot or human",
+    "access denied",
+    # Walls seen as SUCCESSFUL thin rows in scraper.scrape_parsed_page (2026-10-19 sweep).
+    "activate and hold the button",                # Walmart / PerimeterX "Robot or human?"
+    "you have been blocked",                       # Cloudflare "Sorry, you have been blocked"
+    "request blocked. we can't connect",           # CloudFront 403 variant
+    "click the button below to continue shopping", # Amazon bot interstitial
+    "we are optimizing your request",              # generic wait screen
+    "confirm you are human",                       # "Let's confirm you are human"
+    "complete the security check",                 # "One more step" captcha
 )
 BLOCK_WIDGET_SELECTORS = (
     'iframe[src*="hcaptcha.com"]',
@@ -463,10 +494,10 @@ def challenge_text_reason(*, title: str | None, text: str | None) -> str | None:
     excerpt, not the DOM. Only a SHORT page can be the wall itself: a long article whose
     title happens to contain "Access Denied" is an article.
     """
-    body = " ".join((text or "").split()).lower()
+    body = " ".join((text or "").split()).lower().replace("\u2019", "'")
     if len(body) > SHORT_PAGE_CHARS:
         return None
-    lowered_title = (title or "").strip().lower()
+    lowered_title = (title or "").strip().lower().replace("\u2019", "'")
     marker = next(
         (m for m in (*CHALLENGE_TITLE_MARKERS, *BLOCK_TITLE_MARKERS) if lowered_title and m in lowered_title),
         None,
@@ -513,7 +544,7 @@ def primary_failure_reason(fatal_reasons: list[dict]) -> FailureReason:
     """The most SPECIFIC diagnosis, not the first one appended.
 
     The status check appends BAD_STATUS before the challenge selectors run, so
-    first-wins labelled a Cloudflare interstitial served as 503 `bad_status` —
+    first-wins labeled a Cloudflare interstitial served as 503 `bad_status` —
     and the crawler's browser escalation, which keys on that label, skipped the
     one fetch that recovers a challenge page.
     """
@@ -621,8 +652,88 @@ def httpx_decodable_encodings() -> str:
     return ", ".join(encodings)
 
 
+_CHROME_TARGET_RE = re.compile(r"^chrome(\d+)$")
+
+
+def newest_chrome_target() -> str | None:
+    """The newest desktop Chrome target the INSTALLED curl_cffi can impersonate.
+
+    Detected from the library's own ``BrowserType`` list, never a pinned literal,
+    so a ``curl_cffi`` upgrade moves us to the new Chrome with no code change.
+    Android and variant targets (``chrome133a``, ``chrome99_android``) are
+    skipped: a datacenter-or-desktop fetch must not claim to be a phone."""
+    if not CURL_CFFI_AVAILABLE:
+        return None
+    try:
+        from curl_cffi.requests import BrowserType
+    except ImportError:  # pragma: no cover - very old curl_cffi
+        return None
+    versions = [
+        int(m.group(1))
+        for b in BrowserType
+        if (m := _CHROME_TARGET_RE.match(str(getattr(b, "value", b))))
+    ]
+    return f"chrome{max(versions)}" if versions else None
+
+
+def impersonation_target() -> str:
+    """The curl_cffi impersonation target for a plain fetch.
+
+    ``knowledge.scraper.impersonate_target`` is ``auto`` (the newest Chrome the
+    installed library supports) or an explicit target such as ``chrome131``."""
+    from matrx_scraper.parser.knobs import parser_knob
+
+    # KNOB MIRROR: knowledge.scraper.impersonate_target = "auto"
+    override = str(parser_knob("impersonate_target", "auto") or "auto").strip()
+    if override and override.lower() != "auto":
+        return override
+    return newest_chrome_target() or "chrome131"
+
+
+def _library_header_profile() -> dict:
+    """A header profile whose wire headers are BUILT BY curl_cffi.
+
+    A hand-written Sec-Ch-Ua / Accept / Accept-Encoding set drifts from the TLS
+    and HTTP/2 fingerprint the impersonation target sends and is itself a tell
+    (the 62-URL benchmark: random pinned profiles 26 passes, the library's own
+    latest-Chrome headers 31). The curl path therefore sends NO profile headers
+    (only a caller's Referer / User-Agent override). ``headers`` is kept for the
+    httpx fallback, which has no library to build them."""
+    target = impersonation_target()
+    match = _CHROME_TARGET_RE.match(target)
+    major = match.group(1) if match else "131"
+    base = HEADER_PROFILES[0]["headers"].copy()
+    base["User-Agent"] = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        f"(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36"
+    )
+    base["Sec-Ch-Ua"] = f'"Chromium";v="{major}", "Not_A Brand";v="24"'
+    return {
+        "name": f"Chrome {major} (library headers)",
+        "impersonate": target,
+        "library_headers": True,
+        "headers": base,
+    }
+
+
+def _curl_wire_headers(profile: dict, request_headers: dict[str, str], user_agent: str | None) -> dict[str, str]:
+    """Headers handed to curl_cffi: all of them for a hand-written profile; for a
+    library-built one only the caller's own additions (Referer, UA override)."""
+    if not profile.get("library_headers"):
+        return request_headers
+    extras = {k: v for k, v in request_headers.items() if k.lower() == "referer"}
+    if user_agent:
+        extras["User-Agent"] = request_headers["User-Agent"]
+    return extras
+
+
 def get_random_header_profile() -> dict:
-    """Get a random coherent browser header profile"""
+    """The default header profile: latest Chrome, headers built by curl_cffi.
+
+    Falls back to a random hand-written profile only when curl_cffi is absent
+    (the httpx path, which needs explicit headers)."""
+    if CURL_CFFI_AVAILABLE:
+        return _library_header_profile()
     profile = random.choice(HEADER_PROFILES)
     return profile.copy()
 
@@ -668,7 +779,7 @@ def _to_iso_timestamp(timestamp: str | None) -> str | None:
     # publishers stamp pages with: "10/21/2013 19:00:00", "Mon, 21 Oct 2013",
     # "March 26 2025", etc. Returning the raw string here is a footgun for
     # downstream consumers (every ORM / Pydantic write rejects it), so we
-    # either normalise to ISO or return None.
+    # either normalize to ISO or return None.
     try:
         from dateutil import parser as _dateutil_parser  # noqa: PLC0415
     except ImportError:
@@ -915,7 +1026,7 @@ async def fetch(
     """`user_agent`, when set, REPLACES the User-Agent this fetch would have
     sent — on the HTTP transports (curl_cffi and httpx) and on the inline
     Playwright branch alike. `None` means "no override": every transport keeps
-    its existing behaviour byte-for-byte. See `matrx_scraper.user_agents`."""
+    its existing behavior byte-for-byte. See `matrx_scraper.user_agents`."""
     user_agent = normalize_user_agent(user_agent)
     proxy_used = bool(proxy)
     content = ""
@@ -1052,12 +1163,12 @@ async def fetch(
             # Sync Session in a worker thread — avoids blocking the event loop
             # on curl_multi_cleanup (see loop_watchdog stalls on aidream-api).
             if use_curl_cffi and CURL_CFFI_AVAILABLE:
-                impersonate = header_profile.get("impersonate", "chrome131")
+                impersonate = header_profile.get("impersonate") or impersonation_target()
                 fetched = await asyncio.to_thread(
                     _curl_cffi_get_sync,
                     url,
                     impersonate=impersonate,
-                    headers=request_headers,
+                    headers=_curl_wire_headers(header_profile, request_headers, user_agent),
                     proxy=proxy,
                     is_likely_binary=is_likely_binary,
                 )
@@ -1107,7 +1218,7 @@ async def fetch(
                     # elapsed time to that point IS the TTFB (redirect hops
                     # included, since httpx follows them inside this call).
                     # `aread()` immediately after restores the ordinary
-                    # buffered behaviour — `.text` / `.content` are unaffected.
+                    # buffered behavior — `.text` / `.content` are unaffected.
                     request = client.build_request("GET", url)
                     ttfb_t0 = time.monotonic()
                     resp = await client.send(request, follow_redirects=True, stream=True)
@@ -1275,8 +1386,10 @@ async def fetch(
         body_copy = selectolax_soup.body
         if body_copy:
             junk_selectors = "nav, header, footer, script, noscript, style"
-            for node in body_copy.css(junk_selectors):
-                node.decompose()
+            # <nav> inside <header> is the norm: decompose_all never touches a node already freed (html_nodes).
+            from matrx_scraper.html_nodes import decompose_all
+
+            decompose_all(body_copy.css(junk_selectors))
             text_content = body_copy.text(separator=" ", strip=True)
             if len(text_content) < 100:
                 failed_reasons.append(

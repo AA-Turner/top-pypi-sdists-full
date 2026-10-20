@@ -14,7 +14,7 @@ CONJUNCTIONS = frozenset({
     # entry that is ALSO generational vocabulary -- 'i' is the roman
     # numeral I, a bare entry of SUFFIX_WORDS -- so the carve-out
     # counts it as a name word for its own sake and it joins only
-    # with a name word on each side (rules.md#P3).
+    # with a name word on each side (rules/P3).
     'i',
     # #269: Cyrillic (ru/uk/bg) "and": и, і, та. Ukrainian writes і and
     # й for the same conjunction, alternating on the surrounding
@@ -56,7 +56,9 @@ CONJUNCTIONS_AMBIGUOUS = frozenset({
     # 'i' (Catalan/Polish) ships here beside 'e' for the same reason
     # (#397): a bare I initial is as common as a bare E, so a name
     # written wholly in one case reads the letter as an initial and
-    # reports the fork rather than joining in silence.
+    # reports the fork rather than joining in silence -- where a name
+    # word follows it in its part, there being nothing to join
+    # otherwise (#721).
     #
     # A caller edits the vocabulary rather than a switch: remove 'e' to
     # restore joining for Portuguese data, remove 'i' for Catalan or
@@ -81,7 +83,7 @@ assert_normalized("CONJUNCTIONS", CONJUNCTIONS)
 # deliberately absent from Lexicon's subset checks, so a CALLER'S
 # orphan is never rejected -- it is inert instead, the classify fork
 # and its emitter both requiring the base entry before they read the
-# marker (see decisions.md#P3, the 2026-09-13 entries).
+# marker (see decisions/P3, the 2026-09-13 entries).
 assert CONJUNCTIONS_AMBIGUOUS <= CONJUNCTIONS, \
     "CONJUNCTIONS_AMBIGUOUS must stay a subset of CONJUNCTIONS"
 assert all(len(w) == 1 and w.upper() != w.lower()

@@ -1,7 +1,7 @@
 """OpenAI-compatible stream usage regressions.
 
 Moonshot returns terminal usage on ``choices[0].usage``. The generic adapter
-must normalise that shape just as it does the more common ``chunk.usage`` one,
+must normalize that shape just as it does the more common ``chunk.usage`` one,
 or successful billed calls are persisted as zero-token requests.
 """
 

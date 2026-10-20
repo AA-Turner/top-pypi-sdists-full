@@ -2,7 +2,7 @@
 
 Each test names the real use: a support-reply drafter whose system prompt is
 cached, whose two example exchanges are few-shot turns, and whose reply must
-start "Dear". The translators decide the wire; a flag a model cannot honour is
+start "Dear". The translators decide the wire; a flag a model cannot honor is
 refused, converted or dropped by the org's mode — never silently lost.
 """
 
@@ -124,7 +124,53 @@ def test_native_prefill_is_kept_on_the_wire() -> None:
 
 def test_refuse_names_the_model_before_any_spend() -> None:
     with pytest.raises(MessageFlagRefusal, match="claude-sonnet-5 cannot continue a reply from a prefill"):
-        plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5")
+        plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5", mode="refuse")
+
+
+def test_default_is_convert_so_a_prefill_never_fails_every_run() -> None:
+    # 2026-10-17: "Support reply drafter" (claude-haiku-5-5, authored prefill) failed
+    # EVERY run with prefill_unsupported. With no org mode set the run must go ahead:
+    # the prefill rides as an instruction and the plan carries the announcement.
+    plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-haiku-5-5")
+    assert plan.prefill_mode == "convert"
+    assert plan.wire_messages[-1].role == "user"
+    assert any("claude-haiku-5-5 cannot take a prefill" in n for n in plan.notes)
+    # an unreadable / unknown org value also lands on convert, not a failed run
+    assert plan_message_flags(
+        _drafter(), supports_prefill=False, model_label="m", mode="garbage"
+    ).prefill_mode == "convert"
+
+
+def test_a_model_that_ignores_the_instruction_is_recorded_not_hidden() -> None:
+    plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-haiku-5-5")
+    reply = _msg("assistant", "Hello Priya, sorry about the screen protector.")
+    record = apply_prefill_to_reply([reply], plan)
+    assert record and record["forced"] is False and record["starts_with_prefill"] is False
+    assert plan.prefill_model_label == "claude-haiku-5-5"
+    ok = _msg("assistant", "Dear Priya, sorry about the screen protector.")
+    plan2 = plan_message_flags(_drafter(), supports_prefill=False, model_label="m")
+    assert apply_prefill_to_reply([ok], plan2)["starts_with_prefill"] is True  # type: ignore[index]
+
+
+def test_finish_announces_a_non_compliant_convert() -> None:
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+
+    from matrx_ai.providers import unified_client as uc
+
+    plan = plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-haiku-5-5")
+    response = SimpleNamespace(messages=[_msg("assistant", "Hi Priya, sorry.")])
+
+    async def run() -> AsyncMock:
+        with patch.object(uc, "_announce_flag_notes", new=AsyncMock()) as announce:
+            uc._finish_message_flags(response, plan)
+            await asyncio.sleep(0)
+            return announce
+
+    announce = asyncio.run(run())
+    announce.assert_awaited_once()
+    assert "did not begin its reply" in announce.await_args.args[0][0]
 
 
 def test_convert_asks_for_the_start_and_says_so() -> None:
@@ -199,7 +245,7 @@ def test_refusal_is_not_retried_and_keeps_its_sentence() -> None:
     from matrx_ai.providers.errors import classify_internal_error
 
     try:
-        plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5")
+        plan_message_flags(_drafter(), supports_prefill=False, model_label="claude-sonnet-5", mode="refuse")
     except MessageFlagRefusal as exc:
         classified = classify_internal_error(exc, "anthropic")
     assert classified is not None and classified.is_retryable is False

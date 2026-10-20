@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: exa-py
-Version: 2.25.0
+Version: 2.26.0
 Summary: Python SDK for Exa API.
 License: MIT
 License-File: LICENSE
@@ -31,7 +31,7 @@ Description-Content-Type: text/markdown
 
 The official Python SDK for [Exa](https://exa.ai), the web search API for AI.
 
-**[Documentation](https://docs.exa.ai)** | **[Dashboard](https://dashboard.exa.ai)**
+**[Documentation](https://exa.ai/docs)** | **[Dashboard](https://dashboard.exa.ai)**
 
 ## Install
 
@@ -122,7 +122,7 @@ Deep search variants that also support `additional_queries`:
 
 ### Raw body fields
 
-Use `extra_body` for per-call search body overrides.
+Use `extra_body` for per-call search body overrides. Every other method takes it too; see [Request options](#request-options).
 
 ```python
 result = exa.search("AI research", extra_body={"futureField": True})
@@ -132,7 +132,7 @@ result = exa.search("AI research", extra_body={"futureField": True})
 
 ```python
 results = exa.get_contents(
-    ["https://docs.exa.ai"],
+    ["https://exa.ai/docs"],
     text=True
 )
 ```
@@ -271,7 +271,7 @@ run = exa.agent.runs.create(
 
 Agent Monitors use the beta namespace and require the `AGENT_MONITORS_BETA_HEADER` beta identifier (`agent-monitors-2026-08-04`).
 
-An Agent Monitor keeps a table of entities × fields fresh on a cadence: static fields are answered once per entity over the live web, dynamic fields are tracked from news on every refresh.
+An Agent Monitor keeps a table of entities × fields fresh on a cadence.
 
 ```python
 from exa_py.agent import AGENT_MONITORS_BETA_HEADER
@@ -288,8 +288,8 @@ monitor = exa.beta.agent.monitors.create(
         {"name": "Globex", "domain": "globex.com"},
     ],
     fields=[
-        {"name": "funding", "description": "New funding rounds"},  # dynamic by default
-        {"name": "ceo", "description": "The company's current CEO", "mode": "static"},
+        {"name": "funding", "description": "New funding rounds"},
+        {"name": "ceo", "description": "The company's current CEO"},
     ],
     idempotency_key="my-monitor-1",  # safe retries: same key returns the same monitor
 )
@@ -336,7 +336,105 @@ exa = AsyncExa(api_key="your-api-key")
 results = await exa.search("async search example", contents={"highlights": True})
 ```
 
+## Request options
+
+Every API method takes three keyword arguments on top of its own, on `Exa` and `AsyncExa` alike:
+
+| Argument        | Effect                                         |
+| --------------- | ---------------------------------------------- |
+| `extra_body`    | Extra fields merged over the JSON request body |
+| `extra_headers` | Extra request headers                          |
+| `extra_query`   | Extra query parameters                         |
+
+```python
+# Send a field the SDK does not type yet.
+exa.get_contents("https://example.com", text=True, extra_body={"futureField": True})
+
+exa.websets.list(
+    limit=10,
+    extra_query={"futureParam": "value"},
+    extra_headers={"X-Request-Source": "nightly"},
+)
+```
+
+They add to the request the method builds. On a name the method also sets, your value wins.
+
+- `extra_body` is sent with `POST` and `PATCH` requests. Other requests ignore it; use `extra_query` there.
+- `extra_query` skips a parameter set to `None` and sends `True` and `False` as `true` and `false`, from both clients.
+- A header the SDK sets, such as `User-Agent`, is replaced whatever its case. A header set to `None` is skipped.
+- The method you call decides whether the response streams. `stream` is never taken from `extra_body` or `extra_query`, and an extra `Accept` header neither starts a stream nor replaces the `Accept` of a streaming method: call the streaming method instead.
+- Helpers that make several requests (`list_all`, `get_all`, `poll_until_finished`, `create_and_wait`, `wait_until_idle`) apply them to each one, so `create_and_wait` sends `extra_body` with the create request and not with its polls. A `cursor` in `extra_query` picks the first page of `list_all` and `get_all`; the helper advances from there.
+- A CSV import's upload goes to a presigned URL and receives none of the three.
+- The LLM tool helpers (`exa.tools`, `exa.openai`, `exa.anthropic`) pass the options and `timeout` given when you create a tool to every request it makes, for example `exa.openai.web_search(timeout=10, extra_headers={"X-Request-Source": "agent"})`. `run`, `execute` and the `handle_tool_calls` / `handle_tool_use` helpers take none per call.
+
+## Timeouts and cancellation
+
+The sync and async clients default to a 600-second **network inactivity timeout** (not a wall-clock deadline). Set a client-wide value or override it for a search, contents, answer, or streaming call; use `None` at construction to disable it. A per-call `None` inherits the client's value.
+
+```python
+from exa_py import Exa
+
+exa = Exa(api_key="your-api-key", timeout=30)
+results = exa.search("latest AI developments", timeout=5)
+```
+
+A request that exceeds its timeout raises `ExaTimeoutError`, from the sync and the async client alike:
+
+```python
+from exa_py import Exa, ExaTimeoutError
+
+exa = Exa(api_key="your-api-key")
+try:
+    results = exa.search("latest AI developments", timeout=5)
+except ExaTimeoutError:
+    results = None
+```
+
+The error is also an instance of the exception the HTTP library raised, so handlers written for those keep working:
+
+- `AsyncExa`: an `httpx.TimeoutException`.
+- `Exa`: a `requests.exceptions.Timeout` while connecting or waiting for the response to start, and a `requests.exceptions.ConnectionError` when the response stalls after it started, as Requests reports it.
+
+With `AsyncExa`, cancel an in-flight operation by cancelling the task awaiting it:
+
+```python
+import asyncio
+from exa_py import AsyncExa
+
+exa = AsyncExa(api_key="your-api-key")
+task = asyncio.create_task(exa.search("latest AI developments"))
+task.cancel()
+```
+
+When stopping an async search/answer stream early, call `await stream.aclose()` to release its HTTP connection; cancellation while awaiting the next chunk also closes it. The sync client cannot cancel a blocking read from another thread; the timeout bounds each period of network inactivity. Both constructors and per-call overrides require a positive finite timeout when not `None`.
+
+## Warnings
+
+The API can return `warnings` about a request, such as a field it ignores. At the time of writing, search responses carry them, including `stream_search`. A warning never changes the status code or the results. It is for whoever maintains the code that builds the request. Fix the request, and don't pass the warning to a model. The response keeps them in `warnings`.
+
+The client also issues each one as an `ExaWarning` through Python's `warnings` module, attributed to the line of your code that made the call:
+
+```text
+app.py:12: ExaWarning: [exa] POST /search IGNORED_FIELD at /startCrawlDate: startCrawlDate is no longer supported and is ignored. Remove it from the request.
+```
+
+Python's default filter shows a given warning once per calling line. Silence them, or route them to logging:
+
+```python
+import logging
+import warnings
+
+from exa_py import ExaWarning
+
+warnings.filterwarnings("ignore", category=ExaWarning)  # silence them
+logging.captureWarnings(True)  # or send them to the "py.warnings" logger
+```
+
+Each `ExaWarning` has the attributes `warning`, `endpoint`, `method` and `request_id`. `warning` is the `ApiWarning`, with its `code`, `path` and `message`.
+
+Deprecated options raise a `DeprecationWarning` before the request is sent, whether you set them as options or through `extra_body`. At the time of writing, those are `start_crawl_date`, `end_crawl_date`, and the highlights options `num_sentences` and `highlights_per_url`. Python shows a `DeprecationWarning` by default only for code run as `__main__`. Test runners such as pytest show them too.
+
 ## More
 
-See the [full documentation](https://docs.exa.ai) for all features including websets, filters, and advanced options.
+See the [full documentation](https://exa.ai/docs) for all features including websets, filters, and advanced options.
 

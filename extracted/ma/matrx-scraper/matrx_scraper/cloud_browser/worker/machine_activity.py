@@ -6,12 +6,21 @@ Browser activity is counted by the control plane from browser commands and
 input, never here. Everything else — a shell job, a compiler, a terminal the
 person types in — is reported as cumulative CPU ticks so two readings show
 whether anything ran in between.
+
+CPU alone misses work that waits on the network (a download, an upload, a
+build fetching packages: review D7, 2026-10-18), so the reading also carries
+the I/O those programs did (``/proc/<pid>/io``), the machine's network bytes
+(``/proc/net/dev``), each as a rate since the previous reading, and the agent
+shell work still running (processes under the agent daemon, agent calls in
+flight). The control plane never moves a build while any of it is non-zero.
 """
 
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
+from typing import Any
 
 #: Process names (``/proc/<pid>/comm``, max 15 chars) of the platform's own
 #: always-busy stack. Generic names (python, bash, sh) are NOT here: a person's
@@ -31,6 +40,12 @@ PLATFORM_PROCESSES = frozenset(
         "gst-plugin-scan",
         "openbox",
         "tint2",
+        # The desktop icons/wallpaper (redraws whenever the screen changes),
+        # the container's init, and the entrypoint's user switch — measured
+        # ticking on an idle live machine 2026-10-17.
+        "pcmanfm",
+        "init",
+        "runuser",
         "pulseaudio",
         "dbus-daemon",
         "dbus-launch",
@@ -111,25 +126,103 @@ def read_input_idle_ms(display: str | None = None) -> int | None:
         xlib.XCloseDisplay(dpy)
 
 
-def read_machine_activity(proc_root: str = "/proc") -> dict[str, object]:
+class InFlight:
+    """Agent calls running right now through the machine's ``/agent`` door."""
+
+    def __init__(self) -> None:
+        self.count = 0
+
+    def __enter__(self) -> InFlight:
+        self.count += 1
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.count -= 1
+
+
+AGENT_CALLS = InFlight()
+
+#: The previous reading's counters, so each reading reports a rate.
+_last_sample: dict[str, float] = {}
+
+
+def _rate(key: str, value: int | None, now: float, sample: dict[str, float]) -> float | None:
+    """Bytes per second since the previous reading (None for the first one)."""
+    if value is None:
+        return None
+    prev_t, prev_v = sample.get(f"{key}_t"), sample.get(key)
+    sample[f"{key}_t"], sample[key] = now, float(value)
+    if prev_t is None or prev_v is None or now <= prev_t or value < prev_v:
+        return None
+    return (value - prev_v) / (now - prev_t)
+
+
+def read_net_bytes(proc_root: str = "/proc") -> int | None:
+    """Received + sent bytes on every interface but loopback (None when unreadable)."""
+    text = _read(Path(proc_root) / "net/dev")
+    if text is None:
+        return None
+    total = 0
+    for line in text.splitlines()[2:]:
+        if ":" not in line:
+            continue
+        name, data = line.split(":", 1)
+        cols = data.split()
+        if name.strip() == "lo" or len(cols) < 9:
+            continue
+        try:
+            total += int(cols[0]) + int(cols[8])
+        except ValueError:
+            continue
+    return total
+
+
+def _io_bytes(entry: Path) -> int | None:
+    """``rchar + wchar`` of one process: every read and write, sockets included."""
+    text = _read(entry / "io")
+    if text is None:
+        return None
+    vals = dict(line.split(":", 1) for line in text.splitlines() if ":" in line)
+    try:
+        return int(vals.get("rchar", 0)) + int(vals.get("wchar", 0))
+    except ValueError:
+        return None
+
+
+def read_machine_activity(
+    proc_root: str = "/proc",
+    *,
+    agent_pid: int | None = None,
+    work: dict[str, Any] | None = None,
+    clock: Any = time.monotonic,
+    sample: dict[str, float] | None = None,
+) -> dict[str, object]:
     root = Path(proc_root)
     if not root.is_dir():
         return {"available": False, "reason": "no /proc on this host"}
+    sample = _last_sample if sample is None else sample
     own = {os.getpid(), os.getppid()}
     ticks = 0
     running = 0
+    io_total = 0
+    io_known = False
     names: set[str] = set()
+    parents: dict[int, int] = {}
     for entry in root.iterdir():
-        if not entry.name.isdigit() or int(entry.name) in own:
+        if not entry.name.isdigit():
             continue
         stat = _read(entry / "stat")
         if not stat or ")" not in stat:
             continue
         # comm is inside the LAST parentheses; fields after it are space-separated.
+        fields = stat[stat.rindex(")") + 2 :].split()
+        if len(fields) >= 2 and fields[1].isdigit():
+            parents[int(entry.name)] = int(fields[1])
+        if int(entry.name) in own:
+            continue
         comm = stat[stat.index("(") + 1 : stat.rindex(")")]
         if comm in PLATFORM_PROCESSES:
             continue
-        fields = stat[stat.rindex(")") + 2 :].split()
         if len(fields) < 13:
             continue
         state = fields[0]
@@ -141,10 +234,34 @@ def read_machine_activity(proc_root: str = "/proc") -> dict[str, object]:
         if state in {"R", "D"}:
             running += 1
         names.add(comm)
+        io = _io_bytes(entry)
+        if io is not None:
+            io_total += io
+            io_known = True
+    agent_jobs = None
+    if agent_pid is not None:
+        # Every live process under the agent daemon: a running or backgrounded
+        # agent shell command, an open agent terminal.
+        agent_jobs = 0
+        for pid in parents:
+            parent, hops = parents.get(pid), 0
+            while parent is not None and parent > 1 and hops < 64:
+                if parent == agent_pid:
+                    agent_jobs += 1
+                    break
+                parent, hops = parents.get(parent), hops + 1
+    now = clock()
     return {
         "available": True,
         "foreign_cpu_ticks": ticks,
         "foreign_running": running,
         "foreign_processes": sorted(names)[:50],
         "input_idle_ms": read_input_idle_ms(),
+        "foreign_io_bytes_per_second": _rate("io", io_total if io_known else None, now, sample),
+        "net_bytes_per_second": _rate("net", read_net_bytes(proc_root), now, sample),
+        "agent_calls_in_flight": AGENT_CALLS.count,
+        "agent_jobs": agent_jobs,
+        "cloud_files": work,
+        #: The control plane moves a build only on a reading that carries these.
+        "work_signals": 1,
     }

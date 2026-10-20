@@ -75,6 +75,19 @@ from sqlbuild.adapter.type_system.main.normalize_type import normalize_type as n
 from sqlbuild.adapter.type_system.main.safe_cast_nullability import (
     safe_cast_nullability as safe_cast_nullability,
 )
+from sqlbuild.adapters.clickhouse._helpers.recall_store import (
+    close_recall_store as close_recall_store,
+)
+from sqlbuild.adapters.clickhouse._helpers.recall_store import (
+    connect_recall_store as connect_recall_store,
+)
+from sqlbuild.adapters.clickhouse._helpers.recall_store import (
+    insert_recall_rows as insert_recall_rows,
+)
+from sqlbuild.adapters.clickhouse._helpers.recall_store import (
+    run_recall_command as run_recall_command,
+)
+from sqlbuild.adapters.clickhouse._helpers.recall_store import run_recall_query as run_recall_query
 from sqlbuild.cli.commands.main.entrypoint._dispatch_with_compute_logs import (
     dispatch_with_compute_logs as dispatch_with_compute_logs,
 )
@@ -270,6 +283,15 @@ from sqlbuild.executor.old_name_views._helpers.janitor import (
     is_compatibility_view as is_compatibility_view,
 )
 from sqlbuild.executor.pipeline.exceptions import AuditExecutionError as AuditExecutionError
+from sqlbuild.executor.pipeline.exceptions import (
+    TemporaryTestFunctionError as TemporaryTestFunctionError,
+)
+from sqlbuild.executor.pipeline.exceptions import (
+    WarehouseConnectionError as WarehouseConnectionError,
+)
+from sqlbuild.executor.pipeline.main.raise_warehouse_connection_failure import (
+    raise_warehouse_connection_failure as raise_warehouse_connection_failure,
+)
 from sqlbuild.executor.pipeline.main.run import AuditPipelineCallbacks as AuditPipelineCallbacks
 from sqlbuild.executor.pipeline.main.run import (
     run_audit_pipeline_with_callbacks as run_audit_pipeline_with_callbacks,
@@ -485,6 +507,9 @@ from sqlbuild.runtime.event_exporting.exceptions import (
 )
 from sqlbuild.runtime.event_exporting.main._invoke_lifecycle_event_sink import (
     invoke_lifecycle_event_sink as invoke_lifecycle_event_sink,
+)
+from sqlbuild.runtime.event_exporting.main._invoke_recall_sink import (
+    invoke_recall_sink as invoke_recall_sink,
 )
 from sqlbuild.runtime.event_exporting.main._run_command_output_sinks import (
     run_command_output_sinks as run_command_output_sinks,

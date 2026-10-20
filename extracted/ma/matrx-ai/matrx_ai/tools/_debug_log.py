@@ -70,7 +70,7 @@ _sinks_forced = False
 
 # ── Host-injected switches ──────────────────────────────────────────────────
 #
-# Three behaviours used to ride environment variables
+# Three behaviors used to ride environment variables
 # (MATRX_TOOL_DEBUG_VERBOSE / _LOG_DISABLED / _DB_DISABLED). An env toggle lets
 # every machine running identical code disagree invisibly, so they are now
 # switches the HOST supplies as zero-arg callables — aidream binds them to

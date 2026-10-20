@@ -420,6 +420,12 @@ def _carry_mandate_attribution(agent: Any, child_metadata: dict[str, Any]) -> No
         )
 
 
+#: The caller's context-manifest keys a child run never inherits (see ``run_agent``).
+INHERITED_CONTEXT_METADATA_KEYS = frozenset(
+    {"context_objects", "context_receipt", "context_excluded_keys"}
+)
+
+
 async def run_agent(
     agent: Agent,
     *,
@@ -612,10 +618,16 @@ async def run_agent(
             )
 
             child_ctx = get_app_context()
+            # THE NO-LEAK GUARD (context passthrough): a child never inherits its caller's
+            # context manifest, receipt or exclusions. It prepares its own; a child whose
+            # preparation is skipped (no user, an empty manifest) would otherwise read the
+            # caller's whole manifest through the ``context`` tool. The caller's values reach a
+            # child only as ``Agent.host_parent_context``, filtered by the host.
             child_metadata = {
                 k: v
                 for k, v in child_ctx.metadata.items()
                 if k not in ("agent_name", CONVERSATION_STEP_LABEL_KEY)
+                and k not in INHERITED_CONTEXT_METADATA_KEYS
             }
             child_metadata[CONVERSATION_STEP_LABEL_KEY] = resolve_step_label_for_title(
                 label,
@@ -737,7 +749,7 @@ async def run_agent(
                 #
                 # A MANDATE CANDIDATE is not marked system_run at all: its run
                 # is the evidence a person reads beside the live run (PLAN
-                # §2.7). Every other system_run behaviour below — muted stream,
+                # §2.7). Every other system_run behavior below — muted stream,
                 # no client delegation, no citations — still applies, so what
                 # the model is offered and sees is exactly the live run's.
                 from matrx_graph.candidate import candidate_marker
@@ -827,7 +839,7 @@ async def run_agent(
                     _contained_incomplete_reason = child_status or "empty_response"
                     mark_child_agent_failed(f"status={_contained_incomplete_reason}")
     except asyncio.CancelledError as _cancel_exc:
-        # A cancelled run (fan-out sibling cancellation via gather(), parent task
+        # A canceled run (fan-out sibling cancellation via gather(), parent task
         # teardown, shutdown) must still settle its spine execution — the except
         # Exception branch below can't see BaseException, and an unsettled row
         # sits RUNNING until the reaper false-fails it as `matrx_execution_abandoned`

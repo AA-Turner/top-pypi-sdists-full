@@ -133,7 +133,7 @@ async def _duplicate_shape_refusal(
     (`action_io_*` / `tool_io_*` / `agent_io_*`) — every tool that shares an
     input shape with another collides by construction, and refusing those would
     break the contract publisher. Only `family == "user_authored"` kinds that
-    are ACTIVE are catalogue items a human picks, and only those may collide.
+    are ACTIVE are catalog items a human picks, and only those may collide.
     An inactive kind is already out of the bindable index, so it cannot shadow
     anything and must not block a mint.
 

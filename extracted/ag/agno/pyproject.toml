@@ -1,6 +1,6 @@
 [project]
 name = "agno"
-version = "3.1.4"
+version = "3.1.6"
 description = "The programming language for agentic software."
 requires-python = ">=3.9,<4"
 readme = "README.md"
@@ -444,6 +444,8 @@ tests = [
     "agno[cookbooks]",
     "agno[agui]",
     "agno[integration-tests]",
+    # In-process S3 for the sandbox checkpoint store tests.
+    "moto[s3]>=5",
     "twine",
     "build",
     "grpcio>=1.76.0",
@@ -520,7 +522,7 @@ build-backend = "setuptools.build_meta"
 include = ["agno*"]
 
 [tool.setuptools.package-data]
-agno = ["py.typed"]
+agno = ["py.typed", "company/skills/*/SKILL.md"]
 include = ["LICENSE"]
 
 [tool.pytest.ini_options]
@@ -528,6 +530,7 @@ log_cli = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
+  "live: opt-in tests against public external services",
   "integration: tests that need live services (kernels, databases)",
 ]
 

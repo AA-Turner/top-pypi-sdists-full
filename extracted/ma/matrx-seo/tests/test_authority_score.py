@@ -1,6 +1,6 @@
 """The Matrx Authority Score's promises, pinned.
 
-The two that matter most are behavioural, not numeric: an unmeasured domain must
+The two that matter most are behavioral, not numeric: an unmeasured domain must
 never score 0 (it would sort as "worthless" when we simply do not know), and a
 score must always be able to explain itself to a human.
 """

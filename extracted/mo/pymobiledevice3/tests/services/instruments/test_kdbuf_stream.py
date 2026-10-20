@@ -5,7 +5,7 @@ from datetime import timezone
 from typing import Any
 
 import pytest
-from pykdebugparser.kd_buf_parser import RAW_VERSION2_BYTES
+from pykdebugparser.kd_buf_parser import RAW_VERSION2_BYTES, V2_EVENTS_ALIGNMENT
 from pykdebugparser.pykdebugparser import PyKdebugParser
 
 from pymobiledevice3.services.dvt.instruments.core_profile_session_tap import (
@@ -17,9 +17,8 @@ from pymobiledevice3.services.dvt.instruments.core_profile_session_tap import (
 BSC_GETPID = 0x040C0050
 DBG_FUNC_START = 1
 DBG_FUNC_END = 2
-# kd_header_v2 with an empty threadmap, followed by non-zero slack that is not a whole record (like the
-# threadmap slack at the end of the device's 1 MiB header chunk).
-HEADER_CHUNK = RAW_VERSION2_BYTES + struct.pack("<I8x4xIQ256x", 0, 1, 1) + b"\xff" * 32
+# kd_header_v2 with an empty threadmap, padded to 4 KiB with stale non-zero bytes, like the device's header chunk.
+HEADER_CHUNK = (RAW_VERSION2_BYTES + struct.pack("<I8x4xIQ256x", 0, 1, 1)).ljust(V2_EVENTS_ALIGNMENT, b"\xff")
 
 
 # Event clock = host monotonic clock + a day: a constant offset the stream must absorb anyway, which keeps
@@ -64,7 +63,7 @@ def test_read_skips_bplist_and_stackshot_chunks() -> None:
 
 
 def test_read_restarts_at_next_chunk_boundary() -> None:
-    # The header chunk ends in slack that is not a whole record; the next chunk must start a fresh record.
+    # A chunk that ends in a partial record must not misalign the next chunk's records.
     stream = make_stream(kd_buf(1) + b"\xff" * 32, kd_buf(2) + kd_buf(3))
     assert read_timestamps(stream) == [1, 2, 3]
 
@@ -114,6 +113,15 @@ def test_end_of_stream_and_errors_still_arrive_while_skipping() -> None:
     assert all(read_timestamps_until_error)
     with pytest.raises(ConnectionError):
         stream.read(KD_BUF_SIZE)
+
+
+def test_reads_after_the_end_of_stream_do_not_wait_for_more_chunks() -> None:
+    stream = make_stream(kd_buf(1))
+    assert read_timestamps(stream) == [1]
+    # A chunk queued after the end must be neither read nor waited for (an empty queue would block forever).
+    stream.chunk_queue.put(kd_buf(2))
+    assert stream.read(KD_BUF_SIZE) == b""
+    assert stream.chunk_queue.qsize() == 1
 
 
 def test_max_lag_needs_a_clock() -> None:

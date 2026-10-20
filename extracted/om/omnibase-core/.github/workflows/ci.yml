@@ -167,22 +167,11 @@ jobs:
       RUNNER_FLEET_STATUS_TOKEN: ${{ secrets.RUNNER_FLEET_STATUS_TOKEN }}
       CROSS_REPO_PAT: ${{ secrets.CROSS_REPO_PAT }}
 
-  # OMN-16589: migrated from kb-doc-gate.yml to permanently close its expired
-  # pull-request-workflow-budget waiver. The caller job id deliberately remains
-  # `kb-doc-gate` and the reusable's job name remains `kb-doc-gate`, preserving
-  # the live required dev context byte-for-byte as `kb-doc-gate / kb-doc-gate`.
-  # The `if:` exactly preserves the retired workflow's trigger surface: it is
-  # always true for pull requests targeting dev, where the context is required,
-  # and false for every other ci.yml event (including PRs targeting main, where
-  # no required context is expected). No `needs:` means an unrelated failure
-  # cannot prevent the required check from being created. The immutable caller
-  # pin remains the reusable validator's single source of truth because the
-  # reusable checks its validator out at `github.job_workflow_sha`.
+  # OMN-17427: strict README-only validation in core's shared reusable.
+  # Keep the existing required kb-doc-gate / kb-doc-gate context and run on
+  # every CI event, including merge_group, without a path or outcome filter.
   kb-doc-gate:
-    if: github.event_name == 'pull_request' && github.base_ref == 'dev'
-    uses: OmniNode-ai/omniclaude/.github/workflows/kb-doc-gate-reusable.yml@966d61ce9f0c2eb6e18b317c2453bdfbe9eeb7d0
-    with:
-      mode: diff
+    uses: ./.github/workflows/kb-doc-gate-reusable.yml
     permissions:
       contents: read
 
@@ -2330,6 +2319,10 @@ jobs:
         run: |
           uv run pytest tests/unit/validators/test_backend_secret_discipline.py -v
 
+      # OMN-17427: blocking shared-token policy, mirrored by the pre-commit hook.
+      - name: Refuse unreviewed shared GitHub token uses
+        run: uv run python -m omnibase_core.nodes.node_source_file_gather_effect.runtime_shared_token_policy
+
       - name: Self-scan omnibase_core config (literal credentials + backend refs)
         run: |
           uv run python -m omnibase_core.validators.backend_secret_discipline src/
@@ -3802,7 +3795,10 @@ jobs:
     permissions:
       contents: read
       actions: read
-    secrets: inherit
+    # OMN-17427: pass only the App signing inputs this reusable needs.
+    secrets:
+      ONEXBOT_APP_ID: ${{ secrets.ONEXBOT_APP_ID }}
+      ONEXBOT_APP_PRIVATE_KEY: ${{ secrets.ONEXBOT_APP_PRIVATE_KEY }}
 
   # Folded from propagate-config.yml's `dry-run-ci-check`. That workflow filtered
   # `push` and `pull_request` on five paths; here the same five are matched
@@ -3821,7 +3817,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Same five paths as propagate-config.yml's `on.pull_request.paths`.
+      # The five paths propagate-config.yml's `on.pull_request.paths` filtered on
+      # before OMN-19998 removed that trigger.
       # pull_request and push compare against their base; a manual dispatch
       # always runs, as the standalone job did; merge_group and schedule never
       # ran it. When no diff can be computed the check runs: failing open to

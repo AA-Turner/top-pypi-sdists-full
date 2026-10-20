@@ -26,8 +26,12 @@ def test_fargate_volume_bootstrap_drops_privileges_before_worker_start() -> None
 
     privilege_drop = entrypoint.index("exec runuser --user browser-worker")
     xvfb_start = entrypoint.index('Xvfb "${worker_display}"')
-    server_start = entrypoint.index("uv run --no-sync uvicorn")
-    assert privilege_drop < xvfb_start < server_start
+    server_start = entrypoint.index("/app/.venv/bin/uvicorn matrx_scraper")
+    display_proof = entrypoint.index('if ! xdpyinfo -display "${worker_display}"')
+    assert privilege_drop < xvfb_start < server_start < display_proof
+    # The worker boots while the display comes up; a display that never answers
+    # still ends the container, and takes the already-started worker with it.
+    assert 'kill -TERM "${server_pid}"' in entrypoint[display_proof:]
 
 
 def test_volume_bootstrap_never_recursively_changes_profile_custody() -> None:

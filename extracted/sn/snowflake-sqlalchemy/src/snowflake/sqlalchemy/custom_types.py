@@ -1,14 +1,28 @@
 #
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 #
+from __future__ import annotations
+
 import decimal
+import json
 import keyword
+import uuid
 import warnings
-from typing import Optional, Tuple, Union
+from collections.abc import Callable
+from datetime import date, datetime, time
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import sqlalchemy.types as sqltypes
 import sqlalchemy.util as util
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.expression import ColumnElement
+from sqlalchemy.sql.visitors import InternalTraversal
 from sqlalchemy.types import TypeEngine
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine.interfaces import Dialect
+
+    from .snowdialect import SnowflakeDialect
 
 DECFLOAT_PRECISION = 38
 
@@ -24,7 +38,7 @@ TINYINT = sqltypes.SMALLINT
 VARBINARY = sqltypes.BINARY
 
 
-def _process_float(value):
+def _process_float(value: float | None) -> float | str | None:
     if value == float("inf"):
         return "inf"
     elif value == float("-inf"):
@@ -35,13 +49,203 @@ def _process_float(value):
 
 
 class SnowflakeType(sqltypes.TypeEngine):
-    def _default_dialect(self):
-        # Get around circular import
+    def _default_dialect(self) -> SnowflakeDialect:
+        # Get around circular import — SnowflakeDialect is only imported under TYPE_CHECKING
         return __import__("snowflake.sqlalchemy").sqlalchemy.dialect()
 
 
-class VARIANT(SnowflakeType):
+class _ParseJSONBind(ColumnElement):
+    """Wrap a bound semi-structured value so it renders as ``PARSE_JSON(:p)``.
+
+    ``TypeEngine.bind_expression`` has no access to the dialect, so the wrapping
+    element defers the decision to render ``PARSE_JSON`` to compile time, where
+    ``compiler.dialect`` is available. On Snowflake with
+    ``enable_structured_type_json`` set it renders ``PARSE_JSON(<inner>)``;
+    otherwise (flag off, or a non-Snowflake dialect) it renders the bare value,
+    so the presence of this wrapper is a no-op by default.
+
+    For typed structured columns (``MAP``, ``ARRAY(<type>)``, ``OBJECT(...)``)
+    ``cast_type`` is the declared type and the value renders as
+    ``CAST(PARSE_JSON(<inner>) AS <type>)``: Snowflake rejects a bare VARIANT
+    for a structured column ("incompatible types").
+    """
+
+    inherit_cache = True
+    # Without an explicit traversal, a custom ColumnElement falls back to
+    # NO_CACHE, which disables statement caching for every INSERT/UPDATE/WHERE
+    # that binds a value to a semi-structured column — even when the flag is off
+    # (bind_expression wraps unconditionally). Traversing ``wrapped`` keeps such
+    # statements cacheable; the dialect flag is fixed per engine, so it need not
+    # be part of the key.
+    _cache_key_traversal = [
+        ("wrapped", InternalTraversal.dp_clauseelement),
+        ("cast_type", InternalTraversal.dp_type),
+    ]
+
+    def __init__(
+        self, wrapped: ColumnElement, cast_type: TypeEngine | None = None
+    ) -> None:
+        self.wrapped = wrapped
+        self.cast_type = cast_type
+        self.type = sqltypes.NULLTYPE
+
+
+@compiles(_ParseJSONBind)
+def _render_parse_json_bind_default(element: _ParseJSONBind, compiler, **kw) -> str:
+    return compiler.process(element.wrapped, **kw)
+
+
+@compiles(_ParseJSONBind, "snowflake")
+def _render_parse_json_bind_snowflake(element: _ParseJSONBind, compiler, **kw) -> str:
+    inner = compiler.process(element.wrapped, **kw)
+    if not getattr(compiler.dialect, "_enable_structured_type_json", False):
+        return inner
+    if element.cast_type is None:
+        return f"PARSE_JSON({inner})"
+    type_sql = compiler.dialect.type_compiler_instance.process(element.cast_type)
+    return f"CAST(PARSE_JSON({inner}) AS {type_sql})"
+
+
+def _json_default_factory(dialect: Dialect) -> Callable[[Any], str]:
+    """Build a ``json.dumps(default=...)`` hook for Snowflake-storable scalars.
+
+    Snowflake can store UUID and DECFLOAT values directly inside VARIANT and
+    structured types, but ``json.dumps`` rejects ``uuid.UUID`` and
+    ``decimal.Decimal`` outright.  Both are rendered as JSON strings, matching
+    what Snowflake itself returns for ``OBJECT_CONSTRUCT('k', v::UUID)`` and
+    ``::DECFLOAT``.
+
+    ``Decimal`` is deliberately *not* emitted as a JSON number: a float would
+    round through 64-bit binary and lose digits past ~17, defeating DECFLOAT's
+    38-digit precision.  ``uuid.UUID`` is gated on ``enable_native_uuid`` so the
+    default behaviour (a ``TypeError``) is unchanged unless native UUID support
+    is opted into.
+    """
+
+    native_uuid = getattr(dialect, "_enable_native_uuid", False)
+
+    def default(value: Any) -> str:
+        if isinstance(value, decimal.Decimal):
+            return str(value)
+        if native_uuid and isinstance(value, uuid.UUID):
+            return str(value)
+        raise TypeError(
+            f"Object of type {type(value).__name__} is not JSON serializable"
+        )
+
+    return default
+
+
+class _SemiStructuredJSONMixin:
+    """Opt-in JSON deserialization for semi-structured columns.
+
+    When ``enable_structured_type_json`` is set on the dialect, reading a
+    VARIANT / OBJECT / ARRAY / MAP column deserializes the JSON text Snowflake
+    returns into native Python (``dict`` / ``list`` / ...). The dialect's
+    ``json_deserializer`` is used when provided, otherwise ``json.loads``.
+
+    The flag defaults to off, so without it these types behave exactly as
+    before (raw passthrough) and existing code is unaffected — no BCR.
+    """
+
+    def result_processor(
+        self, dialect: Dialect, coltype: object
+    ) -> Callable[[Any], Any] | None:
+        if not getattr(dialect, "_enable_structured_type_json", False):
+            return None
+
+        deserializer = getattr(dialect, "_json_deserializer", None) or json.loads
+
+        def process(value: Any) -> Any:
+            # Only decode the textual form Snowflake returns for semi-structured
+            # columns; leave None and any already-parsed value untouched.
+            if isinstance(value, (str, bytes, bytearray)):
+                return deserializer(value)
+            return value
+
+        return process
+
+    def _is_untyped_semi_structured(self) -> bool:
+        # Semi-structured (untyped) when no element/field/key typing is declared:
+        # VARIANT, OBJECT() and ARRAY(). Typed forms — OBJECT(a=...), ARRAY(<type>)
+        # and MAP(k, v) — are structured and need a cast to their declared type.
+        if getattr(self, "items_types", None):
+            return False
+        if getattr(self, "value_type", None) is not None:
+            return False
+        if getattr(self, "key_type", None) is not None:
+            return False
+        return True
+
+    def _json_write_enabled(self, dialect: Dialect) -> bool:
+        return bool(getattr(dialect, "_enable_structured_type_json", False))
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Any] | None:
+        if not self._json_write_enabled(dialect):
+            return None
+
+        # An explicitly configured serializer stays authoritative — the caller
+        # owns encoding decisions.  Only the built-in fallback gains the
+        # UUID/Decimal hook.
+        serializer = getattr(dialect, "_json_serializer", None)
+        if serializer is None:
+            default = _json_default_factory(dialect)
+
+            def serializer(obj: Any) -> str:
+                return json.dumps(obj, default=default)
+
+        def process(value: Any) -> Any:
+            # Serialize native Python objects to JSON text for PARSE_JSON; leave
+            # None and already-serialized text untouched (avoids double-encoding
+            # the documented ``json.dumps`` workaround).
+            if value is None or isinstance(value, (str, bytes, bytearray)):
+                return value
+            return serializer(value)
+
+        return process
+
+    def literal_processor(self, dialect: Dialect) -> Callable[[Any], str] | None:
+        if not self._json_write_enabled(dialect):
+            return None
+
+        def process(value: Any) -> str:
+            if value is None:
+                # SQL NULL, not the JSON literal 'null'.
+                return "NULL"
+            # Rendering the JSON as an inline SQL literal is unsafe: Snowflake
+            # unescapes backslashes in single-quoted literals *before* PARSE_JSON
+            # runs, so escaping cannot both preserve the data and prevent a
+            # crafted value from breaking out of the literal (SQL injection).
+            # The bound-parameter path (the default) is correct and safe, so
+            # refuse to inline instead of emitting an unsafe literal.
+            raise NotImplementedError(
+                "Rendering a semi-structured JSON value as a SQL literal is not "
+                "supported with enable_structured_type_json; execute the "
+                "statement with bound parameters (the default) instead of "
+                "literal_binds."
+            )
+
+        return process
+
+    def bind_expression(self, bindvalue: Any) -> Any:
+        # Wrap so the compiler renders PARSE_JSON(:p) on Snowflake when the flag
+        # is on; typed/structured columns also cast to their declared type.
+        cast_type = None
+        if isinstance(self, TypeEngine) and not self._is_untyped_semi_structured():
+            cast_type = self
+        return _ParseJSONBind(bindvalue, cast_type)
+
+
+class VARIANT(_SemiStructuredJSONMixin, sqltypes.Indexable, SnowflakeType):
     __visit_name__ = "VARIANT"
+
+    # Enable subscript access (``col["key"]`` / ``col[index]``) with JSON
+    # semantics; the compiler renders it as Snowflake's bracket accessor.
+    comparator_factory = sqltypes.JSON.Comparator
+
+    @property
+    def python_type(self) -> type:
+        return dict
 
 
 class VECTOR(SnowflakeType):
@@ -54,19 +258,18 @@ class VECTOR(SnowflakeType):
     """
 
     __visit_name__ = "VECTOR"
-
-    _VALID_ELEMENT_TYPES = {"INT", "FLOAT"}
+    _VALID_ELEMENT_TYPES: ClassVar[set[str]] = {"INT", "FLOAT"}
 
     def __init__(
-        self, element_type: Union[str, sqltypes.Integer, sqltypes.Float], dimension: int
-    ):
+        self, element_type: str | sqltypes.Integer | sqltypes.Float, dimension: int
+    ) -> None:
         self.element_type = self._normalize_element_type(element_type)
         self.dimension = self._normalize_dimension(dimension)
         super().__init__()
 
     def _normalize_element_type(
-        self, element_type: Union[str, sqltypes.Integer, sqltypes.Float]
-    ):
+        self, element_type: str | sqltypes.Integer | sqltypes.Float
+    ) -> str:
         if not isinstance(element_type, (str, sqltypes.Integer, sqltypes.Float)):
             raise TypeError(
                 f"VECTOR element type must be a string, SQLAlchemy INT or FLOAT type, got {type(element_type).__name__}."
@@ -87,7 +290,7 @@ class VECTOR(SnowflakeType):
 
     @staticmethod
     def _map_sqlalchemy_type(
-        element_type: Union[sqltypes.Integer, sqltypes.Float],
+        element_type: sqltypes.Integer | sqltypes.Float,
     ) -> str:
         if isinstance(element_type, sqltypes.Integer):
             return "INT"
@@ -109,12 +312,21 @@ class VECTOR(SnowflakeType):
             )
         return dimension
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"VECTOR({self.element_type}, {self.dimension})"
 
+    @property
+    def python_type(self) -> type:
+        return list
 
-class StructuredType(SnowflakeType):
-    def __init__(self, is_semi_structured: bool = False):
+
+class StructuredType(_SemiStructuredJSONMixin, sqltypes.Indexable, SnowflakeType):
+    # Enable subscript access (``col["key"]`` / ``col[index]``) with JSON
+    # semantics on OBJECT / ARRAY / MAP; the compiler renders it as
+    # Snowflake's bracket accessor.
+    comparator_factory = sqltypes.JSON.Comparator
+
+    def __init__(self, is_semi_structured: bool = False) -> None:
         self.is_semi_structured = is_semi_structured
         super().__init__()
 
@@ -127,26 +339,77 @@ class MAP(StructuredType):
         key_type: sqltypes.TypeEngine,
         value_type: sqltypes.TypeEngine,
         not_null: bool = False,
-    ):
+    ) -> None:
         self.key_type = key_type
         self.value_type = value_type
         self.not_null = not_null
         super().__init__()
 
+    @property
+    def python_type(self) -> type:
+        return dict
+
 
 class OBJECT(StructuredType):
     __visit_name__ = "OBJECT"
 
-    def __init__(self, **items_types: Union[TypeEngine, Tuple[TypeEngine, bool]]):
-        for key, value in items_types.items():
-            if not isinstance(value, tuple):
-                items_types[key] = (value, False)
+    def __init__(self, **items_types: TypeEngine | tuple[TypeEngine, bool]) -> None:
+        """Build an OBJECT type from optional ``field=type`` specifications.
 
-        self.items_types = items_types
-        self.is_semi_structured = len(items_types) == 0
+        ``is_semi_structured`` is a ``StructuredType`` constructor parameter, not
+        a field. SQLAlchemy's type-copy machinery
+        (``get_cls_kwargs``/``constructor_copy``) forwards base-class ``__init__``
+        params into this ``**items_types`` catch-all when copying/adapting the
+        type during compilation, so it is dropped here; otherwise a copied
+        ``OBJECT`` would gain a bogus ``is_semi_structured`` field, flipping an
+        untyped ``OBJECT`` to "typed" and breaking the semi-structured write path.
+        """
+        items_types.pop("is_semi_structured", None)
+        normalized: dict[str, tuple[TypeEngine, bool]] = {}
+        for key, value in items_types.items():
+            normalized[key] = value if isinstance(value, tuple) else (value, False)
+
+        self.items_types: dict[str, tuple[TypeEngine, bool]] = normalized
+        self.is_semi_structured = len(normalized) == 0
         super().__init__()
 
-    def __repr__(self):
+    def adapt(self, cls: type, **kw: Any) -> Any:
+        """Copy/adapt the type while preserving its field specification.
+
+        The field spec lives in ``items_types`` (a dict), which the default
+        ``constructor_copy`` cannot reconstruct — it only forwards named
+        ``__init__`` params, so fields are lost on copy/adapt. The real
+        ``items_types``/``is_semi_structured`` are restored here so both typed and
+        untyped ``OBJECT`` survive copy/adapt (e.g. when the column type is copied
+        during INSERT compilation, reflection, or ``Table.to_metadata``).
+        """
+        adapted: Any = super().adapt(cls, **kw)
+        if isinstance(adapted, OBJECT):
+            adapted.items_types = dict(self.items_types)
+            adapted.is_semi_structured = self.is_semi_structured
+        return adapted
+
+    @util.memoized_property
+    def _static_cache_key(self) -> tuple[Any, ...]:
+        # The default key only covers named ``__init__`` params, so it would
+        # miss the ``**items_types`` field spec and give OBJECT(x=...) and
+        # OBJECT(y=...) the same key, although they render different CASTs.
+        return (
+            self.__class__,
+            (
+                "items_types",
+                tuple(
+                    (name, field_type._static_cache_key, not_null)
+                    for name, (field_type, not_null) in self.items_types.items()
+                ),
+            ),
+        )
+
+    @property
+    def python_type(self) -> type:
+        return dict
+
+    def __repr__(self) -> str:
         dq = '"'
         parts = []
         for key, value in self.items_types.items():
@@ -167,32 +430,56 @@ class ARRAY(StructuredType):
 
     def __init__(
         self,
-        value_type: Optional[sqltypes.TypeEngine] = None,
+        value_type: sqltypes.TypeEngine | None = None,
         not_null: bool = False,
-    ):
+    ) -> None:
         self.value_type = value_type
         self.not_null = not_null
         super().__init__(is_semi_structured=value_type is None)
+
+    @property
+    def python_type(self) -> type:
+        return list
 
 
 class TIMESTAMP_TZ(SnowflakeType):
     __visit_name__ = "TIMESTAMP_TZ"
 
+    @property
+    def python_type(self) -> type:
+        return datetime
+
 
 class TIMESTAMP_LTZ(SnowflakeType):
     __visit_name__ = "TIMESTAMP_LTZ"
+
+    @property
+    def python_type(self) -> type:
+        return datetime
 
 
 class TIMESTAMP_NTZ(SnowflakeType):
     __visit_name__ = "TIMESTAMP_NTZ"
 
+    @property
+    def python_type(self) -> type:
+        return datetime
+
 
 class GEOGRAPHY(SnowflakeType):
     __visit_name__ = "GEOGRAPHY"
 
+    @property
+    def python_type(self) -> type:
+        return str
+
 
 class GEOMETRY(SnowflakeType):
     __visit_name__ = "GEOMETRY"
+
+    @property
+    def python_type(self) -> type:
+        return str
 
 
 class DECFLOAT(SnowflakeType):
@@ -220,14 +507,20 @@ class DECFLOAT(SnowflakeType):
     """
 
     __visit_name__ = "DECFLOAT"
-    _warned_precision = False
+    _warned_precision: ClassVar[bool] = False
 
-    def result_processor(self, dialect, coltype):
+    @property
+    def python_type(self) -> type:
+        return decimal.Decimal
+
+    def result_processor(
+        self, dialect: Dialect, coltype: object
+    ) -> Callable[[Any], Any] | None:
         """Check decimal context precision and warn if it may truncate DECFLOAT values."""
         # Check if dialect has enable_decfloat configured
         decfloat_enabled = getattr(dialect, "_enable_decfloat", False)
 
-        def process(value):
+        def process(value: Any) -> Any:
             if value is not None and not DECFLOAT._warned_precision:
                 # Skip warning if dialect has DECFLOAT support enabled
                 if decfloat_enabled:
@@ -250,23 +543,25 @@ class DECFLOAT(SnowflakeType):
 
 
 class _CUSTOM_Date(SnowflakeType, sqltypes.Date):
-    def literal_processor(self, dialect):
-        def process(value):
+    def literal_processor(self, dialect: Dialect) -> Callable[[Any], str | None]:  # type: ignore[override]
+        def process(value: date | None) -> str | None:
             if value is not None:
                 return f"'{value.isoformat()}'"
+            return None
 
         return process
 
 
 class _CUSTOM_DateTime(SnowflakeType, sqltypes.DateTime):
-    def __init__(self, timezone=False):
+    def __init__(self, timezone: bool = False) -> None:
         super().__init__(timezone=timezone)
 
-    def literal_processor(self, dialect):
-        def process(value):
+    def literal_processor(self, dialect: Dialect) -> Callable[[Any], str | None]:  # type: ignore[override]
+        def process(value: datetime | None) -> str | None:
             if value is not None:
                 datetime_str = value.isoformat(" ", timespec="microseconds")
                 return f"'{datetime_str}'"
+            return None
 
         return process
 
@@ -282,21 +577,74 @@ class _CUSTOM_Time(SnowflakeType, sqltypes.Time):
     :class:`TIMESTAMP_TZ` or ``DateTime(timezone=True)`` instead.
     """
 
-    def literal_processor(self, dialect):
-        def process(value):
+    def literal_processor(self, dialect: Dialect) -> Callable[[Any], str | None]:  # type: ignore[override]
+        def process(value: time | None) -> str | None:
             if value is not None:
                 time_str = value.isoformat(timespec="microseconds")
                 return f"'{time_str}'"
+            return None
 
         return process
 
 
 class _CUSTOM_Float(SnowflakeType, sqltypes.Float):
-    def bind_processor(self, dialect):
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], float | str | None]:
         return _process_float
 
 
+class _CUSTOM_Uuid(sqltypes.Uuid):
+    """Convert ``uuid.UUID`` values when ``enable_native_uuid`` is on.
+
+    With ``supports_native_uuid = True`` SQLAlchemy's ``Uuid`` assumes the
+    DBAPI binds and returns ``uuid.UUID`` itself and skips its own conversion,
+    but the Snowflake connector does neither: it rejects ``uuid.UUID`` binds and
+    returns native ``UUID`` columns as ``str``.  Outside native mode the base
+    ``CHAR(32)`` processing is used unchanged.
+    """
+
+    def _native(self, dialect: Dialect) -> bool:
+        return bool(dialect.supports_native_uuid and self.native_uuid)
+
+    def bind_processor(self, dialect: Dialect) -> Callable[[Any], Any] | None:
+        if not self._native(dialect):
+            return super().bind_processor(dialect)
+
+        def process(value: Any) -> Any:
+            if isinstance(value, uuid.UUID):
+                return str(value)
+            return value
+
+        return process
+
+    def result_processor(
+        self, dialect: Dialect, coltype: object
+    ) -> Callable[[Any], Any] | None:
+        if not self._native(dialect):
+            return super().result_processor(dialect, coltype)
+        as_uuid = self.as_uuid
+
+        def process(value: Any) -> Any:
+            if value is None:
+                return None
+            if as_uuid:
+                return value if isinstance(value, uuid.UUID) else uuid.UUID(value)
+            return str(value)
+
+        return process
+
+
 class _CUSTOM_DECIMAL(SnowflakeType, sqltypes.DECIMAL):
+    def __init__(
+        self,
+        precision: int | None = None,
+        scale: int | None = None,
+        asdecimal: bool = True,
+        **kw: Any,
+    ) -> None:
+        super().__init__(  # type: ignore[call-overload]
+            precision=precision, scale=scale, asdecimal=asdecimal, **kw
+        )
+
     @util.memoized_property
-    def _type_affinity(self):
+    def _type_affinity(self) -> type:
         return sqltypes.INTEGER if self.scale == 0 else sqltypes.DECIMAL

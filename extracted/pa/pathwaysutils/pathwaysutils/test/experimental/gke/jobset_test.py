@@ -106,7 +106,6 @@ class JobSetManifestHelper:
     return matches
 
 
-
 class PathwaysJobSetTest(parameterized.TestCase):
 
   def _create_jobset(
@@ -160,6 +159,7 @@ class PathwaysJobSetTest(parameterized.TestCase):
     helper = JobSetManifestHelper(config)
 
     pod_spec = helper.pod_specs["pathways-head"]
+    self.assertNotIn("initContainers", pod_spec)
     self.assertLen(pod_spec["containers"], 2)
     self.assertIn("pathways-rm", helper.containers["pathways-head"])
     self.assertIn("pathways-proxy", helper.containers["pathways-head"])
@@ -176,6 +176,35 @@ class PathwaysJobSetTest(parameterized.TestCase):
         "us-docker.pkg.dev/cloud-tpu-v2-images/pathways/proxy_server:latest",
     )
     self.assertIn("--num_elastic_slices=2", proxy_container["args"])
+    self.assertTrue(
+        any(
+            e.get("name") == "IFRT_PROXY_USE_INSECURE_GRPC_CREDENTIALS"
+            and e.get("value") == "true"
+            for e in proxy_container.get("env", [])
+        )
+    )
+
+  def test_configurable_host_network_and_dns_policy(self):
+    js = self._create_jobset(
+        head_pod_spec_kwargs={
+            "host_network": True,
+            "dns_policy": "ClusterFirstWithHostNet",
+        },
+        worker_pod_spec_kwargs={
+            "host_network": True,
+            "dns_policy": "ClusterFirstWithHostNet",
+        },
+    )
+    config = js.to_dict()
+    helper = JobSetManifestHelper(config)
+
+    head_pod_spec = helper.pod_specs["pathways-head"]
+    self.assertTrue(head_pod_spec["hostNetwork"])
+    self.assertEqual(head_pod_spec["dnsPolicy"], "ClusterFirstWithHostNet")
+
+    worker_pod_spec = helper.pod_specs["pathways-worker"]
+    self.assertTrue(worker_pod_spec["hostNetwork"])
+    self.assertEqual(worker_pod_spec["dnsPolicy"], "ClusterFirstWithHostNet")
 
   def test_worker_job_replicas(self):
     js = self._create_jobset(num_slices=2)
@@ -318,6 +347,9 @@ class PathwaysJobSetTest(parameterized.TestCase):
     vol = helper.volumes["pathways-worker"][expected_vol_name]
     self.assertEqual(vol["csi"]["driver"], "gcsfuse.csi.storage.gke.io")
     self.assertEqual(vol["csi"]["volumeAttributes"]["bucketName"], "my-bucket")
+    self.assertEqual(
+        vol["csi"]["volumeAttributes"]["mountOptions"], "implicit-dirs"
+    )
     self.assertEqual(helper.job_metadatas["pathways-worker"].get("annotations", {}).get("gke-gcsfuse/volumes"), "true")
     self.assertEqual(helper.pod_metadatas["pathways-worker"].get("annotations", {}).get("gke-gcsfuse/volumes"), "true")
 
@@ -328,7 +360,7 @@ class PathwaysJobSetTest(parameterized.TestCase):
 
   def test_add_gcsfuse_handles_none_metadata(self):
     pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
-    
+
     # Force metadata to be None to simulate imported templates or raw specs without metadata
     pw_jobset._head_job_template.metadata = None
     pw_jobset._head_job_template.spec.template.metadata = None
@@ -342,7 +374,7 @@ class PathwaysJobSetTest(parameterized.TestCase):
         bucket="my-bucket",
     )
     helper = JobSetManifestHelper(pw_jobset.to_dict())
-    
+
     self.assertEqual(helper.job_metadatas["pathways-head"].get("annotations", {}).get("gke-gcsfuse/volumes"), "true")
     self.assertEqual(helper.pod_metadatas["pathways-head"].get("annotations", {}).get("gke-gcsfuse/volumes"), "true")
     self.assertEqual(helper.job_metadatas["pathways-worker"].get("annotations", {}).get("gke-gcsfuse/volumes"), "true")
@@ -350,7 +382,7 @@ class PathwaysJobSetTest(parameterized.TestCase):
 
   def test_add_gcsfuse_preserves_existing_metadata(self):
     pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
-    
+
     # Pre-populate metadata, annotations, and labels
     pw_jobset._head_job_template.metadata = client.V1ObjectMeta(
         labels={"existing-job-label": "value"},
@@ -403,14 +435,14 @@ class PathwaysJobSetTest(parameterized.TestCase):
 
   def test_add_colocated_python_handles_none_volumes(self):
     pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
-    
+
     # Force volumes to be None
     pw_jobset._worker_job_template.spec.template.spec.volumes = None
 
     # Should not crash and should correctly add volume
     pw_jobset.add_colocated_python(image="gcr.io/my-project/colocated-python:custom")
     helper = JobSetManifestHelper(pw_jobset.to_dict())
-    
+
     self.assertIn("shared-memory", helper.volumes["pathways-worker"])
 
   def test_add_colocated_python_sidecar(self):
@@ -419,8 +451,23 @@ class PathwaysJobSetTest(parameterized.TestCase):
     pw_jobset.add_colocated_python(image="gcr.io/my-project/colocated-python:custom")
     helper = JobSetManifestHelper(pw_jobset.to_dict())
 
-    self.assertIn("colocated-python-sidecar", helper.containers["pathways-worker"])
-    sidecar = helper.containers["pathways-worker"]["colocated-python-sidecar"]
+    # The sidecar runs as a native sidecar so it starts before pathways-worker.
+    # The restart policy is checked on the container object because older
+    # kubernetes clients do not serialize `V1Container.restart_policy`.
+    worker_spec = pw_jobset.worker_job_template.spec.template.spec
+    self.assertEqual(
+        [c.restart_policy for c in worker_spec.init_containers],
+        ["Always"],
+    )
+    self.assertNotIn(
+        "colocated-python-sidecar", helper.containers["pathways-worker"]
+    )
+    self.assertIn(
+        "colocated-python-sidecar", helper.init_containers["pathways-worker"]
+    )
+    sidecar = helper.init_containers["pathways-worker"][
+        "colocated-python-sidecar"
+    ]
     self.assertEqual(sidecar["image"], "gcr.io/my-project/colocated-python:custom")
     self.assertTrue(
         any(
@@ -438,7 +485,7 @@ class PathwaysJobSetTest(parameterized.TestCase):
 
   def test_add_colocated_python_preserves_init_containers(self):
     pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
-    
+
     # Pre-populate init container on worker pod
     worker_spec = pw_jobset._worker_job_template.spec.template.spec
     existing_init = client.V1Container(name="existing-init-container", image="ubuntu:latest")
@@ -447,9 +494,11 @@ class PathwaysJobSetTest(parameterized.TestCase):
     pw_jobset.add_colocated_python(image="gcr.io/my-project/colocated-python:custom")
     helper = JobSetManifestHelper(pw_jobset.to_dict())
 
-    # Verify both exist
-    self.assertIn("existing-init-container", helper.init_containers["pathways-worker"])
-    self.assertIn("colocated-python-sidecar", helper.containers["pathways-worker"])
+    # Verify both exist, and the existing init container still runs first.
+    self.assertEqual(
+        list(helper.init_containers["pathways-worker"]),
+        ["existing-init-container", "colocated-python-sidecar"],
+    )
 
   def test_add_colocated_python_volume_default(self):
     pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
@@ -493,8 +542,12 @@ class PathwaysJobSetTest(parameterized.TestCase):
     )
     helper = JobSetManifestHelper(pw_jobset.to_dict())
 
-    self.assertIn("colocated-python-sidecar", helper.containers["pathways-worker"])
-    sidecar = helper.containers["pathways-worker"]["colocated-python-sidecar"]
+    self.assertIn(
+        "colocated-python-sidecar", helper.init_containers["pathways-worker"]
+    )
+    sidecar = helper.init_containers["pathways-worker"][
+        "colocated-python-sidecar"
+    ]
     self.assertTrue(
         any(
             m["name"] == "shared-memory" and m["mountPath"] == "/tmp/custom-shm"
@@ -528,6 +581,114 @@ class PathwaysJobSetTest(parameterized.TestCase):
             for e in worker_container["env"]
         )
     )
+
+  @parameterized.named_parameters(
+      ("default_shm", None, "/tmp/shared-memory"),
+      ("custom_shm", "/tmp/custom-shm", "/tmp/custom-shm"),
+  )
+  def test_add_colocated_python_sets_worker_shm_flag(
+      self, shm_mount_path, expected_path
+  ):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    kwargs = {"shm_mount_path": shm_mount_path} if shm_mount_path else {}
+    pw_jobset.add_colocated_python(
+        image="gcr.io/my-project/colocated-python:latest", **kwargs
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+
+    worker_args = helper.containers["pathways-worker"]["pathways-worker"][
+        "args"
+    ]
+    self.assertEqual(
+        [a for a in worker_args if "cloud_pathways_sidecar_shm_directory" in a],
+        [f"--cloud_pathways_sidecar_shm_directory={expected_path}"],
+    )
+
+  def test_add_colocated_python_keeps_existing_worker_shm_flag(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    worker_spec = pw_jobset.worker_job_template.spec.template.spec
+    worker_spec.containers[0].args.append(
+        "--cloud_pathways_sidecar_shm_directory=/tmp/preset"
+    )
+    pw_jobset.add_colocated_python(
+        image="gcr.io/my-project/colocated-python:latest"
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+
+    worker_args = helper.containers["pathways-worker"]["pathways-worker"][
+        "args"
+    ]
+    self.assertEqual(
+        [a for a in worker_args if "cloud_pathways_sidecar_shm_directory" in a],
+        ["--cloud_pathways_sidecar_shm_directory=/tmp/preset"],
+    )
+
+  def test_add_colocated_python_env(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    pw_jobset.add_colocated_python(
+        image="gcr.io/my-project/colocated-python:latest",
+        env={"LOGLEVEL": "DEBUG", "GRPC_SERVER_ADDRESS": "0.0.0.0:50052"},
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+
+    sidecar = helper.init_containers["pathways-worker"][
+        "colocated-python-sidecar"
+    ]
+    self.assertEqual(
+        sidecar["env"],
+        [
+            {"name": "GRPC_SERVER_ADDRESS", "value": "0.0.0.0:50052"},
+            {
+                "name": "CLOUD_PATHWAYS_SIDECAR_SHM_DIRECTORY",
+                "value": "/tmp/shared-memory",
+            },
+            {"name": "LOGLEVEL", "value": "DEBUG"},
+        ],
+    )
+
+  def test_add_colocated_python_container_kwargs(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    pw_jobset.add_colocated_python(
+        image="gcr.io/my-project/colocated-python:latest",
+        resources=client.V1ResourceRequirements(
+            limits={"cpu": "4", "memory": "16Gi"}
+        ),
+        volume_mounts=[
+            client.V1VolumeMount(name="extra-data", mount_path="/data")
+        ],
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+
+    sidecar = helper.init_containers["pathways-worker"][
+        "colocated-python-sidecar"
+    ]
+    self.assertEqual(
+        sidecar["resources"], {"limits": {"cpu": "4", "memory": "16Gi"}}
+    )
+    # User volume mounts are appended to the required default mounts.
+    self.assertEqual(
+        sidecar["volumeMounts"],
+        [
+            {"mountPath": "/tmp", "name": "shared-tmp"},
+            {"mountPath": "/tmp/shared-memory", "name": "shared-memory"},
+            {"mountPath": "/data", "name": "extra-data"},
+        ],
+    )
+
+  @parameterized.named_parameters(
+      ("name", {"name": "my-sidecar"}, "Cannot set 'name'"),
+      (
+          "unknown_field",
+          {"not_a_field": True},
+          "Unknown client.V1Container fields for colocated-python-sidecar",
+      ),
+  )
+  def test_add_colocated_python_invalid_container_kwargs(self, kwargs, error):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    with self.assertRaisesRegex(ValueError, error):
+      pw_jobset.add_colocated_python(
+          image="gcr.io/my-project/colocated-python:latest", **kwargs
+      )
 
   # Reference similar GKE / JobSet custom object unit test suites:
   # - Google3 GKE JobSet test suite: //depot/google3/cloud/ai/map/catmint/supervisor/client/python/orchestrators/gke_callbacks_test.py
@@ -826,13 +987,7 @@ class PathwaysJobSetTest(parameterized.TestCase):
     config = pw_jobset.to_dict()
     helper = JobSetManifestHelper(config)
 
-    self.assertEqual(
-        config["spec"]["successPolicy"],
-        {
-            "operator": "All",
-            "targetReplicatedJobs": ["pathways-head"],
-        },
-    )
+    self.assertNotIn("successPolicy", config["spec"])
 
     self.assertTrue(config["spec"]["network"]["enableDNSHostnames"])
     self.assertTrue(config["spec"]["network"]["publishNotReadyAddresses"])
@@ -841,9 +996,727 @@ class PathwaysJobSetTest(parameterized.TestCase):
     pod_spec = helper.pod_specs["pathways-head"]
 
     # Head job should only have pathways-rm container, no pathways-proxy.
+    self.assertNotIn("initContainers", pod_spec)
     self.assertIn("pathways-rm", helper.containers["pathways-head"])
     self.assertNotIn("pathways-proxy", helper.containers["pathways-head"])
     self.assertLen(pod_spec["containers"], 1)
+
+  @parameterized.named_parameters(
+      ("one_slice", 1, False),
+      ("two_slices", 2, False),
+      ("two_slices_sps", 2, True),
+  )
+  def test_rm_instance_count_matches_num_slices(
+      self, num_slices, shared_pathways_service
+  ):
+    pw_jobset = self._create_jobset(
+        num_slices=num_slices,
+        shared_pathways_service=shared_pathways_service,
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    rm_args = helper.containers["pathways-head"]["pathways-rm"]["args"]
+    self.assertIn(f"--instance_count={num_slices}", rm_args)
+
+  def test_add_user_workload(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    pw_jobset.add_user_workload(
+        image="us-docker.pkg.dev/my-project/test:v1",
+        command="python3 -m test_module",
+        env={"CUSTOM_ENV": "123"},
+    )
+
+    config = pw_jobset.to_dict()
+    helper = JobSetManifestHelper(config)
+
+    # Verify JobSet spec-level success policy targets pathways-head
+    self.assertEqual(
+        config["spec"]["successPolicy"],
+        {
+            "operator": "All",
+            "targetReplicatedJobs": ["pathways-head"],
+        },
+    )
+
+    # Verify head pod has user-workload container in containers
+    self.assertIn("user-workload", helper.containers["pathways-head"])
+    user_c = helper.containers["pathways-head"]["user-workload"]
+    self.assertEqual(user_c["image"], "us-docker.pkg.dev/my-project/test:v1")
+    self.assertEqual(user_c["command"], ["sh", "-c", "python3 -m test_module"])
+    self.assertNotIn("resources", user_c)
+    self.assertTrue(
+        any(
+            e["name"] == "CUSTOM_ENV" and e["value"] == "123"
+            for e in user_c["env"]
+        )
+    )
+    self.assertTrue(
+        any(
+            e["name"] == "JAX_PLATFORMS" and e["value"] == "proxy"
+            for e in user_c["env"]
+        )
+    )
+    self.assertTrue(
+        any(
+            e["name"] == "JAX_BACKEND_TARGET"
+            and e["value"] == "grpc://localhost:29000"
+            for e in user_c["env"]
+        )
+    )
+    self.assertTrue(
+        any(
+            e["name"] == "IFRT_PROXY_USE_INSECURE_GRPC_CREDENTIALS"
+            and e["value"] == "true"
+            for e in user_c["env"]
+        )
+    )
+
+    # Verify RM and Proxy are moved to initContainers (native sidecars)
+    self.assertIn("pathways-rm", helper.init_containers["pathways-head"])
+    self.assertIn("pathways-proxy", helper.init_containers["pathways-head"])
+    self.assertNotIn("pathways-rm", helper.containers["pathways-head"])
+    self.assertNotIn("pathways-proxy", helper.containers["pathways-head"])
+    self.assertIn("user-workload", helper.containers["pathways-head"])
+
+  def test_add_user_workload_roundtrip(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    pw_jobset.add_user_workload(
+        image="us-docker.pkg.dev/my-project/test:v1",
+        command=["python3", "test.py"],
+    )
+
+    temp_filepath = os.path.join(
+        self.create_tempdir().full_path, "jobset_user_workload.yaml"
+    )
+    pw_jobset.export_yaml(temp_filepath)
+    imported = jobset.PathwaysJobSet.import_yaml(temp_filepath)
+
+    self.assertEqual(
+        normalize_k8s_spec(pw_jobset.to_dict()),
+        normalize_k8s_spec(imported.to_dict()),
+    )
+
+  def test_add_user_workload_preserves_existing_containers(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    custom_container = client.V1Container(
+        name="custom-sidecar", image="custom:v1"
+    )
+    pw_jobset._head_job_template.spec.template.spec.containers.append(
+        custom_container
+    )
+    custom_resources = client.V1ResourceRequirements(
+        limits={"cpu": "8", "memory": "32G"}
+    )
+    pw_jobset.add_user_workload(
+        name="user-workload-1",
+        image="us-docker.pkg.dev/my-project/test:v1",
+        command="python3 -m test1",
+        env={"IFRT_PROXY_USE_INSECURE_GRPC_CREDENTIALS": "false"},
+        resources=custom_resources,
+    )
+    pw_jobset.add_user_workload(
+        name="user-workload-2",
+        image="us-docker.pkg.dev/my-project/test:v2",
+        command="python3 -m test2",
+    )
+    config = pw_jobset.to_dict()
+    helper = JobSetManifestHelper(config)
+
+    self.assertIn("pathways-rm", helper.init_containers["pathways-head"])
+    self.assertIn("pathways-proxy", helper.init_containers["pathways-head"])
+    self.assertLen(helper.pod_specs["pathways-head"]["initContainers"], 2)
+    self.assertIn("custom-sidecar", helper.containers["pathways-head"])
+    self.assertIn("user-workload-1", helper.containers["pathways-head"])
+    self.assertIn("user-workload-2", helper.containers["pathways-head"])
+    self.assertLen(helper.pod_specs["pathways-head"]["containers"], 3)
+
+    c1 = helper.containers["pathways-head"]["user-workload-1"]
+    self.assertEqual(c1["resources"], {"limits": {"cpu": "8", "memory": "32G"}})
+    insecure_envs = [
+        e["value"]
+        for e in c1["env"]
+        if e["name"] == "IFRT_PROXY_USE_INSECURE_GRPC_CREDENTIALS"
+    ]
+    self.assertEqual(insecure_envs, ["false"])
+
+    # Calling add_user_workload with existing name replaces it rather than appending duplicate
+    pw_jobset.add_user_workload(
+        name="user-workload-1",
+        image="us-docker.pkg.dev/my-project/test:v3",
+        command="python3 -m test1_updated",
+    )
+    config2 = pw_jobset.to_dict()
+    helper2 = JobSetManifestHelper(config2)
+    self.assertLen(helper2.pod_specs["pathways-head"]["containers"], 3)
+    self.assertEqual(
+        helper2.containers["pathways-head"]["user-workload-1"]["image"],
+        "us-docker.pkg.dev/my-project/test:v3",
+    )
+
+  def test_configurable_priority_class_and_head_node_selector(self):
+    # Default: no priority class or custom head pod node selector
+    default_js = self._create_jobset()
+    default_helper = JobSetManifestHelper(default_js.to_dict())
+    self.assertNotIn(
+        "priorityClassName", default_helper.pod_specs["pathways-head"]
+    )
+    self.assertEqual(
+        default_helper.pod_specs["pathways-head"]["nodeSelector"][
+            jobset.GKE_NODEPOOL_KEY
+        ],
+        "cpu-np",
+    )
+    self.assertNotIn(
+        "priorityClassName", default_helper.pod_specs["pathways-worker"]
+    )
+
+    # Configured: priority class and head node selector set via pod_spec_kwargs
+    configured_js = self._create_jobset(
+        head_pod_spec_kwargs={
+            "node_selector": {"zone": "us-central1-a"},
+            "priority_class_name": "high",
+        },
+        worker_pod_spec_kwargs={
+            "priority_class_name": "high",
+        },
+    )
+    configured_helper = JobSetManifestHelper(configured_js.to_dict())
+    head_spec = configured_helper.pod_specs["pathways-head"]
+    worker_spec = configured_helper.pod_specs["pathways-worker"]
+
+    self.assertEqual(head_spec["priorityClassName"], "high")
+    self.assertEqual(worker_spec["priorityClassName"], "high")
+    self.assertEqual(head_spec["nodeSelector"], {"zone": "us-central1-a"})
+
+    # Overriding GKE_NODEPOOL_KEY explicitly
+    custom_np_js = self._create_jobset(
+        head_pod_spec_kwargs={
+            "node_selector": {jobset.GKE_NODEPOOL_KEY: "custom-cpu-pool"},
+        },
+    )
+    custom_np_helper = JobSetManifestHelper(custom_np_js.to_dict())
+    self.assertEqual(
+        custom_np_helper.pod_specs["pathways-head"]["nodeSelector"][
+            jobset.GKE_NODEPOOL_KEY
+        ],
+        "custom-cpu-pool",
+    )
+
+  def test_container_kwargs(self):
+    pw_jobset = self._create_jobset(
+        rm_container_kwargs={
+            "args": ["--v=1"],
+            "env": {"TPU_SKIP_MDS_QUERY": "false", "TEST_TMPDIR": "/tmp"},
+            "resources": client.V1ResourceRequirements(
+                limits={"cpu": "4", "memory": "16G"}
+            ),
+        },
+        proxy_container_kwargs={
+            "args": [
+                "--xla_jf_enable_multi_output_fusion=false",
+                "--virtual_instances=tpuv5e:2x4",
+            ],
+            "env": {"XLA_FLAGS": "--xla_disable_hlo_passes=tpu_fusion"},
+        },
+        worker_container_kwargs={
+            "args": ["--logtostderr"],
+            "env": {"FLAGS_use_pthread_fiber_wrapper": "true"},
+            "volume_mounts": [
+                client.V1VolumeMount(name="data", mount_path="/data")
+            ],
+        },
+        worker_pod_spec_kwargs={
+            "volumes": [
+                client.V1Volume(
+                    name="data", empty_dir=client.V1EmptyDirVolumeSource()
+                )
+            ]
+        },
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    rm = helper.containers["pathways-head"]["pathways-rm"]
+    proxy = helper.containers["pathways-head"]["pathways-proxy"]
+    worker = helper.containers["pathways-worker"]["pathways-worker"]
+
+    # Args are appended to the default args.
+    self.assertEqual(
+        rm["args"],
+        [
+            "--server_port=29001",
+            "--gcs_scratch_location=gs://test-bucket",
+            "--node_type=resource_manager",
+            "--instance_count=2",
+            "--instance_type=tpuv5e:4x8",
+            "--v=1",
+        ],
+    )
+    self.assertEqual(
+        proxy["args"][-2:],
+        [
+            "--xla_jf_enable_multi_output_fusion=false",
+            "--virtual_instances=tpuv5e:2x4",
+        ],
+    )
+    self.assertIn("--server_port=29000", proxy["args"])
+    self.assertEqual(worker["args"][-1], "--logtostderr")
+    self.assertIn("--server_port=29005", worker["args"])
+
+    # Env vars replace defaults with the same name, in place, or are appended.
+    rm_env_names = [e["name"] for e in rm["env"]]
+    self.assertEqual(
+        rm_env_names,
+        [
+            "REPLICATED_JOB_NAME",
+            "JOBSET_NAME",
+            "HOST_ADDRESS",
+            "TPU_SKIP_MDS_QUERY",
+            "TEST_TMPDIR",
+        ],
+    )
+    rm_env = {e["name"]: e.get("value") for e in rm["env"]}
+    self.assertEqual(rm_env["TPU_SKIP_MDS_QUERY"], "false")
+    self.assertEqual(rm_env["TEST_TMPDIR"], "/tmp")
+    self.assertEqual(
+        proxy["env"][-1],
+        {"name": "XLA_FLAGS", "value": "--xla_disable_hlo_passes=tpu_fusion"},
+    )
+    self.assertEqual(
+        worker["env"][-1],
+        {"name": "FLAGS_use_pthread_fiber_wrapper", "value": "true"},
+    )
+
+    # Other fields replace the defaults, and volume mounts are appended.
+    self.assertEqual(rm["resources"], {"limits": {"cpu": "4", "memory": "16G"}})
+    self.assertEqual(
+        proxy["resources"], {"limits": {"cpu": "16", "memory": "100G"}}
+    )
+    self.assertEqual(
+        worker["volumeMounts"],
+        [
+            {"mountPath": "/tmp", "name": "shared-tmp"},
+            {"mountPath": "/data", "name": "data"},
+        ],
+    )
+    self.assertEqual(
+        [v["name"] for v in helper.pod_specs["pathways-worker"]["volumes"]],
+        ["shared-tmp", "data"],
+    )
+
+  def test_container_kwargs_env_replaces_field_ref(self):
+    pw_jobset = self._create_jobset(
+        worker_container_kwargs={"env": {"MEGASCALE_NUM_SLICES": "4"}}
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    worker = helper.containers["pathways-worker"]["pathways-worker"]
+    num_slices_env = [
+        e for e in worker["env"] if e["name"] == "MEGASCALE_NUM_SLICES"
+    ]
+    self.assertEqual(
+        num_slices_env, [{"name": "MEGASCALE_NUM_SLICES", "value": "4"}]
+    )
+
+  def test_container_kwargs_env_value_source(self):
+    secret_ref = client.V1EnvVarSource(
+        secret_key_ref=client.V1SecretKeySelector(name="hf", key="token")
+    )
+    pod_name_ref = client.V1EnvVarSource(
+        field_ref=client.V1ObjectFieldSelector(field_path="metadata.name")
+    )
+    pw_jobset = self._create_jobset(
+        worker_container_kwargs={"env": {"HF_TOKEN": secret_ref}},
+        rm_container_kwargs={"env": {"TPU_SKIP_MDS_QUERY": pod_name_ref}},
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    worker = helper.containers["pathways-worker"]["pathways-worker"]
+    rm = helper.containers["pathways-head"]["pathways-rm"]
+    # A new variable with a value source is appended.
+    self.assertEqual(
+        worker["env"][-1],
+        {
+            "name": "HF_TOKEN",
+            "valueFrom": {"secretKeyRef": {"key": "token", "name": "hf"}},
+        },
+    )
+    # A default literal value is replaced in place by a value source.
+    self.assertEqual(
+        rm["env"][3],
+        {
+            "name": "TPU_SKIP_MDS_QUERY",
+            "valueFrom": {"fieldRef": {"fieldPath": "metadata.name"}},
+        },
+    )
+
+  @parameterized.named_parameters(
+      ("int_value", {"CUSTOM_ENV": 123}, "CUSTOM_ENV .* got int"),
+      ("none_value", {"CUSTOM_ENV": None}, "CUSTOM_ENV .* got NoneType"),
+      (
+          "env_var_list",
+          [client.V1EnvVar(name="CUSTOM_ENV", value="1")],
+          "must be a mapping",
+      ),
+  )
+  def test_container_kwargs_invalid_env(self, env, error):
+    with self.assertRaisesRegex(TypeError, error):
+      self._create_jobset(worker_container_kwargs={"env": env})
+
+  def test_container_kwargs_warns_when_replacing_default_field(self):
+    with self.assertLogs(jobset._logger, level="WARNING") as logs:
+      pw_jobset = self._create_jobset(
+          worker_container_kwargs={
+              "ports": [client.V1ContainerPort(container_port=1234)]
+          }
+      )
+    self.assertIn(
+        "Replacing the default ports of the pathways-worker container",
+        logs.output[0],
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    worker = helper.containers["pathways-worker"]["pathways-worker"]
+    self.assertEqual(worker["ports"], [{"containerPort": 1234}])
+
+  def test_container_kwargs_no_warning_for_unset_field(self):
+    with self.assertNoLogs(jobset._logger, level="WARNING"):
+      self._create_jobset(
+          worker_container_kwargs={
+              "security_context": client.V1SecurityContext(privileged=True)
+          }
+      )
+
+  def test_worker_pod_spec_volumes_keep_shared_tmp(self):
+    data_volume = client.V1Volume(
+        name="data",
+        empty_dir=client.V1EmptyDirVolumeSource(),
+    )
+    pw_jobset = self._create_jobset(
+        worker_pod_spec_kwargs={"volumes": [data_volume]},
+        worker_container_kwargs={
+            "volume_mounts": [
+                client.V1VolumeMount(name="data", mount_path="/data")
+            ]
+        },
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    worker_spec = helper.pod_specs["pathways-worker"]
+    worker = helper.containers["pathways-worker"]["pathways-worker"]
+    # The caller's volume is added after the default shared-tmp volume, so
+    # every volume mount of the worker container has a backing volume.
+    self.assertEqual(
+        [v["name"] for v in worker_spec["volumes"]], ["shared-tmp", "data"]
+    )
+    self.assertEqual(
+        [m["name"] for m in worker["volumeMounts"]], ["shared-tmp", "data"]
+    )
+
+  def test_pod_spec_volumes_replace_default_with_same_name(self):
+    shared_tmp = client.V1Volume(
+        name="shared-tmp",
+        host_path=client.V1HostPathVolumeSource(
+            path="/tmp", type="DirectoryOrCreate"
+        ),
+    )
+    # A volume identical to the default replaces it without a warning.
+    with self.assertNoLogs(jobset._logger, level="WARNING"):
+      pw_jobset = self._create_jobset(
+          worker_pod_spec_kwargs={"volumes": [shared_tmp]}
+      )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    self.assertLen(helper.pod_specs["pathways-worker"]["volumes"], 1)
+
+    # A different volume with the same name replaces it with a warning.
+    custom_tmp = client.V1Volume(
+        name="shared-tmp", empty_dir=client.V1EmptyDirVolumeSource()
+    )
+    with self.assertLogs(jobset._logger, level="WARNING") as logs:
+      pw_jobset = self._create_jobset(
+          worker_pod_spec_kwargs={"volumes": [custom_tmp]}
+      )
+    self.assertIn(
+        "Replacing the default shared-tmp volume of the pathways-worker pod",
+        logs.output[0],
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    self.assertEqual(
+        helper.pod_specs["pathways-worker"]["volumes"],
+        [{"emptyDir": {}, "name": "shared-tmp"}],
+    )
+
+  def test_head_pod_spec_volumes(self):
+    data_volume = client.V1Volume(
+        name="data", empty_dir=client.V1EmptyDirVolumeSource()
+    )
+    pw_jobset = self._create_jobset(
+        head_pod_spec_kwargs={"volumes": [data_volume]}
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    self.assertEqual(
+        helper.pod_specs["pathways-head"]["volumes"],
+        [{"emptyDir": {}, "name": "data"}],
+    )
+
+  def test_container_kwargs_kept_by_add_user_workload(self):
+    pw_jobset = self._create_jobset(
+        rm_container_kwargs={"args": ["--v=1"]},
+        proxy_container_kwargs={"env": {"XLA_FLAGS": "--xla_dump_to=/tmp"}},
+    )
+    pw_jobset.add_user_workload(
+        image="us-docker.pkg.dev/my-project/test:v1",
+        command="python3 -m test_module",
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    rm = helper.init_containers["pathways-head"]["pathways-rm"]
+    proxy = helper.init_containers["pathways-head"]["pathways-proxy"]
+    self.assertEqual(rm["args"][-1], "--v=1")
+    self.assertEqual(
+        proxy["env"][-1], {"name": "XLA_FLAGS", "value": "--xla_dump_to=/tmp"}
+    )
+
+  def test_container_kwargs_export_import_roundtrip(self):
+    pw_jobset = self._create_jobset(
+        rm_container_kwargs={"args": ["--v=1"]},
+        proxy_container_kwargs={"env": {"XLA_FLAGS": "--xla_dump_to=/tmp"}},
+        worker_container_kwargs={"args": ["--logtostderr"]},
+    )
+    temp_filepath = os.path.join(
+        self.create_tempdir().full_path, "jobset_container_kwargs.yaml"
+    )
+    pw_jobset.export_yaml(temp_filepath)
+    imported = jobset.PathwaysJobSet.import_yaml(temp_filepath)
+    self.assertEqual(
+        normalize_k8s_spec(pw_jobset.to_dict()),
+        normalize_k8s_spec(imported.to_dict()),
+    )
+
+  @parameterized.named_parameters(
+      ("rm_name", "rm_container_kwargs", {"name": "rm"}, "Cannot set 'name'"),
+      (
+          "proxy_image",
+          "proxy_container_kwargs",
+          {"image": "proxy:v2"},
+          "Cannot set 'image'",
+      ),
+      (
+          "worker_unknown_field",
+          "worker_container_kwargs",
+          {"not_a_field": True},
+          "Unknown client.V1Container fields",
+      ),
+  )
+  def test_container_kwargs_invalid_fields(self, arg_name, kwargs, error):
+    with self.assertRaisesRegex(ValueError, error):
+      self._create_jobset(**{arg_name: kwargs})
+
+  def test_proxy_container_kwargs_with_shared_pathways_service(self):
+    with self.assertRaisesRegex(ValueError, "shared_pathways_service"):
+      self._create_jobset(
+          shared_pathways_service=True,
+          proxy_container_kwargs={"args": ["--v=1"]},
+      )
+
+  def test_rm_container_kwargs_with_shared_pathways_service(self):
+    pw_jobset = self._create_jobset(
+        shared_pathways_service=True, rm_container_kwargs={"args": ["--v=1"]}
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    rm = helper.containers["pathways-head"]["pathways-rm"]
+    self.assertEqual(rm["args"][-1], "--v=1")
+
+  def test_add_user_workload_env(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    pw_jobset.add_user_workload(
+        image="us-docker.pkg.dev/my-project/test:v1",
+        command="python3 -m test_module",
+        env={"JAX_PLATFORMS": "cpu", "CUSTOM_ENV": "123"},
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+    user_c = helper.containers["pathways-head"]["user-workload"]
+    # Defaults with the same name are replaced in place; others are appended.
+    self.assertEqual(
+        user_c["env"],
+        [
+            {"name": "JAX_PLATFORMS", "value": "cpu"},
+            {"name": "JAX_BACKEND_TARGET", "value": "grpc://localhost:29000"},
+            {
+                "name": "IFRT_PROXY_USE_INSECURE_GRPC_CREDENTIALS",
+                "value": "true",
+            },
+            {"name": "CUSTOM_ENV", "value": "123"},
+        ],
+    )
+
+  def test_add_user_workload_unknown_field(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    with self.assertRaisesRegex(
+        ValueError, "Unknown client.V1Container fields for user-workload"
+    ):
+      pw_jobset.add_user_workload(
+          image="us-docker.pkg.dev/my-project/test:v1",
+          command="python3 -m test_module",
+          not_a_field=True,
+      )
+
+  def test_kokoro_pretraining_workload_generation(self):
+    """Verifies that PathwaysJobSet can generate a JobSet matching Kokoro pretraining test workloads."""
+    pw_jobset = jobset.PathwaysJobSet(
+        name="maxtext-pretraining-test",
+        namespace="default",
+        pathways_dir="gs://my-bucket/scratch",
+        tpu_type="v5e",
+        topology="4x8",
+        num_slices=1,
+        labels={"kueue.x-k8s.io/queue-name": "multislice-queue"},
+        head_pod_spec_kwargs={
+            "node_selector": {jobset.GKE_NODEPOOL_KEY: "cpu-np"},
+            "priority_class_name": "high",
+        },
+        worker_pod_spec_kwargs={
+            "priority_class_name": "high",
+        },
+    )
+    pw_jobset.add_user_workload(
+        image="us-docker.pkg.dev/my-project/maxtext:latest",
+        command="python3 MaxText/train.py MaxText/configs/base.yml",
+    )
+
+    config = pw_jobset.to_dict()
+    helper = JobSetManifestHelper(config)
+
+    # Verify queue label
+    self.assertEqual(
+        config["metadata"]["labels"]["kueue.x-k8s.io/queue-name"],
+        "multislice-queue",
+    )
+
+    # Verify success policy
+    self.assertEqual(
+        config["spec"]["successPolicy"]["targetReplicatedJobs"],
+        ["pathways-head"],
+    )
+
+    # Verify head pod spec: priorityClassName, nodeSelector
+    head_pod_spec = helper.pod_specs["pathways-head"]
+    self.assertEqual(head_pod_spec["priorityClassName"], "high")
+    self.assertEqual(
+        head_pod_spec["nodeSelector"][jobset.GKE_NODEPOOL_KEY],
+        "cpu-np",
+    )
+
+    # Verify head containers: RM and Proxy are in initContainers, user workload in containers
+    self.assertIn("pathways-rm", helper.init_containers["pathways-head"])
+    self.assertIn("pathways-proxy", helper.init_containers["pathways-head"])
+    self.assertIn("user-workload", helper.containers["pathways-head"])
+    self.assertNotIn("pathways-rm", helper.containers["pathways-head"])
+    self.assertNotIn("pathways-proxy", helper.containers["pathways-head"])
+
+    user_container = helper.containers["pathways-head"]["user-workload"]
+    self.assertEqual(
+        user_container["command"],
+        ["sh", "-c", "python3 MaxText/train.py MaxText/configs/base.yml"],
+    )
+
+    # Verify worker pod spec: priorityClassName
+    worker_pod_spec = helper.pod_specs["pathways-worker"]
+    self.assertEqual(worker_pod_spec["priorityClassName"], "high")
+
+  def test_with_custom_libtpu_gcsfuse_path(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    returned = pw_jobset.add_gcsfuse(
+        containers="all",
+        mount_path="/mnt/gcs",
+        bucket="my-libtpu-bucket",
+        read_only=True,
+    ).with_custom_libtpu("/mnt/gcs/nightlies/libtpu.so")
+    self.assertIs(returned, pw_jobset)
+
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+
+    for job_name in ("pathways-head", "pathways-worker"):
+      self.assertNotIn("custom-libtpu", helper.volumes[job_name])
+      self.assertEqual(
+          helper.pod_metadatas[job_name]
+          .get("annotations", {})
+          .get("gke-gcsfuse/volumes"),
+          "true",
+      )
+
+    for container_name in ("pathways-rm", "pathways-proxy", "pathways-worker"):
+      matches = helper.get_all_containers_by_name(container_name)
+      self.assertLen(matches, 1, container_name)
+      _, container = matches[0]
+      self.assertIn(
+          {"name": "TPU_LIBRARY_PATH", "value": "/mnt/gcs/nightlies/libtpu.so"},
+          container["env"],
+      )
+      self.assertTrue(
+          any(
+              mount["mountPath"] == "/mnt/gcs" and bool(mount.get("readOnly"))
+              for mount in container.get("volumeMounts", [])
+          )
+      )
+
+  def test_with_custom_libtpu_mount_host_dir(self):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    pw_jobset.with_custom_libtpu(
+        "/var/lib/custom_tpu/libtpu.so",
+        containers="worker",
+        mount_host_dir=True,
+    )
+    helper = JobSetManifestHelper(pw_jobset.to_dict())
+
+    self.assertNotIn("custom-libtpu", helper.volumes["pathways-head"])
+    self.assertEqual(
+        helper.volumes["pathways-worker"]["custom-libtpu"],
+        {
+            "name": "custom-libtpu",
+            "hostPath": {
+                "path": "/var/lib/custom_tpu",
+                "type": "DirectoryOrCreate",
+            },
+        },
+    )
+
+    worker = helper.containers["pathways-worker"]["pathways-worker"]
+    self.assertIn(
+        {
+            "name": "custom-libtpu",
+            "mountPath": "/var/lib/custom_tpu",
+            "readOnly": True,
+        },
+        worker["volumeMounts"],
+    )
+    self.assertIn(
+        {"name": "TPU_LIBRARY_PATH", "value": "/var/lib/custom_tpu/libtpu.so"},
+        worker["env"],
+    )
+    for head_container_name in ("pathways-rm", "pathways-proxy"):
+      head_container = helper.containers["pathways-head"][head_container_name]
+      self.assertNotIn(
+          "TPU_LIBRARY_PATH",
+          [env_var["name"] for env_var in head_container.get("env", [])],
+      )
+
+  @parameterized.named_parameters(
+      dict(testcase_name="empty", path=""),
+      dict(testcase_name="whitespace", path="   "),
+      dict(testcase_name="gcs_uri", path="gs://bucket/libtpu.so"),
+      dict(testcase_name="https_uri", path="https://example.com/libtpu.so"),
+      dict(testcase_name="relative", path="relative/libtpu.so"),
+      dict(testcase_name="root", path="/"),
+      dict(testcase_name="directory", path="/mnt/gcs/dir/"),
+      dict(
+          testcase_name="root_file_with_host_dir",
+          path="/libtpu.so",
+          mount_host_dir=True,
+          expected_error="mount_host_dir",
+      ),
+  )
+  def test_with_custom_libtpu_rejects_invalid_paths(
+      self,
+      path: str,
+      mount_host_dir: bool = False,
+      expected_error: str = "libtpu_path",
+  ):
+    pw_jobset = self._create_jobset(topology="2x2", num_slices=1)
+    with self.assertRaisesRegex(ValueError, expected_error):
+      pw_jobset.with_custom_libtpu(path, mount_host_dir=mount_host_dir)
 
 
 if __name__ == "__main__":

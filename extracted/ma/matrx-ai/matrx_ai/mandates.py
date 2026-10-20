@@ -131,6 +131,11 @@ class MandateResolution:
     #: variables the Holder runs on, or raises in words. ``None`` = the host
     #: offers no pipeline, and the site's values pass by name.
     materialize: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
+    #: The same pipeline for a mandate whose provision declares MEDIA inputs (AT-FOLLOW, 2026-10-19): returns
+    #: ``(variables, media_blocks)``. A held code call carries the blocks on :attr:`HeldCall.media_blocks` and the
+    #: site attaches them to its turn, instead of the pipeline refusing media this call site "has no turn" for.
+    #: ``None`` = the mandate declares no media (``materialize`` keeps refusing a media route, never dropping it).
+    materialize_media: Callable[[dict[str, Any]], Awaitable[tuple[dict[str, Any], list[dict[str, Any]]]]] | None = None
     #: WORKFLOW PARITY for code calls: the host's runner for THIS workflow
     #: resolution — ``(supplied, *, correlation_key, stream) -> answer dict``
     #: (``matrx_ai.mandate_workflow_holder``). Set only on a workflow Holder;
@@ -533,7 +538,7 @@ RUN_LABEL_METADATA = "run_label"
 
 def mandate_run_feature(mandate_key: str) -> str:
     """``mandate:<key>`` — or ``mandate_candidate:<key>`` inside a candidate leg, which is
-    its own labelled root and never one of the mandate's own runs."""
+    its own labeled root and never one of the mandate's own runs."""
     from matrx_graph.candidate import candidate_marker
 
     prefix = "mandate_candidate" if candidate_marker() is not None else "mandate"
@@ -693,6 +698,12 @@ async def _run_mandated_resolved(
     if consumed is not None:
         kwargs["consumed_variables"] = consumed
     stamp_mandate_attribution(kwargs, mandate_key, agent_cls)
+    if isinstance(kwargs.get("request_metadata"), dict):
+        # THE MARK, on the run's request before its conversation exists (db/stored_values_screen):
+        # the host keeps this mandate run's values off client-readable rows from the insert.
+        from matrx_ai.db.stored_values_screen import mark_mandate_values
+
+        mark_mandate_values(kwargs["request_metadata"], door="package_code_call")
     result = await agent_cls.run(**kwargs)
     if complete is not None:
         try:
@@ -759,9 +770,6 @@ class HeldCall:
     metadata: dict[str, Any]
     #: The variables the Holder actually ran on (after the binding's map).
     variables: dict[str, Any] = field(default_factory=dict)
-    #: Values the binding SPILLS into the user text (``spill_variables``): a
-    #: site composing its own user turn appends this; ``run_held_call`` does.
-    spilled_text: str | None = None
     #: The host's post-run honesty callback for this exact pin (required output
     #: keys, exemplar capture). Called by :meth:`finish`.
     complete: MandateCompletion | None = None
@@ -787,6 +795,9 @@ class HeldCall:
     #: ran as, filled by ``execute_ai_request`` (:func:`note_held_run`) and
     #: handed to the host's completion by :meth:`finish`. Empty until it runs.
     run_ids: dict[str, Any] = field(default_factory=dict)
+    #: Media the mandate's provision delivered (image/audio blocks built by the host's one media builder), for
+    #: the site to attach to its turn. Empty for a mandate that declares no media.
+    media_blocks: list[dict[str, Any]] = field(default_factory=list)
 
     # ── THE ONE PRECEDENCE RULE for every held call (2026-09-25) ───────────
     # The Holder's settings apply. A caller's value wins ONLY when it was
@@ -866,8 +877,9 @@ class HeldCall:
         return carried
 
     def user_text(self, text: str) -> str:
-        """The site's user turn plus whatever the binding spills into it."""
-        return f"{text}\n\n{self.spilled_text}" if self.spilled_text else text
+        """The site's user turn, exactly as the site wrote it — a binding never adds
+        text to it (injection census #28: a spill is refused on a held call)."""
+        return text
 
     def authored_user(self) -> str:
         """The user turn the HOLDER authors, the site's values applied.
@@ -957,18 +969,26 @@ class HeldCall:
                 "workflow_id": answer.get("workflow_id"),
                 "warnings": list(answer.get("warnings") or []),
             }
+        # ``AgentRunResult.parsed`` is typed as a pydantic model, so a dict handed to the constructor is coerced into
+        # a BARE ``BaseModel()`` that cannot be read, dumped or printed — every held site that parses its own JSON
+        # (records enrichment, the bake-off judges, docproc, masterworks) then failed its post-run check with "BaseModel
+        # cannot be instantiated directly" (lane AGENT-RECORDS-MCP-2, 2026-10-19). A dict or list is the parsed
+        # artifact as it is: set it after construction, untouched.
+        keep_raw = isinstance(parsed, dict | list)
         result = AgentRunResult(
             success=success,
             output=output or "",
             model_id=self.model,
-            parsed=parsed,
+            parsed=None if keep_raw else parsed,
             error=error,
             error_kind="execution" if not success else None,
             usage=usage,
             metadata={**_finished_run_ids(self), **facts},
         )
+        if keep_raw:
+            result.parsed = parsed
         try:
-            await self.complete(result, dict(self.variables), self.spilled_text)
+            await self.complete(result, dict(self.variables), None)
         except Exception as exc:  # noqa: BLE001 — see docstring
             if getattr(exc, "fails_the_run", False):
                 # The one exception (see run_mandated above): an answer missing
@@ -1205,7 +1225,13 @@ async def hold_code_call(
     # values, so the host's ONE pipeline decides what the Holder receives (and
     # refuses a context/media route this call site cannot deliver). With no map
     # — the default pin — values pass by name, exactly as for run_mandated.
-    if resolution.consumption_map and resolution.materialize is not None:
+    held_media: list[dict[str, Any]] = []
+    if resolution.materialize_media is not None:
+        try:
+            offered, held_media = await resolution.materialize_media(offered)
+        except Exception as exc:  # noqa: BLE001 — the pipeline refuses in words
+            await _refuse_code_call(mandate_key, consumer, f"{type(exc).__name__}: {exc}")
+    elif resolution.consumption_map and resolution.materialize is not None:
         try:
             offered = await resolution.materialize(offered)
         except Exception as exc:  # noqa: BLE001 — the pipeline refuses in words
@@ -1233,6 +1259,16 @@ async def hold_code_call(
         detail = "; ".join(v.message for v in bound.verdicts if v.blocking)
         await _refuse_code_call(
             mandate_key, consumer, f"the binding's variable mapping is invalid: {detail}"
+        )
+    if bound.spilled:
+        # A held call is a raw model request with no context channel, and a
+        # spilled value is never written into a turn (injection census #28).
+        await _refuse_code_call(
+            mandate_key,
+            consumer,
+            f"the binding spills {sorted(bound.spilled)}, which a held code call cannot "
+            "deliver except as text added to the turn — declare them as variables on the "
+            "Holder instead",
         )
     dropped = [
         v.code_name for v in bound.verdicts if getattr(v, "caution", False) and v.code_name
@@ -1316,10 +1352,10 @@ async def hold_code_call(
         config=config,
         metadata=carried,
         variables=held_variables,
-        spilled_text=bound.spilled_text or None,
         complete=resolution.complete,
         holder_values=holder_values,
         offering_id=str(getattr(config, "offering_id", None) or "") or None,
+        media_blocks=list(held_media),
     )
     _register_held_run(held_call_id, held.run_ids)
     return held
@@ -1393,7 +1429,6 @@ async def _hold_by_workflow(
         config=None,
         metadata=carried,
         variables=offered,
-        spilled_text=None,
         complete=resolution.complete,
         holder_values={},
         holder_type="workflow",
@@ -1414,6 +1449,7 @@ _HELD_KNOBS: tuple[str, ...] = (
     "verbosity",
     "response_format",
     "stop_sequences",
+    "extended_prompt_cache",  # the agent's long-cache setting (config/cache_marks.py)
 )
 
 
@@ -1442,7 +1478,6 @@ def held_request_config(
         "messages": [
             *held.turns,
             *(extra_turns or []),
-            *([{"role": "user", "content": held.spilled_text}] if held.spilled_text else []),
         ],
         "stream": stream,
     }
@@ -1558,10 +1593,15 @@ async def run_held_pydantic(
     unset_max_tokens: int = 8092,
     system: str | None = None,
     metadata: dict[str, Any] | None = None,
+    measured: bool = False,
     **funnel_kwargs: Any,
 ) -> Any:
     """A held strict-JSON call: the Holder's settings, the one precedence rule,
     the binding's spill, and the post-run check — in one place.
+
+    ``measured=True`` returns the funnel's ``MeasuredStrictJson`` (``value`` + summed
+    ``usage.cost_usd`` / tokens over every attempt) instead of the bare value, for a caller
+    that must publish what the call cost (the Agent Evaluation judge).
 
     ``model`` / ``max_tokens`` / ``temperature`` are EXPLICIT caller overrides
     (a workflow author's field, an API request's field) and win only when set.
@@ -1588,11 +1628,11 @@ async def run_held_pydantic(
     }
     try:
         if messages is None:
-            value = await funnel.llm_to_pydantic(user=held.user_text(user or ""), **common)
+            fn = funnel.llm_to_pydantic_measured if measured else funnel.llm_to_pydantic
+            value = await fn(user=held.user_text(user or ""), **common)
         else:
-            if held.spilled_text:
-                messages = [*messages, {"role": "user", "content": held.spilled_text}]
-            value = await funnel.llm_messages_to_pydantic(messages=messages, **common)
+            fn = funnel.llm_messages_to_pydantic_measured if measured else funnel.llm_messages_to_pydantic
+            value = await fn(messages=messages, **common)
     except Exception as exc:
         await held.finish(
             getattr(exc, "raw_output", "") or "",
@@ -1600,7 +1640,8 @@ async def run_held_pydantic(
             error=f"{type(exc).__name__}: {exc}"[:500],
         )
         raise
-    dumped = value.model_dump(mode="json") if hasattr(value, "model_dump") else value
+    parsed_value = value.value if measured else value
+    dumped = parsed_value.model_dump(mode="json") if hasattr(parsed_value, "model_dump") else parsed_value
     await held.finish(json.dumps(dumped, ensure_ascii=False, default=str), parsed=dumped)
     return value
 

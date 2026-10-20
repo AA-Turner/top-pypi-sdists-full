@@ -1,7 +1,8 @@
 """Site data — structured records for hard sites, via Bright Data's Web Scraper API.
 
-The door every caller uses (``read_page``'s route-first lane and the agent
-``site_data`` tool):
+The door every caller uses (the agent ``site_data`` tool, the advanced-read
+retry door's structured-data reader). ``read_page`` never routes here on its own:
+our scraper always reads first (``matrx_scraper.coverage``).
 
 * ``match(url)`` — the verified, auto-routing catalog entry for a URL, or None.
 * ``fetch(url=...)`` / ``fetch(site=key, query=..., inputs=...)`` →
@@ -31,9 +32,6 @@ from matrx_scraper.vendors.site_catalog import CatalogEntry, ensure_catalog, get
 from matrx_scraper.vendors.site_catalog import match as _catalog_match
 
 EXT_CLIENT = "brightdata_client"
-#: Optional host hook: ``async () -> bool`` — the platform knob deciding whether
-#: ``read_page`` routes catalog URLs here first. Absent = route (defaults lean open).
-EXT_ROUTE_ENABLED = "site_data_route_enabled"
 #: Optional host hook: ``async (request: SiteDataTableRequest, progress) -> SiteDataTableSaved`` —
 #: fetch the records AND write them into a table the person owns (the host's durable job, metering,
 #: limits and table API). Absent = ``fetch_to_table`` answers ``not_configured``; this package
@@ -142,6 +140,7 @@ def build_inputs(entry: CatalogEntry, *, url: str | None, query: str | None, loc
             row[entry.location_field] = location
         rows = [row]
     for row in rows:
+        entry.apply_name_search(row)
         for k, v in entry.defaults.items():
             row.setdefault(k, v)
         if entry.limit_field:
@@ -410,7 +409,6 @@ def render_records(records: list[dict[str, Any]], *, label: str, total: int | No
 __all__ = [
     "DEFAULT_MAX_RECORDS",
     "EXT_CLIENT",
-    "EXT_ROUTE_ENABLED",
     "EXT_TABLE_WRITER",
     "SiteDataTableRefused",
     "SiteDataTableRequest",

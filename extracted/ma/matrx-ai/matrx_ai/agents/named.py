@@ -180,9 +180,31 @@ class OfferedValueMapping(BaseModel):
     #: A list value (or a kind's ``items`` envelope) delivers only its first
     #: this-many entries, in the order the provision offers them.
     max_items: int | None = Field(default=None, ge=1)
+    #: Applied after ``max_items``: each entry of a list (or of a kind's ``items``
+    #: envelope) keeps only these keys. ``__kind`` is part of the data and is
+    #: always kept when present; a key missing on an entry is simply absent.
+    item_fields: list[str] | None = None
+    #: Applied after ``item_fields``: every string inside each entry (nested
+    #: ones too) longer than this is cut to this many characters plus "…".
+    field_max_chars: int | None = Field(default=None, ge=1)
     #: A line printed above this source's text (only when the source is
     #: present), so a joined input says what each part is.
     heading: str | None = None
+    #: THE BINDING JOINS (2026-10-19): the text this source delivers, with
+    #: ``{value}`` standing for its text form — "- domain: {value}". Applied
+    #: when the source is present AND to a ``use_default`` default, so an
+    #: absent part can still say so ("Website:\n{value}" with default
+    #: "[NONE]"). A skipped source contributes nothing, template included.
+    template: str | None = None
+    #: A list value's entries, each rendered through this template (``{value}``
+    #: = the entry's text form) and joined with ``item_separator``; the result
+    #: is then the source's text form (and feeds ``template`` when set).
+    item_template: str | None = None
+    #: Joins the entries rendered by ``item_template``; default one newline.
+    item_separator: str = "\n"
+    #: Placed BEFORE this source's text when it joins earlier parts of the same
+    #: input; unset = the platform's blank line (``MULTI_SOURCE_JOINER``).
+    separator: str | None = None
 
 
 class DirectValueMapping(BaseModel):
@@ -194,7 +216,7 @@ class DirectValueMapping(BaseModel):
     slot from a literal exactly as it may feed one from an offered value, and
     every source of one target must agree on where it lands. A surface binding
     never sets it and never reads it — the default is the pre-existing
-    behaviour, so nothing stored before this field existed changes meaning.
+    behavior, so nothing stored before this field existed changes meaning.
     """
 
     mapType: Literal["direct_value"] = "direct_value"
@@ -364,8 +386,15 @@ class VariableVerdictKind(StrEnum):
     OK = "ok"
     RENAMED = "renamed"
     DEFAULT_USED = "default_used"
+    #: The binding SAYS so: a map entry of ``mapType: unmapped`` on an optional variable.
     INTENTIONALLY_BLANK = "intentionally_blank"
-    SPILLED_TO_USER_INPUT = "spilled_to_user_input"
+    #: Nothing filled a declared optional variable — no value by its name, no map entry, no
+    #: agent default — so it runs blank and nobody chose that. Cautioned, never silent
+    #: (PB-02 defect 74: a default Holder ran with ``destination`` / ``window`` blank).
+    UNFILLED = "unfilled"
+    #: An undeclared code value the binding SPILLS: delivered as a named CONTEXT
+    #: entry (``VariableResolution.spilled``), never as text in the turn.
+    SPILLED_TO_CONTEXT = "spilled_to_context"
     DROPPED = "dropped"
     MISSING_FROM_CODE = "missing_from_code"
     REQUIRED_UNMAPPED = "required_unmapped"
@@ -387,11 +416,11 @@ class VariableResolution(BaseModel):
     user_input: str | None = None
     verdicts: list[VariableVerdict] = Field(default_factory=list)
     blocking: bool = False
-    # The spilled lines ALONE, without the caller's own user_input folded in.
-    # `user_input` above is the merged string and is only usable by a call site
-    # that passed a string; a multimodal call site (a list of content blocks)
-    # needs just the spill so it can append it as one more block.
-    spilled_text: str | None = None
+    #: Undeclared values the binding spills (``spill_variables``), by name. The door
+    #: delivers them as CONTEXT entries — the declared, visible channel. 🚨 NEVER as
+    #: text in the turn: ``user_input`` above is exactly what the caller sent
+    #: (Arman, 2026-10-17: never add text to a person's message; injection census #28).
+    spilled: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 def _has_agent_default(variable: AgentVariable) -> bool:
@@ -557,23 +586,27 @@ def resolve_variable_mapping(
                 VariableVerdict(
                     variable=agent_name,
                     code_name=code_name,
-                    verdict=VariableVerdictKind.INTENTIONALLY_BLANK,
-                    message="optional agent variable is blank",
+                    verdict=VariableVerdictKind.UNFILLED,
+                    message=(
+                        f"nothing filled {agent_name!r}: no value by that name and no map entry, "
+                        "so it ran blank. Map a value to it, or map it as unmapped if blank is meant"
+                    ),
+                    caution=True,
                 )
             )
 
-    spill_lines: list[str] = []
+    spilled: dict[str, JsonValue] = {}
     for code_name, value in code_values.items():
         if code_name in consumed:
             continue
         if code_name in (spill or set()):
-            spill_lines.append(f"{humanize_identifier(code_name)}: {to_template_value(value)}")
+            spilled[code_name] = to_template_value(value)
             verdicts.append(
                 VariableVerdict(
                     variable=code_name,
                     code_name=code_name,
-                    verdict=VariableVerdictKind.SPILLED_TO_USER_INPUT,
-                    message="undeclared code value appended to user_input",
+                    verdict=VariableVerdictKind.SPILLED_TO_CONTEXT,
+                    message="undeclared code value delivered as a context entry",
                     caution=True,
                 )
             )
@@ -587,14 +620,10 @@ def resolve_variable_mapping(
                     caution=True,
                 )
             )
-    combined = user_input
-    spilled_text = "\n".join(spill_lines) if spill_lines else None
-    if spill_lines:
-        combined = "\n".join(part for part in (user_input, *spill_lines) if part)
     return VariableResolution(
         variables=variables,
-        user_input=combined,
-        spilled_text=spilled_text,
+        user_input=user_input,
+        spilled=spilled,
         verdicts=verdicts,
         blocking=any(item.blocking for item in verdicts),
     )
@@ -679,10 +708,10 @@ def to_template_value(value: Any) -> Any:
     what an LLM expects. This helper produces JSON for lists/dicts/Pydantic
     models so structured Inputs round-trip cleanly through the template,
     while leaving primitive types alone so the existing string-based
-    behaviour is preserved bit-for-bit.
+    behavior is preserved bit-for-bit.
 
     * ``None``                  -> ``None`` (unchanged; ``str(None) == "None"``
-                                  is the historical behaviour, kept for parity).
+                                  is the historical behavior, kept for parity).
     * ``str``                   -> unchanged (no trim, no escaping).
     * ``BaseModel``             -> ``model_dump_json()``.
     * ``list`` / ``dict`` / ``tuple`` / ``set`` -> ``json.dumps`` with
@@ -888,7 +917,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         to rename a local field to its agent-template variable name. Fields
         absent from ``variable_map`` keep their own name. Includes ``None``
         and empty-string defaults filled in by Pydantic — matching the
-        behaviour of the existing ``_execute_agent`` callers in ``research/``
+        behavior of the existing ``_execute_agent`` callers in ``research/``
         which always pass the full set of variables they care about, even
         when some are empty. Subclasses can override to combine or transform
         fields (call ``super().prepare_variables(inputs)`` to keep the rename).
@@ -1020,18 +1049,22 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             detail = "; ".join(v.message for v in resolution.verdicts if v.blocking)
             raise ValueError(f"{cls.name}: resolved agent variable binding is invalid: {detail}")
         variables = {k: to_template_value(v) for k, v in resolution.variables.items()}
-        if isinstance(user_input, str) or user_input is None:
-            user_input = resolution.user_input
-        elif resolution.spilled_text:
-            # A MULTIMODAL call site (a list of content blocks) must still
-            # receive spilled values. Before 2026-08-16 the spill was computed
-            # and then silently discarded here, so a Mandate whose remedy is
-            # "pass it as user text" kept dropping the value on exactly the
-            # call sites that attach files or a prep message — the podcast
-            # topic path being the live one. Append it as one more input_text
-            # block; `resolve_variable_mapping` joins with "\n" and is
-            # string-only, so it cannot build this shape itself.
-            user_input = [*user_input, {"type": "input_text", "text": resolution.spilled_text}]
+        if resolution.spilled:
+            # A spilled value rides the agent's CONTEXT (the declared channel the
+            # host prepare hook delivers), never the turn — the caller's text is
+            # sent exactly as given (injection census #28).
+            from matrx_ai._ext import get_programmatic_agent_prepare_hook
+
+            if get_programmatic_agent_prepare_hook() is None:
+                raise ValueError(
+                    f"{cls.name}: the binding spills {sorted(resolution.spilled)} as context, "
+                    "and this host has no context-delivery path — declare these as variables "
+                    "on the agent instead. Never added to the caller's text."
+                )
+            agent.request_context = {
+                **dict(resolution.spilled),
+                **dict(getattr(agent, "request_context", None) or {}),
+            }
         if variables:
             agent.set_variables(**variables)
         if config_overrides is not None:

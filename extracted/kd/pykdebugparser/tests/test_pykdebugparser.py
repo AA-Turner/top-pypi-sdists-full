@@ -5,14 +5,17 @@ import struct
 
 import pytest
 
-from pykdebugparser.kd_buf_parser import RAW_VERSION2_BYTES
+from pykdebugparser.kd_buf_parser import RAW_VERSION2_BYTES, V2_EVENTS_ALIGNMENT
 from pykdebugparser.kevent import Kevent
 from pykdebugparser.pykdebugparser import PyKdebugParser
 from pykdebugparser.trace_codes import syscall_eventids
 
+# A trace version 2 header without threads, padded to where its events start.
+V2_HEADER = RAW_VERSION2_BYTES + b'\x00' * (V2_EVENTS_ALIGNMENT - len(RAW_VERSION2_BYTES))
+
 
 def test_kevents():
-    events_buf = RAW_VERSION2_BYTES + b'\x00' * 0x11c
+    events_buf = V2_HEADER
     events_buf += (b'\xa50\x147_\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
                    b'\x00\x00\x00\x00\x00\x00\x00\x00\xc6\x01\x00\x00\x00\x00\x00\x00y\xd8\t\x00\x00\x00\x00'
                    b'\x00*\x03\x0c\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -27,7 +30,7 @@ def test_kevents():
 
 
 def test_kevents_filter_tid():
-    events_buf = RAW_VERSION2_BYTES + b'\x00' * 0x11c
+    events_buf = V2_HEADER
     events_buf += (b'\xa50\x147_\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
                    b'\x00\x00\x00\x00\x00\x00\x00\x00\xc6\x01\x00\x00\x00\x00\x00\x00y\xd8\t\x00\x00\x00\x00'
                    b'\x00*\x03\x0c\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -72,7 +75,7 @@ class _NoRead1Reader(_ChunkedReader):
 
 
 def _kevents_buf(count):
-    events_buf = RAW_VERSION2_BYTES + b'\x00' * 0x11c
+    events_buf = V2_HEADER
     for i in range(count):
         events_buf += (i + 1).to_bytes(8, 'little') + bytes(range(i, i + 32)) + (i * 7).to_bytes(8, 'little')
         events_buf += (0x40c0000 + i).to_bytes(4, 'little') + b'\x00' * 12
@@ -120,7 +123,7 @@ def _open_and_read_buf():
         _kd_buf(1003, 0x40c000c | 1, (3, 0x16b000000, 10, 0)),  # read(3, buf, 10) start
         _kd_buf(1004, 0x40c000c | 2, (0, 10, 0, 0)),  # read end: 10 bytes
     ]
-    return RAW_VERSION2_BYTES + b'\x00' * 0x11c + b''.join(events)
+    return V2_HEADER + b''.join(events)
 
 
 def _traces_parser():
@@ -129,6 +132,26 @@ def _traces_parser():
     parser.numer, parser.denom, parser.mach_absolute_time, parser.usecs_since_epoch = 1, 1, 0, 0
     parser.timezone = timezone.utc
     return parser
+
+
+@pytest.mark.parametrize('filter_class', [[], [0x33]])
+def test_kevents_name_processes_created_during_the_trace(filter_class):
+    # A thread created by pid 300 forks process 301, which execs: none of them are in the (empty) threadmap.
+    events = [
+        _kd_buf(1000, 0x7000004, (200, 300, 0, 0), tid=100),  # TRACE_DATA_NEWTHREAD: tid 200 of pid 300
+        _kd_buf(1001, 0x7010004, data=b'launchd'.ljust(32, b'\x00'), tid=100),  # TRACE_STRING_NEWTHREAD
+        _kd_buf(1002, 0x7000004, (201, 301, 0, 0), tid=200),  # TRACE_DATA_NEWTHREAD: tid 201 of pid 301
+        _kd_buf(1003, 0x7010004, data=b'launchd'.ljust(32, b'\x00'), tid=200),  # TRACE_STRING_NEWTHREAD
+        _kd_buf(1004, 0x7000008, (301, 0, 0, 0), tid=201),  # TRACE_DATA_EXEC: pid 301
+        _kd_buf(1005, 0x7010008, data=b'Preferences'.ljust(32, b'\x00'), tid=201),  # TRACE_STRING_EXEC
+        _kd_buf(1006, 0x33010005, (1, 16, 0, 0), tid=201),  # malloc start
+        _kd_buf(1007, 0x33010005, (1, 16, 0, 0), tid=200),  # malloc start
+    ]
+    parser = _traces_parser()
+    parser.filter_class = filter_class
+    processes = [parser._format_process(event.tid) for event in parser.kevents(BytesIO(V2_HEADER + b''.join(events)))
+                 if event.eventid >> 24 == 0x33]
+    assert processes == ['Preferences(301)', 'launchd(300)']
 
 
 def test_traces_filter_eventid():
@@ -155,7 +178,7 @@ def test_traces_filter_eventid_without_handler():
         _kd_buf(1001, 0x1400120 | 2, (467, 0, 0, 4)),  # MACH_SCHED_THREAD_SELECT end
         _kd_buf(1002, 0x1400140, (0, 3, 0, 0)),  # MACH_PSET_AVG_EXEC_TIME
     ]
-    events_buf = RAW_VERSION2_BYTES + b'\x00' * 0x11c + b''.join(events)
+    events_buf = V2_HEADER + b''.join(events)
     parser = _traces_parser()
     parser.filter_class = [1]
     assert list(parser.formatted_traces(BytesIO(events_buf))) == []
@@ -174,7 +197,7 @@ def test_traces_keep_lost_events_when_filtered():
         _kd_buf(1000, 0x7020008, (1, 0, 0, 0)),  # TRACE_LOST_EVENTS
         _kd_buf(1001, 0x1400140, (0, 3, 0, 0)),  # MACH_PSET_AVG_EXEC_TIME
     ]
-    events_buf = RAW_VERSION2_BYTES + b'\x00' * 0x11c + b''.join(events)
+    events_buf = V2_HEADER + b''.join(events)
     parser = _traces_parser()
     parser.filter_class = [1]
     traces = list(parser.formatted_traces(BytesIO(events_buf)))
@@ -187,7 +210,7 @@ def test_dict_traces():
         _kd_buf(1000, 0x40c0014 | 1, (0x16d2c2b80, 0, 0, 0)),  # open start
         _kd_buf(2000, 0x40c0014 | 2, (2, 0, 0, 0)),  # open end: ENOENT
     ]
-    events_buf = RAW_VERSION2_BYTES + b'\x00' * 0x11c + b''.join(events)
+    events_buf = V2_HEADER + b''.join(events)
     parser = _traces_parser()
     (unknown_process,) = parser.dict_traces(BytesIO(events_buf))
     assert (unknown_process['pid'], unknown_process['process']) == (None, '')

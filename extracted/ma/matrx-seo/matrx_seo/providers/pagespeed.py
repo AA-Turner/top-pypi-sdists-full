@@ -65,7 +65,7 @@ _KEPT_SCORE_DISPLAY_MODES = frozenset(
 )
 
 # The delivery fix-list, by Lighthouse 13 audit id. `cache-insight` is
-# deliberately ABSENT: caching is scored by its own catalogue item
+# deliberately ABSENT: caching is scored by its own catalog item
 # (`caching_policy`), and counting it here would double-charge one defect.
 _DELIVERY_SAVINGS_AUDITS: tuple[str, ...] = (
     "render-blocking-insight",
@@ -659,7 +659,7 @@ def _audit_savings_ms(audit: Mapping[str, Any]) -> float:
 
 def _delivery_facts(audits: Mapping[str, Any]) -> dict[str, Any]:
     """The delivery + caching evidence the `asset_delivery` / `caching_policy`
-    catalogue checks score, projected to a BOUNDED shape.
+    catalog checks score, projected to a BOUNDED shape.
 
     🚨 Lighthouse 13 (PSI's current engine) retired the audit names every SEO
     tool was written against — ``render-blocking-resources``,

@@ -19,14 +19,16 @@ async def test_cache_state_update_rejects_terminal_inherited_lane(monkeypatch):
         scopes.append(f"{reason}:{conversation_id}")
         yield object()
 
+    from matrx_ai.persistence import queue_helpers
+
     monkeypatch.setattr(
-        persistence,
+        queue_helpers,
         "get_current_lane",
         lambda: SimpleNamespace(phase="closed"),
     )
     monkeypatch.setattr(
-        persistence,
-        "_get_coordinator",
+        queue_helpers,
+        "get_coordinator",
         lambda: pytest.fail("terminal lane must not materialize a request coordinator"),
     )
     monkeypatch.setattr(

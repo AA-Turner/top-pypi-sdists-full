@@ -305,7 +305,35 @@ cdef class Connection:
                     fire_triggers=False):
         cdef int batch_counter = 0
         cdef _mssql.MSSQLConnection conn = self._conn
+        cdef object unicode_column_ids = set()
+        cdef object identity_column_ids = set()
+        cdef object column_id
+        cdef bint keep_identity = False
+
+        conn.execute_query(
+            "SELECT column_id, TYPE_NAME(system_type_id) AS system_type_name, is_identity "
+            "FROM sys.columns "
+            "WHERE object_id = OBJECT_ID(%s)",
+            table_name
+        )
+        for column in conn:
+            if column['system_type_name'] in ('nchar', 'ntext', 'nvarchar', 'xml'):
+                unicode_column_ids.add(column['column_id'])
+            if column['is_identity']:
+                identity_column_ids.add(column['column_id'])
+
         conn.bcp_init(table_name)
+
+        if column_ids is None:
+            keep_identity = bool(identity_column_ids)
+        else:
+            for column_id in column_ids:
+                if column_id in identity_column_ids:
+                    keep_identity = True
+                    break
+
+        if keep_identity:
+            conn.bcp_keep_identity()
 
         if tablock:
             conn.bcp_hint(<BYTE*> TABLOCK, TABLOCK_LEN)
@@ -319,7 +347,7 @@ cdef class Connection:
                 conn.bcp_batch()
                 batch_counter = 0
 
-            self._conn.bcp_sendrow(element, column_ids)
+            conn.bcp_sendrow(element, column_ids, unicode_column_ids)
             batch_counter += 1
         conn.bcp_done()
 

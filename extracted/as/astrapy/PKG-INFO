@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: astrapy
-Version: 2.3.1
+Version: 2.3.2
 Summary: A Python client for the Data API on DataStax Astra DB
 Project-URL: Homepage, https://github.com/datastax/astrapy
 Project-URL: Documentation, https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html
@@ -18,15 +18,16 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Build Tools
 Requires-Python: <4.0,>=3.10
 Requires-Dist: deprecation~=2.1.0
 Requires-Dist: h11>=0.16.0
 Requires-Dist: httpx[http2]<1,>=0.25.2
 Requires-Dist: ipython>=8.0.0
-Requires-Dist: pymongo>=3
+Requires-Dist: pymongo>=4.18.2
 Requires-Dist: toml<1.0.0,>=0.10.2
-Requires-Dist: typing-extensions>=4.0
+Requires-Dist: typing-extensions>=4.16
 Requires-Dist: uuid6>=2024.1.12
 Description-Content-Type: text/markdown
 
@@ -515,7 +516,7 @@ client = DataAPIClient(environment=Environment.HCD)
 database = client.get_database("http://localhost:8181", token=tp)
 ```
 
-For more on this case, please consult the [dedicated reference](https://docs.datastax.com/en/hyper-converged-database/1.0/connect/python-client.html).
+For more on this case, please consult the [dedicated reference](https://docs.datastax.com/en/hyper-converged-database/2.0/api-reference/dataapiclient.html).
 
 ## AstraPy's API
 

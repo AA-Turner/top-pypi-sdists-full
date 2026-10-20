@@ -84,7 +84,7 @@ async def test_refusal_carries_a_named_error_info_for_the_stream(broken_db: None
 
 @pytest.mark.asyncio
 async def test_default_still_degrades_for_standalone_use(broken_db: None) -> None:
-    """Without require_durable the old behaviour stands: no DB, no resume, but
+    """Without require_durable the old behavior stands: no DB, no resume, but
     the pipeline still runs (standalone package use, tests, no registry)."""
     ckpt = await RunCheckpointer.start(kind="research", user_id="u1", request={})
     assert isinstance(ckpt, NullCheckpointer)

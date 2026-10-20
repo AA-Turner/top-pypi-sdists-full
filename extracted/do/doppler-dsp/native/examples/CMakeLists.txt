@@ -9,7 +9,7 @@ foreach(_ex nco_demo fir_demo hbdecim_demo fft_demo agc_demo corr_demo cic_demo 
              wfmgen_demo wfmgen_frame_demo wfmgen_data_source_demo framed_link_demo
              data_source_link_demo
              wfm_field_demo
-             doppler_channel_profile_demo
+             doppler_channel_profile_demo async_despread_demo
              ring_drip_feed_demo ring_chunking_demo ring_framer_demo
              ring_write_policy_demo ring_element_view_demo
              spectrogram_demo)
@@ -31,7 +31,8 @@ find_package(Threads REQUIRED)
 # (dp_parallel.h); glibc < 2.34 needs -lpthread on the final link.
 # ring_threaded_demo is a producer thread against a blocking wait()
 # (dp_thread.h); ring_backed_demo names its file in the temp directory.
-foreach(_ex async_dsss_pool_demo ring_threaded_demo ring_backed_demo)
+foreach(_ex async_dsss_pool_demo async_dsss_receiver_lifecycle async_dsss_receiver_spec_demo
+             ring_threaded_demo ring_backed_demo)
     add_executable(${_ex} ${_ex}.c)
     target_include_directories(${_ex} PRIVATE
         ${CMAKE_SOURCE_DIR}/native/inc

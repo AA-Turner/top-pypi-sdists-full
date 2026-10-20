@@ -11,6 +11,37 @@ use arrow_array::Array;
 use formualizer_common::{ExcelError, ExcelErrorKind, LiteralValue};
 use formualizer_macros::func_caps;
 
+/// Add one row chunk in reading order, retaining the caller's accumulator.
+/// This order is [`crate::engine::NumericProfile::ExcelCompatible`]; another
+/// profile would choose its order here.
+/// Null selection adds +0 (the accumulator starts at +0 and cannot become -0).
+pub(crate) fn add_number_columns(
+    total: &mut f64,
+    columns: &[std::sync::Arc<arrow_array::Float64Array>],
+) {
+    if let [column] = columns {
+        if column.null_count() == 0 {
+            for &value in column.values() {
+                *total += value;
+            }
+        } else {
+            for value in column.iter() {
+                *total += value.unwrap_or(0.0);
+            }
+        }
+    } else if let Some(first) = columns.first() {
+        for row in 0..first.len() {
+            for column in columns {
+                *total += if column.is_valid(row) {
+                    column.value(row)
+                } else {
+                    0.0
+                };
+            }
+        }
+    }
+}
+
 /* ─────────────────────────── SUM() ──────────────────────────── */
 
 #[derive(Debug)]
@@ -118,10 +149,7 @@ impl Function for SumFn {
 
                     for res in view.numbers_slices() {
                         let (_, _, num_cols) = res?;
-                        for col in num_cols {
-                            total += arrow::compute::kernels::aggregate::sum(col.as_ref())
-                                .unwrap_or(0.0);
-                        }
+                        add_number_columns(&mut total, &num_cols);
                     }
                 }
                 AggregateArgument::ReferenceError(e) => {
@@ -369,9 +397,8 @@ impl Function for AverageFn {
 
                     for res in view.numbers_slices() {
                         let (_, _, num_cols) = res?;
+                        add_number_columns(&mut sum, &num_cols);
                         for col in num_cols {
-                            sum += arrow::compute::kernels::aggregate::sum(col.as_ref())
-                                .unwrap_or(0.0);
                             cnt += (col.len() - col.null_count()) as i64;
                         }
                     }
@@ -500,6 +527,9 @@ impl Function for SumProductFn {
         let to_array = |ah: &ArgumentHandle<'_, 'b>| -> Result<Vec<Vec<LiteralValue>>, ExcelError> {
             match resolve_aggregate_argument(ah, ctx)? {
                 AggregateArgument::Range(rv) => {
+                    if let Some(error) = rv.materialization_error() {
+                        return Err(error);
+                    }
                     let mut rows: Vec<Vec<LiteralValue>> = Vec::new();
                     rv.for_each_row(&mut |row| {
                         rows.push(row.to_vec());
@@ -534,6 +564,16 @@ impl Function for SumProductFn {
                 )));
             }
         };
+
+        // SUMPRODUCT does not allocate the broadcast shape, but a column and a
+        // row broadcast to their product: bound the walk like a dense array.
+        if let Some(error) = crate::engine::resource_ledger::materialized_cells_exceed(
+            target.0,
+            target.1,
+            ctx.materialized_array_cells(),
+        ) {
+            return Ok(crate::traits::CalcValue::Scalar(LiteralValue::Error(error)));
+        }
 
         // Iterate target shape, multiply coerced values across args, sum total
         let mut total = 0.0f64;
@@ -857,6 +897,33 @@ mod computed_array_tests {
     }
 
     #[test]
+    fn sequential_sum_regressions() {
+        let wb = workbook()
+            .with_cell_a1("Sheet1", "D1", LiteralValue::Number(1e16))
+            .with_cell_a1("Sheet1", "E1", LiteralValue::Number(1.0))
+            .with_cell_a1("Sheet1", "D2", LiteralValue::Number(-1e16))
+            .with_cell_a1("Sheet1", "E2", LiteralValue::Number(1.0));
+        for (formula, expected) in [
+            ("=SUM({10000000000000000;1;-10000000000000000;1})", 1.0),
+            ("=SUM(D1:E2)", 1.0),
+            ("=SUM(D1,E1:E2,D2)", 0.0),
+            ("=SUM(D1,D2:E2)", 1.0),
+            ("=SUM(D1,E1:E3,D2)", 0.0),
+            ("=AVERAGE(D1:E2)", 0.25),
+            ("=SUMIF(D1:E2,\"<>\")", 1.0),
+            ("=SUMIFS(D1:E2,D1:E2,\"<>\")", 1.0),
+            ("=AVERAGEIF(D1:E2,\"<>\")", 0.25),
+            ("=AVERAGEIFS(D1:E2,D1:E2,\"<>\")", 0.25),
+        ] {
+            assert_eq!(
+                evaluate(&wb, formula).unwrap(),
+                LiteralValue::Number(expected),
+                "{formula}"
+            );
+        }
+    }
+
+    #[test]
     fn ast_aggregates_consume_computed_arrays() {
         let wb = workbook();
         let cases = [
@@ -928,7 +995,7 @@ mod computed_array_tests {
         let wb = workbook();
         let colon = ASTNode::new(
             ASTNodeType::BinaryOp {
-                op: ":".to_string(),
+                op: formualizer_parse::BinaryOperator::Range,
                 left: Box::new(formualizer_parse::parser::parse("=A1").unwrap()),
                 right: Box::new(formualizer_parse::parser::parse("=A3").unwrap()),
             },
@@ -1077,7 +1144,7 @@ mod computed_array_tests {
             panic!("expected an error value");
         };
         assert_eq!(error.kind, kind);
-        assert_eq!(error.message.as_deref(), message);
+        assert_eq!(error.message(), message);
     }
 
     #[test]
@@ -1115,10 +1182,7 @@ mod computed_array_tests {
 
         let computed = evaluate(&wb, "=SUM(COMPUTED_FAILURE())").unwrap_err();
         assert_eq!(computed.kind, ExcelErrorKind::Num);
-        assert_eq!(
-            computed.message.as_deref(),
-            Some("computed failure sentinel")
-        );
+        assert_eq!(computed.message(), Some("computed failure sentinel"));
         assert_eq!(failure_calls.load(Ordering::SeqCst), 1);
 
         assert_exact_error_value(
@@ -1149,7 +1213,7 @@ mod computed_array_tests {
 
         let error = evaluate(&wb, "=SUM(PRETOKENIZED_RANGE())").unwrap_err();
         assert_eq!(error.kind, ExcelErrorKind::Cancelled);
-        assert_eq!(error.message, None);
+        assert_eq!(error.message(), None);
     }
 
     #[test]
@@ -1163,7 +1227,7 @@ mod computed_array_tests {
 
         let error = evaluate(&wb, "=SUM(COUNTED_ARRAY())").unwrap_err();
         assert_eq!(error.kind, ExcelErrorKind::Cancelled);
-        assert_eq!(error.message, None);
+        assert_eq!(error.message(), None);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 }

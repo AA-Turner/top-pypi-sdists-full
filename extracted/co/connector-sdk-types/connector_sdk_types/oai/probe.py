@@ -22,10 +22,18 @@ from connector_sdk_types.generated.models.found_entitlement_association import (
     FoundEntitlementAssociation,
 )
 from connector_sdk_types.generated.models.found_entitlement_data import FoundEntitlementData
+from connector_sdk_types.generated.models.probe_capability_config_status import (
+    ProbeCapabilityConfigStatus,
+)
+from connector_sdk_types.generated.models.probe_capability_type import ProbeCapabilityType
 from connector_sdk_types.generated.models.probe_check import ProbeCheck
 from connector_sdk_types.generated.models.probe_check_name import ProbeCheckName
 from connector_sdk_types.generated.models.probe_check_source import ProbeCheckSource
 from connector_sdk_types.generated.models.probe_check_status import ProbeCheckStatus
+from connector_sdk_types.generated.models.probe_config_finding import ProbeConfigFinding
+from connector_sdk_types.generated.models.probe_config_finding_severity import (
+    ProbeConfigFindingSeverity,
+)
 from connector_sdk_types.generated.models.probe_coverage_status import ProbeCoverageStatus
 from connector_sdk_types.generated.models.probe_integration import ProbeIntegration
 from connector_sdk_types.generated.models.probe_integration_request import (
@@ -35,13 +43,18 @@ from connector_sdk_types.generated.models.probe_integration_response import Prob
 from connector_sdk_types.generated.models.probe_results import ProbeResults
 from connector_sdk_types.generated.models.probe_sample_account import ProbeSampleAccount
 from connector_sdk_types.generated.models.probe_sample_association import ProbeSampleAssociation
+from connector_sdk_types.generated.models.probe_sample_capability_config import (
+    ProbeSampleCapabilityConfig,
+)
 from connector_sdk_types.generated.models.probe_sample_custom_attribute import (
     ProbeSampleCustomAttribute,
 )
 from connector_sdk_types.generated.models.probe_sample_entitlement import ProbeSampleEntitlement
 from connector_sdk_types.generated.models.probe_status import ProbeStatus
+from connector_sdk_types.oai.utils.capability_level import get_capability_level_from_name
 
 __all__ = [
+    "BASELINE_PROBE_CHECKS",
     "ProbeCheckCallable",
     "ProbeSession",
     "ProbeCheckSpec",
@@ -50,9 +63,11 @@ __all__ = [
     "default_probe_error_mapper",
     "elapsed_ms",
     "probe_account_label",
+    "probe_capability_config_check",
     "probe_failure_message",
     "probe_sample_account",
     "probe_sample_association",
+    "probe_sample_capability_config",
     "probe_sample_custom_attributes",
     "probe_sample_entitlement",
     "run_probe",
@@ -219,8 +234,10 @@ async def run_probe(
 ) -> ProbeIntegrationResponse:
     """Run a connector's checks and assemble the report.
 
-    The order of `specs` is the order checks run in, and a check absent from `specs` is one
-    this connector cannot perform.
+    The order of `specs` is the order checks run in. A baseline check absent from `specs`
+    (see `BASELINE_PROBE_CHECKS`) is reported `unsupported`, any other absent check is left
+    out of the report. `skipped` never fails a run, so a run whose every check was skipped
+    reports `passed`; a caller running a subset should read the checks, not the run status.
 
     Args:
         probe: The capability's payload, passed to each check.
@@ -357,11 +374,21 @@ def _labelled(check: ProbeCheck, spec: ProbeCheckSpec, started: float) -> ProbeC
     return check
 
 
+# The checks every probe answers for, `unsupported` when a connector cannot perform one. A
+# check outside this set, e.g. `capability_config`, is reported only when implemented.
+# Listed in the order a caller would normally walk them; each check is self-contained.
+BASELINE_PROBE_CHECKS: tuple[ProbeCheckName, ...] = (
+    ProbeCheckName.ACCOUNTS,
+    ProbeCheckName.ENTITLEMENTS,
+    ProbeCheckName.ENTITLEMENT_ASSOCIATIONS,
+)
+
+
 def _assemble(
     checks: list[ProbeCheck], specs: Sequence[ProbeCheckSpec], started: float
 ) -> ProbeIntegrationResponse:
     described = {spec.check for spec in specs}
-    for check in ProbeCheckName:
+    for check in BASELINE_PROBE_CHECKS:
         if check not in described:
             checks.append(
                 unsupported_probe_check(
@@ -571,6 +598,108 @@ def probe_sample_association(
         integration_specific_resource_id=association.integration_specific_resource_id,
         linked_to_sampled_account=linked_to_sampled_account,
     )
+
+
+_SEVERITY_ORDER: dict[ProbeConfigFindingSeverity, int] = {
+    ProbeConfigFindingSeverity.ERROR: 0,
+    ProbeConfigFindingSeverity.WARNING: 1,
+    ProbeConfigFindingSeverity.INFO: 2,
+}
+
+
+def probe_sample_capability_config(
+    capability: str,
+    *,
+    capability_type: ProbeCapabilityType | None = None,
+    findings: Sequence[ProbeConfigFinding] = (),
+    setting: str | None = None,
+    preview: str | None = None,
+    configured: bool = True,
+) -> ProbeSampleCapabilityConfig:
+    """One configured capability, its verdict derived from what was found.
+
+    Any `error` makes it `invalid`, any `warning` makes it `warning`, otherwise it is
+    `valid`. Pass `configured=False` for a capability the connector implements but the
+    caller has not configured, so a caller can tell "not set up" from "set up wrong".
+
+    Args:
+        capability: The standard capability the configuration drives, e.g. `assign_entitlement`.
+        capability_type: Whether that capability reads from or writes to the target system.
+            Defaults to the standard capability's level, and to `write` for a custom one.
+        findings: What the connector's checks found in the configuration.
+        setting: The settings field holding the configuration, so findings can be attached to it.
+        preview: What the connector would send, rendered with placeholder values. Must not
+            contain credential material.
+        configured: Whether anything is configured for the capability at all.
+    """
+    ordered = sorted(findings, key=lambda finding: _SEVERITY_ORDER[finding.severity])
+    severities = {finding.severity for finding in ordered}
+    if not configured:
+        status = ProbeCapabilityConfigStatus.NOT_CONFIGURED
+    elif ProbeConfigFindingSeverity.ERROR in severities:
+        status = ProbeCapabilityConfigStatus.INVALID
+    elif ProbeConfigFindingSeverity.WARNING in severities:
+        status = ProbeCapabilityConfigStatus.WARNING
+    else:
+        status = ProbeCapabilityConfigStatus.VALID
+    return ProbeSampleCapabilityConfig(
+        capability=capability,
+        capability_type=capability_type
+        or ProbeCapabilityType(get_capability_level_from_name(capability)),
+        setting=setting,
+        status=status,
+        findings=ordered,
+        preview=preview,
+    )
+
+
+def probe_capability_config_check(samples: Sequence[ProbeSampleCapabilityConfig]) -> ProbeCheck:
+    """The `capability_config` check for the capabilities a connector examined.
+
+    The check fails when any configured capability is `invalid`. Warnings are reported on the
+    samples but do not fail it. With nothing configured there is nothing to judge, so the
+    check is `skipped` rather than passed without evidence.
+    """
+    configured = [
+        sample
+        for sample in samples
+        if sample.status is not ProbeCapabilityConfigStatus.NOT_CONFIGURED
+    ]
+    if not configured:
+        return skipped_probe_check(
+            ProbeCheckName.CAPABILITY_CONFIG,
+            source=ProbeCheckSource.NATIVE,
+            message="No capabilities are configured, so there is nothing to check.",
+        )
+
+    invalid = [s for s in configured if s.status is ProbeCapabilityConfigStatus.INVALID]
+    warned = [s for s in configured if s.status is ProbeCapabilityConfigStatus.WARNING]
+    summary = (
+        f"Checked {_count(len(configured), 'configured capability', 'configured capabilities')}"
+    )
+    # `observed_count` covers every sample, so say what the summary leaves out.
+    if unconfigured := len(samples) - len(configured):
+        summary += f" ({unconfigured} not configured)"
+    if invalid:
+        names = ", ".join(sample.capability for sample in invalid)
+        message = f"{summary}: {len(invalid)} cannot be executed ({names})."
+    elif warned:
+        message = f"{summary}: all can be executed, {len(warned)} with warnings."
+    else:
+        message = f"{summary}: all can be executed."
+
+    return ProbeCheck(
+        check=ProbeCheckName.CAPABILITY_CONFIG,
+        status=ProbeCheckStatus.FAILED if invalid else ProbeCheckStatus.PASSED,
+        source=ProbeCheckSource.NATIVE,
+        observed_count=len(samples),
+        samples=list(samples),
+        message=message,
+    )
+
+
+def _count(number: int, singular: str, plural: str) -> str:
+    return f"{number} {singular if number == 1 else plural}"
 
 
 def probe_account_label(account: FoundAccountData) -> str:

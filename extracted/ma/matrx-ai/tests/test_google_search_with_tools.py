@@ -110,7 +110,7 @@ def test_grounded_json_uses_one_call_text_envelope_without_disabling_search(monk
     it downstream.
 
     HISTORY — DO NOT UNDO THIS ON A SMALL SAMPLE. This exact test was rewritten
-    on 2026-08-17 to pin the opposite behaviour (native schema + Search together)
+    on 2026-08-17 to pin the opposite behavior (native schema + Search together)
     on the strength of "12/12 grounded trials passed". At the measured ~9.4%
     failure rate, twelve clean runs happen 31% of the time; the test could not
     have seen the bug. Re-measured 2026-09-11, raw HTTP, N=96 per model:

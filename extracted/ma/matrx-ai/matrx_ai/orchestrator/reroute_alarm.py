@@ -8,7 +8,7 @@ API"), the executor reroutes: first to a sibling ``ai.offering`` of the SAME
 model, then to the model row's ``retry_fallback_id``, which is a DIFFERENT
 model and usually a different vendor
 (``matrx_ai.orchestrator.overload_reroute``). That is the right runtime
-behaviour — a user's request continues — but it is also the platform quietly
+behavior — a user's request continues — but it is also the platform quietly
 spending on, and answering with, a model nobody chose.
 
 Before 2026-09-12 the whole record of that was: a red terminal block, an

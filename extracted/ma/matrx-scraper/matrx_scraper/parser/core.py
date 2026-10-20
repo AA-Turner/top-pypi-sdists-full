@@ -64,7 +64,7 @@ class ParserOrchestrator:
     Full pipeline orchestrator — mirrors scraper/logic/parse/orchestrator.py.
 
     Pipeline:
-        1. HtmlTransformer  — normalise HTML
+        1. HtmlTransformer  — normalize HTML
         2. NoiseRemover     — strip structural junk (nav, scripts, hidden elements …)
         3. ScrapeFilter     — remove noise from content
         4. ElementExtractor — extract typed content blocks
@@ -126,7 +126,7 @@ class ParserOrchestrator:
         # ---- Stage 0: URL metadata ----
         self._init_url_meta()
 
-        # ---- Stage 1: HTML normalisation ----
+        # ---- Stage 1: HTML normalization ----
         transformer = HtmlTransformer(self.soup)
         self.soup = transformer.process()
 

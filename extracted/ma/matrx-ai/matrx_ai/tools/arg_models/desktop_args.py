@@ -644,7 +644,7 @@ class DesktopScheduleArgs(ToolArgs):
     )
     run_now: bool | None = Field(default=None, description="create: also run once right away.")
     include_finished: bool | None = Field(
-        default=None, description="list: also finished and cancelled tasks."
+        default=None, description="list: also finished and canceled tasks."
     )
     id: str | None = Field(default=None, description="cancel: the task's id (from create or list).")
 

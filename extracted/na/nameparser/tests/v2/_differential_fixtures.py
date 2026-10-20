@@ -9,8 +9,12 @@ pytest's sense, and several modules want them by name.
 """
 import importlib.util
 import json
+import time
+import urllib.request
 from pathlib import Path
 from types import ModuleType
+
+import pytest
 
 _TOOLS = Path(__file__).parents[2] / "tools" / "differential"
 
@@ -45,11 +49,48 @@ def load_tool(stem: str) -> ModuleType:
 
     `tools/` is outside testpaths, and adding it would run
     --doctest-modules over the corpus builders, so these are imported
-    this way rather than made importable. None has import-time side
-    effects: each main() is behind a __name__ guard."""
+    this way rather than made importable. Each main() is behind a
+    __name__ guard; the one import-time effect is that a corpus builder
+    appends its own directory to sys.path to find corpus_build.py."""
     spec = importlib.util.spec_from_file_location(
         f"differential_{stem}", _TOOLS / f"{stem}.py")
     assert spec is not None and spec.loader is not None, stem
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+class _Response:
+    """What urllib.request.urlopen returns, as far as the build scripts read it."""
+
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+
+    def __enter__(self) -> "_Response":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return self.body
+
+
+def serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, body: bytes, *,
+          requests: list[urllib.request.Request] | None = None,
+          sleeps: list[float] | None = None) -> list[str]:
+    """Answer every urlopen with `body` and skip every sleep, cache into
+    `tmp_path`, and return the list each fetched URL is appended to: the
+    build scripts' network, offline. `requests` and `sleeps`, when given,
+    collect every Request sent and every sleep asked for."""
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(time, "sleep", (sleeps if sleeps is not None else []).append)
+    fetched: list[str] = []
+
+    def urlopen(request: urllib.request.Request, timeout: int) -> _Response:
+        fetched.append(request.full_url)
+        if requests is not None:
+            requests.append(request)
+        return _Response(body)
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    return fetched

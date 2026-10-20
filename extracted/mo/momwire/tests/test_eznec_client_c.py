@@ -47,15 +47,16 @@ BUILD_MSVC = REPO / "scripts" / "eznec_client_c" / "build_msvc.bat"
 ENTRY = REPO / "scripts" / "eznec_freeze" / "entry.py"
 DECKS = Path(__file__).resolve().parent / "fixtures" / "eznec" / "decks"
 
-# The names the phase-3 bundle ships: the C client takes the EZNEC-facing
-# names and the ONE frozen exe behind them is the engine. `engine` is a
-# consumed segment for that exe exactly as `client` is for the client, which
-# is why the client must never be called that — it would select nothing and
-# spawn itself.
+# The `eznec-` filename rule, which the C client still reads for a renamed
+# copy although the bundle stopped shipping `momwire-eznec*` names in
+# momwire#1583; the shipped names are the NEC5_* and NEC4_* ones below. The
+# ONE frozen exe behind every launcher is the engine, `momwire-engine` since
+# momwire#1583, and the client must never be called that — it would spawn
+# itself.
 CLIENT_NAME = "momwire-eznec"
 TWIN_NAME = "momwire-eznec-razor-nec5"
 TWIN_BASIS = "razor-nec5"
-ENGINE_NAME = "momwire-eznec-engine"
+ENGINE_NAME = "momwire-engine"
 
 # A name that asked for a basis and spelt none: the marker with nothing after
 # it. momwire#733's divergence case — this is a NAMED (empty) basis, distinct
@@ -267,12 +268,10 @@ def test_the_windows_half_is_written_rather_than_stubbed():
 
 
 def test_the_client_is_never_named_for_the_engine():
-    """``momwire-eznec-engine`` as a CLIENT name would consume nothing — the
-    consumed segment is ``client``, not ``engine`` — so such a client would
-    select a basis called "engine" and, worse, name itself as its own spawn
+    """A client named for the engine would name itself as its own spawn
     target. The bundle's names are a fact, so they are pinned here."""
-    assert CLIENT_NAME != ENGINE_NAME
-    assert TWIN_NAME != ENGINE_NAME
+    for name in (CLIENT_NAME, TWIN_NAME, NEC5_NAME, NEC5_TWIN_NAME):
+        assert name != ENGINE_NAME
     assert f'"{ENGINE_NAME}"' in SOURCE.read_text()
 
 
@@ -983,6 +982,53 @@ def test_rung_four_names_an_unwritable_printout_on_stdout(client_exe, tmp_path):
         assert proc.returncode == 0
         assert proc.stdout.splitlines()[0] == f"UNABLE TO OPEN FILE {bad}"
         assert "MOMWIRE ENGINE UNAVAILABLE" in proc.stdout
+    finally:
+        _stop(room)
+        shutil.rmtree(bundle, ignore_errors=True)
+
+
+STREAM_DECK = REPO / "scripts" / "core_split" / "nx_decks" / "simnec_stream_2281566.nec"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("name", [NEC5_NAME, CLIENT_NAME])
+def test_the_streaming_call_streams_through_the_engine(client_exe, tmp_path, name):
+    """SimNEC's ``- -`` (momwire#1395, #1512): decks on stdin, printouts on
+    stdout, the engine's own answer byte for byte. 0.79.1's launcher read the
+    two dashes as file names, wrote a printout to a file named ``-`` and
+    exited 0 with stdout empty (momwire 0.79.2)."""
+    bundle = _bundle(client_exe, _ENGINE_SHIM, names=(name,))
+    room = _room()
+    deck = STREAM_DECK.read_bytes()
+    try:
+        oracle = subprocess.run(
+            [sys.executable, str(ENTRY), "-", "-"],
+            input=deck,
+            capture_output=True,
+            timeout=300,
+        )
+        proc = _run(bundle, name, ["-", "-"], room, stdin=deck, cwd=tmp_path)
+        assert proc.returncode == oracle.returncode, proc.stderr
+        assert proc.stdout == oracle.stdout.decode(errors="replace")
+        assert "INPUT LINE" in proc.stdout and len(proc.stdout) > 10_000
+        assert not (tmp_path / "-").exists()
+        assert _listening(room) == []
+    finally:
+        _stop(room)
+        shutil.rmtree(bundle, ignore_errors=True)
+
+
+@pytest.mark.integration
+def test_the_streaming_call_without_an_engine_says_so_and_fails(client_exe, tmp_path):
+    """No engine: named on stdout (the stream's channel) with a non-zero exit,
+    never a silent exit 0."""
+    bundle = _bundle(client_exe, None, names=(NEC5_NAME,))
+    room = _room()
+    try:
+        proc = _run(bundle, NEC5_NAME, ["-", "-"], room, stdin=b"", cwd=tmp_path)
+        assert proc.returncode != 0
+        assert "MOMWIRE ENGINE UNAVAILABLE" in proc.stdout
+        assert not (tmp_path / "-").exists()
     finally:
         _stop(room)
         shutil.rmtree(bundle, ignore_errors=True)

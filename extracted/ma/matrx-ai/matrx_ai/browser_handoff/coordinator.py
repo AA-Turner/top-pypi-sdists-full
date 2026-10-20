@@ -180,7 +180,7 @@ class BrowserHandoffCoordinator:
         )
 
         # P5 — holder-verified release to WAITING_INPUT (never PAUSED, invariant 6).
-        # When we hold the lease, release_to_waiting honours a False return (we
+        # When we hold the lease, release_to_waiting honors a False return (we
         # lost the lease to a takeover — must NOT park the new owner's run).
         if holder is not None:
             parked = await self._engine.release_to_waiting(

@@ -12,7 +12,7 @@ from any_llm.providers.openai.base import BaseOpenAIProvider
 from any_llm.providers.openai.files import OpenAIFileMethods
 from any_llm.types.audio import AudioSpeechParams, AudioTranscriptionParams, Transcription
 from any_llm.types.files import FileOperation
-from any_llm.types.image import ImageGenerationParams, ImagesResponse
+from any_llm.types.image import ImageEditParams, ImageGenerationParams, ImagesResponse
 
 _AzureADTokenProvider = Callable[[], str | Awaitable[str]]
 
@@ -31,6 +31,7 @@ class AzureopenaiProvider(OpenAIFileMethods, BaseOpenAIProvider):
     PROVIDER_NAME = "azureopenai"
     PROVIDER_DOCUMENTATION_URL = "https://learn.microsoft.com/azure/foundry/openai/api-version-lifecycle"
     SUPPORTS_RESPONSES = True
+    _MESSAGES_TOOLS_THINKING_VIA_RESPONSES = True
     SUPPORTS_LIST_MODELS = True
     SUPPORTS_COMPLETION_PDF = False
     SUPPORTS_IMAGE_GENERATION = True
@@ -171,6 +172,10 @@ class AzureopenaiProvider(OpenAIFileMethods, BaseOpenAIProvider):
     @override
     async def _aimage_generation(self, params: ImageGenerationParams, **kwargs: Any) -> ImagesResponse:
         return await super()._aimage_generation(params, **self._media_options(kwargs))
+
+    @override
+    async def _aimage_edit(self, params: ImageEditParams, **kwargs: Any) -> ImagesResponse:
+        return await super()._aimage_edit(params, **self._media_options(kwargs))
 
     @override
     async def _atranscription(self, params: AudioTranscriptionParams, **kwargs: Any) -> Transcription:

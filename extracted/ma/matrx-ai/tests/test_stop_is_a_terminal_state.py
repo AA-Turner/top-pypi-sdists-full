@@ -158,7 +158,7 @@ async def test_a_stopped_run_persists_cancelled_and_the_stopped_marker(harness):
     ur = {k: v for kw in calls["user_request"] for k, v in kw.items()}
     assert ur.get("status") == "cancelled"
     assert [row.get("status") for row in calls["request_create"]] == ["cancelled"], (
-        "the stopped provider call's chat.request row must end cancelled, not completed"
+        "the stopped provider call's chat.request row must end canceled, not completed"
     )
     saved = [m for m in calls["message"] if (m.get("role") or "") == "assistant"]
     assert saved, "the stopped answer must persist"

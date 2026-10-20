@@ -248,3 +248,34 @@ def test_how_to_report_present_and_names_no_value():
     r = LeakReport(kind="secret_exposed", where="after-screenshot", description="unmasked")
     assert "action:'report'" in HOW_TO_REPORT
     assert r.kind == "secret_exposed"
+
+
+def _form_still_up(**overrides):
+    base = dict(
+        login_form_present=True,
+        login_form_present_before=True,
+        url_before="https://id.test/signin",
+        url="https://id.test/signin",
+        url_probe_known=True,
+        selector_probe_known=True,
+        password_field_present=True,
+        otp_field_present=False,
+        captcha_present=False,
+    )
+    base.update(overrides)
+    return PageObservation(**base)
+
+
+def test_a_form_still_up_on_a_page_that_never_changed_is_a_fill_failure_not_a_rejection():
+    """TikTok Business, 2026-10-16: identical blank screenshot before and after, form still
+    visible. Nothing was visibly typed or answered, so the site did not refuse anything."""
+    v = verify(_form_still_up(page_unchanged_after_submit=True), expect=ExpectSpec())
+    assert v.outcome == "unknown"
+    assert v.reason == "page_unchanged_after_submit"
+
+
+def test_a_form_still_up_on_a_page_that_did_change_is_still_a_rejection():
+    for unchanged in (False, None):
+        v = verify(_form_still_up(page_unchanged_after_submit=unchanged), expect=ExpectSpec())
+        assert v.outcome == "rejected"
+        assert v.reason == "password_form_still_visible"

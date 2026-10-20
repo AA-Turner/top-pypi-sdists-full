@@ -137,7 +137,7 @@ class ValidationReport:
 
 @dataclass(frozen=True)
 class DbTool:
-    """Normalised view of a ``tool_def`` row + its executor bindings."""
+    """Normalized view of a ``tool_def`` row + its executor bindings."""
 
     name: str
     source_kind: str

@@ -736,14 +736,17 @@ class DescribeConfigurationTemplatesRequestTypeDef(TypedDict):
 class DescribeDeliveriesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     limit: NotRequired[int]
+    deliverySourceNames: NotRequired[Sequence[str]]
 
 class DescribeDeliveryDestinationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     limit: NotRequired[int]
+    names: NotRequired[Sequence[str]]
 
 class DescribeDeliverySourcesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     limit: NotRequired[int]
+    resourceArns: NotRequired[Sequence[str]]
 
 class DescribeDestinationsRequestTypeDef(TypedDict):
     DestinationNamePrefix: NotRequired[str]
@@ -1786,12 +1789,15 @@ class DescribeConfigurationTemplatesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeDeliveriesRequestPaginateTypeDef(TypedDict):
+    deliverySourceNames: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeDeliveryDestinationsRequestPaginateTypeDef(TypedDict):
+    names: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeDeliverySourcesRequestPaginateTypeDef(TypedDict):
+    resourceArns: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeDestinationsRequestPaginateTypeDef(TypedDict):

@@ -7,7 +7,7 @@ import time
 from itertools import takewhile
 from urllib.parse import quote, urlencode, urljoin
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from jobspy.bayt.constant import (
     all_countries,
@@ -20,21 +20,18 @@ from jobspy.bayt.constant import (
 from jobspy.model import (
     Compensation,
     CompensationInterval,
+    JobPost,
+    Location,
     Scraper,
     ScraperInput,
-    JobPost,
-    JobResponse,
-    Location,
-    Country,
 )
 from jobspy.util import (
-    create_logger,
+    TLSRotating,
+    check_status,
     create_session,
-    format_description,
+    description_fields,
     utc_date,
 )
-
-log = create_logger("Bayt")
 
 
 def slugify(text: str) -> str:
@@ -43,32 +40,27 @@ def slugify(text: str) -> str:
 
 class Bayt(Scraper):
     base_url = "https://www.bayt.com"
-    delay = 2
-    band_delay = 3
+    delay = (2, 5)
 
-    def scrape(self, scraper_input: ScraperInput) -> JobResponse:
+    def scrape(self, scraper_input: ScraperInput) -> list[JobPost]:
         self.scraper_input = scraper_input
-        self.session = create_session(
-            proxies=self.proxies, ca_cert=self.ca_cert, user_agent=self.user_agent
-        )
-        self.hybrid_ids = None
+        self.session = create_session(TLSRotating(scraper_input.proxies), scraper_input)
+        self.hybrid_ids: set[str] | None = None
         job_type = scraper_input.job_type
         if job_type and job_type not in job_type_codes:
-            log.warning(
-                f"Bayt: job_type {job_type.value[0]} isn't supported, ignoring it"
-            )
+            self.warn(f"job_type {job_type.value} isn't supported, ignoring it")
         self.country, self.city = self._location(scraper_input.location)
         hours_old = scraper_input.hours_old
         oldest = time.time() - hours_old * 3600 if hours_old else 0
         job_list: list[JobPost] = []
-        seen = set()
+        seen: set[object] = set()
         first_page = page = scraper_input.offset // jobs_per_page + 1
         skip = scraper_input.offset % jobs_per_page
 
         while len(job_list) < scraper_input.results_wanted:
             if page > first_page:
-                time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
-            log.info(f"search page: {page}")
+                time.sleep(random.uniform(*self.delay))
+            self.log.info(f"search page: {page}")
             cards = self._fetch_cards(page)
             if cards is None:
                 break
@@ -90,7 +82,7 @@ class Bayt(Scraper):
                 try:
                     job_post = self._process_job(job)
                 except Exception as e:
-                    log.warning(f"skipping job: {e}")
+                    self.log.warning(f"skipping job: {e}")
                     continue
                 if job_post:
                     job_list.append(job_post)
@@ -101,7 +93,7 @@ class Bayt(Scraper):
                 break
             page += 1
 
-        return JobResponse(jobs=job_list)
+        return job_list
 
     @staticmethod
     def _location(location: str | None) -> tuple[str, str | None]:
@@ -121,13 +113,14 @@ class Bayt(Scraper):
         else:
             path = f"{term}jobs/" if slug else ""  # all jobs
 
-        params = {}
+        params: dict[str, str | int] = {}
         hours_old = self.scraper_input.hours_old or 0
         interval = next((v for hours, v in date_intervals if 0 < hours_old <= hours), 0)
         if interval:
             params["filters[jb_last_modification_date_interval][]"] = interval
-        if code := job_type_codes.get(self.scraper_input.job_type):
-            params["filters[jb_employment_type][]"] = code
+        job_type = self.scraper_input.job_type
+        if job_type in job_type_codes:
+            params["filters[jb_employment_type][]"] = job_type_codes[job_type]
         if self.scraper_input.is_remote:
             params["filters[remote_working_type][]"] = 2 if hybrid else 1
         if hours_old:
@@ -137,28 +130,28 @@ class Bayt(Scraper):
         params["page"] = page
         return f"{self.base_url}/en/{self.country}/jobs/{path}?{urlencode(params)}"
 
-    def _fetch_cards(self, page: int, hybrid: bool = False) -> list | None:
+    def _fetch_cards(self, page: int, hybrid: bool = False) -> list[Tag] | None:
         """A search page's job cards: none past the last page, None when the request
         fails. A location the site doesn't have (404) is widened and asked again."""
         try:
             url = self._search_url(page, hybrid)
             response = self.session.get(url, allow_redirects=True)
+            if response.status_code == 404 and (
+                self.city or self.country != all_countries
+            ):
+                wider = "the country" if self.city else "all countries"
+                self.warn(
+                    f"location '{self.scraper_input.location}' not found, "
+                    f"searching {wider}"
+                )
+                if self.city:
+                    self.city = None
+                else:
+                    self.country = all_countries
+                return self._fetch_cards(page, hybrid)
+            check_status(response)
         except Exception as e:
-            log.error(f"Bayt: {e}")
-            return None
-        if response.status_code == 404 and (self.city or self.country != all_countries):
-            wider = "the country" if self.city else "all countries"
-            log.warning(
-                f"Bayt: location '{self.scraper_input.location}' not found, "
-                f"searching {wider}"
-            )
-            if self.city:
-                self.city = None
-            else:
-                self.country = all_countries
-            return self._fetch_cards(page, hybrid)
-        if response.status_code != 200:
-            log.error(f"Bayt response status code {response.status_code}")
+            self.fail(str(e))
             return None
         if page > 1 and f"page={page}" not in response.url:
             return []
@@ -167,35 +160,43 @@ class Bayt(Scraper):
     def _fetch_hybrid_ids(self) -> set[str] | None:
         """The search's hybrid jobs: the remote filter returns them too, and not
         every card carries the label that tells them apart."""
-        ids = set()
+        ids: set[str] = set()
         page = 1
         while True:
             cards = self._fetch_cards(page, hybrid=True)
             if cards is None:
                 return None
-            new = {card.get("data-job-id") for card in cards} - ids
+            new = {
+                job_id
+                for card in cards
+                if isinstance(job_id := card.get("data-job-id"), str)
+            } - ids
             ids |= new
             if len(cards) < jobs_per_page or not new:
                 return ids
             page += 1
-            time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
+            time.sleep(random.uniform(*self.delay))
 
     @staticmethod
-    def _timestamp(job: BeautifulSoup) -> int | None:
+    def _timestamp(job: Tag) -> int | None:
         posted = job.select_one("[data-automation-jobactivedate]")
         stamp = posted.get("data-automation-jobactivedate", "") if posted else ""
-        return int(stamp) if stamp.isdigit() else None
+        return int(stamp) if isinstance(stamp, str) and stamp.isdecimal() else None
 
-    def _process_job(self, job: BeautifulSoup) -> JobPost | None:
+    def _process_job(self, job: Tag) -> JobPost | None:
         link = job.select_one("h2 a[href]")
-        job_id = job["data-job-id"]
-        job_url = urljoin(self.base_url, link["href"])
+        if link is None:
+            raise ValueError("no title link")
+        job_id = str(job["data-job-id"])
+        job_url = urljoin(self.base_url, str(link["href"]))
         if self.scraper_input.easy_apply and not job.select_one("div.jb-easy-apply a"):
             return None
         remote_tag = job.select_one("dt.jb-label-remote")
-        is_remote = bool(remote_tag) and remote_tag.get_text(strip=True) == "Remote"
+        is_remote = (
+            remote_tag is not None and remote_tag.get_text(strip=True) == "Remote"
+        )
         if self.scraper_input.is_remote:
-            if job_id in self.hybrid_ids:
+            if self.hybrid_ids is not None and job_id in self.hybrid_ids:
                 return None
             is_remote = True
 
@@ -203,7 +204,9 @@ class Bayt(Scraper):
         company_link = company.select_one("a[href*='/company/']") if company else None
         logo = job.select_one("img.jb-logo")
         logo_url = (
-            urljoin(self.base_url, logo["src"]) if logo and logo.get("src") else None
+            urljoin(self.base_url, str(logo["src"]))
+            if logo and logo.get("src")
+            else None
         )
         if logo_url and "/bayt/assets/" in logo_url:
             logo_url = None
@@ -223,15 +226,17 @@ class Bayt(Scraper):
         job_post = JobPost(
             id=f"bayt-{job_id}",
             title=link.get_text(strip=True),
-            company_name=(company.get_text(strip=True) or None) if company else None,
+            company=(company.get_text(strip=True) or None) if company else None,
             company_url=(
-                urljoin(self.base_url, company_link["href"]) if company_link else None
+                urljoin(self.base_url, str(company_link["href"]))
+                if company_link
+                else None
             ),
             company_logo=logo_url,
             location=Location(
                 city=parts[0 if has_state else -2] if len(parts) > 1 else None,
                 state=parts[1] if has_state else None,
-                country=parts[-1] if parts else Country.WORLDWIDE,
+                country=parts[-1] if parts else None,
             ),
             job_url=job_url,
             date_posted=utc_date(self._timestamp(job)),
@@ -247,9 +252,9 @@ class Bayt(Scraper):
                 ),
                 None,
             ),
-            compensation=(
-                self._parse_salary(salary.get_text(" ", strip=True)) if salary else None
-            ),
+            **self._parse_salary(
+                salary.get_text(" ", strip=True) if salary else ""
+            ).model_dump(),
         )
         if self.scraper_input.fetch_description:
             details = self._fetch_details(job_id, job_url)
@@ -258,14 +263,14 @@ class Bayt(Scraper):
         return job_post
 
     @staticmethod
-    def _parse_salary(text: str) -> Compensation | None:
+    def _parse_salary(text: str) -> Compensation:
         """ "AED 29,380 - AED 33,053" / "$3,000 - $4,000"; monthly, as job pages say"""
         match = re.fullmatch(
             r"([A-Z]{3}|\$) ?([\d,]+(?:\.\d+)?) - (?:[A-Z]{3}|\$)? ?([\d,]+(?:\.\d+)?)",
             text,
         )
         if not match:
-            return None
+            return Compensation()
         currency, low, high = match.groups()
         return Compensation(
             interval=CompensationInterval.MONTHLY,
@@ -274,41 +279,40 @@ class Bayt(Scraper):
             currency="USD" if currency == "$" else currency,
         )
 
-    def _fetch_details(self, job_id: str, job_url: str) -> dict:
+    def _fetch_details(self, job_id: str, job_url: str) -> dict[str, object]:
         """The description from the job page's schema.org JobPosting, the rest from
         the rows at the top of the page: the JobPosting says FULL_TIME for a job
         with no type or one it has no value for, TELECOMMUTE for hybrid jobs too,
         and 1 opening when the page states none."""
         try:
             response = self.session.get(job_url, allow_redirects=True)
-            if response.status_code != 200:
-                log.warning(
-                    f"Bayt response status code {response.status_code} for job {job_id}"
-                )
-                return {}
+            check_status(response)
             soup = BeautifulSoup(response.text, "html.parser")
-            posting = json.loads(
-                soup.select_one('script[type="application/ld+json"]').string
-            )
-            if posting["@type"] != "JobPosting":
+            for script in soup.select('script[type="application/ld+json"]'):
+                try:
+                    posting = json.loads(script.string or "")
+                except ValueError:
+                    continue
+                if isinstance(posting, dict) and posting.get("@type") == "JobPosting":
+                    break
+            else:
                 raise ValueError("no JobPosting")
         except Exception as e:
-            log.warning(f"Bayt: job {job_id}: {e}")
+            self.log.warning(f"job {job_id}: {e}")
             return {}
 
         def row(name: str) -> list[str]:
             tag = soup.select_one(f'[data-automation-id="id_{name}"]')
             return [part.strip() for part in tag.get_text().split("·")] if tag else []
 
-        description, emails = format_description(
+        fields = description_fields(
             posting.get("description"), self.scraper_input.description_format
         )
-        job_type = job_type_labels.get(next(iter(row("type_level_experience")), None))
+        job_type = job_type_labels.get(next(iter(row("type_level_experience")), ""))
         company = row("company_employees_industry")
         openings = re.match(r"\d+", "".join(row("number_of_vacancies")))
         return {
-            "description": description or None,
-            "emails": emails,
+            **fields,
             "job_type": [job_type] if job_type else None,
             "is_remote": row("remote_working") == ["Remote"],
             "vacancy_count": int(openings[0]) if openings else None,

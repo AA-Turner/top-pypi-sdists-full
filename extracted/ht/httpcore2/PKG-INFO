@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: httpcore2
-Version: 2.14.0
+Version: 2.15.1
 Summary: A minimal low-level HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpcore2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2
@@ -19,14 +19,13 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: h11>=0.16
 Requires-Dist: truststore>=0.10
 Provides-Extra: asyncio
@@ -151,6 +150,19 @@ pip install 'httpcore2==2.*'
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## 2.15.1 (October 19th, 2026)
+
+### Fixed
+
+* Configure the default SSL context once on Linux, instead of on every handshake. With OpenSSL older than 3.4, CPU usage grew over the lifetime of a reused client.
+  ([#1253](https://github.com/pydantic/httpx2/pull/1253))
+
+## 2.15.0 (October 19th, 2026)
+
+### Removed
+
+* Drop support for Python 3.10. ([#1274](https://github.com/pydantic/httpx2/pull/1274))
 
 ## 2.14.0 (October 18th, 2026)
 

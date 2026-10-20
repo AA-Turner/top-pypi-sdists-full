@@ -7,7 +7,7 @@ an anonymous auth user for every new fingerprint without reading them.
 The table double below EVALUATES the seed filters against its rows (ip,
 identity present, mint stamp present, created_at window) the way Postgres would,
 so window expiry and the exclusion of pre-stamp Cloudflare-edge rows are real
-behaviour, not a canned number. GoTrue is the only other double.
+behavior, not a canned number. GoTrue is the only other double.
 
 Since 2026-10-03 (USAGE-GATE.md rule 1) the mint path reads NO table: the count
 is an in-process per-IP log seeded in the background. A test that plants rows

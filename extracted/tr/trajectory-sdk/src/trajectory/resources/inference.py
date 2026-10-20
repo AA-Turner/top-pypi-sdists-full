@@ -94,6 +94,8 @@ class Inference(APIResource):
     """Create Playground Chat Completion
 
     Args:
+      max_tokens: Maximum generated tokens, including reasoning tokens when emitted.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request

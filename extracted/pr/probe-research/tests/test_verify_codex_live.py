@@ -1,8 +1,21 @@
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from types import SimpleNamespace
 
-from scripts.verify_codex_live import _codex_hit, _resolve_read_token
+# Loaded by path, not as `scripts.verify_codex_live`: `agent/scripts` is a
+# namespace package, and the repo root's `scripts/__init__.py` wins over it
+# whenever the root is anywhere on sys.path -- which the companion bench's fake
+# Probe puts it (`evals/companion/fake_probe.py`), so a shard that collected the
+# bench tests first could not import this file.
+_SPEC = importlib.util.spec_from_file_location(
+    "verify_codex_live", Path(__file__).resolve().parents[1] / "scripts" / "verify_codex_live.py"
+)
+_verify = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(_verify)
+_codex_hit = _verify._codex_hit
+_resolve_read_token = _verify._resolve_read_token
 
 
 def test_canary_requires_codex_source_and_marker() -> None:

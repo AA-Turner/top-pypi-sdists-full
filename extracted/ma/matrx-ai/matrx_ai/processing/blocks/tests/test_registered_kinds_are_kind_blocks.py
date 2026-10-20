@@ -87,7 +87,7 @@ def warm_snapshot(cold_snapshot):
 
 
 # ---------------------------------------------------------------------------
-# RED — the behaviour before the ruling, which must survive for UNREGISTERED slugs
+# RED — the behavior before the ruling, which must survive for UNREGISTERED slugs
 # ---------------------------------------------------------------------------
 
 
@@ -104,7 +104,7 @@ def test_an_unregistered_slug_stays_a_plain_code_block(warm_snapshot):
 
 
 def test_a_cold_snapshot_declines_rather_than_guessing(cold_snapshot):
-    """Cold means "plain code block" — the safe direction, and the pre-ruling behaviour.
+    """Cold means "plain code block" — the safe direction, and the pre-ruling behavior.
 
     A wrong envelope poisons the frontend's fingerprint-keyed cache for the whole region; a
     missing one degrades to the frontend's own parse. Declining is the cheap failure.

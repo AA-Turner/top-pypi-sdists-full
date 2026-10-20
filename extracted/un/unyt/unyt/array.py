@@ -339,73 +339,6 @@ def _apply_power_mapping(ufunc, in_unit, in_size, in_shape, input_kwarg_dict):
     return mul, unit
 
 
-def _subclass_ufunc_prepare_and_finalize(ufunc_handler):
-    """
-    This wrapper function is intended to be applied to __array_ufunc__ on
-    unyt_array.
-
-    It enables subclasses of unyt_array and unyt_quantity to define two
-    classmethods: __unyt_ufunc_prepare__ and __unyt_ufunc_finalize__.
-    These are called if available to allow subclasses to prepare arguments
-    for and modify return values from numpy ufuncs.
-
-    The __unyt_ufunc_prepare__ method should be a classmethod accepting
-    (ufunc, method, *inputs, **kwargs), i.e. the same inputs as
-    __array_ufunc__. It should return
-    (prepared_ufunc, prepared_method, prepared_inputs, prepared_kwargs)
-    which correspond logically to its inputs with any modifications needed
-    by the subclass.
-
-    The __unyt_ufunc_finalize__ method should be a classmethod accepting
-    (result, ufunc, method, *inputs, **kwargs), similarly to above but with
-    the addition of result, the return value from unyt_array.__array_ufunc__.
-    It should return the result with any modifications needed by the subclass.
-    """
-
-    def wrapper(self, ufunc, method, *inputs, **kwargs):
-        if len(inputs) > 1:
-            try:
-                # check if we're dealing with types that we understand and get
-                # the return type, otherwise _get_binary_op_return_class will
-                # raise RuntimeError.
-                ret_class = _get_binary_op_return_class(
-                    type(inputs[0]), type(inputs[1])
-                )
-            except RuntimeError:
-                # we're sure none of the arguments want to modify the input
-                # or output, so bypass __unyt_ufunc_prepare__ and
-                # __unyt_ufunc_finalize__.
-                return ufunc_handler(self, ufunc, method, *inputs, **kwargs)
-        else:
-            ret_class = type(inputs[0])
-        if hasattr(ret_class, "__unyt_ufunc_prepare__"):
-            prepared_ufunc, prepared_method, prepared_inputs, prepared_kwargs = (
-                ret_class.__unyt_ufunc_prepare__(ufunc, method, *inputs, **kwargs)
-            )
-        else:
-            prepared_ufunc, prepared_method, prepared_inputs, prepared_kwargs = (
-                ufunc,
-                method,
-                inputs,
-                kwargs,
-            )
-        result = ufunc_handler(
-            self,
-            prepared_ufunc,
-            prepared_method,
-            *prepared_inputs,
-            **prepared_kwargs,
-        )
-        if hasattr(ret_class, "__unyt_ufunc_finalize__"):
-            return ret_class.__unyt_ufunc_finalize__(
-                result, ufunc, method, *inputs, **kwargs
-            )
-        else:
-            return result
-
-    return wrapper
-
-
 unary_operators = (
     negative,
     absolute,
@@ -503,6 +436,25 @@ trigonometric_operators = (sin, cos, tan)
 multiple_output_operators = {modf: 2, frexp: 2, divmod_: 2}
 
 LARGE_INPUT = {4: 16777217, 8: 9007199254740993}
+
+
+def _update_array_dtype_inplace(array, *, dtype) -> None:
+    # change the dtypes in-place, this does not change the
+    # underlying memory buffer
+    dt = np.dtype(dtype)
+    assert dt.kind == "f"
+    if NUMPY_VERSION >= Version("2.5.0dev0"):
+        array._set_dtype(dt)
+    else:
+        array.dtype = dt
+
+
+def _update_array_values_inplace(array, *, dtype) -> None:
+    new_values = array.astype(dtype)
+    _update_array_dtype_inplace(array, dtype=dtype)
+    # actually fill in the new float values now that our
+    # dtype is correct
+    np.copyto(array, new_values)
 
 
 class unyt_array(np.ndarray):
@@ -675,7 +627,8 @@ class unyt_array(np.ndarray):
             obj.name = name
             return obj
         if isinstance(input_array, unyt_array):
-            ret = input_array.view(cls)
+            # Unpack the input array and coerce to the correct type and dtype
+            ret = np.asarray(input_array, dtype=dtype).view(cls)
             if input_units is None:
                 if registry is None:
                     ret.units = input_array.units
@@ -778,6 +731,14 @@ class unyt_array(np.ndarray):
                 (conv_factor, offset) = self.units.get_conversion_factor(
                     new_units, self.dtype
                 )
+                if offset and (
+                    str(self.units.expr).startswith("delta_")
+                    or str(new_units.expr).startswith("delta_")
+                ):
+                    raise InvalidUnitOperation(
+                        "Interval temperature units cannot be converted to or "
+                        "from offset temperature units without a reference point."
+                    )
 
             self.units = new_units
             values = self.d
@@ -795,7 +756,6 @@ class unyt_array(np.ndarray):
                         f"Input dtype ({self.dtype}) has a smaller itemsize than the "
                         "smallest floating point representation possible."
                     )
-                new_dtype = "f" + str(dsize)
                 large = LARGE_INPUT.get(dsize, 0)
                 if large and np.any(np.abs(values) > large):
                     warnings.warn(
@@ -803,14 +763,8 @@ class unyt_array(np.ndarray):
                         RuntimeWarning,
                         stacklevel=2,
                     )
-                float_values = values.astype(new_dtype)
-                # change the dtypes in-place, this does not change the
-                # underlying memory buffer
-                values.dtype = new_dtype
-                self.dtype = new_dtype
-                # actually fill in the new float values now that our
-                # dtype is correct
-                np.copyto(values, float_values)
+                _update_array_values_inplace(values, dtype=f"f{dsize}")
+                _update_array_dtype_inplace(self, dtype=values.dtype)
             values *= conv_factor
 
             if offset:
@@ -974,6 +928,14 @@ class unyt_array(np.ndarray):
                 (conversion_factor, offset) = self.units.get_conversion_factor(
                     new_units, self.dtype
                 )
+                if offset and (
+                    str(self.units.expr).startswith("delta_")
+                    or str(new_units.expr).startswith("delta_")
+                ):
+                    raise InvalidUnitOperation(
+                        "Interval temperature units cannot be converted to or "
+                        "from offset temperature units without a reference point."
+                    )
             dsize = max(2, self.dtype.itemsize)
             if self.dtype.kind in ("u", "i"):
                 large = LARGE_INPUT.get(dsize, 0)
@@ -1849,21 +1811,32 @@ class unyt_array(np.ndarray):
     def __eq__(self, other):
         try:
             return super().__eq__(other)
-        except (IterableUnitCoercionError, UnitOperationError):
+        except (IterableUnitCoercionError, UnitOperationError, TypeError):
             return np.zeros(self.shape, dtype="bool")
 
     def __ne__(self, other):
         try:
             return super().__ne__(other)
-        except (IterableUnitCoercionError, UnitOperationError):
+        except (IterableUnitCoercionError, UnitOperationError, TypeError):
             return np.ones(self.shape, dtype="bool")
 
     #
     # Start operation methods
     #
 
-    @_subclass_ufunc_prepare_and_finalize
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if type(self) in (unyt_array, unyt_quantity):
+            for x in inputs:
+                if isinstance(x, unyt_array) and type(x) not in (
+                    unyt_array,
+                    unyt_quantity,
+                ):
+                    # This object is a unyt array/quantity (not a subclass) but one of the
+                    # inputs is a subclass. We return NotImplemented to give subclasses
+                    # a chance to define the result.
+                    return NotImplemented
+        if ufunc not in self._ufunc_registry:
+            return NotImplemented
         func = getattr(ufunc, method)
         if "out" not in kwargs:
             if ufunc in multiple_output_operators:
@@ -1884,10 +1857,7 @@ class unyt_array(np.ndarray):
             else:
                 out = out[0]
                 if out.dtype.kind in ("u", "i"):
-                    new_dtype = "f" + str(out.dtype.itemsize)
-                    float_values = out.astype(new_dtype)
-                    out.dtype = new_dtype
-                    np.copyto(out, float_values)
+                    _update_array_values_inplace(out, dtype=f"f{out.dtype.itemsize}")
                 out_func = out.view(np.ndarray)
         if len(inputs) == 1:
             # Unary ufuncs
@@ -1919,11 +1889,16 @@ class unyt_array(np.ndarray):
                 return i1.__array_ufunc__(ufunc, method, *inputs, **kwargs)
 
             # coerce inputs to be ndarrays if they aren't already
-            inp0 = _coerce_iterable_units(i0)
-            inp1 = _coerce_iterable_units(i1)
+            try:
+                inp0 = _coerce_iterable_units(i0)
+                inp1 = _coerce_iterable_units(i1)
+            except IterableUnitCoercionError:
+                return NotImplemented
             u0 = getattr(i0, "units", None) or getattr(inp0, "units", None)
             u1 = getattr(i1, "units", None) or getattr(inp1, "units", None)
             ret_class = _get_binary_op_return_class(type(i0), type(i1))
+            if ret_class is NotImplemented:
+                return NotImplemented
             if u0 is None:
                 u0 = Unit(registry=getattr(u1, "registry", None))
             if u1 is None and ufunc is not power:
@@ -2036,6 +2011,21 @@ class unyt_array(np.ndarray):
                     inp1 = np.asarray(inp1, dtype=new_dtype) * conv
             # get the unit of the result
             mul, unit = unit_operator(u0, u1)
+            # A scalar quantity acts as a unit scale factor here, so it should
+            # not change the precision chosen by the non-quantity operand.
+            if unit_operator is _multiply_units:
+                if (
+                    isinstance(i0, unyt_quantity)
+                    and not isinstance(i1, unyt_quantity)
+                    and inp1.dtype.kind in ("f", "c")
+                ):
+                    inp0 = inp0.astype(inp1.dtype)
+                elif (
+                    isinstance(i1, unyt_quantity)
+                    and not isinstance(i0, unyt_quantity)
+                    and inp0.dtype.kind in ("f", "c")
+                ):
+                    inp1 = inp1.astype(inp0.dtype)
             # actually evaluate the ufunc
             out_arr = func(
                 inp0.view(np.ndarray), inp1.view(np.ndarray), out=out_func, **kwargs
@@ -2279,6 +2269,23 @@ class unyt_array(np.ndarray):
         except TypeError:
             # subclasses might not take name as a kwarg
             return type(self)(ret, copy.deepcopy(self.units), bypass_validation=True)
+
+    def squeeze(self, axis=None):
+        """method
+
+        Remove axes of length one from `a`.
+
+        Refer to :func:`numpy.squeeze` for full documentation.
+
+        See also
+        --------
+        numpy.squeeze : equivalent function
+        """
+        ret = super().squeeze(axis=axis)
+        if ret.ndim == 0:
+            return ret.view(type=unyt_quantity)
+        else:
+            return ret
 
 
 class unyt_quantity(unyt_array):
@@ -2639,10 +2646,7 @@ def _get_binary_op_return_class(cls1, cls2):
     if issubclass(cls2, cls1):
         return cls2
     else:
-        raise RuntimeError(
-            "Undefined operation for a unyt_array subclass. "
-            f"Received operand types ({cls1}) and ({cls2})"
-        )
+        return NotImplemented
 
 
 def loadtxt(fname, dtype="float", delimiter="\t", usecols=None, comments="#"):

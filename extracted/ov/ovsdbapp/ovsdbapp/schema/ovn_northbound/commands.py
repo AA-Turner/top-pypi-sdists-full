@@ -116,12 +116,14 @@ class _AclAddHelper(cmd.AddCommand):
 
     def __init__(self, api, entity, direction, priority, match, action,
                  log=False, may_exist=False, severity=None, name=None,
-                 meter=None, **external_ids):
+                 meter=None, tier=None, **external_ids):
         if direction not in ('from-lport', 'to-lport'):
             raise TypeError("direction must be either from-lport or to-lport")
         if not 0 <= priority <= const.ACL_PRIORITY_MAX:
             raise ValueError("priority must be between 0 and %s, inclusive" % (
                              const.ACL_PRIORITY_MAX))
+        if tier is not None and not 0 <= tier <= 3:
+            raise ValueError("tier must be between 0 and 3, inclusive")
         if action not in ('allow', 'allow-related', 'allow-stateless',
                           'drop', 'reject'):
             raise TypeError("action must be allow/allow-related/"
@@ -137,12 +139,15 @@ class _AclAddHelper(cmd.AddCommand):
         self.severity = severity
         self.name = name
         self.meter = meter
+        self.tier = tier
         self.external_ids = external_ids
 
     def acl_match(self, row):
         return (self.direction == row.direction and
                 self.priority == row.priority and
-                self.match == row.match)
+                self.match == row.match and
+                (self.tier if self.tier is not None else 0) ==
+                getattr(row, 'tier', 0))
 
     def run_idl(self, txn):
         entity = self.api.lookup(self.lookup_table, self.entity)
@@ -151,14 +156,16 @@ class _AclAddHelper(cmd.AddCommand):
             if self.may_exist:
                 self.result = rowview.RowView(acls[0])
                 return
-            raise RuntimeError("ACL (%s, %s, %s) already exists" % (
-                self.direction, self.priority, self.match))
+            raise RuntimeError("ACL (%s, %s, %s, %s) already exists" % (
+                self.direction, self.priority, self.match, self.tier))
         acl = txn.insert(self.api.tables[self.table_name])
         acl.direction = self.direction
         acl.priority = self.priority
         acl.match = self.match
         acl.action = self.action
         acl.log = self.log
+        if self.tier is not None:
+            acl.tier = self.tier
         if self.severity:
             acl.severity = self.severity
         if self.name:
@@ -176,12 +183,12 @@ class AclAddCommand(_AclAddHelper):
 
     def __init__(self, api, switch, direction, priority, match, action,
                  log=False, may_exist=False, severity=None, name=None,
-                 **external_ids):
+                 tier=None, **external_ids):
         # NOTE: we're overriding the constructor here to not break any
         # existing callers before we introduced Port Groups.
         super().__init__(api, switch, direction, priority,
                          match, action, log, may_exist,
-                         severity, name, **external_ids)
+                         severity, name, tier=tier, **external_ids)
 
 
 class PgAclAddCommand(_AclAddHelper):
@@ -190,7 +197,7 @@ class PgAclAddCommand(_AclAddHelper):
 
 class _AclDelHelper(cmd.BaseCommand):
     def __init__(self, api, entity, direction=None,
-                 priority=None, match=None, if_exists=False):
+                 priority=None, match=None, if_exists=False, tier=None):
         if (priority is None) != (match is None):
             raise TypeError("Must specify priority and match together")
         if priority is not None and not direction:
@@ -198,6 +205,7 @@ class _AclDelHelper(cmd.BaseCommand):
         super().__init__(api)
         self.entity = entity
         self.if_exists = if_exists
+        self.tier = tier
         self.conditions = []
         if direction:
             self.conditions.append(('direction', '=', direction))
@@ -205,6 +213,8 @@ class _AclDelHelper(cmd.BaseCommand):
             if match:  # and therefore priority due to the above check
                 self.conditions += [('priority', '=', priority),
                                     ('match', '=', match)]
+        if tier is not None:
+            self.conditions.append(('tier', '=', tier))
 
     def run_idl(self, txn):
         try:
@@ -1208,6 +1218,18 @@ class BFDGetCommand(cmd.BaseGetRowCommand):
     table = 'BFD'
 
 
+def _check_mirror_rules_supported(api):
+    """Raise if the connected NB schema has no lport mirror support.
+
+    The ``lport`` mirror type and the ``Mirror_Rule`` table arrived together
+    in OVN 25.09, with the ``Mirror.mirror_rules`` column.
+    """
+    if not idlutils.table_has_column(api.idl, 'Mirror', 'mirror_rules'):
+        raise RuntimeError(
+            "lport mirrors and mirror rules are not supported by the OVN "
+            "Northbound schema in use (requires OVN >= 25.09)")
+
+
 class MirrorAddCommand(cmd.AddCommand):
     # cmd.AddCommand uses self.table_name, other base commands use self.table
     table_name = 'Mirror'
@@ -1217,7 +1239,7 @@ class MirrorAddCommand(cmd.AddCommand):
         self.name = name
         self.direction_filter = direction_filter
         self.mirror_type = mirror_type
-        if mirror_type != 'local':
+        if mirror_type in [const.MIRROR_TYPE_GRE, const.MIRROR_TYPE_ERSPAN]:
             self.dest = str(netaddr.IPAddress(dest))
         else:
             self.dest = dest
@@ -1225,6 +1247,9 @@ class MirrorAddCommand(cmd.AddCommand):
 
         super().__init__(api)
 
+        # 'mirror_rules' is intentionally not part of the columns: existing
+        # rules of a mirror must survive a ``may_exist=True`` call, and the
+        # column only exists on OVN >= 25.09 NB schemas.
         self.columns = {
             'name': name,
             'filter': direction_filter,
@@ -1236,6 +1261,8 @@ class MirrorAddCommand(cmd.AddCommand):
         self.may_exist = may_exist
 
     def run_idl(self, txn):
+        if self.mirror_type == const.MIRROR_TYPE_LPORT:
+            _check_mirror_rules_supported(self.api)
         try:
             mirror_result = self.api.lookup(self.table_name, self.name)
             self.result = rowview.RowView(mirror_result)
@@ -1272,6 +1299,87 @@ class MirrorGetCommand(cmd.BaseGetRowCommand):
     table = 'Mirror'
 
 
+class MirrorRuleAddCommand(cmd.AddCommand):
+    table_name = 'Mirror_Rule'
+
+    def __init__(self, api, mirror, priority, match, action, may_exist=False):
+        if action not in (const.MIRROR_RULE_MIRROR, const.MIRROR_RULE_SKIP):
+            raise TypeError("action must be either mirror or skip")
+        super().__init__(api)
+        self.mirror = mirror
+        self.priority = priority
+        self.match = match
+        self.action = action
+        self.may_exist = may_exist
+
+    def run_idl(self, txn):
+        _check_mirror_rules_supported(self.api)
+        try:
+            mirror = self.api.lookup('Mirror', self.mirror)
+        except idlutils.RowNotFound as e:
+            msg = "Mirror %s does not exist" % self.mirror
+            raise RuntimeError(msg) from e
+        if mirror.type != const.MIRROR_TYPE_LPORT:
+            raise RuntimeError(
+                "Only mirror with type lport support mirror rules")
+        for rule in mirror.mirror_rules:
+            if (
+                self.priority == rule.priority and
+                self.match == rule.match and
+                self.action == rule.action
+            ):
+                if not self.may_exist:
+                    msg = "Rule (%s, %s, %s) already exists on mirror %s" % (
+                        self.priority, self.match, self.action, self.mirror)
+                    raise RuntimeError(msg)
+                self.result = rowview.RowView(rule)
+                return
+        rule = txn.insert(self.api.tables['Mirror_Rule'])
+        rule.priority = self.priority
+        rule.match = self.match
+        rule.action = self.action
+        mirror.addvalue('mirror_rules', rule)
+        self.result = rule.uuid
+
+
+class MirrorRuleDelCommand(cmd.BaseCommand):
+    def __init__(self, api, mirror, priority=None, match=None,
+                 if_exists=False):
+        if priority is None and match is not None:
+            raise ValueError("must specify priority with match")
+        super().__init__(api)
+        self.conditions = []
+        self.mirror = mirror
+        self.priority = priority
+        self.match = match
+        if self.priority is not None:
+            self.conditions.append(('priority', '=', self.priority))
+        if self.match is not None:
+            self.conditions.append(('match', '=', self.match))
+        self.if_exists = if_exists
+
+    def run_idl(self, txn):
+        _check_mirror_rules_supported(self.api)
+        try:
+            mirror = self.api.lookup('Mirror', self.mirror)
+        except idlutils.RowNotFound as e:
+            if self.if_exists:
+                return
+            msg = "Mirror %s does not exist" % self.mirror
+            raise RuntimeError(msg) from e
+        if self.priority is None:
+            mirror.mirror_rules = []
+            return
+        rules_to_delete = [rule for rule in mirror.mirror_rules
+                           if idlutils.row_match(rule, self.conditions)]
+        for rule in rules_to_delete:
+            mirror.delvalue('mirror_rules', rule)
+        if not rules_to_delete and not self.if_exists:
+            msg = "Mirror Rule (%s, %s) in mirror %s does not exist" % (
+                self.priority, self.match, self.mirror)
+            raise RuntimeError(msg)
+
+
 class LspAttachMirror(cmd.BaseCommand):
     def __init__(self, api, port, mirror, may_exist=False):
         super().__init__(api)
@@ -1282,14 +1390,18 @@ class LspAttachMirror(cmd.BaseCommand):
     def run_idl(self, txn):
         try:
             lsp = self.api.lookup('Logical_Switch_Port', self.port)
-            mirror = self.api.lookup('Mirror', self.mirror)
-            if mirror in lsp.mirror_rules and not self.may_exist:
-                msg = "Mirror Rule %s is already set on LSP %s" % (self.mirror,
-                                                                   self.port)
-                raise RuntimeError(msg)
-            lsp.addvalue('mirror_rules', mirror)
         except idlutils.RowNotFound as e:
-            raise RuntimeError("LSP %s not found" % self.port) from e
+            raise RuntimeError("LSP %s does not exist" % self.port) from e
+        try:
+            mirror = self.api.lookup('Mirror', self.mirror)
+        except idlutils.RowNotFound as e:
+            msg = "Mirror %s does not exist" % self.mirror
+            raise RuntimeError(msg) from e
+        if mirror in lsp.mirror_rules and not self.may_exist:
+            msg = "Mirror %s is already set on LSP %s" % (self.mirror,
+                                                          self.port)
+            raise RuntimeError(msg)
+        lsp.addvalue('mirror_rules', mirror)
 
 
 class LspDetachMirror(cmd.BaseCommand):
@@ -1302,17 +1414,21 @@ class LspDetachMirror(cmd.BaseCommand):
     def run_idl(self, txn):
         try:
             lsp = self.api.lookup('Logical_Switch_Port', self.port)
-            mirror = self.api.lookup('Mirror', self.mirror)
-            if mirror not in lsp.mirror_rules and not self.if_exists:
-                msg = "Mirror Rule %s doesn't exist on LSP %s" % (self.mirror,
-                                                                  self.port)
-                raise RuntimeError(msg)
-            lsp.delvalue('mirror_rules', mirror)
         except idlutils.RowNotFound as e:
             if self.if_exists:
                 return
-            msg = "LSP %s doesn't exist" % self.port
+            raise RuntimeError("LSP %s does not exist" % self.port) from e
+        try:
+            mirror = self.api.lookup('Mirror', self.mirror)
+        except idlutils.RowNotFound as e:
+            if self.if_exists:
+                return
+            msg = "Mirror %s does not exist" % self.mirror
             raise RuntimeError(msg) from e
+        if mirror not in lsp.mirror_rules and not self.if_exists:
+            msg = "Mirror %s is not set on LSP %s" % (self.mirror, self.port)
+            raise RuntimeError(msg)
+        lsp.delvalue('mirror_rules', mirror)
 
 
 class LrRouteAddCommand(cmd.BaseCommand):

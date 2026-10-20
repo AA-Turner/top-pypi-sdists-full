@@ -89,3 +89,38 @@ def test_the_tap_and_the_worker_agree_on_the_missing_libraries_retry():
     source = (TAP / "companion_supervisor.py").read_text()
     assert f'RETRIES_LIBS_ENV = "{worker.SUPERVISOR_RETRIES_LIBS_ENV}"' in source
     assert f"EXIT_RETRY_LIBS = {worker.EXIT_RETRY_LIBS}" in source
+
+
+@pytest.mark.parametrize("start", [session_marker.STATE_DAEMON, session_marker.STATE_READ_ONLY])
+def test_quota_inline_never_respawns_a_worker_on_resume(writer, start):
+    from probe.daemon import lease
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    session_marker.set_session_state(SID, start)
+    assert session_marker.inline_on_budget(SID, start)
+    assert not lease.worker_wanted(SID)
+    assert not writer.reads_only(SID)
+    assert writer.session_state(SID) != session_marker.STATE_DAEMON
+    # This is the exact supervisor decision on each fresh process/resume.
+    assert not (writer.session_state(SID) == "daemon" or writer.reads_only(SID))
+
+
+def test_read_only_inline_latches_a_stale_tap_but_new_tap_can_follow_explicit_read(writer, monkeypatch):
+    from probe.daemon import worker
+
+    monkeypatch.setenv(worker.SUPERVISOR_FOLLOWS_INLINE_ENV, "1")
+    monkeypatch.delenv(worker.SUPERVISOR_READ_ONLY_INLINE_ENV, raising=False)
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
+    assert session_marker.inline_on_budget(SID, session_marker.STATE_READ_ONLY)
+    # The older supervisor knows full-inline only and would otherwise restart
+    # the reader in a loop because its state byte remains read-only.
+    assert worker.inline_exit_code(SID) == worker.EXIT_DO_NOT_RESPAWN
+    monkeypatch.setenv(worker.SUPERVISOR_READ_ONLY_INLINE_ENV, "1")
+    assert worker.inline_exit_code(SID) == 0
+    source = (TAP / "companion_supervisor.py").read_text()
+    assert f'READ_ONLY_INLINE_ENV = "{worker.SUPERVISOR_READ_ONLY_INLINE_ENV}"' in source
+    assert 'READ_ONLY_INLINE_ENV: "1"' in source
+    # With the new supervisor, /probe read ends inline even though the byte is
+    # still read-only; no gave_up_in latch should hide that explicit choice.
+    session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
+    assert writer.reads_only(SID)

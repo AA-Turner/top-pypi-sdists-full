@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: logtail-python
-Version: 0.5.1
+Version: 0.5.2
 Summary: Better Stack client library
 Home-page: https://github.com/logtail/logtail-python
-Download-URL: https://github.com/logtail/logtail-python/tarball/0.5.1
+Download-URL: https://github.com/logtail/logtail-python/tarball/0.5.2
 Author: Logtail
 Author-email: hello@logtail.com
 License: ISC

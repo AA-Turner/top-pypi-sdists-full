@@ -16,6 +16,7 @@ import time
 from testmu_helper.evaluation import _compare, apply_transforms
 
 from testmu._v4._helpers.textual_analyzer.heal import run_heal
+from testmu._v4._helpers.textual_analyzer.variables import fill_code, fill_text
 
 _log = logging.getLogger("testmu")
 
@@ -98,12 +99,23 @@ async def textual_analyzer(
     transforms: list[str] | None = None,
     condition: str | None = None,
     code_js: str | None = None,
+    variables: dict | None = None,
 ):
     """Execute a recorded textual_visual extraction, healing on locator drift.
+
+    ``variables`` maps the ``{{name}}`` references in the recorded code to this
+    run's values. They are filled into ``wrapped_js`` and ``code_js`` (JS-escaped)
+    and into ``query``, ``condition`` and ``expected_value`` before anything runs.
 
     Returns the extracted value (string, transforms applied downstream as today).
     """
     transforms = transforms or []
+    if variables:
+        wrapped_js = fill_code(wrapped_js, variables)
+        code_js = fill_code(code_js, variables)
+        query = fill_text(query, variables)
+        condition = fill_text(condition, variables)
+        expected_value = fill_text(expected_value, variables)
     stale, handles = await _stale_and_handles(page, locators)
 
     # Happy path — every recorded locator visible.

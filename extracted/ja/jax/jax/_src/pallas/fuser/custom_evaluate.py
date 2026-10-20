@@ -30,6 +30,24 @@ class CustomEvaluateSettings:
 
 
 def evaluate(f, *, allow_transpose: bool = True):
+  """Re-binds `f`'s traced jaxpr equation-by-equation under fuser constraints.
+
+  Used inside fused kernels to evaluate `f` primitive-by-primitive so that
+  fuser evaluation rules apply while rejecting unsupported higher-order
+  primitives (`scan`, `while_loop`, `cond`) and optionally `transpose`.
+
+  Args:
+    f: The function to trace and evaluate.
+    allow_transpose: Whether `lax.transpose_p` primitives are allowed in `f`.
+
+  Returns:
+    A wrapped function taking positional arguments `*args` (keyword arguments
+    are not supported) that traces `f` and evaluates its jaxpr equation by
+    equation, raising `NotImplementedError` for top-level `scan`, `while_loop`,
+    and `cond` primitives and, if `allow_transpose` is `False`, `ValueError` for
+    top-level transposes.
+  """
+
   def wrapped(*args, **kwargs):
     jaxpr, consts, _, out_tree = fuser_utils.make_jaxpr(f, *args, **kwargs)
     settings = CustomEvaluateSettings(allow_transpose=allow_transpose)
@@ -54,8 +72,8 @@ def _custom_evaluate_jaxpr(
     env[v] = val
 
   env: dict[core.Var, Any] = {}
-  util.safe_map(write, jaxpr.constvars, consts)
-  util.safe_map(write, jaxpr.invars, args)
+  util.foreach(write, jaxpr.constvars, consts)
+  util.foreach(write, jaxpr.invars, args)
   lu = core.last_used(jaxpr)
   for eqn in jaxpr.eqns:
     bind_params = eqn.primitive.get_bind_params(eqn.params)
@@ -75,7 +93,7 @@ def _custom_evaluate_jaxpr(
           *util.safe_map(read, eqn.invars), **bind_params
       )
     if eqn.primitive.multiple_results:
-      util.safe_map(write, eqn.outvars, ans)
+      util.foreach(write, eqn.outvars, ans)
     else:
       write(eqn.outvars[0], ans)
     core.clean_up_dead_vars(eqn, env, lu)

@@ -100,6 +100,9 @@ class PayrollWageItemsResource(SyncAPIResource):
           overtime_multiplier: The overtime pay multiplier for this payroll wage item, represented as a decimal
               string. For example, `"1.5"` represents time-and-a-half pay.
 
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
+
           rate: The default rate for this payroll wage item, represented as a decimal string.
               Only one of `rate` and `ratePercent` can be set.
 
@@ -249,6 +252,9 @@ class PayrollWageItemsResource(SyncAPIResource):
           name_from: Filter for payroll wage items whose `name` is alphabetically greater than or
               equal to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific payroll wage items by their name(s), case-insensitive. Like
               `id`, `name` is a unique identifier for a payroll wage item.
 
@@ -266,6 +272,9 @@ class PayrollWageItemsResource(SyncAPIResource):
 
           name_to: Filter for payroll wage items whose `name` is alphabetically less than or equal
               to this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for payroll wage items that are active, inactive, or both.
 
@@ -405,6 +414,9 @@ class AsyncPayrollWageItemsResource(AsyncAPIResource):
 
           overtime_multiplier: The overtime pay multiplier for this payroll wage item, represented as a decimal
               string. For example, `"1.5"` represents time-and-a-half pay.
+
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
 
           rate: The default rate for this payroll wage item, represented as a decimal string.
               Only one of `rate` and `ratePercent` can be set.
@@ -555,6 +567,9 @@ class AsyncPayrollWageItemsResource(AsyncAPIResource):
           name_from: Filter for payroll wage items whose `name` is alphabetically greater than or
               equal to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific payroll wage items by their name(s), case-insensitive. Like
               `id`, `name` is a unique identifier for a payroll wage item.
 
@@ -572,6 +587,9 @@ class AsyncPayrollWageItemsResource(AsyncAPIResource):
 
           name_to: Filter for payroll wage items whose `name` is alphabetically less than or equal
               to this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for payroll wage items that are active, inactive, or both.
 

@@ -221,6 +221,45 @@ def test_vcd_aliases(capsys: pytest.CaptureFixture[str]):
     ]
 
 
+@pytest.mark.parametrize(
+    "size, value, width, expected",
+    [
+        ((2, 2), (3, 1), 4, "b1101 !"),
+        ((1, 3), (1, 5), 4, "b1101 !"),
+        ((3, 5, 8), (5, 17, 129), 16, "b1011000110000001 !"),
+    ],
+)
+def test_vcd_compound_aliases(
+    capsys: pytest.CaptureFixture[str],
+    size: CompoundSize,
+    value: CompoundValue,
+    width: int,
+    expected: str,
+) -> None:
+    with VCDWriter(sys.stdout, date="") as vcd:
+        var = vcd.register_var("top", "original", "reg", size)
+        vcd.register_alias("top", "copy", var)
+        vcd.register_alias("top.child", "copy", var)
+        vcd.change(var, 1, value)
+    assert split_lines(capsys) == [
+        "$timescale 1 us $end",
+        "$scope module top $end",
+        f"$var reg {width} ! original $end",
+        f"$var reg {width} ! copy $end",
+        "$scope module child $end",
+        f"$var reg {width} ! copy $end",
+        "$upscope $end",
+        "$upscope $end",
+        "$enddefinitions $end",
+        "#0",
+        "$dumpvars",
+        "bx !",
+        "$end",
+        "#1",
+        expected,
+    ]
+
+
 def test_vcd_scopes(capsys: pytest.CaptureFixture[str]):
     with VCDWriter(sys.stdout, date="today") as vcd:
         vcd.set_scope_type("eee.fff.ggg", ScopeType.task)
@@ -348,6 +387,27 @@ def test_vcd_missing_size():
     with VCDWriter(sys.stdout, date="today") as vcd:
         with pytest.raises(ValueError):
             _ = vcd.register_var("a.b.c", "name", "wire", size=None)
+
+
+@pytest.mark.parametrize(
+    "var_type, size",
+    [
+        ("integer", 64),
+        ("real", 64),
+        ("realtime", 64),
+        ("real_parameter", 64),
+        ("shortreal", 32),
+        ("event", 1),
+        ("string", 1),
+    ],
+)
+def test_vcd_default_size(
+    capsys: pytest.CaptureFixture[str], var_type: str, size: int
+) -> None:
+    with VCDWriter(sys.stdout, date="") as vcd:
+        var = vcd.register_var("top", "name", var_type)
+        assert var.size == size
+    assert f"$var {var_type} {size} ! name $end" in split_lines(capsys)
 
 
 def test_vcd_invalid_var_type():
@@ -619,6 +679,43 @@ def test_vcd_real_var(capsys: pytest.CaptureFixture[str]):
     ]
 
     assert lines[-len(expected_last) :] == expected_last
+
+
+@pytest.mark.parametrize(
+    "var_type",
+    [
+        "realtime",
+        VarType.realtime,
+        "shortreal",
+        VarType.shortreal,
+        "real_parameter",
+        VarType.real_parameter,
+    ],
+)
+@pytest.mark.parametrize("initial, changed", [(1, 2), (1.25, 2.5), (1, 2.5)])
+def test_vcd_real_typed_var(
+    capsys: pytest.CaptureFixture[str],
+    var_type: str | VarType,
+    initial: int | float,
+    changed: int | float,
+) -> None:
+    with VCDWriter(sys.stdout, timescale="1 ns", date="") as vcd:
+        var = vcd.register_var("top", "elapsed", var_type, size=64, init=initial)
+        vcd.change(var, 1, changed)
+
+    assert split_lines(capsys) == [
+        "$timescale 1 ns $end",
+        "$scope module top $end",
+        f"$var {VarType(var_type)} 64 ! elapsed $end",
+        "$upscope $end",
+        "$enddefinitions $end",
+        "#0",
+        "$dumpvars",
+        f"r{initial} !",
+        "$end",
+        "#1",
+        f"r{changed} !",
+    ]
 
 
 def test_vcd_integer_var(capsys: pytest.CaptureFixture[str]):

@@ -27,6 +27,7 @@ __all__ = (
     "CentralizationFailureReasonType",
     "CloudWatchObservabilityAdminServiceServiceName",
     "ContextGraphStatusType",
+    "DeletionProtectionType",
     "DestinationTypeType",
     "EncryptedLogGroupStrategyType",
     "EncryptionConflictResolutionStrategyType",
@@ -72,6 +73,7 @@ CentralizationFailureReasonType = Literal[
     "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION", "INTERNAL_SERVER_ERROR", "TRUSTED_ACCESS_NOT_ENABLED"
 ]
 ContextGraphStatusType = Literal["Healthy", "Provisioning", "Unhealthy"]
+DeletionProtectionType = Literal["ENABLED"]
 DestinationTypeType = Literal["cloud-watch-logs"]
 EncryptedLogGroupStrategyType = Literal["ALLOW", "SKIP"]
 EncryptionConflictResolutionStrategyType = Literal["ALLOW", "SKIP"]
@@ -156,7 +158,7 @@ TelemetrySourceTypeType = Literal[
     "VPC_FLOW_LOGS",
 ]
 TelemetryStateType = Literal["Disabled", "Enabled", "NotApplicable"]
-TelemetryTypeType = Literal["Logs", "Metrics", "Traces"]
+TelemetryTypeType = Literal["Insights", "Logs", "Metrics", "Traces"]
 WAFLogTypeType = Literal["WAF_LOGS"]
 CloudWatchObservabilityAdminServiceServiceName = Literal["observabilityadmin"]
 ServiceName = Literal[

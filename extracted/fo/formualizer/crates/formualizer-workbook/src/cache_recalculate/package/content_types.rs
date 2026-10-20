@@ -34,14 +34,17 @@ pub(in crate::cache_recalculate) fn add_override(
     )
 }
 
-/// `metadata` is the relationship-resolved sheet metadata part, if any.
+/// `metadata` is the relationship-resolved sheet metadata part, if any;
+/// `links` are the workbook's external link parts.
 pub(super) fn validate(
     archive: &mut Archive<'_>,
     sheets: &[Sheet],
     metadata: Option<&str>,
+    links: &[String],
     options: &XlsxRecalculateOptions,
 ) -> Result<(), IoError> {
     use super::super::dynamic_metadata::SHEET_METADATA_CONTENT_TYPE;
+    use super::super::external_links::LINK_CONTENT_TYPE;
     const NS: &str = "http://schemas.openxmlformats.org/package/2006/content-types";
     const PREFIX: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.";
     let data = read_part(archive, PART, options.limits.max_worksheet_bytes)?;
@@ -56,8 +59,7 @@ pub(super) fn validate(
             return Err(unsupported("content types root/namespace", "XLSX package"));
         }
         if path.len() > 1 {
-            if path.len() != 2 || e.ns != NS || !matches!(e.local.as_str(), "Default" | "Override")
-            {
+            if path.len() != 2 || e.ns != NS || !matches!(e.local, "Default" | "Override") {
                 return Err(unsupported(
                     "unknown content-type declaration",
                     "XLSX package",
@@ -67,7 +69,8 @@ pub(super) fn validate(
             if content.is_empty()
                 || content.contains("digital-signature")
                 || (metadata.is_none() && content.contains("sheetMetadata"))
-                || content.contains("externalLink")
+                || (content.contains("externalLink")
+                    && (content != LINK_CONTENT_TYPE || e.local != "Override"))
             {
                 return Err(unsupported("unsupported content type", "XLSX package"));
             }
@@ -136,6 +139,16 @@ pub(super) fn validate(
             }
             continue;
         }
+        let link = links.iter().any(|p| p == name);
+        if !link && name.starts_with("xl/externalLinks/") && !name.ends_with(".rels") {
+            return Err(unsupported("unreferenced external link part", name));
+        }
+        if link != (content == LINK_CONTENT_TYPE) {
+            return Err(unsupported("external link content-type disagreement", name));
+        }
+        if link {
+            continue;
+        }
         let table = sheets.iter().any(|s| s.tables.values().any(|p| p == name));
         if !table && (content == &format!("{PREFIX}table+xml") || name.starts_with("xl/tables/")) {
             return Err(unsupported("orphan table part", name));
@@ -144,8 +157,8 @@ pub(super) fn validate(
             Some(format!("{PREFIX}table+xml"))
         } else if name == "xl/workbook.xml" {
             Some(format!("{PREFIX}sheet.main+xml"))
-        } else if sheets.iter().any(|s| s.part == name) {
-            Some(format!("{PREFIX}worksheet+xml"))
+        } else if let Some(sheet) = sheets.iter().find(|s| s.part == name) {
+            Some(format!("{PREFIX}{}+xml", sheet.kind))
         } else if name == "xl/styles.xml" {
             Some(format!("{PREFIX}styles+xml"))
         } else if name == "xl/sharedStrings.xml" {

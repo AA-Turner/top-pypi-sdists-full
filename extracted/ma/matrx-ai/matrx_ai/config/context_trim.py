@@ -63,8 +63,25 @@ What this function is NOT
   is an object, OpenAI ``arguments`` is ``json.dumps`` of it, Google
   ``args`` is the object).
 * Freshly appended in-memory turns whose ``position`` is ``None`` are ordered
-  after persisted messages for distance calculations. Their position field is
-  never mutated.
+  after persisted messages for the reported ``message_position``. Their
+  position field is never mutated.
+
+Distance is counted in MODEL ITERATIONS, not raw messages (2026-10-17)
+---------------------------------------------------------------------
+"Positions back" used to be the raw message distance from the head. A parallel
+batch of tool calls appends one message per result, so a result only one or two
+model iterations old could already be 12+ messages back and get cleared before
+the model had read it (conversation e9c0d599: a provider-settings read and a DB
+structure read were cleared before the agent used them). Now:
+
+  * ``iterations_back`` = how many assistant messages come after the message.
+  * ``positions_back``  = ``2 × iterations_back`` (+1 for an assistant message):
+    one iteration is ONE assistant message plus its results, however many
+    results it produced. In a serial one-call-per-iteration loop this is exactly
+    the old raw distance, so the ruled 12/24 knob values keep their measured
+    meaning; a parallel batch no longer inflates it.
+  * A block with ``iterations_back == 0`` is NEVER trimmed, whatever the tiers
+    say: a result the model has not yet had one turn to act on stays whole.
 """
 
 from __future__ import annotations
@@ -94,6 +111,37 @@ _DEFAULT_ARGUMENTS_SUBSTITUTE = (
 # hundred tokens is a losing trade. Real "let's reclaim space" turns easily
 # clear 5K (one large page-fetch, one screenshot, one big search result).
 CACHE_GATE_MIN_SAVED_TOKENS = 5000
+
+# THE CACHE GATE MODE (``agents.context_trim / cache_gate_mode``, ai_114).
+#
+#   legacy  — the 2026-05-16 rule: a warm-cache trim runs whenever it frees at
+#             least ``cache_gate_min_saved_tokens``. It never weighs the
+#             rebuild, and a trim rewrites everything after its first rewritten
+#             block at the cache-WRITE price (Cora's 2026-10-15 Opus 5.5 job:
+#             21 mid-loop trims freed 4-25K tokens each and forced 53-128K-token
+#             rewrites — ~775 ¢ of avoidable writes on one $18 job).
+#   payback — a warm-cache trim runs only when it pays back:
+#             freed_tokens × read_price × expected_remaining_calls
+#               ≥ rewrite_tokens × (write_price − read_price),
+#             at the model's real catalog prices. Otherwise it is HELD: the
+#             eligible blocks stay as they are (recorded, accumulated into
+#             ``cache_state.cumulative_trimmable_chars``) and are taken together
+#             at the next cold cache, when the rewrite is paid anyway — or at
+#             once when the prompt nears the model's window / the pre-flight
+#             ceiling, so a held trim can never cause a refusal.
+# A cold cache (expired or unknown) trims exactly as legacy always did.
+CACHE_GATE_MODE_LEGACY = "legacy"
+CACHE_GATE_MODE_PAYBACK = "payback"
+CACHE_GATE_MODES: tuple[str, ...] = (CACHE_GATE_MODE_LEGACY, CACHE_GATE_MODE_PAYBACK)
+
+# Starting values (agent-set, 2026-10-16; the knob rows carry basis + review date).
+#: How many more warm-cache sends a freed token is expected to be saved on.
+#: Conservative: a tool loop iteration sequence measured 7-17 sends (Cora's job);
+#: a held trim is never lost — it is taken at the next cold cache.
+PAYBACK_EXPECTED_REMAINING_CALLS = 20
+#: A held trim is forced once the estimated prompt reaches this percent of the
+#: pre-flight ceiling (context window × trip fraction).
+PAYBACK_FORCE_WINDOW_PERCENT = 85
 
 # Per-provider TTL estimate. We treat the cache as "likely alive" if it's
 # been less than CACHE_GATE_TTL_RATIO of this since the last response. Static
@@ -143,6 +191,9 @@ class TrimPolicy:
     Defaults are Arman's 2026-09-09 ruling (see module docstring):
       * 12+ positions back AND > 8000 chars → replace
       * 24+ positions back AND > 2000 chars → replace
+    A "position" is half a model iteration (2026-10-17): one assistant message
+    plus all its results count as 2, so a parallel batch cannot age a fresh
+    result, and nothing is trimmed before the model has acted on it once.
     """
 
     tier_1_min_positions_back: int = 12
@@ -161,7 +212,7 @@ class TrimPolicy:
 
     # Trim the ASSISTANT side too: stale, large tool_call ``arguments``
     # payloads (2026-09-13 — see module docstring). Same tiers, same cache
-    # gate; set False to restore the result-only behaviour.
+    # gate; set False to restore the result-only behavior.
     trim_tool_call_arguments: bool = True
 
     # Marker text inserted as the stub's ``result`` key.
@@ -176,8 +227,18 @@ class TrimPolicy:
             "tier_2_min_output_chars": self.tier_2_min_output_chars,
             "skip_media_results": self.skip_media_results,
             "trim_tool_call_arguments": self.trim_tool_call_arguments,
+            "cache_gate_mode": self.cache_gate_mode,
+            "cache_gate_min_saved_tokens": self.cache_gate_min_saved_tokens,
+            "payback_expected_remaining_calls": self.payback_expected_remaining_calls,
+            "payback_force_window_percent": self.payback_force_window_percent,
             "source": self.source,
         }
+
+    # The cache gate (see CACHE_GATE_MODE_* above). Knobs, ai_114.
+    cache_gate_mode: str = CACHE_GATE_MODE_LEGACY
+    cache_gate_min_saved_tokens: int = CACHE_GATE_MIN_SAVED_TOKENS
+    payback_expected_remaining_calls: int = PAYBACK_EXPECTED_REMAINING_CALLS
+    payback_force_window_percent: int = PAYBACK_FORCE_WINDOW_PERCENT
 
     # Where the tier numbers came from — lands in every audit row so a trim is
     # always attributable: "package_default" (standalone, no host resolver),
@@ -203,12 +264,18 @@ class TrimPolicy:
 # silent default.
 
 TRIM_POLICY_KNOB_FEATURE = "agents.context_trim"
+#: Integer knobs (read with the host's int reader).
 TRIM_POLICY_KNOB_KEYS: tuple[str, ...] = (
     "tier_1_min_positions_back",
     "tier_1_min_output_chars",
     "tier_2_min_positions_back",
     "tier_2_min_output_chars",
+    "cache_gate_min_saved_tokens",
+    "payback_expected_remaining_calls",
+    "payback_force_window_percent",
 )
+#: Text knobs (read with the host's str reader). ``cache_gate_mode``: legacy | payback.
+TRIM_POLICY_KNOB_STR_KEYS: tuple[str, ...] = ("cache_gate_mode",)
 
 #: ``async (organization_id) -> TrimPolicy``.
 TrimPolicyResolver = Callable[[str | None], Awaitable[TrimPolicy]]
@@ -229,8 +296,14 @@ def get_trim_policy_resolver() -> TrimPolicyResolver | None:
 def trim_policy_from_knobs(values: dict[str, Any]) -> TrimPolicy:
     """Build a policy from resolved knob values (every key REQUIRED — a missing
     one raises ``KeyError`` naming it rather than quietly using a default)."""
+    mode = str(values["cache_gate_mode"]).strip().lower()
+    if mode not in CACHE_GATE_MODES:
+        raise ValueError(
+            f"agents.context_trim/cache_gate_mode is {mode!r}; allowed: {CACHE_GATE_MODES}"
+        )
     return TrimPolicy(
         **{key: int(values[key]) for key in TRIM_POLICY_KNOB_KEYS},
+        cache_gate_mode=mode,
         source="org_knobs",
     )
 
@@ -316,10 +389,45 @@ class TrimReport:
         }
 
 
+@dataclass
+class CacheGateInputs:
+    """What the payback rule needs that the message list alone cannot say.
+
+    Built by the send boundary from the config it is about to send (catalog
+    prices, the model's window, the pre-flight's estimate). Every field may be
+    ``None``: a payback gate with no prices announces it and falls back to the
+    legacy floor rather than guessing.
+
+    Prices are USD per million tokens. ``write_price`` is the price of the
+    cache tier that covers the REWRITTEN region (the history after the first
+    trimmed block), ``rewrite_ttl_secs`` its lifetime.
+    """
+
+    model: str | None = None
+    read_price: float | None = None
+    write_price: float | None = None
+    rewrite_ttl_secs: int | None = None
+    long_cache: bool = False
+    estimated_prompt_tokens: int | None = None
+    preflight_ceiling_tokens: int | None = None
+
+    def to_snapshot(self) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "read_price": self.read_price,
+            "write_price": self.write_price,
+            "rewrite_ttl_secs": self.rewrite_ttl_secs,
+            "long_cache": self.long_cache,
+            "estimated_prompt_tokens": self.estimated_prompt_tokens,
+            "preflight_ceiling_tokens": self.preflight_ceiling_tokens,
+        }
+
+
 def trim_messages_context(
     messages: list[UnifiedMessage],
     policy: TrimPolicy | None = None,
     cache_state: dict[str, Any] | None = None,
+    gate_inputs: CacheGateInputs | None = None,
 ) -> TrimReport:
     """Trim tool_result content and tool_call arguments in-place. Returns a TrimReport.
 
@@ -327,7 +435,7 @@ def trim_messages_context(
     skipped silently. Idempotent: re-running on the same list does
     nothing new (the augmented preview's own size is well below either
     tier's threshold, so it won't re-qualify; the argument stub is
-    additionally recognised by its marker and never re-rewritten).
+    additionally recognized by its marker and never re-rewritten).
 
     Cache-aware gate (Phase 2): when ``cache_state`` is provided and indicates
     that the prompt cache is likely still alive AND the eligible savings on
@@ -355,33 +463,29 @@ def trim_messages_context(
         return report
     current_position = max(effective_positions.values())
 
-    # Cache-aware gate: estimate what we'd save THIS pass and compare to the
-    # cost of breaking the cache prefix. If cache is fresh and savings are
-    # small, skip outright.
-    if cache_state and _is_cache_likely_alive(cache_state):
-        est_savings_tokens = _estimate_savings_tokens(messages, policy, current_position)
-        if est_savings_tokens < CACHE_GATE_MIN_SAVED_TOKENS:
-            report.eligible_but_skipped_reason = "cache_protect"
-            report.policy["cache_gate"] = {
-                "skipped": True,
-                "est_savings_tokens": est_savings_tokens,
-                "min_required_tokens": CACHE_GATE_MIN_SAVED_TOKENS,
-                "cache_state_age_secs": _cache_age_secs(cache_state),
-            }
-            return report
+    # THE CACHE GATE — one decision, one audit shape (``policy["cache_gate"]``).
+    if cache_state:
+        gate = _decide_cache_gate(
+            messages,
+            policy,
+            current_position,
+            effective_positions,
+            cache_state,
+            gate_inputs,
+        )
+        if gate is not None:
+            report.policy["cache_gate"] = gate
+            if gate["skipped"]:
+                report.eligible_but_skipped_reason = "cache_protect"
+                return report
 
-    for msg in messages:
+    distances = _iteration_distances(messages)
+    for msg, (positions_back, iterations_back) in zip(messages, distances, strict=True):
         effective_position = effective_positions[id(msg)]
-        positions_back = current_position - effective_position
-        if positions_back < policy.tier_1_min_positions_back:
+        tier_rule = _tier_for(policy, positions_back, iterations_back)
+        if tier_rule is None:
             continue
-
-        if positions_back >= policy.tier_2_min_positions_back:
-            min_chars = policy.tier_2_min_output_chars
-        else:
-            min_chars = policy.tier_1_min_output_chars
-
-        tier = "tier_2" if positions_back >= policy.tier_2_min_positions_back else "tier_1"
+        tier, min_chars = tier_rule
 
         for block in msg.content:
             if policy.trim_tool_call_arguments and _is_tool_call_block(block):
@@ -410,6 +514,7 @@ def trim_messages_context(
                         "before_chars": before_len,
                         "after_chars": after_len,
                         "positions_back": positions_back,
+                        "iterations_back": iterations_back,
                         "tier": tier,
                     }
                 )
@@ -453,6 +558,7 @@ def trim_messages_context(
                     "before_chars": before_len,
                     "after_chars": after_len,
                     "positions_back": positions_back,
+                    "iterations_back": iterations_back,
                     "tier": tier,
                 }
             )
@@ -502,11 +608,19 @@ def _is_cache_likely_alive(cache_state: dict[str, Any]) -> bool:
     age = _cache_age_secs(cache_state)
     if age is None:
         return False
+    return age < (float(_cache_ttl_secs(cache_state)) * CACHE_GATE_TTL_RATIO)
+
+
+def _cache_ttl_secs(cache_state: dict[str, Any]) -> int:
+    """The lifetime of the cache that covers the history a trim would rewrite:
+    ``est_cache_ttl_secs`` when the state carries it (the send boundary sets it
+    from the wire's real marks — see ``cache_marks.history_cache_ttl_secs``),
+    else the provider default."""
     ttl = cache_state.get("est_cache_ttl_secs")
     if not ttl:
         provider = (cache_state.get("last_provider") or "").lower()
         ttl = DEFAULT_CACHE_TTLS_SECS.get(provider, 300)
-    return age < (float(ttl) * CACHE_GATE_TTL_RATIO)
+    return int(ttl)
 
 
 def _estimate_savings_tokens(
@@ -526,24 +640,74 @@ def _estimate_savings_tokens(
     gate weighs and the size the preflight refuses are the same tokens; the
     caution lives in ``CACHE_GATE_MIN_SAVED_TOKENS``, never in a second divisor.
     """
+    total_chars, _first, _blocks = _eligible_scan(messages, policy, current_position)
+    return estimate_budget_tokens(total_chars, "prose")
+
+
+# Rough size of the stub a rewritten block leaves behind (marker + keys + size).
+_STUB_CHARS_ESTIMATE = 300
+
+
+def _is_assistant(msg: UnifiedMessage) -> bool:
+    return str(getattr(msg, "role", "") or "").lower() == "assistant"
+
+
+def _iteration_distances(messages: list[UnifiedMessage]) -> list[tuple[int, int]]:
+    """Per message: ``(positions_back, iterations_back)`` measured in model
+    iterations (see the module docstring). One pass, right to left.
+
+    ONE model iteration counts ONCE. A translator may store one provider
+    response as several consecutive assistant messages (text, then tool calls;
+    a terminal-handoff answer after the reply). Counting each of them moved
+    older results ~2x faster through the tiers than intended (adversarial
+    review M2, 2026-10-18). A new iteration always needs a non-assistant
+    message (tool result, person turn) before it, so a run of consecutive
+    assistant messages is one iteration."""
+    out: list[tuple[int, int]] = [(0, 0)] * len(messages)
+    iterations_after = 0
+    right_is_assistant = False
+    for index in range(len(messages) - 1, -1, -1):
+        msg = messages[index]
+        assistant = _is_assistant(msg)
+        same_iteration = assistant and right_is_assistant
+        after = iterations_after - 1 if same_iteration else iterations_after
+        out[index] = (2 * after + (1 if assistant else 0), after)
+        if assistant and not same_iteration:
+            iterations_after += 1
+        right_is_assistant = assistant
+    return out
+
+
+def _tier_for(policy: TrimPolicy, positions_back: int, iterations_back: int) -> tuple[str, int] | None:
+    """``(tier, min_chars)`` for a message at this distance, or ``None`` when it
+    is too recent — including the hard rule: never before the model has had at
+    least one turn after it (``iterations_back >= 1``)."""
+    if iterations_back < 1 or positions_back < policy.tier_1_min_positions_back:
+        return None
+    if positions_back >= policy.tier_2_min_positions_back:
+        return "tier_2", policy.tier_2_min_output_chars
+    return "tier_1", policy.tier_1_min_output_chars
+
+
+def _eligible_scan(
+    messages: list[UnifiedMessage],
+    policy: TrimPolicy,
+    current_position: int,
+) -> tuple[int, int | None, int]:
+    """(eligible chars, list index of the first message holding one, block count).
+
+    The same eligibility predicate as the trim loop, without mutating.
+    """
+    del current_position  # distance is counted in model iterations, not positions
     total_chars = 0
-    max_persisted_position = max(
-        (msg.position for msg in messages if msg.position is not None),
-        default=-1,
-    )
-    next_unposted_position = max_persisted_position + 1
-    for msg in messages:
-        effective_position = msg.position
-        if effective_position is None:
-            effective_position = next_unposted_position
-            next_unposted_position += 1
-        positions_back = current_position - effective_position
-        if positions_back < policy.tier_1_min_positions_back:
+    first_index: int | None = None
+    blocks = 0
+    distances = _iteration_distances(messages)
+    for index, msg in enumerate(messages):
+        tier_rule = _tier_for(policy, *distances[index])
+        if tier_rule is None:
             continue
-        if positions_back >= policy.tier_2_min_positions_back:
-            min_chars = policy.tier_2_min_output_chars
-        else:
-            min_chars = policy.tier_1_min_output_chars
+        _tier, min_chars = tier_rule
         for block in msg.content:
             if policy.trim_tool_call_arguments and _is_tool_call_block(block):
                 arg_chars = _tool_call_argument_chars(block)
@@ -552,6 +716,9 @@ def _estimate_savings_tokens(
                 if _already_trimmed_arguments(block):
                     continue
                 total_chars += arg_chars
+                blocks += 1
+                if first_index is None:
+                    first_index = index
                 continue
             if not _is_tool_result_block(block):
                 continue
@@ -563,7 +730,120 @@ def _estimate_savings_tokens(
             if _already_trimmed(block):
                 continue
             total_chars += chars
-    return estimate_budget_tokens(total_chars, "prose")
+            blocks += 1
+            if first_index is None:
+                first_index = index
+    return total_chars, first_index, blocks
+
+
+def _rewrite_region_tokens(
+    messages: list[UnifiedMessage], first_index: int, eligible_chars: int, blocks: int
+) -> int:
+    """Tokens a trim makes the provider WRITE again: every message from the first
+    rewritten one to the end, as it will look AFTER the trim. Measured with the
+    pre-flight's serializer and the one budget estimator, so it is the same kind
+    of number as the prompt estimate."""
+    from matrx_ai.config.context_preflight import _chars
+
+    region_chars = sum(_chars(msg) for msg in messages[first_index:])
+    after = max(0, region_chars - eligible_chars) + blocks * _STUB_CHARS_ESTIMATE
+    return estimate_budget_tokens(after, "prose")
+
+
+def _decide_cache_gate(
+    messages: list[UnifiedMessage],
+    policy: TrimPolicy,
+    current_position: int,
+    effective_positions: dict[int, int],
+    cache_state: dict[str, Any],
+    gate_inputs: CacheGateInputs | None,
+) -> dict[str, Any] | None:
+    """THE cache gate decision. Returns the audit dict (``skipped`` True = hold).
+
+    Cold cache (expired / unknown age) → take, in every mode: the rewrite is paid
+    anyway, so this is also where held trims are collected.
+    """
+    del effective_positions  # positions are re-derived by the scan
+    mode = (policy.cache_gate_mode or CACHE_GATE_MODE_LEGACY).lower()
+    age = _cache_age_secs(cache_state)
+    ttl = _cache_ttl_secs(cache_state)
+    base: dict[str, Any] = {
+        "mode": mode,
+        "cache_state_age_secs": age,
+        "cache_ttl_secs": ttl,
+    }
+    if gate_inputs is not None:
+        base["inputs"] = gate_inputs.to_snapshot()
+    if mode == CACHE_GATE_MODE_PAYBACK:
+        # Payback margin points the other way: treating a live cache as cold costs
+        # a full rewrite (Cora 2026-10-18: 263 s of a 300 s TTL, 70 ¢), treating an
+        # expired one as warm only delays a trim. Between RATIO x TTL and TTL the
+        # cache counts as warm; only age >= TTL (or unknown) is cold.
+        cold = age is None or age >= float(ttl)
+    else:
+        cold = not _is_cache_likely_alive(cache_state)
+    if cold:
+        return {**base, "skipped": False, "rule": "cold_cache", "decision": "take"}
+
+    eligible_chars, first_index, blocks = _eligible_scan(messages, policy, current_position)
+    est_savings_tokens = estimate_budget_tokens(eligible_chars, "prose")
+    base["est_savings_tokens"] = est_savings_tokens
+    base["est_savings_chars"] = eligible_chars
+
+    def legacy(rule: str) -> dict[str, Any]:
+        floor = int(policy.cache_gate_min_saved_tokens)
+        hold = est_savings_tokens < floor
+        return {
+            **base,
+            "skipped": hold,
+            "rule": rule,
+            "decision": "hold" if hold else "take",
+            "min_required_tokens": floor,
+        }
+
+    if mode != CACHE_GATE_MODE_PAYBACK:
+        return legacy("legacy_floor")
+    if first_index is None or est_savings_tokens <= 0:
+        return {**base, "skipped": False, "rule": "nothing_eligible", "decision": "take"}
+
+    inputs = gate_inputs or CacheGateInputs()
+    base["inputs"] = inputs.to_snapshot()
+    rewrite_tokens = _rewrite_region_tokens(messages, first_index, eligible_chars, blocks)
+    calls = max(1, int(policy.payback_expected_remaining_calls))
+    base["rewrite_tokens"] = rewrite_tokens
+    base["expected_remaining_calls"] = calls
+
+    # Near the window / the pre-flight ceiling: a held trim is taken NOW, so
+    # holding can never be what makes a send get refused.
+    ceiling = inputs.preflight_ceiling_tokens
+    if ceiling and inputs.estimated_prompt_tokens is not None:
+        force_at = int(ceiling * max(1, int(policy.payback_force_window_percent)) / 100)
+        base["force_at_tokens"] = force_at
+        if inputs.estimated_prompt_tokens >= force_at:
+            return {**base, "skipped": False, "rule": "forced_near_limit", "decision": "take"}
+
+    read_price, write_price = inputs.read_price, inputs.write_price
+    if read_price is None or write_price is None:
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"[context_trim] payback cache gate has no catalog prices for "
+            f"{inputs.model!r}; this send uses the legacy floor rule instead.",
+            color="yellow",
+        )
+        return legacy("payback_unpriced:legacy_floor")
+
+    benefit_usd = est_savings_tokens * read_price * calls / 1_000_000
+    cost_usd = rewrite_tokens * max(0.0, write_price - read_price) / 1_000_000
+    take = benefit_usd >= cost_usd
+    return {
+        **base,
+        "skipped": not take,
+        "rule": "payback",
+        "decision": "take" if take else "hold",
+        "benefit_usd": round(benefit_usd, 6),
+        "rewrite_cost_usd": round(cost_usd, 6),
+    }
 
 
 # --------------------------------------------------------------------------- #

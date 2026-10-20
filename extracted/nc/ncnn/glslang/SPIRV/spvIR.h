@@ -188,6 +188,11 @@ public:
         operands[idx] = immediate;
     }
 
+    void clearOperands() {
+        operands.clear();
+        idOperand.clear();
+    }
+
     void addStringOperand(const char* str)
     {
         unsigned int word = 0;
@@ -221,6 +226,7 @@ public:
     }
     Id getResultId() const { return resultId; }
     Id getTypeId() const { return typeId; }
+    void setTypeId(Id tId) { typeId = tId; }
     Id getIdOperand(int op) const {
         assert(idOperand[op]);
         return operands[op];
@@ -295,12 +301,13 @@ public:
     // Returns true if the source location is actually updated.
     // Note we still need the builder to insert the line marker instruction. This is just a tracker.
     bool updateDebugSourceLocation(int line, int column, spv::Id fileId) {
-        if (currentSourceLoc.line == line && currentSourceLoc.column == column &&
+        if (hasCurrentSourceLoc && currentSourceLoc.line == line && currentSourceLoc.column == column &&
             currentSourceLoc.fileId == fileId) {
             return false;
         }
 
         currentSourceLoc = DebugSourceLocation{line, column, fileId};
+        hasCurrentSourceLoc = true;
         return true;
     }
     // Returns true if the scope is actually updated.
@@ -379,6 +386,7 @@ public:
         case Op::OpReturn:
         case Op::OpReturnValue:
         case Op::OpUnreachable:
+        case Op::OpAbortKHR:
             return true;
         default:
             return false;
@@ -407,10 +415,11 @@ protected:
     Function& parent;
 
     // Track source location of the last source location marker instruction.
-    DebugSourceLocation currentSourceLoc;
+    DebugSourceLocation currentSourceLoc = {};
+    bool hasCurrentSourceLoc = false;
 
     // Track scope of the last debug scope instruction.
-    spv::Id currentDebugScope;
+    spv::Id currentDebugScope = NoResult;
 
     // track whether this block is known to be uncreachable (not necessarily
     // true for all unreachable blocks, but should be set at least
@@ -473,6 +482,10 @@ public:
     Id getReturnType() const { return functionInstruction.getTypeId(); }
     Id getFuncId() const { return functionInstruction.getResultId(); }
     Id getFuncTypeId() const { return functionInstruction.getIdOperand(1); }
+    void setFunctionControl(FunctionControlMask functionControl)
+    {
+        functionInstruction.setImmediateOperand(0, static_cast<unsigned>(functionControl));
+    }
     void setReturnPrecision(Decoration precision)
     {
         if (precision == Decoration::RelaxedPrecision)
@@ -573,7 +586,8 @@ public:
     }
     StorageClass getStorageClass(Id typeId) const
     {
-        assert(idToInstruction[typeId]->getOpCode() == spv::Op::OpTypePointer);
+        assert(idToInstruction[typeId]->getOpCode() == spv::Op::OpTypePointer ||
+               idToInstruction[typeId]->getOpCode() == spv::Op::OpTypeUntypedPointerKHR);
         return (StorageClass)idToInstruction[typeId]->getImmediateOperand(0);
     }
 

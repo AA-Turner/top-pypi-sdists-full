@@ -260,7 +260,7 @@ _WHY_YOUR_BROWSER: dict[str, str] = {
     ),
     "wrong_resource": (
         "The site sent us to a different page than the one asked for, which it does to "
-        "visitors it does not recognise. Your own browser will land on the real page."
+        "visitors it does not recognize. Your own browser will land on the real page."
     ),
 }
 

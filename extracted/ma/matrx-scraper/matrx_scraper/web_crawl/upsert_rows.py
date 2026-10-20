@@ -7,7 +7,7 @@ batch in this package is at risk of that, because the row key is DERIVED
 (a URL normalizes to one page, an alias resolves to one canonical page), so a
 list of legitimately distinct observations can collapse onto one key.
 
-De-duplicating is the CORRECT behaviour, not a workaround: the second row would
+De-duplicating is the CORRECT behavior, not a workaround: the second row would
 overwrite the first inside the same statement anyway. Do it here, once, so no
 caller has to remember — and log loudly when it fires, because a collapse is a
 real fact about the data.

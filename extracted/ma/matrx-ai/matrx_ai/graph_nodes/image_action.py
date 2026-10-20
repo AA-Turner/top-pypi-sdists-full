@@ -183,7 +183,7 @@ def _image_from_image_content(block: Any) -> GeneratedImage:
     when it is personal — the default). Reading only ``url`` is how a node
     output ended up holding a link that 403s a few hours later.
 
-    So the expiring URL is DROPPED here rather than labelled: this payload is
+    So the expiring URL is DROPPED here rather than labeled: this payload is
     written to ``workflow.node_outcome`` and replayed days later, and a signed
     URL is a handoff, never a record. ``file_id`` is the handle that survives;
     every consumer mints its own URL from it. The URL is classified through the

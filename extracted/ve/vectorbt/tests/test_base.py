@@ -421,6 +421,71 @@ class TestArrayWrapper:
         np.testing.assert_array_equal(b, np.array([0, 1]))
         np.testing.assert_array_equal(c, np.array([0, 1, 2]))
 
+    @pytest.mark.parametrize("column_only", [False, True])
+    @pytest.mark.parametrize(
+        "groups,selection,col_idxs,expected_groups",
+        [
+            (["a", "a", "b", "b", "c", "c"], [0, 1, 2], [0, 1, 2, 3, 4, 5], ["a", "a", "b", "b", "c", "c"]),
+            (["a", "a", "b", "b", "c", "c"], [2, 0, 1], [4, 5, 0, 1, 2, 3], ["c", "c", "a", "a", "b", "b"]),
+            (["a", "b", "b", "c", "c", "c"], [0, 1, 2], [0, 1, 2, 3, 4, 5], ["a", "b", "b", "c", "c", "c"]),
+            (["a", "b", "b", "c", "c", "c"], [2, 0, 1], [3, 4, 5, 0, 1, 2], ["c", "c", "c", "a", "b", "b"]),
+            (["a", "a", "b", "b", "c", "c"], [1, 1, 0], [2, 3, 2, 3, 0, 1], ["b", "b", "b", "b", "a", "a"]),
+        ],
+    )
+    def test_group_selection_membership(self, column_only, groups, selection, col_idxs, expected_groups):
+        # Each selected physical block must keep its own label, including repeated adjacent selections.
+        wrapper = array_wrapper.ArrayWrapper(
+            index=pd.Index(["x", "y", "z"], name="row"),
+            columns=pd.Index(list("abcdef"), name="asset"),
+            ndim=2,
+            group_by=pd.Index(groups, name="strategy"),
+            group_select=True,
+            column_only_select=column_only,
+        )
+        selected, row_idxs, group_idxs, physical_idxs = wrapper.indexing_func_meta(
+            lambda obj: obj.iloc[selection] if column_only else obj.iloc[[2, 0], selection]
+        )
+        pd.testing.assert_index_equal(selected.grouper.group_by, pd.Index(expected_groups, name="strategy"))
+        pd.testing.assert_index_equal(selected.columns, wrapper.columns[col_idxs])
+        pd.testing.assert_index_equal(selected.index, wrapper.index if column_only else wrapper.index[[2, 0]])
+        np.testing.assert_array_equal(row_idxs, [0, 1, 2] if column_only else [2, 0])
+        np.testing.assert_array_equal(group_idxs, selection)
+        np.testing.assert_array_equal(physical_idxs, col_idxs)
+        assert selected.ndim == selected.grouped_ndim == 2
+        pd.testing.assert_index_equal(wrapper.grouper.group_by, pd.Index(groups, name="strategy"))
+
+    @pytest.mark.parametrize("column_only", [False, True])
+    def test_group_selection_renamed_labels(self, column_only):
+        groups = pd.MultiIndex.from_tuples(
+            [("s", 1), ("s", 2), ("s", 2), ("t", 3), ("t", 3), ("t", 3)], names=["strategy", "number"]
+        )
+        wrapper = array_wrapper.ArrayWrapper(
+            index=[0, 1],
+            columns=list("abcdef"),
+            ndim=2,
+            group_by=groups,
+            group_select=True,
+            column_only_select=column_only,
+        )
+        renamed = pd.MultiIndex.from_tuples([("new", 30), ("new", 10), ("new", 20)], names=["model", "bucket"])
+
+        def select(obj):
+            # Indexing callbacks may rename groups; copying labels from the source would lose that change.
+            selected = (
+                obj.loc[[("t", 3), ("s", 1), ("s", 2)]] if column_only else obj.loc[:, [("t", 3), ("s", 1), ("s", 2)]]
+            )
+            return selected.set_axis(renamed, axis=0 if column_only else 1)
+
+        selected = wrapper.indexing_func(select)
+        expected = pd.MultiIndex.from_tuples(
+            [("new", 30), ("new", 30), ("new", 30), ("new", 10), ("new", 20), ("new", 20)],
+            names=["model", "bucket"],
+        )
+        pd.testing.assert_index_equal(selected.grouper.group_by, expected)
+        pd.testing.assert_index_equal(selected.grouper.get_columns(), renamed)
+        pd.testing.assert_index_equal(selected.columns, pd.Index(list("defabc")))
+        pd.testing.assert_index_equal(wrapper.grouper.group_by, groups)
+
     def test_indexing(self):
         # not grouped
         pd.testing.assert_index_equal(sr2_wrapper.iloc[:2].index, pd.Index(["x2", "y2"], dtype="object", name="i2"))
@@ -1927,6 +1992,146 @@ class TestReshapeFns:
                 columns=pd.Index([0, 1, 2, "yo"], dtype="object"),
             ),
         )
+
+    @pytest.mark.parametrize(
+        "rows, columns",
+        [(["row1", "row2"], ["b", "a"]), (["row2", "row1"], ["a", "b"]), (["row2", "row1"], ["b", "a"])],
+    )
+    def test_unstack_to_df_unsorted(self, rows, columns):
+        # Each row of values follows encounter order, independently of lexical label order.
+        sr = pd.Series(
+            [10.0, 20.0, 30.0, 40.0], index=pd.MultiIndex.from_product([rows, columns], names=["row", "column"])
+        )
+        before = sr.copy(deep=True)
+        expected = pd.DataFrame(
+            [[10.0, 20.0], [30.0, 40.0]], index=pd.Index(rows, name="row"), columns=pd.Index(columns, name="column")
+        )
+
+        # Direct and accessor paths accept Series and one-column DataFrames.
+        for obj in (sr, sr.to_frame()):
+            pd.testing.assert_frame_equal(reshape_fns.unstack_to_df(obj), expected)
+            pd.testing.assert_frame_equal(obj.vbt.unstack_to_df(sort=False), expected)
+        # Raw arrays retain sorted coordinates, as required by the volume consumer.
+        np.testing.assert_array_equal(sr.vbt.unstack_to_array(), expected.sort_index().sort_index(axis=1).values)
+        pd.testing.assert_series_equal(sr, before)
+
+    def test_unstack_to_df_unsorted_metadata(self):
+        # Category order differs from NumPy's lexical order; sparse cells retain NaN.
+        dates = pd.DatetimeIndex(["2026-10-02", "2026-10-02", "2026-10-01"], tz="UTC", name="date")
+        labels = pd.CategoricalIndex(["b", "a", "b"], categories=["b", "unused", "a"], ordered=True, name="column")
+        sr = pd.Series([10.0, 20.0, 30.0], index=pd.MultiIndex.from_arrays([dates, labels]))
+        expected = pd.DataFrame(
+            [[10.0, 20.0], [30.0, np.nan]],
+            index=pd.DatetimeIndex(["2026-10-02", "2026-10-01"], tz="UTC", name="date"),
+            columns=pd.CategoricalIndex(["b", "a"], categories=labels.categories, ordered=True, name="column"),
+        )
+        pd.testing.assert_frame_equal(reshape_fns.unstack_to_df(sr), expected)
+
+    def test_unstack_to_df_unsorted_levels(self):
+        # Explicit composite levels retain their requested hierarchy and encounter order.
+        index = pd.MultiIndex.from_tuples(
+            [(2, "b", 20), (1, "a", 10), (2, "a", 10), (1, "b", 20)], names=["row", "kind", "column"]
+        )
+        sr = pd.Series([10.0, 20.0, 30.0, 40.0], index=index)
+        expected = pd.DataFrame(
+            [[10.0, np.nan], [np.nan, 20.0], [np.nan, 30.0], [40.0, np.nan]],
+            index=pd.MultiIndex.from_tuples([("b", 2), ("a", 1), ("a", 2), ("b", 1)], names=["kind", "row"]),
+            columns=pd.Index([20, 10], name="column"),
+        )
+        pd.testing.assert_frame_equal(
+            sr.vbt.unstack_to_df(index_levels=("kind", "row"), column_levels="column"), expected
+        )
+
+    @pytest.mark.parametrize("sort", [False, True])
+    def test_unstack_to_df_unsorted_symmetric(self, sort):
+        # Mirroring must use each source label/value pair before sorting the combined axes.
+        sr = pd.Series(
+            [10.0, 20.0, 30.0, 40.0], index=pd.MultiIndex.from_product([[3, 1], [4, 2]], names=["row", "column"])
+        )
+        labels = pd.Index([3, 1, 4, 2], name=("row", "column"))
+        expected = pd.DataFrame(
+            [
+                [np.nan, np.nan, 10.0, 20.0],
+                [np.nan, np.nan, 30.0, 40.0],
+                [10.0, 30.0, np.nan, np.nan],
+                [20.0, 40.0, np.nan, np.nan],
+            ],
+            index=labels,
+            columns=labels,
+        )
+        if sort:
+            expected = expected.sort_index().sort_index(axis=1)
+        pd.testing.assert_frame_equal(sr.vbt.unstack_to_df(symmetric=True, sort=sort), expected)
+
+    @pytest.mark.parametrize("slider", [False, True])
+    def test_unstack_to_df_unsorted_heatmap(self, slider):
+        # Assert the displayed label/value pairing, including each slider trace.
+        sr = pd.Series(
+            [10.0, 20.0, 30.0, 40.0],
+            index=pd.MultiIndex.from_product([["row2", "row1"], ["b", "a"]], names=["row", "column"]),
+        )
+        if slider:
+            sr = pd.concat([sr, sr + 100.0], keys=["first", "second"], names=["batch"])
+        fig = sr.vbt.heatmap(x_level="column", y_level="row", slider_level="batch" if slider else None)
+        assert len(fig.data) == (2 if slider else 1)
+        for i, trace in enumerate(fig.data):
+            np.testing.assert_array_equal(trace.x, ["b", "a"])
+            np.testing.assert_array_equal(trace.y, ["row2", "row1"])
+            np.testing.assert_array_equal(trace.z, np.array([[10.0, 20.0], [30.0, 40.0]]) + 100.0 * i)
+        assert fig.layout.xaxis.title.text == "column"
+        assert fig.layout.yaxis.title.text == "row"
+        assert fig.to_json()
+
+    @pytest.mark.parametrize("second_order", [[2, 3, 0, 1], [1, 0, 3, 2], [3, 2, 1, 0]])
+    def test_unstack_to_df_unsorted_heatmap_frame_order(self, second_order):
+        # A slider frame's automatic axes must describe that frame, even if only
+        # its row order, column order, or both differ from the first frame.
+        first = pd.Series(
+            [10.0, 20.0, 30.0, 40.0],
+            index=pd.MultiIndex.from_product([["row1", "row2"], ["a", "b"]], names=["row", "column"]),
+        )
+        second = (first + 100.0).iloc[second_order]
+        sr = pd.concat([first, second], keys=["first", "second"], names=["batch"])
+        before = sr.copy(deep=True)
+        fig = sr.vbt.heatmap(x_level="column", y_level="row", slider_level="batch", active=1)
+        assert len(fig.data) == 2
+        for trace, source in zip(fig.data, (first, second)):
+            np.testing.assert_array_equal(trace.x, source.index.get_level_values("column").unique())
+            np.testing.assert_array_equal(trace.y, source.index.get_level_values("row").unique())
+            # Look up each displayed coordinate in the original source, without
+            # reproducing the reshape implementation's ordering rule.
+            expected = [[source.loc[(y, x)] for x in trace.x] for y in trace.y]
+            np.testing.assert_array_equal(trace.z, expected)
+        assert fig.data[1].visible
+        assert len(fig.layout.sliders[0].steps) == 2
+        assert fig.to_json()
+        pd.testing.assert_series_equal(sr, before)
+
+    @pytest.mark.parametrize("override_x, override_y", [(True, False), (False, True), (True, True)])
+    def test_unstack_to_df_unsorted_heatmap_label_overrides(self, override_x, override_y):
+        # Explicit labels remain positional replacements; omitted labels follow
+        # each frame independently. User-owned label lists remain unchanged.
+        first = pd.Series(
+            [10.0, 20.0, 30.0, 40.0],
+            index=pd.MultiIndex.from_product([["row1", "row2"], ["a", "b"]], names=["row", "column"]),
+        )
+        sr = pd.concat([first, (first + 100.0).iloc[::-1]], keys=["first", "second"], names=["batch"])
+        x_labels = ["X1", "X2"] if override_x else None
+        y_labels = ["Y1", "Y2"] if override_y else None
+        fig = sr.vbt.heatmap(
+            x_level="column", y_level="row", slider_level="batch", x_labels=x_labels, y_labels=y_labels
+        )
+        for i, trace in enumerate(fig.data):
+            np.testing.assert_array_equal(trace.x, x_labels if override_x else (["a", "b"] if i == 0 else ["b", "a"]))
+            np.testing.assert_array_equal(
+                trace.y, y_labels if override_y else (["row1", "row2"] if i == 0 else ["row2", "row1"])
+            )
+            np.testing.assert_array_equal(
+                trace.z, [[10.0, 20.0], [30.0, 40.0]] if i == 0 else [[140.0, 130.0], [120.0, 110.0]]
+            )
+        assert x_labels == (["X1", "X2"] if override_x else None)
+        assert y_labels == (["Y1", "Y2"] if override_y else None)
+        assert fig.to_json()
 
     def test_unstack_to_df(self):
         pd.testing.assert_frame_equal(

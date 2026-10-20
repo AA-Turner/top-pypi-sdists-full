@@ -222,7 +222,10 @@ async def test_the_continuation_runs_under_the_fires_remaining_ceiling(fake_supa
     promoted = await queries.claim_queued_run(queued, 5, 14400)
     assert promoted is not None
     await run_claimed_task(hyd, promoted)
-    assert seen["max_runtime"] == 9600, "a continuation must not get a fresh full ceiling"
+    # Review 4, F6 (2026-10-19): a deploy is not the job's fault — the retry keeps the ORIGINAL budget. Before,
+    # it got what was left (9600 of 14400 here; live, a patrol got 1316 of 1800, was cut short, and asked the
+    # owner to raise a limit that was never the problem). Retries per fire stay bounded by the knob.
+    assert seen["max_runtime"] == 14400, "a continuation runs under the schedule's full Max runtime"
     row = next(r for r in fake_supabase.rows["sch_run"] if r["id"] == "cont-1")
     assert row["status"] == "success"
 

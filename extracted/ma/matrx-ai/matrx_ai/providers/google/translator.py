@@ -30,7 +30,7 @@ from matrx_ai.config import (
     YouTubeVideoContent,
 )
 from matrx_ai.config.citations import normalize_google_grounding
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.schema.rules import (
     gemini_ref_loop_violations,
@@ -150,6 +150,9 @@ class GoogleProviderConfig(TypedDict):
 class GoogleTranslator(BaseTranslator):
     """Translates between unified format and Google Gemini API"""
 
+    #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
+    TURN_CONTEXT_AFTER_CACHE_LINE = True
+
     from google.genai import types
 
     def __init__(self, debug: bool = False):
@@ -218,8 +221,11 @@ class GoogleTranslator(BaseTranslator):
         # place as a marked note in the user turn — never dropped, never filled.
         from matrx_ai.providers.system_notes import history_system_messages_as_notes
 
-        wire_messages = history_system_messages_as_notes(config.messages, provider="google")
-        originals = {id(m) for m in config.messages}
+        # A TTS model speaks its transcript: the per-turn block is folded with the directive
+        # below, never placed in the turn it reads aloud.
+        wire_base = list(config.messages) if is_tts else self.messages_for_wire(config)
+        wire_messages = history_system_messages_as_notes(wire_base, provider="google")
+        originals = {id(m) for m in wire_base}
         previous_was_note = False
         for msg in wire_messages:
             is_note = id(msg) not in originals
@@ -238,17 +244,46 @@ class GoogleTranslator(BaseTranslator):
                     contents.append(google_content)
                 previous_was_note = is_note
 
-        # TAIL CHANNEL (config/live_plan.py): a text part after the newest
-        # function_response parts, in the same (user) turn.
-        tail_text = self.get_tail_context_text(config)
-        if tail_text and contents:
-            last_content = contents[-1]
-            if (
-                isinstance(last_content, dict)
-                and last_content.get("role") == "user"
-                and isinstance(last_content.get("parts"), list)
-            ):
-                last_content["parts"].append({"text": tail_text})
+        # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
+        # block (live clock, selection, values) plus the tail channel
+        # (config/live_plan.py) ride as a text part AFTER the newest parts of
+        # the last user turn (her words, or the newest function_response parts
+        # mid-loop) — never in ``system_instruction``, which heads the prefix
+        # Gemini's implicit cache (and an explicit cachedContents object)
+        # reuses: there the clock changed the prefix every turn. A TTS model
+        # keeps its old shape (the directive is folded into the transcript turn
+        # below and nothing is cached).
+        trailing_text = None if is_tts else self.get_trailing_context_text(config)
+        trailing_unplaced: str | None = None
+        if is_tts:
+            tail_text = self.get_tail_context_text(config)
+            if tail_text and contents:
+                last_content = contents[-1]
+                if (
+                    isinstance(last_content, dict)
+                    and last_content.get("role") == "user"
+                    and isinstance(last_content.get("parts"), list)
+                ):
+                    last_content["parts"].append({"text": tail_text})
+        elif trailing_text:
+            # Its OWN host turn after the newest content (owner decision, defects
+            # 23 + 35, 2026-10-18): never a part of the person's message. Gemini
+            # accepts consecutive user contents.
+            last_content = contents[-1] if contents else None
+            if isinstance(last_content, dict) and last_content.get("role") == "user":
+                contents.append({"role": "user", "parts": [{"text": trailing_text}]})
+                record_platform_text_placement("google", "own_host_turn", trailing_text)
+            else:
+                # The newest turn is the model's (a prefill): a user turn after it
+                # would end it, so the block is its OWN user turn just BEFORE the
+                # prefill — never the system channel, which heads the cached prefix
+                # (adversarial M1, 2026-10-18), and never inside the person's turn.
+                prefill_block = self.get_turn_context_text(config)
+                if prefill_block and contents:
+                    contents.insert(len(contents) - 1, {"role": "user", "parts": [{"text": prefill_block}]})
+                    record_platform_text_placement("google", "own_host_turn", prefill_block)
+                elif prefill_block:
+                    trailing_unplaced = prefill_block
 
         # An empty `contents` is NEVER a valid Gemini request — the SDK raises a bare
         # ValueError('contents are required.') before any HTTP call, which then gets
@@ -287,6 +322,14 @@ class GoogleTranslator(BaseTranslator):
             #   "Current date: …" preamble be scanned as a phantom speaker label
             #   and break multi-speaker speaker-name reconciliation.
             system_text = self.get_system_text(config)
+            if is_tts:
+                # Unchanged TTS shape: the per-turn block still folds with the
+                # directive (no cache to protect on a speech call).
+                turn_context = self.get_turn_context_text(config)
+                if turn_context:
+                    system_text = f"{system_text}\n\n{turn_context}" if system_text else turn_context
+            elif trailing_unplaced:
+                system_text = f"{system_text}\n\n{trailing_unplaced}" if system_text else trailing_unplaced
             if system_text and not is_tts:
                 generation_config_kwargs["system_instruction"] = system_text
 
@@ -423,7 +466,7 @@ class GoogleTranslator(BaseTranslator):
 
                     mark_enforcement_dropped(
                         "Gemini's native schema switch was left off because of a tool "
-                        f"conflict ({tool_conflict['reason']}); the schema travelled as a "
+                        f"conflict ({tool_conflict['reason']}); the schema traveled as a "
                         "JSON text contract in the system instruction"
                     )
                     contract = self._tool_json_text_contract(google_schema)
@@ -456,7 +499,7 @@ class GoogleTranslator(BaseTranslator):
 
                         mark_enforcement_dropped(
                             "Google Search grounding + a native schema corrupts streamed "
-                            "JSON, so the schema travelled as a JSON text contract in the "
+                            "JSON, so the schema traveled as a JSON text contract in the "
                             "system instruction"
                         )
                         grounded_json_contract = self._grounded_json_text_contract(
@@ -483,11 +526,17 @@ class GoogleTranslator(BaseTranslator):
             generated_config: GenerateContentConfig = types.GenerateContentConfig(
                 **generation_config_kwargs
             )
+            # The SDK's automatic continuation (on by default since google-genai 2.31) would
+            # re-send a paid request in a hidden loop whenever Gemini answers
+            # ``finish_reason=CONTINUATION``. Like automatic function calling, the loop is
+            # OURS: GoogleChat.execute runs it only for a long-decode model, hop by hop, so
+            # every hop's usage is counted and every other model stops at one call.
+            generated_config.automatic_continuation = False
 
             # ========================
             # STEP 3: Process tools directly on config object
             # ========================
-            # Tools that a model can't honour are stripped at the provider
+            # Tools that a model can't honor are stripped at the provider
             # boundary BEFORE this runs (unified_client.adapt_tools_for_call, the one
             # call-time tool adaptation, which announces every removal). So for a
             # non-function-calling model config.tools is already empty here — no
@@ -514,6 +563,31 @@ class GoogleTranslator(BaseTranslator):
                 if config.internal_web_search:
                     tools_list.append(types.Tool(googleSearch=types.GoogleSearch()))
                     built_in_added = True
+            else:
+                # Gemini 2.5-class models 400 on a built-in tool beside function tools, so the
+                # hosted tool is not sent. Real reason, said out loud (PB-03 defect 53): a
+                # settings_adjusted drop, never a silent skip.
+                from matrx_ai.catalog.models import Adjustment
+                from matrx_ai.providers.outbound_params import publish_settings_adjustments
+
+                skipped = [
+                    Adjustment(
+                        key=flag,
+                        action="dropped",
+                        canonical_value=True,
+                        sent_value=None,
+                        reason=(
+                            f"{flag} was not sent: this Gemini model cannot run a built-in tool in "
+                            "the same request as the agent's function tools (Google answers 400)"
+                        ),
+                        expected=True,
+                        provenance="declared",
+                    )
+                    for flag in ("internal_web_search", "internal_url_context")
+                    if getattr(config, flag, None)
+                ]
+                if skipped:
+                    publish_settings_adjustments(skipped, model=getattr(config, "model", "?"), seam="chat")
 
             if tools_list:
                 generated_config.tools = tools_list
@@ -774,7 +848,7 @@ JSON Schema:
 
         # Gemini requires an object-root schema. No usable / non-object-root
         # schema → omit structured output. This is a runtime ADJUSTMENT (schema
-        # NOT enforced) — log loudly so it's never mistaken for configured behaviour.
+        # NOT enforced) — log loudly so it's never mistaken for configured behavior.
         downgrade_reason: str | None = None
         if not isinstance(schema, dict):
             downgrade_reason = "no JSON Schema was supplied with the json_schema request"
@@ -841,7 +915,7 @@ JSON Schema:
         # escape the cycle had. Our transformation created the refusal, so our
         # translator fixes it (Arman, 2026-09-27: fix it at the core, no
         # workarounds). `open_ref_loops` re-spells a type-array nullable as the
-        # `anyOf` form Gemini's check recognises, lifts a minimum-length floor off
+        # `anyOf` form Gemini's check recognizes, lifts a minimum-length floor off
         # a loop-carrying array, and, only if a cycle still cannot terminate,
         # unrolls it with the SAME shared primitive the Anthropic translator uses.
         # THE FITTED WIDENING. Widening an optional field to required-and-nullable
@@ -912,7 +986,7 @@ JSON Schema:
         sanitized = GoogleTranslator.sanitize_structured_output_schema(schema, "google")
 
         # `const` → `enum: [value]` used to be rewritten HERE, and ONLY here.
-        # Gemini does not honour `const` (measured 2026-08-11 on
+        # Gemini does not honor `const` (measured 2026-08-11 on
         # gemini-3.6-flash, 12 runs per cell against a single-valued
         # discriminator: `const` correct 1/12, 0/12 with Search grounding,
         # `enum: [value]` 12/12) — and OpenAI hard-400s a `const` node carrying
@@ -1290,6 +1364,42 @@ JSON Schema:
         except Exception:
             pass
 
+    @staticmethod
+    def summed_gemini_usage(
+        usages: list[Any],
+        *,
+        matrx_model_name: str,
+        provider_model_name: str | None,
+        response_id: str | None,
+    ) -> Any:
+        """One TokenUsage for N provider calls (segmented TTS, long-decode hops).
+
+        Every call is converted by ``TokenUsage.from_gemini`` and the results are added, so
+        each call's cached share, thinking tokens and modality split are counted exactly as
+        a single call's would be. A long-decode hop re-sends (and Google re-bills) the
+        prompt, so the summed input is the billed input. Until 2026-10-16 the multi-call sum
+        added raw prompt counts (cached tokens billed at the full rate) and dropped thinking.
+        """
+        total = None
+        largest_call = 0
+        for usage in usages:
+            prompt = usage.get("prompt_token_count") if isinstance(usage, dict) else getattr(usage, "prompt_token_count", 0)
+            largest_call = max(largest_call, int(prompt or 0))
+            one = TokenUsage.from_gemini(
+                usage,
+                matrx_model_name=matrx_model_name,
+                provider_model_name=provider_model_name or "",
+                response_id=response_id or "",
+            )
+            total = one if total is None else total + one
+        if total is not None:
+            total.provider_model_name = provider_model_name or total.provider_model_name
+            total.response_id = response_id or ""
+            if len(usages) > 1:
+                total.metadata["segmented_provider_calls"] = len(usages)
+                total.metadata["tier_input_tokens"] = largest_call
+        return total
+
     async def from_google_async(
         self,
         chunks: list[GenerateContentResponse],
@@ -1484,31 +1594,29 @@ JSON Schema:
 
         token_usage = None
         if usage_metadata:
-            token_usage = TokenUsage.from_gemini(
-                usage_metadata,
+            token_usage = self.summed_gemini_usage(
+                segment_usages or [usage_metadata],
                 matrx_model_name=matrx_model_name,
                 provider_model_name=model_version,
                 response_id=response_id,
             )
-            if len(segment_usages) > 1:
-                # Segmented TTS: this chunk list holds N provider calls' worth
-                # of billed work — sum every call's usage instead of recording
-                # only the final segment's (a full episode once billed as 131
-                # input tokens). raw_usage keeps the last segment's verbatim
-                # block; the call count is recorded beside it.
-                token_usage.input_tokens = sum(u.prompt_token_count or 0 for u in segment_usages)
-                token_usage.output_tokens = sum(
-                    u.candidates_token_count or 0 for u in segment_usages
-                )
-                token_usage.cached_input_tokens = sum(
-                    u.cached_content_token_count or 0 for u in segment_usages
-                )
-                token_usage.metadata["segmented_provider_calls"] = len(segment_usages)
         else:
             vcprint(
                 f"⚠️  WARNING: Gemini response missing usage metadata for model {model_version}",
                 color="red",
             )
+
+        # A music model (Lyria) is priced per generated track while the API reports tokens: bill the tracks.
+        # Acts only when the model's pricing tier is `audio_unit_output`; every other audio-returning model is untouched.
+        tracks = sum(1 for c in content if isinstance(c, AudioContent))
+        if token_usage is not None and tracks:
+            from matrx_ai.config.usage_config import apply_track_billing, ensure_pricing_lookup
+
+            try:
+                await ensure_pricing_lookup()
+            except Exception:  # noqa: BLE001 — a cold lookup leaves the tokens as reported (basis unresolvable)
+                pass
+            apply_track_billing(token_usage, tracks=tracks, matrx_model_name=matrx_model_name, api="google_chat")
 
         raw_response = last_chunk
         if last_chunk is not None:

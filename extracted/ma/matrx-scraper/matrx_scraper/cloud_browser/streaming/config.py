@@ -24,6 +24,9 @@ TICKET_TTL_SECONDS = 60  # PLAN.md pins 60s
 TICKET_MAX_TTL = 60  # a stream ticket may never be long-lived
 CONTROL_LEASE_TTL_SECONDS = 60  # identical to the run lease (S4 §5.3)
 CONTROL_LEASE_RENEW_INTERVAL_SECONDS = 20  # identical to the run heartbeat
+# A watched (view) stream stays up this long after the viewer's last renew; the
+# same window as the control lease, so one missed renew never drops the picture.
+VIEW_STREAM_HOLD_SECONDS = CONTROL_LEASE_TTL_SECONDS
 STREAM_COOKIE_MAX_AGE_SECONDS = 120  # 2x lease; the cookie is a carrier not the authority
 HANDOFF_RECONNECT_GRACE_SECONDS = 300  # dropped human may reconnect without re-requesting control
 HANDOFF_IDLE_TIMEOUT_SECONDS = 1800  # PLAN.md's 30 minutes without input

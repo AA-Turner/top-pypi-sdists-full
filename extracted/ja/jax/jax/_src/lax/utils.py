@@ -21,6 +21,7 @@ from functools import partial
 import numpy as np
 from typing import cast
 
+from jax._src import config
 from jax._src import core
 from jax._src import dispatch
 from jax._src import dtypes
@@ -29,11 +30,69 @@ from jax._src import state
 from jax._src.named_sharding import DuplicateSpecError, NamedSharding
 from jax._src.partition_spec import PartitionSpec as P
 from jax._src.layout import (AutoLayoutSingleton, AutoLayout, get_layout_mode,
-                             LayoutMode, use_layout_mode)
+                             LayoutMode)
 from jax._src.util import safe_zip
 from jax._src.typing import DimSize, DType, Shape
 
 zip, unsafe_zip = safe_zip, zip
+
+
+def _get_spec_set(partitions) -> set:
+  axes = set()
+  for p in partitions:
+    if isinstance(p, tuple):
+      axes.update(p)
+    elif p is not None and p is not P.UNCONSTRAINED:
+      axes.add(p)
+  return axes
+
+
+def _axis_dims(partitions, axis) -> list[int]:
+  return [i for i, p in enumerate(partitions)
+          if (axis in p if isinstance(p, tuple) else p == axis)]
+
+
+def _check_no_collectives_dim_change(prim_name: str, in_parts, out_parts):
+  forbidden_axes = config.no_collectives.value
+  if not forbidden_axes:
+    return
+  in_axes = _get_spec_set(in_parts)
+  out_axes = _get_spec_set(out_parts)
+  for r in forbidden_axes:
+    if (r in in_axes and r in out_axes and
+        _axis_dims(in_parts, r) != _axis_dims(out_parts, r)):
+      raise core.ForbiddenCollectiveError(
+          f"Collective across axis '{r}' is forbidden by `no_collectives`, but"
+          f" `{prim_name}` changes the sharded dimension of axis '{r}'.")
+
+
+def _check_no_collectives(prim, out_s_list, avals):
+  forbidden_axes = config.no_collectives.value
+  if not forbidden_axes or not avals:
+    return
+  in_specs = [a.sharding.spec for a in avals if isinstance(a, core.ShapedArray)]
+  out_specs = [s.spec for s in out_s_list]
+  if not in_specs or not out_specs:
+    return
+
+  in_part = set().union(*(_get_spec_set(s.partitions) for s in in_specs))
+  in_unreduced = set().union(*(s.unreduced for s in in_specs))
+  out_part = set().union(*(_get_spec_set(s.partitions) for s in out_specs))
+  out_unreduced = set().union(*(s.unreduced for s in out_specs))
+
+  for r in forbidden_axes:
+    if r in in_unreduced and r not in out_unreduced:
+      raise core.ForbiddenCollectiveError(
+          f"Collective across axis '{r}' is forbidden by `no_collectives`, but"
+          f" `{prim.name}` consumes unreduced axis '{r}' without keeping it"
+          " unreduced in the output."
+      )
+    if r in in_part and r not in out_part and r not in out_unreduced:
+      raise core.ForbiddenCollectiveError(
+          f"Collective across axis '{r}' is forbidden by `no_collectives`, but"
+          f" `{prim.name}` loses sharding axis '{r}' in the output without"
+          " marking it unreduced."
+      )
 
 
 def input_dtype(x, *_, out_dtype=None, **__):
@@ -110,8 +169,10 @@ def call_sharding_rule(prim, sh_rule, ur_rule, num_out, *avals, **kwargs):
       prim, ur_rule, out_s, num_out, *avals, **kwargs)
   up = lambda sh, u, r, k: sh.update(spec=sh.spec.update(unreduced=u, reduced=r,
                                                          unreduced_kind=k))
-  return (up(out_s, unreduced, reduced, u_kind) if num_out is None else
-          [up(s, u, r, k) for s, u, r, k in zip(out_s, unreduced, reduced, u_kind)])
+  res = (up(out_s, unreduced, reduced, u_kind) if num_out is None else
+         [up(s, u, r, k) for s, u, r, k in zip(out_s, unreduced, reduced, u_kind)])
+  _check_no_collectives(prim, [res] if num_out is None else res, avals)
+  return res
 
 def call_shape_dtype_sharding_rule(
     prim, shape_rule, dtype_rule, sharding_rule, ur_rule, multi_out, *avals,
@@ -137,6 +198,16 @@ def call_shape_dtype_sharding_rule(
 
 mosaic_tpu_layout_rule = None
 
+def _shard_aval(aval):
+  mesh = aval.sharding.mesh
+  if mesh.are_all_axes_manual or mesh.empty:
+    shard_shape = aval.shape
+  else:
+    assert mesh.are_all_axes_explicit
+    shard_shape = aval.sharding.shard_shape(aval.shape)
+  return aval.update(shape=shard_shape, sharding=None,
+                     manual_axis_type=core.empty_mat)
+
 def call_layout_rule(prim, layout_rule, in_avals, out_avals, **kwargs):
   cur_layout_mode = get_layout_mode()
   if cur_layout_mode is LayoutMode.AUTO:
@@ -149,11 +220,18 @@ def call_layout_rule(prim, layout_rule, in_avals, out_avals, **kwargs):
     return mgpu_layout_rule(prim, in_avals, out_avals, **kwargs)
 
   assert cur_layout_mode is LayoutMode.JAX
+  cur_mesh = mesh_lib.get_abstract_mesh()
+  if not cur_mesh.empty and not cur_mesh.are_all_axes_explicit_or_manual:
+    raise ValueError('Layout in Types can only be used in Explicit mode or '
+                     'Manual mode.')
   if layout_rule is None:
     raise NotImplementedError(
         f'Missing layout rule for {prim}. Please file an issue at'
         ' https://github.com/jax-ml/jax/issues')
-  return layout_rule(prim, in_avals, out_avals, **kwargs)
+  in_avals = [_shard_aval(a) for a in in_avals]
+  out_avals = [_shard_aval(a) for a in out_avals]
+  return layout_rule(out_avals if prim.multiple_results else out_avals[0],
+                     *in_avals, **kwargs)
 
 
 def _default_memory_space_rule(prim, *avals, **kwargs):
@@ -219,14 +297,9 @@ def standard_abstract_eval(
     out_mem_space = (_default_memory_space_rule(prim, *avals, **kwargs)
                      if memory_space_rule is None else
                      memory_space_rule(*avals, **kwargs))
-    # Enter temporarily into AUTO layout mode to bypass check in ShapedArray
-    # constructor since this aval is a temporary state until we run
-    # `call_layout_rule`. Another option is to create a `InferringLayout`
-    # singleton which is only used here.
-    with use_layout_mode(LayoutMode.AUTO):
-      out_aval = core.ShapedArray(
-          out_shape, out_dtype, weak_type=weak_type, sharding=out_sharding,
-          manual_axis_type=out_mat, memory_space=out_mem_space)
+    out_aval = core.ShapedArray(
+        out_shape, out_dtype, weak_type=weak_type, sharding=out_sharding,
+        manual_axis_type=out_mat, memory_space=out_mem_space)
     out_layout = call_layout_rule(
         prim, layout_rule, in_avals=avals, out_avals=[out_aval], **kwargs)
     out_aval = out_aval.update(layout=out_layout)
@@ -251,12 +324,11 @@ def standard_multi_result_abstract_eval(
     out_mem_spaces = multi_mem_space_rule(prim, len(out_shapes), *avals, **kwargs)
     if isinstance(weak_types, bool):
       weak_types = (weak_types,) * len(out_shapes)
-    with use_layout_mode(LayoutMode.AUTO):
-      out_avals = [core.ShapedArray(s, d, weak_type=weak_type, sharding=sh,
-                                    manual_axis_type=mat, memory_space=ms)
-                  for s, d, weak_type, sh, mat, ms in zip(
-                      out_shapes, out_dtypes, weak_types, out_shardings,
-                      out_mats, out_mem_spaces)]
+    out_avals = [core.ShapedArray(s, d, weak_type=weak_type, sharding=sh,
+                                  manual_axis_type=mat, memory_space=ms)
+                 for s, d, weak_type, sh, mat, ms in zip(
+                     out_shapes, out_dtypes, weak_types, out_shardings,
+                     out_mats, out_mem_spaces)]
     out_layouts = call_layout_rule(
         prim, layout_rule, in_avals=avals, out_avals=out_avals, **kwargs)
     out_avals = [o.update(layout=l) for o, l in zip(out_avals, out_layouts)]

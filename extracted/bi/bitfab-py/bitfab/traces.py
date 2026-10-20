@@ -130,7 +130,9 @@ class AssertionEvidenceParameter(TypedDict):
     type: AssertionEvidenceParameterType
 
 
-class AssertionLabelEvidence(TypedDict):
+class AssertionVerdictEvidence(TypedDict):
+    """One candidate quote for a verdict's evidence. Save only ``spanId`` and ``text`` as the verdict's evidence."""
+
     spanId: str
     text: str
     sourceField: str
@@ -140,13 +142,16 @@ class AssertionLabelEvidence(TypedDict):
     isMocked: bool
 
 
+AssertionLabelEvidence = AssertionVerdictEvidence
+
+
 class AssertionEvidenceError(RuntimeError):
     pass
 
 
 def parse_assertion_evidence_response(
     response: dict[str, Any], trace_id: str, assertion_id: str
-) -> list[AssertionLabelEvidence]:
+) -> list[AssertionVerdictEvidence]:
     target = f"assertion {assertion_id} on trace {trace_id}"
     if "evidence" not in response:
         raise AssertionEvidenceError(f"The response for {target} carries no evidence")
@@ -164,13 +169,13 @@ def parse_assertion_evidence_response(
 
 def _parse_assertion_evidence_item(
     item: object, position: int, target: str
-) -> AssertionLabelEvidence:
+) -> AssertionVerdictEvidence:
     if not isinstance(item, dict):
         raise AssertionEvidenceError(
             f"Evidence item {position} for {target} came back as "
             f"{type(item).__name__} instead of an object"
         )
-    missing = sorted(AssertionLabelEvidence.__required_keys__ - item.keys())
+    missing = sorted(AssertionVerdictEvidence.__required_keys__ - item.keys())
     if missing:
         raise AssertionEvidenceError(
             f"Evidence item {position} for {target} is missing {', '.join(missing)}"
@@ -181,7 +186,7 @@ def _parse_assertion_evidence_item(
             f"Evidence item {position} for {target} has "
             f"{span_id!r} where a spanId belongs"
         )
-    return cast(AssertionLabelEvidence, item)
+    return cast(AssertionVerdictEvidence, item)
 
 
 class ScenarioSource(TypedDict):

@@ -119,6 +119,16 @@ def _add_deploy_package_id(subparser, hidden=False):
                            help=argparse.SUPPRESS if hidden else
                                 "ID of an existing package to use for this connection, skipping upload of new code")
 
+def _add_options_file(subparser, hidden=False):
+    subparser.add_argument("--options-file", type=str, default=None, metavar="<options-file>",
+                           help=argparse.SUPPRESS if hidden else
+                           "Path to a local options.toml file to use for deploy option defaults")
+
+def _add_profile(subparser, hidden=False):
+    subparser.add_argument("--profile", type=str, default="default", metavar="<profile>",
+                           help=argparse.SUPPRESS if hidden else
+                           "Profile to use from the options file. Defaults to 'default'")
+
 def _add_non_interactive(subparser):
     subparser.add_argument("--non-interactive", action="store_true", help="Automatically accepts the default choice for all confirmation prompts")
 
@@ -185,11 +195,13 @@ def _create_argument_parser():
     _add_configuration(deploy_subparser, "Path to configuration JSON file. On redeploy, existing configuration is preserved if none is provided.")
     _add_python_version(deploy_subparser)
     _add_hd_agent_id(deploy_subparser)
-    _add_proxy_id(deploy_subparser, hidden=True)
-    _add_proxy_host_config_key(deploy_subparser, hidden=True)
+    _add_proxy_id(deploy_subparser)
+    _add_proxy_host_config_key(deploy_subparser)
     _add_state(deploy_subparser, hidden=True)
     _add_naming(deploy_subparser)
     _add_deploy_package_id(deploy_subparser, hidden=True)
+    _add_options_file(deploy_subparser, hidden=True)
+    _add_profile(deploy_subparser, hidden=True)
     _add_force(deploy_subparser)
     _add_non_interactive(deploy_subparser)
     _add_yes(deploy_subparser)

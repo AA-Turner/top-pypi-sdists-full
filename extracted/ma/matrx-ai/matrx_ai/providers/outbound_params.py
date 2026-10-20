@@ -37,6 +37,7 @@ translators' CAPABILITY ADJUSTMENT warnings.
 from __future__ import annotations
 
 import contextlib
+import json
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
@@ -132,6 +133,155 @@ def warn_client_about_dropped_settings(adjustments: list[Any], *, model: Any = "
         ),
         name="outbound_params_warning",
     )
+
+
+# Adjustment.action -> the three words a person reads (PB-03 defect 7).
+_PERSON_ACTION = {
+    "dropped": "drop",
+    "omitted": "drop",
+    "clamped": "clamp",
+    "effort_ceiling": "clamp",
+    "mapped": "translate",
+    "const": "translate",
+    "to_default": "translate",
+    "overridden": "override",
+}
+
+_LAST_PUBLISHED: ContextVar[tuple[Any, ...] | None] = ContextVar(
+    "matrx_ai_last_published_settings_adjustments", default=None
+)
+
+
+def settings_adjustment_rows(adjustments: list[Any]) -> list[dict[str, Any]]:
+    """The structured, JSON-safe ``settings_adjustments`` list for ``adjustments``."""
+    from matrx_ai.providers.snapshot import wire_json
+
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for adj in adjustments:
+        # The gate and outbound can name the same verdict twice (a foreign key
+        # dropped by both): one row per (key, engine action).
+        if (str(adj.key), str(adj.action)) in seen:
+            continue
+        seen.add((str(adj.key), str(adj.action)))
+        action = _PERSON_ACTION.get(adj.action)
+        if action is None:  # unsupported_value: reconciled (translate) or lost (drop)
+            action = "drop" if adj.sent_value is None else "translate"
+        rows.append(
+            json.loads(
+                json.dumps(
+                    wire_json(
+                        {
+                            "key": str(adj.key),
+                            "action": action,
+                            "from": adj.canonical_value,
+                            "to": adj.sent_value,
+                            "reason": adj.reason,
+                            "engine_action": adj.action,
+                            "expected": bool(adj.expected),
+                            "converted_from": adj.converted_from,
+                        }
+                    ),
+                    default=str,
+                )
+            )
+        )
+    return rows
+
+
+def publish_settings_adjustments(adjustments: list[Any], *, model: Any = "?", seam: str = "chat") -> None:
+    """NOTHING A SETTING DOES IS SILENT (PB-03 defect 7, 2026-10-17).
+
+    Every outbound seam (chat, session, structural, media) calls this with its
+    Adjustments. Two homes, both structured:
+
+    * STORED — appended to the run's ``ExecutionState.settings_adjustments``; the
+      executor writes it into ``chat.request_snapshot.metadata.settings_adjustments``
+      beside the wire payload it produced.
+    * SHOWN — one ``info`` event, code ``settings_adjusted``, metadata
+      ``{model, seam, settings_adjustments}`` (same vocabulary as
+      ``setting_not_supported``, which still fires for an UNEXPECTED drop only).
+      Repeated identical lists in one request (each loop iteration) send once.
+
+    Never raises — telling must never break the request.
+    """
+    if not adjustments:
+        return
+    try:
+        rows = settings_adjustment_rows(adjustments)
+    except Exception as exc:  # noqa: BLE001
+        vcprint(f"[outbound_params] settings_adjustments not built: {exc!r}", color="yellow")
+        return
+    try:
+        from matrx_ai.orchestrator.execution_state import try_get_execution_state
+
+        state = try_get_execution_state()
+        if state is not None:
+            if state.settings_adjustments is None:
+                state.settings_adjustments = []
+            state.settings_adjustments.extend({**row, "seam": seam} for row in rows)
+    except Exception as exc:  # noqa: BLE001
+        vcprint(f"[outbound_params] settings_adjustments not stored: {exc!r}", color="yellow")
+
+    # One event per distinct list per REQUEST: every loop iteration re-runs the
+    # seam in a fresh task copy, so the memory lives on the request's AppContext.
+    signature = json.dumps([str(model), seam, rows], sort_keys=True, default=str)
+    try:
+        from matrx_connect import get_app_context
+
+        meta = getattr(get_app_context(), "metadata", None)
+    except Exception:  # noqa: BLE001
+        meta = None
+    if isinstance(meta, dict):
+        sent = meta.setdefault("_settings_adjusted_sent", set())
+        if signature in sent:
+            return
+        sent.add(signature)
+    elif _LAST_PUBLISHED.get() == (signature,):
+        return
+    else:
+        _LAST_PUBLISHED.set((signature,))
+    from matrx_connect.context.events import InfoPayload
+
+    summary = "; ".join(
+        f"{r['key']} {r['action']}"
+        + (
+            f" {r['from']!r}→{r['to']!r}"
+            if r["action"] in ("clamp", "translate") and not isinstance(r["to"], dict)
+            else ""
+        )
+        for r in rows
+    )
+    send_client_info(
+        InfoPayload(
+            code="settings_adjusted",
+            system_message=f"{len(rows)} setting(s) adjusted for {model}: {summary}",
+            user_message=f"Some settings were adjusted to fit {model}.",
+            metadata={"model": str(model), "seam": seam, "settings_adjustments": rows},
+        ),
+        name="outbound_params_settings_adjusted",
+    )
+
+
+def send_client_info(payload: Any, *, name: str) -> None:
+    """Fire-and-forget ``info`` event to the caller's stream (twin of ``send_client_warning``)."""
+    try:
+        import asyncio
+
+        from matrx_connect import get_app_context
+
+        ctx = get_app_context()
+        emitter = getattr(ctx, "emitter", None)
+        if emitter is None:
+            return
+        asyncio.get_running_loop()
+        from matrx_utils import detached_task
+
+        detached_task(emitter.send_info(payload), name=name)
+    except RuntimeError:
+        return
+    except Exception as exc:  # noqa: BLE001 — telling the user must never break the run
+        vcprint(f"[outbound_params] could not emit client info {name!r} ({exc!r})", color="yellow")
 
 
 def send_client_warning(payload: Any, *, name: str) -> None:
@@ -379,6 +529,7 @@ def resolve_outbound_params(
             verbose=True,
         )
     warn_client_about_dropped_settings(adjustments, model=getattr(config, "model", "?"))
+    publish_settings_adjustments(adjustments, model=getattr(config, "model", "?"), seam="chat")
     return params
 
 
@@ -431,6 +582,7 @@ def translate_session_settings(
             verbose=True,
         )
     warn_client_about_dropped_settings(adjustments, model=model)
+    publish_settings_adjustments(adjustments, model=model, seam="session")
     return params
 
 
@@ -491,6 +643,7 @@ def resolve_structural_setting(
             verbose=True,
         )
         warn_client_about_dropped_settings(adjustments, model=model)
+        publish_settings_adjustments(adjustments, model=model, seam=f"structural:{key}")
     from matrx_ai.catalog.controls import flatten_dotted  # local: circular-by-design
 
     flat = flatten_dotted(params)
@@ -503,6 +656,8 @@ __all__ = [
     "remember_outbound_adjustments",
     "resolve_outbound_params",
     "resolve_structural_setting",
+    "publish_settings_adjustments",
+    "send_client_info",
     "send_client_warning",
     "translate_session_settings",
     "warn_client_about_dropped_settings",

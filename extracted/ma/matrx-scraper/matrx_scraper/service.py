@@ -245,7 +245,7 @@ class ScrapeService:
         ``use_cache`` comes straight off the request; the cache object itself
         is the host-injected ``cache`` ext (``configure_ext(cache=...)`` —
         aidream wires ``TwoTierCache``). Standalone installs without a cache
-        ext simply scrape uncached — same behaviour as before.
+        ext simply scrape uncached — same behavior as before.
         """
         if not self.use_cache:
             return None

@@ -11,7 +11,7 @@ question, which offered a choice of static defaults):
     up and keep pushing up higher and higher and higher until we figure out what
     the limit is and then back off from it."
 
-The behaviour this replaces opened every crawl at a flat 4 rps, tripped
+The behavior this replaces opened every crawl at a flat 4 rps, tripped
 Shopify-class limiters on the first burst, and only then let the adaptive
 throttle back off. The crawl finished; the host got hammered on the way.
 
@@ -24,7 +24,7 @@ available. Each source is a strictly better answer than the one below it:
    the ramp may never exceed. It is not a starting rate any more — that is the
    whole point of the ruling.
 2. **``robots.txt`` ``Crawl-delay`` / ``Request-rate``.** The one place a site
-   states its own pacing in machine-readable form. Honoured as an UPPER BOUND
+   states its own pacing in machine-readable form. Honored as an UPPER BOUND
    (see :data:`~matrx_scraper.robots_txt.MAX_HONOURED_CRAWL_DELAY_SECONDS` for
    the one clamp, which is reported and never silent).
 3. **A published platform limit.** ``host_platform`` matched a profile whose
@@ -262,7 +262,7 @@ def resolve_plan(
         if honoured > MAX_HONOURED_CRAWL_DELAY_SECONDS:
             notes.append(
                 f"robots.txt asks for {crawl_delay_seconds:g}s between requests, which would "
-                f"take days for a normal site; honouring "
+                f"take days for a normal site; honoring "
                 f"{MAX_HONOURED_CRAWL_DELAY_SECONDS:g}s instead — the slowest we will go on a "
                 "stated delay."
             )

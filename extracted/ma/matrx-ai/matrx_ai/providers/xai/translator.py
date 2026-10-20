@@ -36,7 +36,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.citations import normalize_xai_citations
 from matrx_ai.config.media_config import ImageContent
-from matrx_ai.providers.base_translator import BaseTranslator
+from matrx_ai.providers.base_translator import BaseTranslator, record_platform_text_placement
 from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
 
@@ -56,6 +56,16 @@ def provider_charge_from_xai_usage(usage: Any) -> ProviderCharge | None:
         raw_unit="usd_tick_1e-10",
         field_path="usage.cost_in_usd_ticks",
     )
+
+
+def _xai_cached_prompt_tokens(usage: Any) -> int:
+    """xAI cache reads: ``cached_prompt_text_tokens`` is a SUBSET of ``prompt_tokens``."""
+    try:
+        cached = int(getattr(usage, "cached_prompt_text_tokens", 0) or 0)
+        prompt = int(getattr(usage, "prompt_tokens", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(cached, prompt))
 
 
 def billed_output_tokens_from_xai_usage(usage: Any) -> int:
@@ -93,6 +103,9 @@ def billed_output_tokens_from_xai_usage(usage: Any) -> int:
 class XAITranslator(BaseTranslator):
     """Translates between the unified format and the native xAI Grok SDK."""
 
+    #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
+    TURN_CONTEXT_AFTER_CACHE_LINE = True
+
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
 
@@ -116,6 +129,10 @@ class XAITranslator(BaseTranslator):
             "messages": self._build_messages(config),
         }
         kwargs.update(resolve_outbound_params(config, profile.controls))
+        # xAI spells the canonical ``store`` flag ``store_messages`` (chat.create has no
+        # ``store``); the rules gate now carries ``store`` (PB-03 defect 52).
+        if "store" in kwargs:
+            kwargs["store_messages"] = kwargs.pop("store")
 
         if config.parallel_tool_calls is not None:
             kwargs["parallel_tool_calls"] = config.parallel_tool_calls
@@ -145,7 +162,7 @@ class XAITranslator(BaseTranslator):
         if system_text:
             messages.append(system(text(system_text)))
 
-        for msg in config.messages:
+        for msg in self.messages_for_wire(config):
             if msg.role == "system":
                 sys_text = "".join(
                     c.text for c in msg.content if isinstance(c, TextContent)
@@ -236,10 +253,27 @@ class XAITranslator(BaseTranslator):
             else:
                 messages.append(user(*parts))
 
-        # TAIL CHANNEL (config/live_plan.py): after the newest tool results.
-        tail_text = self.get_tail_context_text(config)
-        if tail_text:
-            messages.append(user(text(tail_text)))
+        # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
+        # block plus the tail channel (config/live_plan.py) ride AFTER the
+        # conversation. xAI caches the prompt prefix automatically (routed by
+        # x-grok-conv-id); in the system message the clock changed that prefix
+        # every turn. On the person's turn the block is its own content part at
+        # the end of her message (never inside her words, no extra turn);
+        # mid-loop it follows the newest tool results as one user message.
+        trailing_text = self.get_trailing_context_text(config)
+        if trailing_text:
+            last = messages[-1] if messages else None
+            # Its OWN host turn after the newest message (owner decision, defects
+            # 23 + 35, 2026-10-18): never a part of the person's message.
+            if last is not None and last.role == chat_pb2.MessageRole.ROLE_ASSISTANT:
+                # An assistant prefill: a user turn after it would end it, so the
+                # host turn goes just BEFORE the prefill — never the system message,
+                # which heads the cached prefix (adversarial M1, 2026-10-18).
+                messages.insert(len(messages) - 1, user(text(trailing_text)))
+                record_platform_text_placement("xai", "own_host_turn", trailing_text)
+            else:
+                messages.append(user(text(trailing_text)))
+                record_platform_text_placement("xai", "own_host_turn", trailing_text)
 
         return messages
 
@@ -319,6 +353,8 @@ class XAITranslator(BaseTranslator):
     @staticmethod
     def debug_summary(kwargs: dict[str, Any]) -> dict[str, Any]:
         """A JSON-serializable rendering of the native kwargs for logging/snapshot."""
+        from matrx_ai.providers.snapshot import wire_json
+
         tools = kwargs.get("tools") or []
         tool_names: list[str] = []
         for t in tools:
@@ -334,6 +370,10 @@ class XAITranslator(BaseTranslator):
         return {
             "model": kwargs.get("model"),
             "message_count": len(kwargs.get("messages") or []),
+            # The messages THEMSELVES, as the wire carries them: a snapshot that kept only
+            # a count left the system text unreadable to the cache-law audits and to the
+            # judge's fed check (adversarial M7, 2026-10-18).
+            "messages": wire_json(list(kwargs.get("messages") or [])),
             "reasoning_effort": kwargs.get("reasoning_effort"),
             "tools": tool_names,
             "tool_choice": kwargs.get("tool_choice"),
@@ -378,7 +418,8 @@ class XAITranslator(BaseTranslator):
         if usage is not None and getattr(usage, "total_tokens", 0):
             provider_charge = provider_charge_from_xai_usage(usage)
             token_usage = TokenUsage(
-                input_tokens=usage.prompt_tokens,
+                input_tokens=max(0, int(getattr(usage, "prompt_tokens", 0) or 0) - _xai_cached_prompt_tokens(usage)),
+                cached_input_tokens=_xai_cached_prompt_tokens(usage),
                 output_tokens=billed_output_tokens_from_xai_usage(usage),
                 matrx_model_name=response.proto.model,
                 provider_model_name=response.proto.model,

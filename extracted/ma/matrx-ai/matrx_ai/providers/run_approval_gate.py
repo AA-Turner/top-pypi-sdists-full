@@ -38,12 +38,36 @@ from matrx_utils import vcprint
 from matrx_ai.providers.errors import RetryableError
 
 RUN_APPROVAL_REQUIRED = "run_approval_required"
+#: The host's hard refusal of an automated run on a protected account (a RunApprovalRequiredError
+#: subclass the host raises). Named here so every caller classifies it from ONE registry
+#: (``providers/caller_refusal.py``), never from a hand-written copy of the string.
+PROTECTED_ACCOUNT_RUN_REFUSED = "protected_account_run_refused"
 FIX_ACTION_APPROVE_RUN = "approve_run"
 
 #: Origins a person drives directly — their own turns are never held.
 EXEMPT_ORIGIN_CLASSES: frozenset[str] = frozenset({"human", "delegated_member"})
 
 _ADMITTED_MEMO_MAX = 50_000
+
+
+#: Why a subject is held (``billing.run_approval_holds().hold_reason``) -> the one sentence a person reads.
+#: Plain words, no ids, no admin links (members never see the approvals console).
+REFUSAL_SENTENCES: dict[str, str] = {
+    "volume": "This agent made many paid calls in the last hour, so its runs are paused until that hour's volume drops. "
+    "An administrator can also approve it.",
+    "over_threshold": "This agent's first run cost more than its approval limit, so it waits for an administrator to approve it.",
+    "expired": "This agent's temporary approval ran out, so it was not run. An administrator can approve it again.",
+    "declined": "An administrator declined this agent's spending, so it was not run.",
+    "waiting": "This agent is waiting for an administrator to approve its spending, so it was not run.",
+}
+
+
+def hold_reason(status: str, reason: str | None) -> str:
+    """The hold's reason as the refusal reports it: the host's when it names a known one, else from the status
+    alone (a rejection with no reason is reported as declined; anything else as waiting)."""
+    if reason in REFUSAL_SENTENCES:
+        return str(reason)
+    return "declined" if status == "rejected" else "waiting"
 
 
 class RunApprovalRequiredError(Exception):
@@ -60,6 +84,7 @@ class RunApprovalRequiredError(Exception):
         subject_id: str,
         status: str,
         approval_url: str,
+        reason: str | None = None,
     ) -> None:
         self.approval_id = approval_id
         self.subject_kind = subject_kind
@@ -71,14 +96,12 @@ class RunApprovalRequiredError(Exception):
         # What the person reads: plain words, no ids, no admin links (members never see the
         # approvals console). Ids and the approval link stay in technical_message (logs) and in
         # the structured envelope, where an admin surface can offer "Approve".
-        self.message = (
-            "This agent spent more than its approval limit last time, so it was not run. "
-            "An administrator can approve it."
-            if status != "rejected"
-            else "This agent spent more than its approval limit and an administrator declined it, so it was not run."
-        )
+        # WHY it is held decides the sentence (review 4, F4): never "spent more than its limit" for a volume
+        # pause, never "an administrator declined it" for a temporary approval that simply ran out.
+        self.reason = hold_reason(status, reason)
+        self.message = REFUSAL_SENTENCES[self.reason]
         self.technical_message = (
-            f"Not run: this {what} ({subject_id}) cost more than the approval threshold in one run "
+            f"Not run: this {what} ({subject_id}) is held (reason: {self.reason}) "
             f"and {verdict}. Approve it here: {approval_url}"
         )
         self.code = RUN_APPROVAL_REQUIRED
@@ -103,6 +126,7 @@ class RunApprovalRequiredError(Exception):
             "subject_kind": self.subject_kind,
             "subject_id": self.subject_id,
             "status": self.status,
+            "reason": self.reason,
         }
 
 

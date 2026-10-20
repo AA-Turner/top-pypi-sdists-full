@@ -53,6 +53,63 @@ async def _capture_definition_load_failure(
     )
 
 
+def align_shown_schema_with_validator(tool_def: ToolDefinition, args_model: Any) -> list[str]:
+    """Make the schema a model is SHOWN the one its call is VALIDATED against.
+
+    The shown schema is the ``tool.definition`` row; the validator is the
+    declared ``ToolArgs`` model of the code running now. They disagree whenever
+    a row moves before or after the code (2026-10-18, defect 43: the ``agent``
+    row advertised ``settings`` / ``variables`` / ``remember`` while the deployed
+    model forbade them, and every call that used them was refused). The running
+    code is what decides a call, so the shown schema follows it: an advertised
+    parameter the model would refuse is withdrawn, and a field the model requires
+    is shown required. Every change is returned (the caller announces it — the
+    drift gate still names the row to fix). Only flat ``extra='forbid'`` models
+    are aligned; a discriminated-union dispatcher keeps its ``$variants`` contract.
+    """
+    fields = getattr(args_model, "model_fields", None)
+    if not isinstance(fields, dict) or not fields or "root" in fields:
+        return []
+    if (getattr(args_model, "model_config", None) or {}).get("extra") != "forbid":
+        return []
+    params = tool_def.parameters
+    if not isinstance(params, dict) or any(k.startswith("$") for k in params):
+        return []
+    accepted = {name: (f.alias or name) for name, f in fields.items()}
+    shown_names = set(accepted.values())
+    changes: list[str] = []
+    for key in list(params):
+        if key not in shown_names:
+            params.pop(key)
+            changes.append(f"withdrew '{key}' (the running code does not accept it)")
+    if tool_def.required_params:
+        kept = [k for k in tool_def.required_params if k in shown_names]
+        if kept != tool_def.required_params:
+            tool_def.required_params = kept
+    for name, field in fields.items():
+        key = accepted[name]
+        if not field.is_required():
+            continue
+        prop = params.get(key)
+        if prop is None:
+            # A required field the row does not show yet: show the code's own
+            # property, or every call is refused for a field the model never saw.
+            try:
+                code_prop = dict(args_model.model_json_schema()["properties"][key])
+            except Exception:  # noqa: BLE001 — no schema: say so, show nothing invented
+                changes.append(f"'{key}' is required by the running code but not on the row")
+                continue
+            code_prop.pop("title", None)
+            code_prop["required"] = True
+            params[key] = code_prop
+            changes.append(f"showed the running code's required '{key}'")
+            continue
+        if isinstance(prop, dict) and prop.get("required") is not True and key not in tool_def.required_params:
+            prop["required"] = True
+            changes.append(f"showed '{key}' as required")
+    return changes
+
+
 def _schedule_definition_load_failure(
     exc: BaseException, *, tool_name: str, row: dict[str, Any]
 ) -> None:
@@ -348,6 +405,16 @@ class ToolRegistry:
                     if dt is not None:
                         tool_def.function_path = dt.function_path
                         tool_def._callable = dt.func
+                        aligned = align_shown_schema_with_validator(
+                            tool_def, getattr(dt, "args_model", None)
+                        )
+                        if aligned:
+                            vcprint(
+                                f"[ToolRegistry] {tool_def.name}: the row and the running "
+                                f"code disagree — shown schema aligned: {'; '.join(aligned)}. "
+                                "Fix the tool.definition row (validate_tools.py names it).",
+                                color="yellow",
+                            )
                     self._apply_vfs_routing(tool_def)
                     if not tool_def._callable and tool_def.function_path:
                         # VFS routing may have rewritten the path; resolve.
@@ -1227,7 +1294,7 @@ class ToolRegistry:
         # the host attaches before / after the registry's DB load. Until that
         # bridge lands, native tool rows without a callable will fail
         # dispatch with ``no_viable_executor`` — which is the correct,
-        # observable behaviour for a tool whose code isn't wired.
+        # observable behavior for a tool whose code isn't wired.
         function_path: str = row.get("function_path", "") or ""
         prompt_id: str | None = None
 

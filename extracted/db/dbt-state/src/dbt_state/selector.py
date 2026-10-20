@@ -289,7 +289,14 @@ class StateSelector(StateSelectorMethod):
                     continue
 
                 hash_start = time.perf_counter()
-                calculator = create_node_hash_calculator(node, self.manifest, runtime_config)
+                calculator = create_node_hash_calculator(
+                    node,
+                    self.manifest,
+                    runtime_config,
+                    include_runtime_vars=self.run_cache_config.resolve_compare_unrendered_code(
+                        node.config
+                    ),
+                )
                 node_hash = calculator.calculate_node_hash()
                 node_body_hash = calculator.node_body_hash
                 node_configs_hash = calculator.node_configs_hash

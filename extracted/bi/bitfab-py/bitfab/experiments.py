@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from typing import Literal, TypedDict, cast
 from urllib.parse import quote, urlencode
 
+from typing_extensions import NotRequired
+
 from bitfab.categories import CategorySummary
 from bitfab.http import HttpClient
 
@@ -64,14 +66,15 @@ class ExperimentPage(TypedDict):
 
 
 class ExperimentTotals(TypedDict):
-    """How the run's replays ended. ``total`` counts one replay per trace per attempt and the rest split it by outcome. ``traces`` counts distinct traces, and ``judging`` counts traces, replays or originals, with an assertion verdict still being judged."""
+    """How the run's replays ended. ``total`` counts one replay per trace per attempt and the rest split it by outcome. ``traces`` counts distinct traces, and ``judging`` counts traces, replays or originals, with an assertion verdict still being judged. ``awaitingLabels`` is deprecated: read ``awaitingVerdicts``."""
 
     total: int
     traces: int
     succeeded: int
     failed: int
     pending: int
-    awaitingLabels: int
+    awaitingVerdicts: int
+    awaitingLabels: NotRequired[int]
     errored: int
     withErrors: int
     ungradable: int
@@ -80,13 +83,14 @@ class ExperimentTotals(TypedDict):
 
 
 class ExperimentTally(TypedDict):
-    """Verdicts compared against the original. Something passes when at least 75 percent of its attempts passed. ``passing`` and ``failing`` count every verdict, compared or not, so ``passing / (passing + failing)`` is the pass rate."""
+    """Verdicts compared against the original. Something passes when at least 75 percent of its attempts passed. ``passing`` and ``failing`` count every verdict, compared or not, so ``passing / (passing + failing)`` is the pass rate. ``originalWithoutVerdict`` counts verdicts whose original has no verdict to compare against. ``originalUnlabeled`` is deprecated: read ``originalWithoutVerdict``."""
 
     fixed: int
     stillPassing: int
     regressed: int
     stillFailing: int
-    originalUnlabeled: int
+    originalWithoutVerdict: int
+    originalUnlabeled: NotRequired[int]
     unpaired: int
     classified: int
     passing: int
@@ -95,10 +99,11 @@ class ExperimentTally(TypedDict):
 
 
 class ExperimentCategoryTally(TypedDict):
-    """The assertions in one category, tallied the same way as ``labels``."""
+    """The assertions in one category, tallied the same way as ``verdicts``. ``labels`` is deprecated: read ``verdicts``."""
 
     category: CategorySummary
-    labels: ExperimentTally
+    verdicts: ExperimentTally
+    labels: NotRequired[ExperimentTally]
 
 
 class ExperimentJitter(TypedDict):
@@ -110,11 +115,12 @@ class ExperimentJitter(TypedDict):
 
 
 class ExperimentRollup(TypedDict):
-    """``traces`` tallies replayed traces, ``labels`` tallies scored assertions and graders, ``checks`` tallies raw checks before the pass threshold, and ``categories`` tallies the assertions in each category."""
+    """``traces`` tallies replayed traces, ``verdicts`` tallies scored assertions and graders, ``checks`` tallies raw checks before the pass threshold, and ``categories`` tallies the assertions in each category. ``labels`` is deprecated: read ``verdicts``."""
 
     traces: ExperimentTally
     skippedTraces: int
-    labels: ExperimentTally
+    verdicts: ExperimentTally
+    labels: NotRequired[ExperimentTally]
     checks: ExperimentTally
     categories: list[ExperimentCategoryTally]
     jitter: ExperimentJitter

@@ -13,7 +13,7 @@ passed a picture — and silently wrong the moment one passed a recording (the
 spoken graders' answer clips). ``UnifiedMessage.parse_content`` deserializes
 ``image`` / ``audio`` / ``video`` into three different content classes, and a
 provider translator hands each to a different part of the request. Resolved
-``audio/*`` bytes labelled ``image`` reach the model as a broken picture, never
+``audio/*`` bytes labeled ``image`` reach the model as a broken picture, never
 as something it can listen to. So the mime decides, and the fallback stays
 ``image/png`` ONLY when nothing told us otherwise.
 

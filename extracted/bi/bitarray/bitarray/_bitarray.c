@@ -224,16 +224,16 @@ bytereverse(char *p, Py_ssize_t n)
 static void
 shift_r8le(unsigned char *buff, Py_ssize_t n, int k)
 {
-    Py_ssize_t w = 0;
+    Py_ssize_t w = 0, r = n;
 
 #if HAVE_BUILTIN_BSWAP64 || PY_LITTLE_ENDIAN   /* use shift word */
     w = n / 8;                    /* number of words used for shifting */
-    n %= 8;                       /* number of remaining bytes */
+    r = n % 8;                    /* number of remaining bytes */
 #endif
-    while (n--) {                 /* shift in byte-range(8 * w, n) */
-        Py_ssize_t i = n + 8 * w;
+    while (r--) {                 /* shift in byte-range(8 * w, n) */
+        Py_ssize_t i = r + 8 * w;
         buff[i] <<= k;            /* shift byte */
-        if (n || w)               /* add shifted next lower byte */
+        if (r || w)               /* add shifted next lower byte */
             buff[i] |= buff[i - 1] >> (8 - k);
     }
     assert(w == 0 || ((uintptr_t) buff) % 8 == 0);
@@ -254,16 +254,16 @@ shift_r8le(unsigned char *buff, Py_ssize_t n, int k)
 static void
 shift_r8be(unsigned char *buff, Py_ssize_t n, int k)
 {
-    Py_ssize_t w = 0;
+    Py_ssize_t w = 0, r = n;
 
 #if HAVE_BUILTIN_BSWAP64 || PY_BIG_ENDIAN      /* use shift word */
     w = n / 8;                    /* number of words used for shifting */
-    n %= 8;                       /* number of remaining bytes */
+    r = n % 8;                    /* number of remaining bytes */
 #endif
-    while (n--) {                 /* shift in byte-range(8 * w, n) */
-        Py_ssize_t i = n + 8 * w;
+    while (r--) {                 /* shift in byte-range(8 * w, n) */
+        Py_ssize_t i = r + 8 * w;
         buff[i] >>= k;            /* shift byte */
-        if (n || w)               /* add shifted next lower byte */
+        if (r || w)               /* add shifted next lower byte */
             buff[i] |= buff[i - 1] << (8 - k);
     }
     assert(w == 0 || ((uintptr_t) buff) % 8 == 0);
@@ -285,7 +285,7 @@ shift_r8be(unsigned char *buff, Py_ssize_t n, int k)
 static void
 shift_r8(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b, int k)
 {
-    unsigned char *buff = (unsigned char *) self->ob_item + a;
+    unsigned char *buff;
     Py_ssize_t n = b - a;       /* number of bytes to be shifted */
     Py_ssize_t s = 0;           /* distance to next aligned pointer */
 
@@ -296,8 +296,11 @@ shift_r8(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b, int k)
     if (k == 0 || n <= 0)
         return;
 
+    assert(Py_SIZE(self));
+    buff = (unsigned char *) self->ob_item + a;
+
     if (n >= 8) {
-        s = to_aligned((void *) buff);
+        s = to_aligned(buff);
         buff += s;  /* align pointer for casting to (uint64_t *) */
         n -= s;
     }
@@ -464,14 +467,18 @@ invert_span(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b)
     assert(self->readonly == 0);
 
     if (n >= 64) {
-        const Py_ssize_t wa = (a + 63) / 64;  /* word-range(wa, wb) */
-        const Py_ssize_t wb = b / 64;
-        uint64_t *wbuff = WBUFF(self);
+        uint64_t *words;
+        Py_ssize_t p1, p2, w;
 
-        invert_span(self, a, 64 * wa);
-        for (i = wa; i < wb; i++)
-            wbuff[i] = ~wbuff[i];
-        invert_span(self, 64 * wb, b);
+        w = aligned_words(self->ob_item, BYTES(a), b / 8, &p1, &p2);
+
+        invert_span(self, a, 8 * p1);
+
+        words = w ? (uint64_t *) (self->ob_item + p1) : NULL;
+        for (i = 0; i < w; i++)
+            words[i] = ~words[i];
+
+        invert_span(self, 8 * p2, b);
     }
     else if (n >= 8) {
         const Py_ssize_t ca = BYTES(a);       /* char-range(ca, cb) */
@@ -574,15 +581,14 @@ count_span(bitarrayobject *self, Py_ssize_t a, Py_ssize_t b)
     assert(0 <= b && b <= self->nbits);
 
     if (n >= 64) {
-        Py_ssize_t p = BYTES(a), w;  /* first full byte */
-        p += to_aligned((void *) (self->ob_item + p));  /* align pointer */
-        w = (b / 8 - p) / 8;         /* number of (full) words to count */
+        Py_ssize_t p1, p2, w;
 
-        assert(8 * p - a < 64 && b - (8 * (p + 8 * w)) < 64 && w >= 0);
+        w = aligned_words(self->ob_item, BYTES(a), b / 8, &p1, &p2);
 
-        cnt += count_span(self, a, 8 * p);
-        cnt += popcnt_words((uint64_t *) (self->ob_item + p), w);
-        cnt += count_span(self, 8 * (p + 8 * w), b);
+        cnt += count_span(self, a, 8 * p1);
+        if (w)
+            cnt += popcnt_words((uint64_t *) (self->ob_item + p1), w);
+        cnt += count_span(self, 8 * p2, b);
     }
     else if (n >= 8) {
         const Py_ssize_t ca = BYTES(a);   /* char-range(ca, cb) */
@@ -636,31 +642,36 @@ static Py_ssize_t
 find_bit_words(bitarrayobject *self, int vi,
                Py_ssize_t a, Py_ssize_t b, int right)
 {
-    const Py_ssize_t wa = (a + 63) / 64;  /* word-range(wa, wb) */
-    const Py_ssize_t wb = b / 64;
-    const uint64_t *wbuff = WBUFF(self);
-    const uint64_t w = vi ? 0 : ~0;
-    Py_ssize_t res, i;
+    const uint64_t word = vi ? 0 : ~0;
+    const uint64_t *words;
+    Py_ssize_t p1, p2, n, q, res, i;
+
+    n = aligned_words(self->ob_item, BYTES(a), b / 8, &p1, &p2);
+    words = n ? (uint64_t *) (self->ob_item + p1) : NULL;
 
     if (right) {
-        if ((res = find_bit(self, vi, 64 * wb, b, 1)) >= 0)
+        if ((res = find_bit(self, vi, 8 * p2, b, 1)) >= 0)
             return res;
 
-        for (i = wb - 1; i >= wa; i--) {  /* skip uint64 words */
-            if (w ^ wbuff[i])
-                return find_bit(self, vi, 64 * i, 64 * i + 64, 1);
+        for (i = n - 1; i >= 0; i--) {  /* skip uint64 words */
+            if (word ^ words[i]) {
+                q = 8 * p1 + 64 * i;
+                return find_bit(self, vi, q, q + 64, 1);
+            }
         }
-        return find_bit(self, vi, a, 64 * wa, 1);
+        return find_bit(self, vi, a, 8 * p1, 1);
     }
     else {
-        if ((res = find_bit(self, vi, a, 64 * wa, 0)) >= 0)
+        if ((res = find_bit(self, vi, a, 8 * p1, 0)) >= 0)
             return res;
 
-        for (i = wa; i < wb; i++) {       /* skip uint64 words */
-            if (w ^ wbuff[i])
-                return find_bit(self, vi, 64 * i, 64 * i + 64, 0);
+        for (i = 0; i < n; i++) {       /* skip uint64 words */
+            if (word ^ words[i]) {
+                q = 8 * p1 + 64 * i;
+                return find_bit(self, vi, q, q + 64, 0);
+            }
         }
-        return find_bit(self, vi, 64 * wb, b, 0);
+        return find_bit(self, vi, 8 * p2, b, 0);
     }
 }
 
@@ -3428,16 +3439,25 @@ bitwise_lock_held(bitarrayobject *self,
                   bitarrayobject *other, const char oper)
 {
     const Py_ssize_t nbytes = Py_SIZE(self);
-    const Py_ssize_t cwords = nbytes / 8;      /* complete 64-bit words */
-    Py_ssize_t i;
+    Py_ssize_t cwords, i;
     char *buff_s = self->ob_item;
     char *buff_o = other->ob_item;
-    uint64_t *wbuff_s = WBUFF(self);
-    uint64_t *wbuff_o = WBUFF(other);
+    uint64_t *wbuff_s, *wbuff_o;
 
     assert(self->nbits == other->nbits);
     assert(self->endian == other->endian);
     assert(self->readonly == 0);
+
+    if (((uintptr_t) buff_s) % 8 == 0 &&
+        ((uintptr_t) buff_o) % 8 == 0) {
+        cwords = nbytes / 8;      /* complete aligned 64-bit words */
+        wbuff_s = WBUFF(self);
+        wbuff_o = WBUFF(other);
+    }
+    else {
+        cwords = 0;
+    }
+
     switch (oper) {
     case '&':
         for (i = 0; i < cwords; i++)
@@ -5120,7 +5140,7 @@ static PyTypeObject Bitarray_Type = {
     &bitarray_as_number,                      /* tp_as_number */
     &bitarray_as_sequence,                    /* tp_as_sequence */
     &bitarray_as_mapping,                     /* tp_as_mapping */
-    PyObject_HashNotImplemented,              /* tp_hash */
+    0,                                        /* tp_hash */
     0,                                        /* tp_call */
     0,                                        /* tp_str */
     PyObject_GenericGetAttr,                  /* tp_getattro */

@@ -22,7 +22,7 @@ from matrx_graph.types.result import Failure, Success
 
 from matrx_ai.graph_nodes.shared import normalize_completed_result
 
-# The new names are imported INSIDE the tests on purpose: the behavioural
+# The new names are imported INSIDE the tests on purpose: the behavioral
 # tests below must fail with a real assertion (the wrong error surfaced), not
 # with a collection-time ImportError, when run against the code as it was
 # before this fix.

@@ -206,7 +206,7 @@ def test_ambiguous_acronym_reports_the_reading_it_took() -> None:
     # MOVED by #289, not deleted: 'MA' is written in capitals inside a
     # mixed-case name, so it now leans CREDENTIAL and is taken with no
     # words to spare -- 'Jack' is the only name word left, which is
-    # what also turns on the GIVEN_OR_FAMILY fork (decisions.md#S2).
+    # what also turns on the GIVEN_OR_FAMILY fork (decisions/S6).
     took_family = parse("Jack MA")
     assert took_family.suffix == "MA"
     assert not took_family.family
@@ -514,7 +514,7 @@ def test_bound_given_name_that_is_also_a_particle() -> None:
     # claimed 'Bakar' -- a side effect of the #367 bug, not a rule. Now
     # the bound given-name join reads it: "Sheik" is a given-name
     # title, which licenses the join with one word to spare
-    # (rules.md#P5), so the particle never enters into it -- and a
+    # (rules/P5), so the particle never enters into it -- and a
     # bound word read as the bound word is not a fork, so the
     # PARTICLE_OR_GIVEN report the chain used to emit is gone. The
     # same precedence, untitled, is what "Abu Bakar Salim" has always
@@ -527,7 +527,7 @@ def test_bound_given_name_that_is_also_a_particle() -> None:
 
 
 def test_a_given_name_title_licenses_the_bound_given_join() -> None:
-    # rules.md#P5 (#369): the contrast #367's release note draws --
+    # rules/P5 (#369): the contrast #367's release note draws --
     # "Sheik abdul salam", whose lead is a bound given name and NOT a
     # particle -- now joins the same way, and for the same reason. A
     # plain title does not license it: "Dr." addresses by family, so
@@ -543,7 +543,7 @@ def test_a_given_name_title_licenses_the_bound_given_join() -> None:
     # 'Sheik John Ma' reports its pick (the #369 precedent). S2's run is
     # read once now, before the join, and the read weighs 'Ma' as a
     # credential and declines it before the join makes it part of the
-    # given pair -- so the pick reports in both (decisions.md#P5,
+    # given pair -- so the pick reports in both (decisions/P5,
     # 2026-10-07)
     for text in ("Sheik abdul Ma", "Sheik John Ma"):
         assert [a.kind for a in parse(text).ambiguities] == \
@@ -559,9 +559,12 @@ def test_the_bound_given_reserve_spares_the_family_assign_will_keep() -> None:
     n = parse("abdul Smith V")
     assert (n.given, n.family, n.suffix) == ("abdul", "Smith", "V")
     assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SUFFIX_OR_NAME]
+    # Since #718 a one-letter numeral needs words to spare (rules/S10)
+    # and a title is none, so 'V' is a name word there, and the
+    # licence joins it into the given pair as it would any word
     licensed = parse("Sir abdul V")
     assert (licensed.given, licensed.family, licensed.suffix) == \
-        ("abdul", "", "V")
+        ("abdul V", "", "")
 
 
 def test_the_bound_given_join_leaves_a_suffix_where_it_stands() -> None:
@@ -577,7 +580,7 @@ def test_the_bound_given_join_leaves_a_suffix_where_it_stands() -> None:
         ("abdul", "Smith", "Berg", "Ph. D.")
     # after a family comma the decline holds under the LENIENT reserve,
     # and since #602 the 'Jr' starts the given part's credential run,
-    # taking 'Smith' with it (rules.md#S2)
+    # taking 'Smith' with it (rules/S8)
     n = parse("Berg, abdul Jr Smith")
     assert (n.given, n.middle, n.family, n.suffix) == \
         ("abdul", "", "Berg", "Jr Smith")
@@ -590,7 +593,7 @@ def test_the_reserve_counts_what_the_trailing_read_left() -> None:
     # takes nothing (the initial-shaped 'J.' suppresses the fork), three
     # name words stand, and the join leaves two, so it stands -- given
     # 'abdul J.', family 'V'. The join no longer re-reads the fork it
-    # would move (decisions.md#P5, 2026-10-07).
+    # would move (decisions/P5, 2026-10-07).
     n = parse("abdul J. V")
     assert (n.given, n.middle, n.family, n.suffix) == ("abdul J.", "", "V", "")
     n = parse("John J. V")
@@ -631,7 +634,7 @@ def test_the_reserve_spares_the_family_the_acronym_fork_would_take() -> None:
     #
     # MOVED by #289, not deleted: 'Ma' is Title-case in a mixed-case
     # name, so it leans SURNAME on both sides of the join and stays a
-    # name word instead of a credential (decisions.md#S2).
+    # name word instead of a credential (decisions/S6).
     n, m = parse("abdul Smith Ma"), parse("John Smith Ma")
     assert (n.family, n.suffix) == (m.family, m.suffix) == ("Ma", "")
 
@@ -675,7 +678,7 @@ def test_the_licence_joins_where_the_read_took_nothing() -> None:
     # suffix after the join: the run, read once before it, takes
     # nothing, and the pair joins with the V still the family -- the
     # suffix reading the equality guarded against no longer arises
-    # (decisions.md#P5, 2026-10-07).
+    # (decisions/P5, 2026-10-07).
     n = parse("Sir abdul J. V")
     assert (n.given, n.family, n.suffix) == ("abdul J.", "V", "")
     n = parse("Sir John J. V")
@@ -694,11 +697,11 @@ def test_the_chain_and_the_walk_stop_where_the_peel_begins() -> None:
             # mixed-case name, so it now leans SURNAME, the
             # run's read leaves it a name word (S2's read ahead of the
             # chain since #614, its re-ask before that), so the chain
-            # takes it into the particle run (decisions.md#S2).
+            # takes it into the particle run (decisions/S6).
             ("John van der Berg Ma", "van der Berg Ma", "")):
         n = parse(text)
         assert (n.family, n.suffix) == (family, suffix), text
-    n = parse("John née Jones Smith V")
+    n = parse("Jane Doe née Jones Smith V")
     assert (n.maiden, n.suffix) == ("Jones Smith", "V")
     n = parse("Jane Smith née Jones V")
     assert (n.family, n.maiden, n.suffix) == ("Smith", "Jones", "V")
@@ -721,7 +724,7 @@ def test_the_chain_and_the_walk_stop_where_the_peel_begins() -> None:
     # word (#367), and the acronym it leaves has no words to spare for
     # assign: the chain keeps it rather than leave it as the family
     #
-    # MOVED by #289, ACCEPTED COST (decisions.md#S2): 'MA' is written
+    # MOVED by #289, ACCEPTED COST (decisions/S6): 'MA' is written
     # in capitals inside a mixed-case name, so it now leans CREDENTIAL
     # and the caps lean makes it reachable where the count alone was
     # not -- the lean ends the chain's re-ask with no words to spare,
@@ -730,11 +733,14 @@ def test_the_chain_and_the_walk_stop_where_the_peel_begins() -> None:
     n = parse("Freiherr von Berg MA")
     assert (n.title, n.family, n.suffix) == ("Freiherr", "von Berg", "MA")
     # the numeral keeps its three pieces behind the same word, and the
-    # chain, now the one name piece, reads as 'Dr. Smith V' reads
+    # chain is the one name piece. Since #718 a one-letter numeral
+    # needs words to spare (rules/S10) and a title is none, so behind
+    # one name word the V is a name word: the chain takes it as P2
+    # takes any, where 'Dr. Smith V' gives it the family
     n = parse("Freiherr von Richthofen V")
-    assert (n.given, n.family, n.suffix) == ("", "von Richthofen", "V")
+    assert (n.given, n.family, n.suffix) == ("", "von Richthofen V", "")
     n = parse("Dr. Smith V")
-    assert (n.given, n.family, n.suffix) == ("", "Smith", "V")
+    assert (n.given, n.family, n.suffix) == ("Smith", "V", "")
     # both stops read the TRAILING word, so an acronym with the
     # numeral behind it is not the word either fork asks about and
     # stays maiden text -- and so does a numeral with an acronym
@@ -782,7 +788,7 @@ def test_the_p5_licence_and_h1_read_a_title_run_the_same_way(
     assert (parse(f"{title} John").family == "") == \
         (parse(f"{title} abdul rahman").family == "")
     # The same invariant with a trailing title behind the pair, and
-    # stated the way rules.md#H5's transparency clause states it
+    # stated the way rules/H5's transparency clause states it
     # rather than as agreement between the two halves: `X Prof.` is
     # `X` plus a title, so adding the title moves NEITHER field. That
     # is what discriminates. Comparing the two spellings' "no family"
@@ -977,7 +983,7 @@ def test_revise_preserves_particle_tags() -> None:
 
 def test_revise_derives_suffix_entries_from_the_values_commas() -> None:
     # A suffix value's entry structure is the value's own commas, read
-    # by rules.md#R1's pass after the named role is forced (#511). The
+    # by rules/R1's pass after the named role is forced (#511). The
     # sub-parse of a bare "MD PhD" reads a title and a family name and
     # so joins nothing on its own; revise() runs the pass again over
     # the forced roles, where the two share a comma bucket.
@@ -989,7 +995,7 @@ def test_revise_derives_suffix_entries_from_the_values_commas() -> None:
     # consult in a field value, and it still does not fire here; the
     # ENTRY pass joins the pair for the reason it joins MD and PhD.
     # Supersedes the 2026-08-31 acceptance of 'Ph., D.' on this path
-    # (decisions.md#phd-merge).
+    # (decisions/phd-merge).
     assert p.revise(n, suffix="Ph. D.").suffix == "Ph. D."
     # a dash is a token under the default policy, and a suffix word
     # once the role is forced
@@ -1056,7 +1062,7 @@ def test_revise_clears_a_stale_unjoined_mark() -> None:
 
 
 def test_revise_sets_a_missing_unjoined_mark() -> None:
-    # The other direction, and the one that made rules.md#R2's
+    # The other direction, and the one that made rules/R2's
     # invariant false through this path: "St" alone parses as a TITLE
     # (a word in both the title and particle vocabularies), so the
     # sub-parse marks nothing, and the harvest then re-roles a bare
@@ -1078,7 +1084,7 @@ def test_revise_recomputes_the_connective_mark_in_both_directions(
     # The mark says a connective stands in a part with nothing to
     # join, which is a fact about the PART -- so the harvest that
     # splices a sub-parse's tokens into one field invalidates it both
-    # ways, exactly as it does the particle mark above (rules.md#R3,
+    # ways, exactly as it does the particle mark above (rules/R3,
     # #461).
     p = Parser()
     lone = p.parse("Juan de y")
@@ -1312,7 +1318,7 @@ def test_a_rendered_suffix_revises_back_to_itself(name: str) -> None:
 def test_revise_keeps_the_sub_parses_within_piece_mark() -> None:
     # The forcing keeps the sub-parse's tags: a "joined" made WITHIN a
     # piece (the Ph. D. merge, mid-value where the head rule lets it
-    # fire) is role-blind and right for every role (decisions.md#C1's
+    # fire) is role-blind and right for every role (decisions/R1's
     # #436 DECLINED list), and a draft that cleared it with the role
     # lost it on every non-suffix value. For a suffix value the pass
     # writes the marks itself ('Ph. D. MD' sub-parses with none), so
@@ -1423,7 +1429,7 @@ def test_nakaguro_split_han_tokens_take_the_han_order() -> None:
 def test_halfwidth_nakaguro_splits_at_parse_level_too() -> None:
     # decision, not accident: halfwidth kana is katakana (#594), and a
     # name written wholly in katakana keeps the declared order
-    # (rules.md#W4) as マイケル・ジャクソン does -- KATAKANA has no
+    # (rules/W4) as マイケル・ジャクソン does -- KATAKANA has no
     # script_orders entry -- while the dot divides the tokens regardless
     text = "ﾏｲｹﾙ･ｼﾞｬｸｿﾝ"
     n = parse(text)
@@ -1595,7 +1601,7 @@ def test_segmenter_exceptions_propagate() -> None:
 
     p = parser_for(locales.get("zh"), base=Parser(segmenter=boom))
     with pytest.raises(RuntimeError, match="segmenter bug"):
-        p.parse("阿明")   # zh pack active, 阿 unmatched by vocabulary ->
+        p.parse("小明")   # zh pack active, 小 unmatched by vocabulary ->
                           # the stage consults the segmenter
 
 
@@ -1609,10 +1615,10 @@ def test_the_segmenter_sees_only_an_undivided_name() -> None:
         return Segmentation((1,), confidence=1.0)
 
     p = parser_for(locales.get("zh"), base=Parser(segmenter=always))
-    assert p.parse("阿明").family == "阿"          # one token: consulted
-    n = p.parse("阿明 日月")                        # already divided
-    assert (n.family, n.given) == ("阿明", "日月")
-    assert p.parse("Dr 阿明").family == "阿"       # a title is not a split
+    assert p.parse("小明").family == "小"          # one token: consulted
+    n = p.parse("小明 日月")                        # already divided
+    assert (n.family, n.given) == ("小明", "日月")
+    assert p.parse("Dr 小明").family == "小"       # a title is not a split
 
 
 def test_a_segmenter_split_reaches_the_fields() -> None:
@@ -1623,8 +1629,8 @@ def test_a_segmenter_split_reaches_the_fields() -> None:
         return Segmentation((1,), confidence=0.5)
 
     p = parser_for(locales.get("zh"), base=Parser(segmenter=two))
-    n = p.parse("阿明")
-    assert (n.family, n.given) == ("阿", "明")
+    n = p.parse("小明")
+    assert (n.family, n.given) == ("小", "明")
     assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SEGMENTATION]
 
     # two cuts, three pieces -- and the token indices the comma
@@ -1633,9 +1639,9 @@ def test_a_segmenter_split_reaches_the_fields() -> None:
         return Segmentation((1, 2))
 
     q = parser_for(locales.get("zh"), base=Parser(segmenter=three))
-    n3 = q.parse("Dr 阿明日, Jr.")
+    n3 = q.parse("Dr 小明日, Jr.")
     assert (n3.title, n3.family, n3.given, n3.middle, n3.suffix) == (
-        "Dr", "阿", "明", "日", "Jr.")
+        "Dr", "小", "明", "日", "Jr.")
 
 
 def _noop_segmenter(text: str) -> None:
@@ -1697,7 +1703,7 @@ def test_stacked_activation_warns_only_for_uncovered_scripts() -> None:
 
 #: The corpus names a maiden clause can be appended to without the
 #: clause itself being the variable: Latin script, no comma (a clause
-#: behind a comma is post-comma text, rules.md#M2's Accepted row), and
+#: behind a comma is post-comma text, rules/M2's Accepted row), and
 #: no marker already present.
 _LATIN = re.compile(r"^[\x00-\u024f]*$")
 
@@ -1721,7 +1727,7 @@ def _clause_free_latin_corpus_names() -> list[str]:
     # a delimiter character is still a marker, and neither the
     # predicate nor the vocabulary strips a bracket, so '(geb.' must
     # lose it before being asked. Stripping only the period admitted
-    # every corpus name that brackets its marker, and once rules.md#M3
+    # every corpus name that brackets its marker, and once rules/M3
     # read such a clause as the maiden name, six of them had a maiden
     # clause of their own. The strip turns away TEN names in all: those
     # six, plus four that M3 declines and that would have been safe to
@@ -1790,7 +1796,7 @@ def test_the_clause_free_corpus_is_not_empty() -> None:
 @pytest.mark.parametrize("name", _clause_free_latin_corpus_names())
 def test_a_maiden_clause_changes_nothing_else(name: str) -> None:
     """The grouping rules count and join only the words that remain
-    once the marker and the maiden name leave (rules.md#M2, #418), so
+    once the marker and the maiden name leave (rules/M2, #418), so
     appending a clause adds a maiden name and moves no other field --
     wherever the appended marker counts at all.
 
@@ -1813,7 +1819,7 @@ def test_a_maiden_clause_changes_nothing_else(name: str) -> None:
     skipped.
 
     One class of name moves ON PURPOSE, and is asserted MOVING rather
-    than skipped: rules.md#M4 makes the clause decide a name that
+    than skipped: rules/M4 makes the clause decide a name that
     holds exactly one name word, because a marker announces a former
     surname and only means anything beside a current one. The flip is
     exactly given -> family with every other field standing still --
@@ -1852,7 +1858,7 @@ def test_a_maiden_clause_changes_nothing_else(name: str) -> None:
             or "conjunction" in last.tags), (
             f"{name!r}: the appended marker took nothing, but the word "
             f"before it, {last.text if last else None!r}, is none of "
-            f"rules.md#M2's refusals")
+            f"rules/M2's refusals")
         return
     # M4's guard, read off the base parse: one GIVEN token, no other
     # name word, no title (a titled name is H1's), and neither
@@ -1869,7 +1875,7 @@ def test_a_maiden_clause_changes_nothing_else(name: str) -> None:
     if flips:
         assert (with_clause.family, with_clause.given) == (base.given, ""), (
             f"{name!r}: one name word beside a maiden clause is the "
-            f"family name (rules.md#M4), but it reads family "
+            f"family name (rules/M4), but it reads family "
             f"{with_clause.family!r} / given {with_clause.given!r}")
     for field in moved:
         assert getattr(with_clause, field) == getattr(base, field), (
@@ -1897,7 +1903,7 @@ def test_a_phrase_marker_outranks_the_word_it_starts_with() -> None:
 
 
 def test_the_catalan_recipe_unmarks_the_link_for_one_case_names() -> None:
-    """rules.md#P3's per-caller answer for Catalan and Polish data
+    """rules/P3's per-caller answer for Catalan and Polish data
     (#397 second review), pinned rather than described.
 
     `i` ships in the MARKED subset, so a name written wholly in one
@@ -1929,7 +1935,7 @@ def test_the_catalan_recipe_unmarks_the_link_for_one_case_names() -> None:
 
 
 _NFD_ROWS = [
-    # the period-abbreviation shape (rules.md#H2, #H5), in each slot
+    # the period-abbreviation shape (rules/H2, #H5), in each slot
     "Dr. inž. Janez Novak",
     "inž. Janez Novak",
     "prof. dr. inž. Janez Novak",
@@ -1939,7 +1945,7 @@ _NFD_ROWS = [
     # the comma shapes AGENTS.md asks of every comma grid
     ", inž.",
     "(Bob), inž.",
-    # paired initials (rules.md#C1)
+    # paired initials (rules/C5)
     "Janez Novak, Ž.Š.",
     "Janez Novak, Ž.Š., Jr.",
     # the all-caps credential shape: default policy reads it in the
@@ -2059,7 +2065,7 @@ def test_a_decomposed_abbreviation_reads_as_its_composed_twin(
 
 def test_a_decomposed_conjunction_reports_as_its_composed_twin() -> None:
     """#665: the one-case report on a letter that is both a connective
-    and an initial (rules.md#P3) counted code points, so it is reached
+    and an initial (rules/P3) counted code points, so it is reached
     by `й` only once a caller marks it ambiguous -- no default entry is
     decomposable."""
     parser = Parser(lexicon=Lexicon.default().add(
@@ -2103,3 +2109,44 @@ def test_a_decomposed_dotted_letter_is_dotted() -> None:
     differ), so it is pinned directly."""
     from nameparser._pipeline._vocab import _dotted
     assert _dotted(unicodedata.normalize("NFD", "Ž.")) is True
+
+
+# #671: the credential, office and generational words, one spelling each
+# per distinct entry, all spaced / after-comma vocabulary. #707 vetted
+# the glued bar ("can it END a name?") and every word passed but
+# 部長/部长, so the two lists below partition this one: a word moves
+# between them only on purpose.
+_CJK_GLUED_WORDS = (
+    "議員", "议员", "国会議員", "國會議員", "太平紳士", "太平绅士",
+    "医学博士", "醫學博士", "二世", "社長", "課長", "社长", "课长",
+)
+_CJK_SPACED_ONLY_WORDS = ("部長", "部长")
+_CJK_SPACED_WORDS = _CJK_GLUED_WORDS + _CJK_SPACED_ONLY_WORDS
+
+
+@pytest.mark.parametrize("word", _CJK_SPACED_WORDS)
+def test_a_cjk_credential_word_is_a_suffix_spaced_and_after_a_comma(
+        word: str) -> None:
+    parser = Parser()
+    for text in (f"田中 {word}", f"田中, {word}", f"Tanaka, {word}"):
+        parsed = parser.parse(text)
+        assert parsed.suffix == word, text
+        assert word not in parsed.family + parsed.given, text
+    # a one-word head and an empty head (CSV data with the surname
+    # missing) are the comma paths that have disagreed before
+    assert parser.parse(f", {word}").suffix == word
+
+
+@pytest.mark.parametrize("word", _CJK_GLUED_WORDS)
+def test_a_vetted_cjk_credential_word_peels_off_a_glued_name(
+        word: str) -> None:
+    parsed = Parser().parse(f"田中{word}")
+    assert (parsed.family, parsed.suffix) == ("田中", word)
+
+
+@pytest.mark.parametrize("word", _CJK_SPACED_ONLY_WORDS)
+def test_a_declined_cjk_credential_word_does_not_peel_off_a_glued_name(
+        word: str) -> None:
+    # 長 alone is a borne given name, so 阿部長 can be 阿部 + 長 (#707).
+    assert word not in Parser().lexicon.honorific_tails
+    assert Parser().parse(f"田中{word}").suffix == ""

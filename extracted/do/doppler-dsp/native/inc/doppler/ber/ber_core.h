@@ -181,8 +181,9 @@ extern "C"
    *         the rate: `ser <= 0` (a zero SER is a perfect link, which no
    *         finite Es/N0 yields), `ser` above the bound at -10 dB (a rate
    *         the link cannot reach even at -10 dB), and `ser` below the bound
-   *         at 40 dB, and an M outside {2, 4, 8}. Those are NOT clamped to -10 or 40: a bracket value
-   *         reads like a measurement, so an out-of-range rate would
+   *         at 40 dB, and an M outside {2, 4, 8}. Those are NOT clamped to
+   *         -10 or 40: a bracket value reads like a measurement, so an
+   *         out-of-range rate would
    *         fabricate an answer. Test for it with isnan(), and write gates
    *         as `!(loss <= limit)`: a `loss > limit` comparison is false for
    *         NaN and passes silently.
@@ -213,6 +214,33 @@ extern "C"
    * @return The floor in dB, or NAN for M < 2, which is no constellation.
    */
   double dp_ber_evm_scatter_floor_db (int m);
+
+  /**
+   * @brief What dp_ber_evm_db() reads on an ideal stream at @p esn0_db.
+   *
+   * The meter's NOISE floor, the counterpart of the scatter floor above: a
+   * perfectly synchronised stream at Es/N0 with no decision errors. The
+   * meter scales its window to unit TOTAL power, signal plus noise, so with
+   * `r = Es/N0` the error against the unit decision is
+   * `E|e|^2 = 2 - 2 sqrt(r/(1+r))`, which is NOT `1/r`: at 20 dB it reads
+   * -20.03 dB, at 10 dB -10.31 dB, at 5 dB -5.91 dB. A receiver's
+   * implementation loss is its EVM minus this, never its EVM plus Es/N0:
+   * against -Es/N0 an ideal receiver already reads 0.9 dB better at 5 dB,
+   * so that reference hides that much loss. Decision errors (below about
+   * 5 dB at BPSK) pull a real reading under this; it is the noise-only
+   * ideal, the same for every M.
+   *
+   * @param esn0_db  Es/N0, dB.
+   * @return The ideal reading in dB.
+   *
+   * @code
+   * >>> from doppler.ber import ber_evm_ideal_db
+   * >>> [round(ber_evm_ideal_db(e), 2) for e in (20.0, 10.0, 5.0)]
+   * [-20.03, -10.31, -5.91]
+   *
+   * @endcode
+   */
+  double dp_ber_evm_ideal_db (double esn0_db);
 
   /**
    * @brief Symbols to discard before a steady-state measurement means anything.
@@ -254,7 +282,8 @@ extern "C"
    * constellation rotation estimated from the data — so it references neither
    * the transmitted symbols nor a lag, and cannot be fooled by an alignment
    * search. At a matched-filter output the error vector IS the complex noise,
-   * so a locked stream reads `EVM[dB] ~ -(Es/N0)[dB]`. EVM is an I/Q-plane
+   * so a locked stream reads near -(Es/N0) -- exactly, the window being scaled
+   * to unit total power, dp_ber_evm_ideal_db(). EVM is an I/Q-plane
    * quantity: there is no factor of two — that belongs to an I-only
    * measurement, and quoting it flatters the result by 3 dB.
    *

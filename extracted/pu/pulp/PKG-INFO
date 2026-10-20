@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PuLP
-Version: 4.0.1
+Version: 4.1.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -17,10 +17,10 @@ Requires-Dist: coptpy ; python_full_version < '3.14' and extra == 'copt'
 Requires-Dist: cplex ; (sys_platform != 'darwin' and extra == 'cplex') or (platform_machine == 'arm64' and extra == 'cplex')
 Requires-Dist: swiglpk ; extra == 'glpk'
 Requires-Dist: gurobipy ; extra == 'gurobi'
-Requires-Dist: highspy<1.14 ; extra == 'highs'
+Requires-Dist: highspy ; extra == 'highs'
 Requires-Dist: highsbox ; extra == 'highs-cmd'
 Requires-Dist: mosek ; extra == 'mosek'
-Requires-Dist: highspy<1.14 ; extra == 'open-py'
+Requires-Dist: highspy ; extra == 'open-py'
 Requires-Dist: pyscipopt ; extra == 'open-py'
 Requires-Dist: cbcbox ; extra == 'open-py'
 Requires-Dist: swiglpk ; extra == 'open-py'

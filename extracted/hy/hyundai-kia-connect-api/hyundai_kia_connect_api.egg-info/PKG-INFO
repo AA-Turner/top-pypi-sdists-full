@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hyundai_kia_connect_api
-Version: 4.37.0
+Version: 4.38.0
 Summary: Python API for Hyundai, Kia, and Genesis car infotainment systems
 Home-page: https://github.com/Hyundai-Kia-Connect/hyundai_kia_connect_api
 Author: Fuat Akgun
@@ -14,6 +14,7 @@ Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
 Requires-Python: >=3.12
 License-File: LICENSE
 License-File: AUTHORS.rst

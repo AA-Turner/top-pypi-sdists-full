@@ -5,7 +5,6 @@ import datetime
 import io
 import re
 import typing
-import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
@@ -17,7 +16,7 @@ from rdflib.term import BNode, Literal as RDFLiteral, Node, URIRef
 
 import prov.model as pm
 from prov import Error
-from prov._warnings import external_stacklevel
+from prov._warnings import warn
 from prov.constants import (
     PROV,
     PROV_ALTERNATE,
@@ -51,7 +50,11 @@ from prov.constants import (
     XSD_QNAME,
 )
 from prov.identifier import QualifiedName
-from prov.model.records import _xsd_datetime_text
+from prov.model.records import (
+    _offset_beyond_xsd_bound,
+    _xsd_datetime_text,
+    _xsd_double_text,
+)
 from prov.serializers import Serializer, _is_text_stream
 
 __author__ = "Satrajit S. Ghosh"
@@ -124,7 +127,9 @@ class _FullPrecisionDoubleLiteral(RDFLiteral):
     Python's default ``%e`` precision (~7 significant digits) -- discarding
     precision regardless of the literal's actual stored lexical form (#225).
     Forcing the non-abbreviated ``_literal_n3`` path keeps our full-precision
-    lexical (``repr(value)``) intact in every RDF output format.
+    lexical (``_xsd_double_text(value)``, the XSD form with ``INF``, ``-INF`` and
+    ``NaN`` for non-finite values and float's repr otherwise) intact in every RDF
+    output format.
     """
 
     def _literal_n3(self, use_plain: bool = False, qname_callback: Any = None) -> str:
@@ -545,8 +550,13 @@ class ProvRDFSerializer(Serializer):
             # the full-precision lexical form always applies here: a datatype
             # that skips rdflib's precision-losing bare-double abbreviation
             # (#225) on output.
+
+            # normalize=False: rdflib would otherwise rewrite the lexical
+            # form to Python's str() ('inf', 'nan').
             return _FullPrecisionDoubleLiteral(
-                repr(value), datatype=LITERAL_XSDTYPE_MAP[type(value)]
+                _xsd_double_text(value),
+                datatype=LITERAL_XSDTYPE_MAP[type(value)],
+                normalize=False,
             )
         else:
             return RDFLiteral(value)
@@ -589,12 +599,10 @@ class ProvRDFSerializer(Serializer):
         ) or self._resolve_iri_via_graph(pred_str, graph)
         if qname is None:
             qname = self._resolve_iri(pred_str, graph)
-            warnings.warn(
+            warn(
                 f"The predicate {pred_str!r} is under a namespace declared "
                 f"neither in the document nor in the graph; prefix "
-                f"{qname.namespace.prefix!r} was minted for it.",
-                pm.ProvWarning,
-                stacklevel=external_stacklevel(),
+                f"{qname.namespace.prefix!r} was minted for it."
             )
         return qname
 
@@ -704,7 +712,8 @@ class ProvRDFSerializer(Serializer):
                 a namespace for unresolved ``URIRef`` values.
 
         Returns:
-            A :class:`datetime.datetime` for ``xsd:dateTime`` literals, a
+            A :class:`datetime.datetime` for a well-formed ``xsd:dateTime``
+            literal with an offset within ±14:00, a
             :class:`~prov.model.Literal` for other typed/tagged literals, a
             resolved (or newly minted) :class:`~prov.identifier.QualifiedName`
             for ``URIRef`` values, or ``literal`` unchanged otherwise.
@@ -769,12 +778,10 @@ class ProvRDFSerializer(Serializer):
             literal: RDF literal term to decode.
 
         Returns:
-            A :class:`datetime.datetime` for ``xsd:dateTime`` literals, or a
-            :class:`~prov.model.Literal` for any other typed/tagged literal.
-
-        Raises:
-            ValueError: If an ``xsd:dateTime``, ``xsd:gYear``, or
-                ``xsd:gYearMonth`` literal's lexical form cannot be parsed.
+            A :class:`datetime.datetime` for a well-formed ``xsd:dateTime``
+            literal with an offset within ±14:00, or a
+            :class:`~prov.model.Literal` for any other typed/tagged literal,
+            ill-formed ones included.
         """
         value, datatype, langtag, value_overridden = self._normalize_literal_value(
             literal
@@ -783,13 +790,16 @@ class ProvRDFSerializer(Serializer):
             return pm.Literal(literal, datatype=XSD_QNAME)
         if datatype == XSD["dateTime"]:
             parsed = pm.parse_xsd_datetime(str(literal))
-            if parsed is None:
-                raise ValueError(f"Invalid xsd:dateTime literal: {literal}")
+            # An ill-formed literal, or one whose offset is beyond ±14:00,
+            # goes to the model as a Literal. The model keeps the first and
+            # warns about the second.
+            if parsed is None or _offset_beyond_xsd_bound(parsed):
+                return pm.Literal(str(literal), pm.XSD_DATETIME)
             return parsed
         if datatype == XSD["gYear"]:
             year_match = _XSD_GYEAR_RE.match(str(literal))
             if year_match is None:
-                raise ValueError(f"Invalid xsd:gYear literal: {literal}")
+                return pm.Literal(str(literal), self.valid_identifier(datatype))
             return pm.Literal(
                 int(year_match.group(1)),
                 datatype=self.valid_identifier(datatype),
@@ -797,7 +807,7 @@ class ProvRDFSerializer(Serializer):
         if datatype == XSD["gYearMonth"]:
             ym_match = _XSD_GYEARMONTH_RE.match(str(literal))
             if ym_match is None:
-                raise ValueError(f"Invalid xsd:gYearMonth literal: {literal}")
+                return pm.Literal(str(literal), self.valid_identifier(datatype))
             return pm.Literal(
                 f"{int(ym_match.group(1))}-{int(ym_match.group(2)):02d}",
                 datatype=self.valid_identifier(datatype),
@@ -1414,11 +1424,10 @@ class ProvRDFSerializer(Serializer):
         # Entries are created only when an attribute is gathered and are
         # removed as records consume them, so whatever remains is unconverted.
         if state.other_attributes:
-            warnings.warn(
+            warn(
                 "The following attributes were not converted: "
                 + str(state.other_attributes),
                 UserWarning,
-                stacklevel=2,
             )
 
     def _decode_type_triples(

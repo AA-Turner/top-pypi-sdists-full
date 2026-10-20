@@ -16,6 +16,7 @@ import torch
 from PIL import Image
 from torch.utils.data import ConcatDataset
 
+from ultralytics.nn.autobackend import check_class_names
 from ultralytics.utils import LOCAL_RANK, LOGGER, NUM_THREADS, TQDM, IterableSimpleNamespace, colorstr
 from ultralytics.utils.instance import Instances
 from ultralytics.utils.ops import resample_segments, segments2boxes
@@ -54,9 +55,10 @@ from .utils import (
 )
 
 # Ultralytics dataset *.cache version, >= 1.0.0 for Ultralytics YOLO models.
+# 1.0.12: Accept UTF-8 byte-order marks in labels.
 # 1.0.11: Reject negative box dimensions.
 # 1.0.10: EXIF-rotated image shapes match the decoded image.
-DATASET_CACHE_VERSION = "1.0.11"
+DATASET_CACHE_VERSION = "1.0.12"
 
 
 class YOLODataset(BaseDataset):
@@ -671,7 +673,7 @@ class GroundingDataset(YOLODataset):
 
     def get_cache_hash(self) -> str:
         """Return a hash over annotations, scanned images and the segmentation deduplication mode."""
-        return get_hash([self.json_file, *self.scan_files, f"segments:{self.use_segments}"])
+        return get_hash([self.json_file, *self.scan_files, f"segments:{self.use_segments};encoding:utf-8"])
 
     def _verify_instance_counts(self, labels: list[dict[str, Any]]) -> None:
         """Verify instance counts for known grounding datasets."""
@@ -700,7 +702,7 @@ class GroundingDataset(YOLODataset):
         """
         x = {"labels": []}
         LOGGER.info("Loading annotation file...")
-        with open(self.json_file) as f:
+        with open(self.json_file, encoding="utf-8") as f:
             annotations = json.load(f)
         images = {f"{x['id']:d}": x for x in annotations["images"]}
         img_to_anns = defaultdict(list)
@@ -1232,14 +1234,15 @@ class ClassificationDataset:
         self.cache_ram = args.cache is True or str(args.cache).lower() == "ram"  # cache images into RAM
         self.cache_disk = str(args.cache).lower() == "disk"  # cache images on hard drive as uncompressed *.npy files
         self.samples = self.verify_images()  # filter out bad images
-        classes = self.base.classes  # this split's class folders, sorted, indexed by the ImageFolder target
+        classes = list(check_class_names(self.base.classes).values())  # resolve ImageNet folder codes like model names
+        names = check_class_names(names) if names else names
         if args.single_cls:
             index = dict.fromkeys(classes, 0)
         elif is_ndjson:  # folders are the class ids
             index = {c: int(c) for c in classes}
         elif names and not set(classes).isdisjoint(names.values()):  # align to the model's class order by name
             index = {n: i for i, n in names.items()}
-        else:  # folder names carry no class meaning, e.g. ImageNet wnids under humanized names
+        else:  # unrecognized folder names keep ImageFolder's ordering
             index = {c: i for i, c in enumerate(classes)}
         extra = {c for c in classes if index.get(c, len(names)) >= len(names)} if names else set()  # not in the model
         n = len(self.samples)

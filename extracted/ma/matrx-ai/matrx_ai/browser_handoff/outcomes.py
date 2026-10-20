@@ -6,7 +6,7 @@ about profiles keeps working.
 
 The three statuses are exhaustive: ``ok`` | ``human_required`` |
 ``reopened_for_handoff`` (S6 §5.6). Errors travel on ``ToolError`` with the
-error-type catalogue of S6 §5.4.
+error-type catalog of S6 §5.4.
 """
 
 from __future__ import annotations
@@ -56,11 +56,11 @@ _SUGGESTED_ACTIONS: dict[str, str] = {
 
 def new_error(error_type: str, *, message: str) -> ToolError:
     """Build one of the S6 §5.4 new browser error types with its pinned
-    retryability + suggested action. Rejects any type not in the catalogue —
+    retryability + suggested action. Rejects any type not in the catalog —
     a new error_type requires a DECISIONS.md entry (S6 §5.4)."""
     if error_type not in NEW_ERROR_TYPES:
         raise ValueError(
-            f"{error_type!r} is not a catalogued browser error type "
+            f"{error_type!r} is not a cataloged browser error type "
             f"(add it to S6 §5.4 with a DECISIONS.md entry first)."
         )
     return ToolError(

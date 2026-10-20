@@ -1,5 +1,5 @@
 """Small URL helpers — pulled out of the host so the package can offer
-"accept any URL the user typed and normalise it" semantics standalone.
+"accept any URL the user typed and normalize it" semantics standalone.
 """
 
 from __future__ import annotations

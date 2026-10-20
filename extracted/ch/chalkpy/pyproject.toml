@@ -32,7 +32,7 @@ dynamic = ["version"]
 
 dependencies = [
     # This is the SDK's native extension dependency, not a chalkpy version pin.
-    "chalkpy-rs>=0.1.2,<0.2.0", # nosemgrep: chalk_ai.chalkpy_in_shared_only
+    "chalkpy-rs>=0.1.3,<0.2.0", # nosemgrep: chalk_ai.chalkpy_in_shared_only
     "dataclasses_json>=0.5.7",
     "executing>=1.2.0,<3",
     "googleapis-common-protos>=1.56.0",

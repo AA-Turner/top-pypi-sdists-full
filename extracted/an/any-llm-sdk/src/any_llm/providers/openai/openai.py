@@ -15,11 +15,16 @@ class OpenaiProvider(OpenAIFileMethods, BaseOpenAIProvider):
     PROVIDER_DOCUMENTATION_URL = "https://platform.openai.com/docs/api-reference"
     PROMPT_CACHE_KEY_SUPPORT = "supported"
     SUPPORTS_RESPONSES = True
+    _MESSAGES_TOOLS_THINKING_VIA_RESPONSES = True
     SUPPORTS_LIST_MODELS = True
     SUPPORTS_BATCH = True
     SUPPORTS_IMAGE_GENERATION = True
+    SUPPORTS_IMAGE_EDIT = True
     SUPPORTS_AUDIO_TRANSCRIPTION = True
     SUPPORTS_AUDIO_SPEECH = True
+    # OpenAI's own Response is what the OpenResponses types approximate. Converting it drops the
+    # fields they lack, such as usage.input_tokens_details.cache_write_tokens, which prices cache writes.
+    _NORMALIZES_RESPONSES = False
     SUPPORTED_FILE_OPERATIONS: ClassVar[frozenset[FileOperation]] = frozenset(
         {"upload", "list", "retrieve", "download", "delete"}
     )

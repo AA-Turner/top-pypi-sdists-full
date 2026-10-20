@@ -480,8 +480,10 @@ def disabled_tool_notice(outcome: ToolDisableOutcome, *, reason: str) -> str:
     platform forbids: the model must know which tool left its belt, so it can
     say so to the person and route around it.
     """
+    # Never list the remaining belt: the model already has every declaration,
+    # and naming 70+ tools here only bloated the history (conversation 3787dd66).
     remaining = (
-        f" Your other tools ({', '.join(outcome.remaining_tools)}) still work"
+        " Your other tools still work"
         if outcome.remaining_tools
         else " You have no other tools left"
     )

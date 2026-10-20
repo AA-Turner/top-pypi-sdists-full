@@ -25,7 +25,7 @@ that profile opens. This module owns the pieces of that identity the LAUNCH deci
   masks its own ``toString`` so the function still reads as native code. Empty
   strings turn the patch off (honest SwiftShader).
 
-The behavioural half (pointer paths, keystroke timing, wheel notches) lives in
+The behavioral half (pointer paths, keystroke timing, wheel notches) lives in
 ``matrx_scraper.ai_browser.humanize`` and is switched by ``LaunchPolicy.humanize_input``.
 """
 
@@ -56,6 +56,13 @@ STEALTH_ARGS: tuple[str, ...] = ("--disable-blink-features=AutomationControlled"
 # Playwright defaults the worker refuses. ``--enable-automation`` turns on the
 # automation infobar AND ``navigator.webdriver``.
 IGNORED_DEFAULT_ARGS: tuple[str, ...] = ("--enable-automation",)
+# On a person's Cloud Computer the agent's Chrome is THEIR Chrome: Playwright's
+# extension lockout would make the Web Store say "Installation is not enabled".
+# The browser fleet keeps it.
+DESKTOP_IGNORED_DEFAULT_ARGS: tuple[str, ...] = (
+    "--disable-extensions",
+    "--disable-component-extensions-with-background-pages",
+)
 
 
 @dataclass(frozen=True)

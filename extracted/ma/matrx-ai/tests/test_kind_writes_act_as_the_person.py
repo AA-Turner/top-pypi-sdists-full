@@ -8,7 +8,7 @@ tables stay on the privileged connection until iam.apply_rls re-runs on them
 (``KIND_TABLES_PENDING_CANONICAL_RLS``).
 
 Two layers: a structural guard (no write to a certified table outside the person's
-session, anywhere in the kind tool modules) and behaviour (a refused write answers
+session, anywhere in the kind tool modules) and behavior (a refused write answers
 ``no_access`` naming the row and changes nothing).
 
 Scenario: a home-inspection company's "Roof inspection" kind; Omar edits its
@@ -85,7 +85,7 @@ def test_the_pending_tables_are_named_and_disjoint_from_the_certified_ones() -> 
     )
 
 
-# --- behaviour ---------------------------------------------------------------
+# --- behavior ---------------------------------------------------------------
 
 OMAR = "a0b1c2d3-0000-4000-8000-00000000a001"
 LENA = "a0b1c2d3-0000-4000-8000-00000000b002"

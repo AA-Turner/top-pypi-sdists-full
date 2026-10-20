@@ -435,17 +435,26 @@ def ctx_org_id(ctx: ToolContext) -> str | None:
     return str(raw) if raw else None
 
 
-def ctx_is_admin(ctx: ToolContext) -> bool:
-    """True only for a platform admin acting from an ADMIN SURFACE (the admin
-    app or the admin MCP — ``matrx_connect.admin_surface_active``). An admin in
-    a normal chat is an ordinary person (THE ADMIN LANE, 2026-09-25). Fail-
-    closed: no context or any error reads as non-admin. This gates the
-    ``platform_kind`` mint path — never widen it to org-admin or any softer
-    signal."""
-    try:
-        from matrx_connect import admin_surface_active
+def ctx_is_admin(ctx: ToolContext | None) -> bool:
+    """True only for a platform admin acting from the ADMIN SYSTEM — the ONE
+    admin-reach question, ``matrx_connect.admin_lane_active``: the request rode
+    the host-verified admin-lane header (every admin-app page — "Edit with agent"
+    included — sends it; the host re-checks ``admin.admins`` and audits) or was
+    started from an admin-mounted route / the admin MCP (``admin_surface``). An
+    admin on a user page is an ordinary person (THE ADMIN LANE, 2026-09-25).
 
-        return admin_surface_active()
+    ``admin_surface_active`` alone was the 2026-10-17 regression: an agent run from
+    the admin app goes through the ordinary chat route, so only the header lane
+    marks it, and every kind tool treated the super admin as a stranger.
+
+    Fail-closed: no context, another actor than the tool's caller, or any error
+    reads as non-admin. This gates the ``platform_kind`` mint path — never widen
+    it to org-admin or any softer signal."""
+    try:
+        from matrx_connect import admin_lane_active
+
+        user_id = ctx_user_id(ctx) if ctx is not None else None
+        return admin_lane_active(user_id=user_id) if user_id else admin_lane_active()
     except Exception:  # noqa: BLE001 — fail closed
         return False
 
@@ -588,21 +597,25 @@ async def resolve_kind(
     )
 
 
-async def kind_rls_allows(kind_id: str, level: str) -> bool:
+async def kind_rls_allows(kind_id: str, level: str, ctx: ToolContext | None = None) -> bool:
     """Does Postgres, in the CALLER's RLS session, let them ``level`` this kind?
 
     ``viewer`` — the kind_definition row is returned to them.
     ``editor`` — ``SELECT ... FOR UPDATE`` returns it (the UPDATE policy answers).
-    The question is asked of the database, never answered here.
+    The question is asked in ``in_the_persons_lane(ctx)`` — the SAME session and
+    admin lane the write would use — so the gate and the write can never disagree
+    (2026-10-17: the gate asked without the lane and refused a super admin on the
+    admin app before the admin-lane write was ever tried). The question is asked
+    of the database, never answered here.
     """
-    from matrx_ai.tools.person_session import as_the_person, person_may_change
+    from matrx_ai.tools.person_session import person_may_change
 
     KindDefinition = get_db_model("KindDefinition")
-    if level == "viewer":
-        async with as_the_person():
+    async with in_the_persons_lane(ctx):
+        if level == "viewer":
             row = await KindDefinition.get_or_none(use_cache=False, id=kind_id)
-        return row is not None
-    return await person_may_change(KindDefinition, {"id": kind_id})
+            return row is not None
+        return await person_may_change(KindDefinition, {"id": kind_id})
 
 
 # ---------------------------------------------------------------------------
@@ -654,6 +667,32 @@ def scheduler_identity_active() -> bool:
 
 
 @asynccontextmanager
+async def in_the_persons_lane(
+    ctx: ToolContext | None, *, system_job: bool = False
+) -> AsyncIterator[None]:
+    """THE ONE session a kind tool both ASKS and WRITES in: the caller's RLS session,
+    with the admin lane opened inside it when — and only when — ``ctx_is_admin(ctx)``
+    (an admin in the admin system) or a verified scheduler ``system_job``. Every
+    permission probe (``kind_rls_allows``, the instance gate) and every write
+    (``writing_as_the_person``) goes through here, so a probe can never refuse what
+    the write would allow, nor allow what it would refuse. The lane opens the
+    database's admin ARMS only; RLS still checks the identity."""
+    from matrx_ai.tools.person_session import as_the_person
+
+    async with as_the_person():
+        # ``system_job``: a scheduled platform job (the weekly shape refresh) runs as the
+        # scheduler's operator identity, which has no admin SURFACE; it asks the database's
+        # own admin arm explicitly. RLS still decides -- a non-admin identity is refused.
+        if (system_job and scheduler_identity_active()) or ctx_is_admin(ctx):
+            from matrx_orm import admin_lane
+
+            async with admin_lane(database=get_db_model("KindDefinition")._database):
+                yield
+        else:
+            yield
+
+
+@asynccontextmanager
 async def writing_as_the_person(
     ctx: ToolContext | None, *, system_job: bool = False
 ) -> AsyncIterator[None]:
@@ -663,24 +702,13 @@ async def writing_as_the_person(
     database's own admin arm (never this module) grants a platform mint. An RLS
     refusal leaves as ``WriteRefused``.
     """
-    from matrx_ai.tools.person_session import as_the_person
-
     if system_job and not scheduler_identity_active():
         raise WriteRefused(
             "system_job writes are only for the scheduler's system identity; this caller is not one"
         )
     try:
-        async with as_the_person():
-            # ``system_job``: a scheduled platform job (the weekly shape refresh) runs as the
-            # scheduler's operator identity, which has no admin SURFACE; it asks the database's
-            # own admin arm explicitly. RLS still decides -- a non-admin identity is refused.
-            if system_job or ctx_is_admin(ctx):
-                from matrx_orm import admin_lane
-
-                async with admin_lane(database=get_db_model("KindDefinition")._database):
-                    yield
-            else:
-                yield
+        async with in_the_persons_lane(ctx, system_job=system_job):
+            yield
     except WriteRefused:
         raise
     except Exception as exc:
@@ -711,7 +739,7 @@ async def can_access_kind(kind_row: Any, ctx: ToolContext, level: str) -> bool:
     """RLS's answer for the caller at ``level`` — no owner fast path, no app logic."""
     if not ctx_user_id(ctx):
         return False
-    return await kind_rls_allows(str(kind_row.id), level)
+    return await kind_rls_allows(str(kind_row.id), level, ctx)
 
 
 async def ensure_can_edit_kind(kind_row: Any, ctx: ToolContext) -> ToolResult | None:

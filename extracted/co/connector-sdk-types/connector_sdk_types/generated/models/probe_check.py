@@ -29,6 +29,9 @@ from typing import Optional, Set
 from typing_extensions import Self
 from connector_sdk_types.generated.models.probe_sample_account import ProbeSampleAccount
 from connector_sdk_types.generated.models.probe_sample_association import ProbeSampleAssociation
+from connector_sdk_types.generated.models.probe_sample_capability_config import (
+    ProbeSampleCapabilityConfig,
+)
 from connector_sdk_types.generated.models.probe_sample_entitlement import ProbeSampleEntitlement
 
 
@@ -57,7 +60,12 @@ class ProbeCheck(BaseModel):
         default=None,
         description="The error that made this check fail, in the same shape as any other connector error, so callers can reuse their existing error surfaces.",
     )
-    samples: List[ProbeSampleAccount | ProbeSampleEntitlement | ProbeSampleAssociation] = Field(
+    samples: List[
+        ProbeSampleAccount
+        | ProbeSampleEntitlement
+        | ProbeSampleAssociation
+        | ProbeSampleCapabilityConfig
+    ] = Field(
         description="Redacted evidence of what the check fetched, one entry per record. A check that `passed` carries at least one; there is no upper bound, so a consumer can show several accounts, several entitlements per type, or associations across several accounts."
     )
     entitlement_types: Optional[List[ProbeEntitlementTypeResult]] = Field(

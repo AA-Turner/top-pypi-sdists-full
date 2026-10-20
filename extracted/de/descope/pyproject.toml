@@ -1,6 +1,6 @@
 [project]
 name = "descope"
-version = "2.15.0"
+version = "2.16.0"
 description = "Descope Python SDK"
 requires-python = ">=3.9,<4.0"
 readme = "README.md"
@@ -46,7 +46,7 @@ Documentation = "https://docs.descope.com"
 dev = [
     "pre-commit==3.8.0",
     "python-dotenv>=1.2.1",
-    "ruff==0.16.7",
+    "ruff==0.16.9",
 ]
 types = [
     "mypy>=1.20.1; python_version >= '3.10'",

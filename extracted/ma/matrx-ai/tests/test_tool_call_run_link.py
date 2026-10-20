@@ -7,7 +7,7 @@ got a chat message — a job or workflow-node call, a turn cut off mid-dispatch,
 a pre-dispatch rejection — carried no run link at all.
 
 Two layers:
-  1. behavioural — both INSERT paths (``log_started``, ``log_rejected``) queue
+  1. behavioral — both INSERT paths (``log_started``, ``log_rejected``) queue
      the row WITH the ambient root execution id; with no run in scope the row
      is written unlinked and that is announced;
   2. structural — every logger method that INSERTs a row stamps the link.

@@ -41,6 +41,8 @@ VALID_MODEL_TRAINING_METRICS = {
     "grad_norm",
     "learning_rate",
     "response_length",
+    # Sampler-vs-trainer divergence on the sampled tokens (asynchronous RL); not a KL penalty.
+    "mismatch_kl",
     # Reward broken out per reward function (tag `rubric`) and per task or environment (tag `task`).
     # Distinct names keep them out of the overall `reward` series on the training dashboard.
     "rubric_reward",

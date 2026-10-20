@@ -20,7 +20,7 @@ capture (which equals the real request).
 
 from __future__ import annotations
 
-import dataclasses
+import copy
 from collections.abc import Iterable
 from typing import Any
 
@@ -56,7 +56,11 @@ def _as_note(message: Any) -> Any:
     text = "".join(c.text for c in (message.content or []) if isinstance(c, TextContent))
     others = [c for c in (message.content or []) if not isinstance(c, TextContent)]
     content = ([TextContent(text=system_note_text(text))] if text else []) + others
-    return dataclasses.replace(message, role="user", content=content, metadata=dict(message.metadata or {}))
+    note = copy.copy(message)  # shallow copy works for a dataclass today and a pydantic model after the flip
+    note.role = "user"
+    note.content = content
+    note.metadata = dict(message.metadata or {})
+    return note
 
 
 def history_system_messages_as_notes(messages: Iterable[Any], *, provider: str) -> list[Any]:

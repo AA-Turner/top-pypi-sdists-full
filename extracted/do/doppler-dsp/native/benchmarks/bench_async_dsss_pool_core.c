@@ -1,9 +1,9 @@
 /* bench_async_dsss_pool_core.c -- the population's cost per input sample
- * (design section 6.4): one push() of one epoch through a pool of twelve
- * receivers with one emitter assigned and tracking, serial and across the
- * threads the pool is given. The budget is 100 ns per output sample per
- * core at the operating point, the working target half of that; the
- * number reported here is the whole population's, per input sample. */
+ * (docs/design/async-dsss-receiver.md §6.4): one push() of one epoch through a
+ * pool of twelve receivers with one emitter assigned and tracking, serial and
+ * across the threads the pool is given. The budget is 100 ns per output sample
+ * per core at the operating point, the working target half of that; the number
+ * reported here is the whole population's, per input sample. */
 #include "doppler/async_dsss_pool/async_dsss_pool_core.h"
 #include "doppler/dp_complex.h"
 #include "jm_bench.h"
@@ -125,7 +125,8 @@ main (void)
       char name[64];
       (void)snprintf (name, sizeof name, "push[%d slots, %s]", N_SLOTS,
                       threads[k] == 1 ? "serial" : "all cores");
-      jm_bench_add (&_bench, name, times, ITERATIONS, (int)TE);
+      jm_bench_add_unit (&_bench, name, times, ITERATIONS, (int)TE,
+                         JM_BENCH_SAMPLE);
       double sec = min_sec (times, ITERATIONS);
       printf ("  %-28s %8.3f us/epoch  %7.2f ns/sample  (assigned %zu)\n",
               name, sec * 1e6, sec / (double)TE * 1e9, sink / ITERATIONS);

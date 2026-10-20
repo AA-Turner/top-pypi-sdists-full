@@ -31,7 +31,7 @@ from matrx_ai.persistence.liveness import (
 )
 from matrx_ai.persistence.registry import register_table
 
-# The outer bound the old code cannot meet (it hangs until cancelled).
+# The outer bound the old code cannot meet (it hangs until canceled).
 _OUTER = 5.0
 
 
@@ -85,11 +85,11 @@ def _wedge(monkeypatch, *, ignore_cancel: bool) -> None:
                 await asyncio.sleep(3600)
             except asyncio.CancelledError:
                 # The FIRST cancel (the deadline's) is swallowed when ignore_cancel;
-                # a later one (loop teardown) is honoured so the test can finish.
+                # a later one (loop teardown) is honored so the test can finish.
                 if not ignore_cancel or swallowed or _released["value"]:
                     raise
                 swallowed += 1
-                # asyncpg cleanup on a dead connection: the cancel is not honoured
+                # asyncpg cleanup on a dead connection: the cancel is not honored
 
     monkeypatch.setattr("matrx_orm.session.flush.execute_tiers", hang)
     monkeypatch.setattr("matrx_orm.session.session.execute_tiers", hang)
@@ -99,7 +99,7 @@ def _wedge(monkeypatch, *, ignore_cancel: bool) -> None:
 def _release_wedged_fakes():
     _released["value"] = False
     yield
-    # Loop teardown cancels leftovers; let the cancel-ignoring fakes honour it.
+    # Loop teardown cancels leftovers; let the cancel-ignoring fakes honor it.
     _released["value"] = True
 
 
@@ -137,7 +137,7 @@ async def test_degrade_drain_on_a_wedged_commit_returns_within_its_bound(monkeyp
 
 @pytest.mark.asyncio
 async def test_background_commit_that_ignores_cancel_still_settles(monkeypatch, capture_sink):
-    """asyncio.wait_for waits for the cancelled flush to finish cancelling — a
+    """asyncio.wait_for waits for the canceled flush to finish canceling — a
     flush that never does would wedge the 'hard deadline' itself."""
     _wedge(monkeypatch, ignore_cancel=True)
     coord = Coordinator()

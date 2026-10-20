@@ -109,7 +109,7 @@ def _normalize_bookmarks(value: Any) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Shared base behaviour (mixin — not a registered content type itself)
+# Shared base behavior (mixin — not a registered content type itself)
 # ---------------------------------------------------------------------------
 
 
@@ -355,6 +355,181 @@ class WebpageInputContent(_StructuredInputBase):
 # ---------------------------------------------------------------------------
 
 
+def _with_source_identity(
+    kind: str,
+    name: str | None,
+    ident: str | None,
+    body: str,
+    *,
+    name_unavailable: str | None = None,
+    **ids: Any,
+) -> str:
+    """Open an attached item with its SOURCE identity: ``<attachment kind name id …>``.
+
+    Every entity a person attaches (note, task, table row/column/cell/table, list
+    item/group/list, agent, project, transcript, app) must reach the model with kind +
+    name + id so it can cite the source by name. Real test PB-05 (2026-10-18,
+    conversation 66273ee6…): a table row arrived as a bare ``id: … | gate: …`` line and a
+    task as an anonymous ``<task>`` block, so the model could only cite them as "pasted in
+    message". A name that could not be read is never a silent ``name=""``: the tag says
+    ``name_unavailable="<why>"`` and a notice is stored with the request.
+    """
+    from html import escape
+
+    attrs: dict[str, str] = {"kind": kind}
+    clean = (name or "").strip()
+    if clean:
+        attrs["name"] = clean
+    else:
+        attrs["name_unavailable"] = name_unavailable or "no name was sent or found"
+    attrs["id"] = (ident or "").strip()
+    attrs.update({k: str(v).strip() for k, v in ids.items() if isinstance(v, str) and v.strip()})
+    rendered = " ".join(f'{k}="{escape(v, quote=True)}"' for k, v in attrs.items())
+    return f"<attachment {rendered}>\n{body}\n</attachment>"
+
+
+async def _source_names(pairs: list[tuple[str, str]]) -> tuple[dict[tuple[str, str], str], str]:
+    """Names for (kind, id) pairs the composer sent nameless: ONE host call, as the person.
+
+    Returns the names found and the reason to show for any pair left without one.
+    """
+    wanted = list(dict.fromkeys((k, i) for k, i in pairs if k and i))
+    if not wanted:
+        return {}, ""
+    from matrx_connect.context.app_context import try_get_app_context
+
+    from matrx_ai._ext import get_source_name_resolver
+
+    resolver = get_source_name_resolver()
+    if resolver is None:
+        return {}, "this host has no name lookup"
+    ctx = try_get_app_context()
+    user_id = (getattr(ctx, "user_id", None) or None) if ctx is not None else None
+    if not user_id:
+        return {}, "no signed-in person to read the name as"
+    try:
+        found = await resolver(wanted, user_id=user_id)
+    except Exception as exc:  # noqa: BLE001 — a name must never sink the attachment
+        return {}, f"name lookup failed ({type(exc).__name__})"
+    return dict(found or {}), "the name is not readable by this person"
+
+
+def _notice_missing_names(missing: list[tuple[str, str]], reason: str) -> None:
+    """Store ONE notice for the attachment set's nameless items (kind + id kept in the tag)."""
+    if not missing:
+        return
+    from matrx_ai.processing.media_fallback.handler import stage_media_notice
+
+    listed = ", ".join(f"{k} {i}" for k, i in missing)
+    stage_media_notice(
+        {
+            "media_kind": "reference",
+            "action": "converted",
+            "user_message": f"{len(missing)} attachment(s) reached the model without a name: {reason}.",
+            "system_message": f"source name unavailable ({reason}): {listed}",
+        }
+    )
+
+
+#: Bookmark ``type`` → (name hint key, the item's own id key). The ids/name hints are the
+#: wire bookmark's own fields (``*_name`` display hints ride every composer bookmark).
+_BOOKMARK_IDENTITY: dict[str, tuple[str, str]] = {
+    "full_table": ("table_name", "table_id"),
+    "table_schema": ("table_name", "table_id"),
+    "table_column": ("table_name", "column_name"),
+    "table_row": ("table_name", "row_id"),
+    "table_cell": ("table_name", "row_id"),
+    "full_list": ("list_name", "list_id"),
+    "list_group": ("list_name", "group_name"),
+    "list_item": ("list_name", "item_id"),
+}
+
+
+@dataclass
+class _PendingIdentity:
+    """A rendered note/task waiting for its source identity (see ``_finish_identities``)."""
+
+    kind: str
+    name: Any
+    ident: Any
+    body: str
+
+
+async def _finish_identities(parts: list[Any]) -> list[str]:
+    """Open every pending note/task with its identity; nameless ones are named by ONE
+    batched host read for the set. Failure notices (plain strings) pass through."""
+    pending = [p for p in parts if isinstance(p, _PendingIdentity)]
+    nameless = [(p.kind, str(p.ident or "")) for p in pending if not str(p.name or "").strip()]
+    names, reason = await _source_names(nameless)
+    missing: list[tuple[str, str]] = []
+    out: list[str] = []
+    for part in parts:
+        if not isinstance(part, _PendingIdentity):
+            out.append(part)
+            continue
+        name = str(part.name or "").strip() or names.get((part.kind, str(part.ident or "")), "")
+        if not name:
+            missing.append((part.kind, str(part.ident or "")))
+        out.append(
+            _with_source_identity(
+                part.kind, name, part.ident, part.body, name_unavailable=None if name else reason
+            )
+        )
+    _notice_missing_names(missing, reason)
+    return out
+
+
+_LIST_BOOKMARKS = frozenset({"full_list", "list_group", "list_item"})
+
+
+async def _resolve_bookmarks_with_identity(
+    resolve_bookmarks: Any, bookmarks: list[dict[str, Any]], *, user_id: str | None
+) -> list[str]:
+    """Resolve each bookmark on its own and open it with its source identity.
+
+    A bookmark without its ``table_name`` / ``list_name`` hint is named by ONE batched
+    host read for the whole set (never one per item)."""
+    def _owner(bookmark: dict[str, Any]) -> tuple[str, str]:
+        if str(bookmark.get("type") or "") in _LIST_BOOKMARKS:
+            return "list", str(bookmark.get("list_id") or "")
+        return "table", str(bookmark.get("table_id") or "")
+
+    nameless = [
+        _owner(b)
+        for b in bookmarks
+        if not str(b.get(_BOOKMARK_IDENTITY.get(str(b.get("type") or ""), ("table_name", ""))[0]) or "").strip()
+    ]
+    names, reason = await _source_names(nameless)
+    parts: list[str] = []
+    missing: list[tuple[str, str]] = []
+    for bookmark in bookmarks:
+        resolved = await resolve_bookmarks([bookmark], user_id=user_id)
+        if not resolved:
+            continue
+        kind = str(bookmark.get("type") or "table")
+        name_key, id_key = _BOOKMARK_IDENTITY.get(kind, ("table_name", "row_id"))
+        name = str(bookmark.get(name_key) or "").strip() or names.get(_owner(bookmark), "")
+        if not name:
+            missing.append((kind, str(bookmark.get(id_key) or "")))
+        extra = {
+            k: bookmark.get(k)
+            for k in ("table_id", "list_id", "column_name", "group_name")
+            if k != id_key
+        }
+        parts.append(
+            _with_source_identity(
+                kind,
+                name,
+                bookmark.get(id_key),
+                "\n".join(resolved),
+                name_unavailable=None if name else reason,
+                **extra,
+            )
+        )
+    _notice_missing_names(missing, reason)
+    return parts
+
+
 def _resource_failure_xml(tag: str, identifier: str, reason: str) -> str:
     return (
         f'<{tag} id="{identifier}" status="failed">\n'
@@ -462,7 +637,9 @@ class NotesInputContent(_StructuredInputBase):
         for ref in refs:
             if ref.mode == "snapshot" and ref.has_inline_content:
                 snapshot = _canonical_snapshot_body(ref.inline, "content")
-                parts.append(render_note_snapshot_xml(snapshot, template=self.template))
+                parts.append(
+                    _PendingIdentity("note", snapshot.get("label") or snapshot.get("title"), snapshot.get("id") or ref.id, render_note_snapshot_xml(snapshot, template=self.template))
+                )
                 continue
             if not ref.id:
                 reason = "no usable note id and no inline content"
@@ -483,7 +660,9 @@ class NotesInputContent(_StructuredInputBase):
                         color="yellow",
                     )
             if rec:
-                parts.append(render_note_snapshot_xml(rec, template=self.template))
+                parts.append(
+                    _PendingIdentity("note", rec.get("label") or rec.get("title"), rec.get("id") or ref.id, render_note_snapshot_xml(rec, template=self.template))
+                )
             else:
                 reason = "not found or not readable"
                 vcprint(
@@ -500,6 +679,7 @@ class NotesInputContent(_StructuredInputBase):
                 + "; ".join(f"{f['ref'] or '<no id>'} ({f['reason']})" for f in failures)
             )
 
+        parts = await _finish_identities(parts)
         if parts:
             if self.editable is False:
                 parts.append(_read_only_notice_xml("note"))
@@ -584,7 +764,9 @@ class TaskInputContent(_StructuredInputBase):
         for ref in refs:
             if ref.mode == "snapshot" and ref.has_inline_content:
                 snapshot = _canonical_snapshot_body(ref.inline, "description")
-                parts.append(render_task_snapshot_xml(snapshot, template=self.template))
+                parts.append(
+                    _PendingIdentity("task", snapshot.get("title"), snapshot.get("id") or ref.id, render_task_snapshot_xml(snapshot, template=self.template))
+                )
                 continue
             if not ref.id:
                 reason = "no usable task id and no inline content"
@@ -603,7 +785,9 @@ class TaskInputContent(_StructuredInputBase):
                         color="yellow",
                     )
             if rec:
-                parts.append(render_task_snapshot_xml(rec, template=self.template))
+                parts.append(
+                    _PendingIdentity("task", rec.get("title"), rec.get("id") or ref.id, render_task_snapshot_xml(rec, template=self.template))
+                )
             else:
                 reason = "not found or not readable"
                 vcprint(f"[TaskInputContent] Task not readable: {ref.id!r}", color="yellow")
@@ -618,6 +802,7 @@ class TaskInputContent(_StructuredInputBase):
                 + "; ".join(f"{f['ref'] or '<no id>'} ({f['reason']})" for f in failures)
             )
 
+        parts = await _finish_identities(parts)
         if parts:
             if self.editable is False:
                 parts.append(_read_only_notice_xml("task"))
@@ -697,7 +882,9 @@ class TableInputContent(_StructuredInputBase):
         _ctx = try_get_app_context()
         user_id = (_ctx.user_id or None) if _ctx is not None else None
 
-        parts = await resolve_bookmarks(list(self.bookmarks), user_id=user_id)
+        parts = await _resolve_bookmarks_with_identity(
+            resolve_bookmarks, list(self.bookmarks), user_id=user_id
+        )
         if parts:
             self.metadata["resolved_text"] = "\n".join(parts)
 
@@ -771,7 +958,9 @@ class ListInputContent(_StructuredInputBase):
         _ctx = try_get_app_context()
         user_id = (_ctx.user_id or None) if _ctx is not None else None
 
-        parts = await resolve_bookmarks(list(self.bookmarks), user_id=user_id)
+        parts = await _resolve_bookmarks_with_identity(
+            resolve_bookmarks, list(self.bookmarks), user_id=user_id
+        )
         if parts:
             self.metadata["resolved_text"] = "\n".join(parts)
 
@@ -895,6 +1084,26 @@ class ContextInputContent(_StructuredInputBase):
 # ---------------------------------------------------------------------------
 
 
+async def _identified_record_fences(kind: str, ids: list[str]) -> str:
+    """Each record id opens with its source identity around its own reference fence.
+
+    Names come from ONE batched host read for the whole set, as the person; the fence
+    itself stays for the host's reference resolver (it is swapped at send time)."""
+    names, reason = await _source_names([(kind, rid) for rid in ids])
+    missing = [(kind, rid) for rid in ids if not names.get((kind, rid))]
+    _notice_missing_names(missing, reason)
+    return "\n".join(
+        _with_source_identity(
+            kind,
+            names.get((kind, rid)),
+            rid,
+            _record_reference_fence(kind, [rid]),
+            name_unavailable=None if names.get((kind, rid)) else reason,
+        )
+        for rid in ids
+    )
+
+
 def _record_reference_fence(resource_type: str, ids: list[str]) -> str:
     """Serialize record ids as the canonical persisted/in-content reference shape.
 
@@ -945,8 +1154,9 @@ class _RecordReferenceInputContent(_StructuredInputBase):
 
     async def resolve(self) -> None:
         ids = self._ids()
-        if ids:
-            self.metadata["resolved_text"] = _record_reference_fence(self._resource_type, ids)
+        if not ids:
+            return
+        self.metadata["resolved_text"] = await _identified_record_fences(self._resource_type, ids)
 
     def to_storage_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -1035,7 +1245,7 @@ class WorkbookInputContent(_StructuredInputBase):
         if ids:
             self.metadata["resolved_text"] = "\n".join(
                 (
-                    _record_reference_fence("workbook", ids),
+                    await _identified_record_fences("workbook", ids),
                     _content_tool_instruction("workbook", ids, self.editable),
                 )
             )
@@ -1080,7 +1290,7 @@ class DocumentInputContent(_StructuredInputBase):
             self.metadata["resolved_text"] = "\n".join(
                 (
                     # the cloud document (udt_document); bare "document" is the markdown document
-                    _record_reference_fence("udt_document", ids),
+                    await _identified_record_fences("udt_document", ids),
                     _content_tool_instruction("document", ids, self.editable),
                 )
             )

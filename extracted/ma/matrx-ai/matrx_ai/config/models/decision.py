@@ -1,7 +1,7 @@
 """Pydantic twins for the decision modality's two content blocks.
 
 Shadowed, not swapped — the dataclasses in
-``matrx_ai.config.decision_input_config`` still own behaviour, exactly like
+``matrx_ai.config.decision_input_config`` still own behavior, exactly like
 every other twin here.
 
 These two are the easiest twins in the set, and for a reason worth recording:

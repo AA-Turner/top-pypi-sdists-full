@@ -84,6 +84,49 @@ async def _load_sticky_toolset(conversation_id: str) -> tuple[list[str], dict[st
     return names, (dict(sources) if isinstance(sources, dict) else {})
 
 
+async def _load_tool_declaration_record(conversation_id: str) -> dict[str, Any] | None:
+    """The conversation row's ``config.tool_declarations`` (the provider tools
+    array as last sent, by whichever server sent it). One primary-key read. A
+    failed read is said out loud and degrades to this server's own copy."""
+    from matrx_ai.client_host import get_conversation_store
+
+    try:
+        store = get_conversation_store()
+        if store is not None:
+            data = await store.get_conversation_config(conversation_id) or {}
+            cfg = data.get("config") if isinstance(data.get("config"), dict) else data
+        else:
+            from matrx_ai.db import cxm
+
+            row = await cxm.conversation.load_conversation_by_id(conversation_id)
+            cfg = getattr(row, "config", None) or {}
+    except Exception as exc:  # noqa: BLE001 — the turn still runs on this server's record
+        vcprint(
+            f"[ConversationResolver] could not read the tool-declaration record of "
+            f"{conversation_id}: {type(exc).__name__}: {exc} — this turn uses this server's copy",
+            color="red",
+        )
+        return None
+    record = cfg.get("tool_declarations") if isinstance(cfg, dict) else None
+    return record if isinstance(record, dict) else None
+
+
+async def _adopt_newer_tool_record(config: UnifiedConfig, conversation_id: str) -> None:
+    """THE CACHE LINE LAW across servers (adversarial I1, 2026-10-18).
+
+    A config this server holds (process cache hit, or a Holder-built responder
+    config) carries the tools array as of the last turn THIS server ran. When
+    another server appended a tool since, the row's record has a higher
+    ``seq``; sending the stale array would shrink the cached tools head. The
+    newer record wins, per provider, before the turn's first send."""
+    stored = await _load_tool_declaration_record(conversation_id)
+    if not stored:
+        return
+    from matrx_ai.tools.declaration_ledger import newer_record
+
+    config.tool_declarations = newer_record(getattr(config, "tool_declarations", None), stored)
+
+
 async def _load_persisted_messages(conversation_id: str) -> list[UnifiedMessage]:
     """Load only the canonical rebuilt message projection for a continuation.
 
@@ -135,6 +178,7 @@ class ConversationResolver:
         responder_mandate_key: str | None = None,
         responder_variables: dict[str, Any] | None = None,
         model_this_turn_only: bool = False,
+        responder_held_prompt: dict[str, Any] | None = None,
     ) -> UnifiedConfig:
         """Return a UnifiedConfig ready for execution.
 
@@ -186,6 +230,16 @@ class ConversationResolver:
             # Always filled before the config leaves the Agent (no values still
             # means defaults, escapes, sections and blocks).
             await responder.run_first_turn_pass()
+            # The Holder's fingerprint is taken from its AUTHORED template (kept
+            # by the fill as ``_authored_template``), so per-turn framing values
+            # never make the Holder look changed.
+            holder_fp = (
+                live_structure.holder_fingerprint(
+                    responder_agent_id, responder_is_version, responder.config
+                )
+                if responder_mandate_key
+                else None
+            )
             config = deepcopy(responder.config)
             # THE TURN CARRIES THE MARKER TOO. The row is the primary record
             # that this conversation is mandate-held; this is the second layer,
@@ -195,6 +249,10 @@ class ConversationResolver:
             # is not mandate-held and must keep freezing normally.
             if responder_mandate_key:
                 config.responder_mandate_key = str(responder_mandate_key)
+                # THE CACHE LINE LAW ON A HELD ROW: the system text this turn
+                # sends is settled at the send boundary against the row's frozen
+                # copy (``send_boundary._settle_held_prompt``).
+                config.held_prompt = {"holder": holder_fp, "stored": responder_held_prompt}
             # The conversation's sticky toolset is the conversation's, not the Holder's.
             sticky_names, sticky_sources = await _load_sticky_toolset(conversation_id)
             if sticky_names:
@@ -214,6 +272,16 @@ class ConversationResolver:
                 ) from exc
             config.messages.clear()
             config.messages.extend(deepcopy(persisted_messages))
+            await _adopt_newer_tool_record(config, conversation_id)
+            if responder_mandate_key:
+                # The held system text keeps the framing values its first turn
+                # rendered; the CURRENT ones (clock, channel, timezone…) ride
+                # the turn context, after the cache line.
+                turn_values = live_structure.render_turn_values(responder_variables)
+                if turn_values:
+                    config.messages.attach_turn_context(
+                        turn_values, slot=live_structure.TURN_VALUES_SLOT
+                    )
             return await ConversationResolver._finish(
                 config,
                 conversation_id=conversation_id,
@@ -255,6 +323,9 @@ class ConversationResolver:
                 ) from exc
             config.messages.clear()
             config.messages.extend(deepcopy(persisted_messages))
+            # The tools array is fenced the same way: the row's record wins
+            # when another server sent a newer one.
+            await _adopt_newer_tool_record(config, conversation_id)
         else:
             vcprint(
                 f"[ConversationResolver] Cache miss — loading from DB: {conversation_id}",
@@ -348,6 +419,7 @@ class ConversationResolver:
                     responder_is_version=live_is_version,
                     responder_mandate_key=source.mandate_key,
                     responder_variables=responder_variables,
+                    responder_held_prompt=source.held_prompt,
                 )
             vcprint(
                 f"[ConversationResolver] {conversation_id} is marked mandate-held but "
@@ -506,7 +578,7 @@ class ConversationResolver:
             # step, the numbers and the remedy.
             raise
         except Exception as prep_exc:
-            # Prompt shaping is an optimisation — never let it break the run.
+            # Prompt shaping is an optimization — never let it break the run.
             vcprint(
                 f"[ConversationResolver] send-boundary prep failed (ignored): {prep_exc}",
                 color="red",
@@ -629,7 +701,7 @@ class AgentConfigResolver:
         ``context_policies`` is the agent-defined list of ContextPolicy descriptors
         used by the deferred context system. ``auto_context_disabled`` is the
         agent's context kill switch, returned alongside them because a caller
-        that applies the policies without honouring the switch would silently
+        that applies the policies without honoring the switch would silently
         deliver context the agent declared it does not want. Raises
         HTTPException(404) if the agent cannot be found.
         """

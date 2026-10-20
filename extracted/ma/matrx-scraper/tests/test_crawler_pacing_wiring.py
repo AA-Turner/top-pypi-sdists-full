@@ -1,6 +1,6 @@
 """The pacing ruling, wired into a real crawl — not just the policy unit.
 
-`test_host_pacing.py` pins the DECISION (detect, honour robots, climb, back off).
+`test_host_pacing.py` pins the DECISION (detect, honor robots, climb, back off).
 This file pins that a `SiteCrawler` actually consumes it: that a crawl opens at
 the plan's rate rather than at `host_rps`, that the rate it reports is the rate
 the limiter enforces, that a 429 still teaches the other lanes, and that what a

@@ -52,9 +52,11 @@ def _assert_admin(ctx: ToolContext) -> ToolError | None:
         app_ctx = get_app_context()
     except Exception:
         return _ADMIN_ERR
-    from matrx_connect import admin_surface_active
+    # Admin REACH for a person acting from the admin system: the admin app's agent runs ride the
+    # verified admin-lane header, not an admin-mounted route (same signal as kind_shared.ctx_is_admin).
+    from matrx_connect import admin_lane_active
 
-    if not admin_surface_active(app_ctx):
+    if not admin_lane_active(app_ctx, user_id=getattr(app_ctx, "user_id", None)):
         return _ADMIN_ERR
     return None
 

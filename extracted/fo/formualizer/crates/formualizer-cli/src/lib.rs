@@ -1,19 +1,82 @@
 //! Shared command implementation. Arguments include the program name.
 //! No signal handlers, TTY assumptions or process exits occur here.
 use chrono::{DateTime, FixedOffset, Local, SecondsFormat, Utc};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use formualizer_eval::{engine::DeterministicMode, timezone::TimeZoneSpec};
 pub use formualizer_workbook::CancelToken;
 use formualizer_workbook::{
-    IoError, XlsxRecalculateOptions, XlsxRecalculateResult, recalculate_xlsx_bytes,
-    recalculate_xlsx_file,
+    ExternalLinkPolicy, IoError, XlsxRecalculateOptions, XlsxRecalculateResult,
+    recalculate_xlsx_bytes, recalculate_xlsx_file,
 };
 use serde::Serialize;
 use std::{
     ffi::OsString,
     io::{Read, Write},
     path::PathBuf,
+    sync::Once,
 };
+
+thread_local! {
+    /// Location of the latest panic on this thread, recorded by the hook that
+    /// [`catch_internal_panic`] installs (the panic payload carries no
+    /// location). Per thread, so a panic elsewhere in the process (another
+    /// Python thread calling `run`, a rayon worker) cannot overwrite it.
+    static LAST_PANIC: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+static PANIC_HOOK: Once = Once::new();
+
+/// Runs `f`, turning a panic into the CLI's internal-error result
+/// (`status: "error"`, exit 1) with a message that names the panic location.
+///
+/// The location is the one the hook recorded on this thread. A panic on a
+/// worker thread (a rayon task) is recorded on that worker; rayon re-raises
+/// its payload on this thread with `resume_unwind`, which does not run the
+/// hook, so the message then carries the payload and says the location was
+/// on another thread. The previous hook still runs (and prints) for every
+/// panic.
+/// A last resort: the panics themselves are bugs to fix. It needs
+/// `panic = "unwind"`, which the release profile keeps (Cargo's default); on
+/// a `panic = "abort"` build the process still aborts.
+fn catch_internal_panic<T>(f: impl FnOnce() -> Result<T, IoError>) -> Result<T, IoError> {
+    PANIC_HOOK.call_once(|| {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let location = info
+                .location()
+                .map_or_else(|| "unknown location".to_owned(), ToString::to_string);
+            // `try_with`: a panic during thread teardown has no slot left.
+            let _ = LAST_PANIC.try_with(|last| {
+                if let Ok(mut last) = last.try_borrow_mut() {
+                    *last = Some(location);
+                }
+            });
+            previous(info);
+        }));
+    });
+    // A location left by an earlier, already handled panic on this thread
+    // must not be reported for this one.
+    LAST_PANIC.with(|last| last.borrow_mut().take());
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|payload| {
+        let message = payload
+            .downcast_ref::<&str>()
+            .map(|s| (*s).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "non-string panic payload".to_owned());
+        let location = LAST_PANIC
+            .with(|last| last.borrow_mut().take())
+            .unwrap_or_else(|| "a location on another thread".to_owned());
+        Err(IoError::Backend {
+            backend: "formualizer".to_owned(),
+            message: format!("internal error: panicked at {location}: {message}"),
+        })
+    })
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Makes the next `run` panic inside the guarded region (tests only).
+    static INJECT_PANIC: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 
 const SCHEMA: &str = "formualizer.recalc/1";
 const DEFAULT_MAX_ERRORS: usize = 20;
@@ -24,6 +87,11 @@ caches stale.
 
 RAND/RANDBETWEEN are reproducible run to run. Without --now, TODAY/NOW use
 the host clock (local time unless --tz).
+
+External links are never refreshed. By default formulas read the values
+Excel cached in the workbook for them, and the report says so. With
+--external-links refuse, a workbook whose formulas read any of those values
+is refused (exit 2) after calculation instead; nothing is written.
 
 Exit codes:
   0    written, unchanged or current
@@ -71,8 +139,27 @@ enum Command {
         /// RAND/RANDBETWEEN seed [default: built-in seed]
         #[arg(long, value_name = "U64")]
         seed: Option<u64>,
+        /// Read the external link values cached in the workbook, or refuse (exit 2)
+        #[arg(long, value_name = "POLICY", value_enum, default_value_t = LinkPolicyArg::Cached)]
+        external_links: LinkPolicyArg,
     },
 }
+/// `--external-links`: links are never refreshed under either policy.
+#[derive(Clone, Copy, ValueEnum)]
+enum LinkPolicyArg {
+    Cached,
+    Refuse,
+}
+impl LinkPolicyArg {
+    fn policy(self) -> ExternalLinkPolicy {
+        match self {
+            LinkPolicyArg::Cached => ExternalLinkPolicy::Cached,
+            LinkPolicyArg::Refuse => ExternalLinkPolicy::Refuse,
+        }
+    }
+}
+/// The refusal feature `refuse` reports when a formula reads a link value.
+const EXTERNAL_LINK_VALUES: &str = "external link values";
 #[derive(Serialize)]
 struct ErrorCell {
     sheet: String,
@@ -104,6 +191,18 @@ struct Clock {
     /// True when the instant came from `--now`.
     fixed: bool,
 }
+/// External link values the calculation read: always the values Excel last
+/// stored in the workbook, never refreshed from the linked files.
+#[derive(Serialize)]
+struct ExternalLinks {
+    /// Links whose cached values a formula or used defined name read.
+    links_used: usize,
+    /// Always false: links are never refreshed.
+    refreshed: bool,
+    /// The `--external-links` policy applied: always `cached` here, since
+    /// `refuse` refuses instead of reading link values.
+    policy: &'static str,
+}
 #[derive(Serialize)]
 struct Report {
     schema: &'static str,
@@ -121,6 +220,9 @@ struct Report {
     refusal: Option<Refusal>,
     clock: Option<Clock>,
     seed: Option<u64>,
+    /// Present only when a computed run read cached external link values.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    external_links: Option<ExternalLinks>,
     message: String,
 }
 impl Report {
@@ -141,6 +243,7 @@ impl Report {
             refusal: None,
             clock: None,
             seed: None,
+            external_links: None,
             message,
         }
     }
@@ -149,6 +252,11 @@ impl Report {
         self.cache_cells_changed = Some(result.cache_cells_changed);
         self.worksheet_parts_changed = Some(result.worksheet_parts_changed);
         self.error_cells = Some(result.summary.errors);
+        self.external_links = (result.external_links_used > 0).then_some(ExternalLinks {
+            links_used: result.external_links_used,
+            refreshed: false,
+            policy: "cached",
+        });
         let errors: Vec<_> = result
             .summary
             .error_summary
@@ -346,10 +454,12 @@ where
         now,
         tz,
         seed,
+        external_links,
     } = cli.command;
     let mut options = XlsxRecalculateOptions {
         cancel: cancel.clone(),
         error_location_limit: max_errors,
+        external_links: external_links.policy(),
         ..Default::default()
     };
     // No flags leave the default configuration (system clock, local time,
@@ -374,7 +484,11 @@ where
     let zone = options.eval_config.deterministic_mode.timezone().clone();
     let zone = &zone;
     let seed = options.eval_config.workbook_seed;
-    let result = (|| -> Result<XlsxRecalculateResult, IoError> {
+    let result = catch_internal_panic(|| -> Result<XlsxRecalculateResult, IoError> {
+        #[cfg(test)]
+        if INJECT_PANIC.with(|inject| inject.replace(false)) {
+            panic!("injected test panic");
+        }
         if cancel.as_ref().is_some_and(CancelToken::is_cancelled) {
             return Err(IoError::Engine(formualizer_common::ExcelError::new(
                 formualizer_common::ExcelErrorKind::Cancelled,
@@ -400,7 +514,7 @@ where
         } else {
             recalculate_xlsx_file(&input, output.as_deref(), options)
         }
-    })();
+    });
     let mut report = Report::new("error", String::new());
     report.input = Some(input.to_string_lossy().into_owned());
     report.output = if check {
@@ -482,12 +596,26 @@ where
                     "\nunknown functions (cells produce #NAME?): {unknown}"
                 ));
             }
+            if let Some(links) = &report.external_links {
+                report.message.push_str(&format!(
+                    "\nexternal links: used the values cached in the workbook for {} link{} (not refreshed)",
+                    links.links_used,
+                    if links.links_used == 1 { "" } else { "s" }
+                ));
+            }
             code
         }
         Err(error) => {
             let (status, code) = classify(&error);
             report.status = status;
             report.message = format!("{}: {error}. Nothing was written.", input.display());
+            if let IoError::Unsupported { feature, .. } = &error
+                && feature == EXTERNAL_LINK_VALUES
+            {
+                report
+                    .message
+                    .push_str(" Pass --external-links cached to recalculate with them.");
+            }
             if let IoError::Unsupported { feature, context } = error {
                 report.refusal = Some(Refusal { feature, context });
             }
@@ -500,6 +628,71 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn run_with_injected_panic(json: bool) -> (i32, String, String) {
+        INJECT_PANIC.with(|inject| inject.set(true));
+        let mut args = vec!["formualizer", "recalc", "in.xlsx"];
+        if json {
+            args.push("--json");
+        }
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        let code = run(args, &mut out, &mut err, None);
+        (
+            code,
+            String::from_utf8(out).unwrap(),
+            String::from_utf8(err).unwrap(),
+        )
+    }
+
+    /// A panic on a worker thread, re-raised on the caller with its payload
+    /// the way rayon does: the message keeps the payload, does not borrow a
+    /// location from another thread, and the worker's own record is its own.
+    #[test]
+    fn a_worker_panic_reraised_on_the_caller_reports_its_payload() {
+        // An unrelated panic on another thread first: it must not leak in.
+        let _ = std::thread::spawn(|| {
+            let _ = catch_internal_panic::<()>(|| panic!("unrelated"));
+        })
+        .join();
+        let result = catch_internal_panic::<()>(|| {
+            let payload = std::thread::spawn(|| panic!("worker failed"))
+                .join()
+                .unwrap_err();
+            std::panic::resume_unwind(payload)
+        });
+        let message = result.unwrap_err().to_string();
+        assert!(message.contains("worker failed"), "{message}");
+        assert!(
+            message.contains("a location on another thread"),
+            "{message}"
+        );
+        assert!(!message.contains("unrelated"), "{message}");
+
+        // On the calling thread itself the location is recorded.
+        let message = catch_internal_panic::<()>(|| panic!("here"))
+            .unwrap_err()
+            .to_string();
+        assert!(message.contains(file!()), "{message}");
+    }
+
+    #[test]
+    fn a_panic_is_the_internal_error_result_with_its_location() {
+        let (code, out, _) = run_with_injected_panic(true);
+        assert_eq!(code, 1);
+        let report: serde_json::Value = serde_json::from_str(out.trim()).unwrap();
+        assert_eq!(report["schema"], "formualizer.recalc/1");
+        assert_eq!(report["status"], "error");
+        assert_eq!(report["written"], false);
+        let message = report["message"].as_str().unwrap();
+        assert!(message.contains("internal error: panicked at"), "{message}");
+        assert!(message.contains(file!()), "{message}");
+        assert!(message.contains("injected test panic"), "{message}");
+
+        let (code, out, err) = run_with_injected_panic(false);
+        assert_eq!(code, 1);
+        assert!(out.is_empty());
+        assert!(err.contains("internal error: panicked at"), "{err}");
+    }
     #[test]
     fn structured_error_classification() {
         use formualizer_common::{ExcelError, ExcelErrorKind};

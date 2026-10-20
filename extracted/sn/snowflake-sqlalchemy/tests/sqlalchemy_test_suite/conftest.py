@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 #
 
+import snowflake.connector
 import sqlalchemy.testing.config
 from sqlalchemy import util
 from sqlalchemy.dialects import registry
@@ -13,9 +14,7 @@ from sqlalchemy.testing.plugin.pytestplugin import (
     pytest_sessionstart as _pytest_sessionstart,
 )
 
-import snowflake.connector
 from snowflake.sqlalchemy import URL
-from snowflake.sqlalchemy.compat import IS_VERSION_20
 from tests.conftest import _without_blocked_query_params, get_db_parameters
 from tests.util import random_string
 
@@ -23,12 +22,6 @@ registry.register("snowflake", "snowflake.sqlalchemy", "dialect")
 registry.register("snowflake.snowflake", "snowflake.sqlalchemy", "dialect")
 TEST_SCHEMA = f"test_schema_{random_string(5)}"
 TEST_SCHEMA_2 = f"{TEST_SCHEMA}_2"
-
-
-if IS_VERSION_20:
-    collect_ignore_glob = ["test_suite.py"]
-else:
-    collect_ignore_glob = ["test_suite_20.py"]
 
 
 # patch sqlalchemy.testing.config.Confi.__init__ for schema name randomization
@@ -52,7 +45,7 @@ sqlalchemy.testing.config.Config.__init__ = config_patched__init__
 
 def pytest_sessionstart(session):
     db_parameters = get_db_parameters()
-    # Build the compliance-suite dburi on the default, strict code path:
+    # Build the compliance-suite dburi on the default, hardened code path:
     # connector-only parameters (e.g. protocol) are not carried in the URL query
     # string.  ``snowflake.connector.connect`` below still receives the full set.
     # ``render_as_string(hide_password=False)`` is required because ``str(URL)``
@@ -73,5 +66,5 @@ def pytest_sessionfinish(session):
     db_parameters = get_db_parameters()
     with snowflake.connector.connect(**db_parameters) as con:
         con.cursor().execute(f"DROP SCHEMA IF EXISTS {db_parameters['schema']}")
-        con.cursor().execute(f"DROP SCHEMA IF EXISTS f{TEST_SCHEMA}")
+        con.cursor().execute(f"DROP SCHEMA IF EXISTS {TEST_SCHEMA}")
     _pytest_sessionfinish(session)

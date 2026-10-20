@@ -35,6 +35,7 @@ jobs:
       HEADER_EMBEDDING_API_KEY_VOYAGEAI: ${{ secrets.HEADER_EMBEDDING_API_KEY_VOYAGEAI }}
       LEGACY_INSERTMANY_BEHAVIOUR_PRE2193: ${{ secrets.LEGACY_INSERTMANY_BEHAVIOUR_PRE2193 }}
       FIND_PAGE_SIZE: ${{ secrets.FIND_PAGE_SIZE }}
+      TABLE_FIND_PAGE_SIZE: ${{ secrets.TABLE_FIND_PAGE_SIZE }}
 
   local_it:
     uses: ./.github/workflows/local.yml
@@ -72,23 +73,21 @@ jobs:
     steps:
       - name: Checkout code
         if: ${{ github.event.action != 'closed' }}
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           # needed to retrieve the parents of the merge commit (hence the base commit on main)
           fetch-depth: 2
 
-      - name: Set up Python
+      - name: Set up Python + uv
         if: ${{ github.event.action != 'closed' }}
-        uses: actions/setup-python@v2
+        uses: "./.github/actions/uv_setup"
         with:
-          python-version: 3.11
+          python-version: "3.11"
 
       - name: Install dependencies
         if: ${{ github.event.action != 'closed' }}
-        run: |
-          python -m pip install --upgrade pip
-          pipx install uv
-          make venv
+        run: uv sync --dev
+        shell: bash
 
       - name: Download all coverage artifacts from this run
         if: ${{ github.event.action != 'closed' }}
@@ -115,7 +114,7 @@ jobs:
         with:
           name: coverage-json-push-${{ github.sha }}
           path: coverage.json
-          retention-days: 30
+          retention-days: 90
 
       - name: produce coverage HTML report
         if: ${{ github.event.action != 'closed' }}
@@ -129,7 +128,7 @@ jobs:
         uses: actions/upload-artifact@v4
         id: upload_html
         with:
-          name: coverage-html-report-${{ inputs.sha }}
+          name: coverage-html-report-${{ github.sha }}
           path: htmlcov
           retention-days: 7
           include-hidden-files: true

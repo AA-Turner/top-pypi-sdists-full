@@ -271,7 +271,7 @@ class ToolTraceIncidentReport(KindModel):
         "priority": "medium",
         "status": "new",
         "admin_decision": "pending",
-        "ai_assessment": "The VFS branch does not honour the paging arguments.",
+        "ai_assessment": "The VFS branch does not honor the paging arguments.",
         "ai_solution_proposal": "Thread offset/limit through vfs_filesystem.read.",
         "ai_complexity": "small",
         "ai_estimated_files": 1,

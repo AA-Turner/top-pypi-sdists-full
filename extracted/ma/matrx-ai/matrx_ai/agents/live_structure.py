@@ -72,6 +72,27 @@ HOLDER_OWNED_CONFIG_KEYS = (
     "authored_tools",
     "custom_tools",
 )
+#: 🚨 THE CACHE LINE LAW ON A HELD ROW (Arman, 2026-10-16): "NOTHING, other
+#: than the removal of LARGE tool outputs should ever modify text behind the
+#: cache line." Re-resolving the LIVE Holder every turn is right for the belt,
+#: the model and a rebound mandate — but re-rendering its SYSTEM TEXT every turn
+#: put the per-turn framing values (``local_datetime``, ``channel``…) and a
+#: freshly rebuilt org catalog in front of the whole cached history: thread
+#: 3af9e95c sent a 144,074-byte system block with a different sha256 on EVERY
+#: turn of 2026-10-03. The held system text is therefore rendered ONCE and kept
+#: here, in the row's config blob (the ``system_instruction`` column on a held
+#: row is last week's Holder and is never the authority), with the two
+#: fingerprints that are allowed to change it: the Holder itself (agent,
+#: authored template, model, belt) and the org catalog. Anything else that
+#: differs between turns is per-turn framing; its CURRENT value rides the turn
+#: context (``render_turn_values``), after the cache line. Enforced at the send
+#: boundary (``send_boundary._settle_held_prompt``); a fingerprint change is a
+#: deliberate, LOUD cache break (``cache_guard.deliberate_cache_break``).
+HELD_PROMPT_KEY = "held_system_prompt"
+
+#: The turn-context slot the per-turn framing values travel in.
+TURN_VALUES_SLOT = "turn_values"
+
 # NOT here: ``dynamic_tools`` / ``dynamic_tool_sources``. They are the CONVERSATION's sticky
 # toolset (tools a surface, compute target, attached context or opened bundle added during
 # this conversation), not the Holder's belt, so persistence keeps them and the resolver lays
@@ -89,6 +110,8 @@ class StructureSource:
     named_is_version: bool
     user_id: str | None
     organization_id: str | None
+    #: The held system text frozen on the row (``HELD_PROMPT_KEY``), if any.
+    held_prompt: dict[str, Any] | None = None
 
 
 #: ``(mandate_key, user_id, organization_id) -> agent_definition_id | None``
@@ -149,7 +172,7 @@ async def read_structure_source(conversation_id: str) -> StructureSource | None:
 
     Returns ``None`` for a client-host store (which owns its own configuration)
     and for any read failure — a rescue that cannot read must degrade to the
-    behaviour it was rescuing, never take the turn down with it.
+    behavior it was rescuing, never take the turn down with it.
     """
     from matrx_ai.client_host import get_conversation_store
 
@@ -192,6 +215,63 @@ async def read_structure_source(conversation_id: str) -> StructureSource | None:
         named_is_version=named_is_version,
         user_id=str(created_by) if created_by else None,
         organization_id=str(org_id) if org_id else None,
+        held_prompt=_valid_held_prompt(config.get(HELD_PROMPT_KEY)),
+    )
+
+
+def _valid_held_prompt(value: Any) -> dict[str, Any] | None:
+    if isinstance(value, dict) and isinstance(value.get("text"), str) and value.get("text"):
+        return dict(value)
+    return None
+
+
+def _digest(*parts: Any) -> str:
+    import hashlib
+    import json
+
+    blob = json.dumps(parts, sort_keys=True, default=str)
+    return hashlib.sha256(blob.encode("utf-8", "replace")).hexdigest()[:32]
+
+
+def holder_fingerprint(agent_id: str | None, is_version: bool, config: Any) -> str:
+    """What makes the Holder ITSELF a different Holder: which agent, its AUTHORED
+    system template (the text before any variable was filled — per-turn framing
+    values are not the Holder; ``UnifiedConfig.replace_variables`` keeps it as
+    ``_authored_template`` / ``_authored_fields``), its model and its belt."""
+    instruction = getattr(config, "system_instruction", None)
+    template = getattr(instruction, "_authored_template", None)
+    if template is None:
+        template = str(getattr(instruction, "base_instruction", instruction) or "")
+    fields = getattr(instruction, "_authored_fields", None) or {}
+    template = [template, fields]
+    tools = sorted(str(t) for t in (getattr(config, "tools", None) or []))
+    return _digest(str(agent_id or ""), bool(is_version), template, getattr(config, "model", None), tools)
+
+
+def catalog_fingerprint(config: Any) -> str:
+    """The org catalog / organization intro this turn injected into the prompt."""
+    instruction = getattr(config, "system_instruction", None)
+    return _digest(str(getattr(instruction, "injected_context_block", None) or ""))
+
+
+def render_turn_values(values: dict[str, Any] | None) -> str | None:
+    """This turn's per-turn framing values, for the turn context (after the cache line).
+
+    The held system text keeps the values its first turn rendered; these are the
+    ones that are true NOW (clock, channel, timezone…)."""
+    lines = [
+        f"- {name}: {value}"
+        for name, value in sorted((values or {}).items())
+        if value is not None and str(value).strip()
+    ]
+    if not lines:
+        return None
+    return (
+        "<turn_values>\nThese values are current as of this message. Where your "
+        "instructions show a value under the same name, it is the value from when "
+        "this conversation's instructions were set; use these.\n"
+        + "\n".join(lines)
+        + "\n</turn_values>"
     )
 
 
@@ -232,7 +312,12 @@ async def resolve_live_structure_agent(source: StructureSource) -> tuple[str | N
 
 
 __all__ = [
+    "HELD_PROMPT_KEY",
     "HOLDER_OWNED_CONFIG_KEYS",
+    "TURN_VALUES_SLOT",
+    "catalog_fingerprint",
+    "holder_fingerprint",
+    "render_turn_values",
     "LIVE_STRUCTURE_KEY",
     "RESPONDER_MANDATE_KEY",
     "StructureSource",

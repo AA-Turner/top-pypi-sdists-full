@@ -1,7 +1,7 @@
 """Engine fixes for the V3 live failures the settings live fuzz found (2026-10-04).
 
 Chair rulings: R-a — a translation never DEFEATS what the person explicitly set (an output
-cap is honoured, a list is capped never emptied); R-b — an empty answer is a failure.
+cap is honored, a list is capped never emptied); R-b — an empty answer is a failure.
 Each case below was a live failure (conversation ids in the V3 verifier report) and each
 test fails on the pre-fix engine (proven by reverting the fix, 2026-10-04).
 """

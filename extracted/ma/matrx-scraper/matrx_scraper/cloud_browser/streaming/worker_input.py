@@ -18,7 +18,7 @@ no Selkies:
    path calls before tearing down media or closing the session (S4 §5.2). After
    it returns, ``inject`` raises.
 
-This is the security contract the real Selkies deployment must honour; the
+This is the security contract the real Selkies deployment must honor; the
 in-memory form is the executable spec.
 """
 

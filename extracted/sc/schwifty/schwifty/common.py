@@ -3,9 +3,9 @@ from __future__ import annotations
 import re
 from functools import total_ordering
 from typing import Any
+from typing import Self
 
 from schwifty._compat import override
-from schwifty._compat import Self
 
 
 _clean_regex = re.compile(r"\s+")
@@ -31,7 +31,7 @@ class Base(str):
         return str(self) < str(other)
 
     def __deepcopy__(self, memo: dict[str, Any] | None = None) -> Self:
-        return self.__class__(str(self))
+        return self.__class__(str(self), allow_invalid=True)
 
     @property
     def compact(self) -> str:
@@ -45,7 +45,7 @@ class Base(str):
 
     def _get_slice(self, start: int, end: int | None = None) -> str:
         if start < len(self) and (end is None or end <= len(self)):
-            return self.compact[start:end] if end is not None else self.compact[start:]
+            return self[start:end]
         return ""
 
 

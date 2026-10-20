@@ -1,38 +1,42 @@
 #
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 #
+from __future__ import annotations
 
-import os
 import re
-import warnings
+from collections.abc import Sequence
+from functools import lru_cache
 from itertools import chain
 from typing import Any
 from urllib.parse import quote as _url_quote
 from urllib.parse import quote_plus, urlsplit, urlunsplit
 
+from snowflake.connector.compat import IS_STR
+
 from sqlalchemy import create_engine as _sa_create_engine
 from sqlalchemy import exc, inspection, sql
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import NoForeignKeysError
 from sqlalchemy.orm.util import _ORMJoin as sa_orm_util_ORMJoin
 from sqlalchemy.sql.base import _expand_cloned, _from_objects
-from sqlalchemy.sql.elements import AsBoolean, True_, _find_columns
-from sqlalchemy.sql.selectable import Join, Lateral
-
-from snowflake.connector.compat import IS_STR
-from snowflake.connector.connection import SnowflakeConnection
+from sqlalchemy.sql.elements import AsBoolean, ClauseElement, True_, _find_columns
+from sqlalchemy.sql.selectable import FromClause, Join, Lateral
 
 from ._constants import (
     APPLICATION_NAME,
     PARAM_APPLICATION,
     PARAM_INTERNAL_APPLICATION_NAME,
     PARAM_INTERNAL_APPLICATION_VERSION,
-    SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS,
     SNOWFLAKE_SQLALCHEMY_VERSION,
 )
 
 
-def _rfc_1738_quote(text):
-    return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
+def _rfc_1738_quote(text: str) -> str:
+    # Encode the characters that would otherwise terminate or corrupt the URL
+    # authority component when the value is placed in ``user:password@host``:
+    # ``: @ /`` (RFC 1738 userinfo delimiters), ``[ ]`` (IPv6 host literal
+    # brackets) and ``? #`` (query/fragment delimiters). See SNOW-828206.
+    return re.sub(r"[\[\]?#:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
 
 
 # --- connection-input handling --------------------------------------------
@@ -58,36 +62,28 @@ _URL_QUERY_BLOCKED_KWARGS: frozenset = frozenset(
         "crl_cache_dir",
         "unsafe_file_write",
         "unsafe_skip_file_permissions_check",
+        # Connector 5.x split ``unsafe_skip_file_permissions_check`` into these
+        # two; the old name is kept above so the block-list stays effective on
+        # 4.x.  ``ocsp_response_cache_filename`` has no 5.x counterpart (OCSP
+        # handling moved into the native core).
+        "unsafe_skip_config_file_permissions_check",
+        "crl_unsafe_skip_file_permissions_check",
     }
 )
 
 
-def _reject_or_warn(message: str, *, legacy: bool, stacklevel: int = 2) -> None:
-    """Raise ``ArgumentError``, or warn under the legacy shim. ``stacklevel`` is
-    relative to this helper's caller."""
-    if legacy:
-        # +1 skips this helper's own frame so the warning is attributed to the
-        # caller that supplied ``stacklevel``.
-        warnings.warn(message, DeprecationWarning, stacklevel=stacklevel + 1)
-    else:
-        raise exc.ArgumentError(message)
-
-
 def _validate_url_field(field: str, value: str) -> None:
     if not _SAFE_URL_FIELD_RE.fullmatch(value):
-        # The builder has no engine, so only the env var can relax this.
-        _reject_or_warn(
+        # The legacy_url_params opt-out shim was removed, so invalid URL
+        # authority fields are always rejected (no deprecation-warning fallback).
+        raise exc.ArgumentError(
             f"'{field}' contains characters that cannot be safely placed in the "
             f"connection URL: {value!r}. "
-            "Only alphanumeric characters, hyphens, dots, and underscores are allowed. "
-            "To restore the previous behaviour temporarily, set the "
-            f"{SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS} environment variable.",
-            legacy=_legacy_url_params_enabled(),
-            stacklevel=3,  # caller's URL(...) site
+            "Only alphanumeric characters, hyphens, dots, and underscores are allowed."
         )
 
 
-def _url(**db_parameters):
+def _url(**db_parameters: Any) -> str:
     """
     Composes a SQLAlchemy connect string from the given database connection
     parameters.
@@ -97,7 +93,7 @@ def _url(**db_parameters):
     Please follow the instructions to encode the password:
     https://github.com/snowflakedb/snowflake-sqlalchemy#escaping-special-characters-such-as---signs-in-passwords
     """
-    specified_parameters = []
+    specified_parameters: list[str] = []
     if "account" not in db_parameters:
         raise exc.ArgumentError("account parameter must be specified.")
 
@@ -114,6 +110,15 @@ def _url(**db_parameters):
             port=db_parameters["port"] if "port" in db_parameters else 443,
         )
         specified_parameters += ["user", "password", "host", "port"]
+    elif db_parameters["account"] == "":
+        # Profile-only mode (SNOW-4248737): the caller intends
+        # to supply connection_name via connect_args and does not need a real
+        # account in the URL.  Produce a valid URL with an empty authority.
+        ret = "snowflake://{user}:{password}@/".format(
+            user=user,
+            password=_rfc_1738_quote(db_parameters.get("password", "")),
+        )
+        specified_parameters += ["user", "password", "account"]
     elif "region" not in db_parameters:
         account = db_parameters["account"]
         _validate_url_field("account", account)
@@ -145,7 +150,7 @@ def _url(**db_parameters):
     elif "schema" in db_parameters:
         raise exc.ArgumentError("schema cannot be specified without database")
 
-    def sep(is_first_parameter):
+    def sep(is_first_parameter: bool) -> str:
         return "?" if is_first_parameter else "&"
 
     is_first_parameter = True
@@ -159,7 +164,7 @@ def _url(**db_parameters):
 
 
 def _set_connection_interpolate_empty_sequences(
-    dbapi_connection: SnowflakeConnection, flag: bool
+    dbapi_connection: Any, flag: bool
 ) -> None:
     """set the _interpolate_empty_sequences config of the underlying connection"""
     if hasattr(dbapi_connection, "driver_connection"):
@@ -170,7 +175,7 @@ def _set_connection_interpolate_empty_sequences(
         dbapi_connection._interpolate_empty_sequences = flag
 
 
-def _update_connection_application_name(**conn_kwargs: Any) -> Any:
+def _update_connection_application_name(**conn_kwargs: Any) -> dict[str, Any]:
     if PARAM_APPLICATION not in conn_kwargs:
         conn_kwargs[PARAM_APPLICATION] = APPLICATION_NAME
     if PARAM_INTERNAL_APPLICATION_NAME not in conn_kwargs:
@@ -180,41 +185,90 @@ def _update_connection_application_name(**conn_kwargs: Any) -> Any:
     return conn_kwargs
 
 
-def parse_url_boolean(value: str) -> bool:
-    if value.lower() in ("true", "1"):
-        return True
-    elif value.lower() in ("false", "0"):
-        return False
-    else:
-        raise ValueError(f"Invalid boolean value detected: '{value}'")
+@lru_cache(maxsize=1)
+def connector_param_types() -> dict[str, tuple[type, ...]]:
+    """Map each connector connection-parameter name to its accepted types.
 
+    The authoritative source is the auto-generated ``ConnectionConfig`` dataclass.
+    The older ``DEFAULT_CONFIGURATION`` mapping (``{name: (default, types)}``) is
+    still published but is an *empty* stub, so it must never be used as a version
+    signal or read on its own: that silently yields no type information and leaves
+    every URL query parameter as a raw string.
 
-def parse_url_integer(value: str) -> int:
-    try:
-        return int(value)
-    except ValueError as e:
-        raise ValueError(f"Invalid int value detected: '{value}") from e
+    It is still merged on top rather than ignored, because it remains mutable at
+    runtime -- callers (including this project's test fixtures) inject extra
+    entries into it, and those must keep being honoured.  Resolved once per
+    process.
 
-
-def _legacy_url_params_enabled() -> bool:
-    """Whether the legacy URL-params compatibility shim is enabled.
-
-    Reuses :func:`parse_url_boolean` so the env variable is interpreted exactly
-    like every other boolean flag in the dialect (``true``/``1``, case-insensitive).
-    An unset, empty, or unrecognised value disables the shim rather than raising.
+    Returns an empty mapping if neither source is available; callers treat an
+    absent name as "leave the value untouched".
     """
-    value = os.environ.get(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, "")
+    resolved: dict[str, tuple[type, ...]] = {}
+
+    # Authoritative source: types come from the generated dataclass.
     try:
-        return parse_url_boolean(value)
-    except ValueError:
+        import dataclasses
+        import typing
+
+        from snowflake.connector.connection_config import ConnectionConfig
+    except ImportError:  # no generated config on this connector build
+        pass
+    else:
+        hints = typing.get_type_hints(ConnectionConfig)
+        for field in dataclasses.fields(ConnectionConfig):
+            annotation = hints.get(field.name)
+            # ``bool | None`` -> (bool,); a bare ``str`` -> (str,).  ``NoneType``
+            # is dropped: optionality is irrelevant to casting a supplied string.
+            candidates = typing.get_args(annotation) or (annotation,)
+            types = tuple(
+                candidate
+                for candidate in candidates
+                if isinstance(candidate, type) and candidate is not type(None)
+            )
+            if types:
+                resolved[field.name] = types
+
+    # Entries injected into the legacy table at runtime win on overlap.
+    from snowflake.connector.connection import DEFAULT_CONFIGURATION
+
+    # Values are ``(default, type_or_tuple_of_types)``; the second element is a
+    # bare type on some entries, so normalise it to a tuple.  Read via ``Any`` as
+    # the published annotation varies across connector versions.
+    default_configuration: dict[str, Any] = dict(DEFAULT_CONFIGURATION)
+    for name, configuration in default_configuration.items():
+        expected = configuration[1]
+        resolved[name] = expected if isinstance(expected, tuple) else (expected,)
+
+    return resolved
+
+
+def parse_url_boolean(value: str | tuple[str, ...]) -> bool:
+    raw = value if isinstance(value, str) else value[0]
+    normalized = raw.lower()
+    if normalized in ("true", "1"):
+        return True
+    if normalized in ("false", "0"):
         return False
+    raise ValueError(f"Invalid boolean value detected: '{raw}'")
+
+
+def parse_url_integer(value: str | tuple[str, ...]) -> int:
+    raw = value if isinstance(value, str) else value[0]
+    try:
+        return int(raw)
+    except ValueError as e:
+        raise ValueError(f"Invalid int value detected: '{raw}'") from e
 
 
 # handle Snowflake BCR bcr-1057
 # the BCR impacts sqlalchemy.orm.context.ORMSelectCompileState and sqlalchemy.sql.selectable.SelectState
 # which used the 'sqlalchemy.util.preloaded.sql_util.find_left_clause_to_join_from' method that
 # can not handle the BCR change, we implement it in a way that lateral join does not need onclause
-def _find_left_clause_to_join_from(clauses, join_to, onclause):
+def _find_left_clause_to_join_from(
+    clauses: Sequence[FromClause],
+    join_to: Any,
+    onclause: ClauseElement | None,
+) -> range | list[int]:
     """Given a list of FROM clauses, a selectable,
     and optional ON clause, return a list of integer indexes from the
     clauses list indicating the clauses that can be joined from.
@@ -226,7 +280,7 @@ def _find_left_clause_to_join_from(clauses, join_to, onclause):
     which clauses contain the same columns.
 
     """
-    idx = []
+    idx: list[int] = []
     selectables = set(_from_objects(join_to))
 
     # if we are given more than one target clause to join
@@ -243,6 +297,7 @@ def _find_left_clause_to_join_from(clauses, join_to, onclause):
     for i, f in enumerate(clauses):
         for s in selectables.difference([f]):
             if resolve_ambiguity:
+                assert cols_in_onclause is not None  # set when resolve_ambiguity=True
                 if set(f.c).union(s.c).issuperset(cols_in_onclause):
                     idx.append(i)
                     break
@@ -276,7 +331,9 @@ def _find_left_clause_to_join_from(clauses, join_to, onclause):
 class _Snowflake_Selectable_Join(Join):
     """Join subclass for Snowflake BCR-1057 (lateral joins without ON clause)."""
 
-    def _match_primaries(self, left, right):
+    def _match_primaries(
+        self, left: FromClause, right: FromClause
+    ) -> Any:  # SA returns ColumnElement[bool]
         try:
             return super()._match_primaries(left, right)
         except NoForeignKeysError:
@@ -302,15 +359,15 @@ class _Snowflake_ORMJoin(_Snowflake_Selectable_Join, sa_orm_util_ORMJoin):
 
     def __init__(
         self,
-        left,
-        right,
-        onclause=None,
-        isouter=False,
-        full=False,
-        _left_memo=None,
-        _right_memo=None,
-        _extra_criteria=(),
-    ):
+        left: Any,
+        right: Any,
+        onclause: Any | None = None,
+        isouter: bool = False,
+        full: bool = False,
+        _left_memo: Any | None = None,
+        _right_memo: Any | None = None,
+        _extra_criteria: Any = (),  # ORMJoin expects tuple[ColumnElement[bool], ...]
+    ) -> None:
         is_lateral_without_onclause = onclause is None and isinstance(
             inspection.inspect(right).selectable, Lateral
         )
@@ -329,7 +386,7 @@ class _Snowflake_ORMJoin(_Snowflake_Selectable_Join, sa_orm_util_ORMJoin):
             self.onclause = None
 
 
-def _is_true_placeholder(onclause):
+def _is_true_placeholder(onclause: ClauseElement | None) -> bool:
     """Return True if ``onclause`` is only the ``sql.true()`` placeholder that
     ``_Snowflake_ORMJoin`` passes through ``_ORMJoin.__init__`` to satisfy its
     ``onclause is not None`` assertion.
@@ -344,9 +401,39 @@ def _is_true_placeholder(onclause):
     return False
 
 
+def _snowflake_engine_url(
+    base_url: str,
+    schema: str | None = None,
+    case_sensitive_schema: bool = False,
+) -> str:
+    """Build a Snowflake SQLAlchemy URL, optionally appending a schema segment."""
+    if schema is None:
+        return base_url
+    # Case-sensitive schemas are wrapped in literal double-quotes so Snowflake
+    # preserves their case; url-quoting encodes them (" -> %22) along with any
+    # other reserved characters, so we never hand-write percent escapes.
+    schema_value = f'"{schema}"' if case_sensitive_schema else schema
+    schema_part = _url_quote(schema_value, safe="")
+    parsed = urlsplit(base_url)
+    path = parsed.path.rstrip("/")
+    if path.count("/") >= 2:
+        raise ValueError(
+            f"base_url already contains a schema component: {base_url!r}. "
+            "base_url must be in the form 'snowflake://user:pass@account/database' "
+            "with no trailing schema segment."
+        )
+    new_path = f"{path}/{schema_part}"
+    return urlunsplit(
+        (parsed.scheme, parsed.netloc, new_path, parsed.query, parsed.fragment)
+    )
+
+
 def create_snowflake_engine(
-    base_url, schema=None, case_sensitive_schema=False, **kwargs
-):
+    base_url: str,
+    schema: str | None = None,
+    case_sensitive_schema: bool = False,
+    **kwargs: Any,
+) -> Engine:
     """
     Create a Snowflake SQLAlchemy engine with optional case-sensitive schema support.
 
@@ -375,27 +462,26 @@ def create_snowflake_engine(
     -------
     sqlalchemy.engine.Engine
     """
-    if schema is not None:
-        if case_sensitive_schema:
-            schema_part = f"%22{_url_quote(schema, safe='')}%22"
-        else:
-            schema_part = _url_quote(schema, safe="")
-        # Use urlsplit/urlunsplit to safely insert schema into path before query params
-        parsed = urlsplit(base_url)
-        path = parsed.path.rstrip("/")
-        if path.count("/") >= 2:
-            raise ValueError(
-                f"base_url already contains a schema component: {base_url!r}. "
-                "base_url must be in the form 'snowflake://user:pass@account/database' "
-                "with no trailing schema segment."
-            )
-        new_path = f"{path}/{schema_part}"
-        url = urlunsplit(
-            (parsed.scheme, parsed.netloc, new_path, parsed.query, parsed.fragment)
-        )
-    else:
-        url = base_url
+    url = _snowflake_engine_url(base_url, schema, case_sensitive_schema)
     return _sa_create_engine(url, **kwargs)
+
+
+def create_snowflake_async_engine(
+    base_url: str,
+    schema: str | None = None,
+    case_sensitive_schema: bool = False,
+    **kwargs: Any,
+):
+    """Create an async Snowflake engine with optional case-sensitive schema support.
+
+    Same URL construction rules as :func:`create_snowflake_engine`, but returns an
+    :class:`sqlalchemy.ext.asyncio.AsyncEngine` via
+    :func:`sqlalchemy.ext.asyncio.create_async_engine`.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    url = _snowflake_engine_url(base_url, schema, case_sensitive_schema)
+    return create_async_engine(url, **kwargs)
 
 
 def escape_backslashes(value: str) -> str:
@@ -421,7 +507,7 @@ def escape_single_quotes(value: str) -> str:
     """Double single quotes only, leaving backslashes untouched.
 
     For single-quoted string-literal options where Snowflake backslash
-    sequences (``\\n``, ``\\134``, ``\\N``) must be preserved verbatim — unlike
+    sequences (``\\n``, ``\\134``) must be preserved verbatim — unlike
     ``escape_string_literal_interior``, which also doubles backslashes.
     """
     return value.replace("'", "''")

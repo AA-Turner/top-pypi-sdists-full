@@ -66,4 +66,13 @@ ATTRIBUTE_VALUES = [
     datetime.datetime.now(),
     Literal(datetime.datetime.now().isoformat(), XSD_DATETIME),
     Literal("aGVsbG8=", XSD["base64Binary"]),
+    float("inf"),
+    float("-inf"),
+    Identifier('http://example.org/a"b\\c'),
+    Literal("abc", XSD_INT),
+    Literal("abc", XSD_DOUBLE),
+    Literal("2012-13-01T00:00:00", XSD_DATETIME),
+    Literal("2026-01-01", XSD["date"]),
+    Literal("10:30:00", XSD["time"]),
+    Literal("PT1H", XSD["duration"]),
 ]

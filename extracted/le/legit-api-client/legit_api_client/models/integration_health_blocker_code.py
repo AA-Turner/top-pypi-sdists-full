@@ -45,6 +45,8 @@ class IntegrationHealthBlockerCode(str, Enum):
     COLLECTIONPARTIAL = 'CollectionPartial'
     DATASTALE = 'DataStale'
     FIRSTSCANINCOMPLETE = 'FirstScanIncomplete'
+    COLLECTIONSTUCK = 'CollectionStuck'
+    COMPLETEDEMPTY = 'CompletedEmpty'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

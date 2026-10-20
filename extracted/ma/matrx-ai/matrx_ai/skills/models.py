@@ -42,6 +42,32 @@ def not_runnable_tooling(config: Any) -> list[str]:
     return [str(x).strip() for x in raw if isinstance(x, str) and x.strip()]
 
 
+#: ``skill.definition.skill_type`` of a SKILL SET — a named group of skills attached as ONE
+#: unit. A set's ``config.set_members`` lists its member skill UUIDs in order; members resolve
+#: at run time, so adding a skill to a set reaches every agent that attaches the set.
+SKILL_SET_TYPE = "set"
+#: ``skill.definition.config`` key holding a set's ordered member skill UUIDs.
+SET_MEMBERS_KEY = "set_members"
+
+
+def set_members_of(config: Any) -> list[UUID]:
+    """A set row's ordered, de-duplicated member UUIDs (empty for a non-set or bad data)."""
+    if not isinstance(config, dict):
+        return []
+    raw = config.get(SET_MEMBERS_KEY)
+    if not isinstance(raw, list):
+        return []
+    out: list[UUID] = []
+    for item in raw:
+        try:
+            uid = item if isinstance(item, UUID) else UUID(str(item))
+        except (ValueError, TypeError):
+            continue
+        if uid not in out:
+            out.append(uid)
+    return out
+
+
 def not_runnable_marker(not_runnable: list[str]) -> str:
     """The short marker appended wherever a skill is offered by name + description."""
     if not not_runnable:
@@ -71,6 +97,10 @@ class SkillHint(BaseModel):
     # Tooling the skill's steps need that this platform does not have yet
     # (see ``not_runnable_tooling``). Empty for an ordinary skill.
     not_runnable: list[str] = Field(default_factory=list)
+    # Compact heading outline of a long reference document (``sections.compact_outline``);
+    # rendered on the listed-skill line so the model knows what the document holds.
+    outline: str = ""
+    total_chars: int | None = None
 
 
 class SkillBody(BaseModel):
@@ -93,6 +123,12 @@ class SkillBody(BaseModel):
     # which made every skill_get ValidationError-out in resolve_skills_for_agent
     # — silently stripping ALL skills from every agent run that included one.
     version: int | None = None
+    # A skill SET's members (``skill_type == "set"``); empty for every other skill.
+    set_members: list[UUID] = Field(default_factory=list)
+
+    @property
+    def is_set(self) -> bool:
+        return self.skill_type == SKILL_SET_TYPE
 
 
 class SkillConfig(BaseModel):
@@ -163,6 +199,10 @@ class SkillPreamble(BaseModel):
     listed_skills: list[SkillHint] = Field(default_factory=list)
     included_skills: list[SkillBody] = Field(default_factory=list)
     total_active_count: int = 0
+    #: Included skills moved to the listed tier because their bodies passed the attach budget.
+    demoted_count: int = 0
+    demoted_chars: int = 0
+    body_budget_chars: int = 0
 
 
 class ResolvedSkills(BaseModel):

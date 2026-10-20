@@ -3,7 +3,9 @@
 #
 import urllib.parse
 
-from snowflake.sqlalchemy import URL
+from sqlalchemy.engine.url import make_url
+
+from snowflake.sqlalchemy import URL, base
 
 
 def test_url():
@@ -132,3 +134,99 @@ def test_url():
         "snowflake://testuser:test@testaccount"
         "/?authenticator=https%3A%2F%2Ftestokta.okta.com"
     )
+
+
+def test_url_password_with_square_brackets():
+    """Square brackets in a password must be percent-encoded (SNOW-828206).
+
+    Otherwise urllib's URL parser treats ``[``/``]`` as an IPv6 host literal and
+    raises, breaking otherwise valid RFC 1738 passwords.
+    """
+    assert (
+        URL(account="testaccount", user="admin", password="mypass]")
+        == "snowflake://admin:mypass%5D@testaccount/"
+    )
+    assert (
+        URL(account="testaccount", user="admin", password="[mypass")
+        == "snowflake://admin:%5Bmypass@testaccount/"
+    )
+    assert (
+        URL(account="testaccount", user="admin", password="a[b]c:@/")
+        == "snowflake://admin:a%5Bb%5Dc%3A%40%2F@testaccount/"
+    )
+
+
+def test_url_password_with_query_and_fragment_delimiters():
+    """``?`` and ``#`` in a password must be encoded (SNOW-828206).
+
+    They are URL query/fragment delimiters; if left raw they terminate the
+    authority component and push the host into the query/fragment.
+    """
+    assert (
+        URL(account="testaccount", user="admin", password="pa?ss")
+        == "snowflake://admin:pa%3Fss@testaccount/"
+    )
+    assert (
+        URL(account="testaccount", user="admin", password="pa#ss")
+        == "snowflake://admin:pa%23ss@testaccount/"
+    )
+
+
+def test_url_password_with_brackets_roundtrips():
+    """The generated URL parses and decodes back to the original password."""
+    password = "p[a]s:s@w/o[rd]?x#y"
+    generated = URL(account="testaccount", user="admin", password=password)
+
+    # Should not raise (previously ``[``/``]``/``?``/``#`` broke the parser).
+    urllib.parse.urlsplit(generated)
+
+    parsed = make_url(generated)
+    assert parsed.password == password
+
+
+def test_account_parsing_plain():
+    """Plain account notation (no dot) should be used as-is."""
+    url = make_url("snowflake://user:pass@myaccount/")
+    dialect = base.dialect()
+    opts = dialect.create_connect_args(url)[1]
+    assert opts["account"] == "myaccount"
+
+
+def test_account_parsing_regional():
+    """Regional notation (account.region) should extract account part only."""
+    url = make_url("snowflake://user:pass@myaccount.eu-central-1/")
+    dialect = base.dialect()
+    opts = dialect.create_connect_args(url)[1]
+    assert opts["account"] == "myaccount"
+
+
+def test_account_parsing_regional_privatelink():
+    """Regional PrivateLink (account.region.privatelink) should extract account."""
+    url = make_url("snowflake://user:pass@myaccount.eu-central-1.privatelink/")
+    dialect = base.dialect()
+    opts = dialect.create_connect_args(url)[1]
+    assert opts["account"] == "myaccount"
+
+
+def test_account_parsing_regionless_privatelink_with_dash():
+    """Regionless PrivateLink with dash in account (gnamsrm-vi65876.privatelink) should preserve dash."""
+    url = make_url("snowflake://user:pass@gnamsrm-vi65876.privatelink/")
+    dialect = base.dialect()
+    opts = dialect.create_connect_args(url)[1]
+    assert opts["account"] == "gnamsrm-vi65876"
+
+
+def test_account_parsing_regional_org_account_with_dash():
+    """Regional notation with an org-style dashed account must keep the dash."""
+    url = make_url("snowflake://user:pass@orgname-accountname.us-west-2/")
+    dialect = base.dialect()
+    opts = dialect.create_connect_args(url)[1]
+    assert opts["account"] == "orgname-accountname"
+
+
+def test_account_parsing_global_removes_only_external_id():
+    """.global notation drops only the trailing external id (after the last dash)."""
+    url = make_url("snowflake://user:pass@orgname-account-gext123.global/")
+    dialect = base.dialect()
+    opts = dialect.create_connect_args(url)[1]
+    assert opts["account"] == "orgname-account"

@@ -2,7 +2,7 @@
 
 Engram VISION §3.6: speculative execution runs 2-3 plausible branches in
 parallel and keeps the winner, and *"the selector is the ceiling"* — discarding
-the losers requires exactly the "is this good" judgement models are mediocre at.
+the losers requires exactly the "is this good" judgment models are mediocre at.
 The resolution the vision names is this class: **the Selector is a first-class
 specialist**, with its own contract, its own accuracy ledger, and — the part
 that actually makes it work — it selects **by comparison**, never by grading
@@ -16,7 +16,7 @@ evaluator. It is a champion-challenger tournament over the candidate list:
         if judge.compare(challenger, champion) == 'better':
             champion = challenger
 
-Every comparison is one ordinary comparative judgement and lands its own ledger
+Every comparison is one ordinary comparative judgment and lands its own ledger
 row, so a Selector's accuracy is measured by the same machinery as any judge's —
 and a counterfactual replay of the losing branch can later stamp the agreement
 bit on the exact comparison that discarded it (§4.2).

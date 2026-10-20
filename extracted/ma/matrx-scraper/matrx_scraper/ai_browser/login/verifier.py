@@ -66,6 +66,9 @@ class PageObservation(BaseModel):
     password_field_present: bool | None = None
     otp_field_present: bool | None = None
     captcha_present: bool | None = None
+    # The screenshot taken before one character was typed and the one taken after the submit
+    # settled are byte-identical. ``None`` = the pair was not available (never read as False).
+    page_unchanged_after_submit: bool | None = None
 
     @property
     def structurally_probed(self) -> bool:
@@ -120,6 +123,7 @@ class EvaluatedObservation(BaseModel):
     captcha_present_after: StrictBool | None = None
     login_form_present_before: StrictBool | None = None
     login_form_present_after: StrictBool | None = None
+    page_unchanged_after_submit: StrictBool | None = None
     url_relation: UrlRelation = "unknown"
     # The form-cleared fallback is meaningful only when the page that HAD the
     # form was itself a sign-in flow.  A search form can clear and navigate just
@@ -323,6 +327,7 @@ def _evaluate_page_observation(
             if observation.selector_probe_known and not observation.timed_out
             else None
         ),
+        page_unchanged_after_submit=observation.page_unchanged_after_submit,
         url_relation=relation,
         url_flow_before=_url_flow(observation.url_before) if observation.url_probe_known else "unknown",
         url_flow=_url_flow(observation.url) if observation.url_probe_known else "unknown",
@@ -380,6 +385,10 @@ AMBIGUOUS_STRUCTURAL_REASONS = (
     "still_on_sign_in_flow",
     "form_cleared_url_unchanged",
     "form_cleared_without_sign_in_flow",
+    # The page looked byte-identical before the first keystroke and after the submit, with the
+    # form still up: nothing was visibly typed or answered. That is a fill/render failure (a
+    # page that never painted, a field that took no input), NOT a refusal by the site.
+    "page_unchanged_after_submit",
 )
 
 #: EVERY generic structural signal this engine can emit, with its direction and
@@ -454,6 +463,8 @@ def _structural_signals(obs: EvaluatedObservation) -> tuple[list[VerdictSignal],
         return [sig("verification_code_field_visible")], None
     if obs.password_field_present_after is True:
         if obs.url_relation == "unchanged":
+            if obs.page_unchanged_after_submit is True:
+                return [], "page_unchanged_after_submit"
             return [sig("password_form_still_visible")], None
         # A password box on a DIFFERENT page is not a refusal and not a success
         # (a re-auth step, a second account chooser). Say so, decide nothing.

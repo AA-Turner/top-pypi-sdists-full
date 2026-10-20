@@ -33,7 +33,7 @@ Section sources
                      boundaries are arbitrary and it says so.
 
 Pure, allocation-light, and never raises: a result this module cannot understand
-comes back as fixed windows, which is exactly today's behaviour made explicit.
+comes back as fixed windows, which is exactly today's behavior made explicit.
 """
 
 from __future__ import annotations

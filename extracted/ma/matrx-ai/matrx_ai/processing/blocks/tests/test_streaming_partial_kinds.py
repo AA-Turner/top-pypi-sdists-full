@@ -36,7 +36,7 @@ QUIZ = {
             "question": "Which planet is red?",
             "options": ["Mars", "Venus"],
             "correct_answer": "Mars",
-            "explanation": "Iron oxide on the surface gives Mars its colour.",
+            "explanation": "Iron oxide on the surface gives Mars its color.",
         },
     ],
 }
@@ -128,7 +128,7 @@ def test_partial_values_only_ever_grow_toward_the_finished_quiz():
 
 
 def test_no_partial_is_ever_stamped_where_the_verified_envelope_lives():
-    """Law 1 of the envelope producers, honoured literally.
+    """Law 1 of the envelope producers, honored literally.
 
     A partial on ``__ir`` would be seeded into the frontend's fingerprint-keyed
     envelope cache and poison every later read of the region. The two channels

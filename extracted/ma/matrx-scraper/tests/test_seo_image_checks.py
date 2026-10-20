@@ -1,4 +1,4 @@
-"""The five `images_media` catalogue checks — one file, one defect each.
+"""The five `images_media` catalog checks — one file, one defect each.
 
 Each check must (a) fire for its OWN defect, (b) stay quiet on a page that gets
 images right, and (c) answer `n_a` rather than `pass` when the evidence it needs

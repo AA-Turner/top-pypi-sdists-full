@@ -67,8 +67,8 @@ Anti-patterns
 from __future__ import annotations
 
 import hashlib
-import uuid
 import logging
+import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:  # a type-only reference: no import at run time, no cycle
@@ -531,8 +531,9 @@ class Judge:
         # request it sent (Agent Evaluation's input-integrity check) by this id.
         conversation_id = str(uuid.uuid4())
         try:
-            verdict = await run_held_pydantic(
+            measured = await run_held_pydantic(
                 held,
+                measured=True,
                 user=user,
                 output_cls=_verdict_model(contract),
                 model=contract.model,
@@ -546,11 +547,21 @@ class Judge:
             )
         except (StrictJsonError, RuntimeError) as exc:
             raise JudgeError(f"judge {contract.key!r} failed through the funnel: {exc}") from exc
+        verdict = measured.value
+        usage = measured.usage
+        # The measured cost rides the outcome (PLAN: "JudgeOutcome.invocation carries the
+        # measured cost"): the judge's request rows often settle under no conversation a caller
+        # can read, so 9 of 12 live judge costs read 0 (Agent Evaluation, 2026-10-16).
         return verdict, {
             "runner": "funnel",
             "model": model,
             "mandate": mandate_key,
             "conversation_id": conversation_id,
+            "cost_usd": float(usage.cost_usd or 0.0),
+            "input_tokens": int(usage.input_tokens or 0),
+            "output_tokens": int(usage.output_tokens or 0),
+            "calls": int(measured.calls or 0),
+            "duration_ms": int(measured.duration_ms or 0),
         }
 
     async def _run_mandated(

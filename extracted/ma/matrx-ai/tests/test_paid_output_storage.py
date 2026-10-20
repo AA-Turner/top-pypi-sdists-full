@@ -151,7 +151,7 @@ def _eleven_chat(monkeypatch: pytest.MonkeyPatch, counter: dict[str, int]):
             counter["provider"] += 1
             return AudioWithTimestampsAndVoiceSegmentsResponseModel.model_validate(
                 {
-                    "audio_base64": base64.b64encode(b"ID3").decode(),
+                    "audio_base64": base64.b64encode(b"ID3" + b"\x00" * 2000).decode(),
                     "alignment": {
                         "characters": list(text),
                         "character_start_times_seconds": starts,
@@ -246,7 +246,7 @@ async def test_openai_tts_storage_failure_calls_the_provider_once(monkeypatch, c
             counter["provider"] += 1
 
             class _Resp:
-                content = b"ID3"
+                content = b"ID3" + b"\x00" * 2000  # a plausible take, above the truncation floor
 
             return _Resp()
 

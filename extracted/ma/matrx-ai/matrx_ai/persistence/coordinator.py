@@ -263,10 +263,10 @@ _COMMIT_SLOT_POLL_SECONDS: float = 0.01
 # black-holed socket) and the conversation stayed locked until a restart.
 #
 # The bound uses asyncio.wait, never asyncio.wait_for: wait_for waits for the
-# cancelled flush to FINISH cancelling, and a flush stuck in asyncpg cleanup on a
+# canceled flush to FINISH canceling, and a flush stuck in asyncpg cleanup on a
 # dead connection never does — the "bounded" wait then hangs exactly as long as
 # the DB. asyncio.wait returns at the deadline no matter what the flush does.
-# After cancelling, the flush gets _CANCEL_SETTLE_SECONDS to land its rollback;
+# After canceling, the flush gets _CANCEL_SETTLE_SECONDS to land its rollback;
 # the ops are then captured to system_write_failure, itself bounded by
 # _CAPTURE_DEADLINE_SECONDS (a capture that cannot land screams the payload). CAPS.
 _CANCEL_SETTLE_SECONDS: float = 2.0
@@ -292,8 +292,11 @@ async def _bounded_session_flush(
 
     Never hangs past ``_COMMIT_HARD_DEADLINE_SECONDS + _CANCEL_SETTLE_SECONDS +
     _CAPTURE_DEADLINE_SECONDS`` whatever the database does. On timeout the flush
-    is cancelled (its transaction rolls back) and its ops are captured to
+    is canceled (its transaction rolls back) and its ops are captured to
     ``system_write_failure`` on a fresh connection — never lost silently."""
+    from matrx_ai.persistence.metadata_resolvers import resolve_pending_conversation_metadata
+
+    await resolve_pending_conversation_metadata(session)
     flush_task = asyncio.ensure_future(session.flush(reason=reason))
     done, _ = await asyncio.wait({flush_task}, timeout=_COMMIT_HARD_DEADLINE_SECONDS)
     if flush_task in done:
@@ -353,7 +356,7 @@ async def _bounded_one_shot(write: Any, *, name: str) -> Any:
     if not task.done():
         task.add_done_callback(lambda t: t.cancelled() or t.exception())  # type: ignore[func-returns-value]
     elif not task.cancelled() and task.exception() is None:
-        return task.result()  # it landed while being cancelled
+        return task.result()  # it landed while being canceled
     raise TimeoutError(
         f"late one-shot write {name} exceeded its "
         f"{_COMMIT_HARD_DEADLINE_SECONDS:.0f}s hard deadline"
@@ -425,7 +428,7 @@ class Coordinator:
     """WriteCoordinator-shaped façade over ``matrx_orm.Session``.
 
     One Coordinator per request. The lane finalizer fires
-    :meth:`flush` on every exit path (stream_end / error / cancelled).
+    :meth:`flush` on every exit path (stream_end / error / canceled).
     The coordinator wraps a single matrx-orm Session that does the
     actual coalesce / DAG / transactional commit / fallback work.
     """
@@ -445,7 +448,9 @@ class Coordinator:
         "_slot_reserved",
         "_late_one_shot_tail",
         "_late_one_shots",
+        "_write_tail",
         "_late_boundary_captured",
+        "_owner_lane",
         "_atomic",
     )
 
@@ -485,6 +490,11 @@ class Coordinator:
         self._user_id = user_id
         self._conversation_id = conversation_id
         self._late_boundary_captured = False
+        # The RequestLane whose finalizer owns this Coordinator's last flush, or
+        # None for an owned scope (standalone / a child agent run) that commits
+        # at its own exit. Only a lane-owned Coordinator can receive a write
+        # after its owner stopped draining — persistence_after_lane_drain.
+        self._owner_lane: Any = None
         # Tracks queue-call drops (no model_cls available, etc.) that bypass
         # the Session entirely. Surfaces in FlushReport.ops_lost.
         self._dropped_ops_count = 0
@@ -499,6 +509,15 @@ class Coordinator:
         # Sessions must therefore execute in queue order rather than racing as
         # unrelated detached tasks.
         self._late_one_shot_tail: asyncio.Task[Any] | None = None
+        # THE WRITE ORDER. Every flush this Coordinator starts — a background
+        # commit, finalize's current cache, seal's residual, a late one-shot —
+        # takes the next place here and waits for the one before it to finish.
+        # Without it a later Session's UPDATE ran while the earlier Session's
+        # INSERT was still uncommitted and matched 0 rows: PB-08's Tidewell
+        # ``agent`` row (INSERT in the helper's pre_fan_out finalize, completion
+        # UPDATE in the turn's commit_async) stayed 'running' forever, and
+        # nothing recorded a failure. See ``_take_write_turn``.
+        self._write_tail: asyncio.Future[None] | None = None
         # EVERY fired one-shot, tracked until it finishes. A late write is
         # fire-and-forget only until the request's terminal drain: the drain
         # awaits this set, so no late write can still be in flight when the turn
@@ -556,6 +575,33 @@ class Coordinator:
             self._conversation_id = conversation_id
 
     # ---------------------- queue ---------------------------------------
+
+    def _take_write_turn(self) -> tuple[asyncio.Future[None] | None, asyncio.Future[None]]:
+        """Reserve the next place in this Coordinator's write order.
+
+        Returns ``(previous, mine)``: the flush must ``await
+        _wait_write_turn(previous)`` before it writes and ``_end_write_turn(mine)``
+        in a ``finally`` once it is done (landed, failed or captured). Sync, so the
+        place is taken at the instant the Session is rolled — the order of rolls
+        IS the order of writes.
+        """
+        previous = self._write_tail
+        mine: asyncio.Future[None] = asyncio.get_running_loop().create_future()
+        self._write_tail = mine
+        return previous, mine
+
+    @staticmethod
+    async def _wait_write_turn(previous: asyncio.Future[None] | None) -> None:
+        # Every turn ends through _end_write_turn in a finally, so this wait is
+        # bounded by the predecessor's own hard deadline. shield: our cancel
+        # must never cancel the predecessor's marker.
+        if previous is not None and not previous.done():
+            await asyncio.shield(previous)
+
+    @staticmethod
+    def _end_write_turn(mine: asyncio.Future[None] | None) -> None:
+        if mine is not None and not mine.done():
+            mine.set_result(None)
 
     def queue(
         self,
@@ -753,19 +799,26 @@ class Coordinator:
         conversation_id = self._conversation_id
         database = self._database
 
-        predecessor = self._late_one_shot_tail
+        try:
+            predecessor, my_turn = self._take_write_turn()
+        except RuntimeError:
+            # No running loop: handled below where detached_task fails the same way.
+            predecessor, my_turn = None, None
 
         async def _runner() -> None:
+            try:
+                await _run_in_turn()
+            finally:
+                self._end_write_turn(my_turn)
+
+        async def _run_in_turn() -> None:
             from matrx_orm.session.managed import _coordinator_session
 
-            if predecessor is not None:
-                try:
-                    await predecessor
-                except Exception:
-                    # Each predecessor captures its own durable failure. Keep
-                    # draining later operations so one bad write cannot strand
-                    # the rest of the late-write lane.
-                    pass
+            # In write order: after every earlier flush of this Coordinator —
+            # including a seal residual still committing the row's INSERT.
+            # Each predecessor captures its own durable failure, so a failed
+            # one never strands the rest of the late-write lane.
+            await self._wait_write_turn(predecessor)
             async def _write() -> bool:
                 async with _coordinator_session(database=database) as s:
                     if op_type == "insert":
@@ -787,7 +840,7 @@ class Coordinator:
             try:
                 # BOUNDED like every other Coordinator flush: a late write on a
                 # wedged DB must not hold its pool connection indefinitely. On
-                # expiry it is cancelled (its transaction rolls back) and the
+                # expiry it is canceled (its transaction rolls back) and the
                 # TimeoutError takes the capture path below.
                 if not await _bounded_one_shot(_write(), name=f"{table}:{op_type}"):
                     return
@@ -887,6 +940,7 @@ class Coordinator:
         except RuntimeError:
             # No running loop — we cannot schedule the async one-shot OR an
             # async capture. This is process teardown; scream with the exact op.
+            self._end_write_turn(my_turn)
             _scream_lost_write(
                 table, op_type, primary_key, "late_write_no_event_loop",
                 self._request_id, self._conversation_id,
@@ -1215,15 +1269,32 @@ class Coordinator:
         old_session = self._session
         ops = old_session.ops_count
         self._roll_session()  # swap to a fresh OPEN Session synchronously
-        task = self._spawn_commit(old_session, reason)
+        previous, my_turn = self._take_write_turn()
+        task = self._spawn_commit(old_session, reason, previous, my_turn)
         self._pending_commits.append(
             _PendingCommit(task=task, reason=reason, fired_at=time.monotonic(), ops=ops)
         )
 
-    def _spawn_commit(self, session: Any, reason: str) -> asyncio.Task[Any]:
+    def _spawn_commit(
+        self,
+        session: Any,
+        reason: str,
+        previous: asyncio.Future[None] | None = None,
+        my_turn: asyncio.Future[None] | None = None,
+    ) -> asyncio.Task[Any]:
         cid, rid, database = self._conversation_id, self._request_id, self._database
+        wait_turn, end_turn = self._wait_write_turn, self._end_write_turn
 
         async def _runner() -> Any:
+            try:
+                # Non-blocking for the caller, ordered for the database: this
+                # commit writes only after every earlier flush has finished.
+                await wait_turn(previous)
+                return await _flush()
+            finally:
+                end_turn(my_turn)
+
+        async def _flush() -> Any:
             # HARD DEADLINE on the background commit so it releases its pool
             # connection at a known bound even if the DB is wedged. Without
             # this an orphaned overdue commit holds a connection ~indefinitely
@@ -1269,6 +1340,7 @@ class Coordinator:
 
             task = detached_task(_runner(), name=f"coord_commit_{reason}")
         except RuntimeError as exc:
+            end_turn(my_turn)
             raise PersistenceBarrierError(
                 reason=reason,
                 report=FlushReport(reason=reason, error=str(exc)),
@@ -1450,12 +1522,14 @@ class Coordinator:
             residual = self._session
             had_ops = residual.ops_count > 0
             # Seal FIRST: with phase=FLUSHED, any write arriving DURING the
-            # residual flush below one-shots on its own Session and cannot race
-            # this flush.
+            # residual flush below one-shots on its own Session — and, holding a
+            # later place in the write order, waits for this flush to land.
             self._phase = CoordinatorPhase.FLUSHED
+            previous, my_turn = self._take_write_turn() if had_ops else (None, None)
 
         if had_ops:
             try:
+                await self._wait_write_turn(previous)
                 _srep, _timed_out = await _bounded_session_flush(
                     residual, reason="seal", database=self._database
                 )
@@ -1471,6 +1545,8 @@ class Coordinator:
                     f"{type(exc).__name__}: {exc}. Subsequent late writes one-shot.",
                     color="red",
                 )
+            finally:
+                self._end_write_turn(my_turn)
 
         # The seal is the LAST thing the lane does, so it is the last chance any
         # late one-shot has to finish before teardown reclaims it. Failures are
@@ -1538,7 +1614,7 @@ class Coordinator:
                 break
             for task in pending:
                 try:
-                    # shield: cancelling a one-shot mid-flush is the data loss we
+                    # shield: canceling a one-shot mid-flush is the data loss we
                     # are here to prevent. It self-bounds; we only stop WAITING.
                     await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
                 except TimeoutError:
@@ -1621,8 +1697,13 @@ class Coordinator:
             if self._session.ops_count > 0:
                 current_session: Any | None = self._session
                 self._roll_session()
+                # Its place in the write order is taken at the roll, so a
+                # commit_async fired while this flush is in flight (a turn
+                # commit during a pre_fan_out finalize) waits for it.
+                previous, my_turn = self._take_write_turn()
             else:
                 current_session = None
+                previous, my_turn = None, None
             dropped = self._dropped_ops_count
             self._dropped_ops_count = 0  # accounted below — never double-count
 
@@ -1651,9 +1732,15 @@ class Coordinator:
         srep = None
         if current_session is not None:
             current_ops = current_session.ops_count
-            srep, timed_out = await _bounded_session_flush(
-                current_session, reason=reason, database=self._database
-            )
+            try:
+                # Normally already done (the pending commits above are its
+                # predecessors); a late one-shot fired before this roll is not.
+                await self._wait_write_turn(previous)
+                srep, timed_out = await _bounded_session_flush(
+                    current_session, reason=reason, database=self._database
+                )
+            finally:
+                self._end_write_turn(my_turn)
             if timed_out:
                 failures.append(
                     f"current:hard_deadline>{_COMMIT_HARD_DEADLINE_SECONDS:.0f}s"

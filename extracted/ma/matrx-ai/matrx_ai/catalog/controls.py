@@ -17,7 +17,7 @@ PASS 1 — scalar rules, per canonical key, precedence:
                                        THE EQUIVALENCE LAW (2026-08-17): every value an
                                        offering claims to support must convert for EVERY
                                        canonical value; silently dropping an unmapped
-                                       value is a severe defect, not normal behaviour.
+                                       value is a severe defect, not normal behavior.
                                        See /home/user/matrx-common-docs/systems/platform/configuration-equivalence/FEATURE.md)
     4. clamp                       -> numeric min/max
     5. provider_key rename         -> default = same key; a dotted path expands
@@ -510,6 +510,21 @@ class CompiledControlsMap(BaseModel):
             key, value, accepts, self.value_orders.get(key, ()), genders=self.voice_genders
         )
 
+    def _takes_raw_thinking_budget(self) -> bool:
+        """Does this target send a raw token budget (Gemini legacy ``thinking_budget``,
+        Anthropic budget-mode ``budget_tokens``)? Effort-native targets (OpenAI, xAI,
+        Anthropic adaptive, Gemini 3 levels) take a tier: there the effort is the native
+        word and the number is the foreign one (converted or dropped, with a record)."""
+        for rule in self.rules.values():
+            if rule.processor is None or rule.supported is False or rule.drop:
+                continue
+            mode = rule.processor_config.get("mode")
+            if rule.processor == "google_thinking" and mode == "legacy":
+                return True
+            if rule.processor == "anthropic_thinking" and mode != "adaptive":
+                return True
+        return False
+
     def _declares(self, key: str) -> bool:
         """Does this target carry ``key`` (its own rule, or a processor's
         ``consumes``)? A passthrough map (no rules) carries everything."""
@@ -596,7 +611,7 @@ class CompiledControlsMap(BaseModel):
                     action="dropped",
                     canonical_value=canonical[key],
                     sent_value=None,
-                    expected=True,  # pre-C6 behaviour: silent to the client
+                    expected=True,  # pre-C6 behavior: silent to the client
                     provenance="computed",
                     reason=(
                         f"'{key}' is not declared by this api/offering's control "
@@ -790,6 +805,43 @@ class CompiledControlsMap(BaseModel):
         rules see."""
         adjustments: list[Adjustment] = []
         out = canonical
+        # PRECEDENCE (2026-10-17, PB-03): an explicit numeric thinking_budget and an
+        # explicit reasoning_effort name the SAME depth twice. The number is the more
+        # specific instruction (it is exactly the depth wanted; an effort is a tier),
+        # so it wins on EVERY provider, and the effort is recorded as overridden.
+        # The run then proceeds as a budget-only request: each target converts the
+        # number through its own scale (Gemini keeps the raw budget, Anthropic budget
+        # mode sends it, adaptive / OpenAI land the tier its from_number names).
+        budget = out.get("thinking_budget")
+        effort = out.get("reasoning_effort")
+        if (
+            isinstance(budget, int | float)
+            and not isinstance(budget, bool)
+            and budget > 0
+            and effort is not None
+            and effort not in ("auto", "none")
+            and "reasoning_effort" not in (out.get("_converted") or {})
+            and "reasoning_effort" not in (out.get("_convert") or {})
+            and self._declares("reasoning_effort")
+            and self._takes_raw_thinking_budget()
+        ):
+            adjustments.append(
+                Adjustment(
+                    key="reasoning_effort",
+                    action="overridden",
+                    canonical_value=effort,
+                    sent_value=None,
+                    expected=True,
+                    provenance="computed",
+                    law="specific-beats-general",
+                    reason=(
+                        f"thinking_budget {int(budget)} given explicitly: the number is the "
+                        f"more specific instruction, so reasoning_effort '{effort}' was not used"
+                    ),
+                )
+            )
+            out = {k: v for k, v in out.items() if k != "reasoning_effort"}
+            out["_convert"] = {**(out.get("_convert") or {}), "reasoning_effort": "thinking_budget"}
         requested = out.get("_convert") or {}
         for source, target in D.NUMBER_TO_SCALE_BRIDGES.items():
             if requested.get(target) != source:
@@ -857,6 +909,11 @@ class CompiledControlsMap(BaseModel):
         self, canonical: dict[str, Any], *, context: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], list[Adjustment]]:
         out: dict[str, Any] = {}
+        # What the CALLER set (before any bridge, default or processor backfill):
+        # the keys a processor must account for (see ``_account_consumed``).
+        caller_set = {
+            k for k, v in canonical.items() if v is not None and not str(k).startswith("_")
+        }
         # ── BRIDGE: target-aware number -> scale (K6 from_number) ────────────
         canonical, adjustments = self.bridge_numbers(canonical)
 
@@ -1553,7 +1610,7 @@ class CompiledControlsMap(BaseModel):
                         canonical = _set_explicit(canonical, deciding_key, floor)
             # Visibility (hide the thoughts) is never depth. A consumed visibility
             # key whose cell declares off.omit ("nothing to hide when the model is
-            # not asked to think") is honoured only when no depth was asked for —
+            # not asked to think") is honored only when no depth was asked for —
             # with a depth, the processor hides the thoughts it produces.
             for consumed in rule.processor_config.get("consumes", []):
                 own = self.rules.get(consumed)
@@ -1636,6 +1693,8 @@ class CompiledControlsMap(BaseModel):
                 )
 
             before = copy.deepcopy(out) if undeclared_off is not None else None
+            pre_out = copy.deepcopy(out)
+            pre_canonical = canonical
             result = fn(canonical, out, _ctx(adjustments))
             if result is not None:
                 out = result
@@ -1670,14 +1729,99 @@ class CompiledControlsMap(BaseModel):
                         title="⚠️ AI CATALOG OFF REACHED NOTHING",
                         color="yellow",
                     )
+            # Last: every verdict above (clamp, accepts, omitted, the undeclared
+            # off) already named its key; only what nothing named is accounted here.
+            self._account_consumed(
+                key, rule, fn, _ctx, pre_canonical, pre_out, out, caller_set, adjustments
+            )
 
         self._reserve_visible_output(canonical, out, adjustments)
         return out, self.stamp_cells(adjustments)
 
+    def _account_consumed(
+        self,
+        key: str,
+        rule: ControlRule,
+        fn: Any,
+        make_ctx: Any,
+        pre_canonical: dict[str, Any],
+        pre_out: dict[str, Any],
+        out: dict[str, Any],
+        caller_set: set[str],
+        adjustments: list[Adjustment],
+    ) -> None:
+        """NOTHING A PROCESSOR READS IS SILENT (PB-03 defect 6/7, 2026-10-17).
+
+        A processor owns its key and every key it ``consumes``; those keys skip
+        pass 1, so before this a caller's ``thinking_budget`` / ``include_thoughts``
+        on Gemini became ``thinking_config.*`` (the model's own shape) with no
+        Adjustment at all — while the consumed key's own cell says
+        ``supported: false`` (it is not a RAW wire key; the processor carries it).
+        Read off the rules, that looked like an unsupported key reaching the wire.
+
+        For every key the CALLER set that this processor reads and no earlier
+        step already accounted for, the processor is re-run without that key
+        (processors are pure; the re-run's Adjustments are discarded):
+          * the wire differs  -> ``mapped``: translated into the provider shape
+            the processor wrote (``sent_value`` = that fragment);
+          * the wire is equal -> ``dropped`` (expected): the key had no effect
+            here — another setting decided it, or this model has no use for it.
+        """
+        accounted = {a.key for a in adjustments}
+        candidates = [
+            k
+            for k in [key, *rule.processor_config.get("consumes", [])]
+            if k in caller_set and pre_canonical.get(k) is not None and k not in accounted
+        ]
+        if not candidates:
+            return
+        fragment = {
+            k: out[k] for k in out if k not in pre_out or pre_out.get(k) != out.get(k)
+        }
+        for consumed in candidates:
+            try:
+                alt_in = copy.deepcopy(pre_out)
+                alt = fn(_without(pre_canonical, {consumed}), alt_in, make_ctx([]))
+                alt = alt if alt is not None else alt_in
+            except Exception:  # noqa: BLE001 — accounting must never break a request
+                continue
+            value = pre_canonical.get(consumed)
+            if alt == out:
+                adjustments.append(
+                    Adjustment(
+                        key=consumed,
+                        action="dropped",
+                        canonical_value=value,
+                        sent_value=None,
+                        expected=True,
+                        provenance="computed",
+                        reason=(
+                            f"'{consumed}'={value!r} had no effect on this model: the "
+                            f"'{rule.processor}' processor sends the same request without it "
+                            "(another setting decided it, or this model has no use for it)"
+                        ),
+                    )
+                )
+            else:
+                adjustments.append(
+                    Adjustment(
+                        key=consumed,
+                        action="mapped",
+                        canonical_value=value,
+                        sent_value=fragment or None,
+                        expected=True,
+                        reason=(
+                            f"'{consumed}'={value!r} translated by the '{rule.processor}' "
+                            f"processor into this model's own shape "
+                            f"({', '.join(sorted(fragment)) or 'no wire key'})"
+                        ),
+                    )
+                )
+
     def _reserve_visible_output(
         self, canonical: dict[str, Any], out: dict[str, Any], adjustments: list[Adjustment]
     ) -> None:
-        """Chair rulings R-a / R-b (2026-10-04): an explicit output cap is honoured and an
+        """Chair rulings R-a / R-b (2026-10-04): an explicit output cap is honored and an
         empty answer is a failure — so when the cap the wire carries is too small for
         reasoning AND an answer, the REASONING yields (its declared off / floor), never
         the cap. Live V3: gpt-5 ``max_output_tokens`` 0/1 -> 16 at default/max effort

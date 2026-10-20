@@ -264,8 +264,8 @@ class Agents(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteAgentResponse:
-    """Delete an agent that is not referenced by any dependent resources. The request succeeds
-    if the agent was already deleted.
+    """Delete an agent and its benchmarks after all runs and cleanup have finished. The request
+    succeeds if the agent was already deleted.
 
     Args:
       extra_headers: Send extra headers

@@ -257,14 +257,14 @@ def _toggle_off_label(declared: Any) -> str | None:
 def _cleared(value: Any) -> bool:
     """The person emptied the field on purpose: blank or whitespace-only text, or an emptied list/dict
     (the client sends the saved default for an untouched field and ``None`` when there is none). The
-    screen shows a whitespace-only value as blank, so it is honoured as blank: never the default."""
+    screen shows a whitespace-only value as blank, so it is honored as blank: never the default."""
     if isinstance(value, str):
         return not value.strip()
     return isinstance(value, (list, tuple, dict)) and not value
 
 
 def is_cleared_client_value(value: Any) -> bool:
-    """THE one cleared test (public): a client value the composition honours as ``""``."""
+    """THE one cleared test (public): a client value the composition honors as ``""``."""
     return _cleared(value)
 
 
@@ -288,7 +288,7 @@ def compose_variable_values(
     For each DECLARED name: explicit non-empty client value > non-empty bound value > non-empty
     saved default > ``""``. Empty is ``template_substitution.is_empty_value``. The one exception
     is intent made explicit on the wire: a client value of exactly ``""`` means the person
-    cleared the field, and is honoured as ``""`` (beats bound and default); whitespace-only text
+    cleared the field, and is honored as ``""`` (beats bound and default); whitespace-only text
     and an emptied list or dict (a cleared multi-select / pick list) are the same. ``None`` / key
     absent mean untouched and fall back. A toggle whose
     value is its off label becomes an ``OffValue`` (fills as its text, empties a section).
@@ -300,7 +300,7 @@ def compose_variable_values(
     (``is_platform_key``) still pass through for their door's own use, marked
     (``as_platform_value``, any type) so substitution never fills them. With no definitions at all (a raw ``/ai/chat`` call whose
     ``variables`` dict IS the declaration) every client key passes through unchanged and fills:
-    today's behaviour, kept on purpose. A stored agent's door passes ``declared_only=True``: its
+    today's behavior, kept on purpose. A stored agent's door passes ``declared_only=True``: its
     definitions are the declaration even when they declare nothing."""
     from matrx_ai.config.template_substitution import OffValue, as_platform_value, is_empty_value
 
@@ -330,7 +330,7 @@ def compose_variable_values(
                 out[name] = as_platform_value(value)
             # else: undeclared — dropped, never fills the author's text
         elif _cleared(value):
-            out[name] = ""  # the person cleared it ("" or an emptied multi-select): honoured as "", never the default
+            out[name] = ""  # the person cleared it ("" or an emptied multi-select): honored as "", never the default
         elif not is_empty_value(value):
             out[name] = value
     for name, declared in definitions.items():

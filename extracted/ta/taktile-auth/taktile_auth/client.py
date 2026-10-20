@@ -12,6 +12,7 @@ from pydantic import BaseModel, ValidationError
 
 from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
+from taktile_auth._tracing import log_session_hop
 from taktile_auth.counter import SharedCounter
 from taktile_auth.exceptions import InvalidAuthException, TaktileAuthException
 from taktile_auth.recursion import RecursionGate, RecursionMode
@@ -327,6 +328,8 @@ class AuthClient:
             success = False
             raise
         finally:
+            if session_state.session_prefix:
+                log_session_hop(session_state.session_prefix, weight, success)
             duration_ms = (time.perf_counter() - t0) * 1000
             emit_metric(
                 "GetAccessDuration",

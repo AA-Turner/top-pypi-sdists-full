@@ -554,7 +554,7 @@ class BridgeProjectionReceipt(BaseModel):
     #: subagent is mirrored as a child conversation of the parent coding
     #: session's conversation, so every receipt for a subagent event
     #: (``SubagentStart``, ``SubagentStop``, and the parent's ``PostToolUse``
-    #: for the Agent tool) names the conversation it wrote to or labelled.
+    #: for the Agent tool) names the conversation it wrote to or labeled.
     #: None for every other event.
     subagent_conversation_id: UUID | None = None
     error_code: str | None = None

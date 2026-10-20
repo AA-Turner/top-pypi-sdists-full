@@ -17,6 +17,7 @@ typedef struct
 {
   PyObject_HEAD dp_carrier_nda_state_t *handle;
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
+  PyObject     *_jm_retain_set_telemetry_tlm; /* keeps tlm's owner alive */
 } CarrierNdaObject;
 
 static void
@@ -25,6 +26,7 @@ CarrierNdaObj_dealloc (CarrierNdaObject *self)
   if (self->handle)
     dp_carrier_nda_destroy (self->handle);
   jm_inflight_free (&self->_jm_inflight);
+  Py_XDECREF (self->_jm_retain_set_telemetry_tlm);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -303,6 +305,12 @@ CarrierNdaObj_set_telemetry (CarrierNdaObject *self, PyObject *args,
                     (long long)_rc);
       return NULL;
     }
+  /* retain: the kernel keeps `tlm`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (tlm_obj != Py_None)
+    Py_INCREF (tlm_obj);
+  Py_XSETREF (self->_jm_retain_set_telemetry_tlm,
+              tlm_obj != Py_None ? tlm_obj : NULL);
   Py_RETURN_NONE;
 }
 
@@ -491,7 +499,16 @@ CarrierNda_setprop_bn (CarrierNdaObject *self, PyObject *value,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_carrier_nda_set_bn (self->handle, v);
+  int _rc = dp_carrier_nda_set_bn (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "CarrierNda: bn is outside the loop filter's domain "
+                    "(need bn >= 0, finite, whose loop gains come out "
+                    "finite)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -526,27 +543,37 @@ CarrierNda_getprop_sps (CarrierNdaObject *self, void *Py_UNUSED (closure))
       (unsigned long long)dp_carrier_nda_get_sps (self->handle));
 }
 
-static PyGetSetDef CarrierNda_getset[]
-    = { { "norm_freq", (getter)CarrierNda_getprop_norm_freq,
-          (setter)CarrierNda_setprop_norm_freq, "Norm freq.\n", NULL },
-        { "lock", (getter)CarrierNda_getprop_lock, NULL,
-          "EMA of the lock signal (1 = locked).\n", NULL },
-        { "locked", (getter)CarrierNda_getprop_locked, NULL,
-          "Current lock decision: True after the verify count of consecutive "
-          "above-threshold samples, False again after the drop count of "
-          "consecutive below-threshold ones (see configure_lock).\n",
-          NULL },
-        { "last_error", (getter)CarrierNda_getprop_last_error, NULL,
-          "last phase discriminator (loop stress).\n", NULL },
-        { "bn", (getter)CarrierNda_getprop_bn, (setter)CarrierNda_setprop_bn,
-          "PLL loop noise bandwidth (retained).\n", NULL },
-        { "m", (getter)CarrierNda_getprop_m, NULL,
-          "constellation order M (2, 4, 8).\n", NULL },
-        { "n", (getter)CarrierNda_getprop_n, NULL,
-          "sets the MA window (= a 1/n-symbol box).\n", NULL },
-        { "sps", (getter)CarrierNda_getprop_sps, NULL, "samples per symbol.\n",
-          NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef CarrierNda_getset[] = {
+  { "norm_freq", (getter)CarrierNda_getprop_norm_freq,
+    (setter)CarrierNda_setprop_norm_freq, "Norm freq.\n", NULL },
+  { "lock", (getter)CarrierNda_getprop_lock, NULL,
+    "EMA of the lock signal (1 = locked).\n", NULL },
+  { "locked", (getter)CarrierNda_getprop_locked, NULL,
+    "Current lock decision: True after the verify count of consecutive "
+    "above-threshold samples, False again after the drop count of consecutive "
+    "below-threshold ones (see configure_lock).\n",
+    NULL },
+  { "last_error", (getter)CarrierNda_getprop_last_error, NULL,
+    "last phase discriminator (loop stress).\n", NULL },
+  { "bn", (getter)CarrierNda_getprop_bn, (setter)CarrierNda_setprop_bn,
+    "PLL loop noise bandwidth (retained).\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_carrier_nda_set_bn`` refuses the value by\n"
+    "    returning non-zero. The exception message is ``CarrierNda: bn is\n"
+    "    outside the loop filter's domain (need bn >= 0, finite, whose loop\n"
+    "    gains come out finite)``, with the return code appended.\n",
+    NULL },
+  { "m", (getter)CarrierNda_getprop_m, NULL,
+    "constellation order M (2, 4, 8).\n", NULL },
+  { "n", (getter)CarrierNda_getprop_n, NULL,
+    "sets the MA window (= a 1/n-symbol box).\n", NULL },
+  { "sps", (getter)CarrierNda_getprop_sps, NULL, "samples per symbol.\n",
+    NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 CarrierNdaObj_destroy (CarrierNdaObject *self, PyObject *Py_UNUSED (ignored))

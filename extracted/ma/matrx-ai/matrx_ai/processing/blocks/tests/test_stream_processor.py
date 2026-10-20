@@ -204,7 +204,7 @@ def test_cancelled_async_token_keeps_the_processor_serialized_until_worker_settl
         token.cancel()
         final = asyncio.create_task(processor.finalize_async())
         await asyncio.sleep(0.05)
-        assert calls == 1, "finalize started while the cancelled token worker still ran"
+        assert calls == 1, "finalize started while the canceled token worker still ran"
 
         first_release.set()
         with pytest.raises(asyncio.CancelledError):

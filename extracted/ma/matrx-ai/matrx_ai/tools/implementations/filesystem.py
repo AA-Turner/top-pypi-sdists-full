@@ -239,7 +239,7 @@ def _should_use_durable_vfs() -> bool:
     """No sandbox attached AND a host installed a durable VFS backend (aidream's code_files
     store) → serve fs/shell from the durable VFS instead of the ephemeral, host-coupled
     real-disk fallback under /tmp/workspaces. A sandbox always wins (real container); with
-    no durable backend (standalone matrx-ai) this is False and behaviour is unchanged."""
+    no durable backend (standalone matrx-ai) this is False and behavior is unchanged."""
     if get_active_sandbox() is not None:
         return False
     from matrx_ai.tools.vfs.workspace import has_durable_backend

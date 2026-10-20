@@ -203,7 +203,7 @@ class HandoffRecord(BaseModel):
 # --------------------------------------------------------------------------
 class HandoffResolutionKind(StrEnum):
     COMPLETED = "completed"  # human returned control
-    CANCELLED = "cancelled"  # human / authorized actor cancelled
+    CANCELLED = "cancelled"  # human / authorized actor canceled
     EXPIRED = "expired"  # nobody claimed / nobody returned in the window
     REOPENED = "reopened"  # live run was gone; state restored from checkpoint
 

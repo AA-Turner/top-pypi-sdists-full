@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.9.24
+Version: 0.9.25
 Summary: Generated Trajectory API client and high-level workflows
 Project-URL: Documentation, https://docs.trajectory.ai
 Project-URL: Cookbook, https://github.com/Trajectorylabs/trajectory-cookbook
@@ -24,15 +24,21 @@ trajectories, telemetry, and runtime-backed benchmarks.
 pip install trajectory-sdk
 ```
 
+For a coding agent, copy
+[the Trajectory skill](https://github.com/Trajectorylabs/trajectory-platform/blob/main/skills/trajectory/SKILL.md)
+into your benchmark repo at `.agents/skills/trajectory/SKILL.md` for Codex or
+`.claude/skills/trajectory/SKILL.md` for Claude Code.
+
 ## Start here
 
-Follow the public [SDK onboarding guide](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/t_factory/README.md)
-to run one T Factory task and see its response, recorded reward, and completion.
-Continue with the [GSM8K walkthrough](https://github.com/Trajectorylabs/trajectory-cookbook/blob/main/examples/gsm8k/README.md):
-diagnose one task, evaluate and train with one task per split, then upload the larger benchmark
-and diagnose a subset before training. Evaluation and training use agent and benchmark names.
-The [cookbook's example guide](https://github.com/Trajectorylabs/trajectory-cookbook#examples-guide)
-explains which recipe to use next for your benchmark's harness and grader.
+Start with the SDK [quickstart](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/quickstart.mdx),
+then [bring a benchmark](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/benchmarks.mdx),
+[evaluate](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/evaluations.mdx),
+[train](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/training.mdx), and
+[deploy](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/guides/deployments.mdx).
+The installed SDK also includes these guides.
+The [cookbook](https://github.com/Trajectorylabs/trajectory-cookbook)
+has worked integrations for different harnesses and graders.
 
 ## Quick start
 
@@ -112,18 +118,20 @@ reward zero and `ENV_DONE`. Process exit alone does not complete a trajectory.
 
 Define a `BenchmarkSpec` named `benchmark` with your tasks, distinct `train`/`test` splits,
 and a runtime such as `DockerfileBuild("Dockerfile")`. With the Dockerfile and harness under
-the local `benchmark/` directory, [choose or create an agent](https://github.com/Trajectorylabs/trajectory-cookbook#choose-or-create-an-agent), then register the
+the local `benchmark/` directory,
+[choose or create an agent](https://github.com/Trajectorylabs/trajectory-platform/blob/main/docs/agent.mdx), then register the
 benchmark and build its runtime. Replace `YOUR_AGENT_NAME` with that agent's name:
 
 ```python registration.py
 from pathlib import Path
 
 from trajectory import Client
-from trajectory.lib import push, wait_for_benchmark_images
+from trajectory.lib import push
 
 client = Client()
-result = push(client, benchmark, agent_name="YOUR_AGENT_NAME", root=Path("benchmark"))
-images = wait_for_benchmark_images(client, result.bench_id)
+result = push(
+    client, benchmark, agent_name="YOUR_AGENT_NAME", root=Path("benchmark"), build_images=True
+)
 ```
 
 The benchmark name comes from `manifest.name`: reusing a name under the same agent pushes
@@ -132,18 +140,18 @@ Every new submission returns a new benchmark ID. Uploads do not accept a benchma
 
 `push()` calls `start_push()` and waits for registration, returning a benchmark result
 with `bench_id`. Both upload files with progress and accept the same arguments. Image builds
-are off by default; pass `build_images=True` to include them.
+are off by default; pass `build_images=True` to include them and receive build failures
+through the ingestion operation.
 
 Use `start_push()` when you want control over waiting: it uploads files before returning
 a `BenchmarkOperation`, while server processing continues. Call `operation.result()` to wait,
 or save `operation.id` and reconnect later with `get_operation(client, operation.id)`.
 It is a regular Python function; it does not require `await`.
 
-`wait_for_benchmark_images()` first calls `client.benchmarks.images.build(bench_id)`, which only
-acknowledges the request, and then polls `client.benchmarks.images.list(bench_id)`, reading
-every page, until no image is building. It raises `BenchmarkImageBuildError` if any image on any
-page failed, and otherwise returns the list of all images. Once the runtime is ready, follow the GSM8K walkthrough's validation and evaluation steps; uploading
-does not execute the tasks. Start evaluation or training with `agent_name` and `benchmark_name`
+`push()` raises `BenchmarkOperationError` on a failed build; inspect its `failures`
+for the affected runtime and build error. Once the runtime is ready, follow the
+SDK benchmark guide's validation and evaluation steps; uploading does not execute
+the tasks. Start evaluation or training with `agent_name` and `benchmark_name`
 to select the latest version, or `bench_id` to select a specific version.
 Run this registration code with your organization's API key.
 
@@ -160,4 +168,4 @@ The generated client lives in `src/trajectory/`. Handwritten workflows live in
 
 ## License
 
-[Apache 2.0](LICENSE)
+[Apache 2.0](https://github.com/Trajectorylabs/trajectory-platform/blob/main/LICENSE)

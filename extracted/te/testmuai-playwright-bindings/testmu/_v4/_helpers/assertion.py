@@ -37,8 +37,11 @@ async def _resolve(text):
     if isinstance(text, str) and ("{{" in text or "${" in text):
         try:
             resolved = var(text)
+            # var() renders a missing variable as "", so None here is a stored
+            # JSON null (e.g. an execute_js result) — render it as "null", the
+            # same text the authoring run compared against.
             if resolved is None:
-                return text
+                return "null"
             return str(resolved)
         except Exception:
             return text

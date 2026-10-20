@@ -1,6 +1,6 @@
 import os
 
-TESTER_VERSION = "2.26.1013.001"
+TESTER_VERSION = "2.26.1019.001"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -26,6 +26,7 @@ TABLES_COLUMNS_TYPES = {}
 DEBUGGING = False
 EXECUTED_VIA_CLI = False
 TABLES = {}
+SCHEMA_QUALIFIED = False
 
 TESTER_FILENAME = "sdk_connector_tester.jar"
 VERSION_FILENAME = "version.txt"
@@ -46,6 +47,11 @@ PYPROJECT_SKIP_VALIDATION_MESSAGE = "using pyproject.toml; skipping dependency v
 RECOMMEND_STABLE_VERSION_MESSAGE = "We recommend using the current stable version for the following libraries:"
 CONFIGURATION_JSON = "configuration.json"
 FIVETRAN_API_KEY_ENV = "FIVETRAN_API_KEY"
+API_KEY_FIELD = "api_key"  # Must never be written to the local options file
+MANAGED_OPTIONS_FIELDS = frozenset({
+    "destination", "connection", "python_version", "naming",
+    "hybrid_deployment_agent_id", "proxy_id", "proxy_host_config_key", "package_id",
+})
 FIVETRAN_DESTINATION_NAME_ENV = "FIVETRAN_DESTINATION_NAME"
 FIVETRAN_CONNECTION_NAME_ENV = "FIVETRAN_CONNECTION_NAME"
 PYPI_PACKAGE_DETAILS_URL = "https://pypi.org/pypi/fivetran_connector_sdk/json"
@@ -103,6 +109,14 @@ FIVETRAN_NAMING_ENV = "FIVETRAN_NAMING"  # Environment variable name for setting
 FIVETRAN_NAMING_VALUE = "FIVETRAN"  # Fivetran naming strategy value
 SOURCE_NAMING_VALUE = "SOURCE"  # Source naming strategy value
 UNDERSCORE_NAMING = "_NAMING"  # Suffix for sending naming to Fivetran API
+OPTIONS_FILENAME = "options.toml"
+FIVETRAN_OPTIONS_FILE_ENV = "FIVETRAN_OPTIONS_FILE"
+DEFAULT_PROFILE_NAME = "default"
+OPTIONS_FILE_SKIP_MIN_PYTHON_MESSAGE = "local options file requires Python 3.11 or higher; skipping"
+OPTIONS_FILE_HEADER_COMMENT = (
+    "# This file is managed by you. The Fivetran Connector SDK CLI only adds or updates the profile of the connection being deployed.\n"
+    "# It stores `fivetran deploy` fields grouped into profiles. Edit, move, or delete it freely.\n"
+)
 UTF_8 = "utf-8"
 REDACTED_VALUE = "****"
 EXAMPLES_GITHUB_REPO = "fivetran/connector_sdk"

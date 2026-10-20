@@ -36,6 +36,7 @@ class TestIntegrationHealthFirstScanDto(unittest.TestCase):
         if include_optional:
             return IntegrationHealthFirstScanDto(
                 done = True,
+                reason = '',
                 repositories_collected = 56,
                 repositories_scanned_at_least_once = 56,
                 not_yet_scanned = [

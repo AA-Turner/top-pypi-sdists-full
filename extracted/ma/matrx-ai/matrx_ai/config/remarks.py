@@ -281,7 +281,8 @@ def marker_text(item: RemarkItem, location: str | None) -> str:
     elif item.kind == "choice":
         head, prep = kind, "in"
     elif item.kind == "edit":
-        head, prep = kind, "to"
+        # A block edit carries its words as the title ("Chart: type Pie → Bar").
+        head, prep = (f"{kind}{title}", "to") if title else (kind, "to")
     elif item.kind == "answers":
         head, prep = (f"{kind} to{title}", "in") if title else (kind, "in")
     else:

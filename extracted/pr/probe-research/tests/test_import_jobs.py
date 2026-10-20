@@ -59,7 +59,8 @@ def test_enqueue_preserves_approval_and_detaches_every_descriptor(queued):
     assert launch["stdin"] == jobs.subprocess.DEVNULL
     assert launch["stdout"] is launch["stderr"]
     assert launch["start_new_session"] and launch["close_fds"]
-    assert "shell" not in launch and "env" not in launch
+    assert "shell" not in launch
+    assert "PROBE_DESKTOP_HUMAN" not in launch["env"]
     assert Path(job["log_path"]).stat().st_mode & 0o777 == 0o600
     folder = Path(job["log_path"]).parent
     assert folder.stat().st_mode & 0o777 == 0o700

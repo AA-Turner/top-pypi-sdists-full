@@ -52,17 +52,17 @@ class _FirstOutputWatcher:
             self._state.ttft_first_output_at = time.time()
 
     async def send_chunk(self, text: str) -> None:
-        mark_provider_first_response("text_delta")
+        mark_provider_first_response("text_delta", self._inner)
         self._stamp(text)
         await self._inner.send_chunk(text)
 
     async def send_reasoning_chunk(self, text: str) -> None:
-        mark_provider_first_response("reasoning_delta")
+        mark_provider_first_response("reasoning_delta", self._inner)
         self._stamp(text)
         await self._inner.send_reasoning_chunk(text)
 
     async def send_reasoning_state(self, state: Any) -> None:
-        mark_provider_first_response(f"reasoning_{state}")
+        mark_provider_first_response(f"reasoning_{state}", self._inner)
         await self._inner.send_reasoning_state(state)
 
     def __getattr__(self, name: str) -> Any:
@@ -70,7 +70,7 @@ class _FirstOutputWatcher:
         if name in _PROVIDER_EVENT_METHODS and callable(attr):
 
             async def _marked(*args: Any, **kwargs: Any) -> Any:
-                mark_provider_first_response(name.removeprefix("send_"))
+                mark_provider_first_response(name.removeprefix("send_"), self._inner)
                 return await attr(*args, **kwargs)
 
             return _marked
@@ -104,7 +104,7 @@ def watching_first_output(state: Any) -> Iterator[None]:
                 set_app_context(current.with_overrides(emitter=inner))
     # Reached only when the call returned: it produced a response, so the
     # model's first output exists even if nothing streamed.
-    mark_provider_first_response("response_returned")
+    mark_provider_first_response("response_returned", inner)
     if state.ttft_first_output_at is None:
         state.ttft_first_output_at = time.time()
 

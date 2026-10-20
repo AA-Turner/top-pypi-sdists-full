@@ -1,21 +1,20 @@
 Metadata-Version: 2.4
 Name: html-for-docx
-Version: 1.2.0
-Summary: Convert HTML to Docx easily and fastly
+Version: 1.2.1
+Summary: Convert HTML to DOCX easily and quickly
 Home-page: https://github.com/dfop02/html4docx
-Download-URL: https://github.com/dfop02/html4docx/archive/1.2.0.tar.gz
+Download-URL: https://github.com/dfop02/html4docx/archive/1.2.1.tar.gz
 Author: Diogo Fernandes
 Author-email: diogofernandesop@gmail.com
 Maintainer: Diogo Fernandes
 Maintainer-email: diogofernandesop@gmail.com
 License: MIT
-Project-URL: Changelog, https://github.com/dfop02/html4docx/blob/master/HISTORY.rst
+Project-URL: Changelog, https://github.com/dfop02/html4docx/blob/main/HISTORY.rst
 Project-URL: Bug Tracker, https://github.com/dfop02/html4docx/issues
 Project-URL: Repository, https://github.com/dfop02/html4docx
 Keywords: html,docx,docs,office,word,convert,transform
 Platform: any
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Processing
@@ -173,7 +172,7 @@ All table styles we support can be found [here](https://python-docx.readthedocs.
 
 ## Options
 
-There is 5 options that you can use to personalize your execution:
+There is 7 options that you can use to personalize your execution:
 - Disable Images: Ignore all images.
 - Disable Tables: If you do it, it will render just the raw tables content
 - Disable Styles: Ignore all CSS styles. Also disables Style-Map.

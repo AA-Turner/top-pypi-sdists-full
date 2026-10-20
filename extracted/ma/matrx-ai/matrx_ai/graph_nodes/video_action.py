@@ -135,7 +135,7 @@ def _shape_video_blocks(response: Any) -> list[GeneratedVideo]:
     Carries the block's IDENTITY, not just whatever URL it happened to hold —
     ``base_media._build_content_block`` fills ``VideoContent.file_id`` alongside
     the URL (CDN when public, an expiring signed URL when personal). The expiring
-    one is DROPPED, not labelled: this payload lands in ``workflow.node_outcome``
+    one is DROPPED, not labeled: this payload lands in ``workflow.node_outcome``
     and is replayed days later, and a signed URL is a handoff, never a record.
     Durability is decided by the ONE classifier (``matrx_files``).
     """

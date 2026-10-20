@@ -48,13 +48,9 @@ repos:
     rev: v0.21.0
     hooks:
       - id: yamlfmt
-        # .kb-doc-gate.yaml is excluded because the KB doc gate reads it with a
-        # deliberately stdlib-only, bootstrap-safe parser that accepts a restricted
-        # YAML subset; this repo's yamlfmt config sets include_document_start, and the
-        # '---' it inserts is not in that subset (OMN-16606). The same holds for
-        # .public-repo-hygiene.yaml, which the public-repo hygiene gate reads with a
-        # restricted stdlib-only parser (OMN-18016, OMN-20940).
-        exclude: ^(work_tickets/|tests/fixtures/validation/invalid/|\.github/workflows/|archived/|\.kb-doc-gate\.yaml$|\.public-repo-hygiene\.yaml$)
+        # The public hygiene config uses a restricted bootstrap YAML parser
+        # that does not accept the document-start marker added by yamlfmt.
+        exclude: ^(work_tickets/|tests/fixtures/validation/invalid/|\.github/workflows/|archived/|\.public-repo-hygiene\.yaml$)
 
   # Essential file formatting (standard across ecosystem)
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -189,6 +185,20 @@ repos:
         language: system
         pass_filenames: false
         files: ^(\.github/workflows/(receipt-gate|ci)\.yml|tests/ci/test_receipt_gate_writer_pin_only_in_job_omn17427\.py|tests/ci/test_receipt_gate_writer_pin_swap_omn20068\.py|tests/ci/test_bot_exempt_writer_app_pin_only_omn20161\.py|tests/ci/test_receipt_gate_writer_workflow_pin_omn20074\.py|\.pre-commit-config\.yaml)$
+
+      # OMN-17427: the hosted repo-evidence / dod-verify context must refuse a
+      # partly bound contract (ruling 2026-10-10T11:04:11Z). The refusal comes from
+      # the pinned verifier, so the call-repo-evidence-gate caller must keep
+      # verifier-version at or above 0.4.303. Check-only. Runs in CI through the
+      # Pre-commit Suite job (precommit-suite), which the required CI Summary context needs.
+      - id: call-repo-evidence-gate-verifier-floor
+        name: call-repo-evidence-gate caller verifier floor (OMN-17427)
+        entry: uv run --frozen pytest tests/ci/test_repo_evidence_caller_verifier_floor_omn17427.py -q
+          -n 0 --no-cov
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+        files: ^(\.github/workflows/call-repo-evidence-gate\.yml|tests/ci/test_repo_evidence_caller_verifier_floor_omn17427\.py|\.pre-commit-config\.yaml)$
 
       # Intra-Core Dependency-Layering Oracle (OMN-14216, epic OMN-3210)
       # Enforces the DIRECTION of imports between omnibase_core sub-packages via
@@ -696,9 +706,10 @@ repos:
       # OMN-17572: :worktree diffs the working tree against HEAD (staged AND unstaged),
       # so `pre-commit run --all-files` on an unstaged edit is as strict as a commit;
       # :staged alone passed that run while the same edit staged failed.
-      # language: system so the validator runs in the repo venv and can introspect the
-      # real cls.model_config (which Pydantic has already merged down the MRO) instead
-      # of approximating inheritance statically.
+      # language: system uses the repo venv. Runtime introspection reads Pydantic's
+      # merged cls.model_config when imports succeed; static scans merge direct-base
+      # configs in declaration order and reject unresolved configs or ancestry.
+      # --no-runtime scans an index snapshot without importing worktree modules.
       - id: pydantic-extra-forbid
         name: Pydantic extra="forbid" ratchet (OMN-14515)
         entry: uv run --frozen python -m omnibase_core.validators.pydantic_extra_forbid --enforce-modified
@@ -1751,6 +1762,15 @@ repos:
       # one, OMN-17931: only-api_key_env fails, api_key_env beside a real ref is
       # migration debt). ADC and
       # API-key auth are mutually exclusive per backend. No warn-only mode.
+      - id: shared-token-policy
+        name: Shared GitHub Token Policy (OMN-17427)
+        entry: uv run python -m omnibase_core.nodes.node_source_file_gather_effect.runtime_shared_token_policy
+        language: system
+        files: ^(\.github/|src/omnibase_core/(nodes/node_backend_secret_discipline_compute|nodes/node_source_file_gather_effect/runtime_shared_token_policy|models/validation/model_shared_token)|\.pre-commit)
+        pass_filenames: false
+        require_serial: true
+        stages: [pre-commit]
+
       - id: check-backend-secret-discipline
         name: Backend Secret-Ref Discipline Gate (OMN-13305)
         entry: uv run python -m omnibase_core.validation.validator_backend_secret_discipline
@@ -2307,31 +2327,19 @@ repos:
         exclude: ^(src/omnibase_core/constants/constants_event_types\.py|src/omnibase_core/models/events/contract_registration/model_contract_deregistered_event\.py|src/omnibase_core/models/events/contract_registration/model_contract_registered_event\.py|src/omnibase_core/models/events/contract_registration/model_node_heartbeat_event\.py|src/omnibase_core/models/events/model_episode_event\.py|src/omnibase_core/models/events/model_git_hook_event\.py|src/omnibase_core/models/events/model_github_pr_status_event\.py|src/omnibase_core/models/events/model_linear_snapshot_event\.py|src/omnibase_core/models/events/validation/model_validation_run_completed_event\.py|src/omnibase_core/models/events/validation/model_validation_run_started_event\.py|src/omnibase_core/models/events/validation/model_validation_violations_batch_event\.py|src/omnibase_core/schemas/cli_contribution\.v1\.example\.yaml|src/omnibase_core/validation/validator_topic_suffix\.py)$
         stages: [pre-commit]
 
-  # KB doc gate (OMN-16589) — keeps repo markdown inside the allowed set.
-  #
-  # OMN-16606 advanced 82a3394c (omniclaude#2047, 2026-08-26) -> 3e6d14da to
-  # align this local hook with the required CI gate at that time. The required
-  # reusable caller now lives in `.github/workflows/ci.yml` (OMN-16589) and its
-  # immutable pin is the CI validator version's single source of truth because
-  # the reusable checks the validator out at `github.job_workflow_sha`.
-  # The old pins had DRIFTED, and not cosmetically: 82a3394c's parser reads
-  # `exemptions:` and rejects `allowed:` as an unknown key (exit 2), while
-  # 3e6d14da's reads `allowed:` and rejects `exemptions:` — so any per-repo
-  # config entry is a guaranteed disagreement between the local hook and the
-  # required check. Their default sets differ too: 82a3394c allows all of
-  # `**/tests/**`, `**/rules/**`, `**/hooks/**`, `**/CONTRIBUTING.md` and
-  # `**/CODE_OF_CONDUCT.md` anywhere, which 3e6d14da narrows to the three
-  # `tests/**/{fixtures,data,golden}/**` subtrees and root-anchored `.github/`
-  # placement. The strict end-state this PR establishes is defined by the
-  # STRICTER of the two, so the local hook must be the same one — otherwise a
-  # commit passes locally and the required check fails, or worse, the reverse.
-  # Any intentional local/CI pin alignment remains a normal reviewed change to
-  # this hook and the ci.yml caller together.
-  - repo: https://github.com/OmniNode-ai/omniclaude
-    rev: 3e6d14da0d12923c32060252967d0f8759fcbb5e  # pragma: allowlist secret
+  # OMN-17427: the shared README-only node replaces the legacy markdown gate.
+  # Core invokes its own source; downstream repositories pin the published hook.
+  - repo: local
     hooks:
-      - id: kb-doc-gate
+      - id: readme-only-docs
+        name: Root README only documentation gate (OMN-17427)
+        entry: uv run python -m omnibase_core.nodes.node_git_file_listing_effect.runtime_readme_only_docs
+          --report-json .onex_state/readme-only-docs-report.json
+        language: system
+        pass_filenames: false
+        always_run: true
         require_serial: true
+        stages: [pre-commit]
 
   # Demo-path topic coherence gate (OMN-12777)
   # Scoped to demo-path contracts (metadata.demo_path: true).

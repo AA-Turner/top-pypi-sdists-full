@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: infinity_client
-Version: 0.0.77
+Version: 0.0.78
 Summary: A client library for accessing ♾️ Infinity - Embedding Inference Server
 Requires-Python: >=3.8,<4.0
 Classifier: Programming Language :: Python :: 3

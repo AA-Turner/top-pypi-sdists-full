@@ -10,6 +10,7 @@ from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponse
 from ..types.asset_activity_response_out import AssetActivityResponseOut
 from ..types.collab_token_response import CollabTokenResponse
 from ..types.convert_excel_to_sheet_response_out import ConvertExcelToSheetResponseOut
+from ..types.convert_to_user_interface_response_out import ConvertToUserInterfaceResponseOut
 from ..types.creatable_asset_type import CreatableAssetType
 from ..types.create_asset_response_out import CreateAssetResponseOut
 from ..types.create_project_response_out import CreateProjectResponseOut
@@ -694,6 +695,40 @@ class AssetsClient:
         )
         """
         _response = self._raw_client.create_collab_token(asset_id, access=access, request_options=request_options)
+        return _response.data
+
+    def convert_to_user_interface(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ConvertToUserInterfaceResponseOut:
+        """
+        Turn an uploaded HTML file into a user interface (an app) under its own id — the conversion the Athena app's Convert to user interface performs. The asset keeps its id, folder, links and sharing (its title drops the .html extension), and no second asset is created. An uploaded HTML file stays a file until a request like this one asks: nothing converts on its own. The switch is one-way; the original upload stays downloadable from the asset's Versions pane. Requires edit access to the file. Idempotent: an asset that already is a user interface is answered as it is, with converted false. A refused conversion answers with a detail object: code CONVERSION_REFUSED, the reason, and a message saying why.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the uploaded HTML file to turn into a user interface
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ConvertToUserInterfaceResponseOut
+            The asset is a user interface under its own id
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.convert_to_user_interface(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+        )
+        """
+        _response = self._raw_client.convert_to_user_interface(asset_id, request_options=request_options)
         return _response.data
 
     def download(
@@ -1719,6 +1754,48 @@ class AsyncAssetsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create_collab_token(asset_id, access=access, request_options=request_options)
+        return _response.data
+
+    async def convert_to_user_interface(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ConvertToUserInterfaceResponseOut:
+        """
+        Turn an uploaded HTML file into a user interface (an app) under its own id — the conversion the Athena app's Convert to user interface performs. The asset keeps its id, folder, links and sharing (its title drops the .html extension), and no second asset is created. An uploaded HTML file stays a file until a request like this one asks: nothing converts on its own. The switch is one-way; the original upload stays downloadable from the asset's Versions pane. Requires edit access to the file. Idempotent: an asset that already is a user interface is answered as it is, with converted false. A refused conversion answers with a detail object: code CONVERSION_REFUSED, the reason, and a message saying why.
+
+        Parameters
+        ----------
+        asset_id : str
+            ID of the uploaded HTML file to turn into a user interface
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ConvertToUserInterfaceResponseOut
+            The asset is a user interface under its own id
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.convert_to_user_interface(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.convert_to_user_interface(asset_id, request_options=request_options)
         return _response.data
 
     async def download(

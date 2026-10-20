@@ -97,6 +97,7 @@ from .literals import (
     SchedulingStrategyType,
     ScopeType,
     ServiceConnectAccessLoggingFormatType,
+    ServiceConnectContainerLogLevelType,
     ServiceConnectIncludeQueryParametersType,
     ServiceDeploymentLifecycleStageType,
     ServiceDeploymentRollbackMonitorsStatusType,
@@ -462,6 +463,7 @@ __all__ = (
     "ServiceConnectConfigurationOutputTypeDef",
     "ServiceConnectConfigurationTypeDef",
     "ServiceConnectConfigurationUnionTypeDef",
+    "ServiceConnectContainerConfigurationTypeDef",
     "ServiceConnectServiceOutputTypeDef",
     "ServiceConnectServiceResourceTypeDef",
     "ServiceConnectServiceTypeDef",
@@ -1517,6 +1519,9 @@ ServiceConnectAccessLogConfigurationTypeDef = TypedDict(
         "includeQueryParameters": NotRequired[ServiceConnectIncludeQueryParametersType],
     },
 )
+
+class ServiceConnectContainerConfigurationTypeDef(TypedDict):
+    logLevel: NotRequired[ServiceConnectContainerLogLevelType]
 
 class TimeoutConfigurationTypeDef(TypedDict):
     idleTimeoutSeconds: NotRequired[int]
@@ -3280,6 +3285,7 @@ class ServiceConnectConfigurationOutputTypeDef(TypedDict):
     services: NotRequired[list[ServiceConnectServiceOutputTypeDef]]
     logConfiguration: NotRequired[LogConfigurationOutputTypeDef]
     accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
+    containerConfigurations: NotRequired[list[ServiceConnectContainerConfigurationTypeDef]]
 
 class ServiceConnectConfigurationTypeDef(TypedDict):
     enabled: bool
@@ -3287,6 +3293,7 @@ class ServiceConnectConfigurationTypeDef(TypedDict):
     services: NotRequired[Sequence[ServiceConnectServiceTypeDef]]
     logConfiguration: NotRequired[LogConfigurationTypeDef]
     accessLogConfiguration: NotRequired[ServiceConnectAccessLogConfigurationTypeDef]
+    containerConfigurations: NotRequired[Sequence[ServiceConnectContainerConfigurationTypeDef]]
 
 DaemonContainerDefinitionUnionTypeDef = Union[
     DaemonContainerDefinitionTypeDef, DaemonContainerDefinitionOutputTypeDef

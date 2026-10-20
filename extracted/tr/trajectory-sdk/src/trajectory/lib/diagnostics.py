@@ -19,7 +19,10 @@ def start_task_diagnostic(
   upload_timeout: float | None = DEFAULT_UPLOAD_TIMEOUT,
   agent_name: str | None = None,
 ) -> StartBenchmarkDiagnosticsResponse:
-  """Upload one task, wait for its runtime build, and start its diagnostic run."""
+  """Upload one task, wait for its runtime build, and start its diagnostic run.
+
+  ``timeout_seconds`` limits the image-build wait, not the managed task's execution.
+  """
   if timeout_seconds < 0:
     raise ValueError("timeout_seconds must be non-negative")
   SubmissionUpload.validate_agent(agent_id, agent_name)

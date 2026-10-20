@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trajectory-sdk"
-version = "0.9.24"
+version = "0.9.25"
 description = "Generated Trajectory API client and high-level workflows"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -36,6 +36,7 @@ include = ["trajectory", "trajectory.*"]
 "share/doc/trajectory-sdk/guides" = ["docs/guides/*.mdx"]
 "share/doc/trajectory-sdk/reference" = ["docs/reference/*.mdx"]
 "share/doc/trajectory-sdk/images" = ["docs/images/*"]
+"share/doc/trajectory-sdk/skills/trajectory" = ["skills/trajectory/SKILL.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

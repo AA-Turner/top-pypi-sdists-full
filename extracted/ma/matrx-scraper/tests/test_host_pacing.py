@@ -1,6 +1,6 @@
 """The crawl-rate ruling, pinned.
 
-Arman, 2026-08-20: detect the platform first, honour robots.txt, otherwise start
+Arman, 2026-08-20: detect the platform first, honor robots.txt, otherwise start
 LOW and climb until the host pushes back — never open by hammering. Each test
 here is one clause of that ruling; a change that breaks one is a change to the
 ruling, not to an implementation detail.
@@ -115,7 +115,7 @@ def test_crawl_delay_caps_the_ceiling():
 
 
 def test_an_absurd_crawl_delay_is_clamped_and_says_so():
-    """Honouring 'Crawl-delay: 86400' literally would take a year. Never silent."""
+    """Honoring 'Crawl-delay: 86400' literally would take a year. Never silent."""
     plan = resolve_plan("hostile.example", crawl_delay_seconds=86_400.0)
     assert plan.ceiling_rps > 1 / 3600
     assert any("86400" in note for note in plan.notes)

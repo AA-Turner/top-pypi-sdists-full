@@ -83,7 +83,7 @@ def set_wire_swaps(swaps: dict[str, str]) -> None:
     materialized map — reversing the wrong values and leaving this request's
     reference content sitting in ``cx_request_snapshot``. Setting it back to
     ``None`` makes ``redact_wire_payload`` fall back to this request's own
-    canonical map, which is the fail-closed behaviour the docstring there
+    canonical map, which is the fail-closed behavior the docstring there
     promises. (Found 2026-09-09: four snapshot-redaction tests were red or green
     purely by collection order, for exactly this reason.)"""
     _WIRE_SWAPS.set(dict(swaps or {}))
@@ -510,7 +510,11 @@ def redact_wire_payload(payload: Any) -> Any | None:
         def _esc(text: str) -> str:
             return _json.dumps(text, ensure_ascii=False)[1:-1]
 
-        s = _json.dumps(payload, ensure_ascii=False, default=str)
+        # Serialize the WIRE JSON first (SDK models -> their wire dicts), never
+        # ``default=str``: that stored Google's config as its Python str() (PB-03 #10).
+        from matrx_ai.orchestrator.executor import _snapshot_request_json
+
+        s = _json.dumps(_snapshot_request_json(payload), ensure_ascii=False, default=str)
         # Longest value first: when one swap value is a substring of another
         # (a field-narrowed fence + the whole-value fence of the same json in
         # one request), replacing the shorter first would corrupt the longer.
@@ -536,6 +540,72 @@ def redact_wire_payload(payload: Any) -> Any | None:
         return _json.loads(s)
     except Exception:  # noqa: BLE001 — fail closed, drop the payload
         return None
+
+
+def restore_wire_payload(payload: Any, swaps: dict[str, str]) -> tuple[Any, list[str]]:
+    """The inverse of :func:`redact_wire_payload`: put each swap VALUE back where
+    the stored snapshot holds its KEY, giving the payload the provider received.
+
+    Read-only, for the platform-admin "as sent" door (defect 65). ``swaps`` is the
+    conversation's decrypted frozen map. Works on each string leaf: a key that sits
+    inside a JSON document held in a string (tool arguments, dumped tool content)
+    gets the JSON-escaped value, a key in plain text gets the value as is. One pass
+    per leaf, longest key first, replacement by function — an inserted value is
+    never re-scanned and never read as a backreference. Returns
+    ``(payload, keys_restored)``; a key with no value in ``swaps`` stays as stored."""
+    import json as _json
+
+    if payload is None or not swaps:
+        return payload, []
+
+    def _esc(text: str) -> str:
+        return _json.dumps(text, ensure_ascii=False)[1:-1]
+
+    # match text -> (key, value when plain, value when inside a JSON string)
+    forms: dict[str, tuple[str, str, str]] = {}
+    for key, value in swaps.items():
+        if not key:
+            continue
+        forms.setdefault(key, (key, value, _esc(value)))
+        escaped_key = _esc(key)
+        if escaped_key != key:
+            # Only ever produced by a key nested inside a JSON string.
+            forms.setdefault(escaped_key, (key, _esc(value), _esc(value)))
+    if not forms:
+        return payload, []
+    pattern = _re.compile("|".join(_re.escape(f) for f in sorted(forms, key=len, reverse=True)))
+    restored: list[str] = []
+
+    def _leaf(text: str) -> str:
+        if not pattern.search(text):
+            return text
+        stripped = text.lstrip()
+        in_json = False
+        if stripped[:1] in ("{", "["):
+            try:
+                _json.loads(text)
+                in_json = True
+            except ValueError:
+                in_json = False
+
+        def _sub(match: _re.Match[str]) -> str:
+            key, plain, nested = forms[match.group(0)]
+            if key not in restored:
+                restored.append(key)
+            return nested if in_json else plain
+
+        return pattern.sub(_sub, text)
+
+    def _walk(node: Any) -> Any:
+        if isinstance(node, str):
+            return _leaf(node)
+        if isinstance(node, dict):
+            return {k: _walk(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [_walk(v) for v in node]
+        return node
+
+    return _walk(payload), restored
 
 
 def guard_unresolved_refs(variables: dict[str, Any]) -> dict[str, Any]:

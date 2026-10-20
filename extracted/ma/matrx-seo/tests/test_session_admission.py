@@ -75,7 +75,7 @@ def test_actual_seo_me_refuses_ended_and_unavailable_before_db(monkeypatch):
     assert response.status_code == 503
     assert response.headers["retry-after"] == "1"
     assert len(queries) == 1
-    assert len(requests) == 3
+    assert len(requests) == 5  # the outage is retried 3 times (matrx_connect authority_retry)
     assert client.get("/health").status_code == 200
     assert client.get("/me", headers={"X-API-Key": "synthetic"}).status_code == 401
 

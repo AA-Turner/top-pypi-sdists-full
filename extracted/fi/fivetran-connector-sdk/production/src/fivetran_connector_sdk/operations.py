@@ -1,13 +1,18 @@
 import json
 import os
+import time
 
 from typing import Optional
 
 from fivetran_connector_sdk_common.constants import (
     JAVA_LONG_MAX_VALUE, TABLES, TABLES_COLUMNS_TYPES, FIVETRAN_FILE_PATH_COLUMN
 )
+from fivetran_connector_sdk.constants import CAPTURE_PERFORMANCE_METRICS_ENABLED
 from fivetran_connector_sdk.file_upload import FileUpload, file_upload_chunks, validate_file_upload_if_present
-from fivetran_connector_sdk_common.helpers import _validate_table_name, _validate_message, _validate_trace, print_library_log
+from fivetran_connector_sdk_common.helpers import (
+    _validate_table_name, _validate_message, _validate_trace, print_library_log,
+    _validate_schema,
+)
 from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk.protos import connector_sdk_pb2, common_pb2
 from fivetran_connector_sdk.operation_stream import _OperationStream
@@ -34,39 +39,49 @@ class Operations:
     _file_path_override_logged = False
 
     @staticmethod
-    def upsert(table: str, data: dict, *, file: Optional[FileUpload] = None):
+    def upsert(table: str, data: dict, *, schema: Optional[str] = None, file: Optional[FileUpload] = None):
         """Updates records with the same primary key if already present in the destination. Inserts new records if not already present in the destination.
 
         Args:
             table (str): The name of the table.
             data (dict): The data to upsert.
+            schema (str, optional): The name of the source schema this table belongs to.
             file (FileUpload, optional): A file upload to stream before the metadata row.
         """
         _validate_table_name(table)
+        _validate_schema(schema)
+        start_time = get_start_timer()
         if _use_row_data():
-            record = _build_row_data_record(table, data, UPSERT_TYPE, file)
+            record = _build_row_data_record(schema, table, data, UPSERT_TYPE, file)
         else:
-            record = _build_record(table, data, UPSERT_TYPE, file)
-        _emit_record(table, record, file)
+            record = _build_record(schema, table, data, UPSERT_TYPE, file)
+        if CAPTURE_PERFORMANCE_METRICS_ENABLED:
+            Operations.operation_stream._sdk_build_ns += time.perf_counter_ns() - start_time
+        _emit_record(schema, table, record, file)
 
     @staticmethod
-    def update(table: str, modified: dict, *, file: Optional[FileUpload] = None):
+    def update(table: str, modified: dict, *, schema: Optional[str] = None, file: Optional[FileUpload] = None):
         """Performs an update operation on the specified table with the given modified data.
 
         Args:
             table (str): The name of the table.
             modified (dict): The modified data.
+            schema (str, optional): The name of the source schema this table belongs to.
             file (FileUpload, optional): A file upload to stream before the metadata row.
         """
         _validate_table_name(table)
+        _validate_schema(schema)
+        start_time = get_start_timer()
         if _use_row_data():
-            record = _build_row_data_record(table, modified, UPDATE_TYPE, file)
+            record = _build_row_data_record(schema, table, modified, UPDATE_TYPE, file)
         else:
-            record = _build_record(table, modified, UPDATE_TYPE, file)
-        _emit_record(table, record, file)
+            record = _build_record(schema, table, modified, UPDATE_TYPE, file)
+        if CAPTURE_PERFORMANCE_METRICS_ENABLED:
+            Operations.operation_stream._sdk_build_ns += time.perf_counter_ns() - start_time
+        _emit_record(schema, table, record, file)
 
     @staticmethod
-    def truncate(table: str):
+    def truncate(table: str, *, schema: Optional[str] = None):
         """Marks all existing rows in the specified table as deleted.
 
         This operation performs a soft delete on all rows by setting _fivetran_deleted = TRUE.
@@ -75,13 +90,15 @@ class Operations:
 
         Args:
             table (str): The name of the table to truncate.
+            schema (str, optional): The name of the source schema this table belongs to.
 
         Returns:
             None
         """
         _validate_table_name(table)
+        _validate_schema(schema)
         record = connector_sdk_pb2.StructuredRecord(
-            schema_name=None,
+            schema_name=schema,
             table_name=table,
             type=TRUNCATE_TYPE,
             data={}
@@ -89,22 +106,25 @@ class Operations:
         Operations.operation_stream.add_record(record)
 
     @staticmethod
-    def delete(table: str, keys: dict):
+    def delete(table: str, keys: dict, *, schema: Optional[str] = None):
         """Performs a soft delete operation on the specified table with the given keys.
 
         Args:
             table (str): The name of the table.
             keys (dict): The keys to delete.
+            schema (str, optional): The name of the source schema this table belongs to.
 
         Returns:
             connector_sdk_pb2.UpdateResponse: The delete response.
         """
         _validate_table_name(table)
-        columns = _get_columns(table)
+        _validate_schema(schema)
+        columns = _get_columns(schema, table)
+        start_time = get_start_timer()
         if _use_row_data():
             encoded_data = _encode_row_data(columns, keys)
             record = connector_sdk_pb2.StructuredRecord(
-                schema_name=None,
+                schema_name=schema,
                 table_name=table,
                 type=DELETE_TYPE,
                 row_data=encoded_data
@@ -112,11 +132,13 @@ class Operations:
         else:
             mapped_data = _map_data_to_columns(keys, columns)
             record = connector_sdk_pb2.StructuredRecord(
-                schema_name=None,
+                schema_name=schema,
                 table_name=table,
                 type=DELETE_TYPE,
                 data=mapped_data
             )
+        if CAPTURE_PERFORMANCE_METRICS_ENABLED:
+            Operations.operation_stream._sdk_build_ns += time.perf_counter_ns() - start_time
         Operations.operation_stream.add_record(record)
 
     @staticmethod
@@ -193,29 +215,38 @@ class Operations:
         Operations.operation_stream.add_warning(warning)
 
 
-def _get_columns(table: str) -> dict:
-    """Retrieves the columns and maps to their type for the specified table.
+def _get_columns(schema: Optional[str], table: str) -> dict:
+    """Retrieves the columns and maps to their type for the specified schema-qualified table.
 
     Args:
+        schema (str, optional): The schema the table belongs to, or None if the schema was omitted.
         table (str): The name of the table.
 
     Returns:
         dict: The columns for the table.
     """
+    schema_table_key = (schema, table)
     columns = {}
-    if table in TABLES_COLUMNS_TYPES:
-        columns = TABLES_COLUMNS_TYPES[table]
-    if not columns and table in TABLES:
-        for column in TABLES[table].columns:
+    if schema_table_key in TABLES_COLUMNS_TYPES:
+        columns = TABLES_COLUMNS_TYPES[schema_table_key]
+    if not columns and schema_table_key in TABLES:
+        for column in TABLES[schema_table_key].columns:
             columns[column.name] = column.type
-        TABLES_COLUMNS_TYPES[table] = columns
+        TABLES_COLUMNS_TYPES[schema_table_key] = columns
 
     return columns
 
-def _build_record(table: str, data: dict, record_type, file_upload: Optional[FileUpload]):
+def _build_record(
+        schema: Optional[str], table: str, data: dict, record_type,
+        file_upload: Optional[FileUpload]):
+    """`schema` is put on the wire as-is: an omitted schema must never set schema_name, so that an entirely
+    unqualified table stays distinguishable, on the Java side, from one explicitly qualified with a schema
+    that happens to equal the connection name (see ConnectorSdkService.java's schemaRule() and its
+    'legacy vs. explicit-same-name' handling).
+    """
     validate_file_upload_if_present(file_upload)
 
-    columns = _get_columns(table)
+    columns = _get_columns(schema, table)
     mapped_data = _map_data_to_columns(data, columns)
     if file_upload is not None:
         if FIVETRAN_FILE_PATH_COLUMN in data and not Operations._file_path_override_logged:
@@ -227,16 +258,18 @@ def _build_record(table: str, data: dict, record_type, file_upload: Optional[Fil
         mapped_data[FIVETRAN_FILE_PATH_COLUMN] = common_pb2.ValueType(string=file_upload.path)
 
     return connector_sdk_pb2.StructuredRecord(
-        schema_name=None,
+        schema_name=schema,
         table_name=table,
         type=record_type,
         data=mapped_data
     )
 
-def _build_row_data_record(table: str, data: dict, record_type, file_upload: Optional[FileUpload]):
+def _build_row_data_record(
+        schema: Optional[str], table: str, data: dict, record_type,
+        file_upload: Optional[FileUpload]):
     validate_file_upload_if_present(file_upload)
 
-    columns = _get_columns(table)
+    columns = _get_columns(schema, table)
     encoded_data = _encode_row_data(columns, data)
     if file_upload is not None:
         if FIVETRAN_FILE_PATH_COLUMN in data and not Operations._file_path_override_logged:
@@ -248,18 +281,20 @@ def _build_row_data_record(table: str, data: dict, record_type, file_upload: Opt
         encoded_data[FIVETRAN_FILE_PATH_COLUMN] = _PFX_SCALAR + file_upload.path.encode('utf-8')
 
     return connector_sdk_pb2.StructuredRecord(
-        schema_name=None,
+        schema_name=schema,
         table_name=table,
         type=record_type,
         row_data=encoded_data
     )
 
-def _emit_record(table: str, record, file_upload: Optional[FileUpload]):
+def _emit_record(schema: Optional[str], table: str, record, file_upload: Optional[FileUpload]):
     if file_upload is None:
         Operations.operation_stream.add_record(record)
         return
 
-    Operations.operation_stream.add_file_upload(file_upload_chunks(table, file_upload), record)
+    # Same schema as the metadata `record` above (see _build_record's docstring), so
+    # the uploaded file and its metadata row land under the same destination schema.
+    Operations.operation_stream.add_file_upload(file_upload_chunks(schema, table, file_upload), record)
 
 def _map_data_to_columns(data: dict, columns: dict) -> dict:
     """Maps data to the specified columns.
@@ -338,3 +373,5 @@ def map_defined_data_type(data_type, k, mapped_data, v):
     else:
         raise ValueError(f"Unsupported data type encountered: {data_type}. Please use valid data types.")
 
+def get_start_timer():
+    return time.perf_counter_ns() if CAPTURE_PERFORMANCE_METRICS_ENABLED else 0

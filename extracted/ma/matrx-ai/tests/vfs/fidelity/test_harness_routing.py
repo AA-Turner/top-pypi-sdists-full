@@ -5,7 +5,7 @@ the system binaries under /usr/bin are already GNU; on macOS brew installs them
 as `g`-prefixed binaries. Either way the harness must run the resolved binary
 while keeping argv[0] = the SHORT command name, because real GNU coreutils label
 their diagnostics from the parent-supplied argv[0] ("ls: ...", "rmdir: ...").
-Passing the resolved path as argv[0] (the old behaviour) made every error
+Passing the resolved path as argv[0] (the old behavior) made every error
 comparison fail on Linux/CI with a "/usr/bin/ls: ..." prefix. These tests pin
 that mechanism without depending on brew being installed.
 """

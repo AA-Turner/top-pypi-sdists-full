@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from matrx_scraper.html_nodes import decompose_all, each_live_node
+
 _PHONE = re.compile(r"(\+?1[\s.-]?)?\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 _TYPES = (r"(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Way|Court|Ct|Place|Pl|Parkway|Pkwy|"
@@ -104,32 +106,49 @@ _CHROME_ATTR = re.compile(
 def drop_chrome_nodes(tree: Any) -> None:
     """Remove menu, cart and toggle elements from a parsed page (selectolax) in place. Short elements only for the
     attribute rules, so a wrapper that merely carries a menu class never takes the page's content with it."""
-    for node in list(tree.css("nav, [role=navigation], [role=menu], [role=menubar]")):
-        node.decompose()
-    for node in list(tree.css("[aria-haspopup], [aria-expanded], [class], [id], [aria-label]")):
+    # A selector group lists an element once per selector it matches (``<nav role=navigation>`` twice) and keeps
+    # the insides of an element it removes: each_live_node skips both, a freed node is a segfault (html_nodes).
+    decompose_all(tree.css("nav, [role=navigation], [role=menu], [role=menubar]"))
+
+    def chrome(node: Any) -> bool:
         if node.tag in ("body", "html", "main", "article"):
-            continue
+            return False
         text = " ".join((node.text() or "").split())
         if len(text) > 400:
-            continue
+            return False
         a = node.attributes
         blob = " ".join(str(a.get(k) or "") for k in ("class", "id", "aria-label"))
         toggle = a.get("aria-haspopup") is not None or a.get("aria-expanded") is not None
         if (_CHROME_ATTR.search(blob) and len(text) < 200) or (toggle and len(text) < 120) or (
                 text and len(text) < 60 and is_chrome_line(text)):
             node.decompose()
+            return True
+        return False
+
+    each_live_node(tree.css("[aria-haspopup], [aria-expanded], [class], [id], [aria-label]"), chrome)
 
 
 def flatten_tel_links(tree: Any) -> None:
     """Replace ``<a href="tel:…">`` with plain text in place, so a number a site splits across several
     links (``<a>(</a><a>646) 559-4878</a>``) reads as one number, not as broken markdown links (MKT-071).
-    A link whose own text is words ("Call us") keeps the dialled number beside it."""
-    for node in list(tree.css('a[href^="tel:"], a[href^="TEL:"]')):
+    A link whose own text is words ("Call us") keeps the dialled number beside it.
+
+    ONE selector, the scheme compared here: the old group ``a[href^="tel:"], a[href^="TEL:"]`` listed every phone
+    link twice (attribute prefixes compare case-insensitively), and replacing a node a second time is a segfault —
+    it took the workflow worker and the API server down twelve times on 2026-10-16."""
+
+    def flatten(node: Any) -> bool:
+        href = (node.attributes.get("href") or "").strip()
+        if not href[:4].lower() == "tel:":
+            return False
         label = node.text() or ""
-        number = (node.attributes.get("href") or "")[4:].split(";", 1)[0].strip()
+        number = href[4:].split(";", 1)[0].strip()
         if len(re.findall(r"[^\W\d_]", label)) >= 3 and not re.search(r"\d", label) and re.search(r"\d", number):
             label = f"{label.strip()} {number}".strip()
         node.replace_with(label)
+        return True
+
+    each_live_node(tree.css("a[href]"), flatten)
 
 
 def has_contact_details(text: str) -> bool:
@@ -139,16 +158,30 @@ def has_contact_details(text: str) -> bool:
 def clean_page_content(html: str, url: str | None = None) -> str:
     """The page's AI-ready clean text (``ai_research_content``), '' when the page has none. CPU-bound:
     async callers run it in a thread."""
+    return clean_prepared_html(prepare_page_html(html), url)
+
+
+def prepare_page_html(html: str) -> str:
+    """``html`` with phone links flattened and page chrome removed — the tree-editing half of
+    :func:`clean_page_content`, the part that runs selectolax's C code on what a site sent. Pure: html in, html out,
+    no knobs and no host, so :func:`page_prepass` can run it in a child process."""
     if not html:
         return ""
     from selectolax.parser import HTMLParser
 
-    from matrx_scraper.orchestrator import _parse_html_content
-
     tree = HTMLParser(html)
     flatten_tel_links(tree)  # before the chrome pass: a lone "(" link looks like chrome and would be dropped
     drop_chrome_nodes(tree)
-    out: dict[str, Any] = _parse_html_content(tree.html or html, url, fast=True)
+    return tree.html or html
+
+
+def clean_prepared_html(prepared: str, url: str | None = None) -> str:
+    """The clean text of HTML :func:`prepare_page_html` already prepared (the parser half, host knobs included)."""
+    if not prepared:
+        return ""
+    from matrx_scraper.orchestrator import _parse_html_content
+
+    out: dict[str, Any] = _parse_html_content(prepared, url, fast=True)
     text = strip_chrome_text(str(out.get("ai_research_content") or ""))
     # Runs of spaces inside a line are layout, never content (line breaks are kept).
     return "\n".join(re.sub(r"[ \t\u00a0]{2,}", " ", line).rstrip() for line in text.splitlines()).strip()
@@ -161,8 +194,7 @@ def contact_footer_text(html: str) -> str | None:
     from selectolax.parser import HTMLParser
 
     tree = HTMLParser(html or "")
-    for n in tree.css("script, style, noscript, template, svg"):
-        n.decompose()
+    decompose_all(tree.css("script, style, noscript, template, svg"))  # a <script> inside an <svg>: html_nodes
     parts: list[str] = []
     for node in tree.css("footer, [role=contentinfo]"):
         lines = [" ".join(x.split()) for x in (node.text(separator="\n") or "").splitlines()]
@@ -171,3 +203,10 @@ def contact_footer_text(html: str) -> str | None:
             parts.append(text)
     footer = strip_chrome_text("\n".join(parts))
     return footer if footer and has_contact_details(footer) else None
+
+
+def page_prepass(html: str) -> dict[str, str | None]:
+    """Everything selectolax does to one page's HTML for its clean text: ``{"html": prepared, "footer": contact
+    footer or None}``. JSON in, JSON out — the call :func:`matrx_scraper.isolated.run_isolated` makes in a child
+    process, so a native crash on a hostile page fails that page, never the process serving everyone else."""
+    return {"html": prepare_page_html(html or ""), "footer": contact_footer_text(html or "")}

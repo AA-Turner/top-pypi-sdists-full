@@ -958,10 +958,11 @@ class AlertGroupingMode(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `GROUP_INTO_OPEN_ALERT`None
+    * `NO_GROUPING`None
     """
 
     __schema__ = schema
-    __choices__ = ("GROUP_INTO_OPEN_ALERT",)
+    __choices__ = ("GROUP_INTO_OPEN_ALERT", "NO_GROUPING")
 
 
 class AlertInsightStatus(sgqlc.types.Enum):
@@ -5782,6 +5783,37 @@ class ManualMonitorExecutionStatus(sgqlc.types.Enum):
     __choices__ = ("CANCELLED", "FAILED", "IN_PROGRESS", "QUEUED", "SUCCESS", "TIMEOUT")
 
 
+class McpServerAgentType(sgqlc.types.Enum):
+    """An AI agent whose customer MCP server access can be set by account
+    admins. TROUBLESHOOTING: the Troubleshooting agent. CHAT: the
+    Operations agent.
+
+    Enumeration Choices:
+
+    * `CHAT`None
+    * `TROUBLESHOOTING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CHAT", "TROUBLESHOOTING")
+
+
+class McpServersAccessMode(sgqlc.types.Enum):
+    """Which customer MCP servers a group or agent may use. ALL: every
+    server, including servers added later. SELECTED: only the listed
+    servers. NONE: no servers.
+
+    Enumeration Choices:
+
+    * `ALL`None
+    * `NONE`None
+    * `SELECTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALL", "NONE", "SELECTED")
+
+
 class MetricDataType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -9515,6 +9547,44 @@ class TeammateChannelAction(sgqlc.types.Enum):
     __choices__ = ("DISABLE", "PAUSE", "RESUME")
 
 
+class TeammateDecision(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `POSTED`None
+    * `RESOLVED_NOTED`None
+    * `SKIPPED`None
+    * `WATCHING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("POSTED", "RESOLVED_NOTED", "SKIPPED", "WATCHING")
+
+
+class TeammateItemType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AGENT_ISSUE`None
+    * `ALERT`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT_ISSUE", "ALERT")
+
+
+class TeammatePostStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CLAIMED`None
+    * `FAILED`None
+    * `SENDING`None
+    * `SENT`None
+    * `UNKNOWN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CLAIMED", "FAILED", "SENDING", "SENT", "UNKNOWN")
+
+
 class TeradataLogMechEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -11613,14 +11683,17 @@ class AlertGroupingInput(sgqlc.types.Input):
     """Alert grouping strategy. group_into_open_alert: fold new breaches
     from this monitor into its currently-open alert (table monitors
     also key on schema) until the alert is resolved or the max_hours
-    window elapses. Omit / null for legacy per-type grouping.
+    window elapses. no_grouping (job monitors only): open one alert
+    per failed run, and one per dbt run. Leave max_hours and
+    renotify_every_hours unset with no_grouping; reads return their
+    unused defaults. Omit / null for legacy per-type grouping.
     """
 
     max_hours = sgqlc.types.Field(Int, graphql_name="maxHours")
     """Maximum number of hours, from when the alert first opened, that
     new breaches are grouped into it. After this window a new breach
     starts a fresh alert. Defaults to 5 when omitted. Must be a
-    positive integer.
+    positive integer. Must be left unset with no_grouping.
     """
 
     renotify_every_hours = sgqlc.types.Field(Int, graphql_name="renotifyEveryHours")
@@ -11629,7 +11702,8 @@ class AlertGroupingInput(sgqlc.types.Input):
     (measured from when the alert opened, then from the last re-
     notify) a reminder notification is sent. Defaults to 24 when
     omitted in monitors-as-code; pass -1 to disable re-notify. Must
-    otherwise be a positive integer.
+    otherwise be a positive integer. Must be left unset with
+    no_grouping.
     """
 
 
@@ -15795,7 +15869,14 @@ class GetNodeDetailInput(sgqlc.types.Input):
     """Input for getNodeDetail query."""
 
     __schema__ = schema
-    __field_names__ = ("trace_table_mcon", "trace_id", "span_id", "from_timestamp", "to_timestamp")
+    __field_names__ = (
+        "trace_table_mcon",
+        "trace_id",
+        "span_id",
+        "from_timestamp",
+        "to_timestamp",
+        "agent_name",
+    )
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
@@ -15812,6 +15893,11 @@ class GetNodeDetailInput(sgqlc.types.Input):
 
     to_timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="toTimestamp")
     """End of the active filter period (inclusive)"""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """Agent the span belongs to. Lets a user who can access that agent,
+    but not its whole trace table, read the span.
+    """
 
 
 class GetToolCallOverviewInput(sgqlc.types.Input):
@@ -24611,6 +24697,51 @@ class AgentDetails(sgqlc.types.Type):
     """
 
 
+class AgentDomainCandidate(sgqlc.types.Type):
+    """An agent that can be assigned to a domain on its own."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_mcon",
+        "agent_name",
+        "display_name",
+        "storage_mcon",
+        "source_type",
+        "last_seen_at",
+    )
+    agent_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentMcon")
+    """MCON that identifies the agent. Assign it to a domain."""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Name of the agent"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Name to show for the agent"""
+
+    storage_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="storageMcon")
+    """MCON of the trace table the agent records spans in"""
+
+    source_type = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentSourceType), graphql_name="sourceType"
+    )
+    """Source type"""
+
+    last_seen_at = sgqlc.types.Field(DateTime, graphql_name="lastSeenAt")
+    """When the agent last produced a trace. Null for platform agents."""
+
+
+class AgentDomainCandidatePage(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("candidates", "has_more")
+    candidates = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentDomainCandidate))),
+        graphql_name="candidates",
+    )
+
+    has_more = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasMore")
+    """Whether a later page holds more candidates"""
+
+
 class AgentEvalOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -25768,6 +25899,7 @@ class AgentMetadataV2(sgqlc.types.Type):
         "agent_name",
         "display_name",
         "trace_table_mcon",
+        "agent_mcon",
         "source_type",
         "agent_reference",
         "warehouse",
@@ -25793,6 +25925,14 @@ class AgentMetadataV2(sgqlc.types.Type):
     )
     """MCON of the trace table or platform agent"""
 
+    agent_mcon = sgqlc.types.Field(String, graphql_name="agentMcon")
+    """MCON that identifies this agent itself, distinct from every other
+    agent sharing its trace table. Assign it to a domain to scope the
+    domain to this agent. Keep using `traceTableMcon` to query the
+    agent's traces. Null while the agent's identity is not yet
+    available.
+    """
+
     source_type = sgqlc.types.Field(
         sgqlc.types.non_null(AgentSourceType), graphql_name="sourceType"
     )
@@ -25805,8 +25945,7 @@ class AgentMetadataV2(sgqlc.types.Type):
     createOrUpdateAgent*MonitorFromDefinition mutations. For a
     PLATFORM_AGENT this is the portable `{database}:{schema}.{name}`
     reference; for a TRACE_TABLE (OTel) agent it is the
-    `service_name`, which equals `agentName`. Null only when a
-    platform agent's registration could not be resolved.
+    `service_name`, which equals `agentName`.
     """
 
     warehouse = sgqlc.types.Field("Warehouse", graphql_name="warehouse")
@@ -25825,8 +25964,7 @@ class AgentMetadataV2(sgqlc.types.Type):
     `agent` object and `getAgentClassification`, so consumers share
     one parser across surfaces (AO-891). Note the intentional casing
     split with this node's legacy `sourceType` enum (uppercase member
-    names). Null only when a platform agent's registration could not
-    be resolved (same contract as `agentReference`).
+    names).
     """
 
     last_seen_at = sgqlc.types.Field(DateTime, graphql_name="lastSeenAt")
@@ -27146,14 +27284,17 @@ class AlertGrouping(sgqlc.types.Type):
     """Alert grouping strategy. group_into_open_alert: fold new breaches
     from this monitor into its currently-open alert (table monitors
     also key on schema) until the alert is resolved or the max_hours
-    window elapses. Omit / null for legacy per-type grouping.
+    window elapses. no_grouping (job monitors only): open one alert
+    per failed run, and one per dbt run. Leave max_hours and
+    renotify_every_hours unset with no_grouping; reads return their
+    unused defaults. Omit / null for legacy per-type grouping.
     """
 
     max_hours = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="maxHours")
     """Maximum number of hours, from when the alert first opened, that
     new breaches are grouped into it. After this window a new breach
     starts a fresh alert. Defaults to 5 when omitted. Must be a
-    positive integer.
+    positive integer. Must be left unset with no_grouping.
     """
 
     renotify_every_hours = sgqlc.types.Field(
@@ -27164,7 +27305,8 @@ class AlertGrouping(sgqlc.types.Type):
     (measured from when the alert opened, then from the last re-
     notify) a reminder notification is sent. Defaults to 24 when
     omitted in monitors-as-code; pass -1 to disable re-notify. Must
-    otherwise be a positive integer.
+    otherwise be a positive integer. Must be left unset with
+    no_grouping.
     """
 
 
@@ -28332,6 +28474,7 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
         "users",
         "domain_restrictions",
         "connection_restrictions",
+        "mcp_server_access",
         "sso_group",
         "source",
         "is_membership_managed",
@@ -28389,6 +28532,15 @@ class AuthorizationGroupOutput(sgqlc.types.Type):
         graphql_name="connectionRestrictions",
     )
     """List of connections this group is limited to."""
+
+    mcp_server_access = sgqlc.types.Field(
+        sgqlc.types.non_null("McpServerAccessOutput"), graphql_name="mcpServerAccess"
+    )
+    """Which customer MCP servers members of this group may use. A group
+    that was never configured, or is managed by Monte Carlo, allows
+    every server. The group grants nothing unless its own roles allow
+    access to customer MCP servers.
+    """
 
     sso_group = sgqlc.types.Field(String, graphql_name="ssoGroup")
     """SSO group name to map this authorization group to"""
@@ -35666,6 +35818,59 @@ class CustomerMcpServerAuthorizationOutput(sgqlc.types.Type):
     """When the authorization expires, if known"""
 
 
+class CustomerMcpServerBasicInfo(sgqlc.types.Type):
+    """A customer MCP server the caller's groups allow, with the caller's
+    own connection status and the agents that may use it.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "name",
+        "description",
+        "auth_type",
+        "oauth_grant_type",
+        "status",
+        "user_authorization_status",
+        "allowed_agents",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Unique identifier"""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name"""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """Optional description"""
+
+    auth_type = sgqlc.types.Field(
+        sgqlc.types.non_null(CustomerMcpAuthenticationMethod), graphql_name="authType"
+    )
+    """Authentication method"""
+
+    oauth_grant_type = sgqlc.types.Field(CustomerMcpOAuthGrantType, graphql_name="oauthGrantType")
+    """OAuth2 grant type, for OAuth2 servers"""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(CustomerMcpServerStatus), graphql_name="status")
+    """Server status"""
+
+    user_authorization_status = sgqlc.types.Field(
+        CustomerMcpAuthorizationStatus, graphql_name="userAuthorizationStatus"
+    )
+    """The caller's connection to this server. Null for OAuth2 client-
+    credentials servers. AUTHORIZED for other servers that don't need
+    a per-user connection.
+    """
+
+    allowed_agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(McpServerAgentType))),
+        graphql_name="allowedAgents",
+    )
+    """AI agents whose MCP server access allows this server. Empty when
+    none do.
+    """
+
+
 class CustomerMcpServerOutput(sgqlc.types.Type):
     """A customer MCP server integration"""
 
@@ -35709,6 +35914,8 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
         "data_collector_uuid",
         "agent_credentials_configured",
         "cached_tools_refreshed_at",
+        "groups_with_access",
+        "agents_with_access",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Unique identifier"""
@@ -35849,7 +36056,8 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
         CustomerMcpAuthorizationStatus, graphql_name="userAuthorizationStatus"
     )
     """Current user's authorization status for this server. Null where
-    per-user consent does not apply (client-credentials servers).
+    per-user consent does not apply (client-credentials servers), and
+    when the caller can't use MCP servers.
     """
 
     transport = sgqlc.types.Field(
@@ -35877,6 +36085,22 @@ class CustomerMcpServerOutput(sgqlc.types.Type):
     cached_tools_refreshed_at = sgqlc.types.Field(DateTime, graphql_name="cachedToolsRefreshedAt")
     """When the server's tool list was last read through the collection
     agent
+    """
+
+    groups_with_access = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("McpServerAccessGroup")),
+        graphql_name="groupsWithAccess",
+    )
+    """Authorization groups whose members may use this server. Null when
+    the caller can't view authorization groups.
+    """
+
+    agents_with_access = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(McpServerAgentType)),
+        graphql_name="agentsWithAccess",
+    )
+    """AI agents whose MCP server access allows this server. Null when
+    the caller can't view AI agent settings.
     """
 
 
@@ -47441,6 +47665,35 @@ class MconDomainMembershipsOutput(sgqlc.types.Type):
     """Domains the mcon belongs to"""
 
 
+class McpServerAccessGroup(sgqlc.types.Type):
+    """An authorization group whose members may use a customer MCP
+    server.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("name", "label")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Unique name of the group."""
+
+    label = sgqlc.types.Field(String, graphql_name="label")
+    """Display name of the group."""
+
+
+class McpServerAccessOutput(sgqlc.types.Type):
+    """Which customer MCP servers a group or agent may use."""
+
+    __schema__ = schema
+    __field_names__ = ("mode", "servers")
+    mode = sgqlc.types.Field(sgqlc.types.non_null(McpServersAccessMode), graphql_name="mode")
+    """Access mode."""
+
+    servers = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("McpServerReference"))),
+        graphql_name="servers",
+    )
+    """The selected servers. Empty unless the mode is SELECTED."""
+
+
 class McpServerAuthDiscovery(sgqlc.types.Type):
     """OAuth2 authentication capabilities discovered from an MCP server's
     well-known endpoints
@@ -47540,6 +47793,60 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
     server can be created with. Empty unless the user can edit MCP
     servers and integrations.
     """
+
+
+class McpServerDeleteImpactOutput(sgqlc.types.Type):
+    """The groups and AI agents that would lose all customer MCP server
+    access if a server were deleted. They have Selected access with
+    only that server.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("groups", "agents")
+    groups = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(McpServerAccessGroup))),
+        graphql_name="groups",
+    )
+    """Authorization groups whose members would lose MCP server access."""
+
+    agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(McpServerAgentType))),
+        graphql_name="agents",
+    )
+    """AI agents that would lose MCP server access."""
+
+
+class McpServerOption(sgqlc.types.Type):
+    """A customer MCP server that a group or AI agent may be allowed to
+    use.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "requires_user_authorization")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Unique identifier of the MCP server."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name of the MCP server."""
+
+    requires_user_authorization = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="requiresUserAuthorization"
+    )
+    """True when each person must connect their own account before agents
+    can use the server.
+    """
+
+
+class McpServerReference(sgqlc.types.Type):
+    """A customer MCP server, by identifier and name."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Unique identifier of the MCP server."""
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Display name of the MCP server."""
 
 
 class MemoryExtractionStatus(sgqlc.types.Type):
@@ -50132,6 +50439,7 @@ class Mutation(sgqlc.types.Type):
         "create_jira_ticket_for_storage_candidates",
         "bulk_update_monitor_exceptions",
         "bulk_create_comment_for_exceptions",
+        "update_ai_agent_mcp_server_access",
         "create_customer_mcp_server",
         "update_customer_mcp_server",
         "delete_customer_mcp_server",
@@ -51003,6 +51311,49 @@ class Mutation(sgqlc.types.Type):
     * `exception_ids` (`[UUID!]!`): List of exception UUIDs to add the
       comment to. All exceptions must belong to the same monitor.
     * `text` (`String!`): Comment text
+    """
+
+    update_ai_agent_mcp_server_access = sgqlc.types.Field(
+        "UpdateAiAgentMcpServerAccess",
+        graphql_name="updateAiAgentMcpServerAccess",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(McpServerAgentType),
+                        graphql_name="agentType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "mcp_server_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="mcpServerIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "mode",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(McpServersAccessMode),
+                        graphql_name="mode",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Set which customer MCP servers every run of an AI
+    agent may use.
+
+    Arguments:
+
+    * `agent_type` (`McpServerAgentType!`): The agent to configure.
+    * `mcp_server_ids` (`[UUID!]`): MCP server UUIDs the agent may
+      use. Required with SELECTED, and only allowed with it.
+    * `mode` (`McpServersAccessMode!`): Which servers it may use.
     """
 
     create_customer_mcp_server = sgqlc.types.Field(
@@ -68965,7 +69316,7 @@ class Mutation(sgqlc.types.Type):
       run only — e.g. which assets or monitor types to prioritize.
       Applied in addition to any instructions saved for the account or
       domain; saved restrictions still apply. Not persisted beyond the
-      run. Truncated to 2000 characters; blank text is ignored.
+      run. Truncated to 5000 characters; blank text is ignored.
     * `target_agent_name` (`String`): Scope this run to a single AI
       agent, instead of every agent in the domain. Must be sent
       together with `targetTraceTableMcon`: agent names are not unique
@@ -70222,6 +70573,20 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("label", sgqlc.types.Arg(String, graphql_name="label", default=None)),
                 (
+                    "mcp_server_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="mcpServerIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "mcp_servers_access",
+                    sgqlc.types.Arg(
+                        McpServersAccessMode, graphql_name="mcpServersAccess", default=None
+                    ),
+                ),
+                (
                     "member_user_ids",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(String), graphql_name="memberUserIds", default=None
@@ -70264,6 +70629,13 @@ class Mutation(sgqlc.types.Type):
       restrictions.
     * `label` (`String`): UI/user-friendly display name, ex: Data
       Consumers. If not provided on updates, will keep current value.
+    * `mcp_server_ids` (`[UUID!]`): MCP server UUIDs members may use.
+      Required with SELECTED, and only allowed with it.
+    * `mcp_servers_access` (`McpServersAccessMode`): Which customer
+      MCP servers members may use. If not provided, keeps the current
+      access. Can't be set on groups managed by Monte Carlo, which
+      always allow every server. Any mode other than NONE requires the
+      group's roles to allow access to customer MCP servers.
     * `member_user_ids` (`[String]`): User IDs of group members. If
       not provided, no changes to membership will be performed.
     * `name` (`String!`): Unique to the account, human-readable name
@@ -75743,6 +76115,7 @@ class Mutation(sgqlc.types.Type):
                     "match_threshold",
                     sgqlc.types.Arg(Float, graphql_name="matchThreshold", default=None),
                 ),
+                ("mode", sgqlc.types.Arg(PiiMonitorMode, graphql_name="mode", default=None)),
                 (
                     "pii_types",
                     sgqlc.types.Arg(
@@ -75791,12 +76164,17 @@ class Mutation(sgqlc.types.Type):
       names.
     * `match_threshold` (`Float`): Alert threshold as a proportion
       (0-1).
+    * `mode` (`PiiMonitorMode`): Switch every selected PII bulk
+      monitor to ALERT or SCAN. ALERT requires matchThreshold. SCAN
+      does not accept matchThreshold.
     * `pii_types` (`[PiiType!]`): Built-in PII types to apply to every
       selected PII bulk monitor. Deprecated types are ignored.
     * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
       for child metric monitors.
-    * `schedule_config` (`ScheduleConfigInput`): Collection schedule
-      to apply to every selected PII bulk monitor.
+    * `schedule_config` (`ScheduleConfigInput`): Collection interval
+      to apply to every selected PII bulk monitor. Each monitor keeps
+      its own start time. startTime and cron schedules are rejected.
+      Split PII setups accept only scheduleType FIXED.
     """
 
     mark_pii_scan_finding_false_positive = sgqlc.types.Field(
@@ -81028,7 +81406,11 @@ class Query(sgqlc.types.Type):
         "get_scheduled_report",
         "get_agent_digest_selection",
         "get_my_dashboard_schedules",
+        "get_ai_agent_mcp_server_access",
+        "get_customer_mcp_server_delete_impact",
+        "get_mcp_server_options",
         "get_customer_mcp_servers",
+        "get_my_customer_mcp_servers",
         "get_customer_mcp_server_authorizations",
         "discover_customer_mcp_server_auth",
         "get_federation_sources",
@@ -81048,6 +81430,10 @@ class Query(sgqlc.types.Type):
         "get_conversation_clustering",
         "get_agent_metadata",
         "get_agent_metadata_v2",
+        "get_agent_read_access",
+        "get_agent_readable_identity",
+        "get_agent_domain_candidates",
+        "get_agent_domain_candidates_by_mcon",
         "get_agent_observability_billing_info",
         "get_agent_trace_tables",
         "get_platform_agents",
@@ -81148,6 +81534,7 @@ class Query(sgqlc.types.Type):
         "get_pii_warehouse_tag_summary",
         "get_pii_scan_finding_sample_rows",
         "get_pii_scan_inventory_export_csv",
+        "get_pii_scan_bulk_monitors",
         "bulk_monitor",
         "bulk_monitors",
         "get_bulk_monitor",
@@ -81690,6 +82077,8 @@ class Query(sgqlc.types.Type):
         "get_alation_table_flags",
         "get_task_graph",
         "get_job_dependencies",
+        "get_teammate_updates",
+        "get_teammate_decisions",
         "get_tsa_analysis_result",
         "get_remediation_result",
         "ops_agent_conversations",
@@ -81863,6 +82252,60 @@ class Query(sgqlc.types.Type):
     subscribed to.
     """
 
+    get_ai_agent_mcp_server_access = sgqlc.types.Field(
+        sgqlc.types.non_null(McpServerAccessOutput),
+        graphql_name="getAiAgentMcpServerAccess",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(McpServerAgentType),
+                        graphql_name="agentType",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Which customer MCP servers every run of an AI agent
+    may use. An agent that was never configured may use every server.
+
+    Arguments:
+
+    * `agent_type` (`McpServerAgentType!`): The agent to look up.
+    """
+
+    get_customer_mcp_server_delete_impact = sgqlc.types.Field(
+        sgqlc.types.non_null(McpServerDeleteImpactOutput),
+        graphql_name="getCustomerMcpServerDeleteImpact",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "uuid",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="uuid", default=None),
+                ),
+            )
+        ),
+    )
+    """(experimental) The groups and AI agents that would lose all
+    customer MCP server access if this server were deleted. Requires
+    permission to edit MCP servers.
+
+    Arguments:
+
+    * `uuid` (`UUID!`): UUID of the server to delete.
+    """
+
+    get_mcp_server_options = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(McpServerOption))),
+        graphql_name="getMcpServerOptions",
+    )
+    """(experimental) Every MCP server in the account, for choosing which
+    servers a group or AI agent may use. Requires permission to edit
+    MCP servers, authorization groups, or AI agent settings.
+    """
+
     get_customer_mcp_servers = sgqlc.types.Field(
         sgqlc.types.list_of(CustomerMcpServerOutput),
         graphql_name="getCustomerMcpServers",
@@ -81876,12 +82319,23 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Get all customer MCP servers for the account
+    """(experimental) Get the account's customer MCP servers. Callers who
+    can edit MCP servers get every server. Everyone else gets only the
+    servers their groups allow.
 
     Arguments:
 
     * `uuid` (`UUID`): Filter by specific server UUID
     * `status` (`CustomerMcpServerStatus`): Filter by status
+    """
+
+    get_my_customer_mcp_servers = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(CustomerMcpServerBasicInfo))),
+        graphql_name="getMyCustomerMcpServers",
+    )
+    """(experimental) Active customer MCP servers the caller's groups
+    allow, ordered by name. Each lists the AI agents that may use it.
+    Requires access to customer MCP servers in AI agents.
     """
 
     get_customer_mcp_server_authorizations = sgqlc.types.Field(
@@ -82384,6 +82838,109 @@ class Query(sgqlc.types.Type):
       this time
     * `domain_uuid` (`UUID`): Filter results to only include MCONs
       assigned to this domain UUID
+    """
+
+    get_agent_read_access = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean),
+        graphql_name="getAgentReadAccess",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
+            )
+        ),
+    )
+    """(experimental) Whether the caller may open this agent's pages.
+    Without `agentName`, whether the caller reaches the trace table or
+    any agent on it. Unlike the agents listing, this covers every
+    agent.
+
+    Arguments:
+
+    * `mcon` (`String!`): Trace-table or agent MCON
+    * `agent_name` (`String`): The agent on that trace table
+    """
+
+    get_agent_readable_identity = sgqlc.types.Field(
+        "ReadableAgentIdentity",
+        graphql_name="getAgentReadableIdentity",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The agent's identity, when the caller may open its
+    pages. Null otherwise. Unlike the agents listing, this covers
+    every agent.
+
+    Arguments:
+
+    * `mcon` (`String!`): Trace-table or agent MCON
+    * `agent_name` (`String!`): The agent on that trace table
+    """
+
+    get_agent_domain_candidates = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentDomainCandidatePage),
+        graphql_name="getAgentDomainCandidates",
+        args=sgqlc.types.ArgDict(
+            (
+                ("search", sgqlc.types.Arg(String, graphql_name="search", default=None)),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=50)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=0)),
+            )
+        ),
+    )
+    """(experimental) Agents the caller may assign to a domain
+    individually, ordered by name. Reaches every live agent, including
+    quiet ones the agents listing leaves out.
+
+    Arguments:
+
+    * `search` (`String`): Part of the agent name, ignoring case
+    * `limit` (`Int`): Page size, at most 100 (default: `50`)
+    * `offset` (`Int`): Candidates to skip (default: `0`)
+    """
+
+    get_agent_domain_candidates_by_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentDomainCandidate))),
+        graphql_name="getAgentDomainCandidatesByMcon",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="agentMcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The agents among `agentMcons` the caller may assign
+    to a domain, for showing a saved selection. Unknown agents and
+    agents out of scope are left out.
+
+    Arguments:
+
+    * `agent_mcons` (`[String!]!`)None
     """
 
     get_agent_observability_billing_info = sgqlc.types.Field(
@@ -85782,6 +86339,30 @@ class Query(sgqlc.types.Type):
       findings with these pattern match strengths. Columns found only
       by warehouse tags are left out while it is set. Null or an empty
       list means no match strength filter.
+    """
+
+    get_pii_scan_bulk_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("BulkMonitor"))),
+        graphql_name="getPiiScanBulkMonitors",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "bulk_monitor_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="bulkMonitorUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return every part of the PII setup that the given
+    bulk monitor belongs to, ordered by start time. Returns an empty
+    list for a monitor with no piiScanUuid. Errors if the user cannot
+    read every part.
+
+    Arguments:
+
+    * `bulk_monitor_uuid` (`UUID!`)None
     """
 
     bulk_monitor = sgqlc.types.Field(
@@ -92232,6 +92813,7 @@ class Query(sgqlc.types.Type):
                     "trace_end_time",
                     sgqlc.types.Arg(DateTime, graphql_name="traceEndTime", default=None),
                 ),
+                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
             )
         ),
     )
@@ -92249,6 +92831,10 @@ class Query(sgqlc.types.Type):
     * `trace_end_time` (`DateTime`): End time of the trace
       (inclusive). Same omitted/single-bound behavior as
       traceStartTime.
+    * `agent_name` (`String`): Agent the trace belongs to. Lets a user
+      who can access that agent, but not its whole trace table, read
+      the trace. The request fails when the trace contains spans of an
+      agent the user cannot access.
     """
 
     get_agent_span_groups = sgqlc.types.Field(
@@ -101084,7 +101670,7 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) Search for unmonitored tables with muted OOTB
     table-monitor anomalies in a time window, ordered by importance
-    score
+    score. The time window can be at most 31 days long.
 
     Arguments:
 
@@ -106157,6 +106743,101 @@ class Query(sgqlc.types.Type):
       external assets this job produces).
     """
 
+    get_teammate_updates = sgqlc.types.Field(
+        sgqlc.types.non_null("TeammateUpdates"),
+        graphql_name="getTeammateUpdates",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainId", default=None
+                    ),
+                ),
+                ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
+                ("until", sgqlc.types.Arg(DateTime, graphql_name="until", default=None)),
+            )
+        ),
+    )
+    """(experimental) What the teammate (Monte Carlo's hourly domain
+    agent) posted to the domain's teammate channel in a window, newest
+    first, at most 50 posts. omittedCount says how many more posts the
+    window holds. The window is at most 7 days long. until defaults to
+    now, and since to 7 days before until. Requires alerts access to
+    the domain.
+
+    Arguments:
+
+    * `domain_id` (`UUID!`): The domain.
+    * `since` (`DateTime`): Start of the window (inclusive).
+    * `until` (`DateTime`): End of the window (exclusive).
+    """
+
+    get_teammate_decisions = sgqlc.types.Field(
+        sgqlc.types.non_null("TeammateDecisions"),
+        graphql_name="getTeammateDecisions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainId", default=None
+                    ),
+                ),
+                (
+                    "alert_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="alertIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "issue_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="issueIds",
+                        default=None,
+                    ),
+                ),
+                (
+                    "match",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="match",
+                        default=None,
+                    ),
+                ),
+                ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
+                ("until", sgqlc.types.Arg(DateTime, graphql_name="until", default=None)),
+            )
+        ),
+    )
+    """(experimental) Why the teammate posted, skipped or is watching the
+    named alerts and agent issues: the latest decision on each, the
+    decisions in the window, and the window's posts that cover it.
+    Name items by id or match fragment; at least one is required, each
+    list takes at most 20 values, and at most 20 items are returned.
+    The window is at most 7 days long. until defaults to now, and
+    since to 7 days before until. Requires alerts access to the
+    domain.
+
+    Arguments:
+
+    * `domain_id` (`UUID!`): The domain.
+    * `alert_ids` (`[UUID!]`): Alert ids.
+    * `issue_ids` (`[UUID!]`): Agent issue ids.
+    * `match` (`[String!]`): Text fragments. A fragment matches an
+      item when every word of it appears, in any order, in the asset
+      MCONs, alert name, agent name or trace table, without case. Any
+      form of a table id works: db.schema.table or db:schema.table. A
+      fragment with several words must match one item with all its
+      words. Fragments are alternatives: an item that matches any
+      fragment is returned. Each word has at least 3 characters.
+    * `since` (`DateTime`): Start of the history window (inclusive).
+    * `until` (`DateTime`): End of the history window (exclusive).
+    """
+
     get_tsa_analysis_result = sgqlc.types.Field(
         "TsaAnalysisResultType",
         graphql_name="getTsaAnalysisResult",
@@ -107759,6 +108440,31 @@ class ReInviteUsers(sgqlc.types.Type):
     """List of email addresses of users who already exist and cannot be
     invited
     """
+
+
+class ReadableAgentIdentity(sgqlc.types.Type):
+    """An agent the caller may open, with the MCONs its pages and
+    monitors need.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("agent_mcon", "agent_name", "display_name", "storage_mcon", "source_type")
+    agent_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentMcon")
+    """MCON that identifies the agent"""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Name of the agent"""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """Name to show for the agent"""
+
+    storage_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="storageMcon")
+    """MCON of the trace table the agent records spans in"""
+
+    source_type = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentSourceType), graphql_name="sourceType"
+    )
+    """Source type"""
 
 
 class RecordPreflightRunOutput(sgqlc.types.Type):
@@ -114505,6 +115211,184 @@ class TeammateChannel(sgqlc.types.Type):
     """Why the channel is paused. Empty when it is not paused."""
 
 
+class TeammateDecisionEntry(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("decision", "reason", "decided_time", "next_check_time", "post_id")
+    decision = sgqlc.types.Field(sgqlc.types.non_null(TeammateDecision), graphql_name="decision")
+    """What the teammate decided."""
+
+    reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reason")
+    """Why, in the teammate's words. Replaced by a notice when the item,
+    or its thread's first post, covers an agent issue you may not see
+    or that no longer exists.
+    """
+
+    decided_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="decidedTime")
+    """Start of the hourly run that decided."""
+
+    next_check_time = sgqlc.types.Field(DateTime, graphql_name="nextCheckTime")
+    """When the teammate looks again. Set only while it is watching."""
+
+    post_id = sgqlc.types.Field(UUID, graphql_name="postId")
+    """The post that covered the item, if any."""
+
+
+class TeammateDecisions(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("items", "omitted_item_count")
+    items = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TeammateItemDecision"))),
+        graphql_name="items",
+    )
+    """Matched items, most recently decided first."""
+
+    omitted_item_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="omittedItemCount"
+    )
+    """Items that matched and are not in items, because at most 20 are
+    returned. To get them, use more specific match words or pass ids.
+    """
+
+
+class TeammateItemDecision(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "item_type",
+        "alert_id",
+        "alert_name",
+        "asset_mcons",
+        "issue_id",
+        "agent_name",
+        "current",
+        "history",
+        "posts",
+        "omitted_post_count",
+        "omitted_history_count",
+    )
+    item_type = sgqlc.types.Field(sgqlc.types.non_null(TeammateItemType), graphql_name="itemType")
+
+    alert_id = sgqlc.types.Field(UUID, graphql_name="alertId")
+    """The alert. Set for ALERT items."""
+
+    alert_name = sgqlc.types.Field(String, graphql_name="alertName")
+    """The alert's name. Set for ALERT items."""
+
+    asset_mcons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="assetMcons",
+    )
+    """MCONs of the alert's assets. Empty for agent issues."""
+
+    issue_id = sgqlc.types.Field(UUID, graphql_name="issueId")
+    """The agent issue. Set for AGENT_ISSUE items."""
+
+    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    """The issue's agent. Set for AGENT_ISSUE items."""
+
+    current = sgqlc.types.Field(sgqlc.types.non_null(TeammateDecisionEntry), graphql_name="current")
+    """The latest decision, however old."""
+
+    history = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TeammateDecisionEntry))),
+        graphql_name="history",
+    )
+    """Decisions in the window, oldest first; at most the latest 48."""
+
+    posts = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TeammatePost"))),
+        graphql_name="posts",
+    )
+    """Posts in the window that cover the item, newest first. A call
+    returns at most 50 posts across all its items, shared fairly
+    between them.
+    """
+
+    omitted_post_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="omittedPostCount"
+    )
+    """Posts in the window that cover the item and are not in posts. To
+    get them, ask about this item alone, or use a shorter window.
+    """
+
+    omitted_history_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="omittedHistoryCount"
+    )
+    """Decisions in the window that are older than the ones in history.
+    To get them, set until to the decidedTime of the oldest decision
+    in history, or use a shorter window.
+    """
+
+
+class TeammatePost(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "text",
+        "alert_ids",
+        "issue_ids",
+        "parent_post_id",
+        "permalink",
+        "status",
+        "is_fallback",
+        "created_time",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+    """Post id."""
+
+    text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="text")
+    """The message text. Replaced by a notice when it, or its thread's
+    first post, covers an agent issue you may not see or that no
+    longer exists.
+    """
+
+    alert_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="alertIds",
+    )
+    """Alerts the post is about."""
+
+    issue_ids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="issueIds",
+    )
+    """Agent issues the post is about."""
+
+    parent_post_id = sgqlc.types.Field(UUID, graphql_name="parentPostId")
+    """The post whose thread this one replies in. Null for a top-level
+    post.
+    """
+
+    permalink = sgqlc.types.Field(String, graphql_name="permalink")
+    """Slack link to the message. Null until it is sent."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(TeammatePostStatus), graphql_name="status")
+    """Delivery state. Only SENT posts reached Slack."""
+
+    is_fallback = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFallback")
+    """True when code wrote the post because the agent did not handle a
+    critical item.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the post was written."""
+
+
+class TeammateUpdates(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("posts", "omitted_count")
+    posts = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(TeammatePost))),
+        graphql_name="posts",
+    )
+    """Posts in the window, newest first."""
+
+    omitted_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="omittedCount")
+    """Posts in the window that are not in posts, because at most 50 are
+    returned. To get them, call again with until set to the
+    createdTime of the oldest post in posts, or use a shorter window.
+    """
+
+
 class Terminology(sgqlc.types.Type):
     """Display-noun overrides for the ETL tiers.  ETL connection types
     may rename the generic ``group`` / ``job`` / ``task`` nouns to
@@ -117987,6 +118871,17 @@ class UpdateAgenticPlatformPipeline(sgqlc.types.Type):
     pipeline = sgqlc.types.Field(
         sgqlc.types.non_null(AgenticPlatformPipelineOutput), graphql_name="pipeline"
     )
+
+
+class UpdateAiAgentMcpServerAccess(sgqlc.types.Type):
+    """Set which customer MCP servers every run of an AI agent may use."""
+
+    __schema__ = schema
+    __field_names__ = ("mcp_server_access",)
+    mcp_server_access = sgqlc.types.Field(
+        sgqlc.types.non_null(McpServerAccessOutput), graphql_name="mcpServerAccess"
+    )
+    """The agent's access after the update."""
 
 
 class UpdateAlert(sgqlc.types.Type):
@@ -123139,6 +124034,7 @@ class BulkMonitor(sgqlc.types.Type, Node):
         "collection_lag_hours",
         "auto_prune_enabled",
         "lineage_narrowing_enabled",
+        "pii_scan_uuid",
         "table_limit",
         "deleted_by",
         "auto_triage",
@@ -123233,6 +124129,13 @@ class BulkMonitor(sgqlc.types.Type, Node):
     """When enabled, only monitor root tables (those with no upstream
     lineage within the selected assets) to avoid redundant PII
     scanning.
+    """
+
+    pii_scan_uuid = sgqlc.types.Field(UUID, graphql_name="piiScanUuid")
+    """Shared by every PII bulk monitor one createPiiMonitor call
+    created, including all parts of a split scan. Null for PII
+    monitors not created by createPiiMonitor, including those created
+    before this field.
     """
 
     table_limit = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="tableLimit")
@@ -128296,6 +129199,7 @@ class Monitor(
     __field_names__ = (
         "alert_grouping",
         "audience_conditions",
+        "pii_scan_uuid",
         "supports_sensitivity_update",
         "supports_monitors_as_code",
         "is_tunable",
@@ -128321,6 +129225,13 @@ class Monitor(
     name so they join to `audiences`. Sparse: an audience absent from
     this list is notified unconditionally. Empty when the monitor has
     no conditions at all.
+    """
+
+    pii_scan_uuid = sgqlc.types.Field(UUID, graphql_name="piiScanUuid")
+    """Shared by every PII monitor that one createPiiMonitor call
+    created. Null for other monitor types, for PII monitors not
+    created by createPiiMonitor, and for PII monitors created before
+    this field was added.
     """
 
     supports_sensitivity_update = sgqlc.types.Field(

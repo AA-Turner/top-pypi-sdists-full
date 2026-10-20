@@ -56,6 +56,8 @@ class NgrokTunnel:
             self.uri = None
         #: The public ``ngrok`` URL.
         self.public_url: Optional[str] = data.get("public_url", data.get("url"))
+        if self.proto is None and self.public_url and "://" in self.public_url:
+            self.proto = self.public_url.split("://")[0]
         #: The ``config`` block specific to v2 tunnels (e.g. ``{"addr": ..., "inspect": ...}``);
         #: empty for v3 endpoints.
         self.config: Dict[str, Any] = data.get("config", {})
@@ -290,9 +292,12 @@ def _interpolate_tunnel_definition(pyngrok_config: PyngrokConfig,
         override_from_addr = (addr_provided or proto_provided) and not user_upstream_provided
         if override_from_addr or "upstream" not in options:
             url = addr if "://" in addr else (
-                f"tcp://localhost:{addr}" if proto == "tcp" else f"http://localhost:{addr}"
+                f"localhost:{addr}" if proto in ["tcp", "tls"] else f"http://localhost:{addr}"
             )
             options["upstream"] = {"url": url}
+        if proto in ["tcp", "tls"]:
+            options.setdefault("url", f"{proto}://")
+            options.setdefault("inspect", False)
         options.pop("addr", None)
         options.pop("proto", None)
     else:
@@ -401,6 +406,40 @@ def connect(addr: Optional[str] = None,
     _current_tunnels[tunnel.public_url] = tunnel
 
     return tunnel
+
+
+def connect_all(pyngrok_config: Optional[PyngrokConfig] = None) -> List[NgrokTunnel]:
+    """
+    Establish a ``ngrok`` tunnel for each tunnel definition in ``ngrok``'s config file, returning a list of objects
+    representing the connected tunnels. Each is started with :func:`~pyngrok.ngrok.connect` by its ``name``.
+
+    Routing is driven by :attr:`~pyngrok.conf.PyngrokConfig.config_version`: ``"2"`` reads the v2 ``tunnels``
+    config block; ``"3"`` reads the v3 ``endpoints`` block (and a ``tunnels`` block if also present).
+
+    The "pyngrok-default" definition is not started, since it is the definition :func:`~pyngrok.ngrok.connect`
+    uses when no ``name`` is given.
+
+    :param pyngrok_config: A ``pyngrok`` configuration to use when interacting with the ``ngrok`` binary,
+        overriding :func:`~pyngrok.conf.get_default()`.
+    :return: The created ``ngrok`` tunnels.
+    :raises: :class:`~pyngrok.exception.PyngrokError`: When a tunnel definition is invalid, or the response does
+        not contain ``public_url``.
+    """
+    if pyngrok_config is None:
+        pyngrok_config = conf.get_default()
+
+    config_path = conf.get_config_path(pyngrok_config)
+    if not os.path.exists(config_path):
+        return []
+
+    with installer.config_file_lock:
+        config = installer.get_ngrok_config(config_path, ngrok_version=pyngrok_config.ngrok_version)
+
+    names = list((config.get("tunnels") or {}).keys())
+    if pyngrok_config.config_version == "3":
+        names = [definition.get("name") for definition in config.get("endpoints") or []] + names
+
+    return [connect(name=name, pyngrok_config=pyngrok_config) for name in names if name and name != "pyngrok-default"]
 
 
 def disconnect(public_url: str,

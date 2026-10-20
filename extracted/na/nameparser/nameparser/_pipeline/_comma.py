@@ -1,9 +1,9 @@
-"""Not a stage: rules.md#C1's decision, made by group at its head.
+"""Not a stage: rules/C1's decision, made by group at its head.
 
 The comma's structure is decided ONCE, after classify has tagged every
 word and before group joins any of them (#613): the part after the
 first comma is read by `_pieces.segment_suffix_reading`, the one
-reading a part that holds no name word gets, with the words C1's count
+reading a part that holds no name word gets, with the words C4's count
 licenses as credentials behind a whole name. Where it reads as the
 postnominal part its roles are set here, so no join in group and no
 walk in assign can reach them, and the comma is a suffix comma when
@@ -30,19 +30,20 @@ from __future__ import annotations
 import unicodedata
 from collections.abc import Sequence
 
-from nameparser._lexicon import _normalize
+from nameparser._lexicon import Lexicon, _normalize
 from nameparser._pipeline._pieces import (
-    has_name_content, is_suffix_piece, join_connectives, listed_lean,
-    own_words, segment_suffix_reading,
+    has_name_content, is_suffix_piece, is_title_piece, join_connectives,
+    listed_lean, own_words, segment_suffix_reading,
 )
 from nameparser._pipeline._state import (
     AMBIGUOUS_ACRONYM_TAG, SHAPE_ACRONYM_TAG, ParseState, PendingAmbiguity,
     Structure, WorkToken, copy_with,
 )
 from nameparser._pipeline._vocab import (
-    D, PH, caps_shape_candidate, claimed_as_non_name, delimiter_cores,
+    D, PH, ROMAN, caps_shape_candidate, claimed_as_non_name, delimiter_cores,
     composed_len, is_caps_word, is_paired_initials, is_single_letter_numeral,
-    is_wholly_suffix, name_word_count, surname_unit_facts, unit_ends, written_as_a_name,
+    is_trailing_numeral_suffix, is_wholly_suffix, name_word_count,
+    surname_unit_facts, unit_ends, written_as_a_name,
 )
 from nameparser._policy import CapsSuffixes
 from nameparser._types import AmbiguityKind, Role
@@ -76,7 +77,7 @@ def _reading_pieces(part: Sequence[int], tokens: Sequence[WorkToken],
     can hold."""
     pieces, ptags = _pieces(part, tokens)
     # The one join a postnominal part can hold, made here so the reading
-    # sees it: rules.md#P3's connective joining its neighbours where the
+    # sees it: rules/P3's connective joining its neighbours where the
     # neighbour it takes its kind from is a title, which makes the
     # joined part a title ('Mr. and Mrs.', 'Secretary of State', 'Dr.
     # and'), a run of connectives merging first as it does in the name
@@ -90,7 +91,7 @@ def _reading_pieces(part: Sequence[int], tokens: Sequence[WorkToken],
     # Dr.'). Group's own joins, the one loop since #617: its copy here
     # merged no run and joined 'Minister of the' alone.
     #
-    # rules.md#P3: "A connective that is also generational vocabulary
+    # rules/P3: "A connective that is also generational vocabulary
     # joins only where a name word stands on each side of it" -- and in
     # a part read for credentials none does, so every such connective
     # is frozen here, where group freezes only the ones it finds without
@@ -118,7 +119,17 @@ def _reading_pieces(part: Sequence[int], tokens: Sequence[WorkToken],
     return pieces, ptags
 
 
-def _name_contrast(state: ParseState, seg0: Sequence[int]) -> bool:
+def _unclaimed_name_word(text: str, lexicon: Lexicon) -> bool:
+    """A word written as a name and claimed by no wordlist as anything
+    else -- #564's contrast word and rules/C12's veto, one question.
+    The caller tests for a period first, in C: a word with one is an
+    abbreviation or an initial, not a name word."""
+    return (written_as_a_name(text)
+            and not claimed_as_non_name(_normalize(text), lexicon))
+
+
+def _name_contrast(state: ParseState, seg0: Sequence[int],
+                   clause_at: int | None = None) -> bool:
     """#564 (Derek): the contrast the caps shape needs is the NAME's,
     and the name carries it only if one of its own words before the
     comma (no maiden clause, no delimited content, as `own_words`
@@ -132,28 +143,32 @@ def _name_contrast(state: ParseState, seg0: Sequence[int]) -> bool:
     'FitzGERALD', 'McDONALD') all fail it, so such a record keeps its
     given name beside its lowercase particles, clauses and titles and
     beside a mixed-case credential ('LLOYD WEBBER, ANDREW PhD'). A part
-    with no lowercase at all is settled in one C-level comparison."""
+    with no lowercase at all is settled in one C-level comparison.
+    `clause_at` is `own_words`' clause index where the caller already
+    holds it."""
     before = "".join([state.tokens[i].text for i in seg0])
     if before == before.upper():
         return False
-    _, clause_at = own_words(state.tokens, state.comma_offsets,
-                             state.lexicon.maiden_markers)
+    if clause_at is None:
+        _, clause_at = own_words(state.tokens, state.comma_offsets,
+                                 state.lexicon.maiden_markers)
     lex = state.lexicon
     return any(
         i < clause_at and (tok := state.tokens[i]).role is None
-        and "." not in tok.text and written_as_a_name(tok.text)
-        and not claimed_as_non_name(_normalize(tok.text), lex)
+        and "." not in tok.text and _unclaimed_name_word(tok.text, lex)
         for i in seg0)
 
 
 def _whole_name(seg0: Sequence[int], tokens: Sequence[WorkToken]) -> bool:
-    """rules.md#C1's count before the comma for an unambiguous
+    """rules/C3's count before the comma for an unambiguous
     credential, read off classify's tags (the ambiguous class's count
     of NAME words, which leaves titles out, is
     `_vocab.name_word_count`'s, asked in `decide`): two or more units (a particle run and
     the name word it attaches to one unit, a connective join not, #575)
     holding a word that is not a suffix word -- a title counts, being a
     word to the count an unambiguous credential takes."""
+    # rules/C3: "a particle run and the one name word it attaches to are
+    # one word"
     pieces, ptags = _pieces(seg0, tokens)
     named: set[int] = set()
     for piece, tags in zip(pieces, ptags):
@@ -174,6 +189,80 @@ def _whole_name(seg0: Sequence[int], tokens: Sequence[WorkToken]) -> bool:
     return False
 
 
+def _behind_a_generation(state: ParseState, seg0: Sequence[int],
+                         p1: Sequence[list[int]], pt1: Sequence[set[str]],
+                         tokens: Sequence[WorkToken], contrast: bool | None,
+                         ) -> tuple[bool, ...] | None:
+    """rules/C12's reading of the part after the comma, or None where
+    the listing form stands: behind a whole name ending in a suffix
+    word, or in a numeral the trailing fork reads as the generation,
+    the part is the credential run, its titles (a word or a run a
+    connective joins) reading as titles, unless a word of it is
+    written as a name. The caller has tested the tag, or the numeral
+    shape with `ROMAN`, as a cheap filter. The part's veto is asked
+    first, being the cheap question and the one a listing with a given
+    name answers ('Garcia Lopez Jr., Juan'). `contrast` is C6's answer
+    where `decide` has already asked it, else None."""
+    # two name words and the generation at least: exact, since
+    # `_whole_name` needs two units in front ('Smith VI, AD')
+    if len(seg0) < 3:
+        return None
+    lex = state.lexicon
+    reading: list[bool] = []
+    for p, pt in zip(p1, pt1):
+        # a title reads as a title, a word or a run a connective joins
+        # ('Mr. and Mrs.', a dual inside it included); a lone dual of
+        # the title and the suffix vocabulary is the suffix here, the
+        # slot being postnominal ('John Smith Jr., AD MD'): C8's two
+        # predicates, asked in C8's order
+        title = (not is_suffix_piece(p, pt, tokens)
+                 and is_title_piece(p, pt, tokens))
+        for i in p:
+            tok = tokens[i]
+            # rules/C12: "a word of it written as a name, or an
+            # initial, keeps the listing form" -- unlisted, and a word
+            # with a period is an abbreviation, as for the contrast;
+            # paired initials are initials, as C5 keeps them ('J.A.')
+            if "initial" in tok.tags or (
+                    is_paired_initials(tok.text) if "." in tok.text
+                    else _unclaimed_name_word(tok.text, lex)):
+                return None
+        reading.append(not title)
+    last = tokens[seg0[-1]].text
+    # a numeral by shape alone (VI to X) is the generation the trailing
+    # fork reads, as the listed ones are (#610's class: 'VI' beside 'V'
+    # and 'III'), and not one it reads as an initial's neighbour
+    # ('John J VI, AD')
+    if ("vocab:suffix-word" not in tokens[seg0[-1]].tags
+            and not is_trailing_numeral_suffix(
+                last, tokens[seg0[-2]].text, state.one_case)):
+        return None
+    # the generation set aside, the name's own words in front of it are
+    # a whole name: 'Smith VI' is one word and a numeral, as 'Smith III'
+    # is, and a maiden clause is no word of the name ('Jane nee Smith
+    # Jr., AD' reads as 'Jane Jr., AD'; own_words, as for the contrast)
+    _, clause_at = own_words(state.tokens, state.comma_offsets,
+                             lex.maiden_markers)
+    front = [i for i in seg0[:-1]
+             if i < clause_at and tokens[i].role is None]
+    if not _whole_name(front, tokens):
+        return None
+    # a one-letter numeral is the generation only where the name has a
+    # word to spare for it, a title being none (rules/S10), and is no
+    # evidence where the name reads it as a name word ('Dr. Smith V,
+    # AD', whose title is a word to the count above but none here)
+    if (len(last.rstrip(".")) == 1 and is_single_letter_numeral(last)
+            and name_word_count([tokens[i].text for i in front], lex,
+                                state.policy,
+                                letters_one_case=state.one_case) < 2):
+        return None
+    if contrast is None:
+        contrast = _name_contrast(state, seg0, clause_at)
+    if not contrast:
+        return None
+    return tuple(reading)
+
+
 def decide(state: ParseState) -> ParseState:
     """The structure of a comma form, and the postnominal part bound.
     Returns `state` unchanged where the listing form stands."""
@@ -191,11 +280,12 @@ def decide(state: ParseState) -> ParseState:
         return state
     tokens = list(state.tokens)
     lex, pol = state.lexicon, state.policy
-    # rules.md#C1: "A delimiter the policy declares parts a trailing
+    # rules/C10: "A delimiter the policy declares parts a trailing
     # suffix part as a comma would" -- behind a whole name its cores are
     # no word of the reading, and leave as group drops them in a tail;
     # behind one name word the core is a word, v1 having applied the
-    # delimiter to the suffix-comma form alone (C1's Accepted entry)
+    # delimiter to the suffix-comma form alone (C10's core-is-a-word
+    # Accepted entry)
     cores = delimiter_cores(pol.extra_suffix_delimiters)
     whole: bool | None = None
     core_idx: list[int] = []
@@ -231,24 +321,35 @@ def decide(state: ParseState) -> ParseState:
     # listing form stands. (a declared delimiter's core may sit inside a
     # word, 'RN/CRNA', which only the lenient fallback below reads)
     reading: tuple[bool, ...] | None = None
+    # rules/C12's evidence, filtered by the tag and a C-level match so
+    # the listing form pays no frame for it ('Smith, John' never calls
+    # the helper)
+    generation = bool(seg0) and (
+        "vocab:suffix-word" in tokens[seg0[-1]].tags
+        or ROMAN.match(tokens[seg0[-1]].text) is not None)
+    behind_generation = listing = False
+    contrast: bool | None = None
     if not maybe:
         reading = segment_suffix_reading(
             p1, pt1, tokens, pol.lenient_comma_suffixes, state.one_case,
             anchored, absorbed)
-        if reading is None and not cores and not all(
-                "suffix" in t or "vocab:suffix" in tokens[p[0]].tags
-                for p, t in zip(p1, pt1)):
+        # a word no vocabulary claims as a suffix: the listing form,
+        # unless C12 reads it below, which skips C1's fallback for it
+        listing = reading is None and not cores and not all(
+            "suffix" in t or "vocab:suffix" in tokens[p[0]].tags
+            for p, t in zip(p1, pt1))
+        if listing and not generation:
             return state
     names = 0
     caps: set[int] = set()
     licensed: set[int] = set()
     run = False
     if maybe:
-        names = name_word_count([tokens[i].text for i in seg0], lex, pol)
+        names = name_word_count([tokens[i].text for i in seg0], lex, pol,
+                                letters_one_case=state.one_case)
     if names >= 2:
-        # rules.md#C1: "An unlisted all-caps word joins the class in such
-        # a part only where the name carries the contrast"
-        contrast: bool | None = None
+        # rules/C6: "An unlisted all-caps word joins the ambiguous
+        # credential class [...] only where the name carries the contrast"
         for i in maybe:
             text = tokens[i].text
             if SHAPE_ACRONYM_TAG in tokens[i].tags:
@@ -267,7 +368,7 @@ def decide(state: ParseState) -> ParseState:
                 # for, a lone one included ('John Smith, XY')
                 if contrast:
                     caps.add(i)
-        # rules.md#C1: "The same count reads a part of two or more words
+        # rules/C4: "The same count reads a part of two or more words
         # as the credential run when every word of it is a suffix word
         # or a word of this class", none of them a single-letter numeral.
         # the words not of the class are asked as C1's suffix test asks
@@ -283,14 +384,15 @@ def decide(state: ParseState) -> ParseState:
                 for i in p:
                     others.append(tokens[i].text)
         run = (bool(licensed)
-               and (not others or is_wholly_suffix(others, lex, pol))
+               and (not others or is_wholly_suffix(
+                   others, lex, pol, letters_one_case=state.one_case))
                and not any(len(p) == 1
                            and is_single_letter_numeral(tokens[p[0]].text)
                            for p in p1))
         if not run:
             licensed.clear()
         else:
-            # rules.md#C1: "Paired initials are the exception to the
+            # rules/C5: "Paired initials are the exception to the [...]
             # count" -- "Only an unambiguous suffix word in front of
             # them that is not also title vocabulary, or another word
             # the class admits by its dotted shape standing in the same
@@ -317,9 +419,7 @@ def decide(state: ParseState) -> ParseState:
                     speaker = next(
                         (j for j in range(len(p1))
                          if is_suffix_piece(p1[j], pt1[j], tokens)
-                         and not (len(p1[j]) == 1
-                                  and "vocab:title"
-                                  in tokens[p1[j][0]].tags)),
+                         and not is_title_piece(p1[j], pt1[j], tokens)),
                         len(p1))
                 # another shape word than this one: no set built per
                 # pair (a copy of `shape` each time was quadratic in C)
@@ -331,18 +431,44 @@ def decide(state: ParseState) -> ParseState:
         reading = segment_suffix_reading(
             p1, pt1, tokens, pol.lenient_comma_suffixes, state.one_case,
             anchored, absorbed, licensed)
-    if whole is None:
-        whole = _whole_name(seg0, tokens)
-    # rules.md#C1: "By default a recognized suffix word counts even
-    # written like an initial" -- behind a whole name ('John Smith, V.')
-    if reading is None and whole and is_wholly_suffix(
-            [tokens[i].text for i in part], lex, pol, one_case=None):
-        reading = (True,) * len(p1)
+    if not listing:
+        if whole is None:
+            whole = _whole_name(seg0, tokens)
+        # rules/C1: "By default a recognized suffix word counts even
+        # written like an initial" -- behind a whole name ('John Smith, V.')
+        if reading is None and whole and is_wholly_suffix(
+                [tokens[i].text for i in part], lex, pol, one_case=None,
+                letters_one_case=state.one_case):
+            reading = (True,) * len(p1)
+    # the words of the part C12 reads as suffixes, which its report
+    # names: a title in the part, a word or a joined run, is no
+    # credential it took
+    taken: list[int] = []
+    if reading is None and generation:
+        reading = _behind_a_generation(state, seg0, p1, pt1, tokens,
+                                       contrast)
+        if reading is not None:
+            behind_generation = True
+            for p, suffix in zip(p1, reading):
+                if not suffix:
+                    continue
+                for i in p:
+                    taken.append(i)
+                    text = tokens[i].text
+                    # #564's marks on an unlisted all-caps word, as the
+                    # caps shape writes them, so case repair keeps 'AD'
+                    # (rules/R4); the C-level filter `maybe` uses first
+                    if ("vocab:suffix" not in tokens[i].tags
+                            and (text.isalpha() and text.isupper()
+                                 or not unicodedata.is_normalized(
+                                     "NFC", text) and is_caps_word(text))):
+                        caps.add(i)
     if reading is None:
         return state
-    # The part is the postnominal part, bound here whatever stands
-    # before the comma. The comma is a suffix comma behind a whole name;
-    # behind one name word it stays the family comma naming the family.
+    # rules/C7: "that reading is final" -- the part is the postnominal
+    # part, bound here whatever stands before the comma. The comma is a
+    # suffix comma behind a whole name; behind one name word it stays
+    # the family comma naming the family.
     ambiguities = list(state.ambiguities)
     for k, piece in enumerate(p1):
         role = Role.SUFFIX if reading[k] else Role.TITLE
@@ -350,13 +476,13 @@ def decide(state: ParseState) -> ParseState:
             tags = tokens[i].tags
             if i in caps:
                 # #564: the caps shape's marks, as classify writes them
-                # EVERYWHERE, so case repair keeps 'XYZ' (rules.md#R4)
+                # EVERYWHERE, so case repair keeps 'XYZ' (rules/R4)
                 tags = tags | {SHAPE_ACRONYM_TAG, AMBIGUOUS_ACRONYM_TAG}
             tokens[i] = copy_with(tokens[i], role=role, tags=tags)
-    # rules.md#C1: "A decision either way at this comma is reported;
+    # rules/C11: "A decision either way at the comma C1 reads is reported;
     # for a run of words the decision is the flip to the credential
     # run, reported once over the whole part. A flip in which no listed
-    # word of this class takes part is the exception and is made in
+    # word of the ambiguous credential class (C4) takes part is the exception and is made in
     # silence" -- "unless what said so is nothing but other paired
     # initials". A run whose every class word is listed and settled by
     # its capitals is read on that evidence, not flipped by the count.
@@ -385,10 +511,18 @@ def decide(state: ParseState) -> ParseState:
         # only titles among the other words in front of the first
         pair_only = (len(pairs) >= 2 and len(pairs) == len(members)
                      and all(p[0] in member_set
-                             or (len(p) == 1
-                                 and "vocab:title" in tokens[p[0]].tags)
-                             for p in p1[:pairs[0]]))
-    if whole and run and ((listed and not settled) or caps or pair_only):
+                             or is_title_piece(p, pt, tokens)
+                             for p, pt in zip(p1[:pairs[0]], pt1)))
+    if behind_generation:
+        # rules/C11: "A decision either way at the comma C1 reads is
+        # reported" -- here the suffix word before the comma decided it,
+        # not C4's count, which C12 does not consult
+        ambiguities.append(PendingAmbiguity(
+            AmbiguityKind.SUFFIX_OR_NAME,
+            f"{' '.join(tokens[i].text for i in taken)!r} after the comma "
+            f"follows {tokens[seg0[-1]].text!r}, so it is read as a "
+            f"credential run; it may be a name", tuple(taken)))
+    elif whole and run and ((listed and not settled) or caps or pair_only):
         if len(part) == 1:
             what = (f"{tokens[part[0]].text!r} after the comma is also an "
                     f"ordinary name word")
@@ -406,7 +540,8 @@ def decide(state: ParseState) -> ParseState:
             AmbiguityKind.SUFFIX_OR_NAME,
             f"{tokens[i].text!r} after the comma is also an ordinary name "
             f"word; read as a credential", (i,)))
-    # rules.md#S2's company, reported where it decided: a member the
+    # rules/S7: "A member the company decides reports the fork as a
+    # counted pick does" -- reported where it decided: a member the
     # anchor read as a credential after its own writing declined (#544)
     for k in anchored:
         i = p1[k][0]
@@ -414,7 +549,7 @@ def decide(state: ParseState) -> ParseState:
             AmbiguityKind.SUFFIX_OR_NAME,
             f"{tokens[i].text!r} behind a credential after the comma is "
             f"also an ordinary name word; read as a credential", (i,)))
-    # rules.md#C1: "A credential opening the part makes it the
+    # rules/C8: "A credential opening the part makes it the
     # postnominal part however it goes on" -- each word it takes that
     # would have made it the given part, as #602's run reports them
     for k in absorbed:
@@ -431,7 +566,8 @@ def decide(state: ParseState) -> ParseState:
     return copy_with(state, tokens=tuple(tokens),
                      segments=state.segments[:1] + ((),)
                      + state.segments[2:],
-                     structure=(Structure.SUFFIX_COMMA if whole
+                     structure=(Structure.SUFFIX_COMMA
+                                if whole or behind_generation
                                 else Structure.FAMILY_COMMA),
                      ambiguities=tuple(ambiguities),
                      dropped=tuple(state.dropped) + tuple(core_idx))

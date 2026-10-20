@@ -11,8 +11,9 @@ no deploy.
 This used to be a deliberate exception (Arman, 2026-06-07): a direct ``AsyncGroq``
 call with an inline prompt, to keep a per-request background job cheap. Arman's
 2026-09-25 law supersedes it — nothing works around the mandate system. The call
-stays as light as it was: one turn, no tools, not streamed, not persisted as a
-conversation (``run_held_call``). The day-one Holders are the old prompt verbatim
+stays as light as it was: one turn, no tools, not streamed (``run_held_call``). Its run
+is kept as a hidden ``system_process`` conversation linked to the one it names — never a
+helper in that chat's sidebar, never in any list. The day-one Holders are the old prompt verbatim
 on the same model (``openai/gpt-oss-20b`` served by Groq, reasoning effort low,
 JSON object mode, 2048 output tokens).
 
@@ -166,7 +167,9 @@ async def _capture_labeler_failure(
             exc,
             kind="conversation_labeler_failed",
             request_id=getattr(ctx, "request_id", None) if ctx else None,
-            user_id=getattr(ctx, "user_id", None) if ctx else None,
+            # The labeler is the system's job, not the person's (Arman, 2026-10-19): its failure
+            # record names the conversation it was labeling, never the person.
+            user_id=None,
             conversation_id=getattr(ctx, "conversation_id", None) if ctx else None,
             source_app=getattr(ctx, "source_app", None) if ctx else None,
             source_feature=getattr(ctx, "source_feature", None),
@@ -183,17 +186,41 @@ async def _capture_labeler_failure(
         )
 
 
-async def _run_labeler(mandate_key: str, variables: dict[str, Any]) -> LabelResult:
-    """One held labeler call: the Holder's model, prompt and settings, nothing else."""
+#: The system-process key the host's drain knows this work by (aidream services/system_processes).
+LABEL_PROCESS_KEY = "conversation.name"
+
+
+def system_process_scope(conversation_id: str | None) -> Any:
+    """The platform identity a system process runs as (host seam), or a no-op when unset.
+
+    Inside it the held call is billed to the platform and its run becomes a hidden
+    ``system_process`` conversation linked to ``conversation_id`` (Arman, 2026-10-18).
+    """
+    import contextlib
+
+    from matrx_ai._ext import get_system_process_scope
+
+    scope = get_system_process_scope()
+    if scope is None:
+        return contextlib.nullcontext()
+    return scope(feature="system_process", conversation_id=conversation_id)
+
+
+async def _run_labeler(
+    mandate_key: str, variables: dict[str, Any], *, conversation_id: str | None = None
+) -> LabelResult:
+    """One held labeler call: the Holder's model, prompt and settings, nothing else — run as the
+    platform, inside the conversation it names."""
     from matrx_ai.mandates import hold_code_call, run_held_call
 
     model: str | None = None
     try:
-        held = await hold_code_call(
-            mandate_key, consumer="conversation.labeler", variables=variables
-        )
-        model = held.model
-        result = await run_held_call(held)
+        async with system_process_scope(conversation_id):
+            held = await hold_code_call(
+                mandate_key, consumer="conversation.labeler", variables=variables
+            )
+            model = held.model
+            result = await run_held_call(held)
         return LabelResult(success=True, output=result.final_text or "")
     except asyncio.CancelledError as exc:
         await _capture_labeler_failure(
@@ -209,11 +236,15 @@ async def _run_labeler(mandate_key: str, variables: dict[str, Any]) -> LabelResu
 async def label_chat_conversation(
     conversation_content: str,
     recent_titles: str,
+    *,
+    conversation_id: str | None = None,
 ) -> LabelResult:
     from matrx_ai.code_call_mandate_keys import CONVERSATION_LABEL_CHAT_MANDATE
 
     return await _run_labeler(
-        CONVERSATION_LABEL_CHAT_MANDATE, _chat_variables(conversation_content, recent_titles)
+        CONVERSATION_LABEL_CHAT_MANDATE,
+        _chat_variables(conversation_content, recent_titles),
+        conversation_id=conversation_id,
     )
 
 
@@ -224,15 +255,20 @@ async def label_agent_conversation(
     agent_description: str,
     user_variables: dict[str, Any] | str,
     user_prompt: str,
+    *,
+    conversation_id: str | None = None,
 ) -> LabelResult:
     from matrx_ai.code_call_mandate_keys import CONVERSATION_LABEL_AGENT_RUN_MANDATE
 
     if not agent_name:
-        return await label_chat_conversation(conversation_content, recent_titles)
+        return await label_chat_conversation(
+            conversation_content, recent_titles, conversation_id=conversation_id
+        )
     return await _run_labeler(
         CONVERSATION_LABEL_AGENT_RUN_MANDATE,
         {
             **_chat_variables(conversation_content, recent_titles),
             **_agent_variables(agent_name, agent_description, user_variables, user_prompt),
         },
+        conversation_id=conversation_id,
     )

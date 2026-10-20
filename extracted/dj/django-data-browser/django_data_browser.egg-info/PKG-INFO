@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-data-browser
-Version: 4.2.15
+Version: 4.2.16
 Summary: Interactive user-friendly database explorer.
 Home-page: https://github.com/tolomea/django-data-browser
 Author: Gordon Wrigley
@@ -505,7 +505,9 @@ Release History
 +---------+------------+----------------------------------------------------------------------------------------------------------+
 | Version | Date       | Summary                                                                                                  |
 +=========+============+==========================================================================================================+
-| 4.2.15  | 2026-10-16 | Apply any filtering done in ModelAdmin.get_action_choices                                                |
+| 4.2.16  | 2026-10-19 | Update frontend package versions.                                                                        |
++---------+------------+----------------------------------------------------------------------------------------------------------+
+| 4.2.15  | 2026-10-16 | Apply any filtering done in ModelAdmin.get_action_choices.                                               |
 +---------+------------+----------------------------------------------------------------------------------------------------------+
 | 4.2.14  | 2026-06-07 | Fix migration when using DATA_BROWSER_ADMIN_SITE with a dotted string.                                   |
 +---------+------------+----------------------------------------------------------------------------------------------------------+

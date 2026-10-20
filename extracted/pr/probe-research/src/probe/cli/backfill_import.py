@@ -44,7 +44,7 @@ AUTO_BACKGROUND_SCHEMA = "probe.folder-auto-import-job/1"
 def enqueue_auto_import(
     *, client_factory, folder, agent, auto_approve, project=None, concurrency=None,
     source_id=None, import_changed=False, import_unverified=False, retry_dead=False,
-    review_excluded=False, wandb_approval=None,
+    review_excluded=False, wandb_approval=None, request_id=None,
 ):
     """Persist an explicit folder-scoped automatic approval before any scan."""
     from . import import_jobs
@@ -52,6 +52,11 @@ def enqueue_auto_import(
 
     if auto_approve is not True:
         raise CoverageError("Automatic folder imports require explicit approval.")
+    if request_id is not None:
+        try:
+            request_id = uuid.UUID(request_id).hex
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise CoverageError("The automatic import request identity is invalid.") from exc
     folder = Path(folder).resolve()
     if not folder.is_dir():
         raise CoverageError("The selected folder is unavailable.")
@@ -96,7 +101,7 @@ def enqueue_auto_import(
                 return import_jobs.resume(job["id"]) if job["state"] == import_jobs.State.INTERRUPTED else job
         return import_jobs.enqueue(
             kind=import_jobs.Kind.FOLDER,
-            payload={**intent, "request_id": uuid.uuid4().hex},
+            payload={**intent, "request_id": request_id or uuid.uuid4().hex},
             label=f"Folder · {folder.name}",
         )
 

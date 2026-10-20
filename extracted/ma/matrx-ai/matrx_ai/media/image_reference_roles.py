@@ -5,7 +5,7 @@ each image says what it controls (``common-docs/systems/agents/typed-messages/
 FEATURE.md``, the Image generation row; research in
 ``common-docs/operations/for-arman/2026-09-20/typed-message-system-design.md``).
 
-    subject              keep this object/product recognisable
+    subject              keep this object/product recognizable
     character            keep this person/character consistent
     style                transfer look (palette, medium, lighting), not content
     mask                 which region of the edit target may change
@@ -21,7 +21,7 @@ generation row; the video-side gate is ``media/video_reference_roles.py``):
     style                (shared) take its look only
 
 The role rides on the image part itself (``ImageContent.role`` /
-``ImageMediaPart.role``). Absent role = today's behaviour: a plain image the
+``ImageMediaPart.role``). Absent role = today's behavior: a plain image the
 model sees.
 
 Three facts decide whether a request goes out:
@@ -93,8 +93,8 @@ ROLE_LABELS: dict[str, str] = {
 #: "give every reference one role", so the prompt carries the legend.
 ROLE_INSTRUCTIONS: dict[str, str] = {
     "subject": (
-        "subject reference — keep this exact object or product recognisable: "
-        "shape, materials, colours, labels and proportions"
+        "subject reference — keep this exact object or product recognizable: "
+        "shape, materials, colors, labels and proportions"
     ),
     "character": (
         "character reference — keep this person or character's identity, face, "
@@ -116,7 +116,7 @@ ROLE_INSTRUCTIONS: dict[str, str] = {
     "first_frame": "first frame — the video starts on exactly this image",
     "last_frame": "last frame — the video ends on exactly this image",
     "asset": (
-        "asset reference — keep this subject, object or character recognisable "
+        "asset reference — keep this subject, object or character recognizable "
         "and consistent throughout the video"
     ),
 }

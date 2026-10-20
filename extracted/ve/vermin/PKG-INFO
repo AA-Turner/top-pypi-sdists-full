@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vermin
-Version: 1.9.1
+Version: 1.9.2
 Summary: Concurrently detect the minimum Python versions needed to run code
 Author-email: Morten Kristensen <me@mortens.dev>
 License-Expression: MIT

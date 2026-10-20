@@ -2,7 +2,7 @@
 
 On 2026-10-15 at 14:37-14:38 UTC a live `ALTER TABLE web.link_edge / crawl_url / page` queued
 ACCESS EXCLUSIVE locks while crawls were writing. Each crawl write waited past its lock timeout
-inside an explicit transaction, Postgres cancelled it (55P03), the ORM correctly did not re-run a
+inside an explicit transaction, Postgres canceled it (55P03), the ORM correctly did not re-run a
 caller-managed transaction, and four crawls on one container failed together.
 
 The crawler's write units are all-or-nothing transactions, so it re-runs them on LockContentionError

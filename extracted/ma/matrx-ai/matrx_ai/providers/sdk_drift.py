@@ -173,12 +173,25 @@ def route_undeclared_params(
     *,
     provider: str,
     model: Any = None,
+    snapshot: bool = False,
 ) -> dict[str, Any]:
     """Return ``request`` made safe for ``fn(**...)`` against the INSTALLED SDK
-    signature, voicing every change. Never mutates the caller's dict."""
+    signature, voicing every change. Never mutates the caller's dict.
+
+    ``snapshot=True`` (chat turns ONLY — media / TTS / STT share this seam but
+    never write a request snapshot) re-captures the returned kwargs as the
+    iteration's stored request: this is the last point before the SDK/HTTP call,
+    after every translator, send-boundary and grammar-ladder rewrite, so the
+    snapshot IS what was sent (defect 30, 2026-10-17: Anthropic's snapshot was
+    taken before the grammar ladder appended the answer contract to ``system``).
+    """
     plan = plan_sdk_kwargs(fn, request)
     if plan.changed:
         _voice(plan, fn, provider=provider, model=model or request.get("model") or "?")
+    if snapshot:
+        from matrx_ai.providers.snapshot import recapture_final_payload
+
+        recapture_final_payload(plan.kwargs)
     return plan.kwargs
 
 

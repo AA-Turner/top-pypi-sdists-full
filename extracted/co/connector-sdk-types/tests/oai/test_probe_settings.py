@@ -76,3 +76,55 @@ def test_page_size_must_read_something(page_size: int):
 def test_per_check_timeout_must_be_positive():
     with pytest.raises(ValidationError):
         ProbeSettings(per_check_timeout_seconds=0)
+
+
+def _check_config(probe, session):
+    raise NotImplementedError
+
+
+def test_capability_config_is_not_a_default_check():
+    """The SDK cannot perform it for a connector, so connectors only get it by asking."""
+    assert ProbeCheckName.CAPABILITY_CONFIG not in DEFAULT_PROBE_CHECK_ORDER
+    assert ProbeCheckName.CAPABILITY_CONFIG not in {
+        spec.check for spec in ProbeSettings.default().checks
+    }
+
+
+def test_a_check_the_sdk_cannot_perform_needs_a_runner():
+    """Leaving `run` unset would otherwise only fail on the first probe call."""
+    with pytest.raises(ValidationError, match="runner is required for: capability_config"):
+        ProbeSettings(checks=[ProbeCheckSpec(check=ProbeCheckName.CAPABILITY_CONFIG)])
+
+
+def test_a_check_the_sdk_cannot_perform_is_accepted_with_a_runner():
+    settings = ProbeSettings(
+        checks=[
+            ProbeCheckSpec(check=ProbeCheckName.ACCOUNTS),
+            ProbeCheckSpec(
+                check=ProbeCheckName.CAPABILITY_CONFIG, run=_check_config, required=False
+            ),
+        ]
+    )
+    assert [spec.check for spec in settings.checks] == [
+        ProbeCheckName.ACCOUNTS,
+        ProbeCheckName.CAPABILITY_CONFIG,
+    ]
+
+
+def test_manual_declares_the_checks_of_a_hand_written_probe():
+    """Declared for `x-probe-checks` only: the module still stands down."""
+    specs = (
+        ProbeCheckSpec(check=ProbeCheckName.ACCOUNTS, run=_check_config),
+        ProbeCheckSpec(check=ProbeCheckName.CAPABILITY_CONFIG, run=_check_config),
+    )
+    settings = ProbeSettings.manual(checks=specs)
+
+    assert settings.register_probe_capability is False
+    assert [spec.check for spec in settings.checks] == [
+        ProbeCheckName.ACCOUNTS,
+        ProbeCheckName.CAPABILITY_CONFIG,
+    ]
+
+
+def test_manual_without_checks_declares_nothing():
+    assert ProbeSettings.manual().checks == []

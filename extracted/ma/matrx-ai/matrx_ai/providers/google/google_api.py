@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import rich
 from google import genai
+from google.genai import types
 from google.genai.types import (
     Candidate,
     GenerateContentResponse,
@@ -45,6 +46,14 @@ if TYPE_CHECKING:  # circular-by-design: catalog.models imports providers.resolv
 
 LOCAL_DEBUG = False
 
+# Gemini long decode: one call returns at most ~64K output tokens and answers
+# finish_reason=CONTINUATION + a continuation_token until the requested total
+# (max_output_tokens, cumulative across calls; Argon: up to 1,048,576) is done.
+# 1,048,576 / 32,768 (the smallest per-call slice, non-streaming REST) is 32 calls;
+# thinking-only calls can add a few. A provider that keeps asking past this is
+# stopped loudly rather than paid for without end.
+LONG_DECODE_MAX_HOPS = 48
+
 # Gemini's TTS stream is a blocking sync generator that yields audio chunks AS
 # Google produces them. We collect it in a worker thread and watch those chunks
 # as a liveness heartbeat: a call that keeps emitting chunks is healthy and is
@@ -64,7 +73,7 @@ LOCAL_DEBUG = False
 # stream resets this on every chunk (the consumer's queue.get() timeout), so this
 # is "dead air", not "total time".
 _TTS_STALL_TIMEOUT_SECONDS = 250
-# Absolute total-time backstop, scaled by input length. Floor honours "at least
+# Absolute total-time backstop, scaled by input length. Floor honors "at least
 # 500s for any clip"; the per-1k-chars term grows it for long multi-speaker
 # scripts. The stall detector above is the real guard — this only stops a stream
 # that never fully stalls yet never finishes.
@@ -363,6 +372,8 @@ class GoogleChat:
         if self.debug:
             rich.print(_sanitize_for_debug(config_data))
 
+        long_decode = (not is_tts) and self._long_decode_requested(config_data, profile)
+
         # Set the moment the paid call has fully answered: any failure after it
         # (translation, storage, events) must never re-invoke Gemini.
         paid_call_completed = False
@@ -404,27 +415,43 @@ class GoogleChat:
                     # path froze the entire process for 2s+ between chunks (loop
                     # watchdog incident 2026-06-10).
                     _stream = self.client.aio.models.generate_content_stream
-                    async for chunk in await _stream(
-                        **route_undeclared_params(_stream, config_data, provider="google")
-                    ):
-                        mark_provider_stream_open()
-                        accumulated_chunks.append(chunk)
-                        if chunk.candidates:
-                            cand: Candidate
-                            for cand in chunk.candidates:
-                                if cand.content and cand.content.parts:
-                                    part: Part
-                                    for part in cand.content.parts:
-                                        await self._handle_part(
-                                            part, emitter, unified_config.audio_format
-                                        )
-                        await asyncio.sleep(0)
+                    hop_config = config_data
+                    hops = 0
+                    while True:
+                        hops += 1
+                        hop_start = len(accumulated_chunks)
+                        async for chunk in await _stream(
+                            **route_undeclared_params(_stream, hop_config, provider="google", snapshot=True)
+                        ):
+                            mark_provider_stream_open()
+                            accumulated_chunks.append(chunk)
+                            if chunk.candidates:
+                                cand: Candidate
+                                for cand in chunk.candidates:
+                                    if cand.content and cand.content.parts:
+                                        part: Part
+                                        for part in cand.content.parts:
+                                            await self._handle_part(
+                                                part, emitter, unified_config.audio_format
+                                            )
+                            await asyncio.sleep(0)
+                        token = self._continuation_token(
+                            accumulated_chunks[hop_start:], long_decode, hops, matrx_model_name
+                        )
+                        if token is None:
+                            break
+                        hop_config = self._continue_with(config_data, token)
+                        # A finished hop is paid for: a later hop's failure must never re-buy it
+                        # (a retry would restart from hop 1). The error carries every hop's usage.
+                        paid_call_completed = True
                     # Safety net: if the stream ended while still "thinking"
                     # (reasoning parts with no following content), close the
                     # lifecycle signal so the UI never stays stuck in a thinking
                     # state. No-op when a content part already closed it.
                     await self._signal_reasoning_stopped(emitter)
 
+                if is_tts:
+                    self._refuse_truncated_speech(accumulated_chunks, unified_config)
                 paid_call_completed = True
                 converted_response = await self.translator.from_google_async(
                     accumulated_chunks, matrx_model_name, unified_config.audio_format
@@ -450,13 +477,29 @@ class GoogleChat:
                 # Non-streaming mode - returns single GenerateContentResponse.
                 # Async client keeps the blocking provider call off the loop.
                 _generate = self.client.aio.models.generate_content
-                response: GenerateContentResponse = await _generate(
-                    **route_undeclared_params(_generate, config_data, provider="google")
-                )
+                # One response per provider call; a long-decode answer is several hops,
+                # joined below into ONE response exactly like a stream's chunks.
+                accumulated_chunks: list[GenerateContentResponse] = []
+                hop_config = config_data
+                hops = 0
+                while True:
+                    hops += 1
+                    response: GenerateContentResponse = await _generate(
+                        **route_undeclared_params(_generate, hop_config, provider="google", snapshot=True)
+                    )
+                    accumulated_chunks.append(response)
+                    token = self._continuation_token(
+                        [response], long_decode, hops, matrx_model_name
+                    )
+                    if token is None:
+                        break
+                    hop_config = self._continue_with(config_data, token)
+                    # A finished hop is paid for: a later hop's failure must never re-buy it
+                    # (a retry would restart from hop 1). The error carries every hop's usage.
+                    paid_call_completed = True
+                if is_tts:
+                    self._refuse_truncated_speech(accumulated_chunks, unified_config)
                 paid_call_completed = True
-
-                # Wrap the single response in a list to maintain consistency with to_unified_config
-                accumulated_chunks: list[GenerateContentResponse] = [response]
 
                 converted_response = await self.translator.from_google_async(
                     accumulated_chunks, matrx_model_name, unified_config.audio_format
@@ -470,15 +513,18 @@ class GoogleChat:
                 await self._emit_citations_from_response(converted_response, emitter)
 
                 # Also emit text parts through emitter for non-streaming mode
-                if response.candidates:
+                if any(r.candidates for r in accumulated_chunks):
                     if emitter:
                         reset_reasoning_state(emitter)
-                    cand: Candidate
-                    for cand in response.candidates:
-                        if cand.content and cand.content.parts:
-                            part: Part
-                            for part in cand.content.parts:
-                                await self._handle_part(part, emitter, unified_config.audio_format)
+                    for response in accumulated_chunks:
+                        cand: Candidate
+                        for cand in response.candidates or []:
+                            if cand.content and cand.content.parts:
+                                part: Part
+                                for part in cand.content.parts:
+                                    await self._handle_part(
+                                        part, emitter, unified_config.audio_format
+                                    )
                     # Thoughts with no answer after them still close their wrapper.
                     await self._signal_reasoning_stopped(emitter)
 
@@ -520,6 +566,34 @@ class GoogleChat:
                 )
             raise
 
+    @staticmethod
+    def _refuse_truncated_speech(chunks: list[Any], unified_config: Any) -> None:
+        """Shared speech take check (matrx_ai.speech.take_check) at the point Gemini's audio is accepted.
+
+        Runs BEFORE ``paid_call_completed`` is set and before the audio is persisted, so a cut-off take is
+        retryable and never stored; the billed usage is recovered from the chunks by the error path below.
+        """
+        from matrx_ai.speech.take_check import raise_if_truncated_take
+
+        audio_bytes = 0
+        for chunk in chunks:
+            for cand in getattr(chunk, "candidates", None) or []:
+                for part in getattr(getattr(cand, "content", None), "parts", None) or []:
+                    inline = getattr(part, "inline_data", None)
+                    if inline and (inline.mime_type or "").startswith("audio/") and inline.data:
+                        audio_bytes += len(inline.data)
+        characters = sum(
+            len(text)
+            for msg in unified_config.messages
+            for c in getattr(msg, "content", None) or []
+            if isinstance(text := getattr(c, "text", None), str)
+        )
+        if audio_bytes == 0:
+            return  # no audio at all is a different class (safety block / empty reply), handled downstream
+        raise_if_truncated_take(
+            provider="google", audio_size_bytes=audio_bytes, characters=characters
+        )
+
     def _attach_billed_usage_from_chunks(
         self,
         exc: BaseException,
@@ -535,27 +609,92 @@ class GoogleChat:
 
         mark_billing_checked(exc)
         try:
-            usage_metadata = None
-            for chunk in reversed(chunks):
-                um = getattr(chunk, "usage_metadata", None)
-                if um is not None:
-                    usage_metadata = um
-                    break
-            if usage_metadata is None:
+            usages = self._billed_usages(chunks)
+            if not usages:
                 return
-            from matrx_ai.config import TokenUsage
             from matrx_ai.providers.errors import attach_billed_usage
 
-            token_usage = TokenUsage.from_gemini(
-                usage_metadata,
+            token_usage = self.translator.summed_gemini_usage(
+                usages,
                 matrx_model_name=matrx_model_name,
                 provider_model_name=matrx_model_name,
+                response_id="",
             )
             attach_billed_usage(exc, token_usage)
         except Exception as err:
             from matrx_ai.providers.errors import report_billed_usage_capture_failure
 
             report_billed_usage_capture_failure("google", err)
+
+    @staticmethod
+    def _billed_usages(chunks: list[Any]) -> list[Any]:
+        """Each provider call's usage in a chunk list: the usage on every chunk that closed a
+        call (it carries a finish_reason), plus the newest usage after the last close — the
+        call that was cut off mid-flight, which Google still bills."""
+        usages: list[Any] = []
+        pending = None
+        for chunk in chunks:
+            um = getattr(chunk, "usage_metadata", None)
+            if um is None:
+                continue
+            closed = any(getattr(c, "finish_reason", None) for c in (chunk.candidates or []))
+            if closed:
+                if not usages or usages[-1] is not um:
+                    usages.append(um)
+                pending = None
+            else:
+                pending = um
+        if pending is not None:
+            usages.append(pending)
+        return usages
+
+    @staticmethod
+    def _long_decode_requested(config_data: Any, profile: ResolvedCallProfile) -> bool:
+        """Run the continuation loop only for a ``long_decode`` model asked for more output
+        than one call can return (``ai.model_definition.max_tokens``, the model's one-call
+        limit). Every other Gemini call is exactly one provider call, as before."""
+        if not getattr(profile.capabilities, "supports_long_decode", False):
+            return False
+        config = config_data.get("config") if isinstance(config_data, dict) else None
+        requested = getattr(config, "max_output_tokens", None)
+        one_call = getattr(profile.controls, "output_maximum", None)
+        if not isinstance(requested, int) or not isinstance(one_call, int):
+            return False
+        return requested > one_call
+
+    @staticmethod
+    def _continuation_token(
+        hop_chunks: list[Any], long_decode: bool, hops: int, matrx_model_name: str
+    ) -> bytes | None:
+        """The token to send the next hop with, or None when this hop ends the answer."""
+        if not long_decode:
+            return None
+        finish = None
+        token = None
+        for chunk in hop_chunks:
+            for cand in getattr(chunk, "candidates", None) or []:
+                if getattr(cand, "continuation_token", None):
+                    token = cand.continuation_token
+                if getattr(cand, "finish_reason", None):
+                    finish = cand.finish_reason
+        if finish != types.FinishReason.CONTINUATION or not token:
+            return None
+        if hops >= LONG_DECODE_MAX_HOPS:
+            vcprint(
+                f"[Google Chat] long decode for {matrx_model_name} stopped after {hops} calls "
+                f"(LONG_DECODE_MAX_HOPS) with Gemini still asking to continue — the answer "
+                f"ends at the output limit.",
+                color="red",
+            )
+            return None
+        return token
+
+    @staticmethod
+    def _continue_with(config_data: GoogleProviderConfig, token: bytes) -> GoogleProviderConfig:
+        """The SAME request (contents, tools, system instruction, max_output_tokens) plus the
+        latest continuation token. Google's protocol: never append the partial answer."""
+        config = config_data["config"].model_copy(update={"continuation_token": token})
+        return {**config_data, "config": config}
 
     @staticmethod
     def _tts_stream_id() -> str:

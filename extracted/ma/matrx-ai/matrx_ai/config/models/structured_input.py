@@ -8,21 +8,21 @@ annotations. The union was wrong: `reconstruct_content` returns any of the
 fourteen in STRUCTURED_INPUT_TYPE_MAP, including `WorkbookInputContent` for real
 stored `input_workbook` blocks. Union fixed, closure corrected 26 → 33, and two
 independent layers now reconcile the union against the registry. These are the
-seven that were hiding, modelled alongside the seven that were not.
+seven that were hiding, modeled alongside the seven that were not.
 
 STORED TRAFFIC IS TINY AND THAT IS THE POINT OF SAYING SO: 30 blocks total —
 input_notes 12, input_webpage 8, input_table 6, input_task 2, input_workbook 2.
-The other nine types have NEVER been persisted. They are modelled anyway because
+The other nine types have NEVER been persisted. They are modeled anyway because
 the deserializer can produce them and the contract must declare what it can
 return; but nobody should read a green parity suite here as coverage of
-production behaviour, because there is almost no production behaviour to cover.
+production behavior, because there is almost no production behavior to cover.
 
-🚨 FAILURE MODE 9 RESOLVES HERE — `_editable_tools`. The CUTOVER catalogue listed
+🚨 FAILURE MODE 9 RESOLVES HERE — `_editable_tools`. The CUTOVER catalog listed
 "private attributes: silently dropped or raises" as a hypothetical. Concretely:
 the dataclass declares it `field(default=..., init=False, repr=False,
 compare=False)`, so it is a per-subclass CONSTANT, not a constructor parameter.
 Pydantic turns a leading-underscore name into a private attribute — which is the
-right model — and the catalogue warned that such an attribute is "silently
+right model — and the catalog warned that such an attribute is "silently
 dropped or raises". Measured: a BARE pydantic model does silently drop it, but
 these twins carry `extra="forbid"`, which turns that into a ValidationError. So
 BOTH shapes refuse loudly (TypeError vs ValidationError) and the failure mode is

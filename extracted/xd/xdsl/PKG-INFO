@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xdsl
-Version: 0.73.0
+Version: 0.74.0
 Summary: xDSL
 Author-email: Mathieu Fehr <mathieu.fehr@ed.ac.uk>
 License: Apache License v2.0 with LLVM Exceptions
@@ -11,12 +11,11 @@ Platform: Linux
 Platform: Mac OS-X
 Platform: Unix
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: immutabledict<4.3.2
@@ -32,7 +31,7 @@ Requires-Dist: prek~=0.5.5; extra == "dev"
 Requires-Dist: pytest<9.2; extra == "dev"
 Requires-Dist: pytest-asyncio; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff==0.16.10; extra == "dev"
+Requires-Dist: ruff==0.17.1; extra == "dev"
 Requires-Dist: sympy==1.14; extra == "dev"
 Requires-Dist: textual-dev==1.8; extra == "dev"
 Requires-Dist: toml<0.11; extra == "dev"
@@ -137,7 +136,7 @@ pip install xdsl[gui] # or [jax], [riscv]
 
 ## Getting Started
 
-Check out the dedicated [Getting Started guide](https://docs.xdsl.dev)
+Check out the dedicated [Getting Started guide](https://docs.xdsl.dev/guides/getting-started/)
 for a comprehensive tutorial.
 
 To get familiar with xDSL, we recommend starting with our tutorial notebooks. The

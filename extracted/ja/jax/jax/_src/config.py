@@ -1118,7 +1118,7 @@ jax_export_calling_convention_version = int_state(
         'The calling convention version number to use for exporting. This must be '
         'within the range of versions supported by the tf.XlaCallModule '
         'used in your deployment environment. '
-        'See https://docs.jax.dev/en/latest/export/shape_poly.html#calling-convention-versions.'
+        'See https://docs.jax.dev/en/latest/501/export.html#calling-convention-versions.'
     )
 )
 
@@ -1127,7 +1127,7 @@ export_ignore_forward_compatibility = bool_state(
     default=bool_env('JAX_EXPORT_IGNORE_FORWARD_COMPATIBILIY', False),
     help=(
         'Whether to ignore the forward compatibility lowering rules. '
-        'See https://docs.jax.dev/en/latest/export/export.html#compatibility-guarantees-for-custom-calls.'
+        'See https://docs.jax.dev/en/latest/501/export.html#compatibility-guarantees-for-custom-calls.'
     )
 )
 
@@ -1140,7 +1140,7 @@ export_deserialize_expired_versions = bool_state(
         'the compiler and runtime. Furthermore, you accept the fact that the '
         'behavior of the deserialized model may change at any time. '
         'Read carefully '
-        'https://docs.jax.dev/en/latest/export/export.html#compatibility-guarantees.'
+        'https://docs.jax.dev/en/latest/501/export.html#compatibility-guarantees.'
     )
 )
 
@@ -1284,7 +1284,7 @@ log_compiles = bool_state(
         'Log a message each time `jit` or `pmap` compiles an XLA computation.'
         ' Logging is performed with `logging`. When this option is set, the log'
         ' level is WARNING; otherwise the level is DEBUG.\n\nSee'
-        ' https://docs.jax.dev/en/latest/debugging/slow_tracing_compilation.html'
+        ' https://docs.jax.dev/en/latest/201/slow-compilation.html'
         ' for more details.'
     ),
 )
@@ -1297,7 +1297,7 @@ explain_cache_misses = bool_state(
         ' cache), log an explanation. Logging is performed with `logging`. When'
         ' this option is set, the log level is WARNING; otherwise the level is'
         ' DEBUG.\n\nSee'
-        ' https://docs.jax.dev/en/latest/debugging/slow_tracing_compilation.html'
+        ' https://docs.jax.dev/en/latest/201/slow-compilation.html'
         ' for more details.'
     ),
 )
@@ -1459,6 +1459,23 @@ remove_size_one_mesh_axis_from_type = bool_state(
     help="Removes mesh axes of size 1 from ShapedArray.sharding and vma",
     include_in_jit_key=True,
     include_in_trace_context=True)
+
+
+def _parse_no_collectives(val):
+  if not isinstance(val, (set, frozenset)):
+    raise TypeError(
+        f"Expected axis name(s) as set or frozenset, got {val} of type {type(val)}")
+  return frozenset(val)
+
+
+no_collectives = State[frozenset[Any]](
+    'jax_no_collectives',
+    frozenset(),
+    help='Forbid collectives across the specified mesh axes in Explicit mode.',
+    parser=_parse_no_collectives,
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
 
 # TODO make it so people don't use this, this is internal...
 _check_vma = bool_state(
@@ -2093,7 +2110,7 @@ def transfer_guard(new_val: str) -> Generator[None]:
   """A contextmanager to control the transfer guard level for all transfers.
 
   For more information, see
-  https://docs.jax.dev/en/latest/transfer_guard.html
+  https://docs.jax.dev/en/latest/501/transfer-guard.html
 
   Args:
     new_val: The new thread-local transfer guard level for all transfers.
@@ -2335,18 +2352,6 @@ jax_ragged_dot_use_ragged_dot_instruction = bool_state(
     ),
 )
 
-jax_ragged_dot_use_gpu_pallas_triton_lowering = bool_state(
-    name='jax_ragged_dot_use_gpu_pallas_triton_lowering',
-    default=False,
-    help=(
-        '(GPU only) If True, use Pallas Triton lowering for ragged_dot()'
-        ' lowering. Otherwise, rely on the default lowering for'
-        ' ragged_dot_general_p.'
-    ),
-    include_in_jit_key=True,
-    include_in_trace_context=True,
-)
-
 jax_pallas_verbose_errors = bool_flag(
     'jax_pallas_verbose_errors',
     default=bool_env('JAX_PALLAS_VERBOSE_ERRORS', False),
@@ -2368,6 +2373,12 @@ jax_mosaic_allow_hlo = bool_state(
     name='jax_mosaic_allow_hlo',
     default=False,
     help='Allow hlo dialects in Mosaic',
+)
+
+jax_mosaic_unzip_debug_locations = bool_state(
+    name='jax_mosaic_unzip_debug_locations',
+    default=True,
+    help='Whether to unzip debug locations from Mosaic kernel bytecode.',
 )
 
 jax_pallas_poison_buffers = bool_state(
@@ -2429,3 +2440,14 @@ distributed_verify_secure_credentials = bool_state(
     default=False,
     help=('If true, jax.distributed.initialize() aborts instead of using '
           'insecure channels.'))
+
+jax_accurate_erf_inv = bool_state(
+    name='jax_accurate_erf_inv',
+    default=False,
+    help=(
+        'Temporary flag enabling more accurate erf_inv lowering near'
+        ' ``|x| = 1``.'
+    ),
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)

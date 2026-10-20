@@ -56,6 +56,25 @@ class CatalogEntry:
     #: Keyword-style ways to ask a link-mode source for records without a link: option name
     #: -> the input fields that option needs (e.g. ``{"keywords": ("keywords",)}``).
     discover_options: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    #: A link source that also takes a business NAME (+ city/area) in place of its link: a row with ``name`` and
+    #: no ``url`` becomes ``keyword = "<name> <city>"`` plus these defaults (``{"country": "US"}``), which is the
+    #: source's own ``location`` discover option. Empty = the source does not take a name. A row with a link is
+    #: never touched.
+    name_search: dict[str, Any] = field(default_factory=dict)
+
+    def apply_name_search(self, row: dict[str, Any]) -> None:
+        """Rewrite a link-less ``name`` (+ ``city``/``area``) row into the keyword row the vendor takes."""
+        if not self.name_search or row.get("url") not in (None, "") or row.get("keyword") not in (None, ""):
+            return
+        name = str(row.get("name") or "").strip()
+        if not name:
+            return
+        where = next((str(row[k]).strip() for k in ("city", "area", "location") if str(row.get(k) or "").strip()), "")
+        row["keyword"] = f"{name} {where}".strip()
+        for k in ("name", "city", "area", "location"):
+            row.pop(k, None)
+        for k, v in self.name_search.items():
+            row.setdefault(k, v)
 
     def discover_for(self, row: dict[str, Any]) -> str | None:
         """The discover option a link-less input row asks for, or ``None`` (use the link)."""
@@ -107,7 +126,10 @@ CATALOG: tuple[CatalogEntry, ...] = (
     _u("google_maps_place", "Google Maps place", "gd_m8ebnr0q2qlklc02fz", _GOOGLE,
        # Only place_id-style URLs (…/data=…!1s0x…): name-only /maps/place/<name> URLs come back
        # dead_page "Got place without category value" (live, 2026-10-11).
-       r"^/maps/place/.*(data=.*!1s0x|[?&]q=place_id:)", auto_route=True, key_field="place_id"),
+       r"^/maps/place/.*(data=.*!1s0x|[?&]q=place_id:)", auto_route=True, key_field="place_id",
+       # Without a link: a business name (+ city) or a place id — the vendor's own discover options.
+       discover_options={"location": ("country", "keyword"), "place_id": ("place_id",), "cid": ("CID",)},
+       name_search={"country": "US"}),
     # crawl_error "Sign in modal hides the Reviews" on every live call (2026-10-11).
     _u("google_maps_reviews", "Google Maps reviews", "gd_luzfs1dn2oa0teb81", _GOOGLE, r"^/maps/place/",
        verified=False, key_field="review_id",

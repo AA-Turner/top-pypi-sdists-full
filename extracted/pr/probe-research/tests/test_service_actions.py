@@ -1,0 +1,458 @@
+"""Actions over the service socket (plan X5, X2, A5): real service, real child processes.
+
+`action.run` answers an `action_id` before any work and journals everything;
+`action.status` / `action.events` answer from the journal, also after the
+service restarted; a `client_request_id` never runs twice; one mutating action
+at a time; `action.cancel` only while the child waits for a browser approval;
+the child gets the request's context and never the launcher's credentials; an
+action in progress keeps the service alive. The `probe.core.run` children are
+played by `service_fakes.FakeCore` (the real ones: `test_core_run.py`).
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import signal
+import sys
+import time
+from pathlib import Path
+
+import pytest
+
+from probe.service import client, paths
+from probe.service.protocol import ErrorCode, Method
+from tests.service_fakes import FakeCore, events_until
+from tests.service_harness import pid_running, service_home as service_home, wait_for
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="the service is POSIX-only (plan S8)")
+
+STEP = {"event": "step", "name": "sign_in", "status": "done", "message": "signed in", "agent": None}
+PROMPT = {
+    "event": "device_prompt",
+    "verification_uri": "https://example.invalid/device",
+    "verification_uri_complete": "https://example.invalid/device?code=ABCD",
+    "user_code": "ABCD",
+    "expires_in": 600,
+}
+
+
+@pytest.fixture
+def core(service_home):
+    return FakeCore(service_home.home)
+
+
+def _run(conn, action="configure", params=None, crid="req-1", **extra):
+    body = {"action": action, "params": {"agents": ["claude"]} if params is None else params,
+            "client_request_id": crid, **extra}
+    return conn.call(Method.ACTION_RUN, body)
+
+
+def _wait_done(conn, action_id, timeout=10.0) -> dict:
+    status = wait_for(lambda: (s := conn.call(Method.ACTION_STATUS, {"action_id": action_id}))["state"] == "done" and s,
+                      timeout)
+    assert status, conn.call(Method.ACTION_STATUS, {"action_id": action_id})
+    return status
+
+
+def test_run_answers_an_id_then_streams_and_journals_the_events(service_home, core):
+    core.plan("configure", steps=[{"event": STEP}])
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": ["action.event", "action.done"]})
+        answer = _run(conn, params={"agents": ["claude"], "capture": False})
+        action_id = answer["action_id"]
+        assert set(answer) == {"action_id"} and action_id.startswith("act_")
+        seen = events_until(conn, lambda e: e["topic"] == "action.done", 10.0)
+        status = _wait_done(conn, action_id)
+        replay = conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0})
+        later = conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 1})
+    streamed = [e for e in seen if e["topic"] == "action.event"]
+    assert [e["seq"] for e in streamed] == [1, 2]
+    assert [e["event"]["event"] for e in streamed] == ["step", "done"]
+    assert all(e["action_id"] == action_id for e in seen)
+    assert seen[-1]["done"]["ok"] is True
+    assert status["action"] == "configure" and status["done"]["exit_code"] == 0
+    assert status["cancelled"] is False
+    assert isinstance(status["started_at"], float) and status["ended_at"] >= status["started_at"]
+    assert [e["seq"] for e in replay["events"]] == [1, 2] and replay["done"] is True
+    assert [e["seq"] for e in later["events"]] == [2]
+    (call,) = core.calls("configure")
+    assert json.loads(call["stdin"]) == {"agents": ["claude"], "capture": False}
+    assert call["flags"] == ["-I"]
+    assert os.path.realpath(call["cwd"]) == os.path.realpath(service_home.home)  # macOS: /tmp is /private/tmp
+    journal = paths.actions_dir() / f"{action_id}.jsonl"
+    assert journal.stat().st_mode & 0o777 == 0o600
+    kinds = [json.loads(line)["type"] for line in journal.read_text().splitlines()]
+    assert kinds == ["accepted", "child", "event", "event", "ended"]
+
+
+def test_a_client_request_id_runs_once(service_home, core):
+    core.plan("recorder", steps=[{"event": STEP}])
+    service_home.start()
+    with service_home.connect() as conn:
+        first = _run(conn, "recorder", {"who_records": "daemon"}, crid="same")["action_id"]
+        _wait_done(conn, first)
+        again = _run(conn, "recorder", {"who_records": "daemon"}, crid="same")
+    assert again == {"action_id": first, "existing": True}
+    assert len(core.calls("recorder")) == 1
+
+
+def test_reinstall_flag_reaches_the_core_child_without_setup_defaults(service_home, core):
+    core.plan("configure")
+    service_home.start()
+    params = {"agents": ["claude"], "reinstall": True}
+    with service_home.connect() as conn:
+        action = _run(conn, params=params)["action_id"]
+        assert _wait_done(conn, action)["done"]["complete"] is True
+    (call,) = core.calls("configure")
+    assert json.loads(call["stdin"]) == params
+
+
+def test_one_mutating_action_at_a_time(service_home, core):
+    gate = service_home.home / "release"
+    core.plan("logout", steps=[{"event": STEP}, {"wait": str(gate)}])
+    service_home.start()
+    with service_home.connect() as conn:
+        holder = _run(conn, "logout", {}, crid="a")["action_id"]
+        wait_for(lambda: core.calls("logout"), 5.0)
+        with pytest.raises(client.ServiceError) as raised:
+            _run(conn, "session_default", {"state": "read"}, crid="b")
+        assert raised.value.code == ErrorCode.BUSY == -32010
+        assert raised.value.data == {"holder": {"kind": "action", "action_id": holder, "action": "logout"}}
+        assert conn.call(Method.STATUS)["actions"]["running"]["action_id"] == holder
+        gate.touch()
+        _wait_done(conn, holder)
+        second = _run(conn, "session_default", {"state": "read"}, crid="b")["action_id"]
+        _wait_done(conn, second)
+    (later,) = core.calls("session_default")
+    assert later["at"] > core.calls("logout")[0]["at"]
+
+
+def test_cancel_is_refused_while_writing_and_interrupts_an_approval_wait(service_home, core):
+    writing, approved = service_home.home / "written", service_home.home / "approved"
+    core.plan("configure", steps=[{"event": STEP}, {"wait": str(writing)}, {"event": PROMPT, "interruptible": True},
+                                  {"wait": str(approved), "interruptible": True}])
+    service_home.start()
+    with service_home.connect() as conn:
+        action_id = _run(conn)["action_id"]
+        wait_for(lambda: len(conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0})["events"]) == 1, 5.0)
+        with pytest.raises(client.ServiceError) as raised:
+            conn.call(Method.ACTION_CANCEL, {"action_id": action_id})
+        assert raised.value.code == ErrorCode.REFUSED and raised.value.data == {"reason": "writing"}
+        writing.touch()
+        wait_for(lambda: conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 1})["events"], 5.0)
+        assert conn.call(Method.ACTION_CANCEL, {"action_id": action_id}) == {}
+        status = _wait_done(conn, action_id)
+        with pytest.raises(client.ServiceError) as again:
+            conn.call(Method.ACTION_CANCEL, {"action_id": action_id})
+    assert status["done"]["exit_code"] == 130 and status["error"]["code"] == "interrupted"
+    assert status["cancelled"] is True
+    assert again.value.data == {"reason": "finished"}
+
+
+def test_an_action_whose_acceptance_cannot_be_journaled_never_runs(service_home, monkeypatch):
+    """`{action_id}` promises an outcome a restart can still answer (X5): an
+    `accepted` line that did not reach the disk refuses the action instead."""
+    import errno
+
+    from probe.service import actions
+
+    manager = actions.ActionManager(emit=lambda *_: None, changed=lambda: None, holder=lambda: None)
+
+    class FullDisk:  # `os` for the actions module alone, whose writes fail
+        def __getattr__(self, name):
+            return getattr(os, name)
+
+        @staticmethod
+        def write(fd, data):
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch.setattr(actions, "os", FullDisk())
+    with pytest.raises(actions.RpcError) as raised:
+        manager.run({"action": "logout", "params": {}, "client_request_id": "c"}, {})
+    assert raised.value.data == {"reason": "internal"}
+    assert manager.running is None and manager.records == {}
+    assert list(paths.actions_dir().glob("*.jsonl")) == []
+
+
+def test_the_journal_answers_after_a_restart(service_home, core):
+    core.plan("uninstall", steps=[{"event": STEP}])
+    first = service_home.start()
+    with service_home.connect() as conn:
+        action_id = _run(conn, "uninstall", {}, crid="keep")["action_id"]
+        before = _wait_done(conn, action_id)
+        events = conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0})
+        conn.call(Method.STOP)
+    assert service_home.wait_exit(first["pid"], 5.0)
+    second = service_home.start()
+    assert second["pid"] != first["pid"]
+    with service_home.connect() as conn:
+        assert conn.call(Method.ACTION_STATUS, {"action_id": action_id}) == before
+        assert conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0}) == events
+        assert _run(conn, "uninstall", {}, crid="keep") == {"action_id": action_id, "existing": True}
+    assert len(core.calls("uninstall")) == 1
+
+
+def test_an_action_lost_with_the_service_reads_as_stopped(service_home, core):
+    gate = service_home.home / "never"
+    core.plan("configure", steps=[{"event": STEP}, {"wait": str(gate)}])
+    first = service_home.start()
+    with service_home.connect() as conn:
+        action_id = _run(conn)["action_id"]
+        wait_for(lambda: conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0})["events"], 5.0)
+    (call,) = core.calls("configure")
+    os.kill(first["pid"], signal.SIGKILL)
+    os.kill(call["pid"], signal.SIGKILL)
+    assert service_home.wait_exit(first["pid"], 5.0) and service_home.wait_exit(call["pid"], 5.0)
+    service_home.start()
+    with service_home.connect() as conn:
+        status = conn.call(Method.ACTION_STATUS, {"action_id": action_id})
+        events = conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0})
+        assert conn.call(Method.STATUS)["actions"]["running"] is None
+    assert status["state"] == "done"
+    assert status["done"] == {"v": 1, "event": "done", "ok": False, "complete": False, "exit_code": None, "steps": []}
+    assert status["error"] == {"v": 1, "event": "error", "code": "interrupted", "message": "service stopped"}
+    assert [e["event"]["event"] for e in events["events"]] == ["step", "error", "done"]
+
+
+def test_a_child_that_outlived_its_service_still_holds_the_slot(service_home, core):
+    gate = service_home.home / "finish"
+    core.plan("configure", steps=[{"wait": str(gate)}])
+    first = service_home.start()
+    with service_home.connect() as conn:
+        action_id = _run(conn)["action_id"]
+        wait_for(lambda: conn.call(Method.ACTION_STATUS, {"action_id": action_id})["state"] == "running", 5.0)
+    # `running` is journaled as the child starts, before it is far enough along to log.
+    assert wait_for(lambda: core.calls("configure"), 5.0)
+    os.kill(first["pid"], signal.SIGKILL)
+    assert service_home.wait_exit(first["pid"], 5.0)
+    (call,) = core.calls("configure")
+    assert pid_running(call["pid"])
+    service_home.start()
+    with service_home.connect() as conn:
+        assert conn.call(Method.ACTION_STATUS, {"action_id": action_id})["state"] == "running"
+        with pytest.raises(client.ServiceError) as raised:
+            _run(conn, crid="other")
+        assert raised.value.code == ErrorCode.BUSY
+        gate.touch()  # the child goes on, finds its stdout gone, and exits
+        status = _wait_done(conn, action_id)
+    assert status["done"]["ok"] is False and status["error"]["message"] == "service stopped"
+
+
+def test_a_service_stopped_by_a_signal_leaves_its_action_running(service_home, core):
+    """A clean stop (SIGTERM, or a restart for a new CLI) must not kill a
+    running action: from Python 3.13 an asyncio subprocess transport SIGKILLs
+    its still-running child as the service's objects are freed (the CLI's uv
+    tool env runs 3.14). The next service finds the child and waits for it."""
+    gate = service_home.home / "finish"
+    core.plan("configure", steps=[{"wait": str(gate)}])
+    first = service_home.start()
+    with service_home.connect() as conn:
+        action_id = _run(conn)["action_id"]
+        wait_for(lambda: conn.call(Method.ACTION_STATUS, {"action_id": action_id})["state"] == "running", 5.0)
+    assert wait_for(lambda: core.calls("configure"), 5.0)
+    (call,) = core.calls("configure")
+    os.kill(first["pid"], signal.SIGTERM)
+    assert service_home.wait_exit(first["pid"], 5.0), service_home.log()
+    time.sleep(0.5)
+    try:
+        assert pid_running(call["pid"]), "the service's exit killed its action child"
+        service_home.start()
+        with service_home.connect() as conn:
+            assert conn.call(Method.ACTION_STATUS, {"action_id": action_id})["state"] == "running"
+    finally:
+        gate.touch()
+    assert wait_for(lambda: not pid_running(call["pid"]), 10.0)
+
+
+def test_the_child_gets_the_request_context_and_no_launcher_credentials(service_home, core, monkeypatch):
+    monkeypatch.setenv("PROBE_TOKEN", "probe_pat_launcher_secret")
+    monkeypatch.setenv("PROBE_CONFIG_PATH", "/launcher/config.json")
+    core.plan("session_default", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        context = {"PROBE_CONFIG_PATH": "/app/config.json", "CLAUDE_CONFIG_DIR": "/app/claude"}
+        action_id = _run(conn, "session_default", {"state": "off"}, context=context,
+                         base_url="https://probe.example.test")["action_id"]
+        _wait_done(conn, action_id)
+        with pytest.raises(client.ServiceError) as raised:
+            _run(conn, "session_default", {"state": "off"}, crid="r2", context={"PROBE_TOKEN": "x"})
+        assert raised.value.code == ErrorCode.INVALID_PARAMS
+    (call,) = core.calls("session_default")
+    assert call["env"]["PROBE_CONFIG_PATH"] == "/app/config.json"
+    assert call["env"]["CLAUDE_CONFIG_DIR"] == "/app/claude"
+    assert call["env"]["PROBE_BASE_URL"] == "https://probe.example.test"
+    assert call["env"]["PROBE_TOKEN"] is None
+    journal = (paths.actions_dir() / f"{action_id}.jsonl").read_text()
+    assert "/app/config.json" not in journal  # a context value can carry a password: never journaled
+
+
+def test_an_update_action_is_a_person_s_unless_it_says_otherwise(service_home, core):
+    core.plan("update", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        _wait_done(conn, _run(conn, "update", {}, crid="u")["action_id"])
+        _wait_done(conn, _run(conn, "update", {}, crid="u2", trigger="session_start")["action_id"])
+        with pytest.raises(client.ServiceError) as raised:
+            _run(conn, "logout", {}, crid="u3", trigger="manual")
+        assert raised.value.code == ErrorCode.INVALID_PARAMS
+    assert [c["env"]["PROBE_AUTOUPDATE_TRIGGER"] for c in core.calls("update")] == ["manual", "session_start"]
+
+
+def test_only_explicit_desktop_actions_pass_human_provenance_and_privacy_context(service_home, core):
+    core.plan("update", steps=[])
+    service_home.start()
+    with service_home.connect() as conn:
+        _wait_done(conn, _run(conn, "update", {}, crid="desktop", origin="desktop",
+            context={"PROBE_TELEMETRY":"off","PROBE_BASE_URL":"https://private.example"})["action_id"])
+        _wait_done(conn, _run(conn, "update", {}, crid="robot", trigger="session_start")["action_id"])
+        with pytest.raises(client.ServiceError) as error:
+            _run(conn, "update", {}, crid="bad-origin", origin="anything")
+        assert error.value.code == ErrorCode.INVALID_PARAMS
+    desktop, robot = core.calls("update")
+    assert desktop["env"]["PROBE_DESKTOP_HUMAN"] == "1"
+    assert desktop["env"]["PROBE_TELEMETRY"] == "off"
+    assert desktop["env"]["PROBE_BASE_URL"] == "https://private.example"
+    assert robot["env"]["PROBE_DESKTOP_HUMAN"] == "0"
+
+
+def test_a_retry_while_the_action_runs_gets_the_same_action(service_home, core):
+    """A client that lost its connection asks again while its action runs: the
+    same action, not `busy` for its own work (the dedupe comes first)."""
+    gate = service_home.home / "release"
+    core.plan("logout", steps=[{"wait": str(gate)}])
+    service_home.start()
+    with service_home.connect() as conn:
+        first = _run(conn, "logout", {}, crid="same")["action_id"]
+        assert wait_for(lambda: core.calls("logout"), 5.0)
+        again = _run(conn, "logout", {}, crid="same")
+        gate.touch()
+        _wait_done(conn, first)
+    assert again == {"action_id": first, "existing": True}
+    assert len(core.calls("logout")) == 1
+
+
+def test_an_exit_130_without_a_cancel_is_not_a_cancel(service_home, core):
+    core.plan("logout", steps=[{"exit": 130}])
+    service_home.start()
+    with service_home.connect() as conn:
+        status = _wait_done(conn, _run(conn, "logout", {}, crid="a")["action_id"])
+    assert status["done"]["exit_code"] == 130 and status["cancelled"] is False
+
+
+def test_a_cancel_that_misses_the_approval_wait_is_not_a_cancel(service_home, core):
+    """The child ignores SIGINT outside its approval wait (`probe.core.events`):
+    a cancel sent as the wait ends must not read as cancelled."""
+    approved = service_home.home / "approved"
+    core.plan("configure", steps=[{"event": PROMPT}, {"wait": str(approved)}])  # not interruptible
+    service_home.start()
+    with service_home.connect() as conn:
+        action_id = _run(conn)["action_id"]
+        wait_for(lambda: conn.call(Method.ACTION_EVENTS, {"action_id": action_id, "since": 0})["events"], 5.0)
+        assert conn.call(Method.ACTION_CANCEL, {"action_id": action_id}) == {}
+        approved.touch()
+        status = _wait_done(conn, action_id)
+    assert status["done"]["ok"] is True and status["cancelled"] is False
+
+
+def test_an_action_in_progress_keeps_the_service_alive(service_home, core, monkeypatch):
+    monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "1")
+    gate = service_home.home / "release"
+    core.plan("logout", steps=[{"wait": str(gate)}])
+    status = service_home.start()
+    with service_home.connect() as conn:
+        _run(conn, "logout", {})
+        with pytest.raises(client.ServiceError) as refused:
+            conn.call(Method.STOP)
+        assert refused.value.data == {"reason": "action_running"}
+    time.sleep(2.0)  # twice the grace, with no session and no app window
+    assert pid_running(status["pid"])
+    gate.touch()
+    assert service_home.wait_exit(status["pid"], 5.0), service_home.log()
+    assert "stopping (idle)" in service_home.log()
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"action": "status", "params": {}, "client_request_id": "x"},  # a read, not an action
+        {"action": "nope", "params": {}, "client_request_id": "x"},
+        {"action": "configure", "params": {"agents": []}, "client_request_id": "x"},
+        {"action": "configure", "params": {"agents": ["claude"], "capture": "no"}, "client_request_id": "x"},
+        {"action": "logout", "params": {"extra": 1}, "client_request_id": "x"},
+        {"action": "logout", "params": {}},  # no client_request_id
+        {"action": "logout", "params": {}, "client_request_id": "x", "base_url": "ftp://x"},
+    ],
+)
+def test_run_checks_its_request(service_home, core, params):
+    service_home.start()
+    with service_home.connect() as conn:
+        with pytest.raises(client.ServiceError) as raised:
+            conn.call(Method.ACTION_RUN, params)
+    assert raised.value.code == ErrorCode.INVALID_PARAMS
+    assert core.calls() == []
+
+
+def test_unknown_actions_are_not_found(service_home, core):
+    service_home.start()
+    with service_home.connect() as conn:
+        for method in (Method.ACTION_STATUS, Method.ACTION_EVENTS, Method.ACTION_CANCEL):
+            with pytest.raises(client.ServiceError) as raised:
+                conn.call(method, {"action_id": "act_0123456789abcdef", "since": 0})
+            assert raised.value.code == ErrorCode.NOT_FOUND
+        with pytest.raises(client.ServiceError) as bad:
+            conn.call(Method.ACTION_STATUS, {"action_id": "../../etc/passwd"})
+        assert bad.value.code == ErrorCode.INVALID_PARAMS
+
+
+def test_recovering_an_action_at_start_does_not_end_discovery_early(service_home, core, monkeypatch):
+    """An unfinished journal is closed while the service starts; that must not
+    start the idle grace before the discovery window (X6) is even set."""
+    monkeypatch.setenv("PROBE_SERVICE_DISCOVERY_S", "3")
+    monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "0.5")
+    paths.private_dir(paths.actions_dir())
+    action_id = "act_00000000000000aa"
+    accepted = {"type": "accepted", "v": 1, "action_id": action_id, "action": "logout", "params": {},
+                "client_request_id": "old", "accepted_at": time.time() - 60, "service_pid": 1}
+    (paths.actions_dir() / f"{action_id}.jsonl").write_text(json.dumps(accepted) + "\n")
+    status = service_home.start()
+    time.sleep(1.5)  # three graces, half the discovery window
+    assert pid_running(status["pid"]), service_home.log()
+    with service_home.connect() as conn:
+        assert conn.call(Method.ACTION_STATUS, {"action_id": action_id})["error"]["message"] == "service stopped"
+
+
+def test_the_context_names_every_harness_s_session_and_home_variables():
+    """A request from inside an agent's session must be able to say so (its
+    session-id variable, read from the registry), and a client with its own
+    agent homes must reach them: every harness's `session_env` and `home.env`."""
+    from probe.harness import get_registry
+    from probe.service.protocol import CONTEXT_ENV
+    from probe.service.server import session_env_names
+
+    sessions = {h.session_env for h in get_registry().all() if h.session_env}
+    registry = json.loads((Path(__file__).resolve().parent.parent / "src" / "probe" / "harness" / "harnesses.json").read_text())
+    homes = {h["home"]["env"] for h in registry["harnesses"] if isinstance(h.get("home"), dict) and h["home"].get("env")}
+    assert sessions and sessions == session_env_names()
+    assert homes and homes <= CONTEXT_ENV, sorted(homes - CONTEXT_ENV)
+
+
+def test_an_agent_s_session_reaches_the_child_and_its_refusal_holds(service_home, monkeypatch):
+    """Real `probe.core.run` children: inside a session the Probe daemon records,
+    `session_default` is refused (exit 2) when the request names the session,
+    exactly as `probe session default` is; the service does not route around it."""
+    from probe.sdk import session_marker
+
+    session = "0b6f2c1e-5a8d-4d9e-9f3a-2c7b1e4d6a90"
+    monkeypatch.setenv("XDG_STATE_HOME", str(service_home.home / ".local" / "state"))
+    session_marker.mark_session_profile(session, session_marker.RECORDER_DAEMON)
+    monkeypatch.delenv("XDG_STATE_HOME")
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.sock.settimeout(60)
+        refused = _wait_done(conn, _run(conn, "session_default", {"state": "off"}, crid="in-session",
+                                        context={"CLAUDE_CODE_SESSION_ID": session})["action_id"], 60.0)
+        applied = _wait_done(conn, _run(conn, "session_default", {"state": "off"}, crid="app")["action_id"], 60.0)
+    assert refused["done"]["exit_code"] == 2 and refused["done"]["ok"] is False
+    assert applied["done"]["exit_code"] == 0, applied

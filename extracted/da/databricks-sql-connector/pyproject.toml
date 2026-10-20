@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "databricks-sql-connector"
-version = "4.6.0"
+version = "4.7.0"
 description = "Databricks SQL Connector for Python"
 authors = ["Databricks <databricks-sql-connector-maintainers@databricks.com>"]
 license = "Apache-2.0"
@@ -21,10 +21,26 @@ python = "^3.10"
 # a wheel and never runs setup.py on DBR LTS -- the build-time break cannot
 # trigger. The `DBR LTS Install` CI check (.github/workflows/dbr-lts-install.yml)
 # installs the built artifact on real DBR LTS clusters and is the authoritative
-# gate for this. Cap at <0.25.0: thrift is pre-1.0, each 0.x minor can carry
-# breaking changes or packaging regressions (see 0.23.0), so bump this
-# deliberately once a new minor ships and the DBR-LTS gate proves it safe.
-thrift = "~=0.24.0"
+# gate for this.
+#
+# Ceiling raised to <0.26.0 for 0.25.0 (released 2026-09-30, THRIFT-6067 series
+# follow-up), which fixes 61 CVEs across language bindings, several affecting
+# the Python binding this connector uses (see #969), e.g. CVE-2026-66858
+# (skip() recursion-limit bypass in the Python accelerator) and CVE-2026-85494
+# (framed transport / binary protocol size a read buffer from a peer-declared
+# length with no effective maximum). 0.25.0 ships the same prebuilt wheel
+# matrix as 0.24.0 (manylinux2014/macOS/musl/Windows, cp310-cp314), so the
+# DBR LTS build-time risk above does not apply; the `DBR LTS Install` CI gate
+# remains the authoritative check. thrift is pre-1.0, so keep this ceiling one
+# minor ahead and bump deliberately once a newer minor ships and the DBR-LTS
+# gate proves it safe -- do not use an open-ended `^`/`>=` constraint.
+#
+# NOTE: 0.25.0 also changes TBinaryProtocol's default `string_length_limit`
+# from unbounded to ~15.6 MiB (see the explicit `string_length_limit=None` /
+# `container_length_limit=None` passed in thrift_backend.py's protocol
+# construction, which preserves the connector's pre-0.25 unbounded behavior
+# for its own already-bounded, trusted-server result stream).
+thrift = ">=0.24.0,<0.26.0"
 pandas = [
     { version = ">=1.2.5,<4.0.0", python = ">=3.10,<3.13" },
     { version = ">=2.2.3,<4.0.0", python = ">=3.13" }
@@ -34,7 +50,7 @@ lz4 = [
     { version = "^4.4.5", python = ">=3.14" }
 ]
 requests = "^2.18.1"
-oauthlib = "^3.1.0"
+oauthlib = ">=3.1.0,<5.0.0"
 openpyxl = "^3.0.10"
 urllib3 = ">=1.26"
 python-dateutil = "^2.8.0"
@@ -51,10 +67,10 @@ requests-kerberos = {version = "^0.15.0", optional = true}
 # is ``abi3`` with ``Requires-Python: >=3.9`` (built ``abi3-py39``); the
 # dependency remains gated to the connector's Python >= 3.10 support floor.
 #
-# Floor is 1.1.0 (``^1.1.0`` == ``>=1.1.0,<2.0.0``), allowing compatible
+# Floor is 1.2.0 (``^1.2.0`` == ``>=1.2.0,<2.0.0``), allowing compatible
 # 1.x releases while keeping the next major upgrade deliberate. The kernel's
 # pyarrow constraint remains >=23.0.1,<24.
-databricks-sql-kernel = {version = "^1.1.0", optional = true, python = ">=3.10"}
+databricks-sql-kernel = {version = "^1.2.0", optional = true, python = ">=3.10"}
 
 
 [tool.poetry.extras]

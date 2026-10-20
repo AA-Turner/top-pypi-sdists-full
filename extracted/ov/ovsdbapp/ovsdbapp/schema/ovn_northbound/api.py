@@ -108,7 +108,8 @@ class API(api.API, metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def acl_add(self, switch, direction, priority, match, action, log=False):
+    def acl_add(self, switch, direction, priority, match, action, log=False,
+                tier=None):
         """Add an ACL to 'switch'
 
         :param switch:    The name or uuid of the switch
@@ -124,12 +125,16 @@ class API(api.API, metaclass=abc.ABCMeta):
                           or 'reject'
         :param log:       If True, enable packet logging for the ACL
         :type log:        boolean
+        :param tier:      The tier field of the ACL (0 to 3). None leaves the
+                          database default (0) and supports older schemas.
+                          Explicit tiers require ACL tier support.
+        :type tier:       int or None
         :returns:         :class:`Command` with RowView result
         """
 
     @abc.abstractmethod
     def acl_del(self, switch, direction=None, priority=None, match=None,
-                if_exists=False):
+                if_exists=False, tier=None):
         """Remove ACLs from 'switch'
 
         If only switch is supplied, all the ACLs from the logical switch are
@@ -148,6 +153,9 @@ class API(api.API, metaclass=abc.ABCMeta):
         :param if_exists: If True, don't fail if the parent logical switch
                           containing the ACL doesn't exist
         :type if_exists:  boolean
+        :param tier:      If specified, delete only ACLs in this tier. By
+                          default, delete matching ACLs in all tiers.
+        :type tier:       int or None
         :returns:         :class:`Command` with no result
         """
 
@@ -163,7 +171,7 @@ class API(api.API, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def pg_acl_add(self, port_group, direction, priority, match, action,
                    log=False, may_exist=False, severity=None, name=None,
-                   meter=None, **external_ids):
+                   meter=None, tier=None, **external_ids):
         """Add an ACL to 'port_group'
 
         :param port_group:   The name or uuid of the port group
@@ -187,16 +195,20 @@ class API(api.API, metaclass=abc.ABCMeta):
         :type name:          string
         :param meter:        The meter name to rate limit logging
         :type meter:         string
+        :param tier:         The tier field of the ACL (0 to 3). None uses the
+                             database default (0) and supports older schemas.
+                             Explicit tiers require ACL tier support.
+        :type tier:          int or None
         :param external_ids: Values to be added as external_id pairs
         :returns:            :class:`Command` with RowView result
         """
 
     @abc.abstractmethod
     def pg_acl_del(self, port_group, direction=None, priority=None,
-                   match=None, if_exists=False):
+                   match=None, if_exists=False, tier=None):
         """Remove ACLs from 'port_group'
 
-        If only port_group is supplied, all the ACLs from the logical switch
+        If only port_group is supplied, all the ACLs from the port group
         are deleted. If direction is also specified, then all the flows in
         that direction will be deleted from the Port Group. If all the fields
         are given, then only flows that match all fields will be deleted.
@@ -212,6 +224,9 @@ class API(api.API, metaclass=abc.ABCMeta):
         :param if_exists:  If True, don't fail if the parent port group
                            containing the ACL doesn't exist
         :type if_exists:   boolean
+        :param tier:       If specified, delete only ACLs in this tier. By
+                           default, delete matching ACLs in all tiers.
+        :type tier:        int or None
         :returns:          :class:`Command` with no result
         """
 
@@ -1547,11 +1562,21 @@ class API(api.API, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def mirror_get(self, uuid):
-        """Get the Mirror entry"""
+        """Get the Mirror entry
+
+        :param uuid:   The name or uuid of the mirror
+        :type uuid:    string or uuid.UUID
+        :returns:      :class:`Command` with RowView result
+        """
 
     @abc.abstractmethod
     def mirror_del(self, mirror):
-        """Delete a Mirror"""
+        """Delete a Mirror
+
+        :param mirror:   The uuid of the mirror
+        :type mirror:    uuid.UUID
+        :returns:        :class:`Command` with no result
+        """
 
     @abc.abstractmethod
     def mirror_add(self, name, mirror_type, index, direction_filter, dest,
@@ -1561,7 +1586,8 @@ class API(api.API, metaclass=abc.ABCMeta):
 
         :param name:    Name of the Mirror to create.
         :type name:     str
-        :param mirror_type:    The type of the mirroring can be gre or erspan.
+        :param mirror_type:    The type of the mirroring can be gre, erspan,
+                               local, lport.
         :type mirror_type:     str
         :param index:   The index filed will be used for the Index field in
                         ERSPAN header as decimal, and as hexadecimal value in
@@ -1569,20 +1595,61 @@ class API(api.API, metaclass=abc.ABCMeta):
                         field.
         :type index:    int
         :param direction_filter:  The direction of the traffic to be mirrored,
-                                  can be from-lport and to-lprt.
+                                  can be from-lport, to-lport or both.
         :type direction_filter:   str
-        :param dest:    The destination IP address of the mirroring.
+        :param dest:    The destination IP address of the mirroring
+                        (gre,erspan), name of the logical port (lport),
+                        OVS interface (local).
         :type dest:     str
 
 
         :param external_ids: Values to be added as external_id pairs.
         :type external_ids:  Optional[Dict[str,str]]
         :param may_exist:    If True, update any existing Mirror entry if it
-                             already exists.  Default is False which will raise
-                             an error if a Mirror entry with same logical_port,
-                             sink pair already exists.
+                             already exists; the mirror rules attached to an
+                             existing ``lport`` mirror are preserved. Default
+                             is False which will raise an error if a Mirror
+                             entry with the same name already exists.
         :type may_exist:     Optional[bool]
         :returns:            :class:`Command` with RowView result
+        """
+
+    @abc.abstractmethod
+    def mirror_rule_add(self, mirror, priority, match, action,
+                        may_exist=False):
+        """Add a mirror rule selection to given 'lport' mirror.
+
+        :param mirror:    The name or uuid of the mirror.
+        :type mirror:     string or uuid.UUID
+        :param priority:  The priority of the rule.
+        :type priority:   int
+        :param match:     The match for selecting mirrored traffic.
+        :type match:      string
+        :param action:    The rule action can be 'mirror' or 'skip'
+        :type action:     string
+        :param may_exist: If True, return the existing Mirror rule entry
+                          if it already exists.  Default is False which will
+                          raise an error if a Mirror rule entry with the same
+                          priority, match and action already exists.
+        :type may_exist:  Optional[bool]
+        :returns:         :class:`Command` with RowView result
+        """
+
+    @abc.abstractmethod
+    def mirror_rule_del(self, mirror, priority=None, match=None,
+                        if_exists=False):
+        """Delete a mirror rule on a mirror.
+
+        :param mirror:    The name or uuid of the mirror.
+        :type mirror:     string or uuid.UUID
+        :param priority:  The priority of the rule.
+        :type priority:   int
+        :param match:     The match for selecting mirrored traffic.
+        :type match:      string
+        :param if_exists: If True, don't fail if the mirror or the mirror
+                          rule doesn't exist
+        :type if_exists:  boolean
+        :returns:         :class:`Command` with RowView result
         """
 
     @abc.abstractmethod

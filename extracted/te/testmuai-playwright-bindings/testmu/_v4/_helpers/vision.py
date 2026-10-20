@@ -398,6 +398,12 @@ async def vision_wait(page, description: str, timeout_ms: int = 30000):
 
     _log.info("    [vision_wait] query=%s", description[:80])
 
+    # Resolve {{vars}}/${params} before the query leaves the binding (same as
+    # vision_query / textual_query); the API would otherwise see the literal
+    # placeholder text. Logged above in raw form so no secret value is logged.
+    from testmu._v4._vars import var
+    description = str(var(description))
+
     async with create_session() as session:
         for attempt in range(1, _WAIT_MAX_RETRIES + 1):
             screenshot_b64 = await _capture_screenshot_versioned_b64(page)
@@ -462,6 +468,12 @@ async def vision_action(
         return None
 
     _log.info("    [vision_action] action=%s query=%s", action_type, description[:60])
+
+    # Resolve {{vars}}/${params} before the query leaves the binding (same as
+    # vision_query / textual_query); the API would otherwise see the literal
+    # placeholder text. Logged above in raw form so no secret value is logged.
+    from testmu._v4._vars import var
+    description = str(var(description))
 
     screenshot_b64 = await _capture_screenshot_versioned_b64(page)
 
@@ -540,6 +552,12 @@ async def get_vision_coordinates(
         return {"x": x, "y": y}
 
     _log.info("    [get_vision_coordinates] query=%s", description[:60])
+
+    # Resolve {{vars}}/${params} before the query leaves the binding (same as
+    # vision_query / textual_query); the API would otherwise see the literal
+    # placeholder text. Logged above in raw form so no secret value is logged.
+    from testmu._v4._vars import var
+    description = str(var(description))
 
     # Gate on visibility, then locate on a FRESH frame. The visibility call
     # takes seconds, and its screenshot was captured right after the previous

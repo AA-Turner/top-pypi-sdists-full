@@ -135,6 +135,8 @@ class NonInventoryItemsResource(SyncAPIResource):
           sku: The non-inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
 
+              Maximum length: 31 characters.
+
           unit_of_measure_set_id: The unit-of-measure set associated with this non-inventory item, which consists
               of a base unit and related units.
 
@@ -326,6 +328,8 @@ class NonInventoryItemsResource(SyncAPIResource):
           sku: The non-inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
 
+              Maximum length: 31 characters.
+
           unit_of_measure_set_id: The unit-of-measure set associated with this non-inventory item, which consists
               of a base unit and related units.
 
@@ -453,6 +457,9 @@ class NonInventoryItemsResource(SyncAPIResource):
           name_from: Filter for non-inventory items whose `name` is alphabetically greater than or
               equal to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           name_starts_with: Filter for non-inventory items whose `name` starts with this substring,
               case-insensitive.
 
@@ -461,6 +468,9 @@ class NonInventoryItemsResource(SyncAPIResource):
 
           name_to: Filter for non-inventory items whose `name` is alphabetically less than or equal
               to this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for non-inventory items that are active, inactive, or both.
 
@@ -632,6 +642,8 @@ class AsyncNonInventoryItemsResource(AsyncAPIResource):
 
           sku: The non-inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
+
+              Maximum length: 31 characters.
 
           unit_of_measure_set_id: The unit-of-measure set associated with this non-inventory item, which consists
               of a base unit and related units.
@@ -824,6 +836,8 @@ class AsyncNonInventoryItemsResource(AsyncAPIResource):
           sku: The non-inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
 
+              Maximum length: 31 characters.
+
           unit_of_measure_set_id: The unit-of-measure set associated with this non-inventory item, which consists
               of a base unit and related units.
 
@@ -951,6 +965,9 @@ class AsyncNonInventoryItemsResource(AsyncAPIResource):
           name_from: Filter for non-inventory items whose `name` is alphabetically greater than or
               equal to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           name_starts_with: Filter for non-inventory items whose `name` starts with this substring,
               case-insensitive.
 
@@ -959,6 +976,9 @@ class AsyncNonInventoryItemsResource(AsyncAPIResource):
 
           name_to: Filter for non-inventory items whose `name` is alphabetically less than or equal
               to this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for non-inventory items that are active, inactive, or both.
 

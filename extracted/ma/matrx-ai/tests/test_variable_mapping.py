@@ -46,10 +46,12 @@ def test_optional_unmapped_is_intentionally_blank() -> None:
     assert not result.blocking
 
 
-def test_spill_appends_user_input_and_is_caution() -> None:
+def test_spill_is_context_never_turn_text_and_is_caution() -> None:
+    """Injection census #28 (2026-10-17): the caller's text is returned exactly as sent."""
     result = resolve_variable_mapping({"topic": "Owls"}, {}, spill={"topic"}, user_input="Research")
-    assert result.user_input == "Research\nTopic: Owls"
-    assert result.verdicts[0].verdict is VariableVerdictKind.SPILLED_TO_USER_INPUT
+    assert result.user_input == "Research"
+    assert result.spilled == {"topic": "Owls"}
+    assert result.verdicts[0].verdict is VariableVerdictKind.SPILLED_TO_CONTEXT
     assert result.verdicts[0].caution and not result.blocking
 
 
@@ -107,31 +109,21 @@ def test_prompt_user_is_rejected_server_side() -> None:
         )
 
 
-def test_spilled_text_is_exposed_separately_from_merged_user_input() -> None:
-    """A MULTIMODAL call site needs the spill ALONE.
-
-    ``user_input`` is the merged string and is only usable by a caller that
-    passed a string; a caller passing a list of content blocks has to append
-    the spill as one more block. Before 2026-08-16 there was no way to get it,
-    so ``NamedAgent.run`` computed the spill and silently discarded it on every
-    multimodal call site — the live podcast topic path (which attaches a prep
-    message) kept reaching the researcher with a blank topic.
-    """
+def test_a_multimodal_caller_gets_the_spill_by_name() -> None:
+    """A caller passing content blocks gets the spilled values by NAME, to deliver as
+    context — nothing is folded into any turn (injection census #28)."""
     result = resolve_variable_mapping(
         {"user_request": "History of sourdough"},
         {},
         spill={"user_request"},
         user_input="Keep it under 10 minutes.",
     )
-    assert result.spilled_text == "User Request: History of sourdough"
-    # The merged form still folds the caller's own text in, unchanged.
-    assert result.user_input == (
-        "Keep it under 10 minutes.\nUser Request: History of sourdough"
-    )
-    assert _kinds(result) == [VariableVerdictKind.SPILLED_TO_USER_INPUT]
+    assert result.spilled == {"user_request": "History of sourdough"}
+    assert result.user_input == "Keep it under 10 minutes."
+    assert _kinds(result) == [VariableVerdictKind.SPILLED_TO_CONTEXT]
 
 
-def test_spilled_text_is_none_when_nothing_spills() -> None:
+def test_nothing_spills_when_no_spill_is_declared() -> None:
     result = resolve_variable_mapping({"user_request": "x"}, {})
-    assert result.spilled_text is None
+    assert result.spilled == {}
     assert _kinds(result) == [VariableVerdictKind.DROPPED]

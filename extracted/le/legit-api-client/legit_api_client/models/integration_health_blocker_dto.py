@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from legit_api_client.models.integration_health_blocker_code import IntegrationHealthBlockerCode
+from legit_api_client.models.integration_health_blocker_severity import IntegrationHealthBlockerSeverity
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -29,9 +30,10 @@ class IntegrationHealthBlockerDto(BaseModel):
     IntegrationHealthBlockerDto
     """ # noqa: E501
     code: Optional[IntegrationHealthBlockerCode] = None
+    severity: Optional[IntegrationHealthBlockerSeverity] = None
     message: Optional[StrictStr] = None
     next_action: Optional[StrictStr] = Field(default=None, alias="nextAction")
-    __properties: ClassVar[List[str]] = ["code", "message", "nextAction"]
+    __properties: ClassVar[List[str]] = ["code", "severity", "message", "nextAction"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -95,6 +97,7 @@ class IntegrationHealthBlockerDto(BaseModel):
 
         _obj = cls.model_validate({
             "code": obj.get("code"),
+            "severity": obj.get("severity"),
             "message": obj.get("message"),
             "nextAction": obj.get("nextAction")
         })

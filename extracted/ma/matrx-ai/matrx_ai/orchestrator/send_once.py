@@ -112,9 +112,11 @@ async def send_once(
         request.config = wire_config
     chat_timing_mark("wire_config_built", "build_wire_config complete")
     chat_timing_mark("pre_provider_execute", "calling UnifiedAIClient.execute")
+    from matrx_connect.context.app_context import try_get_app_context
     from matrx_connect.request_latency import mark_first_provider_call
 
-    mark_first_provider_call()
+    _call_ctx = try_get_app_context()
+    mark_first_provider_call(getattr(_call_ctx, "emitter", None) if _call_ctx is not None else None)
     from matrx_ai.orchestrator.first_output import watching_first_output
 
     try:

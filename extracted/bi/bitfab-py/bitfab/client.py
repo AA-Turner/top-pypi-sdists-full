@@ -50,7 +50,6 @@ from bitfab.http import (
     HttpClient,
     flush_traces,
 )
-from bitfab.labels import LabelsClient
 from bitfab.mock_matching import MATCHER, VariantChain, extend_variant_chain
 from bitfab.mock_override import (
     NO_MOCK_OVERRIDE,
@@ -113,6 +112,7 @@ from bitfab.trace_metadata import (
     retire_trace_metadata,
 )
 from bitfab.traces import TracesClient
+from bitfab.verdicts import VerdictsClient
 from bitfab.warn_once import warn_once
 
 if TYPE_CHECKING:
@@ -1111,7 +1111,7 @@ class Bitfab:
         self.organization_members = OrganizationMembersClient(self.http_client)
         self.traces = TracesClient(self.http_client)
         self.spans = SpansClient(self.http_client)
-        self.labels = LabelsClient(self.http_client)
+        self.verdicts = VerdictsClient(self.http_client)
         self.graders = GradersClient(self.http_client)
         self.experiments = ExperimentsClient(self.http_client)
         # Overrides registered via register_mock_override(); applied to every
@@ -1397,6 +1397,15 @@ class Bitfab:
         traced call would. Replay records inside its items, and ``seed_trace``
         records its one call, even when this is False."""
         return self._is_capture_enabled()
+
+    @property
+    def labels(self) -> VerdictsClient:
+        """Deprecated alias for ``verdicts``. Use ``client.verdicts`` instead."""
+        warn_once(
+            "deprecated-labels-client",
+            "Bitfab.labels is deprecated; use Bitfab.verdicts instead.",
+        )
+        return self.verdicts
 
     @property
     def assertion_categories(self) -> CategoriesClient:
@@ -1997,7 +2006,7 @@ class Bitfab:
             skip_assertion_judging: Don't judge approved assertions on each
                 replay. Judging is on by default: every approved assertion is
                 judged as its replay finishes and the verdict is saved as that
-                assertion's agent label, and each judgement costs model calls.
+                assertion's agent verdict, and each judgement costs model calls.
             mock: Mock strategy for child spans during replay.
                 ``"marked"`` (default) only mocks child spans declared with
                 ``mock_on_replay=True`` on ``@client.span(...)``; ``"none"``

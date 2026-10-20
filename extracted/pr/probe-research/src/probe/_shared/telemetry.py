@@ -90,6 +90,9 @@ from probe.sdk.tls import ssl_context
 # amending D6's ~1s). Exit only pays this when the network is already degraded.
 FLUSH_TIMEOUT_S = 3.5
 QUEUE_MAX = 256
+# Set only on a child's explicit desktop action, independently of its stdin TTY.
+DESKTOP_HUMAN_ENV = "PROBE_DESKTOP_HUMAN"
+DESKTOP_SURFACE = "desktop"
 
 EVENT_WIZARD_INVOKED = "wizard.invoked"
 EVENT_WIZARD_STARTED = "wizard.started"
@@ -97,6 +100,8 @@ EVENT_WIZARD_ACTION_CHOSEN = "wizard.action_chosen"
 EVENT_WIZARD_CONFIGURE_STARTED = "wizard.configure_started"
 EVENT_WIZARD_SIGNED_IN = "wizard.signed_in"
 EVENT_WIZARD_CONFIGURE_COMPLETED = "wizard.configure_completed"
+EVENT_INTEGRATION_REINSTALL_STARTED = "wizard.integration_reinstall_started"
+EVENT_INTEGRATION_REINSTALL_COMPLETED = "wizard.integration_reinstall_completed"
 EVENT_BACKFILL_INVOKED = "backfill.invoked"
 EVENT_BACKFILL_STARTED = "backfill.started"
 EVENT_BACKFILL_SCANNED = "backfill.scanned"
@@ -520,6 +525,7 @@ class TelemetryContext:
     #: that destroys the credential it would have been resolved from. See
     #: :meth:`pin_identity`. None everywhere else, which is every other event.
     pinned_identity: dict | None = None
+    surface: str | None = None
 
     @classmethod
     def start(cls, *, via: str, interactive: bool, base_url: str | None) -> "TelemetryContext":
@@ -532,11 +538,14 @@ class TelemetryContext:
             enabled = not core.telemetry_disabled() and core.hosted_base_url(base_url)
         except Exception:
             enabled = False
+        desktop = (os.environ.get(DESKTOP_HUMAN_ENV) == "1"
+                   and via in (Via.WIZARD, Via.COMMAND))
         ctx = cls(
             session_id=uuid.uuid4().hex,
             via=via,
-            invoked_by=InvokedBy.HUMAN if interactive else InvokedBy.AUTOMATION,
+            invoked_by=InvokedBy.HUMAN if interactive or desktop else InvokedBy.AUTOMATION,
             enabled=enabled,
+            surface=DESKTOP_SURFACE if desktop else None,
         )
         if enabled:
             try:
@@ -576,6 +585,8 @@ class TelemetryContext:
                 "invoked_by": self.invoked_by,
                 "identity_mode": mode,
             }
+            if self.surface is not None:
+                properties["surface"] = self.surface
             properties.update({k: v for k, v in props.items() if v is not None})
             # Same contract as core.build_batch: detected or absent, never a
             # placeholder that reads as Claude Code for a Codex or pi user.
@@ -676,7 +687,8 @@ def origin_stamp() -> dict | None:
     ctx = current()
     if not ctx.enabled:
         return None
-    return {"session_id": ctx.session_id, "via": str(ctx.via), "invoked_by": str(ctx.invoked_by)}
+    return {"session_id": ctx.session_id, "via": str(ctx.via), "invoked_by": str(ctx.invoked_by),
+            **({"surface": ctx.surface} if ctx.surface == DESKTOP_SURFACE else {})}
 
 
 def job_context(origin: object) -> TelemetryContext:
@@ -708,6 +720,8 @@ def job_context(origin: object) -> TelemetryContext:
     invoked_by = origin.get("invoked_by")
     if invoked_by in tuple(InvokedBy):
         ctx.invoked_by = str(invoked_by)
+    if origin.get("surface") == DESKTOP_SURFACE:
+        ctx.surface = DESKTOP_SURFACE
     return ctx
 
 

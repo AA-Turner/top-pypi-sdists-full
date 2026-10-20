@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Dict, Any, Union, Optional
+from typing_extensions import Unpack
 
 from ..types import (
     Monitor,
@@ -11,6 +12,7 @@ from ..types import (
 from ..core.base import WebsetsBaseClient
 from ..core.async_base import WebsetsAsyncBaseClient
 from .runs import MonitorRunsClient
+from ...request_options import ExtraRequestOptions
 
 class MonitorsClient(WebsetsBaseClient):
     """Client for managing Monitors."""
@@ -19,42 +21,42 @@ class MonitorsClient(WebsetsBaseClient):
         super().__init__(client)
         self.runs = MonitorRunsClient(client)
 
-    def create(self, params: Union[Dict[str, Any], CreateMonitorParameters]) -> Monitor:
-        """Create a new Monitor to continuously keep your Websets updated with fresh data.
-        
-        Monitors automatically run on your defined schedule to ensure your Websets stay current without manual intervention:
-        - Find new content: Execute search operations to discover fresh items matching your criteria
-        - Update existing content: Run refresh operations to update items contents and enrichments
-        - Automated scheduling: Configure frequency, timezone, and execution times
+    def create(self, params: Union[Dict[str, Any], CreateMonitorParameters], **extra: Unpack[ExtraRequestOptions]) -> Monitor:
+        """Create a Monitor that searches for new Items for a Webset.
+
+        The Monitor runs on the `cron` schedule in the given `timezone`.
         
         Args:
             params (CreateMonitorParameters): The parameters for creating a monitor.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
         
         Returns:
             Monitor: The created monitor.
         """
-        response = self.request("/v0/monitors", data=params)
+        response = self.request("/v0/monitors", data=params, **extra)
         return Monitor.model_validate(response)
 
-    def get(self, monitor_id: str) -> Monitor:
+    def get(self, monitor_id: str, **extra: Unpack[ExtraRequestOptions]) -> Monitor:
         """Get a specific monitor.
         
         Args:
             monitor_id (str): The id of the Monitor.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
         
         Returns:
             Monitor: The retrieved monitor.
         """
-        response = self.request(f"/v0/monitors/{monitor_id}", method="GET")
+        response = self.request(f"/v0/monitors/{monitor_id}", method="GET", **extra)
         return Monitor.model_validate(response)
 
-    def list(self, *, cursor: Optional[str] = None, limit: Optional[int] = None, webset_id: Optional[str] = None) -> ListMonitorsResponse:
+    def list(self, *, cursor: Optional[str] = None, limit: Optional[int] = None, webset_id: Optional[str] = None, **extra: Unpack[ExtraRequestOptions]) -> ListMonitorsResponse:
         """List all monitors.
         
         Args:
             cursor (str, optional): The cursor to paginate through the results.
             limit (int, optional): The number of results to return (1-200, default 25).
             webset_id (str, optional): The id of the Webset to list monitors for.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
         
         Returns:
             ListMonitorsResponse: List of monitors with pagination info.
@@ -68,32 +70,34 @@ class MonitorsClient(WebsetsBaseClient):
             }.items() 
             if v is not None
         }
-        response = self.request("/v0/monitors", params=params, method="GET")
+        response = self.request("/v0/monitors", params=params, method="GET", **extra)
         return ListMonitorsResponse.model_validate(response)
 
-    def update(self, monitor_id: str, params: Union[Dict[str, Any], UpdateMonitor]) -> Monitor:
+    def update(self, monitor_id: str, params: Union[Dict[str, Any], UpdateMonitor], **extra: Unpack[ExtraRequestOptions]) -> Monitor:
         """Update a monitor configuration.
         
         Args:
             monitor_id (str): The id of the Monitor.
             params (UpdateMonitor): The parameters for updating a monitor.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
         
         Returns:
             Monitor: The updated monitor.
         """
-        response = self.request(f"/v0/monitors/{monitor_id}", data=params, method="PATCH")
+        response = self.request(f"/v0/monitors/{monitor_id}", data=params, method="PATCH", **extra)
         return Monitor.model_validate(response)
 
-    def delete(self, monitor_id: str) -> Monitor:
+    def delete(self, monitor_id: str, **extra: Unpack[ExtraRequestOptions]) -> Monitor:
         """Delete a monitor.
         
         Args:
             monitor_id (str): The id of the Monitor.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
         
         Returns:
             Monitor: The deleted monitor.
         """
-        response = self.request(f"/v0/monitors/{monitor_id}", method="DELETE")
+        response = self.request(f"/v0/monitors/{monitor_id}", method="DELETE", **extra)
         return Monitor.model_validate(response)
 
 
@@ -105,28 +109,50 @@ class AsyncMonitorsClient(WebsetsAsyncBaseClient):
         from .runs import AsyncMonitorRunsClient
         self.runs = AsyncMonitorRunsClient(client)
 
-    async def create(self, params: Union[Dict[str, Any], CreateMonitorParameters]) -> Monitor:
-        """Create a new Monitor to continuously keep your Websets updated with fresh data."""
-        response = await self.request("/v0/monitors", data=params)
+    async def create(self, params: Union[Dict[str, Any], CreateMonitorParameters], **extra: Unpack[ExtraRequestOptions]) -> Monitor:
+        """Create a Monitor that searches for new Items for a Webset.
+
+        The Monitor runs on the `cron` schedule in the given `timezone`.
+
+        Args:
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
+        """
+        response = await self.request("/v0/monitors", data=params, **extra)
         return Monitor.model_validate(response)
 
-    async def get(self, monitor_id: str) -> Monitor:
-        """Get a specific monitor."""
-        response = await self.request(f"/v0/monitors/{monitor_id}", method="GET")
+    async def get(self, monitor_id: str, **extra: Unpack[ExtraRequestOptions]) -> Monitor:
+        """Get a specific monitor.
+
+        Args:
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
+        """
+        response = await self.request(f"/v0/monitors/{monitor_id}", method="GET", **extra)
         return Monitor.model_validate(response)
 
-    async def list(self, *, cursor: Optional[str] = None, limit: Optional[int] = None, webset_id: Optional[str] = None) -> ListMonitorsResponse:
-        """List all monitors."""
+    async def list(self, *, cursor: Optional[str] = None, limit: Optional[int] = None, webset_id: Optional[str] = None, **extra: Unpack[ExtraRequestOptions]) -> ListMonitorsResponse:
+        """List all monitors.
+
+        Args:
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
+        """
         params = {k: v for k, v in {"cursor": cursor, "limit": limit, "websetId": webset_id}.items() if v is not None}
-        response = await self.request("/v0/monitors", params=params, method="GET")
+        response = await self.request("/v0/monitors", params=params, method="GET", **extra)
         return ListMonitorsResponse.model_validate(response)
 
-    async def update(self, monitor_id: str, params: Union[Dict[str, Any], UpdateMonitor]) -> Monitor:
-        """Update a monitor configuration."""
-        response = await self.request(f"/v0/monitors/{monitor_id}", data=params, method="PATCH")
+    async def update(self, monitor_id: str, params: Union[Dict[str, Any], UpdateMonitor], **extra: Unpack[ExtraRequestOptions]) -> Monitor:
+        """Update a monitor configuration.
+
+        Args:
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
+        """
+        response = await self.request(f"/v0/monitors/{monitor_id}", data=params, method="PATCH", **extra)
         return Monitor.model_validate(response)
 
-    async def delete(self, monitor_id: str) -> Monitor:
-        """Delete a monitor."""
-        response = await self.request(f"/v0/monitors/{monitor_id}", method="DELETE")
+    async def delete(self, monitor_id: str, **extra: Unpack[ExtraRequestOptions]) -> Monitor:
+        """Delete a monitor.
+
+        Args:
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
+        """
+        response = await self.request(f"/v0/monitors/{monitor_id}", method="DELETE", **extra)
         return Monitor.model_validate(response) 

@@ -70,6 +70,10 @@ class CaptureSlot:
     #: Paid steps that would have run BEFORE the main request and were skipped
     #: (``{"kind", "detail", "status": "skipped"}``). The caller returns them.
     pre_steps: list[dict[str, Any]] = field(default_factory=list)
+    #: The run's AppContext at the instant of the send — the run that sent may have been a
+    #: forked child (``run_agent``), whose context (the tool sources it recorded) is gone
+    #: once the capture unwinds. Read by the host's Model view.
+    context: Any = None
 
 
 _capture_var: ContextVar[CaptureSlot | None] = ContextVar("matrx_ai_provider_request_capture", default=None)
@@ -285,6 +289,12 @@ def _finish(record: dict[str, Any]) -> None:
     if slot is None:
         return
     slot.captured = record
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        slot.context = try_get_app_context()
+    except Exception:  # noqa: BLE001 — the context is a companion to the request, never a gate
+        slot.context = None
     raise ProviderRequestCaptured(copy.deepcopy(record))
 
 

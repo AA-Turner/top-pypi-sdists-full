@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+from ..core import token_depth
 
 _CHARREF_PREFIX = re.compile(r"(#[0-9]{1,7};|#[xX][0-9a-fA-F]+;|[^\t\n\f <&#;]{1,32};)")
 
@@ -11,7 +13,7 @@ def is_entity_boundary(left: str, right: str) -> bool:
     return left.endswith("&") and _CHARREF_PREFIX.match(right) is not None
 
 
-@dataclass
+@dataclass(slots=True)
 class _Delimiter:
     index: int
     marker: str
@@ -74,10 +76,10 @@ def finalize_emphasis_tokens(
     enabled: bool,
     max_depth: int,
 ) -> List[Dict[str, Any]]:
-    if not enabled:
-        return _clean_emphasis_tokens(tokens)
-    if not _contains_emphasis_marker(tokens):
-        return _clean_emphasis_tokens(tokens)
+    if len(tokens) > 1:
+        tokens = _coalesce_emphasis_text(tokens)
+    if not enabled or not _contains_emphasis_marker(tokens):
+        return [_clean_emphasis_token(token) for token in tokens]
 
     parts: List[Dict[str, Any]] = []
     delimiters: List[_Delimiter] = []
@@ -95,6 +97,33 @@ def finalize_emphasis_tokens(
 
     _process_emphasis_delimiters(parts, delimiters, max_depth)
     return _merge_text_tokens(parts)
+
+
+def _coalesce_emphasis_text(tokens: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    result: List[Dict[str, Any]] = []
+    chunks: List[str] = []
+    enabled = True
+
+    def flush() -> None:
+        if chunks:
+            token: Dict[str, Any] = {"type": "text", "raw": "".join(chunks)}
+            if not enabled:
+                token["_emphasis"] = False
+            result.append(token)
+            chunks.clear()
+
+    for token in tokens:
+        if token["type"] != "text":
+            flush()
+            result.append(token)
+        else:
+            mode = token.get("_emphasis", True)
+            if mode != enabled or (chunks and is_entity_boundary(chunks[-1], token["raw"])):
+                flush()
+            enabled = mode
+            chunks.append(token["raw"])
+    flush()
+    return result
 
 
 def _process_dense_emphasis(parts: List[Dict[str, Any]], delimiters: List[_Delimiter]) -> bool:
@@ -153,15 +182,12 @@ def _contains_emphasis_marker(tokens: List[Dict[str, Any]]) -> bool:
     return False
 
 
-def _clean_emphasis_tokens(tokens: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [_clean_emphasis_token(token) for token in tokens]
-
-
 def _clean_emphasis_token(token: Dict[str, Any]) -> Dict[str, Any]:
-    if "_emphasis" not in token:
+    if "_emphasis" not in token and "_autolink" not in token:
         return token
     token = token.copy()
     token.pop("_emphasis", None)
+    token.pop("_autolink", None)
     return token
 
 
@@ -235,74 +261,35 @@ def _process_emphasis_delimiters(
             continue
 
         opener_key = (closer.marker, closer.length % 3, closer.can_open)
-        opener_pos = closer_pos - 1
         opener_bottom = openers_bottom.get(opener_key, 0)
-        opener = None
-        while opener_pos >= opener_bottom:
-            candidate = delimiters[opener_pos]
-            if (
-                candidate.marker == closer.marker
-                and candidate.can_open
-                and candidate.length > 0
-                and _can_match_emphasis_delimiters(candidate, closer)
-            ):
-                opener = candidate
-                break
-            opener_pos -= 1
-
-        if opener is None:
+        match = _find_emphasis_opener(delimiters, closer_pos, closer, opener_bottom)
+        if match is None:
             openers_bottom[opener_key] = closer_pos
             closer_pos += 1
             continue
+        opener_pos, opener = match
 
         opener_index = index_map.current(opener)
         closer_index = index_map.current(closer)
-        if opener.length >= 2 and closer.length >= 2:
-            use_length = 2
-        else:
-            use_length = 1
-        if use_length == 2 and not _has_strong_enabled(parts, opener_index, closer_index):
-            use_length = 1
-        if use_length == 1 and not _has_emphasis_enabled(parts, opener_index, closer_index):
-            closer_pos += 1
-            continue
-        if not _has_emphasis_content(parts, opener_index + 1, closer_index):
+        use_length = _get_emphasis_use_length(parts, opener, closer, opener_index, closer_index)
+        children = _get_emphasis_children(parts, opener_index, closer_index, max_depth)
+        if use_length is None or children is None:
             closer_pos += 1
             continue
 
-        opener_text = parts[opener_index]
-        closer_text = parts[closer_index]
-        if opener_text["type"] != "text" or closer_text["type"] != "text":
-            closer_pos += 1
-            continue
-
-        children = parts[opener_index + 1 : closer_index]
-        if max_depth > 0 and _emphasis_depth(children) >= max_depth:
-            closer_pos += 1
-            continue
-        opener_text["raw"] = opener_text["raw"][:-use_length]
-        closer_text["raw"] = closer_text["raw"][use_length:]
-        if use_length == 2:
-            node = {"type": "strong", "children": children}
-        else:
-            node = {"type": "emphasis", "children": children}
-
-        old_closer_index = closer_index
-        parts[opener_index + 1 : old_closer_index] = [node]
-
-        removed = old_closer_index - opener_index - 2
-        if removed:
-            index_map.deactivate_range(delimiters, opener_pos + 1, closer_pos)
-            index_map.collapse(closer, removed)
-
-        opener.length -= use_length
-        closer.length -= use_length
-        if opener.length == 0:
-            opener.can_open = False
-            index_map.deactivate(opener.order)
-        if closer.length == 0:
-            closer.can_close = False
-            index_map.deactivate(closer.order)
+        _apply_emphasis_match(
+            parts,
+            delimiters,
+            index_map,
+            opener,
+            closer,
+            opener_pos,
+            closer_pos,
+            opener_index,
+            closer_index,
+            use_length,
+            children,
+        )
 
         if opener.can_open or closer.can_close:
             closer_pos = max(opener_pos, openers_bottom.get(opener_key, 0))
@@ -310,19 +297,94 @@ def _process_emphasis_delimiters(
             closer_pos += 1
 
 
-def _emphasis_depth(tokens: List[Dict[str, Any]]) -> int:
-    max_depth = 0
-    stack = [(token, 0) for token in tokens]
-    while stack:
-        token, depth = stack.pop()
-        token_type = token["type"]
-        if token_type in ("emphasis", "strong"):
-            depth += 1
-            if depth > max_depth:
-                max_depth = depth
-        for child in token.get("children", ()):
-            stack.append((child, depth))
-    return max_depth
+def _find_emphasis_opener(
+    delimiters: List[_Delimiter],
+    closer_pos: int,
+    closer: _Delimiter,
+    opener_bottom: int,
+) -> Optional[Tuple[int, _Delimiter]]:
+    opener_pos = closer_pos - 1
+    while opener_pos >= opener_bottom:
+        opener = delimiters[opener_pos]
+        if (
+            opener.marker == closer.marker
+            and opener.can_open
+            and opener.length > 0
+            and _can_match_emphasis_delimiters(opener, closer)
+        ):
+            return opener_pos, opener
+        opener_pos -= 1
+    return None
+
+
+def _get_emphasis_use_length(
+    parts: List[Dict[str, Any]],
+    opener: _Delimiter,
+    closer: _Delimiter,
+    opener_index: int,
+    closer_index: int,
+) -> Optional[int]:
+    use_length = 2 if opener.length >= 2 and closer.length >= 2 else 1
+    if use_length == 2 and not _has_strong_enabled(parts, opener_index, closer_index):
+        use_length = 1
+    if use_length == 1 and not _has_emphasis_enabled(parts, opener_index, closer_index):
+        return None
+    return use_length
+
+
+def _get_emphasis_children(
+    parts: List[Dict[str, Any]],
+    opener_index: int,
+    closer_index: int,
+    max_depth: int,
+) -> Optional[List[Dict[str, Any]]]:
+    if not _has_emphasis_content(parts, opener_index + 1, closer_index):
+        return None
+
+    opener_text = parts[opener_index]
+    closer_text = parts[closer_index]
+    if opener_text["type"] != "text" or closer_text["type"] != "text":
+        return None
+
+    children = parts[opener_index + 1 : closer_index]
+    if max_depth > 0 and token_depth(children) >= max_depth:
+        return None
+    return children
+
+
+def _apply_emphasis_match(
+    parts: List[Dict[str, Any]],
+    delimiters: List[_Delimiter],
+    index_map: _DelimiterIndex,
+    opener: _Delimiter,
+    closer: _Delimiter,
+    opener_pos: int,
+    closer_pos: int,
+    opener_index: int,
+    closer_index: int,
+    use_length: int,
+    children: List[Dict[str, Any]],
+) -> None:
+    opener_text = parts[opener_index]
+    closer_text = parts[closer_index]
+    opener_text["raw"] = opener_text["raw"][:-use_length]
+    closer_text["raw"] = closer_text["raw"][use_length:]
+    node_type = "strong" if use_length == 2 else "emphasis"
+    parts[opener_index + 1 : closer_index] = [{"type": node_type, "children": children}]
+
+    removed = closer_index - opener_index - 2
+    if removed:
+        index_map.deactivate_range(delimiters, opener_pos + 1, closer_pos)
+        index_map.collapse(closer, removed)
+
+    opener.length -= use_length
+    closer.length -= use_length
+    if opener.length == 0:
+        opener.can_open = False
+        index_map.deactivate(opener.order)
+    if closer.length == 0:
+        closer.can_close = False
+        index_map.deactivate(closer.order)
 
 
 def _has_strong_enabled(parts: List[Dict[str, Any]], opener_index: int, closer_index: int) -> bool:
@@ -384,12 +446,21 @@ def _is_punctuation(char: str) -> bool:
 
 def _merge_text_tokens(tokens: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     result: List[Dict[str, Any]] = []
+    chunks: List[str] = []
     for token in tokens:
-        if token["type"] == "text" and token["raw"] == "":
-            continue
-        if token["type"] == "text" and result and result[-1]["type"] == "text":
-            if not is_entity_boundary(result[-1]["raw"], token["raw"]):
-                result[-1]["raw"] += token["raw"]
+        if token["type"] == "text":
+            raw = token["raw"]
+            if not raw:
                 continue
-        result.append(_clean_emphasis_token(token))
+            if chunks and is_entity_boundary(chunks[-1], raw):
+                result.append({"type": "text", "raw": "".join(chunks)})
+                chunks = []
+            chunks.append(raw)
+        else:
+            if chunks:
+                result.append({"type": "text", "raw": "".join(chunks)})
+                chunks = []
+            result.append(_clean_emphasis_token(token))
+    if chunks:
+        result.append({"type": "text", "raw": "".join(chunks)})
     return result

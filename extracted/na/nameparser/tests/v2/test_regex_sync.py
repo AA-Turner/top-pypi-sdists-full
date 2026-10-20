@@ -134,7 +134,7 @@ _SOURCES: dict[tuple[str, str], str | None] = {
     # #544: the chunked sibling of _DOTTED ('M.Eng.'), S2's period gate
     # for a member with a lower-case tail; no config key to mirror
     ("_vocab", "_CHUNKED"): None,
-    # #563: paired initials ('M.J.'), C1's exception to the name-word
+    # #563: paired initials ('M.J.'), C5's exception to C4's name-word
     # count after a comma; no config key to mirror
     ("_vocab", "_PAIRED_INITIALS"): None,
     ("_group", "_PH"): None,
@@ -142,6 +142,9 @@ _SOURCES: dict[tuple[str, str], str | None] = {
     # SAME object, imported for the trailing read's weighed-word test
     # (#620), as _PERIOD_ABBREV is above
     ("_pieces", "_ROMAN"): "roman_numeral",
+    # SAME object, imported for the report on a numeral before a
+    # credential (#721)
+    ("_assign", "_ROMAN"): "roman_numeral",
     ("_post_rules", "_EAST_SLAVIC"): "east_slavic_patronymic",
     ("_post_rules", "_EAST_SLAVIC_CYR"): "east_slavic_patronymic_cyrillic",
     ("_post_rules", "_TURKIC"): "turkic_patronymic_marker",
@@ -158,6 +161,8 @@ _SOURCES: dict[tuple[str, str], str | None] = {
     # above, which assert the documented RELATIONSHIP instead:
     ("_render", "_INITIAL"): None,      # config's pattern minus one "?"
     ("_vocab", "_INITIAL"): None,       # same
+    # SAME object, imported for the one-case letter initial (#723)
+    ("_classify", "_INITIAL"): None,
     ("_render", "_DOTTED_INITIAL"): None,  # _INITIAL's period alternative
     # #542: the name run after a Mac/Mc prefix, read on the word as
     # written once _MAC has matched its composed spelling; no config

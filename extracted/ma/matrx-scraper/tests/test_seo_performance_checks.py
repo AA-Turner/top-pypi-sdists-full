@@ -1,10 +1,10 @@
 """Lab-performance checks — the `performance` half of the `web.analysis_item`
-catalogue, scored from PageSpeed Insights (`seo.page_performance`).
+catalog, scored from PageSpeed Insights (`seo.page_performance`).
 
 Two things are pinned here, and they are the two ways this feature can rot:
 
 1. **The published formulas.** Every band asserted below is copied from the
-   catalogue row's own ``score_contract.formula`` — the row IS the contract.
+   catalog row's own ``score_contract.formula`` — the row IS the contract.
    A boundary that drifts is a scoring change nobody agreed to.
 2. **Never a score without a measurement.** PageSpeed is a separate, paid,
    minute-long remote render; a crawl cannot produce a Core Web Vital. So an

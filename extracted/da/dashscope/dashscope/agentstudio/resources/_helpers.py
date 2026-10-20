@@ -14,6 +14,9 @@ from dashscope.agentstudio.types import (
     DeploymentRun,
     Environment,
     File,
+    Memory,
+    MemoryStore,
+    MemoryVersion,
     ServerEvent,
     Session,
     SessionResource,
@@ -103,6 +106,18 @@ def _coerce_deployment_run(payload: Mapping[str, Any]) -> DeploymentRun:
     return DeploymentRun(**dict(payload))
 
 
+def _coerce_memory_store(payload: Mapping[str, Any]) -> MemoryStore:
+    return MemoryStore(**dict(payload))
+
+
+def _coerce_memory(payload: Mapping[str, Any]) -> Memory:
+    return Memory(**dict(payload))
+
+
+def _coerce_memory_version(payload: Mapping[str, Any]) -> MemoryVersion:
+    return MemoryVersion(**dict(payload))
+
+
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
@@ -138,3 +153,35 @@ def _session_thread_events_path(session_id: str, thread_id: str) -> str:
 
 def _session_thread_archive_path(session_id: str, thread_id: str) -> str:
     return f"/sessions/{session_id}/threads/{thread_id}/archive"
+
+
+def _memory_stores_path() -> str:
+    return "/memory_stores"
+
+
+def _memory_store_item_path(store_id: str) -> str:
+    return f"/memory_stores/{store_id}"
+
+
+def _memory_store_archive_path(store_id: str) -> str:
+    return f"/memory_stores/{store_id}/archive"
+
+
+def _memories_path(store_id: str) -> str:
+    return f"/memory_stores/{store_id}/memories"
+
+
+def _memory_item_path(store_id: str, memory_id: str) -> str:
+    return f"/memory_stores/{store_id}/memories/{memory_id}"
+
+
+def _memory_versions_path(store_id: str) -> str:
+    return f"/memory_stores/{store_id}/memory_versions"
+
+
+def _memory_version_item_path(store_id: str, version_id: str) -> str:
+    return f"/memory_stores/{store_id}/memory_versions/{version_id}"
+
+
+def _memory_version_redact_path(store_id: str, version_id: str) -> str:
+    return f"/memory_stores/{store_id}/memory_versions/{version_id}/redact"

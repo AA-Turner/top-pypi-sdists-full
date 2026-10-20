@@ -254,7 +254,7 @@ async def test_commands_run_comes_from_the_ledger_not_the_model(failing_tool_reg
 # THE HOST HALF OF THIS GUARD LIVES IN AIDREAM, NOT HERE.
 # `test_v1_and_v2_entry_points_share_this_one_loop` asserted that aidream's
 # v1 `run_ai_task` and v2 `run_ai_task_on_spine` both bottom out in
-# `execute_until_complete`. That is HOST behaviour, and importing `aidream`
+# `execute_until_complete`. That is HOST behavior, and importing `aidream`
 # from a standalone package's test tree breaks the package paradox (CLAUDE.md
 # "Confusion #2"): `pytest packages/matrx-ai/tests` resolves its config from
 # packages/matrx-ai/pyproject.toml, so the repo root is NOT on sys.path and the

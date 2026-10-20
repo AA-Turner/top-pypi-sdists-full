@@ -15,9 +15,19 @@ TASK_TRANSITIONS = {
 
 def validate_task_fields(fields: Dict[str, Any]) -> None:
     """Identity, acceptance and lifecycle are never descriptive edits."""
-    unknown = set(fields) - {"title", "brief", "project_id", "evidence"}
+    unknown = set(fields) - {"title", "brief", "project_id", "evidence", "executor_type", "executor_id"}
     if unknown:
         raise ValueError(f"Unsupported task fields: {sorted(unknown)}")
+    if fields.get("executor_type") is not None and fields["executor_type"] not in {
+        "agent",
+        "team",
+        "workflow",
+    }:
+        raise ValueError("Invalid proposed executor type")
+    if fields.get("executor_id") is not None and (
+        not isinstance(fields["executor_id"], str) or not fields["executor_id"].strip()
+    ):
+        raise ValueError("Invalid proposed executor id")
     if fields.get("evidence") is not None and not isinstance(fields["evidence"], list):
         raise ValueError("evidence must be a list or None")
     if "title" in fields and (not isinstance(fields["title"], str) or not fields["title"].strip()):
@@ -47,7 +57,7 @@ def task_transition_fields(
     fields: Dict[str, Any] = {"status": target, "updated_at": now}
     if target == "ready":
         if (
-            executor_type not in {"agent", "team", "workflow", "engineering"}
+            executor_type not in {"agent", "team", "workflow"}
             or not isinstance(executor_id, str)
             or not executor_id.strip()
         ):
@@ -61,7 +71,23 @@ def task_transition_fields(
         *(existing.get("transitions") or []),
         {"from": existing["status"], "target": target, "reason": reason, "user_id": accepted_by, "created_at": now},
     ]
+    if target == "ready":
+        from agno.run.authorization import AUTHORIZATION_KEY, authorization_snapshot
+
+        fields["transitions"][-1][AUTHORIZATION_KEY] = authorization_snapshot()
     return fields
+
+
+def public_task(task: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep persisted caller claims out of API and tool results."""
+    from agno.run.authorization import AUTHORIZATION_KEY
+
+    return {
+        **task,
+        "transitions": [
+            {k: v for k, v in entry.items() if k != AUTHORIZATION_KEY} for entry in task.get("transitions", [])
+        ],
+    }
 
 
 def task_run_id(task_id: str, attempt: int) -> str:
@@ -72,19 +98,25 @@ def task_run_id(task_id: str, attempt: int) -> str:
 
 
 def task_run_fields(
-    existing: Dict[str, Any], attempt: int, user_id: Optional[str], run_db_id: Optional[str] = None
+    existing: Dict[str, Any],
+    attempt: int,
+    user_id: Optional[str],
+    run_db_id: Optional[str] = None,
+    session_user_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Reserve execution in the Task lifecycle, retaining the session across attempts."""
     from uuid import NAMESPACE_URL, uuid5
 
     if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 1:
         raise ValueError("attempt must be a positive integer")
-    if existing["status"] not in {"ready", "in_progress"} or not existing.get("executor_id"):
+    if existing["status"] not in {"ready", "in_progress", "in_review"} or not existing.get("executor_id"):
         raise ValueError("Only accepted work can be started")
-    if existing.get("executor_type") == "engineering":
-        raise ValueError("Engineering executors cannot be started yet")
+    if existing.get("executor_type") not in {"agent", "team", "workflow"}:
+        raise ValueError("Select a registered agent, team or workflow executor")
     history = existing.get("transitions") or []
     attempts = [entry["attempt"] for entry in history if "attempt" in entry]
+    if existing["status"] == "in_review" and not attempts:
+        raise ValueError("A revision requires a previous Task attempt")
     if attempt != max(attempts, default=0) + 1:
         raise ValueError("Start the next Task attempt, or retry the original attempt")
     now = int(time.time())
@@ -101,9 +133,24 @@ def task_run_fields(
                 "target": "in_progress",
                 "reason": "Task execution requested",
                 "user_id": user_id,
+                "started_by": user_id,
+                "session_user_id": session_user_id if session_user_id is not None else existing.get("user_id"),
                 "created_at": now,
                 "attempt": attempt,
                 "run_db_id": run_db_id,
             },
         ],
     }
+
+
+def _acceptance_count(histories, routine_id, policy):
+    # Each row is one work record; repeated acceptance spends its budget once.
+    return sum(
+        any(
+            entry.get("target") in {"ready", "done"}
+            and (entry.get("auto_accept") or {}).get("routine_id") == routine_id
+            and entry["auto_accept"].get("policy") == policy
+            for entry in (history or [])
+        )
+        for history in histories
+    )

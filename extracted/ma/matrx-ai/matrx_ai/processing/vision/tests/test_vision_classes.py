@@ -3,7 +3,7 @@
 The registry resolution rules drive every image variant render in the
 system. A bug in ``resolve_vision_class`` means images for OpenAI hit
 Anthropic's encoder and vice-versa — silently. These tests pin the
-behaviour by asserting concrete (model, wire_format) -> class-name
+behavior by asserting concrete (model, wire_format) -> class-name
 mappings; a single-line resolver bug fails one of them.
 
 A vision class is a RE-ENCODING profile, never a capability. "Can this model

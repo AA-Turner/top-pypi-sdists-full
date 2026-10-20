@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import traceback
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -49,6 +49,12 @@ BROWSER_FETCH_MAX_HTML_CHARS = 5_000_000
 # /browser-inspect: each device profile in `kinds` costs its own navigation and
 # its own pooled-browser hold, so the count is capped rather than free-form.
 BROWSER_INSPECT_MAX_KINDS = 6
+# Inline-html mode (`html` instead of `url`): caps live in matrx_scraper.inline_inspect.
+from matrx_scraper.inline_inspect import (  # noqa: E402
+    INLINE_MAX_HTML_CHARS,
+    INLINE_MAX_SCRIPT_CHARS,
+    INLINE_MAX_WIDTHS,
+)
 # `/page-capture` returns analysis-grade text, not raw HTML. The durable cache
 # keeps the complete parsed result; this cap only bounds the synchronous wire
 # response consumed by aidream's backlink enrichment batch.
@@ -645,7 +651,22 @@ class BrowserInspectRequest(BaseModel):
     launching a local browser.
     """
 
-    url: str
+    # EXACTLY ONE of `url` / `html`. `url` = the original public-URL render check.
+    url: str | None = None
+    # Inline mode: a full HTML document, or a bare SVG/fragment (wrapped in a
+    # minimal zero-margin document). No navigation happens; the result carries
+    # `captures` (one per width x theme) instead of the URL evidence fields.
+    html: str | None = Field(default=None, max_length=INLINE_MAX_HTML_CHARS)
+    # Inline mode only. JavaScript evaluated in the page after load + settle.
+    # One expression, or an async function BODY that `return`s; the JSON-
+    # serialisable result comes back as `captures[].measurements`.
+    measure_script: str | None = Field(default=None, max_length=INLINE_MAX_SCRIPT_CHARS)
+    # Inline mode only: viewport widths (default [1440]) x themes (default
+    # ["light"]) => one capture each.
+    widths: list[int] = Field(default_factory=lambda: [1440], min_length=1, max_length=INLINE_MAX_WIDTHS)
+    themes: list[Literal["light", "dark"]] = Field(default_factory=lambda: ["light"], min_length=1, max_length=2)
+    # Inline mode only: set false to skip the per-capture PNG.
+    screenshot: bool = True
     # Same ceiling reasoning as /browser-fetch: every in-flight request holds
     # pooled browsers shared with live crawls.
     timeout_ms: int = Field(default=BROWSER_FETCH_DEFAULT_TIMEOUT_MS, ge=1_000, le=30_000)
@@ -679,6 +700,26 @@ class ScreenshotFailure(BaseModel):
     error_message: str
 
 
+class InlineViewport(BaseModel):
+    w: int
+    h: int
+
+
+class InlineInspectCapture(BaseModel):
+    """One width x theme capture of inline html. `error` set => `measurements` is null."""
+
+    width: int
+    theme: Literal["light", "dark"]
+    viewport: InlineViewport
+    # The measure_script's JSON result, exactly as returned; null when none was
+    # asked for OR when `error` is set — never an empty stand-in.
+    measurements: Any = None
+    error: str | None = None
+    console_errors: list[str] = Field(default_factory=list)
+    screenshot: InspectedScreenshot | None = None
+    screenshot_error: str | None = None
+
+
 class BrowserInspectResult(BaseModel):
     """Typed OUT shape for /browser-inspect — one model, never a hand-built dict."""
 
@@ -696,6 +737,62 @@ class BrowserInspectResult(BaseModel):
     # True when the render failed in a way a retry could fix (timeout, transport)
     # as opposed to a permanent one (bad selector, blocked URL).
     retryable: bool = False
+    # Inline mode only (request had `html`): one entry per width x theme.
+    captures: list[InlineInspectCapture] = Field(default_factory=list)
+
+
+async def _browser_inspect_inline(request: BrowserInspectRequest) -> BrowserInspectResult:
+    """`html` mode of /browser-inspect: render caller HTML, run the measure script."""
+    import base64
+
+    from matrx_scraper._ext import get_ext
+    from matrx_scraper.inline_inspect import InlineInspectTimeout
+
+    pool = get_ext("browser_pool")
+    try:
+        captures = await pool.inspect_inline(
+            request.html or "",
+            measure_script=request.measure_script,
+            widths=list(request.widths),
+            themes=list(request.themes),
+            screenshot=request.screenshot,
+        )
+    except InlineInspectTimeout as exc:
+        return BrowserInspectResult(success=False, final_url="inline:html", error=str(exc), retryable=True)
+    except ValueError as exc:
+        return BrowserInspectResult(success=False, final_url="inline:html", error=str(exc), retryable=False)
+    except Exception as exc:
+        logger.warning("browser-inspect inline render failed: %s", exc, exc_info=True)
+        return BrowserInspectResult(
+            success=False,
+            final_url="inline:html",
+            error=f"{type(exc).__name__}: {exc}",
+            retryable=True,
+        )
+    return BrowserInspectResult(
+        success=True,
+        final_url="inline:html",
+        captures=[
+            InlineInspectCapture(
+                width=cap.width,
+                theme=cap.theme,  # type: ignore[arg-type]
+                viewport=InlineViewport(w=cap.width, h=cap.viewport_height),
+                measurements=cap.measurements,
+                error=cap.error,
+                console_errors=cap.console_errors,
+                screenshot=InspectedScreenshot(
+                    kind=f"inline_{cap.width}_{cap.theme}",
+                    width=cap.screenshot_width,
+                    height=cap.screenshot_height,
+                    image_base64=base64.b64encode(cap.screenshot_png).decode("ascii"),
+                )
+                if cap.screenshot_png
+                else None,
+                screenshot_error=cap.screenshot_error,
+            )
+            for cap in captures
+        ],
+    )
 
 
 @router.post(
@@ -722,6 +819,13 @@ async def browser_inspect(
     # SSRF gate, part 1 — identical contract to /browser-fetch: navigate the
     # CORRECTED url, never the raw input, and never echo the rejection reason
     # (it names the resolved address, an internal-network oracle).
+    if (request.url is None) == (request.html is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="send exactly one of `url` or `html`",
+        )
+    if request.html is not None:
+        return await _browser_inspect_inline(request)
     try:
         target_url = await validate_public_http_url(request.url)
     except Exception as exc:

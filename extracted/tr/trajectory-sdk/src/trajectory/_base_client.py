@@ -540,11 +540,14 @@ class APIClient:
         timeout = timeout.read
       if timeout is not None:
         headers["X-Stainless-Read-Timeout"] = str(timeout)
+    url = self._prepare_url(options.url)
+    # httpx2 replaces an embedded query when params are provided, including page cursors.
+    params = url.params.merge(options.params) if options.params else None
     return self._client.build_request(
       options.method,
-      self._prepare_url(options.url),
+      url,
       headers=headers,
-      params=cast(Any, options.params),
+      params=params,
       json=options.json_data,
       content=options.content,
       files=options.files,

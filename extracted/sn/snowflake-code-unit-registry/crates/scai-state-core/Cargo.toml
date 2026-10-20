@@ -22,7 +22,7 @@ regress = "0.12"
 chrono = { version = "0.4", features = ["serde"] }
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rayon = "1.10"
-jsonschema = "0.52"
+jsonschema = "0.58"
 # Bundled: wheels, native libs and the Node addon ship without a system libsqlite.
 rusqlite = { version = "0.40", features = ["bundled"] }
 
@@ -32,7 +32,7 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [build-dependencies]
-typify = "0.7"
+typify = "0.8"
 schemars = "0.8"
 serde_json = "1.0"
 

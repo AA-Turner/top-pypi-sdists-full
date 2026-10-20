@@ -56,6 +56,10 @@ class BrowserNavigateArgs(BaseModel):
     extract_text: bool = True
     session_id: str = ""
     profile_id: str = _PROFILE_FIELD_DEFAULT
+    # True = this new session is opened to sign in through credential_login: on an identity
+    # provider's sign-in page it gets its own "Sign-in: <host>" profile instead of the
+    # default browser. A plain navigation (False) keeps today's default profile.
+    for_sign_in: bool = False
 
 
 class BrowserClickArgs(BaseModel):

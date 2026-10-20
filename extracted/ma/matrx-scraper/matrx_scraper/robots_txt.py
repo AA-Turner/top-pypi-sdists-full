@@ -1,6 +1,6 @@
 """robots.txt — the ONE parser for the whole package.
 
-Two jobs the crawler and the SEO catalogue both need and had nowhere to get:
+Two jobs the crawler and the SEO catalog both need and had nowhere to get:
 
 1. **Decide** whether a URL is crawlable for a user-agent, with the wildcard
    syntax every real robots.txt uses (``*`` and ``$``). ``urllib.robotparser``
@@ -10,7 +10,7 @@ Two jobs the crawler and the SEO catalogue both need and had nowhere to get:
 2. **Describe** the file structurally: which agents are addressed, which
    declare a blanket ``Disallow: /``, which ``Sitemap:`` locations it points at,
    and which lines are malformed. That description is the evidence the
-   ``robots_txt_health`` catalogue row is scored from.
+   ``robots_txt_health`` catalog row is scored from.
 
 Pure logic — no network, no DB. The fetch lives in
 ``web_crawl/site_probe.py``; the verdict lives in ``web_crawl/analysis.py``.
@@ -56,7 +56,7 @@ _GROUP_FIELDS: frozenset[str] = frozenset({"allow", "disallow"})
 _PACING_FIELDS: frozenset[str] = frozenset({"crawl-delay", "request-rate"})
 
 #: A site asking for a longer gap than this is either misconfigured or means
-#: "do not crawl me"; honouring it literally would turn a 500-page crawl into a
+#: "do not crawl me"; honoring it literally would turn a 500-page crawl into a
 #: multi-day job. The value is still REPORTED so the clamp is never silent —
 #: see ``host_pacing.HostPacingPlan.notes``.
 MAX_HONOURED_CRAWL_DELAY_SECONDS = 60.0
@@ -99,11 +99,11 @@ class RobotsGroup:
     # ``Crawl-delay: N`` — seconds the site asks a crawler to wait between
     # requests. Non-standard but very widely emitted, and the ONE place a site
     # states a pacing preference in machine-readable form. Captured here rather
-    # than skipped as decoration because the crawler honours it as an upper
+    # than skipped as decoration because the crawler honors it as an upper
     # bound (see ``host_pacing.py``).
     crawl_delay: float | None = None
     # ``Request-rate: <docs>/<seconds>[s|m|h]`` — the older, rarer twin of
-    # Crawl-delay, stated as a rate instead of a gap. Normalised to seconds
+    # Crawl-delay, stated as a rate instead of a gap. Normalized to seconds
     # per request so both directives answer the same question.
     request_rate_seconds: float | None = None
 

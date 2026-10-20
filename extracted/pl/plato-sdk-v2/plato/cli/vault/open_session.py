@@ -14,7 +14,10 @@ This module holds the parts with rules in them, each testable on its own:
   ``max_sessions`` live opens, bakes and runs at a time, and for ``--save`` no
   live bake or other saving open (the Chronos open route's rules);
 * :func:`seed_modes` / :func:`resolve_seed` - which saved login to load first;
-* :func:`build_open_launch` - the launch payload (secret-free: ``${...}`` only);
+* :func:`login_settings` - what the open launches: the vault org's
+  ``login-agent`` experiment in Chronos, a launch template (no coded copy);
+* :func:`build_open_launch` - the launch payload: the template filled
+  (:func:`fill_template`), this open's keys on top (secret-free: ``${...}`` only);
 * :func:`close_tags` / :func:`wait_for_end` - ``plato vault close``;
 * :class:`OpenClient` - the few raw Chronos calls (read as plain JSON, so a new
   status value on the server cannot break a status read).
@@ -24,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import AsyncIterator, Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -31,7 +35,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, PositiveInt, TypeAdapter, ValidationError
 
 from plato.chronos import login_snapshot
 from plato.chronos.api.workspace_repos import list_workspace_branches, list_workspace_files
@@ -48,19 +52,33 @@ DEFAULT_MINUTES = 60
 LINK_WAIT_SECONDS = 25 * 60
 LINK_POLL_SECONDS = 10.0
 
-DEFAULT_WORLD_PACKAGE = "plato-world-login:latest"
-DEFAULT_AGENT_PACKAGE = "computer-use-agent:latest"
-# The world VM, the same shape as a console bake (login_bake._VM), but its
-# lifetime is cut to the hold: see vm_timeout().
-WORLD_VM: dict[str, Any] = {"cpus": 2, "memory": 4096}
-# On top of --minutes: VM boot, a sign-in with an emailed code, the end check
-# and capture of --save, teardown.
-SIGN_IN_BUDGET_SECONDS = 45 * 60
 # The config field only an open-mode login world has (an older world ignores an
 # unknown field and would run a real bake instead).
 OPEN_MODE_FIELD = "hold_minutes"
-AGENT_MODEL = "anthropic/claude-opus-5"
-BROWSERBASE_API_BASE = "https://api.browserbase.com/v1"
+# What a sign-in launches: the vault org's Chronos experiment of this name, read
+# by id. Its latest version is a whole launch (world, VM, agent, Browserbase keys)
+# with ${LOGIN_*} placeholders, plus the sign-in budget. No coded copy.
+LOGIN_EXPERIMENT = "login-agent"
+LOGIN_EXPERIMENT_ID = "f8e7985b-61b2-4b51-b96d-3f9d81ec00fa"
+# Chronos's get_experiment_file (not in the generated SDK).
+LOGIN_EXPERIMENT_PATH = f"/api/experiments/files/{LOGIN_EXPERIMENT_ID}"
+# The template's own placeholders, filled per launch. Every other ${...} is a
+# secret that Chronos fills at launch.
+_TEMPLATE_PARAM = re.compile(r"\$\{(LOGIN_KEY|LOGIN_ACCOUNT|LOGIN_URL|LOGIN_VAULT)\}")
+# Keys a launch sets only in some cases: an experiment holding one is refused. The
+# facts and 1Password fields may be in it: every launch overwrites them.
+LAUNCH_OWNED_KEYS = frozenset(
+    "proxy_exit state cdp_browser copy_session_to_cdp_browser copy_verify_url cdp_browser_context_id"
+    " hold_minutes hold_save opened_by agent_types_password min_warmpool_timeout login_hint second_factor"
+    " seed_snapshot_url".split()
+)
+# The template's Browserbase keys, kept only for a Browserbase browser.
+BROWSERBASE_KEYS = frozenset(
+    {"cdp_browser_api_base", "cdp_browser_api_key", "cdp_browser_project_id", "cdp_browser_session_timeout"}
+)
+# The vault an open reads, and the token placeholder Chronos vouches for.
+OP_VAULT = "login"
+OP_TOKEN = "${OP_SERVICE_ACCOUNT_TOKEN}"
 
 # The label the world gives the link on the session page (hold.py / world.py).
 LINK_LABEL_PREFIX = "Signed-in browser"
@@ -650,22 +668,11 @@ def snapshot_repo(login_key: str) -> str:
     return f"login/{normalize_key(login_key)}/snapshot"
 
 
-def vm_timeout(minutes: int) -> int:
+def vm_timeout(minutes: int, sign_in_budget_seconds: int) -> int:
     """The VMs' platform lifetime (seconds): the hold plus the sign-in budget.
     The world's own timer ends the hold; this is the backstop when the world
     wedges, so a signed-in browser is never up for the default 12-22 hours."""
-    return int(minutes) * 60 + SIGN_IN_BUDGET_SECONDS
-
-
-def check_save(save: bool, browser_mode: str | None) -> None:
-    """--save keeps the browser's end state, and only a VM browser can do that
-    safely: a hosted session released with persist on writes into the shared
-    Context whatever the person left, with no rollback."""
-    if save and hosted_browser(browser_mode):
-        raise VaultConsoleError(
-            "--save works only for a VM browser; this account uses Browserbase. "
-            "Re-bake it with `plato vault bake` instead"
-        )
+    return int(minutes) * 60 + sign_in_budget_seconds
 
 
 def check_world_schema(schema: Any, world_package: str) -> None:
@@ -684,6 +691,113 @@ def check_world_schema(schema: Any, world_package: str) -> None:
         )
 
 
+# The login-agent fields an open reads (Chronos's LoginVaultLoginSettings checks the rest).
+class LoginAgent(BaseModel):
+    # Another key (runtime, image, ...) is refused, not dropped, as Chronos refuses it.
+    model_config = ConfigDict(extra="forbid")
+
+    package: str
+    agent_name: str | None = None  # None or "": the package's default agent
+    config: dict[str, Any]
+
+
+class LoginVm(BaseModel):
+    cpus: PositiveInt
+    memory: PositiveInt
+    disk: PositiveInt
+    timeout: PositiveInt | None = None  # a bake's; an open sets its own
+
+
+class LoginRuntime(BaseModel):
+    vm: LoginVm
+
+
+class LoginWorldConfig(BaseModel, extra="allow"):
+    agent: LoginAgent
+
+
+class LoginWorld(BaseModel):
+    package: str
+    runtime: LoginRuntime
+    config: LoginWorldConfig
+
+
+class LoginOpen(BaseModel):
+    sign_in_budget_seconds: PositiveInt
+
+
+class LoginSelfHeal(BaseModel):
+    vm_timeout: PositiveInt
+
+
+class LoginMetadata(BaseModel):
+    open: LoginOpen
+    self_heal: LoginSelfHeal
+
+
+class LoginSettings(BaseModel):
+    version: int  # every open is tagged login_agent:v<N>
+    source: str
+    world: LoginWorld
+    metadata: LoginMetadata
+
+    def filled(self, **params: str) -> LoginSettings:
+        """These settings with the template's ``${LOGIN_*}`` filled (:func:`fill_template`)."""
+        return self.model_validate(fill_template(self.model_dump(mode="json"), params))
+
+    def describe(self) -> str:
+        agent = self.world.config.agent
+        model, turns = agent.config.get("model_name"), agent.config.get("max_turns")
+        name = agent.agent_name or "default agent"
+        return f"{name} on {agent.package}, {model}, {turns} turns ({self.source or 'Chronos'})"
+
+
+def fill_template(value: Any, params: Mapping[str, str]) -> Any:
+    """``value`` with ``${LOGIN_KEY}``, ``${LOGIN_ACCOUNT}``, ``${LOGIN_URL}`` and
+    ``${LOGIN_VAULT}`` replaced from ``params`` in every string, at any depth.
+    Nothing else changes: the secrets' ``${...}`` stay for Chronos."""
+    if isinstance(value, str):
+        return _TEMPLATE_PARAM.sub(lambda m: params[m.group(1)], value)
+    if isinstance(value, dict):
+        return {k: fill_template(v, params) for k, v in value.items()}
+    if isinstance(value, list):
+        return [fill_template(v, params) for v in value]
+    return value
+
+
+def no_login_settings(reason: str) -> VaultConsoleError:
+    """The refusal when Chronos gives no usable login settings."""
+    return VaultConsoleError(
+        f"Chronos gave no login settings ({reason}). An open launches what the vault org's "
+        f"{LOGIN_EXPERIMENT} experiment says, read with your Plato key, which must be in that org"
+    )
+
+
+def login_settings(file: Any) -> LoginSettings:
+    """The latest version of the login-agent experiment (``file``: Chronos's
+    reply). Refusals name fields, never values."""
+    if not isinstance(file, dict) or file.get("name") != LOGIN_EXPERIMENT:
+        raise no_login_settings(f"experiment {LOGIN_EXPERIMENT_ID} is not named {LOGIN_EXPERIMENT}")
+    version = file.get("latest_version")
+    if not isinstance(version, dict) or not isinstance(version.get("config_json"), dict):
+        raise no_login_settings(f"the {LOGIN_EXPERIMENT} experiment has no version with a config")
+    number = version.get("version_number")
+    try:
+        settings = LoginSettings.model_validate(
+            {**version["config_json"], "version": number, "source": f"experiment:{LOGIN_EXPERIMENT}:v{number}"}
+        )
+    except ValidationError as e:
+        where = ".".join(str(p) for p in e.errors()[0]["loc"])
+        raise no_login_settings(f"the {LOGIN_EXPERIMENT} experiment has no usable {where}") from None
+    if settings.world.package.rsplit(":", 1)[0] != _LOGIN_WORLD:
+        raise no_login_settings(f"the {LOGIN_EXPERIMENT} experiment has no usable world.package")
+    if owned := sorted(LAUNCH_OWNED_KEYS & settings.world.config.model_dump().keys()):
+        raise no_login_settings(
+            f"the {LOGIN_EXPERIMENT} experiment sets what each launch sets itself: {', '.join(owned)}"
+        )
+    return settings
+
+
 def build_open_launch(
     *,
     login_key: str,
@@ -695,26 +809,32 @@ def build_open_launch(
     save: bool,
     opened_by: str,
     seed: SeedRef | None,
-    world_package: str = DEFAULT_WORLD_PACKAGE,
-    agent_package: str = DEFAULT_AGENT_PACKAGE,
+    settings: LoginSettings,
+    world_package: str | None = None,
 ) -> dict[str, Any]:
     """The ``/api/jobs/launch`` body. Secret-free: credentials stay in 1Password
     and every key is a ``${...}`` placeholder Chronos fills from the org's
-    secrets. The exit goes by NAME; the world resolves and ban-checks it."""
+    secrets. The exit goes by NAME; the world resolves and ban-checks it.
+    It starts from ``settings`` (the template, filled for this account); this
+    open's keys go on top and always win. ``world_package`` (a dev build, say)
+    replaces their package."""
     if not 1 <= minutes <= MAX_MINUTES:
         raise VaultConsoleError(f"--minutes must be 1..{MAX_MINUTES}")
-    check_save(save, browser_mode)
     lk, ac = normalize_key(login_key), normalize_key(account)
     bb = hosted_browser(browser_mode)
-    lifetime = vm_timeout(minutes)
+    settings = settings.filled(LOGIN_KEY=lk, LOGIN_ACCOUNT=ac, LOGIN_URL=login_url, LOGIN_VAULT=OP_VAULT)
+    lifetime = vm_timeout(minutes, settings.metadata.open.sign_in_budget_seconds)
+    agent = settings.world.config.agent
     config: dict[str, Any] = {
+        # A VM browser gets none of the template's Browserbase keys (no Browserbase secret needed).
+        **{k: v for k, v in settings.world.config.model_dump(mode="json").items() if bb or k not in BROWSERBASE_KEYS},
+        # This open's keys win over the template's, the 1Password fields too.
         "clone_name": lk,
         "login_key": lk,
         "account": ac,
         "target_url": login_url,
-        "op_service_account_token": "${OP_SERVICE_ACCOUNT_TOKEN}",
-        "op_vault": "login",
-        "flush_close": False,
+        "op_service_account_token": OP_TOKEN,
+        "op_vault": OP_VAULT,
         "hold_minutes": minutes,
         "hold_save": save,
         "opened_by": opened_by,
@@ -726,29 +846,20 @@ def build_open_launch(
         # The agent VM's lifetime too (the warm-pool floor is 12 h otherwise).
         "min_warmpool_timeout": lifetime,
         "agent": {
-            "package": agent_package,
+            "package": agent.package,
+            **({"agent_name": agent.agent_name} if agent.agent_name else {}),
             "runtime": {"type": "vm", "vm": {"timeout": lifetime}},
             # No chrome_start_url: the world opens where it LOOKS for a
             # signed-in browser (the app's home when the login page hides it).
-            "config": {
-                "model_name": AGENT_MODEL,
-                "anthropic_api_key": "${ANTHROPIC_API_KEY}",
-                "max_turns": 50,
-                "enable_bash": True,
-                "keep_browser": True,
-            },
+            "config": {k: v for k, v in agent.config.items() if k != "chrome_start_url"},
         },
     }
     if proxy_exit:
         config["proxy_exit"] = proxy_exit
-    if bb:
-        config["cdp_browser_api_base"] = BROWSERBASE_API_BASE
-        config["cdp_browser_api_key"] = "${BROWSERBASE_API_KEY_PLATO}"
-        config["cdp_browser_project_id"] = "${BROWSERBASE_PROJECT_ID_PLATO}"
     if seed is not None:
         # Restored into the world's own snapshot workspace before it starts.
         config["state"] = {"workspaces": {snapshot_repo(lk): seed.config_ref}}
-    tags = [lk, ac, OPEN_TAG, f"login_key:{lk}", f"account:{ac}"]
+    tags = [lk, ac, OPEN_TAG, f"login_key:{lk}", f"account:{ac}", f"login_agent:v{settings.version}"]
     if opened_by:
         tags.append(f"opened_by:{normalize_key(opened_by)}")
     return {
@@ -756,8 +867,8 @@ def build_open_launch(
         # them in that shape, and so does this.
         "tags": [_ltree_tag(t) for t in tags],
         "world": {
-            "package": world_package,
-            "runtime": {"type": "vm", "vm": {**WORLD_VM, "timeout": lifetime}},
+            "package": world_package or settings.world.package,
+            "runtime": {"type": "vm", "vm": {**settings.world.runtime.vm.model_dump(), "timeout": lifetime}},
             "config": config,
         },
     }
@@ -814,6 +925,21 @@ class OpenClient:
             # Refused, unreachable, or a body that is not JSON: only the audit
             # tag and the messages lose the name. Anything else is a bug.
             return ""
+
+    def login_settings(self) -> LoginSettings:
+        """The vault org's login-agent experiment, by id: experiments are
+        org-scoped, so the caller's key must be in that org."""
+        try:
+            file = self._get(LOGIN_EXPERIMENT_PATH)
+        except APIError as e:
+            if e.status_code not in (403, 404):
+                raise  # chronos_errors names it
+            raise no_login_settings(
+                f"your key cannot see the vault org's {LOGIN_EXPERIMENT} experiment ({e.status_code})"
+            ) from None
+        except ValueError:  # the body is not JSON
+            raise no_login_settings(f"the {LOGIN_EXPERIMENT} experiment reply is not JSON") from None
+        return login_settings(file)
 
     def live_sessions(self) -> list[dict]:
         """Every queued/starting/running/pending session (child sessions and

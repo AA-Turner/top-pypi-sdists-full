@@ -12,7 +12,7 @@ provider that shows:
 Why a separate module
 ---------------------
 ``vcprint`` already pretty-prints the raw ``config_data`` dict via Rich, but
-that view is optimised for showing JSON structure, not for reading a long
+that view is optimized for showing JSON structure, not for reading a long
 system prompt or seeing how a multi-part user message was assembled. This
 module gives that secondary, human-eye-friendly view without touching the
 existing capture path or the per-provider translators.
@@ -927,7 +927,7 @@ def format_google_payload(
     Accepts the ``GoogleProviderConfig`` TypedDict produced by
     ``GoogleTranslator.to_google``. ``contents`` is a list of
     ``types.Content`` Pydantic objects and ``config`` is a
-    ``types.GenerateContentConfig`` Pydantic object — both are normalised
+    ``types.GenerateContentConfig`` Pydantic object — both are normalized
     to plain dicts via ``model_dump`` before rendering.
     """
     if not isinstance(config_data, dict):

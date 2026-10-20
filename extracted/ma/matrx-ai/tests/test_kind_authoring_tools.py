@@ -566,7 +566,7 @@ class _AccessRecorder:
         self.table = table
         self.calls: list[tuple[str, str]] = []
 
-    async def __call__(self, kind_id: str, level: str) -> bool:
+    async def __call__(self, kind_id: str, level: str, ctx: Any = None) -> bool:
         self.calls.append((kind_id, level))
         return self.table.get((kind_id, level), False)
 

@@ -453,6 +453,10 @@ class HeartbeatRequest(WorkerCallEnvelope):
     rotate_callback_token: bool = False
     access_still_valid: bool
     rtc_config: RtcConfig | None = Field(default=None, repr=False)
+    # Someone is WATCHING: keep (or start) the stream for this many seconds in
+    # any controller state, without enabling human input or pausing the agent.
+    # Omitted (None) for an older worker whose strict schema predates it.
+    stream_view_seconds: int | None = Field(default=None, ge=1, le=600)
 
 
 class HeartbeatResponse(WorkerReplyEnvelope):

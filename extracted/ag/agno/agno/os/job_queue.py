@@ -645,6 +645,7 @@ class QueueWorker:
 
         self.authorization_app = authorization_app
         self._company_db: Any = None
+        self._company_schedule_db: Any = None
         self.store = store
         self.resolve_component = resolve_component
         self.config = config
@@ -2023,7 +2024,9 @@ class QueueWorker:
                 AUTHORIZATION_KEY, {"context": {}, "service_account": True, "enforce_tools": False}
             )
             authority = restore_authorization(self.authorization_app, snapshot)
-            if payload.get("company_task_id") or (snapshot or {}).get("company_executor"):
+            if not (snapshot or {}).get("company_routine") and (
+                payload.get("company_task_id") or (snapshot or {}).get("company_executor")
+            ):
                 from agno.company.execution import _ExecutorAuthorization
 
                 authority = _ExecutorAuthorization(authority)
@@ -2234,6 +2237,13 @@ class QueueWorker:
                     # revisits. Honor the row instead.
                     await self._ahonor_terminal_row(component, job)
                     return
+            from agno.company.routines import _RoutineAuthorization
+            from agno.run.authorization import current_authorization
+
+            if isinstance(current_authorization(), _RoutineAuthorization):
+                from agno.company.execution import _validate_executor_tools
+
+                _validate_executor_tools(component)
             if payload.get("company_task_id"):
                 from agno.company.execution import _check_task
 
@@ -3234,6 +3244,7 @@ async def queue_lifespan(app: Any, agent_os: Any):
         authorization_app=app,
     )
     worker._company_db = getattr(agent_os, "_company_db", None)
+    worker._company_schedule_db = agent_os.db
     app.state.queue_worker = worker
     set_active_queue_worker(worker)
     try:

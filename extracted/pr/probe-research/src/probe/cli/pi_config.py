@@ -986,12 +986,14 @@ def installed_package_version(env: Mapping[str, str] | None = None) -> tuple[int
         return None
 
 
-def update_package(env: Mapping[str, str] | None = None) -> claude_cli.Result:
+def update_package(env: Mapping[str, str] | None = None, *, cwd: Path | None = None) -> claude_cli.Result:
     """`pi update <our source>`: pi re-fetches an unpinned git package."""
     active = env if env is not None else os.environ
     binary = shutil.which("pi", path=active.get("PATH"))
     if not binary:
         return claude_cli.Result(ok=False, detail="pi is not on PATH", reachable=False)
+    if cwd is not None:
+        binary = str(Path(binary).resolve())
     try:
         data = _load_settings(settings_path(active))
         index = _our_entry_index(data, root=local_package_root(active), agent_dir=pi_agent_dir(active))
@@ -1005,6 +1007,7 @@ def update_package(env: Mapping[str, str] | None = None) -> claude_cli.Result:
         completed = subprocess.run(
             [binary, "update", source], capture_output=True, text=True, timeout=UPDATE_TIMEOUT_S,
             stdin=subprocess.DEVNULL, env=dict(active), check=False,
+            **({"cwd": str(cwd)} if cwd is not None else {}),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return claude_cli.Result(ok=False, detail=f"{' '.join(command)}: {exc}", command=" ".join(command))

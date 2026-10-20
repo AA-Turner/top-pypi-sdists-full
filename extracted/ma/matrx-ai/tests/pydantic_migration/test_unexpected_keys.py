@@ -3,7 +3,7 @@
 `_unrecognized_keys` deliberately holds TWO populations: keys the platform does
 not know, and keys in `_KNOWN_PASSTHROUGH_KEYS` that downstream code consumes on
 purpose. Every user-facing consumer must subtract the second set, or it reports
-honoured features as ignored.
+honored features as ignored.
 
 Measured motivation: `multi_speaker` appears on 114 production runs and
 `variables` on 1 — both are declared passthrough, and both were producing a
@@ -33,7 +33,7 @@ def test_passthrough_keys_are_not_reported_as_unexpected():
     """The forcing function: a podcast run sends multi_speaker BY DESIGN.
 
     Reading `_unrecognized_keys` here yields ['multi_speaker'] and the user is
-    told their config was ignored. This test fails against that behaviour.
+    told their config was ignored. This test fails against that behavior.
     """
     assert "multi_speaker" in _KNOWN_PASSTHROUGH_KEYS
     config = _dc(["multi_speaker"])

@@ -123,7 +123,7 @@ class BatchResult[T, R](BaseModel):
             f"  Total retries:      {self.total_retries}",
             f"  Rate limit events:  {self.rate_limit_events}",
             f"  Elapsed:            {self.elapsed_seconds:.1f}s",
-            f"  Cancelled:          {self.was_cancelled}",
+            f"  Canceled:          {self.was_cancelled}",
         ]
         if self.retry_sweep_recovered:
             lines.append(f"  Recovered by sweep: {self.retry_sweep_recovered}")

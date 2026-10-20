@@ -1,25 +1,27 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: marshmallow-sqlalchemy
-Version: 1.5.0
+Version: 1.6.0
 Summary: SQLAlchemy integration with the marshmallow (de)serialization library
-Maintainer-email: Steven Loria <sloria1@gmail.com>
+Maintainer-email: Steven Loria <oss@stevenloria.com>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: MIT
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+License-File: AUTHORS.rst
 License-File: LICENSE
-Requires-Dist: marshmallow>=3.18.0
+Requires-Dist: marshmallow>=4.0.0
 Requires-Dist: SQLAlchemy>=1.4.40,<3.0
 Project-URL: Changelog, https://marshmallow-sqlalchemy.readthedocs.io/en/latest/changelog.html
 Project-URL: Funding, https://opencollective.com/marshmallow
 Project-URL: Issues, https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues
 Project-URL: Source, https://github.com/marshmallow-code/marshmallow-sqlalchemy
+Import-Name: marshmallow_sqlalchemy
 
 **********************
 marshmallow-sqlalchemy
@@ -158,8 +160,6 @@ Get it now
    $ pip install -U marshmallow-sqlalchemy
 
 
-Requires Python >= 3.9, marshmallow >= 3.18.0, and SQLAlchemy >= 1.4.40.
-
 .. end elevator-pitch
 
 Documentation
@@ -172,7 +172,7 @@ Project links
 
 - Docs: https://marshmallow-sqlalchemy.readthedocs.io/
 - Changelog: https://marshmallow-sqlalchemy.readthedocs.io/en/latest/changelog.html
-- Contributing Guidelines: https://marshmallow-sqlalchemy.readthedocs.io/en/latest/contributing.html
+- Contributing Guidelines: https://github.com/marshmallow-code/.github/blob/main/CONTRIBUTING.md
 - PyPI: https://pypi.python.org/pypi/marshmallow-sqlalchemy
 - Issues: https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues
 

@@ -4,7 +4,7 @@ installed ALONE, with no aidream repo, no aidream process, and no aidream env.
 These are the guards for the failure class the workspace policy calls
 *Failure A* (`common-docs/policies/package-vs-implementation.md`) — the package
 quietly hardwired to our own implementation. They are AST/structural scans, not
-behaviour tests, because that is the only way to catch the next one *before* a
+behavior tests, because that is the only way to catch the next one *before* a
 consumer hits it at runtime.
 """
 

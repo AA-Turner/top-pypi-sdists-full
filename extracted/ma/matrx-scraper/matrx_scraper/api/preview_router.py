@@ -30,7 +30,7 @@ router = APIRouter()
 
 class PreviewRequest(BaseModel):
     url: str = Field(
-        ..., description="URL to preview; will be normalised (so 'abc.com' → 'https://abc.com/')"
+        ..., description="URL to preview; will be normalized (so 'abc.com' → 'https://abc.com/')"
     )
 
 

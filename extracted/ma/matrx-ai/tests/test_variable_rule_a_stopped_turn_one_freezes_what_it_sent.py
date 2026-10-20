@@ -122,7 +122,7 @@ def _stopped_turn_one() -> CompletedRequest:
         request=req,
         iterations=1,
         final_response=UnifiedResponse(messages=[partial]),
-        metadata={"status": "cancelled", "error": "Request cancelled while the model was generating."},
+        metadata={"status": "cancelled", "error": "Request canceled while the model was generating."},
         trigger_message_position=0,
         result_start_position=1,
         result_end_position=1,

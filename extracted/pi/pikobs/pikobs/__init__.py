@@ -10,6 +10,9 @@ from .flags import *
 from .unittestpikobs import *
 from .zone import *
 from .histogram import *
+# the web runs every module as pikobs.<module>; not import *: its names
+# stay in its own namespace
+from . import obsscorecard
 from .obscountdb import *
 from .obstimedb import *
 from .mapobs import *

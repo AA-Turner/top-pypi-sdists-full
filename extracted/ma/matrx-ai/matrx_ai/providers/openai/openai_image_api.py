@@ -284,7 +284,7 @@ class OpenAIImageGeneration(BaseMediaGeneration):
     ):
         """Phase 2 — pull the OpenAI gpt-image-* per-asset metadata into
         canonical MediaGenerationMetadata. Includes ``revised_prompt``,
-        normalised quality, requested/returned sizes, and the response id.
+        normalized quality, requested/returned sizes, and the response id.
         """
         from matrx_ai.media.generation_metadata import (
             build_default_metadata,

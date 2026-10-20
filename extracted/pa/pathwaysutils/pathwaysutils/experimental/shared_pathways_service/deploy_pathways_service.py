@@ -29,8 +29,9 @@ _SERVER_IMAGE = flags.DEFINE_string(
 )
 _SIDECAR_IMAGE = flags.DEFINE_string(
     "sidecar_image",
-    "us-docker.pkg.dev/cloud-tpu-v2-images/pathways-colocated-python/sidecar:20260423-python_3.12-jax_0.10.0",
-    "Full path to the sidecar Docker image",
+    None,
+    "Full path to the colocated Python sidecar Docker image. If not set, the"
+    " service is deployed without the sidecar.",
 )
 _TPU_TYPE = flags.DEFINE_enum(
     "tpu_type", "v6e", ["v5e", "v5p", "v6e", "tpu7x"], "TPU type"
@@ -62,6 +63,29 @@ _MAX_RESTARTS = flags.DEFINE_integer(
     lower_bound=0,
 )
 _SIDECAR_SHM_DIR = "/tmp/sidecar_dir"
+# These make the colocated Python sidecar logs as verbose as possible so that
+# issues in the sidecar (e.g. array (de)serialization during checkpointing) can
+# be debugged from the container logs.
+_SIDECAR_DEBUG_ENV = {
+    # Disable Python stdout/stderr buffering so logs are emitted immediately
+    # and are not lost if the container crashes.
+    "PYTHONUNBUFFERED": "1",
+    # Python logging level for the sidecar.
+    "LOGLEVEL": "DEBUG",
+    # glog (C++) logging: emit INFO and above (0 = INFO) and enable VLOG(n)
+    # messages for n <= 5.
+    "GLOG_minloglevel": "0",
+    "GLOG_v": "5",
+    # TSL/XLA (C++) logging used by JAX: emit INFO and above and enable VLOG(n)
+    # messages for n <= 5.
+    "TF_CPP_MIN_LOG_LEVEL": "0",
+    "TF_CPP_MIN_VLOG_LEVEL": "5",
+    # TPU runtime (libtpu) logging: emit INFO and above.
+    "TPU_MIN_LOG_LEVEL": "0",
+    # Per-module verbose logging (level 5) for the array serialization modules
+    # used when transferring/checkpointing arrays via the sidecar.
+    "GLOG_vmodule": "jax_array_handlers=5,type_handlers=5,tensorstore_utils=5",
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -174,14 +198,24 @@ def deploy_jobset(jobset_yaml: dict[str, Any]) -> None:
     _logger.exception("Error loading Kubernetes configuration")
 
 
+def _add_sidecar(pw_jobset: jobset.PathwaysJobSet, sidecar_image: str) -> None:
+  """Adds the colocated Python sidecar to the workers."""
+  pw_jobset.add_colocated_python(
+      image=sidecar_image,
+      shm_mount_path=_SIDECAR_SHM_DIR,
+      env=_SIDECAR_DEBUG_ENV,
+  )
+
+
 def run_deployment(
+    *,
     tpu_type,
     topology,
     num_slices,
     jobset_name,
     gcs_bucket,
     server_image,
-    sidecar_image,
+    sidecar_image: str | None,
     dry_run,
     deploy_func: Callable[[dict[str, Any]], None] = deploy_jobset,
     max_restarts: int = 30,
@@ -200,75 +234,18 @@ def run_deployment(
       # TODO(b/496958026): Remove this once go/sps-worker-pod-stability is
       # implemented
       max_slice_restarts=1000000,
+      pathways_rm_and_worker_image=(
+          server_image or jobset.DEFAULT_PATHWAYS_RM_AND_WORKER_IMAGE
+      ),
   )
 
-  # If custom server_image is provided, mutate the templates to use it.
-  if server_image:
-    # Mutate head job.
-    for container in pw_jobset.head_job_template.spec.template.spec.containers:
-      if container.name == "pathways-rm":
-        container.image = server_image
-    # Mutate worker job.
-    for (
-        container
-    ) in pw_jobset.worker_job_template.spec.template.spec.containers:
-      if container.name == "pathways-worker":
-        container.image = server_image
-
-  # Add colocated python sidecar.
-  pw_jobset.add_colocated_python(
-      image=sidecar_image, shm_mount_path=_SIDECAR_SHM_DIR
-  )
-
-  # Mutate the sidecar configuration to match what HEAD expects.
-  worker_spec = pw_jobset.worker_job_template.spec.template.spec
-
-  # 1. Add extra logging env vars to sidecar.
-  # These make the colocated Python sidecar logs as verbose as possible so that
-  # issues in the sidecar (e.g. array (de)serialization during checkpointing)
-  # can be debugged from the container logs.
-  for container in (worker_spec.containers or []) + (
-      worker_spec.init_containers or []
-  ):
-    if container.name == "colocated-python-sidecar":
-      container.env.extend([
-          # Disable Python stdout/stderr buffering so logs are emitted
-          # immediately and are not lost if the container crashes.
-          client.V1EnvVar(name="PYTHONUNBUFFERED", value="1"),
-          # Python logging level for the sidecar.
-          client.V1EnvVar(name="LOGLEVEL", value="DEBUG"),
-          # glog (C++) logging: emit INFO and above (0 = INFO) and enable
-          # VLOG(n) messages for n <= 5.
-          client.V1EnvVar(name="GLOG_minloglevel", value="0"),
-          client.V1EnvVar(name="GLOG_v", value="5"),
-          # TSL/XLA (C++) logging used by JAX: emit INFO and above and enable
-          # VLOG(n) messages for n <= 5.
-          client.V1EnvVar(name="TF_CPP_MIN_LOG_LEVEL", value="0"),
-          client.V1EnvVar(name="TF_CPP_MIN_VLOG_LEVEL", value="5"),
-          # TPU runtime (libtpu) logging: emit INFO and above.
-          client.V1EnvVar(name="TPU_MIN_LOG_LEVEL", value="0"),
-          # Per-module verbose logging (level 5) for the array serialization
-          # modules used when transferring/checkpointing arrays via the
-          # sidecar.
-          client.V1EnvVar(
-              name="GLOG_vmodule",
-              value=(
-                  "jax_array_handlers=5,type_handlers=5,tensorstore_utils=5"
-              ),
-          ),
-      ])
-
-  # 2. Add arg to pathways-worker container.
-  for container in worker_spec.containers:
-    if container.name == "pathways-worker":
-      args = container.args or []
-      if not any(
-          a.startswith("--cloud_pathways_sidecar_shm_directory=") for a in args
-      ):
-        args.append(
-            f"--cloud_pathways_sidecar_shm_directory={_SIDECAR_SHM_DIR}"
-        )
-      container.args = args
+  if sidecar_image:
+    _add_sidecar(pw_jobset, sidecar_image)
+  else:
+    _logger.info(
+        "No sidecar image is set. Deploying the service without the colocated"
+        " Python sidecar."
+    )
 
   jobset_config = pw_jobset.to_dict()
 
@@ -310,6 +287,8 @@ def run_deployment(
 def main(argv: Sequence[str]) -> None:
   if len(argv) > 1:
     raise app.UsageError("Too many command-line arguments.")
+
+  logging.getLogger().setLevel(logging.INFO)
 
   try:
     if (

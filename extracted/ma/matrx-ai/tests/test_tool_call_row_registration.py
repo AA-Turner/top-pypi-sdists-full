@@ -11,7 +11,7 @@ message stub and showed a completed call where the live turn had shown an error
 (conversation 8cccb224…, call toolu_01TN3JXq…, 2026-09-27).
 
 Two layers:
-  1. behavioural — a rejected call, then its result message, links by pk with
+  1. behavioral — a rejected call, then its result message, links by pk with
      the DB read finding nothing (the deferred-INSERT race);
   2. structural — every logger method that INSERTs a tool_call row registers
      it, so a future INSERT path cannot reopen the class.

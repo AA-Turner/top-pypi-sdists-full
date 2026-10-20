@@ -8,7 +8,7 @@ parameter surface, bounded retry with ``Retry-After`` support, and the typed
 **There is exactly one Brave client.** matrx-seo's rank adapter consumes this
 engine and layers budget / rank-matching / credential resolution ABOVE it — it
 does not open its own httpx connection. Two clients against one API is how the
-429-as-empty-results defence ended up living in only half the codebase.
+429-as-empty-results defense ended up living in only half the codebase.
 """
 
 import asyncio
@@ -168,7 +168,7 @@ BRAVE_SUMMARIZER_URL = f"{BRAVE_API_ROOT}/summarizer/search"
 
 #: Statuses worth another attempt. A 429 is included, but exhausting the
 #: attempts on one raises `BraveRateLimitError` rather than a generic HTTP
-#: error, because the two demand different caller behaviour.
+#: error, because the two demand different caller behavior.
 #: This module deliberately does NOT call ``load_dotenv()``. It used to, at
 #: import time, which meant merely importing the Brave engine mutated the host
 #: process's environment — a thing no library may do, and one that leaked into

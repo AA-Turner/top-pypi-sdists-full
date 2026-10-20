@@ -68,11 +68,13 @@ def _as_the_person(tool_name: str):
     def wrap(fn):
         @functools.wraps(fn)
         async def in_lane(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-            from matrx_connect import admin_surface_active
+            from matrx_connect import admin_lane_active
 
             from matrx_ai.context.app_context import try_get_app_context
 
-            if admin_surface_active(try_get_app_context()):
+            # admin_lane_active, not admin_surface_active: an agent run from the admin
+            # app rides the header lane only (2026-10-17 kind-tool regression).
+            if admin_lane_active(try_get_app_context()):
                 from matrx_orm import admin_lane
 
                 async with admin_lane(database=get_db_model("ToolUi")._database):

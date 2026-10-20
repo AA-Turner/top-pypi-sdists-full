@@ -5,7 +5,41 @@ import httpx2
 import pytest
 
 from trajectory import Client, omit
+from trajectory._base_client import SyncPage
 from trajectory._testing import client_for
+
+
+def test_generic_get_preserves_query_in_path() -> None:
+  with client_for({"items": []}, 200) as (client, requests):
+    client.get("/api/v1/train/run/steps/0/trajectories?mode=eval&label=a%20b", cast_to=dict)
+
+  assert requests[0].url.query == b"mode=eval&label=a%20b"
+
+
+def test_explicit_query_overrides_preserve_other_repeated_values() -> None:
+  with client_for({"items": []}, 200) as (client, requests):
+    client.get(
+      "/api/v1/train/run/trajectories?mode=eval&tag=a&tag=b",
+      cast_to=dict,
+      options={"params": {"mode": "training"}},
+    )
+
+  assert requests[0].url.params["mode"] == "training"
+  assert requests[0].url.params.get_list("tag") == ["a", "b"]
+
+
+def test_paginated_get_preserves_query_in_path() -> None:
+  with client_for({"items": [{"id": "one"}], "next_cursor": "next", "has_more": True}, 200) as (
+    client,
+    requests,
+  ):
+    page = client.get("/api/v1/train/run/trajectories?mode=eval", cast_to=SyncPage[dict])
+    page.get_next_page()
+
+  assert [dict(request.url.params) for request in requests] == [
+    {"mode": "eval"},
+    {"mode": "eval", "cursor": "next"},
+  ]
 
 
 def test_api_version_is_sent_by_original_and_copied_clients_with_overrides() -> None:

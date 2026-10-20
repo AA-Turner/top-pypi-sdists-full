@@ -41,6 +41,8 @@ class AiCapability(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "ai_capability"
@@ -194,6 +196,8 @@ class CollectionRun(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_response': {'from_model': 'AiVisibilityResponse', 'from_field': 'provider_run_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_response', 'from_schema': 'seo'}, 'backlink_dimension_snapshot': {'from_model': 'BacklinkDimensionSnapshot', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'backlink_dimension_snapshot', 'from_schema': 'seo'}, 'backlink_observation': {'from_model': 'BacklinkObservation', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'backlink_observation', 'from_schema': 'seo'}, 'backlink_snapshot': {'from_model': 'BacklinkSnapshot', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'backlink_snapshot', 'from_schema': 'seo'}, 'competitor': {'from_model': 'Competitor', 'from_field': 'latest_run_id', 'referenced_field': 'id', 'related_name': 'competitor', 'from_schema': 'seo'}, 'competitor_observation': {'from_model': 'CompetitorObservation', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'competitor_observation', 'from_schema': 'seo'}, 'competitor_opportunity': {'from_model': 'CompetitorOpportunity', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'competitor_opportunity', 'from_schema': 'seo'}, 'keyword_market_observation': {'from_model': 'KeywordMarketObservation', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'keyword_market_observation', 'from_schema': 'seo'}, 'link_gap_domain': {'from_model': 'LinkGapDomain', 'from_field': 'latest_run_id', 'referenced_field': 'id', 'related_name': 'link_gap_domain', 'from_schema': 'seo'}, 'page_performance': {'from_model': 'PagePerformance', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'page_performance', 'from_schema': 'seo'}, 'provider_call': {'from_model': 'ProviderCall', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'provider_call', 'from_schema': 'seo'}, 'provider_task': {'from_model': 'ProviderTask', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'provider_task', 'from_schema': 'seo'}, 'rank_observation': {'from_model': 'RankObservation', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'rank_observation', 'from_schema': 'seo'}, 'raw_payload': {'from_model': 'RawPayload', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'raw_payload', 'from_schema': 'seo'}, 'reputation_case': {'from_model': 'ReputationCase', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'reputation_case', 'from_schema': 'seo'}, 'search_performance_daily': {'from_model': 'SearchPerformanceDaily', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'search_performance_daily', 'from_schema': 'seo'}, 'serp_mention': {'from_model': 'SerpMention', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'serp_mention', 'from_schema': 'seo'}, 'serp_opportunity': {'from_model': 'SerpOpportunity', 'from_field': 'latest_run_id', 'referenced_field': 'id', 'related_name': 'serp_opportunity', 'from_schema': 'seo'}, 'serp_snapshot': {'from_model': 'SerpSnapshot', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'serp_snapshot', 'from_schema': 'seo'}, 'web_analytics_daily': {'from_model': 'WebAnalyticsDaily', 'from_field': 'run_id', 'referenced_field': 'id', 'related_name': 'web_analytics_daily', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "collection_run"
@@ -322,6 +326,8 @@ class EngineSchedule(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "engine_schedule"
@@ -376,6 +382,8 @@ class GeoPlace(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'dimension_value_matcher': {'from_model': 'DimensionValueMatcher', 'from_field': 'place_id', 'referenced_field': 'id', 'related_name': 'dimension_value_matcher', 'from_schema': 'seo'}, 'keyword_place': {'from_model': 'KeywordPlace', 'from_field': 'place_id', 'referenced_field': 'id', 'related_name': 'keyword_place', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "geo_place"
@@ -464,6 +472,8 @@ class Keyword(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'ai_visibility_response': {'from_model': 'AiVisibilityResponse', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'ai_visibility_response', 'from_schema': 'seo'}, 'change_theory': {'from_model': 'ChangeTheory', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'change_theory', 'from_schema': 'seo'}, 'keyword_classification_queue': {'from_model': 'KeywordClassificationQueue', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_classification_queue', 'from_schema': 'seo'}, 'keyword_edge': {'from_model': 'KeywordEdge', 'from_field': 'target_keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_edge', 'from_schema': 'seo'}, 'keyword_facet': {'from_model': 'KeywordFacet', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_facet', 'from_schema': 'seo'}, 'keyword_market': {'from_model': 'KeywordMarket', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_market', 'from_schema': 'seo'}, 'keyword_market_observation': {'from_model': 'KeywordMarketObservation', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_market_observation', 'from_schema': 'seo'}, 'keyword_place': {'from_model': 'KeywordPlace', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_place', 'from_schema': 'seo'}, 'keyword_topic': {'from_model': 'KeywordTopic', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'keyword_topic', 'from_schema': 'seo'}, 'rank_observation': {'from_model': 'RankObservation', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'rank_observation', 'from_schema': 'seo'}, 'rank_target': {'from_model': 'RankTarget', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'rank_target', 'from_schema': 'seo'}, 'search_performance_daily': {'from_model': 'SearchPerformanceDaily', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'search_performance_daily', 'from_schema': 'seo'}, 'serp_snapshot': {'from_model': 'SerpSnapshot', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'serp_snapshot', 'from_schema': 'seo'}, 'site_keyword_offering': {'from_model': 'SiteKeywordOffering', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'site_keyword_offering', 'from_schema': 'seo'}, 'site_keyword_value': {'from_model': 'SiteKeywordValue', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'site_keyword_value', 'from_schema': 'seo'}, 'topic_placement_queue': {'from_model': 'TopicPlacementQueue', 'from_field': 'keyword_id', 'referenced_field': 'id', 'related_name': 'topic_placement_queue', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "keyword"
@@ -596,6 +606,8 @@ class MapFacet(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'map_facet_value': {'from_model': 'MapFacetValue', 'from_field': 'facet_id', 'referenced_field': 'id', 'related_name': 'map_facet_value', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "map_facet"
@@ -906,6 +918,8 @@ class StarterPack(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'keyword_class_rule': {'from_model': 'KeywordClassRule', 'from_field': 'pack_id', 'referenced_field': 'id', 'related_name': 'keyword_class_rule', 'from_schema': 'seo'}, 'starter_pack_item': {'from_model': 'StarterPackItem', 'from_field': 'pack_id', 'referenced_field': 'id', 'related_name': 'starter_pack_item', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "starter_pack"
@@ -981,6 +995,8 @@ class StoryAngle(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'source_request': {'from_model': 'SourceRequest', 'from_field': 'story_angle_id', 'referenced_field': 'id', 'related_name': 'source_request', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "story_angle"
@@ -1028,6 +1044,8 @@ class Topic(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'keyword_topic': {'from_model': 'KeywordTopic', 'from_field': 'topic_id', 'referenced_field': 'id', 'related_name': 'keyword_topic', 'from_schema': 'seo'}, 'site_topic_value': {'from_model': 'SiteTopicValue', 'from_field': 'topic_id', 'referenced_field': 'id', 'related_name': 'site_topic_value', 'from_schema': 'seo'}, 'starter_pack_item': {'from_model': 'StarterPackItem', 'from_field': 'topic_id', 'referenced_field': 'id', 'related_name': 'starter_pack_item', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "topic"
@@ -1073,6 +1091,8 @@ class TopicalMap(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'map_topic': {'from_model': 'MapTopic', 'from_field': 'map_id', 'referenced_field': 'id', 'related_name': 'map_topic', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "topical_map"
@@ -1507,6 +1527,8 @@ class KeywordClassRule(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_class_rule"
@@ -1585,6 +1607,8 @@ class KeywordEdge(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_edge"
@@ -1631,6 +1655,8 @@ class KeywordPlace(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_place"
@@ -1679,6 +1705,8 @@ class KeywordTopic(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_topic"
@@ -1769,6 +1797,8 @@ class MapFacetValue(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "map_facet_value"
@@ -1905,6 +1935,8 @@ class RankTarget(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'rank_observation': {'from_model': 'RankObservation', 'from_field': 'rank_target_id', 'referenced_field': 'id', 'related_name': 'rank_observation', 'from_schema': 'seo'}, 'serp_snapshot': {'from_model': 'SerpSnapshot', 'from_field': 'rank_target_id', 'referenced_field': 'id', 'related_name': 'serp_snapshot', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "rank_target"
@@ -2094,6 +2126,8 @@ class SourceRequest(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "source_request"
@@ -2547,6 +2581,8 @@ class KeywordFacet(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_facet"
@@ -3122,6 +3158,8 @@ class KeywordMarket(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_seo"
     _table_name = "keyword_market"

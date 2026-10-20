@@ -107,7 +107,8 @@ class Diagnostics(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> StartBenchmarkDiagnosticsResponse:
-    """Start diagnostics for one ingested task after its image is ready.
+    """Start diagnostics for up to 10 tasks in an existing benchmark after its images are
+    ready.
 
     Args:
       extra_headers: Send extra headers

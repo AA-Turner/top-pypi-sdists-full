@@ -53,7 +53,7 @@ class FactCheckReview(KindSubModel):
     )
     publisher_name: str = Field(
         default="",
-        description="The fact-checking organisation, e.g. 'Snopes.com' or 'Lead Stories'.",
+        description="The fact-checking organization, e.g. 'Snopes.com' or 'Lead Stories'.",
     )
     publisher_site: str = Field(
         default="", description="The fact-checker's site, e.g. 'snopes.com'."
@@ -64,7 +64,7 @@ class FactCheckReview(KindSubModel):
         description=(
             "The reviewer's own verdict in their own words — 'False', 'Fake News', "
             "'Mostly True', 'Originally Satire'. Ratings are NOT comparable across "
-            "publishers; quote them, never normalise them."
+            "publishers; quote them, never normalize them."
         ),
     )
     review_url: str = Field(default="", description="Direct link to the published review.")

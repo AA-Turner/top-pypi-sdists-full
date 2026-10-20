@@ -24,6 +24,8 @@ class BuiltinAdapter(StrEnum):
     DATABRICKS = "databricks"
     POSTGRES = "postgres"
     SQLSERVER = "sqlserver"
+    SQLITE = "sqlite"
+    CLICKHOUSE = "clickhouse"
 
 
 class RelationReadStatus(StrEnum):

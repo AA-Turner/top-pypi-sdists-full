@@ -17,6 +17,7 @@ from src.node import NodeConnection
 from src.node import PostgresNodeLogReader
 from src.node import PostgresNodeUtils
 from src.node import ProcessProxy
+from src.node import PortManager__Generic2
 from src.utils import PgVer
 from src.utils import get_pg_version2
 from src.utils import file_tail
@@ -38,6 +39,7 @@ from src import TestgresException as testgres_TestgresException
 
 from src import InitNodeException
 from src import StartNodeException
+from src import StopNodeException
 from src import QueryException
 from src import ExecUtilException
 from src import QueryTimeoutException
@@ -62,6 +64,7 @@ import types
 import psutil
 import threading
 import testgres.postgres_configuration as testgres_pgconf
+from testgres.operations.local_ops import LocalOperations
 
 from packaging.version import Version
 from concurrent.futures import ThreadPoolExecutor
@@ -126,8 +129,8 @@ class TestTestgresCommon:
 
         # Author: Mark G.
         assert v.major == 1
-        assert v.minor == 16
-        assert v.micro == 4
+        assert v.minor == 17
+        assert v.micro == 0
 
         assert str(v) == testgres_version
         return
@@ -237,6 +240,69 @@ class TestTestgresCommon:
                 assert node2._port != node._port
                 assert node2._os_ops is node._os_ops
                 assert node2._port_manager is node._port_manager
+
+                assert node2.name == C_NODE2_NAME
+                assert node2.base_dir == nodedir2
+        return
+
+    def test_node_clone__target_context(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            target_port = node_svc.port_manager.reserve_port()
+            try:
+                nodedir = node_svc.os_ops.mkdtemp(prefix="node-target--")
+
+                with node.clone_with_new_name_and_base_dir(
+                    name="target",
+                    base_dir=nodedir,
+                    target_os_ops=node_svc.os_ops,
+                    target_host="abc",
+                    target_port=target_port,
+                ) as node2:
+                    assert node2 is not node
+                    assert node2.os_ops is node_svc.os_ops
+                    assert node2.name == "target"
+                    assert node2.host == "abc"
+                    assert node2.port == target_port
+                    assert node2.port_manager is None
+            finally:
+                node_svc.port_manager.release_port(target_port)
+        return
+
+    def test_node_clone__different_os_ops(
+        self,
+        node_svc: PostgresNodeService,
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        source_svc = node_svc
+        target_os_ops = LocalOperations()
+
+        assert target_os_ops is not source_svc.os_ops
+
+        unique_id = uuid.uuid4().hex
+        tmpdir = target_os_ops.get_tempdir()
+
+        with __class__.helper__get_node(source_svc) as node:
+            nodedir = target_os_ops.build_path(
+                tmpdir,
+                "node-target--" + unique_id,
+            )
+
+            with node.clone_with_new_name_and_base_dir(
+                name="target",
+                base_dir=nodedir,
+                target_os_ops=target_os_ops,
+            ) as node2:
+                assert node2 is not node
+                assert node2.os_ops is target_os_ops
+                assert node2.name == "target"
+                assert node2.base_dir == nodedir
+                assert node2.host == target_os_ops.host
+                assert node2.port != node.port
+                assert node2.port_manager is not node.port_manager
+                assert type(node2.port_manager) is PortManager__Generic2
         return
 
     def test_node_repr(self, node_svc: PostgresNodeService):
@@ -524,22 +590,28 @@ class TestTestgresCommon:
             with pytest.raises(expected_exception=Exception) as x:
                 node.slow_start(max_attempts=10)
 
+            assert x is not None
+            assert isinstance(x.value, Exception)
+
             TestServices.PrintExceptionOK(x.value)
+
+            if type(x.value) is StartNodeException:
+                assert x.value.description == "Cannot detect postmaster pid."
+                return False
+
+            if type(x.value) is ConnectionResetError:
+                # pg8000
+                assert "Connection reset by peer" in str(x.value)
+                return False
+
+            if type(x.value) is StopNodeException:
+                return True
 
             assert not node.is_started
             assert node.status() == NodeStatus.Stopped
-            pass
 
-        assert x is not None
-        assert isinstance(x.value, Exception)
-        assert x.value.__context__ is None
-
-        if type(x.value) is StartNodeException:
-            assert x.value.description == "Cannot detect postmaster pid."
-            return False
-
-        assert type(x.value) is QueryTimeoutException
-        return True
+            assert type(x.value) is QueryTimeoutException
+            return True
 
     def test_restart(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -638,7 +710,11 @@ class TestTestgresCommon:
                 node.stop()
 
             assert x is not None
-            assert "Is server running?" in str(x.value)
+            e1 = x.value
+            assert type(e1) is StopNodeException
+            e2 = e1.__cause__
+            assert type(e2) is ExecUtilException
+            assert "Is server running?" in str(e2)
 
             assert not node.is_started
 
@@ -1903,6 +1979,43 @@ class TestTestgresCommon:
                         backup.spawn_primary('node2', destroy=False) as node2:
                     assert (node1.base_dir != node2.base_dir)
 
+    @pytest.mark.parametrize(
+        ("source_svc", "target_svc"),
+        [
+            pytest.param(
+                PostgresNodeServices.sm_remote,
+                PostgresNodeServices.sm_local,
+                id="remote_to_local",
+            ),
+        ],
+    )
+    def test_backup__different_os_ops(
+        self,
+        source_svc: PostgresNodeService,
+        target_svc: PostgresNodeService,
+    ):
+        assert source_svc.os_ops is not target_svc.os_ops
+
+        with __class__.helper__get_node(source_svc) as source:
+            source.init(allow_streaming=True).start()
+
+            with source.backup(os_ops=target_svc.os_ops) as backup:
+                assert backup.os_ops is target_svc.os_ops
+
+                with backup.spawn_primary(destroy=False) as target:
+                    assert target is not source
+                    assert type(target) is PostgresNode
+                    assert target.os_ops is target_svc.os_ops
+                    assert target.host == target_svc.os_ops.host
+                    assert target.base_dir != backup.base_dir
+                    assert target.os_ops.isdir(target.data_dir)
+                    assert target.port_manager is not None
+                    assert target.port_manager is not source.port_manager
+
+                    target.slow_start()
+                    target.stop()
+        return
+
     def test_backup_exhaust(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
         with __class__.helper__get_node(node_svc) as node:
@@ -2034,7 +2147,7 @@ class TestTestgresCommon:
             try:
                 node.stop(wait=False)
                 break
-            except ExecUtilException as e:
+            except StopNodeException as e:
                 # it's ok to get this exception here since node
                 # could be not started yet
                 logging.info("Node is not stopped. Exception ({0}): {1}".format(type(e).__name__, e))
@@ -2087,6 +2200,91 @@ class TestTestgresCommon:
 
                 res = node.execute('select * from test')
                 assert (res == [])
+
+    def test_replicate__target_context(self, node_svc: PostgresNodeService):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as master:
+            master.init(allow_streaming=True).start()
+
+            target_port = node_svc.port_manager.reserve_port()
+            assert target_port != master.port
+            try:
+                # For local operations use an equivalent host spelling to
+                # exercise source_walsender with different host strings.  A
+                # remote host must keep its configured address.
+                if isinstance(node_svc.os_ops, LocalOperations):
+                    target_host = "localhost" if master.host != "localhost" else "127.0.0.1"
+                else:
+                    target_host = master.host
+
+                with master.replicate(
+                    target_os_ops=node_svc.os_ops,
+                    target_host=target_host,
+                    target_port=target_port,
+                ) as replica:
+                    assert type(replica) is PostgresNode
+                    assert replica.os_ops is node_svc.os_ops
+                    assert replica.host == target_host
+                    assert replica.port == target_port
+                    assert replica.port_manager is None
+
+                    replica.start()
+
+                    master.execute('create table test_target_context (val int)', commit=True)
+                    master.execute('insert into test_target_context values (42)', commit=True)
+
+                    replica.catchup()
+
+                    res = replica.execute('select val from test_target_context')
+                    assert res == [(42, )]
+
+                    assert replica.source_walsender is not None
+            finally:
+                node_svc.port_manager.release_port(target_port)
+        return
+
+    @pytest.mark.parametrize(
+        ("source_svc", "target_svc"),
+        [
+            pytest.param(
+                PostgresNodeServices.sm_remote,
+                PostgresNodeServices.sm_local,
+                id="remote_to_local",
+            ),
+        ],
+    )
+    def test_replicate__different_os_ops(
+        self,
+        source_svc: PostgresNodeService,
+        target_svc: PostgresNodeService,
+    ):
+        assert source_svc.os_ops is not target_svc.os_ops
+
+        with __class__.helper__get_node(source_svc) as master:
+            master.init(allow_streaming=True).start()
+
+            with master.replicate(
+                target_os_ops=target_svc.os_ops,
+            ).start() as replica:
+                assert replica.os_ops is target_svc.os_ops
+                assert replica.host == target_svc.os_ops.host
+
+                master.execute(
+                    'create table test_cross_context (val int)',
+                    commit=True,
+                )
+                master.execute(
+                    'insert into test_cross_context values (42)',
+                    commit=True,
+                )
+
+                replica.catchup()
+
+                res = replica.execute('select val from test_cross_context')
+                assert res == [(42, )]
+
+                assert replica.source_walsender is not None
 
     def test_synchronous_replication(self, node_svc: PostgresNodeService):
         assert isinstance(node_svc, PostgresNodeService)
@@ -3336,6 +3534,30 @@ where c.relname=%s;"""
             node.slow_start()
 
             assert node.status() == NodeStatus.Running
+        return
+
+    def test_node_connection__execute(
+        self,
+        node_svc: PostgresNodeService,
+    ):
+        assert isinstance(node_svc, PostgresNodeService)
+
+        with __class__.helper__get_node(node_svc) as node:
+            node.init()
+            node.start()
+
+            with node.connect("postgres") as cn:
+                assert cn.execute("create table ttt (id integer);") is None
+                assert cn.execute("insert into ttt values(1);") is None
+                assert cn.execute("update ttt set id=2;") is None
+                assert cn.execute("select id from ttt;") == [(2, )]
+                assert cn.execute("select id from ttt where id=%s;", '2') == [(2, )]
+                assert cn.execute("select id from ttt where id=%s and (id + 1) = %s;", '2', 3) == [(2, )]
+                assert cn.execute("delete from ttt where id=2;") is None
+                assert cn.execute("select id from ttt;") == []
+                assert cn.execute("drop table ttt;") is None
+                pass
+            pass
         return
 
     @staticmethod

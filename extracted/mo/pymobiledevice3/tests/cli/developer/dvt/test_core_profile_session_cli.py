@@ -6,7 +6,7 @@ import sys
 from typing import Any, cast
 
 import pytest
-from pykdebugparser.trace_codes import syscall_eventids
+from pykdebugparser.trace_codes import default_trace_codes, syscall_eventids
 from typer.testing import CliRunner
 
 from pymobiledevice3 import __main__
@@ -24,6 +24,14 @@ def test_live_commands_stream_endlessly_by_default(command: str) -> None:
 LOCKDOWN = cast(LockdownServiceProvider, object())
 
 
+def test_live_trace_codes_fall_back_to_pykdebugparser() -> None:
+    codes = core_profile_session.live_trace_codes({0x29000044: "DEVICE_NAME", 0x40C0014: "BSC_open"})
+    # The device's names win; the events its table does not name get pykdebugparser's.
+    assert codes[0x29000044] == "DEVICE_NAME"
+    assert codes[0x40C0014] == "BSC_open"
+    assert codes[0x2E030004] == "DISPATCH_MACH_MSG_hdr_move"
+
+
 def test_parse_live_rejects_an_unknown_syscall_before_connecting(monkeypatch: pytest.MonkeyPatch) -> None:
     def no_device(_service_provider: object) -> None:
         raise AssertionError("connected to the device")
@@ -37,7 +45,7 @@ def test_parse_live_rejects_an_unknown_syscall_before_connecting(monkeypatch: py
 
     assert result.exit_code == 2
     assert "unknown syscalls: nosuch" in result.output
-    assert "core-profile-session syscalls" in result.output
+    assert "core-profile-session events" in result.output
 
 
 def test_syscall_names_are_what_parse_live_accepts() -> None:
@@ -92,7 +100,8 @@ def _run_parse_live(monkeypatch: pytest.MonkeyPatch, **options: Any) -> tuple[An
     monkeypatch.setattr(core_profile_session, "PyKdebugParser", FakeParser)
 
     core_profile_session.parse_live_profile_session(
-        service_provider=LOCKDOWN, class_filters=[], subclass_filters=[], **{"syscalls": [], "events": [], **options}
+        service_provider=LOCKDOWN,
+        **{"class_filters": [], "subclass_filters": [], "syscalls": [], "events": [], **options},
     )
     (parser,) = parsers
     return requested["filters"], parser
@@ -164,6 +173,106 @@ def test_parse_live_groups_add_up(monkeypatch: pytest.MonkeyPatch) -> None:
         0x010C0000,
         core_profile_session.TRACE_CLASS_FILTER,
     }
+
+
+def test_parse_live_user_space_groups(monkeypatch: pytest.MonkeyPatch) -> None:
+    filters, parser = _run_parse_live(monkeypatch, xpc=True, dispatch=True, runloop=True)
+
+    names = [name for group in ("xpc", "dispatch", "runloop") for name in core_profile_session.group_events(group)]
+    # The events have no decoder: asking for them by id is what prints them (as their name and raw arguments).
+    assert parser.filter_eventid == core_profile_session.event_eventids(names)
+    # Only their subclasses are requested from the device.
+    assert filters == {
+        0x29000000,  # libxpc
+        0x2BDC0000,  # libdispatch
+        0x2E020000,
+        0x2E030000,
+        0x14130000,  # CoreFoundation run loop
+        0x21110000,
+        0x21120000,
+        core_profile_session.TRACE_CLASS_FILTER,
+    }
+
+
+def _events(*args: str) -> list[str]:
+    result = CliRunner().invoke(__main__.app, ["developer", "dvt", "core-profile-session", "events", *args])
+    assert result.exit_code == 0, result.output
+    return result.output.split()
+
+
+@pytest.mark.parametrize(("group", "prefix"), [("xpc", "XPC_"), ("dispatch", "DISPATCH_"), ("runloop", "CFRL_")])
+def test_events_lists_a_user_space_group(group: str, prefix: str) -> None:
+    names = _events(f"--{group}")
+
+    assert names
+    assert all(name.startswith(prefix) for name in names)
+    assert names == list(core_profile_session.group_events(group))
+
+
+def test_events_lists_what_a_syscall_group_prints() -> None:
+    names = _events("--mem")
+
+    # Its syscalls, with their _nocancel variants, and its Mach traps: exactly what --mem filters.
+    assert "BSC_mmap" in names
+    assert "MSC_mach_vm_allocate_trap" in names
+    eventids = syscall_eventids(core_profile_session.SYSCALL_GROUPS["mem"])
+    eventids |= core_profile_session.event_eventids(list(core_profile_session.group_mach_traps("mem")))
+    assert core_profile_session.event_eventids(names) == eventids
+
+
+def test_events_lists_the_dyld_events_dyld_prints() -> None:
+    names = _events("--dyld")
+
+    assert "DBG_DYLD_TIMING_DLSYM" in names
+    assert "DYLD_uuid_map_a" in names  # image loads
+    # A class filter prints only the events pykdebugparser decodes; the others are dropped, so they are not listed.
+    assert "DYLD_NSAddImage" not in names
+
+
+def test_events_lists_what_a_syscall_selects() -> None:
+    # Opening with a data protection class is the same call.
+    assert _events("-s", "open") == ["BSC_open", "BSC_open_dprotected_np", "BSC_open_nocancel"]
+
+
+def test_events_shows_that_a_class_filter_drops_undecoded_events() -> None:
+    # parse-live -cf 0x29 prints nothing: XPC events have no decoder. --xpc selects them by id instead.
+    assert _events("-cf", "0x29") == []
+    assert _events("--xpc")
+
+
+def test_events_finds_names_by_text() -> None:
+    assert _events("dlsym") == ["DBG_DYLD_TIMING_DLSYM"]
+    assert _events("--xpc", "send_message") == [
+        "XPC_connection_send_message",
+        "XPC_connection_send_message_with_reply",
+        "XPC_connection_send_message_with_reply_sync",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("args", "options"),
+    [
+        (["--bsc"], {"bsc": True}),
+        (["--fs", "--io"], {"fs": True, "io": True}),
+        (["--mach", "-s", "open"], {"mach": True, "syscalls": ["open"]}),
+        (["--dyld", "--xpc"], {"dyld": True, "xpc": True}),
+        (["-e", "DBG_DYLD_TIMING_DLSYM", "--runloop"], {"events": ["DBG_DYLD_TIMING_DLSYM"], "runloop": True}),
+        (["-sf", "0x0301"], {"subclass_filters": [0x0301]}),
+    ],
+)
+def test_events_lists_what_parse_live_prints(monkeypatch: pytest.MonkeyPatch, args: list[str], options: Any) -> None:
+    _filters, parser = _run_parse_live(monkeypatch, **options)
+
+    # What parse-live's parser prints: the events it asks for by id, and the decoded events of its classes and
+    # subclasses.
+    parsed = core_profile_session._parsed_events()
+    printed = sorted({
+        name
+        for eventid, name in default_trace_codes().items()
+        if eventid in parser.filter_eventid
+        or ((eventid >> 24 in parser.filter_class or eventid >> 16 in parser.filter_subclass) and name in parsed)
+    })
+    assert _events(*args) == printed
 
 
 def test_parse_live_restores_line_buffered_stdout(monkeypatch: pytest.MonkeyPatch) -> None:

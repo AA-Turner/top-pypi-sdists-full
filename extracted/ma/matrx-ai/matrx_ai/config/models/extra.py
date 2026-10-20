@@ -4,11 +4,11 @@ Shadowed, not swapped. Retirement Ledger row 7.
 
 Four types that are genuinely data bags: the three `extra_config` content blocks
 and `ProviderCharge`. Their methods are pure serializers (`to_google`,
-`to_openai`, `to_storage_dict`) or a single combinator, so nothing behavioural
+`to_openai`, `to_storage_dict`) or a single combinator, so nothing behavioral
 has to move with the fields.
 
 The other three siblings are NOT here, deliberately — `MessageList`,
-`SystemInstruction` and `TokenUsage` each carry behaviour or state that makes a
+`SystemInstruction` and `TokenUsage` each carry behavior or state that makes a
 mechanical field-for-field port the wrong move. The analysis and the
 recommendation for each is in PLAN.md; converting them without deciding what
 they ARE would be the kind of "looks like progress" step this campaign keeps

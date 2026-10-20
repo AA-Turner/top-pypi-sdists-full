@@ -116,17 +116,7 @@ class AsyncExpandRangeStage:
 
     async def __call__(self, c):
         if c.range is not None and self.expand:
-            import js
-
-            expanded_address = await js.xlwings.getExpandedAddress(
-                c.range.sheet.name, c.range.address, self.expand
-            )
-            expanded_address = str(expanded_address)
-            # Strip sheet name prefix if present (e.g., "Sheet1!A1:B2" -> "A1:B2")
-            if "!" in expanded_address:
-                expanded_address = expanded_address.split("!", 1)[1]
-            if expanded_address != c.range.address:
-                c.range = c.range.sheet.range(expanded_address)
+            c.range = await c.range.get_expanded_range(self.expand)
 
 
 class WriteValueToRangeStage:
@@ -223,22 +213,23 @@ class AsyncReadValueFromRangeStage:
     async def __call__(self, c):
         if c.range is None:
             return
-        import js
+        from ..pro._xlremote import client_read
 
+        book = c.range.sheet.book.impl
         chunksize = _resolve_read_chunksize(self.options, c.range)
         if chunksize:
             parts = []
             for i in range(math.ceil(c.range.shape[0] / chunksize)):
                 chunk_range = c.range[i * chunksize : (i * chunksize) + chunksize, :]
-                values_js = await js.xlwings.getRangeValues(
-                    c.range.sheet.name, chunk_range.address
+                values_js = await client_read(
+                    book, "getRangeValues", c.range.sheet.name, chunk_range.address
                 )
                 _check_live_values(values_js, chunk_range)
                 parts.extend(_rows_2d(values_js.to_py()))
             c.value = parts
         else:
-            values_js = await js.xlwings.getRangeValues(
-                c.range.sheet.name, c.range.address
+            values_js = await client_read(
+                book, "getRangeValues", c.range.sheet.name, c.range.address
             )
             _check_live_values(values_js, c.range)
             c.value = values_js.to_py()

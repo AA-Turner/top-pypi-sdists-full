@@ -34,7 +34,7 @@ WHAT THE CORPUS ALSO SAID:
     inside it. A declared type that is actually correct; asserted so a 10th
     provider fails loudly here instead of at flip.
   * `citations` (text) and `call_id` (tool_call) are STORED keys with no matching
-    field — the deserializer folds them into `metadata` / `id`. Not modelled here;
+    field — the deserializer folds them into `metadata` / `id`. Not modeled here;
     they belong to the deserializer's contract, not the block's.
 """
 

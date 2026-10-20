@@ -32,6 +32,7 @@ from matrx_ai.config import MessageList, TextContent, TokenUsage, UnifiedMessage
 from matrx_ai.providers.provider_io_capabilities import (
     MediaContainer,
     container_for_content,
+    content_needs_fallback,
     find_unsupported_media,
 )
 
@@ -147,6 +148,36 @@ async def _safe_resolve(
         )
 
 
+#: ``request_snapshot_metadata`` field holding every media notice of the turn, stored beside
+#: the wire request it explains (PB-05: a dropped/converted attachment must never be only a
+#: console line). Same staging seam as ``tool_adaptations`` / ``settings_adjustments``.
+SNAPSHOT_FIELD = "media_notices"
+
+
+def stage_media_notice(record: dict[str, Any]) -> None:
+    """Append a notice to the turn's staged request-snapshot metadata, once per request.
+
+    Sync and import-light so serializers can call it too. A tool loop re-runs the
+    preprocessor every round; the same notice is stored once.
+    """
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        from matrx_ai.orchestrator.snapshot_metadata import REQUEST_SNAPSHOT_METADATA_KEY
+    except Exception:  # noqa: BLE001
+        return
+    app_ctx = try_get_app_context()
+    metadata = getattr(app_ctx, "metadata", None) if app_ctx is not None else None
+    if not isinstance(metadata, dict):
+        return
+    staged = dict(metadata.get(REQUEST_SNAPSHOT_METADATA_KEY) or {})
+    existing = list(staged.get(SNAPSHOT_FIELD) or [])
+    if record in existing:
+        return
+    staged[SNAPSHOT_FIELD] = [*existing, record]
+    metadata[REQUEST_SNAPSHOT_METADATA_KEY] = staged
+
+
 async def _emit_and_log(
     result: ResolverResult, container: MediaContainer, ctx: MediaResolveContext
 ) -> None:
@@ -161,6 +192,16 @@ async def _emit_and_log(
         title=f"📎 MEDIA {result.action.upper()} [{ctx.endpoint}]: {result.system_message or result.user_message}",
         color=color,
         verbose=True,
+    )
+    stage_media_notice(
+        {
+            "media_kind": container.value,
+            "action": result.action,
+            "user_message": result.user_message,
+            "system_message": result.system_message,
+            "provider": ctx.endpoint,
+            "model": ctx.model_name,
+        }
     )
     try:
         from matrx_connect import try_get_app_context
@@ -212,6 +253,40 @@ def has_unsupported_media(
     )
 
 
+async def _name_media_by_file_id(messages: MessageList) -> None:
+    """Give every media item its file's own name (``metadata.file_name``) before dispatch.
+
+    The boundary usually carries it from resolution; any item still nameless is named by ONE
+    batched host read for the whole message list, as the person (``source_name_resolver``,
+    kind ``file``). A name that cannot be read stays absent and the serializer's identity part
+    says ``name_unavailable`` (PB-05 defect 54)."""
+    nameless: list[Any] = []
+    try:
+        for message in messages.to_list():
+            for content in getattr(message, "content", None) or []:
+                if container_for_content(content) is None or not getattr(content, "file_id", None):
+                    continue
+                # Only media the files access gate already released for this request
+                # (bytes or a minted url, no resolver error) — the name read rides that decision.
+                released = getattr(content, "base64_data", None) or getattr(content, "resolved_url", None)
+                if not released or getattr(content, "resolver_error", None):
+                    continue
+                metadata = getattr(content, "metadata", None)
+                if isinstance(metadata, dict) and not metadata.get("file_name"):
+                    nameless.append(content)
+    except Exception:  # noqa: BLE001 — naming must never break dispatch
+        return
+    if not nameless:
+        return
+    from matrx_ai.config.structured_input_config import _source_names
+
+    names, _reason = await _source_names([("file", str(c.file_id)) for c in nameless])
+    for content in nameless:
+        name = names.get(("file", str(content.file_id)))
+        if name:
+            content.metadata["file_name"] = name
+
+
 async def preprocess_unsupported_media(
     messages: MessageList,
     endpoint: str | None,
@@ -221,6 +296,7 @@ async def preprocess_unsupported_media(
     debug: bool = False,
 ) -> tuple[MessageList, list[TokenUsage]]:
     """Convert every unsupported media item or raise before provider dispatch."""
+    await _name_media_by_file_id(messages)
     unsupported = find_unsupported_media(
         messages,
         endpoint,
@@ -241,7 +317,9 @@ async def preprocess_unsupported_media(
         new_content: list[Any] = []
         for content in getattr(message, "content", None) or []:
             container = container_for_content(content)
-            if container is not None and container in unsupported:
+            if container is not None and content_needs_fallback(
+                content, endpoint, model_supports_vision=model_supports_vision
+            ):
                 result = await _safe_resolve(container, content, ctx)
                 await _emit_and_log(result, container, ctx)
                 if result.replacement is None:
@@ -269,6 +347,8 @@ async def preprocess_unsupported_media(
 
 
 __all__ = [
+    "SNAPSHOT_FIELD",
+    "stage_media_notice",
     "MediaResolveContext",
     "ResolverResult",
     "register_media_resolver",

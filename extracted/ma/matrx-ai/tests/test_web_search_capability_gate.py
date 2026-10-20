@@ -1,5 +1,5 @@
 """Regression guard: the hosted web-search tool must never be sent to a model
-that can't honour it.
+that can't honor it.
 
 The incident: ``internal_web_search=True`` rode a request to ``gpt-4.1-nano``,
 the OpenAI translator unconditionally appended ``{"type": "web_search_preview"}``,

@@ -3,6 +3,7 @@ Unified AI API Configuration System for OpenAI, Anthropic, and Google Gemini
 Preserves ALL content types and metadata from all providers
 """
 
+import re
 from collections.abc import Callable
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any, Literal
@@ -39,6 +40,33 @@ _KNOWN_PASSTHROUGH_KEYS: frozenset[str] = frozenset(
         "realtime_tools",  # realtime/voice: client-declared realtime tool set
     }
 )
+
+
+#: Provider-native key -> canonical UnifiedConfig field, normalized in ``from_dict``.
+_FIELD_ALIASES: dict[str, str] = {
+    "max_tokens": "max_output_tokens",
+    "n": "count",
+    "num_outputs": "count",
+    "number_of_images": "count",
+    "quality": "render_quality",
+    "output_quality": "encode_quality",
+    "seconds": "duration_seconds",
+    "duration": "duration_seconds",
+}
+
+
+def recognized_setting_keys() -> frozenset[str]:
+    """THE settings-key vocabulary: every key the run door (``UnifiedConfig.from_dict``) knows
+    without warning ``unrecognized_config`` — declared fields, ``model_id``, the provider-native
+    aliases and the known passthrough keys. The agent save door reads this same set
+    (``agent_service.crud.accepted_settings_keys``), so a key is never accepted at save and
+    "unrecognized" at run."""
+    return frozenset(
+        set(UnifiedConfig.__dataclass_fields__)
+        | {"model_id"}
+        | set(_FIELD_ALIASES)
+        | set(_KNOWN_PASSTHROUGH_KEYS)
+    )
 
 
 def _sandbox_fs_tool_names() -> frozenset[str]:
@@ -239,6 +267,11 @@ class UnifiedConfig:
     temperature: float | None = None
     top_p: float | None = None
     top_k: int | None = None
+    # OpenAI-family sampling penalties. KNOWN at the run door so a saved agent that carries them
+    # is never told they are "unrecognized"; the per-model rules (CompiledControlsMap.outbound)
+    # send them where the model takes them and drop them, loudly, where it does not.
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
 
     tools: list = field(default_factory=list)
     # Durable pre-policy declaration. ``tools`` is the effective request set
@@ -272,6 +305,12 @@ class UnifiedConfig:
     # In-memory only: sticky names this turn WITHHOLDS (see above). Read by every
     # restore path so a filter restore can never resurrect a withheld tool.
     dynamic_tools_withheld: list[str] = field(default_factory=list)
+    # THE TOOLS ARRAY THE PROVIDER LAST SAW, per provider, in first-sent order with
+    # first-sent bytes (matrx_ai/tools/declaration_ledger.py). Persisted with the
+    # conversation so a restart, crash recovery or a resume on another server keeps
+    # the array append-only — tools head the prompt-cache prefix.
+    # Shape: ``{provider: [{"name": wire_name, "declaration": {...}}]}``.
+    tool_declarations: dict[str, list[dict[str, Any]]] | None = None
     # THE AGENT'S TOOL POLICY, carried by the conversation. Stamped on the first
     # turn from the agent definition (``auto_tools_disabled`` / ``excluded_tools``)
     # by ``aidream.services.tooling.tool_merge.apply_unified_tools`` and persisted,
@@ -288,6 +327,10 @@ class UnifiedConfig:
     # which rung/variant each block came from.
     prompt_blocks: list[str] = field(default_factory=list)
     prompt_block_creator: str | None = None
+    # The organization that OWNS the agent definition. What the definition names by key
+    # resolves from it after the run's organization (prompt blocks: personal > run org >
+    # this > system). Never the run's tenancy: the run is stamped with ctx.organization_id.
+    agent_organization_id: str | None = None
     prompt_block_texts: dict[str, str] | None = None
     prompt_block_report: list[dict[str, Any]] = field(default_factory=list)
     prompt_block_tool_ids: list[str] = field(default_factory=list)
@@ -328,6 +371,13 @@ class UnifiedConfig:
     # tools. A single layer that fails closed to the wrong answer is not a
     # layer. See `matrx_ai/agents/live_structure.py`.
     responder_mandate_key: str | None = None
+    # 🚨 THE HELD SYSTEM TEXT (cache line law, 2026-10-16). In-memory only; set
+    # by the resolver on a mandate-held turn: ``{"holder": <fingerprint>,
+    # "stored": <the row's frozen record or None>}``. The send boundary settles
+    # it on the first send (``settled``/``record``) and persistence writes the
+    # record back to the row (``live_structure.HELD_PROMPT_KEY``). See
+    # ``agents/live_structure.py``.
+    held_prompt: dict[str, Any] | None = None
     # 🚨 "THIS MESSAGE ONLY" — a one-turn model choice. In-memory only, never
     # stored. When set, it holds the conversation's OWN model (and its class
     # pins) from before this turn's override, so the turn runs on the picked
@@ -400,7 +450,7 @@ class UnifiedConfig:
     internal_web_search: bool | None = None
     internal_url_context: bool | None = None
     # xAI Grok native X (Twitter) search — modeled on internal_url_context.
-    # Honoured by the xAI translator; dropped (yellow warning) for other providers.
+    # Honored by the xAI translator; dropped (yellow warning) for other providers.
     internal_x_search: bool | None = None
 
     # =====================================================================
@@ -638,7 +688,7 @@ class UnifiedConfig:
         is correct for a consumer that wants to forward them, and wrong for any
         consumer that wants to tell a user something was ignored: a podcast run
         sends ``multi_speaker`` by design, and warning on it says the platform
-        dropped a feature it in fact honoured.
+        dropped a feature it in fact honored.
 
         Use this for anything user-facing; use ``_unrecognized_keys`` only when you
         genuinely want the passthrough keys too.
@@ -706,16 +756,6 @@ class UnifiedConfig:
         # `num_outputs: 4` (Replicate native). Normalize to the canonical
         # UnifiedConfig field names here so translators only ever read one
         # form. Mirrors LLMParams._FIELD_ALIASES exactly.
-        _FIELD_ALIASES = {
-            "max_tokens": "max_output_tokens",
-            "n": "count",
-            "num_outputs": "count",
-            "number_of_images": "count",
-            "quality": "render_quality",
-            "output_quality": "encode_quality",
-            "seconds": "duration_seconds",
-            "duration": "duration_seconds",
-        }
         _COERCE_INT = {"seconds", "duration"}
         for old_key, new_key in _FIELD_ALIASES.items():
             if old_key not in data:
@@ -830,6 +870,8 @@ class UnifiedConfig:
             temperature=data.get("temperature"),
             top_p=data.get("top_p"),
             top_k=data.get("top_k"),
+            frequency_penalty=data.get("frequency_penalty"),
+            presence_penalty=data.get("presence_penalty"),
             tools=data.get("tools", []),
             authored_tools=data.get("authored_tools"),
             dynamic_tools=data.get("dynamic_tools"),
@@ -838,10 +880,16 @@ class UnifiedConfig:
                 if isinstance(data.get("dynamic_tool_sources"), dict)
                 else {}
             ),
+            tool_declarations=(
+                data.get("tool_declarations")
+                if isinstance(data.get("tool_declarations"), dict)
+                else None
+            ),
             agent_auto_tools_disabled=data.get("agent_auto_tools_disabled"),
             agent_excluded_tools=data.get("agent_excluded_tools"),
             prompt_blocks=list(data.get("prompt_blocks") or []),
             prompt_block_creator=data.get("prompt_block_creator"),
+            agent_organization_id=data.get("agent_organization_id"),
             prompt_block_report=list(data.get("prompt_block_report") or []),
             prompt_block_tool_ids=list(data.get("prompt_block_tool_ids") or []),
             tool_authority_filtered=bool(data.get("tool_authority_filtered", False)),
@@ -870,6 +918,8 @@ class UnifiedConfig:
             response_format=data.get("response_format"),
             stop_sequences=data.get("stop_sequences", []),
             store=data.get("store"),
+            # The agent's LONG CACHE setting: read here or it never reaches a translator.
+            extended_prompt_cache=data.get("extended_prompt_cache"),
             previous_interaction_id=data.get("previous_interaction_id"),
             task=data.get("task"),
             verbosity=data.get("verbosity"),
@@ -1040,6 +1090,10 @@ class UnifiedConfig:
             config["top_p"] = self.top_p
         if self.top_k is not None:
             config["top_k"] = self.top_k
+        if self.frequency_penalty is not None:
+            config["frequency_penalty"] = self.frequency_penalty
+        if self.presence_penalty is not None:
+            config["presence_penalty"] = self.presence_penalty
         if self.tools:
             config["tools"] = self.tools
         # ALWAYS written once known, even empty: an absent key reads back as ``None``,
@@ -1058,6 +1112,8 @@ class UnifiedConfig:
                 for name, source in self.dynamic_tool_sources.items()
                 if name in set(self.dynamic_tools or [])
             }
+        if self.tool_declarations:
+            config["tool_declarations"] = self.tool_declarations
         if self.authored_custom_tools:
             config["authored_custom_tools"] = [
                 tool.model_dump(mode="json") if hasattr(tool, "model_dump") else tool
@@ -1073,6 +1129,8 @@ class UnifiedConfig:
             config["prompt_blocks"] = list(self.prompt_blocks)
         if self.prompt_block_creator:
             config["prompt_block_creator"] = self.prompt_block_creator
+        if self.agent_organization_id:
+            config["agent_organization_id"] = self.agent_organization_id
         if self.prompt_block_report:
             config["prompt_block_report"] = list(self.prompt_block_report)
         if self.prompt_block_tool_ids:
@@ -1089,6 +1147,11 @@ class UnifiedConfig:
             # nothing else survived.
             config["responder_mandate_key"] = self.responder_mandate_key
             config["structure_is_live"] = True
+        held_record = (self.held_prompt or {}).get("record")
+        if isinstance(held_record, dict) and held_record.get("text"):
+            # The held system text this turn sent — the row keeps it so the next
+            # turn sends the same bytes (live_structure.HELD_PROMPT_KEY).
+            config["held_system_prompt"] = dict(held_record)
         if self.tool_delegation_filtered:
             config["tool_delegation_filtered"] = True
         if self.tool_delegation_executors is not None:
@@ -1137,6 +1200,8 @@ class UnifiedConfig:
             config["internal_x_search"] = self.internal_x_search
         if self.store is not None:
             config["store"] = self.store
+        if self.extended_prompt_cache is not None:
+            config["extended_prompt_cache"] = self.extended_prompt_cache
         if self.previous_interaction_id is not None:
             config["previous_interaction_id"] = self.previous_interaction_id
         if self.task is not None:
@@ -1232,7 +1297,7 @@ class UnifiedConfig:
             return False
         for block in last.content:
             template = getattr(block, "_authored_template", None)
-            if template and template != block.text:
+            if template and template != block.text and not _filled_with_nothing(template, block.text):
                 return True
         return False
 
@@ -1552,3 +1617,18 @@ def _has_words_or_media(user_input: Any) -> bool:
             else:
                 return True
     return False
+
+
+_TEMPLATE_SLOT = re.compile(r"\{\{[^{}]*\}\}")
+
+
+def _filled_with_nothing(template: str, text: str | None) -> bool:
+    """True when every ``{{slot}}`` of an authored turn was filled with an empty value.
+
+    Such a turn carries no run context: it is the author's sentence with holes in it
+    ("I'd like your help writing something. Here is what I'm looking to create:\n\n\n\n…").
+    Counted as "filled", it stayed in the person's first turn and was stored as words she never
+    typed (live 2026-10-19, conversation 47da87f1, Content Writing Partner with no values).
+    """
+    return text is not None and _TEMPLATE_SLOT.sub("", template) == text
+

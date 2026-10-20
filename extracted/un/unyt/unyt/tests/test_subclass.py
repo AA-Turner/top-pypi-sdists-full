@@ -596,6 +596,12 @@ class TestNumpyFunctions:
                             category=UserWarning,
                             message="numpy.savetxt does not preserve units",
                         )
+                    if fname == "fix":
+                        warnings.filterwarnings(
+                            action="ignore",
+                            category=DeprecationWarning,
+                            message="numpy.fix is deprecated",
+                        )
                     try:
                         ua_result = func(*ua_args)
                     except:
@@ -623,9 +629,15 @@ class TestNumpyFunctions:
                         category=UserWarning,
                         message="numpy.savetxt does not preserve units or extra_attr",
                     )
+                if fname == "fix":
+                    warnings.filterwarnings(
+                        action="ignore",
+                        category=DeprecationWarning,
+                        message="numpy.fix is deprecated",
+                    )
                 try:
                     result = func(*args)
-                except:
+                except:  # pragma: no cover
                     print(f"Crashed in {fname} with subclass input.")
                     raise
             if fname.split(".")[-1] in (
@@ -644,9 +656,9 @@ class TestNumpyFunctions:
             ignore_values = fname in {"empty_like"}  # empty_like has arbitrary data
             try:
                 check_result(result, ua_result, ignore_values=ignore_values)
-            except AssertionError:
+            except AssertionError:  # pragma: no cover
                 bad_funcs["np." + fname] = result, ua_result
-        if len(bad_funcs) > 0:
+        if len(bad_funcs) > 0:  # pragma: no cover
             raise AssertionError(
                 "Some functions did not return expected types "
                 "(obtained, obtained with unyt input): " + str(bad_funcs)
@@ -658,7 +670,7 @@ class TestNumpyFunctions:
         ]
         try:
             assert len(unchecked_functions) == 0
-        except AssertionError:
+        except AssertionError:  # pragma: no cover
             raise AssertionError(
                 "Did not check functions",
                 [
@@ -786,13 +798,11 @@ class TestNumpyFunctions:
         ua_result = func(
             *ua_args, bins=ua_bins, density=density, weights=to_ua(weights)
         )
-        if isinstance(ua_result, tuple):
-            assert isinstance(result, tuple)
-            assert len(result) == len(ua_result)
-            for r, ua_r in zip(result, ua_result):
-                check_result(r, ua_r)
-        else:
-            check_result(result, ua_result)
+        assert isinstance(ua_result, tuple)
+        assert isinstance(result, tuple)
+        assert len(result) == len(ua_result)
+        for r, ua_r in zip(result, ua_result):
+            check_result(r, ua_r)
         if not density and not isinstance(weights, subclass_uarray):
             assert not isinstance(result[0], subclass_uarray)
         else:

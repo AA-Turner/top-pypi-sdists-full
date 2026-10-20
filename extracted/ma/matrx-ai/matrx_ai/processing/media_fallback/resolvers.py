@@ -28,6 +28,11 @@ MAX_EXTRACTED_DOCUMENT_CHARS = 100_000
 
 
 def _document_name(content: Any) -> str:
+    metadata = getattr(content, "metadata", None) or {}
+    for key in ("file_name", "filename", "name", "title", "original_name"):
+        value = metadata.get(key) if isinstance(metadata, dict) else None
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     return (
         getattr(content, "file_name", None)
         or getattr(content, "filename", None)
@@ -53,15 +58,19 @@ def _extract_pdf(raw: bytes) -> str | None:
     return extract_text_from_bytes_sync(raw, use_ocr_threshold=0)
 
 
-def _extract_office(raw: bytes, mime: str, file_name: str) -> str | None:
+def _extract_office(raw: bytes, mime: str, file_name: str) -> tuple[str | None, list[str]]:
     """docx/pptx/xlsx → clean markdown via the canonical matrx-files Office
     codec (tables, headings, slide notes, per-sheet data — not just paragraph
     text). One codec for chat attachments AND RAG ingest, so a model reads the
     same representation the pipeline stores."""
     from matrx_files.specific_handlers.office import extract_office
 
+    # Legacy .doc/.ppt/.xls convert through LibreOffice inside the codec when the host
+    # has it; otherwise LegacyBinaryOfficeError becomes a stored notice + terminal error.
     extraction = extract_office(raw, mime_type=mime, file_name=file_name)
-    return extraction.markdown or None
+    # The codec's own cuts (rows past its sheet cap, slides/sheets past its portion
+    # cap) travel to the notice — never only inside the markdown.
+    return extraction.markdown or None, list(extraction.warnings)
 
 
 def _extract_html(raw: bytes) -> str | None:
@@ -114,15 +123,18 @@ _EXTRACTORS = {
 }
 
 
-def _extract_document_text(raw: bytes, fmt: str, name: str = "", mime: str = "") -> str | None:
+def _extract_document_text(
+    raw: bytes, fmt: str, name: str = "", mime: str = ""
+) -> tuple[str | None, list[str]]:
+    """Text for the model plus any cuts the extractor made (shown in the notice)."""
     if fmt == "text":
-        return _decode_text(raw)
+        return _decode_text(raw), []
     if fmt == "office":
         return _extract_office(raw, mime, name)
     extractor = _EXTRACTORS.get(fmt)
     if extractor is None:
-        return None
-    return extractor(raw)
+        return None, []
+    return extractor(raw), []
 
 
 async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverResult:
@@ -154,7 +166,8 @@ async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverR
             system_message=f"base64 decode failed: {exc!r}",
         )
     try:
-        text = (await asyncio.to_thread(_extract_document_text, raw, fmt, name, mime) or "").strip()
+        extracted, cuts = await asyncio.to_thread(_extract_document_text, raw, fmt, name, mime)
+        text = (extracted or "").strip()
     except Exception as exc:  # noqa: BLE001 — extractor lib missing or parse failure → clean drop
         return ResolverResult(
             replacement=None,
@@ -172,6 +185,8 @@ async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverR
     truncated = len(text) > MAX_EXTRACTED_DOCUMENT_CHARS
     if truncated:
         text = text[:MAX_EXTRACTED_DOCUMENT_CHARS]
+        cuts = [*cuts, f"text cut to {MAX_EXTRACTED_DOCUMENT_CHARS:,} characters"]
+    cut_note = f" Cut: {'; '.join(cuts)}." if cuts else ""
     body = f"[Document extracted to text — {name}{' (truncated)' if truncated else ''}]\n\n{text}"
     return ResolverResult(
         replacement=TextContent(
@@ -179,13 +194,14 @@ async def _resolve_document(content: Any, ctx: MediaResolveContext) -> ResolverR
             metadata={
                 "original_type": "document",
                 "extracted_from": fmt,
-                "truncated": truncated,
+                "truncated": truncated or bool(cuts),
+                "cuts": cuts,
             },
         ),
         action="extracted",
         user_message=(
             f"'{name}' converted to text — {ctx.model_name} can't read {fmt.upper()} files directly, "
-            f"so its contents were extracted{' (truncated — the document was very long)' if truncated else ''}."
+            f"so its contents were extracted.{cut_note}"
         ),
         system_message=(
             f"DocumentContent → text via {fmt} extractor "

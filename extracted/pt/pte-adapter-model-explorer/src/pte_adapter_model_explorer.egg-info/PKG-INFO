@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pte-adapter-model-explorer
-Version: 0.1.2
+Version: 0.2.0
 Summary: Adapter for Model Explorer to support PTE files for Ethos-U and VGF targets
 License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/arm/pte-adapter-model-explorer
@@ -15,8 +15,8 @@ Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ai-edge-model-explorer<0.2.0,>=0.1.28
-Requires-Dist: vgf-adapter-model-explorer==0.4.1
-Requires-Dist: tosa-adapter-model-explorer==0.1.0
+Requires-Dist: vgf-adapter-model-explorer<0.6.0,>=0.4.1
+Requires-Dist: tosa-adapter-model-explorer<0.3.0,>=0.1.0
 Requires-Dist: flatbuffers>25.9
 Dynamic: license-file
 

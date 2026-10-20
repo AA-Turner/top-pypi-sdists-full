@@ -130,6 +130,9 @@ async def persist_stream_turn_failure(
         "content": [{"type": "text", "text": user_message or message}],
         "error": error_struct,
         "created_by": user_id or None,
+        # The sender (defect 55): on this component the trigger rewrites created_by to
+        # the conversation's owner, so the turn's own actor is kept in updated_by.
+        "updated_by": user_id or None,
         "organization_id": organization_id,
     }
 

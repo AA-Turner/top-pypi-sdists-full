@@ -24,6 +24,7 @@ from sqlbuild.adapter.contract.classes.base_adapter import (
     _encode_typed_json,
     _quote_sql_string,
     _render_ansi_typed_scalar,
+    _render_explicit_source_relation_cast_subquery,
     _render_typed_value_list,
     _validate_rectangular_typed_array,
 )
@@ -76,6 +77,7 @@ from sqlbuild.adapter.contract.models import (
     SnapshotSqlDialect,
     TableFreshnessMetadata,
     TableFreshnessRequest,
+    TemporaryFunction,
 )
 from sqlbuild.adapter.contract.types import (
     BuiltinAdapter,
@@ -534,6 +536,25 @@ class PostgresAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
             f"CREATE OR REPLACE FUNCTION {destination}({arg_sql})\n"
             f"{returns_clause}\n"
             f"LANGUAGE SQL AS $$\n{body_sql}\n$$",
+        )
+
+    def render_create_temporary_function(
+        self, *, name: str, definition: FunctionDefinition
+    ) -> TemporaryFunction | None:
+        """Copy a SQL function into the session's `pg_temp` schema, called schema-qualified."""
+
+        if definition.language != FunctionLanguage.SQL:
+            return None
+        target: str = f"pg_temp.{self.render_identifier(name)}"
+        return TemporaryFunction(
+            target=target,
+            statements=self.render_create_function(
+                destination=target,
+                arguments=definition.arguments,
+                returns=definition.returns,
+                body_sql=definition.body_sql,
+                return_columns=definition.return_columns,
+            ),
         )
 
     def render_append(
@@ -2022,20 +2043,14 @@ class PostgresAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     ) -> str:
         """Render Postgres source casts without relying on unsupported star exclusion."""
 
-        cast_clause: str = ", ".join(cast_projections)
-        if all_columns_cast:
-            return f"(SELECT {cast_clause} FROM {source_relation})"
-        projection_names: set[str] = set(cast_column_names)
-        passthrough_columns: tuple[str, ...] = tuple(
-            column for column in warehouse_column_names if column not in projection_names
+        return _render_explicit_source_relation_cast_subquery(
+            source_relation=source_relation,
+            cast_projections=cast_projections,
+            cast_column_names=cast_column_names,
+            warehouse_column_names=warehouse_column_names,
+            all_columns_cast=all_columns_cast,
+            render_identifier=self.render_identifier,
         )
-        passthrough_clause: str = ", ".join(
-            self.render_identifier(name) for name in passthrough_columns
-        )
-        projection_clause: str = cast_clause
-        if passthrough_clause:
-            projection_clause = f"{passthrough_clause}, {cast_clause}"
-        return f"(SELECT {projection_clause} FROM {source_relation})"
 
     def requires_derived_table_aliases(self) -> bool:
         """Postgres does not require aliases for derived table factors."""
@@ -2255,6 +2270,20 @@ class PostgresAdapter(MicrobatchMixin, UnkeyedDiffMixin, BaseAdapter):
     def column_rename_unavailable_reason(self, *, connection: Any, destination: str) -> str | None:
         del connection, destination
         return None
+
+    def widen_target_nullability(
+        self,
+        *,
+        connection: Any,
+        destination: str,
+        target_columns: tuple[ColumnInfo, ...],
+        incoming_columns: tuple[ColumnInfo, ...],
+        statement_recorder: StatementRecorder,
+    ) -> tuple[ColumnInfo, ...]:
+        """Return the target columns unchanged; this warehouse never stores NULL as a default."""
+
+        del connection, destination, incoming_columns, statement_recorder
+        return target_columns
 
     def alter_column_types(
         self,

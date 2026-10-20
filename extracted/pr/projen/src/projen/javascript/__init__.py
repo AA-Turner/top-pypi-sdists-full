@@ -9197,7 +9197,7 @@ class NodePackage(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
+        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
@@ -9983,7 +9983,7 @@ class NodePackageOptions:
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
+        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
@@ -10594,7 +10594,8 @@ class NodePackageOptions:
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
-        Must be a URL (e.g. start with "https://" or "http://")
+        Must be a URL (e.g. start with "https://" or "http://").
+        A trailing slash is added if missing.
 
         :default: "https://registry.npmjs.org"
 
@@ -11002,7 +11003,7 @@ class NodeProject(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
+        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
@@ -11915,7 +11916,7 @@ class NodeProjectOptions(
         :param min_node_version: (experimental) The minimum node version required by this package to function. Most projects should not use this option. The value indicates that the package is incompatible with any older versions of node. This requirement is enforced via the engines field. You will normally not need to set this option, even if your package is incompatible with EOL versions of node. Consider this option only if your package depends on a specific feature, that is not available in other LTS versions. Setting this option has very high impact on the consumers of your package, as package managers will actively prevent usage with node versions you have marked as incompatible. To change the node version of your CI/CD workflows, use ``workflowNodeVersion``. Default: - no minimum version is enforced
         :param npm_access: (experimental) Access level of the npm package. Default: - for scoped packages (e.g. ``foo@bar``), the default is ``NpmAccess.RESTRICTED``, for non-scoped packages, the default is ``NpmAccess.PUBLIC``.
         :param npm_provenance: (experimental) Should provenance statements be generated when the package is published. A supported package manager is required to publish a package with npm provenance statements and you will need to use a supported CI/CD provider. Note that the projen ``Release`` and ``Publisher`` components are using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - true for public packages, false otherwise
-        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://") Default: "https://registry.npmjs.org"
+        :param npm_registry_url: (experimental) The base URL of the npm package registry. Must be a URL (e.g. start with "https://" or "http://"). A trailing slash is added if missing. Default: "https://registry.npmjs.org"
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: "NPM_TOKEN"
         :param npm_trusted_publishing: (experimental) Use trusted publishing for publishing to npmjs.com Needs to be pre-configured on npm.js to work. Default: - false
         :param package_manager: (experimental) The Node Package Manager used to execute scripts. Default: - Detected from the calling process or ``YARN_CLASSIC`` if detection fails.
@@ -13230,7 +13231,8 @@ class NodeProjectOptions(
     def npm_registry_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) The base URL of the npm package registry.
 
-        Must be a URL (e.g. start with "https://" or "http://")
+        Must be a URL (e.g. start with "https://" or "http://").
+        A trailing slash is added if missing.
 
         :default: "https://registry.npmjs.org"
 
@@ -20838,6 +20840,7 @@ class Transform(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Transform"
         "always_strict": "alwaysStrict",
         "base_url": "baseUrl",
         "check_js": "checkJs",
+        "composite": "composite",
         "custom_conditions": "customConditions",
         "declaration": "declaration",
         "declaration_dir": "declarationDir",
@@ -20909,6 +20912,7 @@ class TypeScriptCompilerOptions:
         always_strict: typing.Optional[builtins.bool] = None,
         base_url: typing.Optional[builtins.str] = None,
         check_js: typing.Optional[builtins.bool] = None,
+        composite: typing.Optional[builtins.bool] = None,
         custom_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
         declaration: typing.Optional[builtins.bool] = None,
         declaration_dir: typing.Optional[builtins.str] = None,
@@ -20976,6 +20980,7 @@ class TypeScriptCompilerOptions:
         :param always_strict: (experimental) Ensures that your files are parsed in the ECMAScript strict mode, and emit “use strict” for each source file. Default: true
         :param base_url: (experimental) Lets you set a base directory to resolve non-absolute module names. You can define a root folder where you can do absolute file resolution.
         :param check_js: (experimental) Check JS. Works in tandem with `allowJs <https://www.typescriptlang.org/tsconfig#allowJs>`_. When checkJs is enabled then errors are reported in JavaScript files. This is the equivalent of including //
+        :param composite: (experimental) Enable constraints required for a TypeScript project to be referenced by other projects. Default: - not set
         :param custom_conditions: (experimental) List of additional conditions that should succeed when TypeScript resolves from an ``exports`` or ``imports`` field of a ``package.json``. Default: undefined
         :param declaration: (experimental) To be specified along with the above.
         :param declaration_dir: (experimental) Offers a way to configure the root directory for where declaration files are emitted.
@@ -21046,6 +21051,7 @@ class TypeScriptCompilerOptions:
             check_type(argname="argument always_strict", value=always_strict, expected_type=type_hints["always_strict"])
             check_type(argname="argument base_url", value=base_url, expected_type=type_hints["base_url"])
             check_type(argname="argument check_js", value=check_js, expected_type=type_hints["check_js"])
+            check_type(argname="argument composite", value=composite, expected_type=type_hints["composite"])
             check_type(argname="argument custom_conditions", value=custom_conditions, expected_type=type_hints["custom_conditions"])
             check_type(argname="argument declaration", value=declaration, expected_type=type_hints["declaration"])
             check_type(argname="argument declaration_dir", value=declaration_dir, expected_type=type_hints["declaration_dir"])
@@ -21121,6 +21127,8 @@ class TypeScriptCompilerOptions:
             self._values["base_url"] = base_url
         if check_js is not None:
             self._values["check_js"] = check_js
+        if composite is not None:
+            self._values["composite"] = composite
         if custom_conditions is not None:
             self._values["custom_conditions"] = custom_conditions
         if declaration is not None:
@@ -21360,6 +21368,18 @@ class TypeScriptCompilerOptions:
         JavaScript files which are included in your project.
         '''
         result = self._values.get("check_js")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def composite(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable constraints required for a TypeScript project to be referenced by other projects.
+
+        :default: - not set
+
+        :see: https://www.typescriptlang.org/tsconfig/composite.html
+        :stability: experimental
+        '''
+        result = self._values.get("composite")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -31937,6 +31957,7 @@ def _typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14
     always_strict: typing.Optional[builtins.bool] = None,
     base_url: typing.Optional[builtins.str] = None,
     check_js: typing.Optional[builtins.bool] = None,
+    composite: typing.Optional[builtins.bool] = None,
     custom_conditions: typing.Optional[typing.Sequence[builtins.str]] = None,
     declaration: typing.Optional[builtins.bool] = None,
     declaration_dir: typing.Optional[builtins.str] = None,

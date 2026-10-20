@@ -23,6 +23,9 @@ cluster:
 # Internal users should be able to access these resources for debugging purposes.
 internal_resources:
   org_id: wildcard
+aws_account:
+  # read: can see which AWS account hosts the org's workspaces
+  org_id: wildcard
 flow:
   # DEPRECATED
   # read: can read information about a flow (view nodes, sample data, config)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.158.2
+Version: 0.162.1
 Requires-Dist: duckdb>=1.3.2
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: orjson>=3.11.7
@@ -8,8 +8,9 @@ Requires-Dist: polyglot-sql-chio==0.13.9
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: rich>=15.0.0
-Requires-Dist: sqlbuild-cli==0.158.2
+Requires-Dist: sqlbuild-cli==0.162.1
 Requires-Dist: google-cloud-bigquery>=3.37.0 ; extra == 'bigquery'
+Requires-Dist: clickhouse-connect>=0.8 ; extra == 'clickhouse'
 Requires-Dist: dagster>=1.13.0 ; extra == 'dagster'
 Requires-Dist: dagster-webserver>=1.13.0 ; extra == 'dagster'
 Requires-Dist: databricks-sql-connector[pyarrow]>=4.1.2 ; extra == 'databricks'
@@ -21,6 +22,7 @@ Requires-Dist: rivers>=0.1.4 ; extra == 'rivers'
 Requires-Dist: snowflake-connector-python>=4.7.1,<5 ; extra == 'snowflake'
 Requires-Dist: pymssql>=2.3.0 ; extra == 'sqlserver'
 Provides-Extra: bigquery
+Provides-Extra: clickhouse
 Provides-Extra: dagster
 Provides-Extra: databricks
 Provides-Extra: dbt

@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "marimo-base"
-version = "0.25.1"
+version = "0.25.2"
 description = "A library for making reactive notebooks and apps"
 dependencies = [
     "click>=8.0,<9; sys_platform != 'emscripten'",
@@ -18,15 +18,15 @@ dependencies = [
     "starlette>=0.37.2; sys_platform != 'emscripten'",
     "python-multipart>=0.0.18",
     "websockets >= 14.2.0; sys_platform != 'emscripten'",
-    "loro>=1.10.0; sys_platform != 'emscripten' and sys_platform != 'android'",
+    "loro>=1.10.0; python_version < '3.15' and sys_platform != 'emscripten' and sys_platform != 'android'",
     "typing_extensions>=4.4.0; python_version < '3.12'",
     "docutils>=0.16.0",
     "psutil>=5.0; sys_platform != 'emscripten' and sys_platform != 'android'",
     "itsdangerous>=2.0.0",
     "narwhals>=2.0.0",
     "packaging",
-    "msgspec>=0.20.0",
-    "pyzmq>=27.1.0; python_version < '3.15' and sys_platform != 'emscripten'",
+    "msgspec>=0.22.0",
+    "pyzmq>=27.1.0; sys_platform != 'emscripten'",
 ]
 readme = "README.md"
 license = "Apache-2.0"
@@ -45,6 +45,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
 ]
 
@@ -56,12 +57,13 @@ homepage = "https://github.com/marimo-team/marimo"
 
 [project.entry-points.docstring_to_markdown]
 marimo_converter = "marimo._utils.docs:MarimoConverter"
+marimo_markdown_converter = "marimo._utils.docs:MarkdownConverter"
 
 [project.optional-dependencies]
 sql = [
     "duckdb>=1.0.0",
     "polars[pyarrow]>=1.9.0",
-    "sqlglot[c]>=26.8.0",
+    "sqlglot[c]>=30.7.0",
 ]
 sandbox = ["uv>=0.9.21"]
 recommended = [
@@ -70,7 +72,7 @@ recommended = [
     "marimo-lens>=0.2.3",
     "cryptography>=42.0.0",
     "altair>=5.4.0",
-    "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",
+    "pydantic-ai-slim[openai]>=2.34.0,<3.0.0",
     "ruff",
     "nbformat>=5.7.0",
 ]
@@ -96,11 +98,11 @@ dev = [
     "opentelemetry-sdk~=1.28.0",
     "opentelemetry-exporter-otlp-proto-http~=1.28.0",
     "opentelemetry-exporter-otlp-proto-grpc~=1.28.0",
-    "duckdb>=1.0.0",
-    "sqlglot[c]>=26.8.0",
+    "duckdb>=1.0.0; python_version < '3.15'",
+    "sqlglot[c]>=30.7.0",
     "pyarrow-stubs",
     "ruff>=0.16.6",
-    "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",
+    "pydantic-ai-slim[openai]>=2.34.0,<3.0.0",
 ]
 test = [
     "httpx~=0.28.0",
@@ -116,9 +118,10 @@ test = [
     "inline-snapshot~=0.29.0",
     "hypothesis~=6.102.1",
     "dirty-equals~=0.9.0",
-    "matplotlib~=3.10.7",
+    "matplotlib~=3.10.7; python_version < '3.15'",
+    "numpy",
     "pillow>=9",
-    "zstandard>=0.21.0",
+    "zstandard>=0.21.0; python_version < '3.15'",
     "cffi>=1.16.0",
 ]
 test-optional = [
@@ -133,8 +136,8 @@ test-optional = [
     "altair>=5.4.0",
     "plotly>=5.14.0",
     "polars>=1.32.2",
-    "sqlglot[c]>=26.8.0",
-    "sqlalchemy>=2.0.40,!=2.1.0",
+    "sqlglot[c]>=30.7.0",
+    "sqlalchemy[asyncio]>=2.0.40",
     "obstore>=0.8.2",
     "huggingface-hub>=1.24.0",
     "fsspec>=2026.2.0",
@@ -149,10 +152,10 @@ test-optional = [
     "geopandas>=1.1.0",
     "duckdb>=1.0.0",
     "ibis-framework[duckdb]>=10.3.0",
-    "pillow~=12.0.0",
+    "pillow~=12.0,>=12.3",
     "anywidget~=0.9.21",
     "ipython~=8.12.3",
-    "pydantic-ai-slim[google,anthropic,bedrock,openai]>=1.107.0,<3.0.0",
+    "pydantic-ai-slim[google,anthropic,bedrock,openai]>=2.34.0,<3.0.0",
     "cachetools>=5.0.0",
     "boto3>=1.38.46",
     "nbformat>=5.10.4",
@@ -178,12 +181,12 @@ typecheck = [
     "duckdb>=1.0.0",
     "narwhals>=2.0.0",
     "matplotlib>=3.8.0",
-    "sqlglot[c]>=26.8.0",
-    "sqlalchemy>=2.0.40,!=2.1.0",
+    "sqlglot[c]>=30.7.0",
+    "sqlalchemy[asyncio]>=2.0.40",
     "obstore>=0.8.2",
     "huggingface_hub>=1.24.0",
     "fsspec>=2026.2.0",
-    "pydantic-ai-slim[google,anthropic,bedrock,openai]>=1.107.0,<3.0.0",
+    "pydantic-ai-slim[google,anthropic,bedrock,openai]>=2.34.0,<3.0.0",
     "loro>=1.5.0",
     "boto3-stubs>=1.38.46",
     "pandas-stubs>=1.5.3.230321",
@@ -227,6 +230,11 @@ docs = [
 ]
 
 [tool.uv]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and python_version >= '3.10' and python_version < '3.16'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64' and python_version == '3.10'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64' and python_version == '3.10'",
+]
 exclude-newer = "7 days"
 
 [tool.uv.exclude-newer-package]
@@ -247,31 +255,31 @@ source-include = [
 wheel-exclude = [
     "marimo/_smoke_tests/**",
     "marimo/_lsp",
-    "marimo/_static/manifest.json",
-    "marimo/_static/logo.png",
-    "marimo/_static/site.webmanifest",
-    "marimo/_static/android-chrome-512x512.png",
-    "marimo/_static/assets",
-    "marimo/_static/favicon-16x16.png",
     "marimo/_static/favicon.ico",
+    "marimo/_static/site.webmanifest",
     "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/logo.png",
     "marimo/_static/favicon-32x32.png",
+    "marimo/_static/assets",
     "marimo/_static/apple-touch-icon.png",
+    "marimo/_static/favicon-16x16.png",
+    "marimo/_static/manifest.json",
     "marimo/_static/CLAUDE.md",
+    "marimo/_static/android-chrome-512x512.png",
 ]
 source-exclude = [
     "marimo/_lsp",
-    "marimo/_static/manifest.json",
-    "marimo/_static/logo.png",
-    "marimo/_static/site.webmanifest",
-    "marimo/_static/android-chrome-512x512.png",
-    "marimo/_static/assets",
-    "marimo/_static/favicon-16x16.png",
     "marimo/_static/favicon.ico",
+    "marimo/_static/site.webmanifest",
     "marimo/_static/android-chrome-192x192.png",
+    "marimo/_static/logo.png",
     "marimo/_static/favicon-32x32.png",
+    "marimo/_static/assets",
     "marimo/_static/apple-touch-icon.png",
+    "marimo/_static/favicon-16x16.png",
+    "marimo/_static/manifest.json",
     "marimo/_static/CLAUDE.md",
+    "marimo/_static/android-chrome-512x512.png",
 ]
 
 [tool.ruff]
@@ -280,6 +288,7 @@ include = [
     "marimo/**/*.py",
     "tests/**/*.py",
     "dagger/**/*.py",
+    "protocols/**/*.py",
 ]
 exclude = [
     "build",
@@ -293,6 +302,7 @@ exclude = [
     "marimo/_test_utils/codegen_data",
     "marimo/_tutorials",
     "scripts",
+    "protocols/**/.venv",
     "tests/_ast/app_data",
     "tests/_ast/cell_data",
     "tests/_ast/codegen_data",
@@ -332,6 +342,7 @@ ignore = [
     "DTZ012",
     "DTZ901",
     "D421",
+    "UP052",
     "RUF069",
     "PLW0108",
     "PLC2801",
@@ -392,6 +403,15 @@ convention = "google"
     "PLW1514",
 ]
 "dagger/*" = ["TID252"]
+"protocols/host/generate.py" = ["T201"]
+"protocols/host/conformance/test_*.py" = [
+    "ANN201",
+    "ANN202",
+    "T201",
+    "D",
+    "F841",
+    "PLW1514",
+]
 "marimo/_runtime/patches.py" = ["T100"]
 "tests/_ast/test_codegen.py" = ["FLY002"]
 
@@ -456,6 +476,10 @@ exclude = [
 ]
 warn_unused_ignores = false
 
+[[tool.mypy.overrides]]
+module = ["marimo._core.*"]
+warn_unreachable = true
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q -v --ignore tests/_cli/fixtures --ignore tests/_ast/codegen_data --ignore tests/_ast/app_data"
@@ -472,6 +496,9 @@ markers = [
     "requires(dep1, dep2, ...): requires one or more dependencies to be installed",
     """network: requires internet access to package indexes (deselect with '-m "not network"')""",
 ]
+
+[tool.inline-snapshot]
+format-command = 'ruff format --stdin-filename "{filename}"'
 
 [tool.coverage.run]
 omit = ["marimo/_tutorials/*"]

@@ -283,7 +283,7 @@ async def test_never_returned_then_late_return_supersedes():
 
 
 # ---------------------------------------------------------------------------
-# 6. Cancelled — typed cancellation reaches the model; run resumes to report it.
+# 6. Canceled — typed cancellation reaches the model; run resumes to report it.
 # ---------------------------------------------------------------------------
 async def test_cancelled_resolution_completes_the_call():
     w = World()

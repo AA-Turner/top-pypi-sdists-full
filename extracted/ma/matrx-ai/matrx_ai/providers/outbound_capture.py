@@ -6,12 +6,18 @@ event-hook on every provider SDK's underlying HTTP client.
 
 Design contract
 ---------------
-1. **On for every streamed run (AI Watch, 2026-10-11).** Every run with an
-   emitter streams its exact outbound request so the "Watch AI" window can
-   show what went in before the answer arrives. ``AppContext.snapshot is
-   False`` opts a request out (one ContextVar read + a getattr, then return);
-   bodies over ``AI_WATCH_FULL_BODY_MAX_BYTES`` stream a preview unless the
-   request asked for ``snapshot=True``.
+1. **Only for a run that is being watched (AI Watch gate, 2026-10-19).** A run
+   whose ``AppContext.ai_watch`` is True (set by the host at its request
+   boundary for a permitted viewer who sent ``?debug_view=1``) streams its exact
+   outbound request so the "Watch AI" window can show what went in before the
+   answer arrives. Every other run emits nothing: the wire body carries every
+   provision value, and provision values never reach the browser outside AI
+   Watch (provision audit 2026-10-18). ``AppContext.snapshot is False`` still
+   opts a watched request out; bodies over ``AI_WATCH_FULL_BODY_MAX_BYTES``
+   stream a preview unless the request asked for ``snapshot=True`` — which arms
+   the full body ONLY on a watched run (a body-supplied ``snapshot=True`` alone
+   arms nothing here; the ``chat.request_snapshot`` DB capture is separate and
+   unchanged). This package reads the flag off the context only.
 
 2. **Wire fidelity.** The hook receives ``httpx.Request`` objects *after*
    the provider SDK has serialized them, so the captured bytes are exactly
@@ -177,11 +183,14 @@ def _is_snapshot_enabled() -> tuple[bool, Any]:
     ctx = try_get_app_context()
     if ctx is None:
         return False, None
-    # AI WATCH (Arman, 2026-10-11: "the exact request and response must stream
-    # to the ui so I can watch them, regardless of where they happen"). Every
-    # streamed run carries its exact outbound request unless the request opted
-    # out with ``snapshot=False``. The default (None) emission is size-capped
-    # below; an explicit True keeps the full body.
+    # AI WATCH GATE (provision audit 2026-10-18/19): the exact outbound request
+    # carries every provision value, so it streams ONLY on a run the host marked
+    # as watched (``AppContext.ai_watch``: a permitted viewer who asked, set at
+    # the request boundary — never from a request body). A watched request can
+    # still opt out with ``snapshot=False``. The default (None) emission is
+    # size-capped below; an explicit True keeps the full body.
+    if not getattr(ctx, "ai_watch", False):
+        return False, ctx
     if getattr(ctx, "snapshot", None) is False:
         return False, ctx
     return True, ctx
@@ -195,8 +204,8 @@ AI_WATCH_PREVIEW_BYTES = 64 * 1024
 
 
 async def _outbound_request_hook(request: httpx.Request) -> None:
-    """httpx request event-hook — captures the outbound request when
-    ``AppContext.snapshot`` is True, otherwise returns immediately.
+    """httpx request event-hook — streams the outbound request on a watched
+    run (``AppContext.ai_watch``), otherwise returns immediately.
 
     This runs on EVERY outbound HTTP request from every provider SDK that
     was constructed with ``make_capture_http_client()``. Keep the cold
@@ -391,7 +400,7 @@ def make_capture_http_client(
     module's own import. Omitting ``sdk`` (raw call sites that use the
     client directly, e.g. the xAI TTS POST) keeps plain ``httpx``.
 
-    The capture behaviour is identical on every flavor: the same request
+    The capture behavior is identical on every flavor: the same request
     event-hook, the same timeout default, the same forwarded kwargs. Only
     the ``AsyncClient`` class changes.
     """
@@ -428,7 +437,8 @@ async def emit_explicit_context_analysis(
     Used by SDKs that don't use ``httpx`` (or where we can't inject the
     capture client) — currently ElevenLabs and the Google ``genai`` client
     when its httpx transport isn't reachable. Same gating semantics as the
-    hook: emits unless ``AppContext.snapshot`` is False.
+    hook: emits only on a watched run (``AppContext.ai_watch``), unless
+    ``AppContext.snapshot`` is False.
 
     Provider call sites should still call ``set_call_meta(...)`` first so
     iteration / model / streaming flags are recorded consistently.

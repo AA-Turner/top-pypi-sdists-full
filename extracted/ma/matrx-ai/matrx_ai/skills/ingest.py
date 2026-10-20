@@ -146,6 +146,7 @@ _VALID_SKILL_TYPES = frozenset(
         "reference",
         "mode",
         "agent_behavior",
+        "set",
     }
 )
 
@@ -301,7 +302,7 @@ def _parse_content(content: str, *, skill_id: str, source_path: str) -> ParsedSk
 
     fm_id = _first_present(fm, "name", "skill_id", "id", "slug")
     if isinstance(fm_id, str) and fm_id:
-        # Normalise: spaces → dashes, lowercase. Most authors expect this.
+        # Normalize: spaces → dashes, lowercase. Most authors expect this.
         skill_id = fm_id.strip().replace(" ", "-")
 
     # Description
@@ -631,7 +632,7 @@ def discover_skill_roots(
 
     def _is_in_excluded_segment(p: Path) -> bool:
         s = str(p.resolve())
-        # Normalise Windows separators to forward slashes for the check.
+        # Normalize Windows separators to forward slashes for the check.
         s_norm = s.replace(os.sep, "/")
         return any(seg in s_norm for seg in excluded_segments)
 
@@ -1001,7 +1002,7 @@ async def ingest_filesystem(
 
     Two input modes:
 
-    1. **Host paths** (existing behaviour): pass a path, a Path, or a list
+    1. **Host paths** (existing behavior): pass a path, a Path, or a list
        of paths. Walks the local filesystem via :func:`walk_paths`.
 
     2. **Sandbox binding** (new in Track 2): pass any object with

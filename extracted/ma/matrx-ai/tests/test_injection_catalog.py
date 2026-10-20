@@ -1,4 +1,4 @@
-"""Tests for the hardcoded auto-injection tool catalogue."""
+"""Tests for the hardcoded auto-injection tool catalog."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ def test_empty_source_screams_instead_of_silently_going_blind(monkeypatch, tmp_p
     """The layer-2 backstop: if an INJECTION_SOURCES file EXISTS but yields zero
     names (gutted to a shim in a service-layer move — exactly what happened to
     context_utils/tool_merge/realtime_tools on 2026-07-06), the guard must FAIL
-    loudly (empty_sources) rather than pass with a silently-shrunken catalogue."""
+    loudly (empty_sources) rather than pass with a silently-shrunken catalog."""
     import matrx_ai.injection_catalog as ic
 
     # A source file that exists but has no extractable tool names (a shim body).

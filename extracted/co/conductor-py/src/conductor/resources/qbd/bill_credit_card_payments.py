@@ -113,6 +113,8 @@ class BillCreditCardPaymentsResource(SyncAPIResource):
 
           memo: A memo or note for this bill credit card payment.
 
+              Maximum length: 4095 characters.
+
           payables_account_id: The Accounts-Payable (A/P) account to which this bill credit card payment is
               assigned, used for accounts-payable tracking. If omitted, QuickBooks Desktop
               uses the default A/P account configured in the company file.
@@ -283,6 +285,9 @@ class BillCreditCardPaymentsResource(SyncAPIResource):
               list. Uses a numerical comparison for values that contain only digits;
               otherwise, uses a lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific bill credit card payments by their ref-number(s),
               case-sensitive. In QuickBooks, ref-numbers are not required to be unique and can
               be arbitrarily changed by the QuickBooks user.
@@ -303,6 +308,9 @@ class BillCreditCardPaymentsResource(SyncAPIResource):
               this value. If omitted, the range will end with the last number of the list.
               Uses a numerical comparison for values that contain only digits; otherwise, uses
               a lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for bill credit card payments whose `date` field is on or after this
               date, in ISO 8601 format (YYYY-MM-DD).
@@ -558,6 +566,8 @@ class AsyncBillCreditCardPaymentsResource(AsyncAPIResource):
 
           memo: A memo or note for this bill credit card payment.
 
+              Maximum length: 4095 characters.
+
           payables_account_id: The Accounts-Payable (A/P) account to which this bill credit card payment is
               assigned, used for accounts-payable tracking. If omitted, QuickBooks Desktop
               uses the default A/P account configured in the company file.
@@ -728,6 +738,9 @@ class AsyncBillCreditCardPaymentsResource(AsyncAPIResource):
               list. Uses a numerical comparison for values that contain only digits;
               otherwise, uses a lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific bill credit card payments by their ref-number(s),
               case-sensitive. In QuickBooks, ref-numbers are not required to be unique and can
               be arbitrarily changed by the QuickBooks user.
@@ -748,6 +761,9 @@ class AsyncBillCreditCardPaymentsResource(AsyncAPIResource):
               this value. If omitted, the range will end with the last number of the list.
               Uses a numerical comparison for values that contain only digits; otherwise, uses
               a lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for bill credit card payments whose `date` field is on or after this
               date, in ISO 8601 format (YYYY-MM-DD).

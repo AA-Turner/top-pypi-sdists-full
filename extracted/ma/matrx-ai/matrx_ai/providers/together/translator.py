@@ -16,6 +16,7 @@ from matrx_ai.config import (
     UnifiedMessage,
     UnifiedResponse,
     YouTubeVideoContent,
+    openai_compatible_usage_counts,
     serialize_provider_usage,
 )
 from matrx_ai.config.media_config import ImageContent
@@ -30,6 +31,9 @@ from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 class TogetherTranslator(BaseTranslator):
     """Translates between unified format and Together AI API (OpenAI-style)"""
+
+    #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
+    TURN_CONTEXT_AFTER_CACHE_LINE = True
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)
@@ -55,7 +59,7 @@ class TogetherTranslator(BaseTranslator):
             messages.append({"role": "system", "content": system_text})
 
         # Convert messages to OpenAI-style format
-        for msg in config.messages:
+        for msg in self.messages_for_wire(config, profile):
             if msg.role == "tool":
                 # Image-bearing tool results surface their images as a
                 # follow-up user message (Chat Completions role=tool only
@@ -128,11 +132,12 @@ class TogetherTranslator(BaseTranslator):
         # to "max" — we never do that. ThinkingConfig.to_together_reasoning_params
         # always sends an explicit effort (OUR default = "high").
 
-        # TAIL CHANNEL (config/live_plan.py): one message after the newest tool
-        # results, the same follow-up shape image-bearing results use above.
-        tail_text = self.get_tail_context_text(config)
-        if tail_text:
-            messages.append({"role": "user", "content": tail_text})
+        # TRAILING CHANNEL — THE CACHE LINE LAW (2026-10-16): this turn's context
+        # block (live clock, selection, values) plus the tail channel
+        # (config/live_plan.py) ride its OWN user turn after the newest message,
+        # never in the system message (this provider's exact-prefix cache includes
+        # it) and never inside the person's message (owner ruling L29, 2026-10-18).
+        self.place_trailing_on_chat_messages(messages, self.get_trailing_context_text(config, profile), profile)
 
         # Build request
         together_request = {
@@ -217,9 +222,13 @@ class TogetherTranslator(BaseTranslator):
         # Convert usage to TokenUsage
         token_usage = None
         if response.usage:
+            input_tokens, output_tokens, cached_input_tokens = openai_compatible_usage_counts(
+                response.usage
+            )
             token_usage = TokenUsage(
-                input_tokens=response.usage.prompt_tokens,
-                output_tokens=response.usage.completion_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cached_input_tokens=cached_input_tokens,
                 matrx_model_name=response.model,
                 provider_model_name=response.model,
                 api="together",

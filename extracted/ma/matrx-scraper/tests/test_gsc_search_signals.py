@@ -1,6 +1,6 @@
 """`search_signals` — the checks that read GOOGLE'S OWN numbers.
 
-Every other catalogue category is an inference: we look at a page and reason
+Every other catalog category is an inference: we look at a page and reason
 about how it will perform. These two look at what Google reported it actually
 did (`web.gsc_page_stat`, written by `gsc_sync` with dimensions date × page).
 

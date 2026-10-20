@@ -40,6 +40,7 @@ from .literals import (
     StatisticType,
 )
 from .type_defs import (
+    ActionConfigurationOutputTypeDef,
     DescribeAlarmHistoryInputAlarmDescribeHistoryTypeDef,
     DescribeAlarmHistoryOutputTypeDef,
     DimensionFilterTypeDef,
@@ -356,6 +357,7 @@ class Alarm(ServiceResource):
     warm_up_configuration: WarmUpConfigurationTypeDef
     evaluation_criteria: EvaluationCriteriaTypeDef
     evaluation_interval: int
+    action_configuration: ActionConfigurationOutputTypeDef
     meta: CloudWatchResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

@@ -3,16 +3,19 @@
 import datetime
 import io
 import json
-import logging
-from collections import defaultdict
-from typing import Any, cast
+import typing
+from collections import Counter, defaultdict
+from collections.abc import Callable, Sequence
+from typing import Any
 
 from prov import Error
+from prov._warnings import ProvFutureRejectionWarning, future_rejection_message, warn
 from prov.constants import *
 from prov.identifier import Identifier, Namespace, QualifiedName
 from prov.model import (
     AttributePair,
     Literal,
+    OptionalID,
     ProvBundle,
     ProvDocument,
     ProvRecord,
@@ -21,13 +24,17 @@ from prov.model import (
     first,
     parse_xsd_datetime,
 )
-from prov.model.records import _xsd_datetime_text
+from prov.model.records import (
+    _reader_checking_names,
+    _xsd_datetime_text,
+    _xsd_double_text,
+)
 from prov.serializers import Serializer, _is_text_stream
-
-logger = logging.getLogger(__name__)
 
 __author__ = "Trung Dong Huynh"
 __email__ = "trungdong@donggiang.com"
+
+_Kind = typing.Literal["record", "bundle"]
 
 
 ProvJSONDict = dict[str, dict[str, Any]]
@@ -76,7 +83,10 @@ class ProvJSONSerializer(Serializer):
             "parse_constant",
         }
     )
-    """The :func:`json.load` options :meth:`deserialize` forwards."""
+    """The :func:`json.load` options :meth:`deserialize` forwards.
+
+    ``object_hook`` and ``object_pairs_hook`` receive each object after the
+    check for repeated keys."""
 
     def serialize(self, stream: io.IOBase, **args: Any) -> None:
         """Serialize ``self.document`` to `PROV-JSON <https://openprovenance.org/prov-json/>`_.
@@ -106,6 +116,9 @@ class ProvJSONSerializer(Serializer):
         """Deserialize a `PROV-JSON <https://openprovenance.org/prov-json/>`_
         stream into a :class:`~prov.model.ProvDocument`.
 
+        A key repeated in a JSON object warns with
+        :class:`~prov.model.ProvFutureRejectionWarning`; the last value is used.
+
         Args:
             stream: Input data; binary streams are decoded as UTF-8 first.
             **args: Extra keyword arguments passed through to
@@ -117,7 +130,40 @@ class ProvJSONSerializer(Serializer):
         if not _is_text_stream(stream):
             buf = io.StringIO(stream.read().decode("utf-8"))
             stream = buf
-        return cast(ProvDocument, json.load(stream, cls=ProvJSONDecoder, **args))
+        repeated: list[str] = []
+        hook = _repeated_key_hook(
+            repeated, args.pop("object_hook", None), args.pop("object_pairs_hook", None)
+        )
+        container = json.load(stream, object_pairs_hook=hook, **args)
+        for key in repeated:
+            _warn_rejection(
+                f"the key {key!r} is repeated in a JSON object; the last value is used",
+                issue=532,
+            )
+        # Decoded here, not in json.load(), so that a warning names the caller's line.
+        document = ProvDocument()
+        decode_json_document(container, document)
+        return document
+
+
+def _repeated_key_hook(
+    repeated: list[str],
+    object_hook: Callable[[dict[str, Any]], Any] | None,
+    object_pairs_hook: Callable[[list[tuple[str, Any]]], Any] | None,
+) -> Callable[[list[tuple[str, Any]]], Any]:
+    """Return a ``json`` ``object_pairs_hook`` that records each repeated key
+    in ``repeated`` and then hands the object to the caller's own hook."""
+
+    def hook(pairs: list[tuple[str, Any]]) -> Any:
+        obj = dict(pairs)
+        if len(obj) < len(pairs):
+            counts = Counter(key for key, _ in pairs)
+            repeated.extend(key for key, count in counts.items() if count > 1)
+        if object_pairs_hook is not None:
+            return object_pairs_hook(pairs)
+        return object_hook(obj) if object_hook is not None else obj
+
+    return hook
 
 
 class ProvJSONEncoder(json.JSONEncoder):
@@ -141,7 +187,11 @@ class ProvJSONEncoder(json.JSONEncoder):
 
 
 class ProvJSONDecoder(json.JSONDecoder):
-    """``json.JSONDecoder`` that decodes PROV-JSON into a :class:`~prov.model.ProvDocument`."""
+    """``json.JSONDecoder`` that decodes PROV-JSON into a :class:`~prov.model.ProvDocument`.
+
+    Used directly with :func:`json.loads`, it does not warn about repeated keys;
+    :meth:`ProvJSONSerializer.deserialize` does.
+    """
 
     def decode(self, s: str, *args: Any, **kwargs: Any) -> Any:
         """Parse a PROV-JSON string into a new :class:`~prov.model.ProvDocument`.
@@ -184,6 +234,111 @@ def valid_qualified_name(
     return qualified_name
 
 
+class _JSONPrefixMap:
+    """The prefix map of one PROV-JSON or PROV-JSONLD container, and the text
+    of each qualified name written against it.
+
+    A reader splits a name at its first ``:``, so two kinds of name are
+    written with a prefix other than their own.
+
+    * a name in the default namespace whose local part contains ``:`` (#517)
+      takes a prefix in scope bound to the namespace IRI, and one is declared
+      in :attr:`prefixes` if none exists;
+    * a name whose prefix is one of ``default_keys``, the keys that hold the
+      default namespace (#518), takes a generated prefix.
+
+    The prefix declared for the default namespace is ``dn``, the name
+    :class:`~prov.model.NamespaceManager` gives a second default namespace. A
+    generated prefix that is already in scope, including in ``parent``, takes
+    the next free suffix (``default_1``, ``dn_1``, ...), as in
+    :class:`~prov.model.NamespaceManager`'s renaming. Every other name is
+    written as ``str(name)``.
+    """
+
+    def __init__(
+        self,
+        bundle: ProvBundle,
+        default_keys: tuple[str, ...] = ("default",),
+        parent: "_JSONPrefixMap | None" = None,
+    ) -> None:
+        """Build the prefix map for ``bundle``'s container.
+
+        Args:
+            bundle: Bundle (or document) whose namespaces are written.
+            default_keys: The keys that hold the default namespace, ``default``
+                in PROV-JSON and ``@vocab`` and ``@base`` in PROV-JSONLD. A
+                registered prefix with one of these names is renamed.
+            parent: The enclosing document's map, whose prefixes are in scope
+                in a bundle.
+        """
+        self.prefixes: dict[str, str] = {}
+        """Prefix (or default key) -> namespace IRI, in writing order."""
+        self._namespaces = bundle._namespaces
+        self._default_keys = default_keys
+        self._parent = parent
+        self._chosen: dict[Namespace, str] = {}
+        for namespace in self._namespaces.get_registered_namespaces():
+            prefix = namespace.prefix
+            if prefix in default_keys:
+                prefix = self._chosen[namespace] = self._unused_prefix(prefix)
+            self.prefixes[prefix] = namespace.uri
+        default = self._namespaces.get_default_namespace()
+        if default is not None:
+            for key in default_keys:
+                self.prefixes[key] = default.uri
+
+    def qname_text(self, name: object) -> str:
+        """Return the text that writes ``name``; ``str(name)`` for anything
+        but a :class:`~prov.identifier.QualifiedName` that needs a prefix."""
+        if isinstance(name, QualifiedName):
+            # read the slots directly, as this runs for every name written
+            prefix = name._namespace._prefix
+            if prefix in self._default_keys or (not prefix and ":" in name._localpart):
+                return f"{self._prefix_for(name.namespace)}:{name.localpart}"
+            return name._str
+        return str(name)
+
+    def _prefix_for(self, namespace: Namespace) -> str:
+        prefix = self._find(namespace)
+        if prefix is None:
+            prefix = self._chosen[namespace] = self._unused_prefix(
+                namespace.prefix or "dn"
+            )
+            self.prefixes[prefix] = namespace.uri
+        return prefix
+
+    def _find(self, namespace: Namespace) -> str | None:
+        """Return a prefix in scope here that is bound to ``namespace``'s IRI."""
+        if namespace in self._chosen:
+            return self._chosen[namespace]
+        for prefix, uri in self.prefixes.items():
+            if uri == namespace.uri and prefix not in self._default_keys:
+                self._chosen[namespace] = prefix
+                return prefix
+        if self._parent is not None:
+            inherited = self._parent._find(namespace)
+            # a prefix declared here shadows the parent's
+            if inherited is not None and inherited not in self.prefixes:
+                self._chosen[namespace] = inherited
+                return inherited
+        return None
+
+    def _taken(self, prefix: str) -> bool:
+        return (
+            prefix in self.prefixes
+            or prefix in self._namespaces
+            or (self._parent is not None and self._parent._taken(prefix))
+        )
+
+    def _unused_prefix(self, base: str) -> str:
+        if not self._taken(base) and base not in self._default_keys:
+            return base
+        count = 1
+        while self._taken(f"{base}_{count}"):
+            count += 1
+        return f"{base}_{count}"
+
+
 def encode_json_document(document: ProvDocument) -> ProvJSONDict:
     """Encode a whole :class:`~prov.model.ProvDocument`, including its named bundles.
 
@@ -195,15 +350,20 @@ def encode_json_document(document: ProvDocument) -> ProvJSONDict:
         bundle's own encoded container nested under ``container["bundle"]``
         keyed by the bundle's identifier string.
     """
-    container = encode_json_container(document)
+    prefix_map = _JSONPrefixMap(document)
+    container = encode_json_container(document, prefix_map)
     for bundle in document.bundles:
         #  encoding the sub-bundle
-        bundle_json = encode_json_container(bundle)
-        container["bundle"][str(bundle.identifier)] = bundle_json
+        bundle_map = _JSONPrefixMap(bundle, parent=prefix_map)
+        # a reader resolves the bundle identifier in the bundle's own scope
+        bundle_id = bundle_map.qname_text(bundle.identifier)
+        container["bundle"][bundle_id] = encode_json_container(bundle, bundle_map)
     return container
 
 
-def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
+def encode_json_container(
+    bundle: ProvBundle, prefix_map: _JSONPrefixMap | None = None
+) -> ProvJSONDict:
     """Encode a single bundle's namespaces and records to a PROV-JSON container dict.
 
     Does not recurse into ``bundle``'s own named bundles; see
@@ -212,20 +372,20 @@ def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
     Args:
         bundle: Bundle (or document, treated as its top-level bundle) to
             encode.
+        prefix_map: The container's prefix map; built from ``bundle`` if not
+            given.
 
     Returns:
         A dict with an optional ``"prefix"`` entry for registered namespaces
         and one entry per PROV-N record-type keyword, each mapping record
         identifiers (real or anonymous) to their encoded attributes.
     """
+    if prefix_map is None:
+        prefix_map = _JSONPrefixMap(bundle)
+    qname_text = prefix_map.qname_text
     container: dict[str, dict[str, Any]] = defaultdict(dict)
-    prefixes: dict[str, str] = {}
-    for namespace in bundle._namespaces.get_registered_namespaces():
-        prefixes[namespace.prefix] = namespace.uri
-    if bundle._namespaces._default:
-        prefixes["default"] = bundle._namespaces._default.uri
-    if prefixes:
-        container["prefix"] = prefixes
+    # filled as names are written; removed below if still empty
+    container["prefix"] = prefix_map.prefixes
 
     id_generator = AnonymousIDGenerator()
 
@@ -235,17 +395,17 @@ def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
     for record in bundle._records:
         rec_type = record.get_type()
         rec_label = PROV_N_MAP[rec_type]
-        identifier = str(real_or_anon_id(record))
+        identifier = qname_text(real_or_anon_id(record))
 
         record_json: dict[str, Any] = {}
         if record._attributes:
             for attr, values in record._attributes.items():
                 if not values:
                     continue
-                attr_name = str(attr)
+                attr_name = qname_text(attr)
                 if attr in PROV_ATTRIBUTE_QNAMES:
                     # TODO: QName export
-                    record_json[attr_name] = str(first(values))
+                    record_json[attr_name] = qname_text(first(values))
                 elif attr in PROV_ATTRIBUTE_LITERALS:
                     record_json[attr_name] = _xsd_datetime_text(
                         first(values)  # type: ignore[arg-type]
@@ -254,12 +414,13 @@ def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
                     if len(values) == 1:
                         # single value
                         record_json[attr_name] = encode_json_representation(
-                            first(values)
+                            first(values), qname_text
                         )
                     else:
                         # multiple values
                         record_json[attr_name] = [
-                            encode_json_representation(value) for value in values
+                            encode_json_representation(value, qname_text)
+                            for value in values
                         ]
         # Check if the container already has the id of the record
         if identifier not in container[rec_label]:
@@ -275,6 +436,8 @@ def encode_json_container(bundle: ProvBundle) -> ProvJSONDict:
             # now append the new record to the list
             container[rec_label][identifier].append(record_json)
 
+    if not prefix_map.prefixes:
+        del container["prefix"]
     return container
 
 
@@ -361,6 +524,7 @@ def decode_json_document(content: ProvJSONDict, document: ProvDocument) -> None:
     for bundle_id, bundle_content in bundles.items():
         bundle = ProvBundle(document=document)
         decode_json_container(bundle_content, bundle)
+        _check_record_key(bundle, bundle_id, "bundle")
         document.add_bundle(bundle, bundle.valid_qualified_name(bundle_id))
 
 
@@ -385,17 +549,22 @@ def decode_json_container(jc: ProvJSONDict, bundle: ProvBundle) -> None:
             record identifiers to content; if a record's content is not a
             JSON object or a list of JSON objects; if a non-formal
             attribute's typed-literal representation is missing its required
-            ``"$"`` key (see :func:`decode_json_representation`); or if a
+            ``"$"`` key (see :func:`decode_json_representation`); if a
             formal (QualifiedName- or literal-valued) attribute has more
-            than one value, other than the documented multi-entity
-            ``hadMember`` (membership) hack.
+            than one value, other than the members of ``hadMember``; if a
+            formal attribute is written as an empty JSON array; or if a time
+            attribute's value is neither a string nor an ``xsd:dateTime``
+            value object with a well-formed ``"$"``.
     """
     _expect_json_object(jc, "A PROV-JSON container")
     if "prefix" in jc:
         _decode_namespaces(jc, bundle)
 
-    for rec_type_str in jc:
-        _decode_record_group(jc, rec_type_str, bundle)
+    # The reader warns about its own qualified-name values, with their
+    # position, so the model does not warn about them again.
+    with _reader_checking_names():
+        for rec_type_str in jc:
+            _decode_record_group(jc, rec_type_str, bundle)
 
 
 def _decode_namespaces(jc: ProvJSONDict, bundle: ProvBundle) -> None:
@@ -438,9 +607,12 @@ def _decode_record_group(
             record identifiers to content; if a record's content is not a
             JSON object or a list of JSON objects; if a non-formal
             attribute's typed-literal representation is missing its required
-            ``"$"`` key; or if a formal attribute has more than one value,
-            other than the documented multi-entity ``hadMember``
-            (membership) hack (both raised further down the call chain, by
+            ``"$"`` key; if a formal attribute has more than one value,
+            other than the members of ``hadMember``; if a formal attribute is
+            written as an empty JSON array; or if a time attribute's value is
+            neither a string nor an ``xsd:dateTime`` value object with a
+            well-formed ``"$"``
+            (all raised further down the call chain, by
             :func:`_decode_record_instance` / :func:`_decode_formal_attribute`).
     """
     try:
@@ -453,6 +625,7 @@ def _decode_record_group(
     records_by_id = _expect_json_object(jc[rec_type_str], f"The {rec_type_str!r} value")
     for rec_id, content in records_by_id.items():
         elements = _json_record_elements(content, rec_type_str, rec_id)
+        _check_record_key(bundle, rec_id)
         for element in elements:
             _decode_record_instance(rec_type, rec_id, element, bundle)
 
@@ -470,19 +643,22 @@ def _decode_record_instance(
         rec_id: The record's identifier string.
         element: The instance's raw attribute dict, as produced by
             :func:`_json_record_elements`.
-        bundle: Bundle to add the decoded record (and, for the multi-entity
-            ``hadMember`` hack, any extra membership relations) to.
+        bundle: Bundle to add the decoded record, or one ``hadMember``
+            record per member, to.
 
     Raises:
         ProvJSONException: If a non-formal attribute's typed-literal
-            representation is missing its required ``"$"`` key; or if a
+            representation is missing its required ``"$"`` key; if a
             formal attribute has more than one value, other than the
-            documented multi-entity ``hadMember`` (membership) hack.
+            members of ``hadMember``; if a formal attribute is written as an
+            empty JSON array; or if a time attribute's value is neither a
+            string nor an ``xsd:dateTime`` value object with a well-formed
+            ``"$"``.
     """
     attributes: dict[QualifiedNameCandidate, Any] = {}
     other_attributes: list[AttributePair] = []
-    # this is for the multiple-entity membership hack to come
-    membership_extra_members = None
+    members: list[QualifiedName | None] | None = None
+    is_membership = rec_type == PROV_MEMBERSHIP
     for attr_name, values in element.items():
         attr: QualifiedName = (
             PROV_ATTRIBUTES_ID_MAP[attr_name]
@@ -490,91 +666,327 @@ def _decode_record_instance(
             else bundle.mandatory_valid_qname(attr_name)
         )
         if attr in PROV_ATTRIBUTES:
-            value, extra_members = _decode_formal_attribute(
-                rec_type, attr, values, bundle
-            )
-            attributes[attr] = value
-            if extra_members is not None:
-                membership_extra_members = extra_members
-        else:
-            if isinstance(values, list):
-                other_attributes.extend(
-                    (attr, decode_json_representation(value, bundle, attr_name))
-                    for value in values
-                )
+            if is_membership and attr == PROV_ATTR_ENTITY:
+                members = _decode_members(rec_id, attr_name, values, bundle)
             else:
-                # single value
-                other_attributes.append(
-                    (attr, decode_json_representation(values, bundle, attr_name))
+                attributes[attr] = _decode_formal_attribute(
+                    rec_id, attr_name, attr, values, bundle
                 )
-    bundle.new_record(rec_type, rec_id, attributes, other_attributes)
-    # HACK: creating extra (unidentified) membership relations
-    if membership_extra_members:
-        collection = attributes[PROV_ATTR_COLLECTION]
-        for member in membership_extra_members:
-            bundle.membership(collection, bundle.mandatory_valid_qname(member))
+        else:
+            for value in values if isinstance(values, list) else [values]:
+                if value is None:
+                    # The model drops a None value.
+                    _warn_rejection(
+                        "the value is null and is dropped",
+                        rec_id,
+                        attr_name,
+                        issue=528,
+                    )
+                other_attributes.append(
+                    (attr, decode_json_representation(value, bundle, attr_name, rec_id))
+                )
+    if members is None:
+        bundle.new_record(rec_type, rec_id, attributes, other_attributes)
+    else:
+        _add_memberships(bundle, rec_id, attributes, other_attributes, members)
+
+
+def _add_memberships(
+    bundle: ProvBundle,
+    identifier: OptionalID,
+    attributes: dict[QualifiedNameCandidate, Any],
+    other_attributes: list[AttributePair],
+    members: Sequence[QualifiedName | None],
+) -> None:
+    """Add one ``hadMember`` record per member to ``bundle``.
+
+    PROV-DM's ``hadMember`` is binary, so a membership listing several members
+    becomes one record per member. Each record carries the identifier and the
+    attributes of the membership. The PROV-JSON and PROV-JSONLD readers share
+    this fan-out.
+
+    Args:
+        bundle: Bundle to add the records to.
+        identifier: The membership's identifier, or ``None``.
+        attributes: The membership's formal attributes other than
+            ``prov:entity``.
+        other_attributes: The membership's other attributes.
+        members: The resolved members, one record each.
+    """
+    for member in members:
+        bundle.new_record(
+            PROV_MEMBERSHIP,
+            identifier,
+            {**attributes, PROV_ATTR_ENTITY: member},
+            other_attributes,
+        )
+
+
+def _decode_members(
+    rec_id: str, attr_name: str, values: Any, bundle: ProvBundle
+) -> list[QualifiedName | None]:
+    """Decode the ``prov:entity`` of a ``hadMember``, a single value or an array.
+
+    Args:
+        rec_id: The enclosing record's identifier string, for messages.
+        attr_name: The attribute's PROV-JSON key, for messages.
+        values: The raw value or JSON array of values.
+        bundle: Bundle used to resolve the members' qualified names.
+
+    Returns:
+        The resolved members, in the order written. A member that does not
+        resolve is ``None``, with a warning.
+
+    Raises:
+        ProvJSONException: If ``values`` is an empty JSON array.
+    """
+    if not isinstance(values, list):
+        return [_decode_name(bundle, values, rec_id, attr_name)]
+    if not values:
+        raise ProvJSONException(
+            f"{_position(rec_id, attr_name)}the value is an empty array"
+        )
+    return [_decode_name(bundle, value, rec_id, attr_name) for value in values]
 
 
 def _decode_formal_attribute(
-    rec_type: QualifiedName,
+    rec_id: str,
+    attr_name: str,
     attr: QualifiedName,
     values: Any,
     bundle: ProvBundle,
-) -> tuple[Any, list[Any] | None]:
-    """Decode one formal (:data:`~prov.constants.PROV_ATTRIBUTES`) attribute's value(s).
+) -> Any:
+    """Decode the value of a formal (:data:`~prov.constants.PROV_ATTRIBUTES`) attribute.
+
+    The members of ``hadMember`` go to :func:`_decode_members` instead.
 
     Args:
-        rec_type: The enclosing record's PROV-N record type.
+        rec_id: The enclosing record's identifier string, for messages.
+        attr_name: The attribute's PROV-JSON key, for messages.
         attr: The formal attribute being decoded.
-        values: The raw value(s) read from the PROV-JSON element, either a
+        values: The raw value read from the PROV-JSON element, either a
             single value or a JSON array.
         bundle: Bundle used to resolve any QualifiedName value.
 
     Returns:
-        A tuple of the decoded attribute value and, only for the
-        multi-entity ``hadMember`` (membership) hack, the list of extra
-        entity values still to be turned into their own membership
-        relations (``None`` otherwise).
+        The decoded attribute value.
 
     Raises:
-        ProvJSONException: If ``values`` is a JSON array with more than one
-            value, other than the documented ``hadMember`` hack.
+        ProvJSONException: If ``values`` is an empty JSON array or a JSON
+            array with more than one value; or if a time attribute's value is
+            neither a string nor an ``xsd:dateTime`` value object with a
+            well-formed ``"$"``.
     """
-    membership_extra_members = None
     if isinstance(values, list):
+        if not values:
+            raise ProvJSONException(
+                f"{_position(rec_id, attr_name)}the value is an empty array"
+            )
         # only one value is allowed
         if len(values) > 1:
-            # unless it is the membership hack
-            if rec_type == PROV_MEMBERSHIP and attr == PROV_ATTR_ENTITY:
-                # This is a membership relation with multiple entities
-                # HACK: create multiple membership relations, one for each
-                # entity
-
-                # Store all the extra entities
-                membership_extra_members = values[1:]
-                # Create the first membership relation as normal for the
-                # first entity
-                value = values[0]
-            else:
-                error_msg = (
-                    "The prov package does not support PROV"
-                    " attributes having multiple values."
-                )
-                logger.error(error_msg)
-                raise ProvJSONException(error_msg)
-        else:
-            value = values[0]
+            raise ProvJSONException(
+                f"{_position(rec_id, attr_name)}the value is an array of "
+                f"{len(values)} values, but the attribute takes one"
+            )
+        _warn_rejection(
+            "the value is written as an array", rec_id, attr_name, issue=531
+        )
+        value = values[0]
     else:
         value = values
-    value = (
-        valid_qualified_name(bundle, value)
-        if attr in PROV_ATTRIBUTE_QNAMES
-        else parse_xsd_datetime(value)
+    if attr in PROV_ATTRIBUTE_QNAMES:
+        return _decode_name(bundle, value, rec_id, attr_name)
+    return _decode_time(rec_id, attr_name, value, bundle)
+
+
+def _decode_name(
+    bundle: ProvBundle, value: Any, rec_id: str, attr_name: str
+) -> QualifiedName | None:
+    """Resolve the qualified name a formal attribute or a member refers to.
+
+    A value that is not a string, and a string that does not resolve, are
+    dropped with a warning. A string that resolves only by compacting an IRI
+    warns too.
+    """
+    resolved = valid_qualified_name(bundle, value)
+    if value is None:
+        _warn_rejection(
+            "the value is null and is dropped", rec_id, attr_name, issue=528
+        )
+    elif not isinstance(value, str):
+        _warn_rejection(
+            f"the value is {_json_text(value)}, not a qualified name, and is dropped",
+            rec_id,
+            attr_name,
+            issue=597,
+        )
+    elif (
+        # A resolved name with a declared prefix needs no check.
+        (resolved is None or value.partition(":")[0] not in bundle._namespaces)
+        and (reason := bundle._unresolved_reason(value)) is not None
+    ):
+        if resolved is None:
+            _warn_unresolved_name(
+                value, reason, "it is dropped", rec_id, attr_name, issue=516
+            )
+        else:
+            _warn_unresolved_name(
+                value, reason, f"it reads as {resolved}", rec_id, attr_name, issue=551
+            )
+    return resolved
+
+
+def _check_record_key(bundle: ProvBundle, key: str, kind: _Kind = "record") -> None:
+    """Warn when the record or bundle key ``key`` resolves only by compacting an
+    IRI (#551); ``kind`` is ``"record"`` or ``"bundle"``."""
+    if (
+        isinstance(key, str)
+        # Check the common cases first, a prefix this bundle declares and a
+        # relation's blank node identifier, which has no namespace.
+        and (prefix := key.partition(":")[0]) not in bundle._namespaces
+        and prefix != "_"
+        and (reason := bundle._unresolved_reason(key)) is not None
+        and (resolved := bundle.valid_qualified_name(key)) is not None
+    ):
+        _warn_unresolved_name(
+            key, reason, f"it reads as {resolved}", key, issue=551, kind=kind
+        )
+
+
+def _check_name_value(
+    bundle: ProvBundle,
+    value: Any,
+    resolved: QualifiedName | None,
+    rec_id: str | None,
+    attr_name: str | None,
+) -> None:
+    """Warn when the qualified-name value ``value`` does not resolve by its
+    prefix (#516, #551); ``resolved`` is what it resolves to today."""
+    if (
+        isinstance(value, str)
+        and (reason := bundle._unresolved_reason(value)) is not None
+    ):
+        today = (
+            f"it reads as {resolved}"
+            if resolved is not None
+            else "it is kept as a Literal"
+        )
+        issue = 551 if resolved is not None else 516
+        _warn_unresolved_name(value, reason, today, rec_id, attr_name, issue=issue)
+
+
+def _warn_unresolved_name(
+    text: str,
+    reason: str,
+    today: str,
+    rec_id: str | None,
+    attr_name: str | None = None,
+    *,
+    issue: int,
+    kind: _Kind = "record",
+) -> None:
+    """Warn that the qualified name ``text`` does not resolve, for ``reason``;
+    ``today`` says how ``prov`` reads it instead."""
+    _warn_rejection(
+        f"the qualified name {text!r} does not resolve, because {reason}; {today}",
+        rec_id,
+        attr_name,
+        issue=issue,
+        kind=kind,
     )
-    return value, membership_extra_members
 
 
-def encode_json_representation(value: Any) -> Any:
+def _decode_time(
+    rec_id: str, attr_name: str, value: Any, bundle: ProvBundle
+) -> datetime.datetime | None:
+    """Decode the value of ``prov:time``, ``prov:startTime`` or ``prov:endTime``.
+
+    Args:
+        rec_id: The enclosing record's identifier string, for messages.
+        attr_name: The attribute's PROV-JSON key, for messages.
+        value: A string, or a value object typed ``xsd:dateTime``.
+        bundle: Bundle used to resolve the value object's ``"type"``.
+
+    Returns:
+        The parsed :class:`~datetime.datetime`, or ``None`` for a string
+        that is not an ``xsd:dateTime``, which is dropped with a warning.
+
+    Raises:
+        ProvJSONException: If ``value`` is neither a string nor a value
+            object typed ``xsd:dateTime`` whose ``"$"`` is one.
+    """
+    if isinstance(value, str):
+        parsed = parse_xsd_datetime(value)
+        if parsed is None:
+            _warn_rejection(
+                f"{value!r} is not an xsd:dateTime and is dropped",
+                rec_id,
+                attr_name,
+                issue=555,
+            )
+        return parsed
+    if (
+        isinstance(value, dict)
+        and value.keys() == {"$", "type"}
+        and isinstance(value["$"], str)
+        and isinstance(value["type"], str)
+        and valid_qualified_name(bundle, value["type"]) == XSD_DATETIME
+        and (parsed := parse_xsd_datetime(value["$"])) is not None
+    ):
+        return parsed
+    raise ProvJSONException(
+        f"{_position(rec_id, attr_name)}expected an xsd:dateTime, found {value!r}"
+    )
+
+
+def _position(rec_id: str | None, attr_name: str | None, kind: _Kind = "record") -> str:
+    """Return the ``"record 'r', attribute 'a': "`` that starts a message,
+    naming as much of the value's position as is known; ``kind`` is ``"bundle"``
+    for a bundle's key."""
+    parts = []
+    if rec_id is not None:
+        parts.append(f"{kind} {rec_id!r}")
+    if attr_name is not None:
+        parts.append(f"attribute {attr_name!r}")
+    return ", ".join(parts) + ": " if parts else ""
+
+
+def _json_text(value: Any) -> str:
+    """Return ``value`` as JSON text, or ``str(value)`` if JSON cannot encode it."""
+    try:
+        return json.dumps(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+
+# The JSON numbers prov 2.x and earlier wrote in "$", which 3.3.0 still reads;
+# prov 1.x on Python 2 wrote a long as xsd:long.
+_LEGACY_NUMBER_TYPES = {int: (XSD_INT, XSD_LONG), float: (XSD_DOUBLE,)}
+
+# The keys a PROV-JSON value object may have.
+_VALUE_OBJECT_KEYS = frozenset({"$", "type", "lang"})
+
+
+def _warn_rejection(
+    detail: str,
+    rec_id: str | None = None,
+    attr_name: str | None = None,
+    *,
+    issue: int,
+    kind: _Kind = "record",
+) -> None:
+    """Warn that 3.3.0 rejects the value ``detail`` describes."""
+    warn(
+        future_rejection_message(
+            _position(rec_id, attr_name, kind) + detail, issue=issue
+        ),
+        ProvFutureRejectionWarning,
+    )
+
+
+def encode_json_representation(
+    value: Any, qname_text: Callable[[object], str] = str
+) -> Any:
     """Encode a single non-formal attribute value to its PROV-JSON representation.
 
     Args:
@@ -584,6 +996,9 @@ def encode_json_representation(value: Any) -> Any:
             :class:`~prov.identifier.Identifier`, a plain ``int``/``float``
             (typed by :func:`~prov.model.canonical_xsd_datatype`), or a
             plain JSON-native value.
+        qname_text: Writes a qualified name (the value or a literal's
+            datatype); the container's ``_JSONPrefixMap.qname_text`` in
+            :func:`encode_json_container`.
 
     Returns:
         A ``{"$": ..., "type": ...}`` (optionally ``"lang"``) dict for typed
@@ -591,22 +1006,21 @@ def encode_json_representation(value: Any) -> Any:
         JSON-representable (e.g. plain ``str``/``bool``).
     """
     if isinstance(value, Literal):
-        return literal_json_representation(value)
+        return literal_json_representation(value, qname_text)
     elif isinstance(value, datetime.datetime):
         return {"$": _xsd_datetime_text(value), "type": "xsd:dateTime"}
     elif isinstance(value, QualifiedName):
-        # TODO Manage prefix in the whole structure consistently
         # #168: the PROV-JSON submission (§3.1.2) types QualifiedName values
         # as xsd:QName; prov:QUALIFIED_NAME (this library's pre-3.0 choice)
         # remains accepted on input for backward compatibility.
-        return {"$": str(value), "type": str(XSD_QNAME)}
+        return {"$": qname_text(value), "type": str(XSD_QNAME)}
     elif isinstance(value, Identifier):
         return {"$": value.uri, "type": "xsd:anyURI"}
     elif (datatype := canonical_xsd_datatype(value)) is not None:
         # int/float: the submission's typedLiteral schema requires a string
         # "$" (#246); the datatype is magnitude-aware for ints (#244/#256).
         return {
-            "$": repr(value) if isinstance(value, float) else str(value),
+            "$": _xsd_double_text(value) if isinstance(value, float) else str(value),
             "type": str(datatype),
         }
     else:
@@ -614,9 +1028,20 @@ def encode_json_representation(value: Any) -> Any:
 
 
 def decode_json_representation(
-    literal: Any, bundle: ProvBundle, attr_name: str | None = None
+    literal: Any,
+    bundle: ProvBundle,
+    attr_name: str | None = None,
+    rec_id: str | None = None,
 ) -> Any:
     """Decode a single non-formal attribute value from its PROV-JSON representation.
+
+    A value object with a key other than ``"$"``, ``"type"`` and ``"lang"``,
+    a ``"$"`` that is not a string, a ``"type"`` that does not resolve, or a
+    qualified-name value that does not resolve by its prefix warns with
+    :class:`~prov.model.ProvFutureRejectionWarning` and is read as before. A
+    number typed as ``prov`` 2.x and earlier wrote it, an integer as
+    ``xsd:int`` or ``xsd:long`` or a float as ``xsd:double``, with no
+    ``"lang"``, does not warn.
 
     Args:
         literal: Either a ``{"$": ..., "type": ..., "lang": ...}`` dict (the
@@ -624,8 +1049,10 @@ def decode_json_representation(
         bundle: Bundle used to resolve any ``"type"``/value that is a
             qualified name.
         attr_name: The PROV-JSON attribute key ``literal`` was read from, if
-            known. Used only to name the attribute in the exception message
-            below; omit for a generic message.
+            known. Used only to name the attribute in messages; omit for a
+            generic message.
+        rec_id: The identifier of the record ``literal`` was read from, if
+            known. Used only to name the record in warning messages.
 
     Returns:
         An :class:`~prov.identifier.Identifier` for ``xsd:anyURI`` values, a
@@ -650,8 +1077,33 @@ def decode_json_representation(
                 f"The typed-literal representation for {where} is missing "
                 f'its required "$" (value) key; found {literal!r}'
             ) from exc
+        if not literal.keys() <= _VALUE_OBJECT_KEYS:
+            for key in sorted(literal.keys() - _VALUE_OBJECT_KEYS, key=str):
+                _warn_rejection(
+                    f"the value object has the unknown key {key!r}",
+                    rec_id,
+                    attr_name,
+                    issue=529,
+                )
         datatype_str: str | None = literal.get("type", None)
         datatype = valid_qualified_name(bundle, datatype_str)
+        legacy_types = _LEGACY_NUMBER_TYPES.get(type(value), ())
+        if not isinstance(value, str) and (
+            datatype not in legacy_types or "lang" in literal
+        ):
+            _warn_rejection(
+                f'the value object\'s "$" is {_json_text(value)}, not a string',
+                rec_id,
+                attr_name,
+                issue=529,
+            )
+        if datatype_str is not None and datatype is None:
+            _warn_rejection(
+                f"the datatype {datatype_str!r} does not resolve and is dropped",
+                rec_id,
+                attr_name,
+                issue=552,
+            )
         langtag = literal.get("lang", None)
         if datatype == XSD_ANYURI:
             return Identifier(value)
@@ -661,6 +1113,10 @@ def decode_json_representation(
             # by 2.x. If the value's prefix has no in-scope namespace, keep
             # it as an opaque Literal rather than dropping it (#238).
             resolved = valid_qualified_name(bundle, value)
+            # A value with a "lang" is no qualified name, and the model logs
+            # that it overrides its datatype.
+            if langtag is None:
+                _check_name_value(bundle, value, resolved, rec_id, attr_name)
             return (
                 resolved if resolved is not None else Literal(value, datatype, langtag)
             )
@@ -674,11 +1130,14 @@ def decode_json_representation(
         return literal
 
 
-def literal_json_representation(literal: Literal) -> dict[str, str]:
+def literal_json_representation(
+    literal: Literal, qname_text: Callable[[object], str] = str
+) -> dict[str, str]:
     """Encode a :class:`~prov.model.Literal` to its PROV-JSON dict representation.
 
     Args:
         literal: Literal to encode.
+        qname_text: Writes the datatype; see :func:`encode_json_representation`.
 
     Returns:
         ``{"$": value, "lang": langtag}`` if the literal has a language tag,
@@ -689,4 +1148,4 @@ def literal_json_representation(literal: Literal) -> dict[str, str]:
     if langtag:
         return {"$": value, "lang": langtag}
     else:
-        return {"$": value, "type": str(datatype)}
+        return {"$": value, "type": qname_text(datatype)}

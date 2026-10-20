@@ -7,7 +7,7 @@ dominated by a model pattern-completing a plausible-but-nonexistent key
 ``html_content`` when it carried ``html_pages_structure``). The rejection gave
 it no inventory in the message and no instruction to stop, so it guessed again.
 
-Two behaviours are pinned here, matching the guard-reconciliation rule
+Two behaviors are pinned here, matching the guard-reconciliation rule
 ("is there exactly one thing the caller can mean here?"):
 
 - exactly one normalized match  → RECONCILE + notice the model (COERCED)

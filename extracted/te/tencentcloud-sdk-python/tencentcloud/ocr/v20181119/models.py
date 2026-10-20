@@ -1114,6 +1114,72 @@ class AirTransport(AbstractModel):
         
 
 
+class AnswerElement(AbstractModel):
+    r"""试题识别结果-答案元素内容
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IsCorrect: <p>答案是否正确</p>
+        :type IsCorrect: bool
+        :param _AnswerAnalysis: <p>答案分析结果</p>
+        :type AnswerAnalysis: str
+        :param _RightAnswer: <p>返回正确答案内容</p>
+        :type RightAnswer: str
+        """
+        self._IsCorrect = None
+        self._AnswerAnalysis = None
+        self._RightAnswer = None
+
+    @property
+    def IsCorrect(self):
+        r"""<p>答案是否正确</p>
+        :rtype: bool
+        """
+        return self._IsCorrect
+
+    @IsCorrect.setter
+    def IsCorrect(self, IsCorrect):
+        self._IsCorrect = IsCorrect
+
+    @property
+    def AnswerAnalysis(self):
+        r"""<p>答案分析结果</p>
+        :rtype: str
+        """
+        return self._AnswerAnalysis
+
+    @AnswerAnalysis.setter
+    def AnswerAnalysis(self, AnswerAnalysis):
+        self._AnswerAnalysis = AnswerAnalysis
+
+    @property
+    def RightAnswer(self):
+        r"""<p>返回正确答案内容</p>
+        :rtype: str
+        """
+        return self._RightAnswer
+
+    @RightAnswer.setter
+    def RightAnswer(self, RightAnswer):
+        self._RightAnswer = RightAnswer
+
+
+    def _deserialize(self, params):
+        self._IsCorrect = params.get("IsCorrect")
+        self._AnswerAnalysis = params.get("AnswerAnalysis")
+        self._RightAnswer = params.get("RightAnswer")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AnswerInfo(AbstractModel):
     r"""单题所有答案区域批改信息
 
@@ -2098,22 +2164,15 @@ class BizLicenseOCRRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ImageBase64: 图片的 Base64 值。
-支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。
-支持的图片大小：所下载图片经Base64编码后不超过 7M。图片下载时间不超过 3 秒。
-图片的 ImageUrl、ImageBase64 必须提供一个，如果都提供，只使用 ImageUrl。
+        :param _ImageBase64: <p>图片的 Base64 值。<br>支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。<br>支持的图片大小：所下载图片经Base64编码后不超过 7M。图片下载时间不超过 3 秒。<br>图片的 ImageUrl、ImageBase64 必须提供一个，如果都提供，只使用 ImageUrl。</p>
         :type ImageBase64: str
-        :param _ImageUrl: 图片的 Url 地址。
-支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。
-支持的图片大小：所下载图片经 Base64 编码后不超过 7M。图片下载时间不超过 3 秒。
-图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。
-非腾讯云存储的 Url 速度和稳定性可能受一定影响。
+        :param _ImageUrl: <p>图片的 Url 地址。<br>支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。<br>支持的图片大小：所下载图片经 Base64 编码后不超过 7M。图片下载时间不超过 3 秒。<br>图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。<br>非腾讯云存储的 Url 速度和稳定性可能受一定影响。</p>
         :type ImageUrl: str
-        :param _EnableCopyWarn: 是否返回告警码，默认为false
+        :param _EnableCopyWarn: <p>是否返回告警码，默认为false</p>
         :type EnableCopyWarn: bool
-        :param _EnablePeriodComplete: 是否返回自动拼接的有效期，默认为true
+        :param _EnablePeriodComplete: <p>是否返回自动拼接的有效期，默认为true</p>
         :type EnablePeriodComplete: bool
-        :param _EnableBusinessCertificate: 是否支持营业类证件识别（包括营业执照和非营业执照的其他证件），默认为false
+        :param _EnableBusinessCertificate: <p>是否支持营业类证件识别（包括营业执照和非营业执照的其他证件），默认为false</p>
         :type EnableBusinessCertificate: bool
         """
         self._ImageBase64 = None
@@ -2124,10 +2183,7 @@ class BizLicenseOCRRequest(AbstractModel):
 
     @property
     def ImageBase64(self):
-        r"""图片的 Base64 值。
-支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。
-支持的图片大小：所下载图片经Base64编码后不超过 7M。图片下载时间不超过 3 秒。
-图片的 ImageUrl、ImageBase64 必须提供一个，如果都提供，只使用 ImageUrl。
+        r"""<p>图片的 Base64 值。<br>支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。<br>支持的图片大小：所下载图片经Base64编码后不超过 7M。图片下载时间不超过 3 秒。<br>图片的 ImageUrl、ImageBase64 必须提供一个，如果都提供，只使用 ImageUrl。</p>
         :rtype: str
         """
         return self._ImageBase64
@@ -2138,11 +2194,7 @@ class BizLicenseOCRRequest(AbstractModel):
 
     @property
     def ImageUrl(self):
-        r"""图片的 Url 地址。
-支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。
-支持的图片大小：所下载图片经 Base64 编码后不超过 7M。图片下载时间不超过 3 秒。
-图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。
-非腾讯云存储的 Url 速度和稳定性可能受一定影响。
+        r"""<p>图片的 Url 地址。<br>支持的图片格式：PNG、JPG、JPEG，暂不支持 GIF 格式。<br>支持的图片大小：所下载图片经 Base64 编码后不超过 7M。图片下载时间不超过 3 秒。<br>图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。<br>非腾讯云存储的 Url 速度和稳定性可能受一定影响。</p>
         :rtype: str
         """
         return self._ImageUrl
@@ -2153,7 +2205,7 @@ class BizLicenseOCRRequest(AbstractModel):
 
     @property
     def EnableCopyWarn(self):
-        r"""是否返回告警码，默认为false
+        r"""<p>是否返回告警码，默认为false</p>
         :rtype: bool
         """
         return self._EnableCopyWarn
@@ -2164,7 +2216,7 @@ class BizLicenseOCRRequest(AbstractModel):
 
     @property
     def EnablePeriodComplete(self):
-        r"""是否返回自动拼接的有效期，默认为true
+        r"""<p>是否返回自动拼接的有效期，默认为true</p>
         :rtype: bool
         """
         return self._EnablePeriodComplete
@@ -2175,7 +2227,7 @@ class BizLicenseOCRRequest(AbstractModel):
 
     @property
     def EnableBusinessCertificate(self):
-        r"""是否支持营业类证件识别（包括营业执照和非营业执照的其他证件），默认为false
+        r"""<p>是否支持营业类证件识别（包括营业执照和非营业执照的其他证件），默认为false</p>
         :rtype: bool
         """
         return self._EnableBusinessCertificate
@@ -2208,59 +2260,53 @@ class BizLicenseOCRResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RegNum: 统一社会信用代码（三合一之前为注册号）
+        :param _RegNum: <p>统一社会信用代码（三合一之前为注册号）</p>
         :type RegNum: str
-        :param _Name: 公司名称
+        :param _Name: <p>公司名称</p>
         :type Name: str
-        :param _Capital: 注册资本
+        :param _Capital: <p>注册资本</p>
         :type Capital: str
-        :param _Person: 法定代表人
+        :param _Person: <p>法定代表人</p>
         :type Person: str
-        :param _Address: 地址
+        :param _Address: <p>地址</p>
         :type Address: str
-        :param _Business: 经营范围
+        :param _Business: <p>经营范围</p>
         :type Business: str
-        :param _Type: 主体类型
+        :param _Type: <p>主体类型</p>
         :type Type: str
-        :param _Period: 营业期限
+        :param _Period: <p>营业期限</p>
         :type Period: str
-        :param _ComposingForm: 组成形式
+        :param _ComposingForm: <p>组成形式</p>
         :type ComposingForm: str
-        :param _SetDate: 成立日期
+        :param _SetDate: <p>成立日期</p>
         :type SetDate: str
-        :param _RecognizeWarnCode: Code 告警码列表和释义：
--9102 黑白复印件告警
--9104 翻拍件告警
+        :param _RecognizeWarnCode: <p>Code 告警码列表和释义：<br>-9102 黑白复印件告警<br>-9104 翻拍件告警<br>-9108 经营范围识别异常告警（由于文字过小、模糊、反光、遮挡或明显倾斜等情况导致未能正常识别）</p>
         :type RecognizeWarnCode: list of int
-        :param _RecognizeWarnMsg: 告警码说明：
-WARN_COPY_CARD 黑白复印件告警
-WARN_RESHOOT_CARD翻拍件告警
+        :param _RecognizeWarnMsg: <p>告警码说明：<br>WARN_COPY_CARD 黑白复印件告警<br>WARN_RESHOOT_CARD翻拍件告警<br>WARN_EARLY_STOP 经营范围识别异常告警</p>
         :type RecognizeWarnMsg: list of str
-        :param _IsDuplication: 是否为副本。1为是，-1为不是。
+        :param _IsDuplication: <p>是否为副本。1为是，-1为不是。</p>
         :type IsDuplication: int
-        :param _RegistrationDate: 登记日期
+        :param _RegistrationDate: <p>登记日期</p>
         :type RegistrationDate: str
-        :param _Angle:  图片旋转角度(角度制)，文本的水平方向为0度；顺时针为正，角度范围是0-360度
-
-
+        :param _Angle: <p>图片旋转角度(角度制)，文本的水平方向为0度；顺时针为正，角度范围是0-360度</p>
         :type Angle: float
-        :param _NationalEmblem: 是否有国徽。false为没有，true为有。
+        :param _NationalEmblem: <p>是否有国徽。false为没有，true为有。</p>
         :type NationalEmblem: bool
-        :param _QRCode: 是否有二维码。false为没有，true为有。
+        :param _QRCode: <p>是否有二维码。false为没有，true为有。</p>
         :type QRCode: bool
-        :param _Seal: 是否有印章。false为没有，true为有。
+        :param _Seal: <p>是否有印章。false为没有，true为有。</p>
         :type Seal: bool
-        :param _Title: 标题
+        :param _Title: <p>标题</p>
         :type Title: str
-        :param _SerialNumber: 编号
+        :param _SerialNumber: <p>编号</p>
         :type SerialNumber: str
-        :param _RegistrationAuthority: 登记机关
+        :param _RegistrationAuthority: <p>登记机关</p>
         :type RegistrationAuthority: str
-        :param _Electronic: 是否是电子营业执照。false为没有，true为有。
+        :param _Electronic: <p>是否是电子营业执照。false为没有，true为有。</p>
         :type Electronic: bool
-        :param _BusinessCertificate: 非营业执照的营业类证件识别结果，将以结构化形式呈现。
+        :param _BusinessCertificate: <p>非营业执照的营业类证件识别结果，将以结构化形式呈现。</p>
         :type BusinessCertificate: list of BusinessCertificateInfo
-        :param _Important: 重要提示字段
+        :param _Important: <p>重要提示字段</p>
         :type Important: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -2293,7 +2339,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def RegNum(self):
-        r"""统一社会信用代码（三合一之前为注册号）
+        r"""<p>统一社会信用代码（三合一之前为注册号）</p>
         :rtype: str
         """
         return self._RegNum
@@ -2304,7 +2350,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Name(self):
-        r"""公司名称
+        r"""<p>公司名称</p>
         :rtype: str
         """
         return self._Name
@@ -2315,7 +2361,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Capital(self):
-        r"""注册资本
+        r"""<p>注册资本</p>
         :rtype: str
         """
         return self._Capital
@@ -2326,7 +2372,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Person(self):
-        r"""法定代表人
+        r"""<p>法定代表人</p>
         :rtype: str
         """
         return self._Person
@@ -2337,7 +2383,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Address(self):
-        r"""地址
+        r"""<p>地址</p>
         :rtype: str
         """
         return self._Address
@@ -2348,7 +2394,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Business(self):
-        r"""经营范围
+        r"""<p>经营范围</p>
         :rtype: str
         """
         return self._Business
@@ -2359,7 +2405,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Type(self):
-        r"""主体类型
+        r"""<p>主体类型</p>
         :rtype: str
         """
         return self._Type
@@ -2370,7 +2416,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Period(self):
-        r"""营业期限
+        r"""<p>营业期限</p>
         :rtype: str
         """
         return self._Period
@@ -2381,7 +2427,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def ComposingForm(self):
-        r"""组成形式
+        r"""<p>组成形式</p>
         :rtype: str
         """
         return self._ComposingForm
@@ -2392,7 +2438,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def SetDate(self):
-        r"""成立日期
+        r"""<p>成立日期</p>
         :rtype: str
         """
         return self._SetDate
@@ -2403,9 +2449,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def RecognizeWarnCode(self):
-        r"""Code 告警码列表和释义：
--9102 黑白复印件告警
--9104 翻拍件告警
+        r"""<p>Code 告警码列表和释义：<br>-9102 黑白复印件告警<br>-9104 翻拍件告警<br>-9108 经营范围识别异常告警（由于文字过小、模糊、反光、遮挡或明显倾斜等情况导致未能正常识别）</p>
         :rtype: list of int
         """
         return self._RecognizeWarnCode
@@ -2416,9 +2460,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def RecognizeWarnMsg(self):
-        r"""告警码说明：
-WARN_COPY_CARD 黑白复印件告警
-WARN_RESHOOT_CARD翻拍件告警
+        r"""<p>告警码说明：<br>WARN_COPY_CARD 黑白复印件告警<br>WARN_RESHOOT_CARD翻拍件告警<br>WARN_EARLY_STOP 经营范围识别异常告警</p>
         :rtype: list of str
         """
         return self._RecognizeWarnMsg
@@ -2429,7 +2471,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def IsDuplication(self):
-        r"""是否为副本。1为是，-1为不是。
+        r"""<p>是否为副本。1为是，-1为不是。</p>
         :rtype: int
         """
         return self._IsDuplication
@@ -2440,7 +2482,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def RegistrationDate(self):
-        r"""登记日期
+        r"""<p>登记日期</p>
         :rtype: str
         """
         return self._RegistrationDate
@@ -2451,9 +2493,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Angle(self):
-        r""" 图片旋转角度(角度制)，文本的水平方向为0度；顺时针为正，角度范围是0-360度
-
-
+        r"""<p>图片旋转角度(角度制)，文本的水平方向为0度；顺时针为正，角度范围是0-360度</p>
         :rtype: float
         """
         return self._Angle
@@ -2464,7 +2504,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def NationalEmblem(self):
-        r"""是否有国徽。false为没有，true为有。
+        r"""<p>是否有国徽。false为没有，true为有。</p>
         :rtype: bool
         """
         return self._NationalEmblem
@@ -2475,7 +2515,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def QRCode(self):
-        r"""是否有二维码。false为没有，true为有。
+        r"""<p>是否有二维码。false为没有，true为有。</p>
         :rtype: bool
         """
         return self._QRCode
@@ -2486,7 +2526,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Seal(self):
-        r"""是否有印章。false为没有，true为有。
+        r"""<p>是否有印章。false为没有，true为有。</p>
         :rtype: bool
         """
         return self._Seal
@@ -2497,7 +2537,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Title(self):
-        r"""标题
+        r"""<p>标题</p>
         :rtype: str
         """
         return self._Title
@@ -2508,7 +2548,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def SerialNumber(self):
-        r"""编号
+        r"""<p>编号</p>
         :rtype: str
         """
         return self._SerialNumber
@@ -2519,7 +2559,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def RegistrationAuthority(self):
-        r"""登记机关
+        r"""<p>登记机关</p>
         :rtype: str
         """
         return self._RegistrationAuthority
@@ -2530,7 +2570,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Electronic(self):
-        r"""是否是电子营业执照。false为没有，true为有。
+        r"""<p>是否是电子营业执照。false为没有，true为有。</p>
         :rtype: bool
         """
         return self._Electronic
@@ -2541,7 +2581,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def BusinessCertificate(self):
-        r"""非营业执照的营业类证件识别结果，将以结构化形式呈现。
+        r"""<p>非营业执照的营业类证件识别结果，将以结构化形式呈现。</p>
         :rtype: list of BusinessCertificateInfo
         """
         return self._BusinessCertificate
@@ -2552,7 +2592,7 @@ WARN_RESHOOT_CARD翻拍件告警
 
     @property
     def Important(self):
-        r"""重要提示字段
+        r"""<p>重要提示字段</p>
         :rtype: str
         """
         return self._Important
@@ -5229,14 +5269,14 @@ class DescribeQuestionMarkAgentJobRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _JobId: 任务唯一ID。由服务端生成。	
+        :param _JobId: <p>任务唯一ID。由服务端生成。</p>
         :type JobId: str
         """
         self._JobId = None
 
     @property
     def JobId(self):
-        r"""任务唯一ID。由服务端生成。	
+        r"""<p>任务唯一ID。由服务端生成。</p>
         :rtype: str
         """
         return self._JobId
@@ -5265,16 +5305,18 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ErrorCode: 任务执行错误码。当任务状态不为 FAIL 时，该值为""。
+        :param _ErrorCode: <p>任务执行错误码。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
         :type ErrorCode: str
-        :param _ErrorMessage: 任务执行错误信息。当任务状态不为 FAIL 时，该值为""。
+        :param _ErrorMessage: <p>任务执行错误信息。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
         :type ErrorMessage: str
-        :param _JobStatus: 任务状态。WAIT：等待中，RUN：执行中，FAIL：任务失败，DONE：任务成功
+        :param _JobStatus: <p>任务状态。WAIT：等待中，RUN：执行中，FAIL：任务失败，DONE：任务成功</p>
         :type JobStatus: str
-        :param _Angle: 图片旋转角度(角度制)，文本的水平方向为 0；顺时针为正，逆时针为负。
+        :param _Angle: <p>图片旋转角度(角度制)，文本的水平方向为 0；顺时针为正，逆时针为负。</p>
         :type Angle: float
-        :param _MarkInfos: 试题批改信息
+        :param _MarkInfos: <p>试题批改信息  （该字段后续废弃，使用QuestionInfo兼容多页批改场景）</p>
         :type MarkInfos: list of MarkInfo
+        :param _QuestionInfo: <p>试题批改信息。</p>
+        :type QuestionInfo: list of QuestionInfo
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -5283,11 +5325,12 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
         self._JobStatus = None
         self._Angle = None
         self._MarkInfos = None
+        self._QuestionInfo = None
         self._RequestId = None
 
     @property
     def ErrorCode(self):
-        r"""任务执行错误码。当任务状态不为 FAIL 时，该值为""。
+        r"""<p>任务执行错误码。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
         :rtype: str
         """
         return self._ErrorCode
@@ -5298,7 +5341,7 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
 
     @property
     def ErrorMessage(self):
-        r"""任务执行错误信息。当任务状态不为 FAIL 时，该值为""。
+        r"""<p>任务执行错误信息。当任务状态不为 FAIL 时，该值为&quot;&quot;。</p>
         :rtype: str
         """
         return self._ErrorMessage
@@ -5309,7 +5352,7 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
 
     @property
     def JobStatus(self):
-        r"""任务状态。WAIT：等待中，RUN：执行中，FAIL：任务失败，DONE：任务成功
+        r"""<p>任务状态。WAIT：等待中，RUN：执行中，FAIL：任务失败，DONE：任务成功</p>
         :rtype: str
         """
         return self._JobStatus
@@ -5320,7 +5363,7 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
 
     @property
     def Angle(self):
-        r"""图片旋转角度(角度制)，文本的水平方向为 0；顺时针为正，逆时针为负。
+        r"""<p>图片旋转角度(角度制)，文本的水平方向为 0；顺时针为正，逆时针为负。</p>
         :rtype: float
         """
         return self._Angle
@@ -5331,7 +5374,7 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
 
     @property
     def MarkInfos(self):
-        r"""试题批改信息
+        r"""<p>试题批改信息  （该字段后续废弃，使用QuestionInfo兼容多页批改场景）</p>
         :rtype: list of MarkInfo
         """
         return self._MarkInfos
@@ -5339,6 +5382,17 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
     @MarkInfos.setter
     def MarkInfos(self, MarkInfos):
         self._MarkInfos = MarkInfos
+
+    @property
+    def QuestionInfo(self):
+        r"""<p>试题批改信息。</p>
+        :rtype: list of QuestionInfo
+        """
+        return self._QuestionInfo
+
+    @QuestionInfo.setter
+    def QuestionInfo(self, QuestionInfo):
+        self._QuestionInfo = QuestionInfo
 
     @property
     def RequestId(self):
@@ -5363,6 +5417,12 @@ class DescribeQuestionMarkAgentJobResponse(AbstractModel):
                 obj = MarkInfo()
                 obj._deserialize(item)
                 self._MarkInfos.append(obj)
+        if params.get("QuestionInfo") is not None:
+            self._QuestionInfo = []
+            for item in params.get("QuestionInfo"):
+                obj = QuestionInfo()
+                obj._deserialize(item)
+                self._QuestionInfo.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -8211,6 +8271,8 @@ class Element(AbstractModel):
         :type Index: int
         :param _PageIndex: <p>元素所在页</p><p>单位：页</p><p>默认值：1</p>
         :type PageIndex: int
+        :param _AnswerElement: <p>批改时答案的额外数据</p>
+        :type AnswerElement: :class:`tencentcloud.ocr.v20181119.models.AnswerElement`
         """
         self._Text = None
         self._Coord = None
@@ -8218,6 +8280,7 @@ class Element(AbstractModel):
         self._ResultList = None
         self._Index = None
         self._PageIndex = None
+        self._AnswerElement = None
 
     @property
     def Text(self):
@@ -8286,6 +8349,17 @@ class Element(AbstractModel):
     def PageIndex(self, PageIndex):
         self._PageIndex = PageIndex
 
+    @property
+    def AnswerElement(self):
+        r"""<p>批改时答案的额外数据</p>
+        :rtype: :class:`tencentcloud.ocr.v20181119.models.AnswerElement`
+        """
+        return self._AnswerElement
+
+    @AnswerElement.setter
+    def AnswerElement(self, AnswerElement):
+        self._AnswerElement = AnswerElement
+
 
     def _deserialize(self, params):
         self._Text = params.get("Text")
@@ -8301,6 +8375,9 @@ class Element(AbstractModel):
                 self._ResultList.append(obj)
         self._Index = params.get("Index")
         self._PageIndex = params.get("PageIndex")
+        if params.get("AnswerElement") is not None:
+            self._AnswerElement = AnswerElement()
+            self._AnswerElement._deserialize(params.get("AnswerElement"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -22074,6 +22151,8 @@ class QuestionInfo(AbstractModel):
         :type OrgWidth: int
         :param _ImageBase64: <p>预处理后的图片base64编码</p>
         :type ImageBase64: str
+        :param _ReturnImageUrl: <p>预处理后的图片URL,如果开启了图像切边矫正，后续的坐标都是基于当前图片返回的坐标</p>
+        :type ReturnImageUrl: str
         """
         self._Angle = None
         self._Height = None
@@ -22082,6 +22161,7 @@ class QuestionInfo(AbstractModel):
         self._OrgHeight = None
         self._OrgWidth = None
         self._ImageBase64 = None
+        self._ReturnImageUrl = None
 
     @property
     def Angle(self):
@@ -22161,6 +22241,17 @@ class QuestionInfo(AbstractModel):
     def ImageBase64(self, ImageBase64):
         self._ImageBase64 = ImageBase64
 
+    @property
+    def ReturnImageUrl(self):
+        r"""<p>预处理后的图片URL,如果开启了图像切边矫正，后续的坐标都是基于当前图片返回的坐标</p>
+        :rtype: str
+        """
+        return self._ReturnImageUrl
+
+    @ReturnImageUrl.setter
+    def ReturnImageUrl(self, ReturnImageUrl):
+        self._ReturnImageUrl = ReturnImageUrl
+
 
     def _deserialize(self, params):
         self._Angle = params.get("Angle")
@@ -22175,6 +22266,7 @@ class QuestionInfo(AbstractModel):
         self._OrgHeight = params.get("OrgHeight")
         self._OrgWidth = params.get("OrgWidth")
         self._ImageBase64 = params.get("ImageBase64")
+        self._ReturnImageUrl = params.get("ReturnImageUrl")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -24151,26 +24243,15 @@ class RecognizeGeneralCardWarnRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ImageUrl: 图片链接
+        :param _ImageUrl: <p>图片链接</p>
         :type ImageUrl: str
-        :param _ImageBase64: 图片base64
+        :param _ImageBase64: <p>图片base64</p>
         :type ImageBase64: str
-        :param _CardType: 卡证类型参数，包含以下范围：  
-General：通用卡证
-IDCard：身份证 
-Passport：护照 
-BankCard：银行卡
-VehicleLicense：行驶证
-DriverLicense：驾驶证
-BizLicense：营业执照 
-HmtResidentPermit：港澳台居住证
-ForeignPermanentResident：外国人永居证
-MainlandPermit：港澳台来往内地通行证
-SocialSecurityCard：社保卡
+        :param _CardType: <p>卡证类型参数，选填，不填则默认为General，枚举值：<br>（如输入图片的卡证类型明确，建议填入，可降低请求耗时）</p><p>General：系统自动分类/其他类型<br>IDCard：身份证<br>Passport：护照<br>BankCard：银行卡<br>VehicleLicense：行驶证<br>DriverLicense：驾驶证<br>BizLicense：营业执照<br>HmtResidentPermit：港澳台居住证<br>ForeignPermanentResident：外国人永居证<br>MainlandPermit：港澳台来往内地通行证<br>SocialSecurityCard：社保卡</p>
         :type CardType: str
-        :param _IsPdf: 是否开启PDF识别，默认值为false，开启后可同时支持图片和PDF的识别。
+        :param _IsPdf: <p>是否开启PDF识别，默认值为false，开启后可同时支持图片和PDF的识别。</p>
         :type IsPdf: bool
-        :param _PdfPageNumber: 需要识别的PDF页面的对应页码，仅支持PDF单页识别，当上传文件为PDF且IsPdf参数值为true时有效，默认值为1。
+        :param _PdfPageNumber: <p>需要识别的PDF页面的对应页码，仅支持PDF单页识别，当上传文件为PDF且IsPdf参数值为true时有效，默认值为1。</p>
         :type PdfPageNumber: int
         """
         self._ImageUrl = None
@@ -24181,7 +24262,7 @@ SocialSecurityCard：社保卡
 
     @property
     def ImageUrl(self):
-        r"""图片链接
+        r"""<p>图片链接</p>
         :rtype: str
         """
         return self._ImageUrl
@@ -24192,7 +24273,7 @@ SocialSecurityCard：社保卡
 
     @property
     def ImageBase64(self):
-        r"""图片base64
+        r"""<p>图片base64</p>
         :rtype: str
         """
         return self._ImageBase64
@@ -24203,18 +24284,7 @@ SocialSecurityCard：社保卡
 
     @property
     def CardType(self):
-        r"""卡证类型参数，包含以下范围：  
-General：通用卡证
-IDCard：身份证 
-Passport：护照 
-BankCard：银行卡
-VehicleLicense：行驶证
-DriverLicense：驾驶证
-BizLicense：营业执照 
-HmtResidentPermit：港澳台居住证
-ForeignPermanentResident：外国人永居证
-MainlandPermit：港澳台来往内地通行证
-SocialSecurityCard：社保卡
+        r"""<p>卡证类型参数，选填，不填则默认为General，枚举值：<br>（如输入图片的卡证类型明确，建议填入，可降低请求耗时）</p><p>General：系统自动分类/其他类型<br>IDCard：身份证<br>Passport：护照<br>BankCard：银行卡<br>VehicleLicense：行驶证<br>DriverLicense：驾驶证<br>BizLicense：营业执照<br>HmtResidentPermit：港澳台居住证<br>ForeignPermanentResident：外国人永居证<br>MainlandPermit：港澳台来往内地通行证<br>SocialSecurityCard：社保卡</p>
         :rtype: str
         """
         return self._CardType
@@ -24225,7 +24295,7 @@ SocialSecurityCard：社保卡
 
     @property
     def IsPdf(self):
-        r"""是否开启PDF识别，默认值为false，开启后可同时支持图片和PDF的识别。
+        r"""<p>是否开启PDF识别，默认值为false，开启后可同时支持图片和PDF的识别。</p>
         :rtype: bool
         """
         return self._IsPdf
@@ -24236,7 +24306,7 @@ SocialSecurityCard：社保卡
 
     @property
     def PdfPageNumber(self):
-        r"""需要识别的PDF页面的对应页码，仅支持PDF单页识别，当上传文件为PDF且IsPdf参数值为true时有效，默认值为1。
+        r"""<p>需要识别的PDF页面的对应页码，仅支持PDF单页识别，当上传文件为PDF且IsPdf参数值为true时有效，默认值为1。</p>
         :rtype: int
         """
         return self._PdfPageNumber
@@ -24269,40 +24339,29 @@ class RecognizeGeneralCardWarnResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _CardType: 卡证类型参数，包含以下范围： 
-General：通用卡证
-IDCard：身份证 
-Passport：护照 
-BankCard：银行卡
-VehicleLicense：行驶证
-DriverLicense：驾驶证
-BizLicense：营业执照 
-HmtResidentPermit：港澳台居住证
-ForeignPermanentResident：外国人永居证
-MainlandPermit：港澳台来往内地通行证
-SocialSecurityCard：社保卡
+        :param _CardType: <p>卡证类型参数，枚举值：<br>（如入参CardType未填或填入General，返回自动分类的卡证类型，未能分类的其他类型返回General；如入参CardType填入General以外的值，则不进行自动分类、返回相同的值）</p><p>General：其他类型<br>IDCard：身份证<br>Passport：护照<br>BankCard：银行卡<br>VehicleLicense：行驶证<br>DriverLicense：驾驶证<br>BizLicense：营业执照<br>HmtResidentPermit：港澳台居住证<br>ForeignPermanentResident：外国人永居证<br>MainlandPermit：港澳台来往内地通行证<br>SocialSecurityCard：社保卡</p>
         :type CardType: str
-        :param _Blur: 模糊信息
+        :param _Blur: <p>模糊信息</p>
         :type Blur: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _BorderIncomplete: 边框不完整信息
+        :param _BorderIncomplete: <p>边框不完整信息</p>
         :type BorderIncomplete: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Copy: 复印件信息
+        :param _Copy: <p>复印件信息</p>
         :type Copy: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Ps: ps篡改信息
+        :param _Ps: <p>ps篡改信息</p>
         :type Ps: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Reflection: 反光信息
+        :param _Reflection: <p>反光信息</p>
         :type Reflection: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Reprint: 翻拍件信息
+        :param _Reprint: <p>翻拍件信息</p>
         :type Reprint: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Screenshot: 是否截图
+        :param _Screenshot: <p>是否截图</p>
         :type Screenshot: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Cover: 是否遮挡
+        :param _Cover: <p>是否遮挡</p>
         :type Cover: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Overlap: 是否重叠
+        :param _Overlap: <p>是否重叠</p>
         :type Overlap: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Watermark: 是否水印
+        :param _Watermark: <p>是否水印</p>
         :type Watermark: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
-        :param _Electron: 是否电子证照（目前仅支持电子身份证、电子营业执照识别
+        :param _Electron: <p>是否电子证照（目前仅支持电子身份证、电子营业执照识别</p>
         :type Electron: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -24323,18 +24382,7 @@ SocialSecurityCard：社保卡
 
     @property
     def CardType(self):
-        r"""卡证类型参数，包含以下范围： 
-General：通用卡证
-IDCard：身份证 
-Passport：护照 
-BankCard：银行卡
-VehicleLicense：行驶证
-DriverLicense：驾驶证
-BizLicense：营业执照 
-HmtResidentPermit：港澳台居住证
-ForeignPermanentResident：外国人永居证
-MainlandPermit：港澳台来往内地通行证
-SocialSecurityCard：社保卡
+        r"""<p>卡证类型参数，枚举值：<br>（如入参CardType未填或填入General，返回自动分类的卡证类型，未能分类的其他类型返回General；如入参CardType填入General以外的值，则不进行自动分类、返回相同的值）</p><p>General：其他类型<br>IDCard：身份证<br>Passport：护照<br>BankCard：银行卡<br>VehicleLicense：行驶证<br>DriverLicense：驾驶证<br>BizLicense：营业执照<br>HmtResidentPermit：港澳台居住证<br>ForeignPermanentResident：外国人永居证<br>MainlandPermit：港澳台来往内地通行证<br>SocialSecurityCard：社保卡</p>
         :rtype: str
         """
         return self._CardType
@@ -24345,7 +24393,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Blur(self):
-        r"""模糊信息
+        r"""<p>模糊信息</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Blur
@@ -24356,7 +24404,7 @@ SocialSecurityCard：社保卡
 
     @property
     def BorderIncomplete(self):
-        r"""边框不完整信息
+        r"""<p>边框不完整信息</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._BorderIncomplete
@@ -24367,7 +24415,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Copy(self):
-        r"""复印件信息
+        r"""<p>复印件信息</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Copy
@@ -24378,7 +24426,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Ps(self):
-        r"""ps篡改信息
+        r"""<p>ps篡改信息</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Ps
@@ -24389,7 +24437,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Reflection(self):
-        r"""反光信息
+        r"""<p>反光信息</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Reflection
@@ -24400,7 +24448,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Reprint(self):
-        r"""翻拍件信息
+        r"""<p>翻拍件信息</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Reprint
@@ -24411,7 +24459,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Screenshot(self):
-        r"""是否截图
+        r"""<p>是否截图</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Screenshot
@@ -24422,7 +24470,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Cover(self):
-        r"""是否遮挡
+        r"""<p>是否遮挡</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Cover
@@ -24433,7 +24481,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Overlap(self):
-        r"""是否重叠
+        r"""<p>是否重叠</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Overlap
@@ -24444,7 +24492,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Watermark(self):
-        r"""是否水印
+        r"""<p>是否水印</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Watermark
@@ -24455,7 +24503,7 @@ SocialSecurityCard：社保卡
 
     @property
     def Electron(self):
-        r"""是否电子证照（目前仅支持电子身份证、电子营业执照识别
+        r"""<p>是否电子证照（目前仅支持电子身份证、电子营业执照识别</p>
         :rtype: :class:`tencentcloud.ocr.v20181119.models.GeneralCardWarnInfo`
         """
         return self._Electron
@@ -27404,6 +27452,12 @@ class ResultList(AbstractModel):
         :type Coord: list of Polygon
         :param _CoordPageIndex: <p>多坐标返回，显示坐标所在页</p><p>默认值：[]</p>
         :type CoordPageIndex: list of int
+        :param _RightAnswer: <p>返回正确答案内容</p>
+        :type RightAnswer: str
+        :param _Subject: <p>学科（如语文、数学、英语）</p>
+        :type Subject: str
+        :param _KnowledgePoints: <p>返回题目的知识点内容</p>
+        :type KnowledgePoints: list of str
         """
         self._Question = None
         self._Option = None
@@ -27413,6 +27467,9 @@ class ResultList(AbstractModel):
         self._Parse = None
         self._Coord = None
         self._CoordPageIndex = None
+        self._RightAnswer = None
+        self._Subject = None
+        self._KnowledgePoints = None
 
     @property
     def Question(self):
@@ -27508,6 +27565,39 @@ class ResultList(AbstractModel):
     def CoordPageIndex(self, CoordPageIndex):
         self._CoordPageIndex = CoordPageIndex
 
+    @property
+    def RightAnswer(self):
+        r"""<p>返回正确答案内容</p>
+        :rtype: str
+        """
+        return self._RightAnswer
+
+    @RightAnswer.setter
+    def RightAnswer(self, RightAnswer):
+        self._RightAnswer = RightAnswer
+
+    @property
+    def Subject(self):
+        r"""<p>学科（如语文、数学、英语）</p>
+        :rtype: str
+        """
+        return self._Subject
+
+    @Subject.setter
+    def Subject(self, Subject):
+        self._Subject = Subject
+
+    @property
+    def KnowledgePoints(self):
+        r"""<p>返回题目的知识点内容</p>
+        :rtype: list of str
+        """
+        return self._KnowledgePoints
+
+    @KnowledgePoints.setter
+    def KnowledgePoints(self, KnowledgePoints):
+        self._KnowledgePoints = KnowledgePoints
+
 
     def _deserialize(self, params):
         if params.get("Question") is not None:
@@ -27553,6 +27643,9 @@ class ResultList(AbstractModel):
                 obj._deserialize(item)
                 self._Coord.append(obj)
         self._CoordPageIndex = params.get("CoordPageIndex")
+        self._RightAnswer = params.get("RightAnswer")
+        self._Subject = params.get("Subject")
+        self._KnowledgePoints = params.get("KnowledgePoints")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -30518,24 +30611,26 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
         :type ImageBase64: str
         :param _ImageUrl: <p>图片/PDF的 Url 地址。要求图片经Base64编码后不超过10M，分辨率建议600*800以上，支持PNG、JPG、JPEG、BMP、PDF格式。图片下载时间不超过 3 秒。图片存储于腾讯云的 Url 可保障更高的下载速度和稳定性，建议图片存储于腾讯云。非腾讯云存储的 Url 速度和稳定性可能受一定影响。  示例值：https://ocr-demo-1254418846.cos.ap-guangzhou.myqcloud.com/general/GeneralAccurateOCR/GeneralAccurateOCR1.jpg</p>
         :type ImageUrl: str
-        :param _PdfPageNumber: <p>需要识别的PDF页面的对应页码，仅支持PDF单页识别，默认值为1。</p>
+        :param _PdfPageNumber: <p>不传则默认识别整个PDF，如果识别单页则输入指定页码</p>
         :type PdfPageNumber: int
         :param _BoolSingleQuestion: <p>表示整张试卷批改需要先切题，默认为false</p>
         :type BoolSingleQuestion: bool
         :param _EnableDeepThink: <p>默认false 表示关闭深度思考  true 表示打开深度思考，更深层次推理分析，速度更慢</p>
         :type EnableDeepThink: bool
-        :param _QuestionConfigMap: <p>题目信息输出配置，当key对应为true表示开启配置开关。</p><p>当key为KnowledgePoints value为true 表示输出每道题结构信息中输出知识点内容；<br>当key为TrueAnswer value为true 表示输出每道题的正确答案 ；<br>当key为StepCorrection value为true表示启用步骤级批改；</p><p>当key为DisableAnswerAnalysis value为true表示不输出答案解析；</p><p>当key为OutputSubQuestionsAndCoords value为true表示输出子题干和插图坐标；</p><p>当key为UseCoordAssist value为true表示使用精调坐标辅助模型，false表示默认模型坐标（性能更优）；</p><p>参数格式：{&quot;KnowledgePoints&quot;:true,&quot;TrueAnswer&quot;:true}</p>
+        :param _QuestionConfigMap: <p>题目信息输出配置，当key对应为true表示开启配置开关。<br>当key为KnowledgePoints value为true 表示输出每道题结构信息中输出知识点内容；<br>当key为TrueAnswer value为true 表示输出每道题的正确答案 ；<br>当key为StepCorrection value为true表示启用步骤级批改；<br>当key为DisableAnswerAnalysis value为true表示不输出答案解析；<br>当key为OutputSubQuestionsAndCoords value为true表示输出子题干和插图坐标；<br>当key为UseCoordAssist value为true表示使用精调坐标辅助模型，false表示默认模型坐标（性能更优）；</p>
         :type QuestionConfigMap: str
-        :param _ReferenceAnswer: <p>仅有单题有效，如果切题有多题则不生效，单题批改的时候作为参考答案输入到批改模型中</p>
+        :param _ReferenceAnswer: <p>【废除字段】<br>仅有单题有效，如果切题有多题则不生效，单题批改的时候作为参考答案输入到批改模型中</p>
         :type ReferenceAnswer: str
-        :param _ImageBase64List: <p>批量base64图片入口，每个base64参考单独ImageBase64参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行拼接逻辑（解决单题跨页场景）</li></ol>
+        :param _ImageBase64List: <p>批量base64图片入口，每个base64参考单独ImageBase64参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行多图同时批改逻辑（解决单题跨页场景）</li></ol>
         :type ImageBase64List: list of str
-        :param _ImageUrlList: <p>批量ImageUrl图片入口，每个ImageUrl参考单独ImageUrl参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N 来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行拼接逻辑（解决单题跨页场景）</li></ol>
+        :param _ImageUrlList: <p>批量ImageUrl图片入口，每个ImageUrl参考单独ImageUrl参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N 来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行多图同时批改逻辑（解决单题跨页场景）</li></ol>
         :type ImageUrlList: list of str
         :param _AssistMarkType: <p>辅助批改类型</p><p>枚举值：</p><ul><li>0： 无辅助批改，直接模型批改</li><li>1： 单题文本辅助批改，配合AnswerAssistMap使用</li><li>2： 整页辅助批改，待批改试卷使用ImageUrl/ImageBase64，答案部分使用ImageBase64List.N/ImageUrlList.N</li></ul><p>默认值：0</p>
         :type AssistMarkType: int
         :param _AnswerAssistMap: <p>单题辅助批改文本内容列表，当AssistMarkType为1时生效，用于提供题目相关的辅助文本信息。</p><ol><li>当key为ReferenceAnswer，value可以输入单题的辅助答案文本。</li><li>当key为QuestionAuxStem，value可以输入单题的辅助题干。</li></ol>
         :type AnswerAssistMap: str
+        :param _EnableImageCrop: <p>是否开启切边、弯曲矫正、方向矫正，开启则批改之前先做图片前处理，图片url地址返回在查询接口的QuestionInfo-&gt; ReturnImageUr中l,默认为false不开启<br>示例值：false</p>
+        :type EnableImageCrop: bool
         """
         self._ImageBase64 = None
         self._ImageUrl = None
@@ -30548,6 +30643,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
         self._ImageUrlList = None
         self._AssistMarkType = None
         self._AnswerAssistMap = None
+        self._EnableImageCrop = None
 
     @property
     def ImageBase64(self):
@@ -30573,7 +30669,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
 
     @property
     def PdfPageNumber(self):
-        r"""<p>需要识别的PDF页面的对应页码，仅支持PDF单页识别，默认值为1。</p>
+        r"""<p>不传则默认识别整个PDF，如果识别单页则输入指定页码</p>
         :rtype: int
         """
         return self._PdfPageNumber
@@ -30614,7 +30710,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
 
     @property
     def QuestionConfigMap(self):
-        r"""<p>题目信息输出配置，当key对应为true表示开启配置开关。</p><p>当key为KnowledgePoints value为true 表示输出每道题结构信息中输出知识点内容；<br>当key为TrueAnswer value为true 表示输出每道题的正确答案 ；<br>当key为StepCorrection value为true表示启用步骤级批改；</p><p>当key为DisableAnswerAnalysis value为true表示不输出答案解析；</p><p>当key为OutputSubQuestionsAndCoords value为true表示输出子题干和插图坐标；</p><p>当key为UseCoordAssist value为true表示使用精调坐标辅助模型，false表示默认模型坐标（性能更优）；</p><p>参数格式：{&quot;KnowledgePoints&quot;:true,&quot;TrueAnswer&quot;:true}</p>
+        r"""<p>题目信息输出配置，当key对应为true表示开启配置开关。<br>当key为KnowledgePoints value为true 表示输出每道题结构信息中输出知识点内容；<br>当key为TrueAnswer value为true 表示输出每道题的正确答案 ；<br>当key为StepCorrection value为true表示启用步骤级批改；<br>当key为DisableAnswerAnalysis value为true表示不输出答案解析；<br>当key为OutputSubQuestionsAndCoords value为true表示输出子题干和插图坐标；<br>当key为UseCoordAssist value为true表示使用精调坐标辅助模型，false表示默认模型坐标（性能更优）；</p>
         :rtype: str
         """
         return self._QuestionConfigMap
@@ -30625,7 +30721,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
 
     @property
     def ReferenceAnswer(self):
-        r"""<p>仅有单题有效，如果切题有多题则不生效，单题批改的时候作为参考答案输入到批改模型中</p>
+        r"""<p>【废除字段】<br>仅有单题有效，如果切题有多题则不生效，单题批改的时候作为参考答案输入到批改模型中</p>
         :rtype: str
         """
         return self._ReferenceAnswer
@@ -30636,7 +30732,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
 
     @property
     def ImageBase64List(self):
-        r"""<p>批量base64图片入口，每个base64参考单独ImageBase64参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行拼接逻辑（解决单题跨页场景）</li></ol>
+        r"""<p>批量base64图片入口，每个base64参考单独ImageBase64参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行多图同时批改逻辑（解决单题跨页场景）</li></ol>
         :rtype: list of str
         """
         return self._ImageBase64List
@@ -30647,7 +30743,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
 
     @property
     def ImageUrlList(self):
-        r"""<p>批量ImageUrl图片入口，每个ImageUrl参考单独ImageUrl参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N 来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行拼接逻辑（解决单题跨页场景）</li></ol>
+        r"""<p>批量ImageUrl图片入口，每个ImageUrl参考单独ImageUrl参数规则。</p><ol><li>当AssistMarkType为2时，用于提供题目相关的辅助批改图片信息.ImageBase64List.N/ImageUrlList.N 来输入答题试卷和含正确解析试卷，最多两张</li><li>当AssistMarkType不为2时，ImageBase64List.N/ImageUrlList.N图片会执行多图同时批改逻辑（解决单题跨页场景）</li></ol>
         :rtype: list of str
         """
         return self._ImageUrlList
@@ -30678,6 +30774,17 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
     def AnswerAssistMap(self, AnswerAssistMap):
         self._AnswerAssistMap = AnswerAssistMap
 
+    @property
+    def EnableImageCrop(self):
+        r"""<p>是否开启切边、弯曲矫正、方向矫正，开启则批改之前先做图片前处理，图片url地址返回在查询接口的QuestionInfo-&gt; ReturnImageUr中l,默认为false不开启<br>示例值：false</p>
+        :rtype: bool
+        """
+        return self._EnableImageCrop
+
+    @EnableImageCrop.setter
+    def EnableImageCrop(self, EnableImageCrop):
+        self._EnableImageCrop = EnableImageCrop
+
 
     def _deserialize(self, params):
         self._ImageBase64 = params.get("ImageBase64")
@@ -30691,6 +30798,7 @@ class SubmitQuestionMarkAgentJobRequest(AbstractModel):
         self._ImageUrlList = params.get("ImageUrlList")
         self._AssistMarkType = params.get("AssistMarkType")
         self._AnswerAssistMap = params.get("AnswerAssistMap")
+        self._EnableImageCrop = params.get("EnableImageCrop")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -30714,7 +30822,7 @@ class SubmitQuestionMarkAgentJobResponse(AbstractModel):
         :type QuestionInfo: list of QuestionInfo
         :param _QuestionCount: <p>题目切题数量，作为计费题目数总量</p>
         :type QuestionCount: str
-        :param _OriginalImageUrl: <p>客户图片url</p>
+        :param _OriginalImageUrl: <p>废弃字段</p>
         :type OriginalImageUrl: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -30760,7 +30868,7 @@ class SubmitQuestionMarkAgentJobResponse(AbstractModel):
 
     @property
     def OriginalImageUrl(self):
-        r"""<p>客户图片url</p>
+        r"""<p>废弃字段</p>
         :rtype: str
         """
         return self._OriginalImageUrl
@@ -30807,10 +30915,13 @@ class SubmitQuestionSplitJobRequest(AbstractModel):
         :type ImageBase64List: list of str
         :param _ModelType: <p>选择切题模型</p><p>枚举值：</p><ul><li>youtu_crop： 轻量化切题模型，运算速度更快，适合常规切题</li><li>youtu_crop_pro： 属于切题精调大模型，针对双栏、跨栏等复杂版式识别精度大幅提升，但推理耗时更长</li></ul><p>默认值：youtu_crop</p>
         :type ModelType: str
+        :param _EnableImageCrop: <p>是否开启切边、弯曲矫正、方向矫正，开启则批改之前先做图片前处理，图片url地址返回在查询接口的QuestionInfo-&gt; ReturnImageUr中l,默认为false不开启</p>
+        :type EnableImageCrop: bool
         """
         self._ImageUrlList = None
         self._ImageBase64List = None
         self._ModelType = None
+        self._EnableImageCrop = None
 
     @property
     def ImageUrlList(self):
@@ -30845,11 +30956,23 @@ class SubmitQuestionSplitJobRequest(AbstractModel):
     def ModelType(self, ModelType):
         self._ModelType = ModelType
 
+    @property
+    def EnableImageCrop(self):
+        r"""<p>是否开启切边、弯曲矫正、方向矫正，开启则批改之前先做图片前处理，图片url地址返回在查询接口的QuestionInfo-&gt; ReturnImageUr中l,默认为false不开启</p>
+        :rtype: bool
+        """
+        return self._EnableImageCrop
+
+    @EnableImageCrop.setter
+    def EnableImageCrop(self, EnableImageCrop):
+        self._EnableImageCrop = EnableImageCrop
+
 
     def _deserialize(self, params):
         self._ImageUrlList = params.get("ImageUrlList")
         self._ImageBase64List = params.get("ImageBase64List")
         self._ModelType = params.get("ModelType")
+        self._EnableImageCrop = params.get("EnableImageCrop")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

@@ -41,6 +41,9 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast
 
+# Loaded with uiprotect so diagnostics dumps never import it on the event loop.
+from .. import anonymize
+from ..utils import normalize_mac
 from .base import ProtectModelWithId
 from .convert import create_from_unifi_dict
 from .public_devices import (
@@ -51,6 +54,7 @@ from .public_devices import (
     PublicBridge,
     PublicCamera,
     PublicChime,
+    PublicDeviceModel,
     PublicLight,
     PublicLiveview,
     PublicNVR,
@@ -303,6 +307,22 @@ class PublicBootstrap:
                 return getattr(obj, "mac", None)
         return None
 
+    def get_device_from_mac(
+        self, mac: str, model_type: ModelType | None = None
+    ) -> PublicDeviceModel | None:
+        """Find a cached device by mac in any format, optionally in one store."""
+        if model_type is None:
+            candidates: Iterable[ProtectModelWithId] = self.all_devices()
+        elif (store := self.store_for(model_type)) is not None:
+            candidates = store.values()
+        else:
+            return None
+        target = normalize_mac(mac)
+        for obj in candidates:
+            if isinstance(obj, PublicDeviceModel) and normalize_mac(obj.mac) == target:
+                return obj
+        return None
+
     def all_devices(self, *, include_nvr: bool = False) -> Iterator[ProtectModelWithId]:
         """
         Iterate every cached device across all model types.
@@ -323,6 +343,31 @@ class PublicBootstrap:
             if model_type is ModelType.LIVEVIEW:
                 continue
             yield from getattr(self, store_attr).values()
+
+    def to_diagnostics(self) -> dict[str, Any]:
+        """
+        Return an anonymized dump of the NVR and every registry store.
+
+        Keys are ``"nvr"`` plus each store attribute in :data:`_PUBLIC_STORES`
+        and :data:`_DEDICATED_SLOT_STORE_ATTRS`. Ids share the process-wide
+        anonymizer mapping, so they match an ``anonymize_data`` dump of the
+        private bootstrap taken in the same process.
+        """
+        result: dict[str, Any] = {
+            "nvr": (
+                anonymize.anonymize_data(self.nvr.unifi_dict())
+                if self.nvr is not None
+                else None
+            )
+        }
+        store_attrs = [attr for attr, _cls in _PUBLIC_STORES.values()]
+        store_attrs.extend(_DEDICATED_SLOT_STORE_ATTRS.values())
+        for store_attr in store_attrs:
+            result[store_attr] = [
+                anonymize.anonymize_data(obj.unifi_dict())
+                for obj in getattr(self, store_attr).values()
+            ]
+        return result
 
     def apply_fetch_result(
         self, attr: str, objs: list[ProtectModelWithId]

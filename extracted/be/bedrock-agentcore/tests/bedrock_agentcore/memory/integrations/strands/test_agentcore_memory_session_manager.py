@@ -140,7 +140,26 @@ class TestAgentCoreMemorySessionManager:
 
                     assert manager.config == agentcore_config
                     assert manager.memory_client == mock_client
-                    mock_client_class.assert_called_once_with(region_name=None)
+                    # MemoryClient must receive the resolved boto3 session so it does not
+                    # build its clients from a different (default) session.
+                    mock_client_class.assert_called_once_with(region_name=None, boto3_session=mock_session)
+
+    def test_init_passes_boto_session_to_memory_client(self, agentcore_config):
+        """A user-provided boto_session must be passed through to MemoryClient (issue #681)."""
+        with patch("bedrock_agentcore.memory.integrations.strands.session_manager.MemoryClient") as mock_client_class:
+            mock_client_class.return_value = Mock()
+            user_session = Mock()
+            user_session.region_name = "eu-west-1"
+            user_session.client.return_value = Mock()
+
+            with patch(
+                "strands.session.repository_session_manager.RepositorySessionManager.__init__", return_value=None
+            ):
+                AgentCoreMemorySessionManager(agentcore_config, boto_session=user_session)
+
+                # The user's session (not a default boto3.Session) must reach MemoryClient.
+                _, kwargs = mock_client_class.call_args
+                assert kwargs["boto3_session"] is user_session
 
     def test_events_to_messages(self, session_manager):
         """Test converting Bedrock events to SessionMessages."""
@@ -276,6 +295,20 @@ class TestAgentCoreMemorySessionManager:
         assert result is not None
         assert result.agent_id == "test-agent-123"
         assert result.agent_id == "test-agent-123"
+
+    def test_read_agent_batched_event_returns_latest_snapshot(self, batching_session_manager, mock_memory_client):
+        """Test that an agent restored from a batched event gets the last snapshot buffered (#698)."""
+        for state in ({}, {"n": 1}, {"n": 2}):
+            batching_session_manager.create_agent(
+                "test-session-456", SessionAgent(agent_id="test-agent-123", state=state, conversation_manager_state={})
+            )
+        batching_session_manager._flush_agent_states_only()
+        written = mock_memory_client.gmdp_client.create_event.call_args.kwargs
+        mock_memory_client.list_events.return_value = [{"eventId": "event-1", "payload": written["payload"]}]
+
+        result = batching_session_manager.read_agent("test-session-456", "test-agent-123")
+
+        assert result.state == {"n": 2}
 
     def test_read_agent_no_events(self, session_manager, mock_memory_client):
         """Test reading an agent with no events."""
@@ -3881,6 +3914,50 @@ class TestFlushAgentStatesRaceCondition:
 
         # State must be back in the buffer for retry.
         assert batching_session_manager.pending_agent_state_count() == 1
+
+    def test_flush_agent_states_failure_keeps_newer_concurrent_state_last(
+        self, batching_session_manager, mock_memory_client
+    ):
+        """A state buffered during a failed flush must stay last, since read_agent restores the last state."""
+
+        def fail_after_concurrent_append(**kwargs):
+            batching_session_manager.create_agent(
+                "test-session-456", SessionAgent(agent_id="agent-1", state={"v": 2}, conversation_manager_state={})
+            )
+            raise Exception("API Error")
+
+        batching_session_manager.create_agent(
+            "test-session-456", SessionAgent(agent_id="agent-1", state={"v": 1}, conversation_manager_state={})
+        )
+        mock_memory_client.gmdp_client.create_event.side_effect = fail_after_concurrent_append
+        with pytest.raises(SessionException):
+            batching_session_manager._flush_agent_states_only()
+
+        assert [a.state for _, a in batching_session_manager._agent_state_buffer] == [{"v": 1}, {"v": 2}]
+
+    def test_agent_state_auto_flush_persists_buffered_messages_first(
+        self, batching_session_manager, mock_memory_client
+    ):
+        """An agent snapshot must never be persisted ahead of the messages it accounts for."""
+        mock_memory_client.gmdp_client.create_event.return_value = {"event": {"eventId": "e"}}
+        batching_session_manager.create_message(
+            "test-session-456",
+            "agent-1",
+            SessionMessage(message={"role": "user", "content": [{"text": "hi"}]}, message_id=0),
+        )
+
+        for i in range(batching_session_manager.config.batch_size):
+            batching_session_manager.create_agent(
+                "test-session-456", SessionAgent(agent_id="agent-1", state={"v": i}, conversation_manager_state={})
+            )
+
+        written = [
+            c.kwargs.get("metadata", {}).get("stateType")
+            for c in mock_memory_client.gmdp_client.create_event.call_args_list
+        ]
+        assert written[-1] == {"stringValue": "AGENT"}
+        assert batching_session_manager.pending_message_count() == 0
+        assert len(written) == 2
 
 
 class TestMonotonicTimestamp:

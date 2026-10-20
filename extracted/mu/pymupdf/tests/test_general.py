@@ -306,7 +306,13 @@ def test_2533():
                     bbox = pymupdf.Rect(char[3])
                     break
         bbox2 = page.search_for(NEEDLE)[0]
-        assert bbox2 == bbox, f'{bbox=} {bbox2=} {bbox2-bbox=}.'
+        if util._use_4llm():
+            assert bbox2.x0 == bbox.x0
+            assert bbox2.x1 == bbox.x1
+            assert abs(bbox2.y0 - bbox.y0) < 1
+            assert abs(bbox2.y1 - bbox.y1) < 1
+        else:
+            assert bbox2 == bbox, f'{bbox=} {bbox2=} {bbox2-bbox=}.'
     finally:
         pymupdf.TOOLS.set_small_glyph_heights(False)
 
@@ -1003,6 +1009,9 @@ def test_3140():
     os.remove(oldfile)
 
 def test_cli():
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        print(f'test_4751(): doing nothing in sysinstall.')
+        return
     if os.environ.get('PYODIDE_ROOT'):
         print('test_cli(): not running on Pyodide - cannot run child processes.')
         return
@@ -1024,12 +1033,17 @@ def check_lines(expected_regexes, actual):
         return s
     expected_regexes = str_to_list(expected_regexes)
     actual = str_to_list(actual)
+    if actual and 'onnxruntime' in actual[0]:
+        actual = actual[1:]
+        if len(actual) == 1 and not actual[0]:
+            actual = list()
+        print(f'### check_lines(): have changed to {actual=}', flush=1)
     if expected_regexes and expected_regexes[-1]:
         expected_regexes.append('') # Always expect a trailing empty line.
     # Remove `None` regexes and make all regexes match entire lines.
     expected_regexes = [f'^{i}$' for i in expected_regexes if i is not None]
     
-    print(f'expected_regexes ({len(expected_regexes)}):')
+    print(f'expected_regexes ({len(expected_regexes)}):', flush=1)
     for i in expected_regexes:
         print(f'    {i!r}')
     
@@ -1065,6 +1079,9 @@ def test_cli_out():
     Check redirection of messages and log diagnostics with environment
     variables PYMUPDF_LOG and PYMUPDF_MESSAGE.
     '''
+    if os.environ.get('PYMUPDF_SYSINSTALL_ROOT'):
+        print(f'test_cli_out(): doing nothing in sysinstall.')
+        return
     if os.environ.get('PYODIDE_ROOT'):
         print('test_cli_out(): not running on Pyodide - cannot run child processes.')
         return
@@ -1720,7 +1737,9 @@ def test_3569():
                 '</svg>\n'
                 )
     wt = pymupdf.TOOLS.mupdf_warnings()
-    if pymupdf.mupdf_version_tuple >= (1, 28):
+    if pymupdf.mupdf_version_tuple >= (1, 28, 5):
+        assert wt == 'unknown cid collection: PDFAUTOCAD-Indentity0\nnon-embedded font using identity encoding: ArialMT (mapping via Adobe-Identity-UCS)\ninvalid marked content sequence / clip nesting'
+    elif pymupdf.mupdf_version_tuple >= (1, 28):
         assert wt == 'unknown cid collection: PDFAUTOCAD-Indentity0\nnon-embedded font using identity encoding: ArialMT (mapping via )\ninvalid marked content sequence / clip nesting'
     else:
         assert wt == 'unknown cid collection: PDFAUTOCAD-Indentity0\nnon-embedded font using identity encoding: ArialMT (mapping via )\ninvalid marked content and clip nesting'
@@ -1999,7 +2018,7 @@ def test_4392():
         return
         
     print('', flush=1)
-    path = os.path.normpath(f'{__file__}/../../tests/test_4392.py')
+    path = os.path.normpath(f'{__file__}/../../tests/internal_4392.py')
     with open(path, 'w') as f:
         f.write('import pymupdf\n')
     
@@ -2022,6 +2041,16 @@ def test_4392():
     
     print(f'{pymupdf.swig_version=}', flush=1)
     print(f'{pymupdf.swig_version_tuple=}', flush=1)
+    
+    # pytest exit codes
+    # (https://docs.pytest.org/en/latest/reference/exit-codes.html):
+    #
+    # Exit code 0: All tests were collected and passed successfully
+    # Exit code 1: Tests were collected and run but some of the tests failed
+    # Exit code 2: Test execution was interrupted by the user
+    # Exit code 3: Internal error happened while executing tests
+    # Exit code 4: pytest command line usage error
+    # Exit code 5: No tests were collected
     
     assert e1 == 5
     if pymupdf.swig_version_tuple >= (4, 4):
@@ -2267,7 +2296,85 @@ def test_5054():
         text2 = page.get_text()
         print(f'{text1=}')
         print(f'{text2=}')
-        if pymupdf.mupdf_version_tuple < (1, 29):
+        if pymupdf.mupdf_version_tuple < (1, 28, 5):
             assert text2 != text1
         else:
             assert text2 == text1
+
+def test_5100():
+    print()
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_5100(): not running on Pyodide - cannot run child processes.')
+        return
+    if sysconfig.get_config_var('Py_GIL_DISABLED') == 1 and sys._is_gil_enabled():
+        print(f'test_5100(): not running on free-thread python because diagnostics are more complicated.')
+        return
+        
+    def run(code):
+        code = textwrap.dedent(code)
+        print(f'code is:\n{textwrap.indent(code, "    ")}')
+        path = os.path.normpath(f'{__file__}/../../tests/_test_5100.py')
+        with open(path, 'w') as f:
+            f.write(code)
+        cp = subprocess.run(f'{sys.executable} {path}', shell=1, check=1, capture_output=1)
+        print(f'{cp.stdout=}')
+        print(f'{cp.stderr=}')
+        return cp
+    
+    cp = run('''
+            import pymupdf
+            ''')
+    assert cp.stdout == b''
+    assert cp.stderr == b'' or b'onnxruntime' in cp.stderr
+    
+    cp = run('''
+            import fitz
+            ''')
+    assert cp.stdout == b''
+    assert b'FutureWarning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead' in cp.stderr
+    
+    cp = run('''
+            import warnings
+            warnings.filterwarnings('ignore', category=FutureWarning, module='fitz')
+            import fitz
+            ''')
+    assert cp.stdout == b''
+    assert cp.stderr == b'' or b'onnxruntime' in cp.stderr
+
+
+def test_4846():
+    # Currently doesn't test the generated file, just leaves to to be looked at
+    # manually.
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4846.pdf')
+    path_out = os.path.normpath(f'{__file__}/../../tests/test_out.svg')
+    with pymupdf.open(path) as document:
+        page = document[0]
+        svg_content = page.get_svg_image()
+        with open(path_out, 'w', encoding="utf8") as f:
+            f.write(svg_content)
+
+
+def test_4896():
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_4896.pdf')
+    out = os.path.normpath(f'{__file__}/../../tests/test_4896_out')
+    print()
+    
+    with pymupdf.open(path) as document:
+        path = f'{out}_2.pdf'
+        document.ez_save(path, garbage=2)
+        print(f'Have saved to: {path}')
+        pixmap0 = document[0].get_pixmap()
+    
+    with pymupdf.open(path) as document:
+        document.rewrite_images(dpi_threshold=160, dpi_target=150)
+        for g in 1, 2, 3, 4:
+            path = f'{out}_rewrite_{g}.pdf'
+            document.ez_save(path, garbage=g)
+            print(f'Have saved to: {path}')
+            
+            with pymupdf.open(path) as document2:
+                pixmap = document2[0].get_pixmap()
+                diff = gentle_compare.pixmaps_rms(pixmap0, pixmap)
+                print(f'{diff=} for {path=}.')
+                assert diff == 0
+    

@@ -40,6 +40,7 @@ from .literals import (
     ContentBlockTypeType,
     CryptoWalletNetworkType,
     DescriptorTypeType,
+    FindingTargetTypeType,
     HarnessBedrockApiFormatType,
     HarnessConversationRoleType,
     HarnessHookDecisionType,
@@ -301,6 +302,8 @@ __all__ = (
     "InlineGroundTruthTypeDef",
     "InlineMemoryContentTypeDef",
     "InputContentBlockTypeDef",
+    "InsightResultTypeDef",
+    "InsightRootCauseTypeDef",
     "InsightTypeDef",
     "InsightsFailureSignalTypeDef",
     "InternalServerExceptionTypeDef",
@@ -450,6 +453,7 @@ __all__ = (
     "RuntimeClientErrorTypeDef",
     "S3FilesConfigurationTypeDef",
     "S3LocationTypeDef",
+    "SampleSessionTypeDef",
     "SaveBrowserSessionProfileRequestTypeDef",
     "SaveBrowserSessionProfileResponseTypeDef",
     "ScreenshotArgumentsTypeDef",
@@ -463,6 +467,7 @@ __all__ = (
     "SessionFilterConfigOutputTypeDef",
     "SessionFilterConfigTypeDef",
     "SessionFilterTypeDef",
+    "SessionFindingTypeDef",
     "SessionLimitsTypeDef",
     "SessionMetadataShapeTypeDef",
     "SessionSummaryTypeDef",
@@ -1375,6 +1380,13 @@ class S3FilesConfigurationTypeDef(TypedDict):
     mountPath: str
     fileSystemArn: str
 
+class SessionFindingTypeDef(TypedDict):
+    description: str
+    targetId: NotRequired[str]
+    targetType: NotRequired[FindingTargetTypeType]
+    category: NotRequired[str]
+    confidence: NotRequired[float]
+
 class SaveBrowserSessionProfileRequestTypeDef(TypedDict):
     profileIdentifier: str
     browserIdentifier: str
@@ -2040,6 +2052,11 @@ class ToolsFileSystemConfigurationTypeDef(TypedDict):
     s3FilesConfiguration: NotRequired[S3FilesConfigurationTypeDef]
     efsConfiguration: NotRequired[EfsConfigurationTypeDef]
 
+class SampleSessionTypeDef(TypedDict):
+    sessionId: str
+    lastSeenAt: NotRequired[datetime]
+    findings: NotRequired[list[SessionFindingTypeDef]]
+
 class SystemPromptConfigTypeDef(TypedDict):
     text: NotRequired[str]
     configurationBundle: NotRequired[SystemPromptConfigurationBundleTypeDef]
@@ -2364,6 +2381,13 @@ BrowserEnterprisePolicyTypeDef = TypedDict(
 class BrowserExtensionTypeDef(TypedDict):
     location: ResourceLocationTypeDef
 
+class InsightRootCauseTypeDef(TypedDict):
+    name: str
+    explanation: str
+    affectedSessionCount: NotRequired[int]
+    suggestedFix: NotRequired[str]
+    sampleSessions: NotRequired[list[SampleSessionTypeDef]]
+
 class VariantTypeDef(TypedDict):
     name: str
     weight: int
@@ -2599,6 +2623,18 @@ class InlineMemoryContentTypeDef(TypedDict):
     payload: Sequence[IngestPayloadTypeTypeDef]
 
 PayloadTypeUnionTypeDef = Union[PayloadTypeTypeDef, PayloadTypeOutputTypeDef]
+InsightResultTypeDef = TypedDict(
+    "InsightResultTypeDef",
+    {
+        "type": Literal["FAILURE"],
+        "name": str,
+        "description": str,
+        "createdAt": datetime,
+        "affectedSessionCount": NotRequired[int],
+        "sampleSessions": NotRequired[list[SampleSessionTypeDef]],
+        "rootCauses": NotRequired[list[InsightRootCauseTypeDef]],
+    },
+)
 
 class CreateABTestRequestTypeDef(TypedDict):
     name: str
@@ -3044,6 +3080,7 @@ class GetBatchEvaluationResponseTypeDef(TypedDict):
     dataSourceConfig: DataSourceConfigOutputTypeDef
     outputConfig: OutputConfigTypeDef
     evaluationResults: EvaluationJobResultsTypeDef
+    insightResults: list[InsightResultTypeDef]
     failureAnalysisResult: FailureAnalysisResultContentTypeDef
     userIntentResult: UserIntentClusteringResultContentTypeDef
     executionSummaryResult: ExecutionSummaryClusteringResultContentTypeDef

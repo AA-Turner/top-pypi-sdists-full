@@ -89,7 +89,7 @@ def _build_parser_map() -> dict[str, Callable[[str], Any]]:
         its kind declares. A kind block has no legacy shape: the emitter wrote the kind's
         own schema and ``envelope_for_block`` validates it against exactly that. So this
         is ``json.loads`` and a type check, and it must stay that way — any "helpful"
-        normalisation here would silently diverge from the schema the envelope then
+        normalization here would silently diverge from the schema the envelope then
         claims the value satisfies.
         """
         try:
@@ -527,7 +527,7 @@ class StreamBlockProcessor:
         # ``asyncio.to_thread`` cancellation stops waiting, not the worker.
         # Every async mutation therefore goes through this lock and completes
         # its worker before releasing it, so a later finalize cannot race a
-        # cancelled token's still-running detector.
+        # canceled token's still-running detector.
         self._async_operation_lock = asyncio.Lock()
 
     def process_token(self, token: str) -> list[RenderBlockEvent]:
@@ -646,7 +646,7 @@ class StreamBlockProcessor:
         return await self._run_async_mutation(self.finalize)
 
     async def drain_open_partials_async(self, reason: str) -> list[RenderBlockEvent]:
-        """Drain partial state without racing a cancelled detector worker."""
+        """Drain partial state without racing a canceled detector worker."""
         return await self._run_async_mutation(self.drain_open_partials, reason)
 
     async def _run_async_mutation(
@@ -654,7 +654,7 @@ class StreamBlockProcessor:
     ) -> list[RenderBlockEvent]:
         """Serialize one stateful worker operation, including cancellation cleanup.
 
-        Cancelling an await on ``to_thread`` leaves the thread running.  The
+        Canceling an await on ``to_thread`` leaves the thread running.  The
         lock MUST remain held until that worker actually returns; otherwise a
         caller's cleanup/finalize can mutate this processor concurrently.
         """
@@ -828,7 +828,7 @@ class StreamBlockProcessor:
     # partial is by definition unvalidated — stamping one there would seed the
     # frontend's fingerprint-keyed envelope cache with a half-built value and
     # poison every later read of the region (the complete-only law of
-    # ``envelope.py``, honoured literally rather than relaxed).
+    # ``envelope.py``, honored literally rather than relaxed).
     #
     # Partials are deliberately NOT schema-partitioned. The final envelope
     # routes unknown keys to ``residue`` because it claims to be a verified

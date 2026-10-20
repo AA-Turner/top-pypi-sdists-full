@@ -14,13 +14,14 @@ from typing import (
     ClassVar,
     Generic,
     Literal,
+    Self,
     TypeAlias,
     cast,
     overload,
 )
 
 from immutabledict import immutabledict
-from typing_extensions import Self, TypeForm, TypeVar, deprecated, override
+from typing_extensions import TypeForm, TypeVar, deprecated, override
 
 from xdsl.dialect_interfaces.op_asm import OpAsmDialectInterface
 from xdsl.ir import (
@@ -88,6 +89,7 @@ from xdsl.traits import (
     OpTrait,
     SymbolTable,
 )
+from xdsl.utils.bitwise_casts import convert_f64_to_u64
 from xdsl.utils.comparisons import (
     signed_upper_bound,
     signed_value_range,
@@ -1511,20 +1513,34 @@ class BFloat16Type(ParametrizedAttribute, _FloatType):
     @staticmethod
     def _encode(value: float) -> bytes:
         """
-        Encode a Python float (IEEE 754 binary32 after Python's f64 -> f32
-        narrowing) as bf16 bytes, little-endian. Round-to-nearest-even,
-        quiet-NaN preservation; matches LLVM APFloat semantics.
+        Encode a Python binary64 float directly as bf16 bytes, little-endian.
+        Round to nearest, ties to even, preserving signed zeros and quieting NaNs.
         """
-        f32_bits = struct.unpack("<I", struct.pack("<f", value))[0]
-        # NaN must remain a NaN after truncation; force the quiet bit on so a
-        # signaling NaN with mantissa entirely in the truncated bits doesn't
-        # become inf.
-        if (f32_bits & 0x7FFFFFFF) > 0x7F800000:
-            bits = ((f32_bits >> 16) | 0x0040) & 0xFFFF
+        f64_bits = struct.unpack("<Q", struct.pack("<d", value))[0]
+        sign = (f64_bits >> 48) & 0x8000
+        exponent = ((f64_bits >> 52) & 0x7FF) - 1023
+        fraction = f64_bits & ((1 << 52) - 1)
+        if exponent == 1024:
+            bits = 0x7F80
+            if fraction:
+                # Preserve high payload bits and force a quiet, nonzero NaN.
+                bits |= (fraction >> 45) | 0x0040
+        elif exponent < -134:
+            # Below half the smallest bf16 subnormal, including binary64 zero.
+            bits = 0
+        elif exponent < -126:
+            # Subnormals are multiples of 2**-133. The binary64 significand
+            # represents a multiple of 2**(exponent - 52).
+            bits = FloatSemantics.round_half_even(
+                (1 << 52) | fraction, -133 - (exponent - 52)
+            )
         else:
-            rounding_bias = 0x7FFF + ((f32_bits >> 16) & 1)
-            bits = ((f32_bits + rounding_bias) >> 16) & 0xFFFF
-        return bits.to_bytes(2, "little")
+            # Keep seven fraction bits; a carry increments the bf16 exponent.
+            bits = ((exponent + 127) << 7) + FloatSemantics.round_half_even(
+                fraction, 52 - 7
+            )
+            bits = min(bits, 0x7F80)  # Overflow rounds to infinity.
+        return (sign | bits).to_bytes(2, "little")
 
     @staticmethod
     def _decode(raw: ReadableBuffer) -> float:
@@ -1826,19 +1842,13 @@ class FloatData(Data[float]):
             printer.print_string(f"{self.data}")
 
     def __eq__(self, other: object) -> bool:
+        """Compare stored bits, distinguishing signed zeros and NaN encodings."""
         if not isinstance(other, FloatData):
             return False
-        if math.isnan(self.data) and math.isnan(other.data):
-            # Treat all NaNs as equal
-            return True
-        if math.copysign(1.0, self.data) != math.copysign(1.0, other.data):
-            # Avoid dropping sign on -0.0
-            return False
-        # If the floats are not NaNs or +-0.0, use float equality
-        return self.data == other.data
+        return convert_f64_to_u64(self.data) == convert_f64_to_u64(other.data)
 
     def __hash__(self):
-        return hash(self.data)
+        return hash(convert_f64_to_u64(self.data))
 
 
 _FloatAttrTypeCovT = TypeVar(

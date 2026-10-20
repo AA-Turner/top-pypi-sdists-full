@@ -241,7 +241,7 @@ def detect_json_block_type(content: str) -> str | None:
         #
         # The registry answer comes from a SYNC snapshot because this function runs
         # inside the token loop. A cold snapshot says "no", which is exactly the
-        # behaviour that existed before this branch: a plain code block, rendered by the
+        # behavior that existed before this branch: a plain code block, rendered by the
         # frontend's own parser. Declining is safe; guessing is not.
         if slug and is_registered_kind(slug):
             return KIND_BLOCK_TYPE
@@ -1156,7 +1156,7 @@ def root_kind_declaration(source: str) -> str | None:
     * the document must OPEN the buffer (leading whitespace only) — an object
       further inside prose is the embedded-recovery path, not this one;
     * ``__kind`` must be the FIRST key. A ``__kind`` arriving later is not
-      pre-recognition, and honouring it here would announce a kind after the
+      pre-recognition, and honoring it here would announce a kind after the
       user has already watched the raw text;
     * the slug's CLOSING quote must have arrived, so a half-streamed
       ``"flash`` never announces ``flashcard_set``'s neighbour.

@@ -243,3 +243,78 @@ def radar_elevation_select(head_cols, prefix: str = "") -> str:
     calibration table. 'na' when the file has no elevation."""
     col = radar_elevation_column(head_cols)
     return f"printf('%.1f', {prefix}{col})" if col else "'na'"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The themes of obsscorecard
+# ─────────────────────────────────────────────────────────────────────────────
+
+# The surface stations at sea, by codtyp: SHIP, DRIFTER, Patrol ship, BUOYS.
+# Every other codtyp of sf is a station on land.
+SF_SEA_CODES: List[str] = ['13', '18', '145', '147']
+SF_LAND_CODES: List[str] = [c for c in FAMILY_CODES['sf'] if c not in SF_SEA_CODES]
+
+# One scorecard per theme; a theme is a list of rows, each a family and the
+# BUFR codes it is scored on. ``combine``:
+#   scalar   one variable (temperature, ZTD ...): its bias and sigma
+#   vector   the two components of a wind, as one: the sigma of the vector
+#            sqrt((var_u + var_v) / 2) and the length of the mean vector
+#   channels a family of channels: the sigma, the channels pooled by their
+#            counts, and the number of observations used -- no bias, which
+#            the bias correction takes away
+# ``codtyp`` keeps only the observations of those types, and ``block`` names
+# the rows on the card instead of the family (land stations, ships and
+# buoys). ``column: True`` puts a row in the column of the families with no height
+# (a total column has none, whatever its vcoord says). A family missing
+# from a run's directory is left out, and said; a row of the card shows
+# only the layers its family reaches.
+SCORECARD_THEMES: Dict[str, List[Dict]] = {
+    'winds': [
+        {'family': 'ua',    'label': 'wind',        'varnos': [11003, 11004], 'combine': 'vector'},
+        {'family': 'ai',    'label': 'wind',        'varnos': [11003, 11004], 'combine': 'vector'},
+        {'family': 'sw',    'label': 'wind',        'varnos': [11003, 11004], 'combine': 'vector'},
+        {'family': 'radar', 'label': 'radial wind', 'varnos': [21014],        'combine': 'scalar'},
+    ],
+    'thermodynamics': [
+        {'family': 'ua', 'label': 'temperature',    'varnos': [12001], 'combine': 'scalar'},
+        {'family': 'ua', 'label': 'dew-point depr.', 'varnos': [12192], 'combine': 'scalar'},
+        {'family': 'ai', 'label': 'temperature',    'varnos': [12001], 'combine': 'scalar'},
+    ],
+    # everything observed at the surface (or over the whole column), on a
+    # card of its own: one column per region instead of empty layers; the
+    # land stations and the ships and buoys apart, their errors differ
+    'surface': [
+        # by variable, the kinds of station of each one together
+        *[{'family': 'sf', 'block': block, 'codtyp': codes, **row}
+          for row in ({'label': 'temperature 2 m',     'varnos': [12004], 'combine': 'scalar'},
+                      {'label': 'dew-point depr. 2 m', 'varnos': [12203], 'combine': 'scalar'},
+                      {'label': 'surface pressure',    'varnos': [10004], 'combine': 'scalar'})
+          for block, codes in (('Land stations', SF_LAND_CODES),
+                               ('Ships and buoys', SF_SEA_CODES))],
+        {'family': 'gp', 'block': 'Ground-based GPS', 'label': 'zenith delay',
+         'varnos': [15031], 'combine': 'scalar'},
+        *[{'family': 'sf', 'block': block, 'codtyp': codes, 'label': 'wind 10 m',
+           'varnos': [11215, 11216], 'combine': 'vector'}
+          for block, codes in (('Land stations', SF_LAND_CODES),
+                               ('Ships and buoys', SF_SEA_CODES))],
+        {'family': 'sc', 'block': 'Scatterometers', 'label': 'wind 10 m',
+         'varnos': [11215, 11216], 'combine': 'vector'},
+    ],
+    # the profiles that reach the stratosphere, together
+    'ro_ch': [
+        {'family': 'ro', 'label': 'refractivity',   'varnos': [15036], 'combine': 'scalar'},
+        {'family': 'ch', 'label': 'mixing ratio', 'varnos': [15008], 'combine': 'scalar'},
+        {'family': 'ch', 'label': 'total column', 'varnos': [15198], 'combine': 'scalar',
+         'column': True},
+    ],
+    'radiances': [
+        {'family': f, 'label': 'Tb', 'varnos': [12163], 'combine': 'channels'}
+        for f in ('to_amsua', 'to_amsub', 'atms', 'mwhs2', 'ssmis', 'iasi', 'cris', 'csr')
+    ],
+}
+
+
+def scorecard_families(themes=None) -> List[str]:
+    """Every family the themes read, each once, in the order of the themes."""
+    themes = themes or list(SCORECARD_THEMES)
+    return list(dict.fromkeys(r['family'] for t in themes for r in SCORECARD_THEMES[t]))

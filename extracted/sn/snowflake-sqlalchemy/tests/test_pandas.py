@@ -5,7 +5,6 @@
 import operator
 import random
 import string
-import sys
 import textwrap
 import uuid
 
@@ -15,6 +14,8 @@ import pytest
 pytest.importorskip("pandas")
 import pandas as pd
 import sqlalchemy
+from snowflake.connector import ProgrammingError
+from snowflake.connector.pandas_tools import make_pd_writer, pd_writer
 from sqlalchemy import (
     Column,
     ForeignKey,
@@ -28,9 +29,6 @@ from sqlalchemy import (
     text,
 )
 
-from snowflake.connector import ProgrammingError
-from snowflake.connector.pandas_tools import make_pd_writer, pd_writer
-from snowflake.sqlalchemy.compat import IS_VERSION_20
 from tests.util import random_string
 
 
@@ -114,24 +112,22 @@ def test_a_simple_read_sql(engine_testaccount):
         users.drop(engine_testaccount)
 
 
-def test_numpy_datatypes(engine_testaccount_with_numpy, db_parameters):
+def test_numpy_datatypes(engine_testaccount_with_numpy, db_table_name):
     with engine_testaccount_with_numpy.connect() as conn:
         try:
             specific_date = np.datetime64("2016-03-04T12:03:05.123456789")
             with conn.begin():
                 conn.exec_driver_sql(
-                    f"CREATE OR REPLACE TABLE {db_parameters['name']}(c1 timestamp_ntz)"
+                    f"CREATE OR REPLACE TABLE {db_table_name}(c1 timestamp_ntz)"
                 )
                 conn.exec_driver_sql(
-                    f"INSERT INTO {db_parameters['name']}(c1) values(%s)",
+                    f"INSERT INTO {db_table_name}(c1) values(%s)",
                     (specific_date,),
                 )
-                df = pd.read_sql_query(
-                    text(f"SELECT * FROM {db_parameters['name']}"), conn
-                )
+                df = pd.read_sql_query(text(f"SELECT * FROM {db_table_name}"), conn)
                 assert df.c1.values[0] == specific_date
         finally:
-            conn.exec_driver_sql(f"DROP TABLE IF EXISTS {db_parameters['name']}")
+            conn.exec_driver_sql(f"DROP TABLE IF EXISTS {db_table_name}")
             engine_testaccount_with_numpy.dispose()
 
 
@@ -184,7 +180,6 @@ def test_timezone(db_parameters, engine_testaccount, engine_testaccount_with_num
     sa_engine2_raw_conn = engine_testaccount.raw_connection()
 
     with sa_engine.connect() as conn:
-
         with conn.begin():
             conn.exec_driver_sql(
                 textwrap.dedent(
@@ -246,11 +241,6 @@ def test_timezone(db_parameters, engine_testaccount, engine_testaccount_with_num
 
 
 def test_pandas_writeback(engine_testaccount):
-    if IS_VERSION_20 and sys.version_info < (3, 8):
-        pytest.skip(
-            "In Python 3.7, this test depends on pandas features of which the implementation is incompatible with sqlachemy 2.0, and pandas does not support Python 3.7 anymore."
-        )
-
     with engine_testaccount.connect() as conn:
         sf_connector_version_data = [
             ("snowflake-connector-python", "1.2.23"),
@@ -336,7 +326,7 @@ def test_pandas_invalid_make_pd_writer(engine_testaccount):
 
     with pytest.raises(
         ProgrammingError,
-        match="Arguments 'table', 'conn', 'keys', and 'data_iter' are not supported parameters for make_pd_writer.",
+        match="conn cannot be passed to make_pd_writer; it is derived automatically.",
     ):
         test_df.to_sql(
             table_name,
@@ -347,7 +337,7 @@ def test_pandas_invalid_make_pd_writer(engine_testaccount):
 
     with pytest.raises(
         ProgrammingError,
-        match="Arguments 'conn', 'df', 'table_name', and 'schema' are not supported parameters for pd_writer.",
+        match="df cannot be passed to pd_writer; it is derived automatically.",
     ):
         test_df.to_sql(
             table_name,
@@ -358,11 +348,6 @@ def test_pandas_invalid_make_pd_writer(engine_testaccount):
 
 
 def test_percent_signs(engine_testaccount):
-    if IS_VERSION_20 and sys.version_info < (3, 8):
-        pytest.skip(
-            "In Python 3.7, this test depends on pandas features of which the implementation is incompatible with sqlachemy 2.0, and pandas does not support Python 3.7 anymore."
-        )
-
     table_name = f"test_table_{uuid.uuid4().hex}".upper()
     with engine_testaccount.connect() as conn:
         with conn.begin():
@@ -381,10 +366,9 @@ def test_percent_signs(engine_testaccount):
             not_like_sql = f"select * from {table_name} where c2 not like '%b%'"
             like_sql = f"select * from {table_name} where c2 like '%b%'"
             calculate_sql = "SELECT 1600 % 400 AS a, 1599 % 400 as b"
-            if IS_VERSION_20:
-                not_like_sql = sqlalchemy.text(not_like_sql)
-                like_sql = sqlalchemy.text(like_sql)
-                calculate_sql = sqlalchemy.text(calculate_sql)
+            not_like_sql = sqlalchemy.text(not_like_sql)
+            like_sql = sqlalchemy.text(like_sql)
+            calculate_sql = sqlalchemy.text(calculate_sql)
 
             df = pd.read_sql(not_like_sql, conn)
             assert list(df.itertuples(index=False, name=None)) == [

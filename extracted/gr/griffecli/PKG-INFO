@@ -1,7 +1,15 @@
 Metadata-Version: 2.5
 Name: griffecli
-Version: 2.3.2
+Version: 2.4.0
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
+Project-URL: Homepage, https://mkdocstrings.github.io/griffe
+Project-URL: Documentation, https://mkdocstrings.github.io/griffe
+Project-URL: Changelog, https://mkdocstrings.github.io/griffe/changelog
+Project-URL: Repository, https://github.com/mkdocstrings/griffe
+Project-URL: Issues, https://github.com/mkdocstrings/griffe/issues
+Project-URL: Discussions, https://github.com/mkdocstrings/griffe/discussions
+Project-URL: Gitter, https://gitter.im/mkdocstrings/griffe
+Project-URL: Funding, https://github.com/sponsors/pawamoy
 Author-email: Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC
 Keywords: api,breaking-changes,dynamic-analysis,signature,static-analysis
@@ -22,4 +30,4 @@ Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
 Requires-Dist: colorama>=0.4
-Requires-Dist: griffelib==2.3.2
+Requires-Dist: griffelib==2.4.0

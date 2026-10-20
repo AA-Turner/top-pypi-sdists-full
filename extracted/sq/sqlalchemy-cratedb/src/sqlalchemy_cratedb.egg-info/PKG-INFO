@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlalchemy-cratedb
-Version: 0.43.1
+Version: 0.44.0
 Summary: SQLAlchemy dialect for CrateDB.
 Author-email: "Crate.io" <office@crate.io>
 License: Apache License 2.0
@@ -60,17 +60,14 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: backports.zoneinfo<1; python_version < "3.9"
 Requires-Dist: crate<3,>=2.2.1
 Requires-Dist: geojson<4,>=2.5
-Requires-Dist: importlib-metadata; python_version < "3.8"
-Requires-Dist: importlib-resources; python_version < "3.9"
 Requires-Dist: sqlalchemy<2.2,>=1
-Requires-Dist: verlib2<0.4
+Requires-Dist: verlib2<26.3
 Provides-Extra: all
 Requires-Dist: sqlalchemy-cratedb[vector]; extra == "all"
 Provides-Extra: develop
-Requires-Dist: mypy<1.20; extra == "develop"
+Requires-Dist: mypy<2.4; extra == "develop"
 Requires-Dist: poethepoet<1; extra == "develop"
 Requires-Dist: pyproject-fmt<3; extra == "develop"
 Requires-Dist: ruff<0.16; extra == "develop"
@@ -80,15 +77,16 @@ Requires-Dist: crate-docs-theme>=0.26.5; extra == "doc"
 Requires-Dist: sphinx<10,>=3.5; extra == "doc"
 Provides-Extra: release
 Requires-Dist: build<2; extra == "release"
-Requires-Dist: twine<7; extra == "release"
+Requires-Dist: twine<8; extra == "release"
 Provides-Extra: test
-Requires-Dist: cratedb-toolkit[testing]; extra == "test"
 Requires-Dist: dask[dataframe]; extra == "test"
+Requires-Dist: httpx; extra == "test"
 Requires-Dist: pandas<2.4; extra == "test"
 Requires-Dist: pueblo>=0.0.7; extra == "test"
 Requires-Dist: pytest<10; extra == "test"
 Requires-Dist: pytest-cov<8; extra == "test"
 Requires-Dist: pytest-mock<4; extra == "test"
+Requires-Dist: testcontainers<5,>=4.15; extra == "test"
 Provides-Extra: vector
 Requires-Dist: numpy; extra == "vector"
 Dynamic: license-file

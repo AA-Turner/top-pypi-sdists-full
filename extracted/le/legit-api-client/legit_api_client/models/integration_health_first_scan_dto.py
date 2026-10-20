@@ -29,12 +29,13 @@ class IntegrationHealthFirstScanDto(BaseModel):
     IntegrationHealthFirstScanDto
     """ # noqa: E501
     done: Optional[StrictBool] = None
+    reason: Optional[StrictStr] = None
     repositories_collected: Optional[StrictInt] = Field(default=None, alias="repositoriesCollected")
     repositories_scanned_at_least_once: Optional[StrictInt] = Field(default=None, alias="repositoriesScannedAtLeastOnce")
     not_yet_scanned: Optional[List[StrictStr]] = Field(default=None, alias="notYetScanned")
     not_yet_scanned_truncated: Optional[StrictBool] = Field(default=None, alias="notYetScannedTruncated")
     scope: Optional[IntegrationCountScope] = None
-    __properties: ClassVar[List[str]] = ["done", "repositoriesCollected", "repositoriesScannedAtLeastOnce", "notYetScanned", "notYetScannedTruncated", "scope"]
+    __properties: ClassVar[List[str]] = ["done", "reason", "repositoriesCollected", "repositoriesScannedAtLeastOnce", "notYetScanned", "notYetScannedTruncated", "scope"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -75,6 +76,16 @@ class IntegrationHealthFirstScanDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if done (nullable) is None
+        # and model_fields_set contains the field
+        if self.done is None and "done" in self.model_fields_set:
+            _dict['done'] = None
+
+        # set to None if reason (nullable) is None
+        # and model_fields_set contains the field
+        if self.reason is None and "reason" in self.model_fields_set:
+            _dict['reason'] = None
+
         # set to None if not_yet_scanned (nullable) is None
         # and model_fields_set contains the field
         if self.not_yet_scanned is None and "not_yet_scanned" in self.model_fields_set:
@@ -93,6 +104,7 @@ class IntegrationHealthFirstScanDto(BaseModel):
 
         _obj = cls.model_validate({
             "done": obj.get("done"),
+            "reason": obj.get("reason"),
             "repositoriesCollected": obj.get("repositoriesCollected"),
             "repositoriesScannedAtLeastOnce": obj.get("repositoriesScannedAtLeastOnce"),
             "notYetScanned": obj.get("notYetScanned"),

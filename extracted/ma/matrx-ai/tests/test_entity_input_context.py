@@ -43,9 +43,16 @@ _CASES = (
 
 
 def _envelope(text: str) -> dict:
-    match = _FENCE_JSON.search(text)
-    assert match is not None, text
-    return json.loads(match.group(1))
+    """The block's reference envelope. Since PB-05 defect 47 each record rides its own
+    ``<attachment kind name id>`` with its own one-item fence; their items are merged here
+    so the canonical two-key shell (``__kind`` first) is still checked whole."""
+    envelopes = [json.loads(m.group(1)) for m in _FENCE_JSON.finditer(text)]
+    assert envelopes, text
+    kinds = {e["__kind"] for e in envelopes}
+    assert len(kinds) == 1, kinds
+    for e in envelopes:
+        assert next(iter(e)) == "__kind"
+    return {"__kind": kinds.pop(), "items": [i for e in envelopes for i in e["items"]]}
 
 
 @pytest.mark.parametrize(("block_type", "ids_field", "reference_type", "expected_cls"), _CASES)

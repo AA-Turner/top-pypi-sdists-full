@@ -109,6 +109,7 @@ class TestIntegrationHealthDto(unittest.TestCase):
                     calculated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), ),
                 first_scan = legit_api_client.models.integration_health_first_scan_dto.IntegrationHealthFirstScanDto(
                     done = True, 
+                    reason = '', 
                     repositories_collected = 56, 
                     repositories_scanned_at_least_once = 56, 
                     not_yet_scanned = [
@@ -135,6 +136,7 @@ class TestIntegrationHealthDto(unittest.TestCase):
                 blockers = [
                     legit_api_client.models.integration_health_blocker_dto.IntegrationHealthBlockerDto(
                         code = null, 
+                        severity = null, 
                         message = '', 
                         next_action = '', )
                     ]

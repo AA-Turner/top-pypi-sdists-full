@@ -25,7 +25,13 @@ T = TypeVar("T")
 
 
 class CursorPage(Generic[T]):
-    """Synchronous page over an opaque ``page`` cursor."""
+    """Synchronous page over an opaque ``page`` cursor.
+
+    ``extra`` preserves any additional top-level fields the list
+    envelope carried beyond ``data`` / ``next_page`` (forward
+    compatibility when the server adds fields); ``extra`` is per page
+    and does not participate in auto-pagination.
+    """
 
     def __init__(
         self,
@@ -34,11 +40,13 @@ class CursorPage(Generic[T]):
         next_page: Optional[str],
         request_id: Optional[str],
         fetch_next: Optional[Callable[[str], "CursorPage[T]"]] = None,
+        extra: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.data = data
         self.next_page = next_page
         self.request_id = request_id
         self._fetch_next = fetch_next
+        self.extra: Dict[str, Any] = dict(extra or {})
 
     def has_next(self) -> bool:
         return bool(self.next_page) and self._fetch_next is not None
@@ -66,9 +74,20 @@ class CursorPage(Generic[T]):
         """
         return len(self.data)
 
+    @property
+    def prefixes(self) -> List[str]:
+        """Directory prefixes of a tree-style listing (memory only)."""
+
+        raw = self.extra.get("prefixes") or []
+        return list(raw) if isinstance(raw, (list, tuple)) else []
+
 
 class AsyncCursorPage(Generic[T]):
-    """Asynchronous page over an opaque ``page`` cursor."""
+    """Asynchronous page over an opaque ``page`` cursor.
+
+    See :class:`CursorPage` for the ``extra`` forward-compatibility
+    bag.
+    """
 
     def __init__(
         self,
@@ -77,11 +96,13 @@ class AsyncCursorPage(Generic[T]):
         next_page: Optional[str],
         request_id: Optional[str],
         fetch_next: Optional[Callable[[str], "AsyncCursorPage[T]"]] = None,
+        extra: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.data = data
         self.next_page = next_page
         self.request_id = request_id
         self._fetch_next = fetch_next
+        self.extra: Dict[str, Any] = dict(extra or {})
 
     def has_next(self) -> bool:
         return bool(self.next_page) and self._fetch_next is not None
@@ -115,6 +136,13 @@ class AsyncCursorPage(Generic[T]):
         """
         return len(self.data)
 
+    @property
+    def prefixes(self) -> List[str]:
+        """Directory prefixes of a tree-style listing (memory only)."""
+
+        raw = self.extra.get("prefixes") or []
+        return list(raw) if isinstance(raw, (list, tuple)) else []
+
 
 def build_page(
     *,
@@ -124,16 +152,25 @@ def build_page(
     request_id: Optional[str] = None,
     page_cls: type = CursorPage,
 ) -> Any:
-    """Hydrate a page object from a normalized payload."""
+    """Hydrate a page object from a normalized payload.
+
+    Envelope fields beyond ``data`` / ``next_page`` are preserved on
+    the page's ``extra`` forward-compatibility bag (mirrors
+    ``BaseModel.extra``).
+    """
 
     items_raw = payload.get("data") or []
     items: List[T] = [
         item_factory(it) for it in items_raw if isinstance(it, dict)
     ]
     next_page = payload.get("next_page")
+    extra = {
+        k: v for k, v in payload.items() if k not in ("data", "next_page")
+    }
     return page_cls(
         data=items,
         next_page=next_page,
         request_id=request_id,
         fetch_next=fetch_next,
+        extra=extra,
     )

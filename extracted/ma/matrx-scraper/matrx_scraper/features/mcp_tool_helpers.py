@@ -50,19 +50,68 @@ async def _emit_progress(
         await stream_handler.send_tool_event(event)
 
 
+async def _judged_failure(
+    url: str,
+    verdict: Any,
+    failures: list[dict[str, Any]] | None,
+    good_scrape_threshold: int,
+) -> dict[str, Any] | None:
+    """A read judged failed: the advanced fallback (organization knob) may open it; otherwise the
+    failure is recorded with its coverage for the caller's agent hint. Returns a page or None."""
+    from matrx_scraper import coverage as cov
+    from matrx_scraper._ext import get_ext, has_ext
+
+    try:
+        covered = await cov.coverage_for(url) if getattr(verdict, "coverable", True) else []
+    except Exception:  # noqa: BLE001 - coverage is advice; the failure itself still stands
+        covered = []
+    mode = await cov.fallback_mode()
+    advanced: dict[str, Any] | None = None
+    if (mode != "off" and any(cov.allowed(c, mode) for c in covered) and has_ext(cov.EXT_READER)
+            and await cov.take_run_slot()):
+        try:
+            items = await get_ext(cov.EXT_READER)([url], mode)
+            advanced = items[0] if items else None
+        except Exception as exc:  # noqa: BLE001 - a points refusal: the honest failure stands, said
+            advanced = {"url": url, "ok": False, "message": getattr(exc, "user_message", None) or "Not read."}
+    if advanced and advanced.get("ok"):
+        content = advanced.get("text") or ""
+        return {
+            "url": url,
+            "requested_url": url,
+            "title": advanced.get("title"),
+            "date_info": "",
+            "content": content,
+            "char_count": len(content),
+            "is_good_scrape": len(content) >= good_scrape_threshold,
+            "advanced_read": {k: v for k, v in advanced.items() if k not in ("text", "markdown", "records")},
+        }
+    if failures is not None:
+        failures.append({"url": url, "verdict": verdict.to_dict() if verdict is not None else None,
+                         "coverage": [c.to_dict() for c in covered],
+                         **({"advanced_read": {k: v for k, v in advanced.items()
+                                               if k not in ("text", "markdown", "records")}} if advanced else {})})
+    return None
+
+
 async def scrape_url_core(
     url: str,
     good_scrape_threshold: int = 1000,
     delay: float = 0,
     stream_handler=None,
     call_id=None,
+    failures: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """
     Fetch and parse a single URL, returning a lightweight page dict suitable
     for the AI tool layer.
 
     Returns None on failure so callers can filter with a simple list comprehension.
+    A failure judged by ``read_judge`` (bot wall, HTTP error, empty, JS shell, sign-in wall) is
+    appended to ``failures`` with its coverage when the caller passes the list.
     """
+    from matrx_scraper.read_judge import judge_read
+
     if delay > 0:
         await asyncio.sleep(delay)
 
@@ -79,7 +128,11 @@ async def scrape_url_core(
         elif not has_content:
             failure_reason = " (no content)"
         vcprint(f"SCRAPE SKIPPED: {redact_url_secrets(url)}{failure_reason}", color="cyan")
-        return None
+        reason = getattr(getattr(response, "failed_primary_reason", None), "value", None) or "empty_content"
+        verdict = judge_read(status=int(getattr(response, "status_code", 0) or 0) or None, text="",
+                             html=response.content or None, title=getattr(response, "title", None),
+                             fetch_failure=reason)
+        return await _judged_failure(url, verdict, failures, good_scrape_threshold)
 
     content = ""
     if response.content_type == ContentType.HTML:
@@ -120,6 +173,13 @@ async def scrape_url_core(
         )
         return None
 
+    verdict = judge_read(status=int(getattr(response, "status_code", 0) or 0) or None, text=content,
+                         html=response.content if response.content_type == ContentType.HTML else None,
+                         title=getattr(response, "title", None))
+    if verdict.failed:
+        vcprint(f"SCRAPE FAILED: {redact_url_secrets(url)} ({verdict.reason})", color="cyan")
+        return await _judged_failure(url, verdict, failures, good_scrape_threshold)
+
     char_count = len(content)
     is_good_scrape = char_count >= good_scrape_threshold
 
@@ -137,6 +197,7 @@ async def scrape_url_core(
 
     return {
         "url": response.response_url,
+        "requested_url": url,
         "title": response.title,
         "date_info": date_info,
         "content": content,
@@ -152,10 +213,12 @@ async def scrape_urls_from_search_result(
     good_scrape_threshold: int = 1000,
     emitter: Emitter = None,
     call_id=None,
+    failures: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Extract URLs from a Brave Search API response dict and scrape them in
     parallel.  Updates ``seen_urls`` in-place to deduplicate across calls.
+    Judged failures (with their coverage) are appended to ``failures`` when given.
     """
     combined_results = search_result.get("web", {}).get("results", []) + search_result.get(
         "news", {}
@@ -178,6 +241,7 @@ async def scrape_urls_from_search_result(
             delay=idx * random.uniform(0.3, 0.7),
             stream_handler=emitter,
             call_id=call_id,
+            failures=failures,
         )
         for idx, url in enumerate(urls_to_scrape)
     ]

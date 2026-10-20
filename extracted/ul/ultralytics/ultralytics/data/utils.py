@@ -70,8 +70,8 @@ def save_depth_png(path: str | Path, depth: np.ndarray, scale: float = DEPTH_PNG
 
     Args:
         path (str | Path): Output PNG file path.
-        depth (np.ndarray): Metric depth map in meters, 2D after squeezing. Non-finite and non-positive values are saved
-            as 0 (invalid).
+        depth (np.ndarray): Metric depth map in meters, 2D after removing extra singleton dimensions. Non-finite and
+            non-positive values are saved as 0 (invalid).
         scale (float, optional): Multiplier applied to depth in meters before rounding to uint16, e.g. 1000 for
             millimeters.
 
@@ -81,7 +81,9 @@ def save_depth_png(path: str | Path, depth: np.ndarray, scale: float = DEPTH_PNG
     """
     if not isinstance(scale, (int, float)) or isinstance(scale, bool) or not np.isfinite(scale) or scale <= 0:
         raise ValueError("Depth scale must be a positive finite number")
-    depth = np.asarray(depth, dtype=np.float32).squeeze()
+    depth = np.asarray(depth, dtype=np.float32)
+    while depth.ndim > 2 and 1 in depth.shape:  # preserve both spatial dimensions, including one-pixel axes
+        depth = depth.squeeze(axis=depth.shape.index(1))
     if depth.ndim != 2:
         raise ValueError(f"Depth map must be 2D, got shape {depth.shape}")
     valid = np.isfinite(depth) & (depth > 0)
@@ -435,7 +437,7 @@ def verify_image_mask(args: tuple) -> tuple:
 
 
 def verify_image_label(args: tuple) -> tuple | list:
-    """Verify one image-label pair.
+    """Verify one image-label pair, accepting UTF-8 labels with or without a byte-order mark.
 
     Args:
         args (tuple): Tuple of (im_file, lb_file, prefix, keypoint, num_cls, nkpt, ndim, single_cls).
@@ -457,7 +459,7 @@ def verify_image_label(args: tuple) -> tuple | list:
         # Verify labels
         if os.path.isfile(lb_file):
             nf = 1  # label found
-            with open(lb_file, encoding="utf-8") as f:
+            with open(lb_file, encoding="utf-8-sig") as f:
                 lb = [x.split() for x in f.read().strip().splitlines() if x.strip()]
                 if nkpt and not keypoint:  # pose labels for a box task: keep the box, drop the keypoints
                     lb = [x[:5] if len(x) == 5 + nkpt * ndim else x for x in lb]
@@ -815,7 +817,7 @@ def check_det_dataset(dataset: str | Path, autodownload: bool = True, split: str
                 raise FileNotFoundError(m)
             t = time.time()
             r = None  # success
-            if s.startswith("http") and s.endswith(
+            if s.lower().startswith("http") and s.lower().endswith(
                 (".zip", ".tar", ".gz", ".tgz", ".xz", ".bz2", ".txz", ".tbz2")
             ):  # URL
                 safe_download(url=s, dir=DATASETS_DIR, delete=True)
@@ -841,7 +843,9 @@ def check_cls_dataset(dataset: str | Path, split: str = "") -> dict[str, Any]:
     dataset is not found locally, it attempts to download the dataset from the internet and save it locally.
 
     Args:
-        dataset (str | Path): The dataset name, local directory path, archive file, or archive URL.
+        dataset (str | Path): The dataset name, local directory path, archive file, or archive URL. Archive suffixes
+            match in any letter case, and an existing directory is used as a directory even when its name ends in an
+            archive suffix.
         split (str, optional): The split of the dataset. Either 'train', 'val', 'test', or ''.
 
     Returns:
@@ -860,7 +864,9 @@ def check_cls_dataset(dataset: str | Path, split: str = "") -> dict[str, Any]:
     # Download (optional if dataset=https://file.zip is passed directly)
     if str(dataset).startswith(("http:/", "https:/")):
         dataset = safe_download(dataset, dir=DATASETS_DIR, unzip=True, delete=False)
-    elif str(dataset).endswith((".zip", ".tar", ".gz", ".tgz", ".xz", ".bz2", ".txz", ".tbz2")):
+    elif not Path(dataset).is_dir() and str(dataset).lower().endswith(
+        (".zip", ".tar", ".gz", ".tgz", ".xz", ".bz2", ".txz", ".tbz2")
+    ):
         file = check_file(dataset)
         dataset = safe_download(file, dir=DATASETS_DIR, unzip=True, delete=False)
 

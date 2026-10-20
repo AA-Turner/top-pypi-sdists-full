@@ -1125,7 +1125,7 @@ def test_door_rows_declare_what_the_table_enforces(db: tuple[Any, World]) -> Non
 #     the txn that neither caller has viewer on, its page, and a keyword row on
 #     it) — the keyword-site rule and the resolver rule both run here.
 # Both are read by two callers: the map's owner, and a viewer-shared non-owner
-# (viewer on the map and on our site, member of no organisation).
+# (viewer on the map and on our site, member of no organization).
 # ─────────────────────────────────────────────────────────────────────────────
 
 SAMEORG_MARKER = "SAMEORG-SECRET-REASON"
@@ -1357,7 +1357,7 @@ def _readers(w: World) -> list[tuple[str, str, tuple]]:
         ),
         # ROUND 19 (2): the 23514 attachment-rule refusal of retire_map_topics and
         # replace_map_section reports attachment COUNTS in its message. Those
-        # counts are scoped by seo._tm_attachments to the topic's OWN organisation
+        # counts are scoped by seo._tm_attachments to the topic's OWN organization
         # (definer, no RLS) — a deliberate exception, because the retire gate must
         # see attachments the caller cannot individually open. Only a FOREIGN
         # organisation's attachment must never move this number; see
@@ -1375,7 +1375,7 @@ def _readers(w: World) -> list[tuple[str, str, tuple]]:
     ]
 
 
-# These readers report counts scoped to the CALLER'S OWN organisation on purpose
+# These readers report counts scoped to the CALLER'S OWN organization on purpose
 # (seo._tm_attachments runs SECURITY DEFINER and is not RLS-filtered) — the retire
 # gate must see every attachment in its own org, even one the caller individually
 # cannot open. So "+same-org" and "+both" are exempt from the blind-equality check

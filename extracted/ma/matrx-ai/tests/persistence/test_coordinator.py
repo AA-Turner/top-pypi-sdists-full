@@ -876,7 +876,7 @@ async def test_child_scope_pins_owner_before_delayed_task_inherits(monkeypatch):
     late_boundaries = []
     release = asyncio.Event()
     monkeypatch.setattr(queue_helpers, "get_current_lane", lambda: lane)
-    # The lane-drain behaviour under test is orthogonal to tenancy, but an
+    # The lane-drain behavior under test is orthogonal to tenancy, but an
     # org-scoped INSERT is refused without an organization (2026-09-17), so the
     # ambient request carries the one a real caller would.
     monkeypatch.setattr(
@@ -916,7 +916,9 @@ async def test_child_scope_pins_owner_before_delayed_task_inherits(monkeypatch):
         release.set()
         inherited = await task
         assert inherited is owner
-        assert finalizers == [(owner, lane)]
+        # The child OWNS its Coordinator (L25c): it commits at its own exit and
+        # is never a finalizer on the parent request's lane.
+        assert finalizers == []
         assert late_boundaries == []
     finally:
         queue_helpers._coordinator_cv.reset(token)
@@ -982,7 +984,7 @@ async def test_first_write_after_lane_drain_uses_one_shot_and_captures(
     one_shots = []
 
     monkeypatch.setattr(queue_helpers, "get_current_lane", lambda: lane)
-    # The lane-drain behaviour under test is orthogonal to tenancy, but an
+    # The lane-drain behavior under test is orthogonal to tenancy, but an
     # org-scoped INSERT is refused without an organization (2026-09-17), so the
     # ambient request carries the one a real caller would.
     monkeypatch.setattr(
@@ -1301,7 +1303,7 @@ async def test_acquire_slot_never_holds_a_slot_it_does_not_need(captured_tiers):
 # flushed, Coordinator.queue() switches to _fire_one_shot() — a DETACHED task —
 # and nothing (not finalize, not drain_and_confirm, not seal, not the executor's
 # _persist_tool_outcome) ever awaited it. A one-shot that still had a DB round
-# trip to make when the request tore down was cancelled with its write unmade.
+# trip to make when the request tore down was canceled with its write unmade.
 # ---------------------------------------------------------------------------
 
 

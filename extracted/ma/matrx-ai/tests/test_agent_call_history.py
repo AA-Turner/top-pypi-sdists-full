@@ -496,3 +496,126 @@ async def test_run_agent_threads_conversation_id_into_child_context() -> None:
     # the result surfaces it for provenance consumers.
     assert seen["conversation_id"] == FORK_CONV
     assert result.metadata["conversation_id"] == FORK_CONV
+
+
+# ── run_in_conversation_id: the host names the child's conversation ─────────
+
+CHILD_CONV = "66666666-6666-4666-8666-666666666666"
+
+
+async def _call_pinned(args: dict[str, Any], *, pinned: str, extra: dict | None = None):
+    from matrx_connect.context.app_context import (
+        AppContext,
+        clear_app_context,
+        set_app_context,
+    )
+
+    from matrx_ai.tools.implementations.agent_call import agent_call
+    from matrx_ai.tools.models import ToolContext
+
+    token = set_app_context(
+        AppContext(
+            emitter=None,
+            user_id=USER_ID,
+            organization_id=ORG_ID,
+            conversation_id=CALLER_CONV,
+            metadata={"steerable_child": True},  # inherited from a steerable parent
+        )
+    )
+    try:
+        return await agent_call(
+            {"agent_id": AGENT_ID, **args},
+            ToolContext(call_id="call-pinned"),
+            run_in_conversation_id=pinned,
+            extra_child_metadata=extra,
+        )
+    finally:
+        clear_app_context(token)
+
+
+@pytest.fixture
+def child_metadata(harness, monkeypatch: pytest.MonkeyPatch):
+    """The metadata the child actually ran under."""
+    from matrx_ai.agents import executor as executor_mod
+
+    seen: list[dict] = []
+
+    async def fake_run_agent(_agent, **kwargs):
+        from matrx_connect.context.app_context import get_app_context
+
+        harness["run_kwargs"] = kwargs
+        seen.append(dict(get_app_context().metadata))
+        return harness["run_result"]
+
+    monkeypatch.setattr(executor_mod, "run_agent", fake_run_agent)
+    return seen
+
+
+@pytest.mark.asyncio
+async def test_a_new_pinned_conversation_starts_the_child_there(harness, child_metadata) -> None:
+    harness["owned_rows"] = []  # the id does not exist yet
+    result = await _call_pinned({"user_input": "go"}, pinned=CHILD_CONV)
+    assert result.success is True
+    assert harness["run_kwargs"]["conversation_id"] == CHILD_CONV
+    assert harness["history_loads"] == []  # nothing to continue
+    # Steerability is never inherited: the parent's marker did not ride down.
+    assert "steerable_child" not in child_metadata[0]
+
+
+@pytest.mark.asyncio
+async def test_an_existing_pinned_conversation_is_continued_with_its_history(
+    harness, child_metadata
+) -> None:
+    from types import SimpleNamespace as NS
+
+    harness["owned_rows"] = [NS(id=CHILD_CONV)]
+    harness["agent"].config.messages = [
+        NS(role="system", authored=True),
+        NS(role="user", authored=True),  # the authored opening turn, already asked
+    ]
+    result = await _call_pinned(
+        {"user_input": "follow-up"}, pinned=CHILD_CONV, extra={"steerable_child": True}
+    )
+    assert result.success is True
+    assert harness["history_loads"] == [CHILD_CONV]
+    assert harness["run_kwargs"]["conversation_id"] == CHILD_CONV
+    seeded = harness["agent"].config.messages
+    # history first, then ONLY the instructions — the opening turn is not re-asked
+    assert [m.role for m in seeded] == ["user", "user", "user", "system"]
+    assert child_metadata[0]["steerable_child"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_child_cannot_run_inside_its_caller(harness) -> None:
+    result = await _call_pinned({"user_input": "x"}, pinned=CALLER_CONV)
+    assert result.success is False and result.error.error_type == "invalid_arguments"
+    assert harness["run_kwargs"] is None
+
+
+@pytest.mark.asyncio
+async def test_pinned_conversation_refuses_fork(harness) -> None:
+    result = await _call_pinned({"user_input": "x", "history_mode": "fork"}, pinned=CHILD_CONV)
+    assert result.success is False and result.error.error_type == "invalid_arguments"
+    assert harness["run_kwargs"] is None
+
+
+@pytest.mark.asyncio
+async def test_new_pinned_conversation_may_borrow_a_snapshot(harness, child_metadata) -> None:
+    from types import SimpleNamespace as NS
+
+    # The pinned id is absent (a new child); the snapshot source is visible.
+    original = harness["owned_rows"]
+
+    import matrx_ai.db as db_pkg
+
+    async def filter_items(**kwargs):
+        harness["ownership_queries"].append(kwargs)
+        return [] if kwargs.get("id") == CHILD_CONV else original or [NS(id=CALLER_CONV)]
+
+    db_pkg.cxm.conversation.filter_items = filter_items
+    result = await _call_pinned(
+        {"user_input": "look at this", "history_mode": "snapshot"}, pinned=CHILD_CONV
+    )
+    assert result.success is True
+    assert harness["run_kwargs"]["conversation_id"] == CHILD_CONV
+    assert harness["history_loads"] == [CALLER_CONV]

@@ -9,7 +9,7 @@ ledger, so real money read as free work: 139 zero-cost ``internal_agent_run``
 rows and 5 zero-cost ``audio_transcription`` rows in the live 30-day window.
 
 The fix is the two builders below, and this file is the forcing function: it
-FAILS against the old ``or 0`` behaviour, because the old behaviour produced a
+FAILS against the old ``or 0`` behavior, because the old behavior produced a
 meter indistinguishable from a genuinely-free call.
 
 Proven failing-then-passing: reverting either builder to `or 0` makes

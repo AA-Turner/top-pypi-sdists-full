@@ -24,6 +24,10 @@ _APPROVED_BOUNDARIES: dict[str, frozenset[tuple[str, str]]] = {
     "adapters/bigquery/classes/bigquery_connection.py": frozenset(
         {("_BigQueryConnection.query_job", "query")}
     ),
+    "adapters/clickhouse/_helpers/recall_store.py": frozenset({("run_recall_query", "query")}),
+    "adapters/clickhouse/classes/clickhouse_connection.py": frozenset(
+        {("_ClickHouseConnection._run", "query")}
+    ),
     "adapters/databricks/classes/databricks_connection.py": frozenset(
         {("_DatabricksConnection._run_setting", "execute")}
     ),

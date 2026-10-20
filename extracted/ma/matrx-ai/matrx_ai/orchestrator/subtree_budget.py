@@ -26,7 +26,7 @@ How it works, and why it is shaped this way
   cancel takes — the best answer so far is persisted and returned.
 
 * **🚨 It never cancels mid-tool, and never uses ``asyncio.wait_for``.**
-  Cancelling at the budget throws away work already paid for — the precise
+  Canceling at the budget throws away work already paid for — the precise
   defect ``services/tooling/deferred_work.py`` exists to end ("the Senior Staff
   desk really ran, really thought, and its answer was thrown away"). A budget
   that destroys the answer is worse than no budget. The stop is always AT a

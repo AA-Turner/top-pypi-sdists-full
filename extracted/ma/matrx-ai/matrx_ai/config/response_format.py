@@ -21,7 +21,7 @@ def is_clean_structured_output_completion(metadata: Any) -> bool:
     if not isinstance(metadata, dict):
         return False
     # Normal completion omits status today; accept an explicit completed value
-    # as well. Every suspended, paused, cancelled, truncated, and failed status
+    # as well. Every suspended, paused, canceled, truncated, and failed status
     # is deliberately excluded even when its partial text happens to be valid.
     return metadata.get("status") in {None, "completed"}
 

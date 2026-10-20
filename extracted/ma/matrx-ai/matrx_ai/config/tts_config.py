@@ -368,7 +368,7 @@ class TTSVoiceConfig:
         gender matches, so the voice that answers to "Elena" is the one that was
         already female. Whatever gender cannot decide (unknown on one or both
         sides, or an unbalanced cast) falls back to first-appearance order —
-        the previous behaviour, now the LAST resort instead of the only rule."""
+        the previous behavior, now the LAST resort instead of the only rule."""
         remaining = list(movers)
         pairs: list[tuple[TTSSpeaker, str]] = []
         undecided: list[str] = []

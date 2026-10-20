@@ -1,19 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from pydantic import BaseModel, Field, StrictBool, field_validator
 
 # Import directly from modules to avoid circular import through generated/__init__.py
 from connector_sdk_types.generated.models.probe_check_name import ProbeCheckName
-from connector_sdk_types.oai.probe import ProbeCheckSpec
+from connector_sdk_types.oai.probe import BASELINE_PROBE_CHECKS, ProbeCheckSpec
 
-# The checks the SDK can perform on a connector's behalf, in the order a caller would
-# normally walk them. Each check is self-contained, so a check fetches whatever it needs
-# rather than relying on an earlier one having run.
-DEFAULT_PROBE_CHECK_ORDER: tuple[ProbeCheckName, ...] = (
-    ProbeCheckName.ACCOUNTS,
-    ProbeCheckName.ENTITLEMENTS,
-    ProbeCheckName.ENTITLEMENT_ASSOCIATIONS,
-)
+# The checks the SDK can perform on a connector's behalf, which are exactly the baseline.
+DEFAULT_PROBE_CHECK_ORDER: tuple[ProbeCheckName, ...] = BASELINE_PROBE_CHECKS
 
 
 class ProbeSettings(BaseModel):
@@ -26,14 +22,17 @@ class ProbeSettings(BaseModel):
     integration = Integration(
         # Full disable
         probe_settings=ProbeSettings.disabled(),
-        # or like this and implement your own
-        probe_settings=ProbeSettings.manual(),
+        # or like this and implement your own, declaring the checks it performs
+        probe_settings=ProbeSettings.manual(checks=PROBE_CHECKS),
     )
     ```
 
     Each entry in `checks` either names the connector's own implementation or leaves `run`
     unset, which asks the SDK to perform that check by exercising the connector's standard
     capabilities with a minimal page size.
+
+    Only the checks in `DEFAULT_PROBE_CHECK_ORDER` can be left to the SDK. Any other check,
+    `capability_config` for example, has no generic implementation and must name its `run`.
 
     Example - the SDK does the ordinary checks, the connector implements the hard one:
     ```python
@@ -63,8 +62,8 @@ class ProbeSettings(BaseModel):
     checks: list[ProbeCheckSpec] = Field(
         default_factory=list,
         description=(
-            "The checks this connector's probe performs, in order. Checks absent from this "
-            "list are reported as `unsupported`."
+            "The checks this connector's probe performs, in order. Baseline checks absent "
+            "from this list are reported as `unsupported`, other absent checks not at all."
         ),
     )
     page_size: int = Field(
@@ -104,15 +103,38 @@ class ProbeSettings(BaseModel):
             raise ValueError(f"Duplicate probe check configuration for: {', '.join(duplicates)}")
         return checks
 
+    @field_validator("checks")
+    @classmethod
+    def _require_runner_where_sdk_has_none(
+        cls, checks: list[ProbeCheckSpec]
+    ) -> list[ProbeCheckSpec]:
+        """A check only a connector can perform, e.g. `capability_config`, fails here rather
+        than on the first probe call."""
+        unperformable = [
+            spec.check.value
+            for spec in checks
+            if spec.run is None and spec.check not in DEFAULT_PROBE_CHECK_ORDER
+        ]
+        if unperformable:
+            raise ValueError(
+                "The SDK cannot perform these probe checks on a connector's behalf, "
+                f"a runner is required for: {', '.join(unperformable)}"
+            )
+        return checks
+
     @classmethod
     def disabled(cls) -> ProbeSettings:
         """Disable the global probe_integration opt-in for a connector."""
         return cls(register_probe_capability=False)
 
     @classmethod
-    def manual(cls) -> ProbeSettings:
-        """Implement the probe_integration capability manually and skip the module registration."""
-        return cls(register_probe_capability=False)
+    def manual(cls, checks: Sequence[ProbeCheckSpec] = ()) -> ProbeSettings:
+        """Implement the probe_integration capability manually and skip the module registration.
+
+        Pass the specs the hand-written probe gives `run_probe`, so `app_info` can announce
+        them in the `x-probe-checks` extension.
+        """
+        return cls(register_probe_capability=False, checks=list(checks))
 
     @classmethod
     def default(cls) -> ProbeSettings:

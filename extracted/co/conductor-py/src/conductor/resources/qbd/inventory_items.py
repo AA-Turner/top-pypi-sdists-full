@@ -133,8 +133,13 @@ class InventoryItemsResource(SyncAPIResource):
           purchase_cost: The cost at which this inventory item is purchased from vendors, represented as
               a decimal string.
 
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
+
           purchase_description: The description of this inventory item that appears on purchase forms (e.g.,
               checks, bills, item receipts) when it is ordered or bought from vendors.
+
+              Maximum length: 4095 characters.
 
           purchase_tax_code_id: The tax code applied to purchases of this inventory item. Applicable in regions
               where purchase taxes are used, such as Canada or the UK.
@@ -150,8 +155,13 @@ class InventoryItemsResource(SyncAPIResource):
           sales_description: The description of this inventory item that appears on sales forms (e.g.,
               invoices, sales receipts) when sold to customers.
 
+              Maximum length: 4095 characters.
+
           sales_price: The price at which this inventory item is sold to customers, represented as a
               decimal string.
+
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
 
           sales_tax_code_id: The default sales-tax code for this inventory item, determining whether it is
               taxable or non-taxable. This can be overridden at the transaction-line level.
@@ -164,6 +174,8 @@ class InventoryItemsResource(SyncAPIResource):
 
           sku: The inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
+
+              Maximum length: 31 characters.
 
           total_value: The total value of this inventory item, represented as a decimal string. If
               `totalValue` is provided, `quantityOnHand` must also be provided and must be
@@ -369,8 +381,13 @@ class InventoryItemsResource(SyncAPIResource):
           purchase_cost: The cost at which this inventory item is purchased from vendors, represented as
               a decimal string.
 
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
+
           purchase_description: The description of this inventory item that appears on purchase forms (e.g.,
               checks, bills, item receipts) when it is ordered or bought from vendors.
+
+              Maximum length: 4095 characters.
 
           purchase_tax_code_id: The tax code applied to purchases of this inventory item. Applicable in regions
               where purchase taxes are used, such as Canada or the UK.
@@ -381,8 +398,13 @@ class InventoryItemsResource(SyncAPIResource):
           sales_description: The description of this inventory item that appears on sales forms (e.g.,
               invoices, sales receipts) when sold to customers.
 
+              Maximum length: 4095 characters.
+
           sales_price: The price at which this inventory item is sold to customers, represented as a
               decimal string.
+
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
 
           sales_tax_code_id: The default sales-tax code for this inventory item, determining whether it is
               taxable or non-taxable. This can be overridden at the transaction-line level.
@@ -395,6 +417,8 @@ class InventoryItemsResource(SyncAPIResource):
 
           sku: The inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
+
+              Maximum length: 31 characters.
 
           unit_of_measure_set_id: The unit-of-measure set associated with this inventory item, which consists of a
               base unit and related units.
@@ -545,6 +569,9 @@ class InventoryItemsResource(SyncAPIResource):
           name_from: Filter for inventory items whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           name_starts_with: Filter for inventory items whose `name` starts with this substring,
               case-insensitive.
 
@@ -553,6 +580,9 @@ class InventoryItemsResource(SyncAPIResource):
 
           name_to: Filter for inventory items whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for inventory items that are active, inactive, or both.
 
@@ -725,8 +755,13 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
           purchase_cost: The cost at which this inventory item is purchased from vendors, represented as
               a decimal string.
 
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
+
           purchase_description: The description of this inventory item that appears on purchase forms (e.g.,
               checks, bills, item receipts) when it is ordered or bought from vendors.
+
+              Maximum length: 4095 characters.
 
           purchase_tax_code_id: The tax code applied to purchases of this inventory item. Applicable in regions
               where purchase taxes are used, such as Canada or the UK.
@@ -742,8 +777,13 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
           sales_description: The description of this inventory item that appears on sales forms (e.g.,
               invoices, sales receipts) when sold to customers.
 
+              Maximum length: 4095 characters.
+
           sales_price: The price at which this inventory item is sold to customers, represented as a
               decimal string.
+
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
 
           sales_tax_code_id: The default sales-tax code for this inventory item, determining whether it is
               taxable or non-taxable. This can be overridden at the transaction-line level.
@@ -756,6 +796,8 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
 
           sku: The inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
+
+              Maximum length: 31 characters.
 
           total_value: The total value of this inventory item, represented as a decimal string. If
               `totalValue` is provided, `quantityOnHand` must also be provided and must be
@@ -961,8 +1003,13 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
           purchase_cost: The cost at which this inventory item is purchased from vendors, represented as
               a decimal string.
 
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
+
           purchase_description: The description of this inventory item that appears on purchase forms (e.g.,
               checks, bills, item receipts) when it is ordered or bought from vendors.
+
+              Maximum length: 4095 characters.
 
           purchase_tax_code_id: The tax code applied to purchases of this inventory item. Applicable in regions
               where purchase taxes are used, such as Canada or the UK.
@@ -973,8 +1020,13 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
           sales_description: The description of this inventory item that appears on sales forms (e.g.,
               invoices, sales receipts) when sold to customers.
 
+              Maximum length: 4095 characters.
+
           sales_price: The price at which this inventory item is sold to customers, represented as a
               decimal string.
+
+              Decimal string format: up to 5 decimal places and up to 10 digits before the
+              decimal point (for example, "123.45").
 
           sales_tax_code_id: The default sales-tax code for this inventory item, determining whether it is
               taxable or non-taxable. This can be overridden at the transaction-line level.
@@ -987,6 +1039,8 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
 
           sku: The inventory item's stock keeping unit (SKU), which is sometimes the
               manufacturer's part number.
+
+              Maximum length: 31 characters.
 
           unit_of_measure_set_id: The unit-of-measure set associated with this inventory item, which consists of a
               base unit and related units.
@@ -1137,6 +1191,9 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
           name_from: Filter for inventory items whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           name_starts_with: Filter for inventory items whose `name` starts with this substring,
               case-insensitive.
 
@@ -1145,6 +1202,9 @@ class AsyncInventoryItemsResource(AsyncAPIResource):
 
           name_to: Filter for inventory items whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for inventory items that are active, inactive, or both.
 

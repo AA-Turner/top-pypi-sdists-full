@@ -5,8 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-Level = Literal["personal", "organization", "system"]
-LEVEL_ORDER: tuple[Level, ...] = ("personal", "organization", "system")
+#: ``organization`` = the RUN's organization (its override rung); ``agent_organization`` = the
+#: organization that owns the agent definition, asked only when it differs from the run's.
+Level = Literal["personal", "organization", "agent_organization", "system"]
+LEVEL_ORDER: tuple[Level, ...] = ("personal", "organization", "agent_organization", "system")
 
 
 @dataclass(frozen=True)

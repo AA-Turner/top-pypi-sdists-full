@@ -27,7 +27,7 @@ from pyathena.model import (
     AthenaQueryExecution,
     AthenaSessionStatus,
 )
-from pyathena.util import override, parse_output_location, retry_api_call
+from pyathena.util import override, parse_output_location, retry_api_call, unstoppable_retries
 
 _logger = logging.getLogger(__name__)
 
@@ -142,16 +142,32 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             "DefaultExecutorDpuSize": 1,
         }
 
-    def _read_s3_file_as_text(self, uri) -> str:
+    def _read_s3_file_as_text(self, uri: str) -> str:
+        """Read a text file of a calculation, such as its standard output, from S3.
+
+        Args:
+            uri: The S3 URI of the file.
+
+        Returns:
+            The text of the file, without surrounding whitespace.
+
+        Raises:
+            OperationalError: If getting or reading the file fails.
+        """
         bucket, key = parse_output_location(uri)
-        response = retry_api_call(
-            self._client.get_object,
-            config=self._retry_config,
-            logger=_logger,
-            Bucket=bucket,
-            Key=key,
-        )
-        return cast(str, response["Body"].read().decode("utf-8").strip())
+        try:
+            response = retry_api_call(
+                self._client.get_object,
+                config=self._retry_config,
+                logger=_logger,
+                Bucket=bucket,
+                Key=key,
+            )
+            with contextlib.closing(response["Body"]) as body:
+                return cast(str, body.read().decode("utf-8").strip())
+        except Exception as e:
+            _logger.exception(f"Failed to read {bucket}/{key}.")
+            raise OperationalError(*e.args) from e
 
     def _get_session_status(self, session_id: str):
         request: dict[str, Any] = {"SessionId": session_id}
@@ -232,14 +248,20 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
     def _start_session(self) -> str:
         """Start a Spark session with ``StartSession`` and wait until it is idle.
 
-        If waiting for the new session raises, including ``KeyboardInterrupt``,
-        the session is terminated on a best-effort basis before the exception is
-        re-raised.
+        The request is sent with ``_start_in_thread()`` regardless of
+        ``kill_on_interrupt``, because the caller receives no cursor to close: a
+        ``KeyboardInterrupt`` after the request has begun terminates the session
+        it starts, unless a second interrupt arrives while the cursor waits for the
+        request. If waiting for the new session raises, including
+        ``KeyboardInterrupt``, the session is terminated on a best-effort basis
+        before the exception is re-raised.
 
         Returns:
             The ID of the new session.
 
         Raises:
+            KeyboardInterrupt: If interrupted while starting the session; see
+                ``_start_in_thread()``.
             OperationalError: If the session cannot be started or does not
                 become idle.
         """
@@ -253,17 +275,21 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             request.update({"NotebookVersion": self._notebook_version})
         if self._session_idle_timeout_minutes:
             request.update({"SessionIdleTimeoutInMinutes": self._session_idle_timeout_minutes})
-        try:
-            session_id: str = retry_api_call(
-                self._connection.client.start_session,
-                config=self._retry_config,
-                logger=_logger,
-                **request,
-            )["SessionId"]
-        except Exception as e:
-            _logger.exception("Failed to start session.")
-            raise OperationalError(*e.args) from e
 
+        def start() -> str:
+            try:
+                session_id: str = retry_api_call(
+                    self._connection.client.start_session,
+                    config=self._retry_config,
+                    logger=_logger,
+                    **request,
+                )["SessionId"]
+            except Exception as e:
+                _logger.exception("Failed to start session.")
+                raise OperationalError(*e.args) from e
+            return session_id
+
+        session_id = self._start_in_thread(start, self._terminate_session_by_id)
         try:
             self._wait_for_idle_session(session_id)
         except BaseException:
@@ -274,20 +300,15 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
             raise
         return session_id
 
-    def _terminate_session(self) -> None:
-        """Terminate the cursor's Spark session with ``TerminateSession``.
-
-        Raises:
-            OperationalError: If the request fails.
-        """
-        self._terminate_session_by_id(self._session_id)
-
     def _terminate_session_by_id(self, session_id: str) -> None:
         """Terminate a Spark session with ``TerminateSession``.
 
-        Session startup calls this synchronously in every cursor variant,
-        including those that override ``_terminate_session`` with a coroutine,
-        so subclasses must not override this method with a coroutine.
+        Session startup and :meth:`close` call this synchronously, also in
+        ``AioSparkCursor``, which releases a cursor that nobody awaits with
+        ``SparkBaseCursor.close``, so subclasses must not override this method
+        with a coroutine. The request cleans up, so a stop scope does not stop
+        its retries (see
+        :func:`~pyathena.util.unstoppable_retries`).
 
         Args:
             session_id: The session ID.
@@ -297,12 +318,13 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
         """
         request: dict[str, Any] = {"SessionId": session_id}
         try:
-            retry_api_call(
-                self._connection.client.terminate_session,
-                config=self._retry_config,
-                logger=_logger,
-                **request,
-            )
+            with unstoppable_retries():
+                retry_api_call(
+                    self._connection.client.terminate_session,
+                    config=self._retry_config,
+                    logger=_logger,
+                    **request,
+                )
         except Exception as e:
             _logger.exception(f"Failed to terminate session: {session_id}.")
             raise OperationalError(*e.args) from e
@@ -430,6 +452,9 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
     def _cancel(self, query_id: str) -> None:
         """Stop a calculation execution with ``StopCalculationExecution``.
 
+        The request cleans up, so a stop scope does not stop its retries (see
+        :func:`~pyathena.util.unstoppable_retries`).
+
         Args:
             query_id: The calculation execution ID.
 
@@ -438,12 +463,13 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
         """
         request: dict[str, Any] = {"CalculationExecutionId": query_id}
         try:
-            retry_api_call(
-                self._connection.client.stop_calculation_execution,
-                config=self._retry_config,
-                logger=_logger,
-                **request,
-            )
+            with unstoppable_retries():
+                retry_api_call(
+                    self._connection.client.stop_calculation_execution,
+                    config=self._retry_config,
+                    logger=_logger,
+                    **request,
+                )
         except Exception as e:
             _logger.exception("Failed to cancel calculation.")
             raise OperationalError(*e.args) from e
@@ -456,11 +482,14 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
         further calls do not terminate the session again; after a failed one,
         calling this method again retries it.
 
+        Later operations on the cursor raise ``ProgrammingError``.
+
         Raises:
             OperationalError: If terminating the session fails.
         """
+        self._closed = True
         if self._terminate_session_on_close:
-            self._terminate_session()
+            self._terminate_session_by_id(self._session_id)
             # Terminated; later calls do nothing.
             self._terminate_session_on_close = False
 
@@ -471,6 +500,18 @@ class SparkBaseCursor(BaseCursor, metaclass=ABCMeta):
         seq_of_parameters: list[dict[str, Any] | list[str] | None],
         **kwargs,
     ) -> None:
+        """Reject ``executemany()``, which Spark cursors do not support.
+
+        Args:
+            operation: The code to run.
+            seq_of_parameters: Sequence of parameter sets.
+            **kwargs: Additional arguments.
+
+        Raises:
+            NotSupportedError: If the cursor is open.
+            ProgrammingError: If the cursor is closed.
+        """
+        self._ensure_open()
         raise NotSupportedError
 
 

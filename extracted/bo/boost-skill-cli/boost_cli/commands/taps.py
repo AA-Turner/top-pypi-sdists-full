@@ -16,10 +16,12 @@ from ..core import (
     complete,
     config,
     gitutil,
+    integrity,
     journal,
     lockfile,
     paths,
     registry,
+    scopes,
     staleness,
     store,
     util,
@@ -79,14 +81,19 @@ def _skip_if_already_tapped(spec: str) -> bool:
     errored (exit 1), the second printed this muted line and exited 0. A
     spec that fails to parse is not "already tapped" — it falls through so
     the ordinary `registry.add` call raises its usual, more specific error.
+    Nor is a *different* repository under the same name: it falls through
+    too, and `registry.add` refuses it naming the URL that holds the name.
     """
     try:
-        name, _url = registry.parse_spec(spec)
+        name, url = registry.parse_spec(spec)
     except BoostError:
         return False
-    if not registry.is_tapped(name):
+    hit = next((t for t in registry.list_taps()
+                if registry.name_key(t.name) == registry.name_key(name)
+                and registry.same_source(t.url, url)), None)
+    if hit is None:
         return False
-    out.info(out.role("%s already tapped" % name, "muted"))
+    out.info(out.role("%s already tapped" % hit.name, "muted"))
     return True
 
 
@@ -418,20 +425,35 @@ def cmd_taps(argv) -> int:
     return 0
 
 
-def _outdated_display(r: dict) -> str:
+def _outdated_display(r: dict, configured: frozenset[str] = frozenset()) -> str:
     """Table rendering of one `cmd_outdated` row's machine fields.
 
     ``reason``/``latest``/``latest_commit`` are the JSON-facing values;
     everything a human reads (the "(content changed)" wording, the short
     commit) is derived here so the two representations can't drift apart.
+    ``configured`` names the taps still configured: a missing row from one of
+    them was removed upstream, which is what the footer calls it too.
     """
     if r["reason"] == staleness.SOURCE_MISSING:
-        return staleness.OUTDATED_SOURCE_MISSING
+        return (staleness.OUTDATED_REMOVED_UPSTREAM if r["tap"] in configured
+                else staleness.OUTDATED_SOURCE_MISSING)
     latest = r["latest"] or "?"
     if r["reason"] == staleness.CONTENT:
         return ("%s (%s)" % (latest, r["latest_commit"])
                 if r["latest_commit"] else "%s (content changed)" % latest)
     return latest
+
+
+def _outdated_qualifier(r: dict) -> str:
+    """NAME-column suffix for a non-skill kind and for a project install.
+
+    The project mark is what tells two rows of one name apart when a skill is
+    installed in both scopes, and it says which command refreshes it.
+    """
+    tags = [r["kind"]] if r["kind"] != "skill" else []
+    if r.get("scope") == scopes.SCOPE_PROJECT:
+        tags.append(scopes.SCOPE_PROJECT)
+    return " (%s)" % ", ".join(tags) if tags else ""
 
 
 def cmd_outdated(argv) -> int:
@@ -445,7 +467,10 @@ def cmd_outdated(argv) -> int:
 
     results = []
     heads = {}  # tap name -> HEAD commit ("" when unknown)
-    for name, lk in sorted(lockfile.installed().items()):
+    # Both locks: a `--local` skill is recorded only in the repo's own, and
+    # walking the user lock alone answered "everything up to date" in the
+    # directory where `boost info` said the same skill had an update.
+    for name, lk, scope, _base in integrity.installed_skill_rows():
         tap_name = lk.get("tap", "local")
         if tap_name == "local":
             continue
@@ -459,7 +484,8 @@ def cmd_outdated(argv) -> int:
                             "latest": None,
                             "reason": staleness.SOURCE_MISSING,
                             "latest_commit": None,
-                            "tap": tap_name, "pinned": bool(lk.get("pinned"))})
+                            "tap": tap_name, "pinned": bool(lk.get("pinned")),
+                            "scope": scope})
             continue
         entry, _warning = catalog.select_lock_source(matches, lk)
         entry = cast(dict, entry)             # matches is non-empty above
@@ -481,7 +507,8 @@ def cmd_outdated(argv) -> int:
                 except BoostError:
                     src_missing = True
         base = {"name": name, "kind": "skill", "installed": installed_v,
-                "tap": tap_name, "pinned": bool(lk.get("pinned"))}
+                "tap": tap_name, "pinned": bool(lk.get("pinned")),
+                "scope": scope}
         if src_missing:
             results.append(base | {"latest": None,
                                    "reason": staleness.SOURCE_MISSING,
@@ -510,7 +537,8 @@ def cmd_outdated(argv) -> int:
                 continue
             installed_v = str(lk.get("version") or "0.0.0")
             base = {"name": name, "kind": kind, "installed": installed_v,
-                    "tap": tap_name, "pinned": bool(lk.get("pinned"))}
+                    "tap": tap_name, "pinned": bool(lk.get("pinned")),
+                    "scope": lk.get("scope") or scopes.SCOPE_USER}
             try:
                 raw = (registry.get(tap_name).path / lk.get("source_file", "")
                        ).read_text(encoding="utf-8", errors="replace")
@@ -543,16 +571,19 @@ def cmd_outdated(argv) -> int:
     if not results:
         out.ok("everything up to date")
         return 0
-    rows = [(r["name"] + ("" if r["kind"] == "skill" else " (%s)" % r["kind"]),
+    # A missing row whose tap is still configured lost the item upstream;
+    # re-tapping it would restore nothing, so it is worded and counted apart.
+    configured = frozenset(t.name for t in registry.list_taps())
+    rows = [(r["name"] + _outdated_qualifier(r),
              r["installed"] + (" (pinned)" if r["pinned"] else ""),
-             _outdated_display(r), r["tap"]) for r in results]
+             _outdated_display(r, configured), r["tap"]) for r in results]
     # NAME is what `boost update`/`upgrade` take.
     out.table(rows, headers=("NAME", "INSTALLED", "LATEST", "TAP"),
               whole=("NAME",))
     print()
-    source_missing = sum(1 for r in results
-                         if r["reason"] == staleness.SOURCE_MISSING)
-    out.dim(staleness.outdated_footer(len(results), source_missing))
+    missing = [r for r in results if r["reason"] == staleness.SOURCE_MISSING]
+    removed = sum(1 for r in missing if r["tap"] in configured)
+    out.dim(staleness.outdated_footer(len(results), len(missing), removed))
     return 0
 
 

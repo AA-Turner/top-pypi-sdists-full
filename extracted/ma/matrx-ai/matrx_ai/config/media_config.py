@@ -309,7 +309,7 @@ class ImageContent:
 
     Carries the canonical media-reference fields (``file_id``, ``url``,
     ``file_uri``, ``mime_type``, ``base64_data``, ``is_resolved``) so the
-    AI Dream boundary normaliser can resolve it through
+    AI Dream boundary normalizer can resolve it through
     ``FileManager.resolve_media_async``. Don't add new media-reference
     fields here — extend ``MediaRef`` in matrx-utils instead.
     """
@@ -341,7 +341,7 @@ class ImageContent:
     # registry (``packages/matrx-ai/matrx_ai/processing/vision``).
     vision_class: str | None = None
 
-    # === Resolved-state fields (populated by the boundary normaliser) ===
+    # === Resolved-state fields (populated by the boundary normalizer) ===
     resolved_url: str | None = None
     file_size: int | None = None
     owner_id: str | None = None
@@ -350,7 +350,7 @@ class ImageContent:
     resolver_error: str | None = None
 
     def __post_init__(self):
-        """Normalise mime_type from multiple legacy locations, then auto-detect."""
+        """Normalize mime_type from multiple legacy locations, then auto-detect."""
         from matrx_ai.media.image_reference_roles import validate_role
 
         # An unknown role raises: a typo must never become an unlabeled image.
@@ -421,7 +421,7 @@ class ImageContent:
                 }
             }
         else:
-            # No usable representation. The boundary normaliser at AI
+            # No usable representation. The boundary normalizer at AI
             # Dream pre-fetches BOTH our cloud_files refs AND external
             # URLs into base64_data, so we never need a sync HTTP fallback
             # here (which would block the event loop). If we land in this
@@ -701,7 +701,7 @@ class AudioContent:
     file_id: str | None = None  # Cloud-files UUID
     mime_type: str | None = None
 
-    # === Resolved-state fields (populated by the boundary normaliser) ===
+    # === Resolved-state fields (populated by the boundary normalizer) ===
     resolved_url: str | None = None
     file_size: int | None = None
     owner_id: str | None = None
@@ -960,7 +960,7 @@ class AudioContent:
     def to_google(self) -> dict[str, Any] | None:
         """Convert to Google Gemini format.
 
-        Sync — never does I/O. The boundary normaliser at AI Dream
+        Sync — never does I/O. The boundary normalizer at AI Dream
         pre-fetches every URL (ours and external) into ``base64_data``,
         so this method only consumes already-resolved data. If we land
         in the no-data branch, the boundary either was not wired or the
@@ -1141,7 +1141,7 @@ class VideoContent:
     role: str | None = None
     name: str | None = None
 
-    # === Resolved-state fields (populated by the boundary normaliser) ===
+    # === Resolved-state fields (populated by the boundary normalizer) ===
     resolved_url: str | None = None
     file_size: int | None = None
     owner_id: str | None = None
@@ -1243,7 +1243,7 @@ class VideoContent:
     def to_google(self) -> dict[str, Any] | None:
         """Convert to Google Gemini format.
 
-        Sync — never does I/O. The boundary normaliser at AI Dream
+        Sync — never does I/O. The boundary normalizer at AI Dream
         pre-fetches every URL (ours and external) into ``base64_data``,
         so this method only consumes already-resolved data.
         """
@@ -1618,7 +1618,7 @@ class DocumentContent:
     height: int | None = None
     page_count: int | None = None
 
-    # === Resolved-state fields (populated by the boundary normaliser) ===
+    # === Resolved-state fields (populated by the boundary normalizer) ===
     resolved_url: str | None = None
     file_size: int | None = None
     owner_id: str | None = None
@@ -1715,7 +1715,7 @@ class DocumentContent:
     def to_google(self) -> dict[str, Any] | None:
         """Convert to Google Gemini format.
 
-        Sync — never does I/O. The boundary normaliser at AI Dream
+        Sync — never does I/O. The boundary normalizer at AI Dream
         pre-fetches every URL (ours and external) into ``base64_data``,
         so this method only consumes already-resolved data. If we land
         in the no-data branch the boundary either was not wired or the

@@ -531,7 +531,7 @@ STALL_GRACE_SECONDS = 60.0
 #: The stall window is also at least this many of the slowest pacing interval
 #: (`crawl.rate_limit_max_interval_s`, up to 600 s; Crawl-delay; pinned rps).
 STALL_PACING_MULTIPLE = 3.0
-#: Bound on waiting for cancelled workers when the run loop tears down.
+#: Bound on waiting for canceled workers when the run loop tears down.
 WORKER_TEARDOWN_GRACE_SECONDS = 30.0
 
 
@@ -749,6 +749,8 @@ class SiteCrawlerConfig:
     base_url: str
     max_pages: int = 200
     max_depth: int | None = None
+    # Wall-clock budget in seconds (None = none). See CrawlStartRequest.time_budget_seconds.
+    time_budget_seconds: int | None = None
     concurrency: int = 8
     follow_subdomains: bool = False
     # None (default) = the `knowledge.scraper.respect_robots` knob decides, and
@@ -901,7 +903,7 @@ class SiteCrawler:
         self._explicit_pacing_knobs = pacing_knobs
         self._knobs = CrawlKnobs.load()
         self._pacing_knobs = pacing_knobs or self._knobs.pacing(DEFAULT_KNOBS)
-        # ONE crawl-wide pause on 429 (Retry-After honoured), and the stop rule
+        # ONE crawl-wide pause on 429 (Retry-After honored), and the stop rule
         # that ends a futile crawl as `partial` instead of grinding on.
         self._pause = self._new_pause()
         self._stop_reason: str | None = None
@@ -1049,7 +1051,7 @@ class SiteCrawler:
         Read regardless of ``respect_robots``. That switch governs ACCESS — may
         we fetch this path — and it ships OFF (we do not obey Disallow). Pacing is a different question: a site
         stating how fast it wants to be read is telling us something true about
-        its own capacity, and honouring it costs us nothing but politeness.
+        its own capacity, and honoring it costs us nothing but politeness.
         """
 
         url = f"{urlparse(self.seed_url).scheme}://{urlparse(self.seed_url).netloc}/robots.txt"
@@ -1333,6 +1335,7 @@ class SiteCrawler:
                             raise exc
                 if self._cancel.is_set():
                     break
+                await self._stop_if_time_budget_spent()
                 # Stop conditions: no work in flight AND queue is empty AND we hit
                 # max_pages OR queue is just empty.
                 qd, inflight = await self._counts_bounded()
@@ -1376,7 +1379,7 @@ class SiteCrawler:
                 # not "nothing is being worked". The old condition
                 # (`fetched + reserved >= max_pages and inflight == 0`) broke
                 # out of this loop the instant a single-URL run's only worker
-                # reserved its slot, cancelled that worker mid-claim, and
+                # reserved its slot, canceled that worker mid-claim, and
                 # stranded the item IN_PROGRESS — every scheduled `page_fetch`
                 # of cosmeticinjectables.com died this way in <1s with
                 # `pages_fetched=0, pages_failed=0` (176 failed sessions,
@@ -1636,7 +1639,7 @@ class SiteCrawler:
         """Keep every claim this process holds alive while the crawl is alive.
 
         A claim's lease starts at dequeue, but a page may legitimately wait
-        before its own work starts (a crawl-wide 429 pause honours the site's
+        before its own work starts (a crawl-wide 429 pause honors the site's
         Retry-After, uncapped). Renewing held leases every third of the lease
         means only a dead process's claims ever expire — never a live crawl's
         paused ones (which the frontier reaper would re-pend: duplicate fetches,
@@ -1722,6 +1725,30 @@ class SiteCrawler:
             STALL_PACING_MULTIPLE * self._slowest_pacing_interval(),
         )
 
+    async def _stop_if_time_budget_spent(self) -> None:
+        """End the crawl cleanly once its wall-clock budget (``time_budget_seconds``) is spent: workers take no
+        new pages, in-flight fetches settle, the session ends `partial` with stop_reason `time_budget`."""
+        budget = self.config.time_budget_seconds
+        if not budget or self._stop_reason is not None or self._started_at is None:
+            return
+        elapsed = time.monotonic() - self._started_at
+        if elapsed < budget:
+            return
+        self._stop_reason = "time_budget"
+        self._stop_detail = (
+            f"Crawl stopped at its time budget ({budget // 60} min {budget % 60} s): "
+            f"{self._pages_fetched} page(s) were fetched; the rest were left unfetched."
+        )
+        logger.warning("crawl %s stopped: %s", self.run_id, self._stop_detail)
+        await self._emit(
+            CrawlWarningEvent(
+                run_id=self.run_id,
+                message=self._stop_detail,
+                context={"stop_reason": self._stop_reason, "time_budget_seconds": budget,
+                         "elapsed_seconds": round(elapsed, 1), "pages_fetched": self._pages_fetched},
+            )
+        )
+
     async def _stop_for_stalled_worker(self, in_flight: int) -> None:
         """End a crawl that stopped moving: its workers never came back."""
         if self._stop_reason is not None:
@@ -1787,7 +1814,7 @@ class SiteCrawler:
         starts at `_begin_page_work`. On expiry the fence closes FIRST — from then
         on nothing that task does lands (events, counters, frontier settles,
         persists), however long a thread or browser keeps it alive — then the
-        task is cancelled and abandoned, and the worker settles the claim itself:
+        task is canceled and abandoned, and the worker settles the claim itself:
         requeued while retries remain, FAILED once they are spent. A failure is
         counted only when that settle actually took the claim.
         """
@@ -1965,7 +1992,7 @@ class SiteCrawler:
 
     async def _process(self, item: QueueItem) -> None:
         if self._cancel.is_set():
-            # A cancelled item was never processed — recording it "done" (or any
+            # A canceled item was never processed — recording it "done" (or any
             # terminal state) would poison a durable frontier's record: a future
             # resume must see it as STILL TO DO. will_retry=True returns it to
             # pending. No spin risk on the in-memory frontier: workers stop
@@ -2188,7 +2215,7 @@ class SiteCrawler:
                 # A FAILING browser response gets the SAME challenge
                 # classification the HTTP path uses (one classifier, not a
                 # second hand-rolled copy) — otherwise a WAF interstitial
-                # rendered by the browser is labelled `bad_status`, misread
+                # rendered by the browser is labeled `bad_status`, misread
                 # as a rate limit, and requeued 5× for nothing. Only failing
                 # responses are classified: a healthy page may legitimately
                 # embed a Turnstile widget (a protected contact form), and
@@ -2454,7 +2481,7 @@ class SiteCrawler:
                 # block with an unrecognized signature (the challenge check
                 # above only knows the signatures we've seen). Spend ONE
                 # browser navigation on it — the same fetch that recovers a
-                # labelled challenge — rather than hard-failing a page the
+                # labeled challenge — rather than hard-failing a page the
                 # screenshot path would have crawled fine.
                 escalated: ScrapeResult | None = None
                 if (

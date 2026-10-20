@@ -242,3 +242,16 @@ def test_folder_replacement_during_preparation_fails_before_publishing_the_plan(
     assert "folder was replaced" in jobs.get_job(job["id"])["error"]
     checkpoint, _ = imp._auto_checkpoint(job["payload"])
     assert not checkpoint.exists() and h.remote.calls == []
+
+
+def test_external_admission_id_reuses_completed_request_after_lost_reply(automatic, queued):
+    """Desktop retry after a crash cannot create another completed-folder job."""
+    import uuid
+    h = automatic
+    request_id = uuid.uuid4().hex
+    first = _enqueue(h, request_id=request_id)
+    _run(first)
+    second = _enqueue(h, request_id=request_id)
+    assert second["id"] == first["id"]
+    assert second["state"] == jobs.State.SUCCEEDED
+    assert len(queued) == 1

@@ -45,6 +45,8 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     "authored_tools",
     "dynamic_tools",
     "dynamic_tool_sources",
+    # The conversation's provider tools array (declaration_ledger) — host state.
+    "tool_declarations",
     # The agent's tool policy carried by the conversation (stamped by the host funnel).
     "agent_auto_tools_disabled",
     "agent_excluded_tools",
@@ -52,6 +54,9 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     # declaration + frozen-with-the-conversation state, never a caller override.
     "prompt_blocks",
     "prompt_block_creator",
+    # The organization that owns the agent definition (where its named pieces resolve) — host
+    # state from the definition, never a caller override.
+    "agent_organization_id",
     "prompt_block_texts",
     "prompt_block_report",
     "prompt_block_tool_ids",

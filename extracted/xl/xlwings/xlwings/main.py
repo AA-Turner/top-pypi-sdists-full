@@ -1054,7 +1054,11 @@ class Book:
     async def flush(self) -> None:
         """Flushes all pending actions to Excel and lets the Output pane update.
 
-        In xlwings Lite, writes and other workbook changes are queued until the script returns or you call `await book.flush()`. Call this method before reading back a change within the same script. Asynchronous getters do not flush pending actions automatically.
+        In xlwings Lite, writes and other workbook changes are queued until the script returns or you call `await book.flush()`. Asynchronous getters such as `await rng.get_value()` flush pending actions automatically before they read from Excel, so they always see the script's earlier changes, including a sheet that was just added. The same applies to `await book.load()` and `await sheet.load()`, e.g., to access the columns of a table that was just added. You only need to call `await book.flush()` explicitly in the following cases:
+
+        - **Showing progress during a long-running script:** a change that no read depends on, such as a status message written to a cell, only appears in Excel after the script returns unless you flush it. Flushing also lets the Output pane show what you printed so far.
+        - **Reading a file that an action creates:** actions such as {meth}`Range.to_png <xlwings.Range.to_png>` write their file only when they are dispatched, and reading a file doesn't flush pending actions. Flush before reading the file within the same script.
+        - **Choosing what's applied if the script fails:** if a script raises an exception, its pending actions are discarded. Everything flushed before the exception, explicitly or by an asynchronous getter, stays applied. Flush to apply the changes up to a certain point, for example, before a step that may fail.
 
         Flushing does not refresh cell values previously loaded for synchronous {attr}`Range.value <xlwings.Range.value>` reads. Use `await rng.get_value()` to read the changed cells, or `await book.load(values=True)` to reload values before using `.value`.
 
@@ -1062,10 +1066,11 @@ class Book:
             Inside an asynchronous script with a supplied `book` parameter:
 
             ```python
-            rng = book.sheets["Sheet1"]["A1"]
-            rng.value = "Hello"
-            await book.flush()
-            print(await rng.get_value())  # Hello
+            status = book.sheets["Sheet1"]["A1"]
+            status.value = "Calculating..."
+            await book.flush()  # Shows the status before the slow step
+            run_slow_calculation()
+            status.value = "Done"
             ```
 
         Requires xlwings Lite.
@@ -2471,7 +2476,6 @@ class Range:
             # Assumes an existing workbook object named book.
             sheet = book.sheets["Sheet1"]
             sheet["A1:A3"].value = [["North"], ["South"], ["North"]]
-            await book.flush()
             found = await sheet["A1:A3"].find("South", whole=True)
             print(found.address if found else None)  # $A$2
             ```
@@ -2526,7 +2530,6 @@ class Range:
             sheet = book.sheets["Sheet1"]
             sheet["A1:A2"].value = [["Draft"], ["Draft report"]]
             sheet["A1:A2"].replace_all("Draft", "Final")
-            await book.flush()
             print(await sheet["A2"].get_value())  # Final report
             ```
         """
@@ -3335,9 +3338,26 @@ class Range:
         """
         return DataValidation(impl=await self._impl.get_data_validation(), parent=self)
 
+    async def get_expanded_range(self, mode: str = "table") -> Range:
+        """Return the range expanded down, right, or in both directions.
+
+        Like {meth}`expand <xlwings.Range.expand>`, ignores an empty top-left cell. `mode` is `"table"` (down and right), `"down"`, or `"right"`; the aliases accepted by `expand()` are also supported.
+
+        Requires xlwings Lite. Like other asynchronous getters, it flushes pending actions first, so expansion sees earlier writes in the same script. Captured writes in a dry run remain unapplied. When the intended dimensions are already known, construct the range directly instead.
+
+        Example:
+            ```python
+            header = await sheet["A6"].get_expanded_range("right")
+            header.font.bold = True
+            ```
+        """
+        return Range(impl=await self._impl.get_expanded_range(mode))
+
     def expand(self, mode: str = "table") -> Range:
         """Expands the range according to the mode provided. Ignores empty top-left cells
         (unlike `Range.end()`).
+
+        For async workbook reads in xlwings Lite, use {meth}`get_expanded_range <xlwings.Range.get_expanded_range>`.
 
         Args:
             mode: One of `'table'` (=down and right), `'down'`, `'right'`.
@@ -3356,7 +3376,7 @@ class Range:
         ```{versionadded} 0.9.0
         ```
         """
-        return expansion.expanders.get(mode, mode).expand(self)
+        return Range(impl=self.impl.expand(mode))
 
     def __getitem__(self, key: tuple[int | slice, int | slice] | int | slice) -> Range:
         if type(key) is tuple:
@@ -3488,6 +3508,27 @@ class Range:
             transpose
         """
         self.impl.copy_from(source_range, copy_type, skip_blanks, transpose)
+
+    def move(self, destination: Range) -> None:
+        """Move this range to a new location, like cut and paste in Excel.
+
+        Values, formulas, and formatting move together, and formulas that reference the moved cells are updated to point to the new location. The source and destination may overlap, e.g., to shift a block a few columns to the left. Source cells that the moved block doesn't cover afterwards are left empty.
+
+        Args:
+            destination: The range whose top-left cell becomes the top-left cell of the moved block. The moved block keeps this range's size. The destination may be on another sheet of the same book.
+
+        Examples:
+            ```python
+            # Shift the block O1:S145 three columns to the left, to L1:P145
+            sheet["O1:S145"].move(sheet["L1"])
+            ```
+
+        ```{versionadded} 0.37.7
+        ```
+        """
+        if destination.sheet.book != self.sheet.book:
+            raise ValueError("Range.move() requires a destination in the same book.")
+        self.impl.move(destination[0, 0])
 
     def paste(
         self,
@@ -3811,10 +3852,21 @@ class Range:
     def to_png(self, path: str | PathLike[str] | None = None) -> None:
         """Exports the range as PNG picture.
 
+        In xlwings Lite, `path` is required and the export is queued like other workbook actions: the file exists only after the script returns or you call `await book.flush()`. Flush before reading the file within the same script.
+
         Args:
             path: Path where you want to store the picture. Defaults to the name of the range
                 in the same directory as the Excel file if the Excel file is stored and to
                 the current working directory otherwise.
+
+        Examples:
+            Inside an asynchronous xlwings Lite script with a supplied `book` parameter:
+
+            ```python
+            book.sheets[0]["A1:D10"].to_png("/tmp/range.png")
+            await book.flush()
+            png_bytes = Path("/tmp/range.png").read_bytes()
+            ```
 
         ```{versionadded} 0.24.8
         ```
@@ -4175,7 +4227,7 @@ class AutoFilter:
 
 
 # These have to be after definition of Range to resolve circular reference
-from . import conversion, expansion
+from . import conversion
 
 
 class Ranges:
@@ -6160,7 +6212,7 @@ class TableColumn:
 
 
 class TableColumns(Collection[TableColumn]):
-    """Table columns. Collection lookup is zero-based; column indexes are one-based. For a newly created table in xlwings Lite, call `await book.flush()` and `await sheet.load()` before accessing its columns, then obtain the table again.
+    """Table columns. Collection lookup is zero-based; column indexes are one-based. For a newly created table in xlwings Lite, call `await sheet.load()` before accessing its columns, then obtain the table again.
 
     Examples:
         ```python
@@ -6615,7 +6667,7 @@ class Chart:
     async def get_series(self) -> ChartSeriesCollection:
         """Fetches the chart's current ordered series collection.
 
-        A newly created chart must first be dispatched with `await book.flush()` so Excel can create its series from the source data.
+        A newly created chart needs its source data first, see {meth}`set_source_data`. Like other asynchronous getters, this method flushes pending actions first, so Excel creates the chart's series before they are read.
 
         Requires xlwings Lite.
 
@@ -6750,6 +6802,8 @@ class Chart:
 
     def to_png(self, path: str | PathLike[str] | None = None) -> None:
         """Exports the chart as PNG picture.
+
+        In xlwings Lite, the export is queued like other workbook actions: the file exists only after the script returns or you call `await book.flush()`. Flush before reading the file within the same script.
 
         Args:
             path: Path where you want to store the picture. Defaults to the name of the
@@ -8046,8 +8100,8 @@ class PivotTables(Collection[PivotTable]):
             source: The source data, either a range including the header row
                 or a {class}`Table <xlwings.main.Table>`. Can be on another sheet.
                 On xlwings Lite, `expand()` doesn't see values written in the
-                same script until you run `await book.flush()` followed by
-                `await sheet.load()`; on xlwings Server, spell out the range.
+                same script until you run `await sheet.load()`; on xlwings
+                Server, spell out the range.
             destination: The cell where the top-left corner of the pivot
                 table goes. Must be on the sheet of this collection.
             name: Name of the pivot table. Defaults to Excel's standard

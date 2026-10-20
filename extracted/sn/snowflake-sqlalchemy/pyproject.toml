@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Snowflake SQLAlchemy Dialect"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [
   { name = "Snowflake Inc.", email = "triage-snowpark-python-api-dl@snowflake.com" },
 ]
@@ -25,12 +25,10 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: SQL",
   "Topic :: Database",
   "Topic :: Scientific/Engineering :: Information Analysis",
@@ -39,7 +37,16 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["SQLAlchemy>=1.4.19", "snowflake-connector-python<5.0.0"]
+dependencies = [
+  # <2.1: 2.1.0 removed sqlalchemy.orm.context.ORMSelectCompileState (and other
+  # attributes the dialect/async shim import at module load time), breaking
+  # import outright. Raise the ceiling only once base.py and the async shim are
+  # updated for the 2.1 API surface.
+  "SQLAlchemy>=2.0.44,<2.1",
+  # Connector 5.x is the baseline: it provides the async driver. It requires
+  # Python >=3.11, which sets this project's requires-python floor.
+  "snowflake-connector-python>=5.0.0",
+]
 
 [tool.hatch.version]
 path = "src/snowflake/sqlalchemy/version.py"
@@ -47,6 +54,7 @@ path = "src/snowflake/sqlalchemy/version.py"
 [project.optional-dependencies]
 development = [
   "alembic",
+  "mypy>=1.0,<2.0",
   "pre-commit",
   "pytest",
   "setuptools",
@@ -54,6 +62,7 @@ development = [
   "pytest-timeout",
   "pytest-rerunfailures",
   "pytest-xdist",
+  "pytest-asyncio>=0.24",
   "pytz",
   "numpy",
   "syrupy",
@@ -63,6 +72,7 @@ pandas = ["snowflake-connector-python[pandas]"]
 
 [project.entry-points."sqlalchemy.dialects"]
 snowflake = "snowflake.sqlalchemy:dialect"
+"snowflake.snowflake_async" = "snowflake.sqlalchemy._async.async_dialect:SnowflakeDialect_async"
 
 [project.urls]
 Changelog = "https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/DESCRIPTION.md"
@@ -78,55 +88,87 @@ exclude = ["/.github"]
 packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
-extra-dependencies = ["SQLAlchemy>=1.4.19,<2.1.0"]
+extra-dependencies = ["SQLAlchemy>=2.0.44,<2.1"]
 features = ["development", "pandas"]
-python = "3.12"
+python = "3.11"
 installer = "uv"
-
-[tool.hatch.envs.sa14]
-installer = "uv"
-builder = true
-extra-dependencies = [
-  "SQLAlchemy>=1.4.19,<2.0.0",
-  "pandas>=2.1.1,<2.2",
-  "numpy<2",
-]
-features = ["development", "pandas"]
-python = "3.12"
-
-[tool.hatch.envs.sa14.scripts]
-test-dialect = "pytest --ignore_v20_test -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml --ignore=tests/sqlalchemy_test_suite tests/"
-test-dialect-compatibility = "pytest -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml tests/sqlalchemy_test_suite"
-test-dialect-aws = "pytest --ignore_v20_test -m \"aws\" -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml --ignore=tests/sqlalchemy_test_suite tests/"
 
 [tool.hatch.envs.default.env-vars]
 COVERAGE_FILE = "coverage.xml"
-SQLACHEMY_WARN_20 = "1"
 
 [tool.hatch.envs.default.scripts]
 check = "pre-commit run --all-files"
 test-dialect = "pytest -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml --ignore=tests/sqlalchemy_test_suite tests/"
 test-dialect-compatibility = "pytest -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml tests/sqlalchemy_test_suite"
+test-dialect-async-sync = "pytest -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml tests_async/"
 test-dialect-aws = "pytest -m \"aws\" -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml --ignore=tests/sqlalchemy_test_suite tests/"
 gh-cache-sum = "python -VV | sha256sum | cut -d' ' -f1"
 check-import = "python -c 'import snowflake.sqlalchemy; print(snowflake.sqlalchemy.__version__)'"
+type-check = "mypy src/snowflake/sqlalchemy/"
+# CI ops scripts (SLO metrics). Each supports --dry-run for local use.
+ci-parse-junit = "python -m ci.scripts.parse_junit_to_csv {args}"
+ci-test-summary = "python -m ci.scripts.upload_test_summary {args}"
+ci-version-lag = "python -m ci.scripts.check_version_lag {args}"
+ci-parse-cves = "python -m ci.scripts.parse_cves {args}"
+ci-cve-tickets = "python -m ci.scripts.create_cve_tickets {args}"
+
+[tool.hatch.envs.async]
+extra-dependencies = ["SQLAlchemy>=2.0.44,<2.1"]
+features = ["development", "pandas"]
+# Pinned to 3.12 so the async suite exercises a newer interpreter than the
+# default env; the connector is 5.x in every env now.
+python = "3.12"
+installer = "uv"
+
+[tool.hatch.envs.async.env-vars]
+COVERAGE_FILE = "coverage.xml"
+
+[tool.hatch.envs.async.scripts]
+test-dialect-async-sync = "pytest -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml tests_async/"
+test-dialect-async = "SNOWFLAKE_ASYNC_TESTS=1 pytest -ra -vvv --tb=short --cov snowflake.sqlalchemy --cov-append --junitxml ./junit.xml tests_async/"
+test-dialect-compatibility-async = "SNOWFLAKE_ASYNC_TESTS=1 pytest -ra -vvv --tb=short tests/sqlalchemy_test_suite tests_async/"
 
 [[tool.hatch.envs.release.matrix]]
-python = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14"]
 features = ["development", "pandas"]
 
 [tool.hatch.envs.release.scripts]
 test-dialect = "pytest -ra -vvv --tb=short --ignore=tests/sqlalchemy_test_suite tests/"
 test-compatibility = "pytest -ra -vvv --tb=short tests/sqlalchemy_test_suite tests/"
 
+# Coverage is collected per OS in the cloud-test matrix (ubuntu/macos/windows)
+# and combined on a single ubuntu runner. `relative_files` makes each job record
+# paths relative to this config instead of absolute runner paths, and
+# [tool.coverage.paths] folds the per-OS/per-install variants back onto the local
+# source tree so `coverage combine` + `coverage report` can resolve the source.
+[tool.coverage.run]
+relative_files = true
+
+[tool.coverage.paths]
+source = [
+  "src/snowflake/sqlalchemy",
+  "*/src/snowflake/sqlalchemy",
+  "*\\src\\snowflake\\sqlalchemy",
+  "*/snowflake/sqlalchemy",
+  "*\\snowflake\\sqlalchemy",
+]
+
 [tool.ruff]
 line-length = 88
+target-version = "py311"
 
-[tool.black]
-line-length = 88
+[tool.ruff.lint]
+extend-select = ["B", "I"] # flake8-bugbear + isort rules
+
+[tool.ruff.lint.per-file-ignores]
+# F821: names come from `from sqlalchemy.testing.suite import *` which ruff cannot resolve
+"tests/sqlalchemy_test_suite/test_suite.py" = ["F821"]
 
 [tool.pytest.ini_options]
 addopts = "-m 'not feature_max_lob_size and not aws and not requires_external_volume'"
+# Put the repo root on sys.path so tests_async/ (which has no __init__.py) can
+# import the shared tests.conftest helpers, matching how tests/ resolves.
+pythonpath = ["."]
 markers = [
   # Optional dependency groups markers
   "lambda: AWS lambda tests",
@@ -146,6 +188,20 @@ markers = [
   "requires_external_volume: tests that needs a external volume to be executed",
   "external: tests that could but should only run on our external CI",
   "feature_max_lob_size: tests that could but should only run on our external CI",
-  "feature_v20: tests that could but should only run on SqlAlchemy v20",
   "mypy: typing tests",
+  # sqlalchemy.testing markers (auto-applied from __backend__/__sparse_backend__ on test classes)
+  "backend: sqlalchemy.testing — class runs against the configured backend(s)",
+  "sparse_backend: sqlalchemy.testing — class runs against a sparse subset of backends",
+  "sparse_driver_backend: sqlalchemy.testing — class runs against a sparse subset of drivers",
 ]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+explicit_package_bases = true
+# Ignore stubs that are missing for snowflake-connector-python
+ignore_missing_imports = true
+# Check function bodies even when unannotated
+check_untyped_defs = true
+# Surface stale # type: ignore comments as annotations are added
+warn_unused_ignores = true

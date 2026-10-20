@@ -10,6 +10,7 @@ instantiate the :py:class:`mcap.reader.McapReader` with a
 MyProtoClass(data="hello")
 MyProtoClass(data="goodbye")
 """
+
 from __future__ import annotations
 
 import warnings
@@ -22,7 +23,8 @@ from mcap.records import Channel, Message
 
 from .decoder import DecoderFactory
 
-warnings.warn(__doc__, DeprecationWarning)
+if __doc__ is not None:
+    warnings.warn(__doc__, DeprecationWarning)
 
 
 def read_protobuf_messages(
@@ -74,7 +76,11 @@ def read_protobuf_messages(
 
     try:
         for schema, channel, message, proto_msg in reader.iter_decoded_messages(
-            topics, start_time, end_time, log_time_order, reverse
+            topics,
+            log_time_order=log_time_order,
+            reverse=reverse,
+            starting_at=start_time,
+            ending_before=end_time,
         ):
             assert schema is not None
             yield McapProtobufMessage(

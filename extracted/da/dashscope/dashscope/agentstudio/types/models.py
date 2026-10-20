@@ -141,12 +141,25 @@ class SessionResource(BaseModel):
     source file id passed at mount time. ``mount_path`` is the absolute
     sandbox path (the server prepends a prefix; the user-supplied path is
     preserved losslessly and must be under ``/uploads/``).
+
+    For ``type="memory_store"`` resources the memory-specific fields
+    apply: ``memory_store_id`` (the attached store), ``access``
+    (``read_write`` default / ``read_only``), ``instructions``
+    (per-session guidance, <= 4096 chars) and the server-snapshotted
+    ``name``/``description`` of the store at attach time. Memory
+    stores can only be attached at session creation time —
+    ``sessions.resources.add`` accepts files only.
     """
 
     _fields = (
         "id",
         "type",
         "file_id",
+        "memory_store_id",
+        "access",
+        "instructions",
+        "name",
+        "description",
         "mount_path",
         "created_at",
         "updated_at",
@@ -1445,6 +1458,84 @@ class Credential(BaseModel):
         if isinstance(auth, dict):
             kwargs["auth"] = CredentialAuth(**auth)
         super().__init__(**kwargs)
+
+
+# ===========================================================================
+# Section 6b – Memory stores (workspace-persistent memory)
+# ===========================================================================
+
+
+class MemoryStore(BaseModel):
+    """A workspace-scoped store of small text documents.
+
+    Stores persist across sessions and are mounted into a session
+    container at ``/mnt/memory/<name>/`` when attached via the session
+    ``resources[]`` array.  ``archived_at`` is set once the store is
+    archived: read-only afterwards, existing session attachments keep
+    working, but new sessions cannot reference it.
+    """
+
+    _fields = (
+        "id",
+        "archived_at",
+        "created_at",
+        "description",
+        "metadata",
+        "name",
+        "type",
+        "updated_at",
+        "request_id",
+    )
+
+
+class Memory(BaseModel):
+    """One text document inside a memory store, addressed by ``path``.
+
+    ``content`` appears only in retrieve responses and in list
+    responses with ``view="full"``; create and update never return it.
+    ``content_sha256`` identifies the content revision — pass it back
+    to ``memories.update`` for optimistic concurrency (a mismatch
+    returns 409 ``memory_precondition_failed_error``).
+    """
+
+    _fields = (
+        "id",
+        "content",
+        "content_sha256",
+        "content_size_bytes",
+        "created_at",
+        "memory_store_id",
+        "memory_version_id",
+        "path",
+        "type",
+        "updated_at",
+        "request_id",
+    )
+
+
+class MemoryVersion(BaseModel):
+    """Immutable snapshot produced by every memory mutation; versions
+    are returned newest-first.
+
+    ``operation`` is ``created`` / ``modified`` / ``deleted``. After
+    ``redact``, ``path``, ``content``, ``content_sha256`` and
+    ``content_size_bytes`` are cleared; the audit trail is preserved.
+    """
+
+    _fields = (
+        "id",
+        "content",
+        "content_sha256",
+        "content_size_bytes",
+        "created_at",
+        "memory_id",
+        "memory_store_id",
+        "operation",
+        "path",
+        "redacted_at",
+        "type",
+        "request_id",
+    )
 
 
 # ===========================================================================

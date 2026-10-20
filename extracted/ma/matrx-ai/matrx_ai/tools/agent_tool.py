@@ -50,6 +50,44 @@ def _declared_variable_names(tool_def: ToolDefinition) -> set[str]:
 # Dispatch-consumed keys on reference-returning agent tools (never variables).
 _REFERENCE_ARG_KEYS = frozenset({"result_key", "result_description"})
 
+#: The turn a child starts with when its caller handed values over but typed no input.
+HAND_OVER_TURN_TEXT = "Do your part of this job now. What you were handed is in your context."
+HAND_OVER_TURN_REASON = "orchestra_hand_over"
+
+
+def _host_data(tool_def: Any) -> dict[str, Any] | None:
+    """The projection's host data, or None (a tool definition built before the field existed)."""
+    data = getattr(tool_def, "host_data", None)
+    return data if isinstance(data, dict) else None
+
+
+def _is_hand_over_parameter(tool_def: ToolDefinition, name: str) -> bool:
+    """True when ``name`` is the dispatch-consumed ``hand_over`` argument (not an author
+    variable of the same name — that one keeps its own description and wins)."""
+    from matrx_ai.tools.agent_projection import HAND_OVER_ARG, HAND_OVER_PARAMETER
+
+    if _host_data(tool_def) is None or name != HAND_OVER_ARG:
+        return False
+    prop = (tool_def.parameters or {}).get(name)
+    return isinstance(prop, dict) and prop.get("description") == HAND_OVER_PARAMETER["description"]
+
+
+def _with_hand_over_notes(output: Any, notes: list[dict[str, Any]]) -> Any:
+    """Add what could not be passed to a successful result — the caller must learn which
+    named value did not arrive, and why, from the call itself."""
+    if not notes:
+        return output
+    if isinstance(output, dict) and "hand_over" not in output:
+        return {**output, "hand_over": notes}
+    return {"result": output, "hand_over": notes}
+
+
+def _hand_over_line(notes: list[dict[str, Any]]) -> str:
+    if not notes:
+        return ""
+    parts = [f"{n.get('value')}: {n.get('reason')}" for n in notes]
+    return " Hand-over: " + "; ".join(parts) + "."
+
 
 def _native_agent_tool_output(output: Any) -> Any:
     """Keep prose as text while restoring complete JSON objects to native values."""
@@ -309,7 +347,9 @@ def _merge_projected_variables(
     (harmless — they only substitute where a ``{{name}}`` placeholder exists).
     An explicit nested ``variables`` entry wins over a top-level one.
     """
-    declared = _declared_variable_names(tool_def)
+    declared = {
+        name for name in _declared_variable_names(tool_def) if not _is_hand_over_parameter(tool_def, name)
+    }
     if tool_def.result_mode != "inline":
         # result_key / result_description are dispatch-consumed on
         # reference-returning tools, never agent variables.
@@ -319,6 +359,8 @@ def _merge_projected_variables(
         if value is None or key == "variables":
             continue
         if tool_def.result_mode != "inline" and key in _REFERENCE_ARG_KEYS:
+            continue
+        if _is_hand_over_parameter(tool_def, key):
             continue
         if key in _RESERVED_ARG_KEYS and key not in declared:
             continue
@@ -387,11 +429,99 @@ async def execute_agent_tool(
 
     try:
         variables, user_input = _merge_projected_variables(args, tool_def)
+        # HOST HAND-OVER (Orchestra context passthrough): the caller passes values it holds
+        # BY NAME. Only the host knows what they are; it resolves field and message delivery
+        # here, before the child is built, and keeps the rest for its prepare hook.
+        hand_over_raw: Any = None
+        host_state: Any = None
+        notes: list[dict[str, Any]] = []
+        parent_objects: list[Any] | None = None
+        if _host_data(tool_def) is not None:
+            from matrx_ai._ext import get_agent_tool_handover_resolver
+
+            if any(_is_hand_over_parameter(tool_def, k) for k in args):
+                from matrx_ai.tools.agent_projection import HAND_OVER_ARG
+
+                hand_over_raw = args.get(HAND_OVER_ARG)
+            caller_ctx = try_get_app_context()
+            caller_meta = getattr(caller_ctx, "metadata", None)
+            if isinstance(caller_meta, dict) and isinstance(caller_meta.get("context_objects"), list):
+                parent_objects = list(caller_meta["context_objects"])
+            resolver = get_agent_tool_handover_resolver()
+            if resolver is not None:
+                declared_fields = sorted(
+                    n
+                    for n in _declared_variable_names(tool_def)
+                    if not _is_hand_over_parameter(tool_def, n) and n not in _REFERENCE_ARG_KEYS
+                )
+                resolution = await resolver(
+                    host_data=dict(_host_data(tool_def)),
+                    hand_over=hand_over_raw,
+                    parent_context_objects=parent_objects or [],
+                    declared_fields=declared_fields,
+                    tool_name=tool_def.display_name or tool_def.name,
+                ) or {}
+                for field_name, field_value in (resolution.get("variables") or {}).items():
+                    # A value handed into a field the caller also typed joins it, never replaces it.
+                    typed = variables.get(str(field_name))
+                    variables[str(field_name)] = f"{typed}\n\n{field_value}" if typed else field_value
+                # Message delivery never rides user_input (THE USER-INPUT LAW): the host
+                # keeps it in its state and stages it as its own named per-turn block.
+                host_state = resolution.get("host_state")
+                notes = [n for n in (resolution.get("notes") or []) if isinstance(n, dict)]
         agent = await Agent.from_agent(
             tool_def.prompt_id,
             is_version=tool_def.prompt_is_version,
             variables=variables,
         )
+        if _host_data(tool_def) is not None:
+            agent.host_data = {
+                "spec": dict(_host_data(tool_def)),
+                "hand_over": hand_over_raw,
+                "state": host_state,
+            }
+            agent.host_parent_context = parent_objects
+            agent.host_notes = notes
+        # A child with instructions only and no input would reach the send
+        # boundary EMPTY: refuse here, naming the argument to send.
+        from matrx_ai.agents.child_turn import (
+            MISSING_CHILD_INPUT_ERROR_TYPE,
+            refuse_empty_child_turn,
+        )
+
+        # A caller that handed values over but typed no input still starts the child: the
+        # turn is HOST-authored (``matrx_ai.config.host_turn``), never written into user_input.
+        hand_over_turn = None
+        state = host_state if isinstance(host_state, dict) else {}
+        # Only values that arrive OUTSIDE the agent's own turn (context, the handed-over block)
+        # need a turn to start from; values in its fields fill its own authored turn.
+        passed_something = bool(state.get("context") or state.get("message_text"))
+        if not user_input and _host_data(tool_def) is not None and passed_something:
+            from matrx_ai.config.host_turn import HostTurn
+
+            hand_over_turn = HostTurn(text=HAND_OVER_TURN_TEXT, reason=HAND_OVER_TURN_REASON)
+        refusal = (
+            None
+            if hand_over_turn is not None
+            else refuse_empty_child_turn(
+                agent, user_input=user_input, variables=variables, input_arg="input"
+            )
+        )
+        if refusal is not None:
+            refusal_message, refusal_action = refusal
+            return ToolResult(
+                success=False,
+                error=ToolError(
+                    error_type=MISSING_CHILD_INPUT_ERROR_TYPE,
+                    message=refusal_message,
+                    suggested_action=refusal_action,
+                    is_retryable=False,
+                ),
+                started_at=started_at,
+                completed_at=time.time(),
+                tool_name=tool_def.name,
+                call_id=ctx.call_id,
+            )
         # Carry the nesting depth to the child WITHOUT touching shared state:
         # rebind THIS task's AppContext to a copy whose metadata carries the
         # child depth (each batch tool call runs in its own asyncio task with a
@@ -463,7 +593,8 @@ async def execute_agent_tool(
                     agent,
                     label=tool_def.name,
                     source_feature="agent_tool",
-                    user_input=user_input,
+                    user_input=user_input or None if hand_over_turn is not None else user_input,
+                    **({"host_turn": hand_over_turn} if hand_over_turn is not None else {}),
                     suppress_stream=tool_def.result_mode == "reference",
                     allow_client_delegation=not (reference_mode or handoff_mode),
                     emit_lifecycle=not handoff_mode,
@@ -505,13 +636,27 @@ async def execute_agent_tool(
             if app_ctx is not None:
                 set_app_context(app_ctx)
         if not result.success:
+            suggested_action = "Check the agent prompt configuration and input parameters."
+            if (result.metadata or {}).get("error_type") == "empty_conversation":
+                # The send boundary refused an EMPTY child (nothing spent): say what to send.
+                from matrx_ai.agents.child_turn import (
+                    empty_child_turn_guidance,
+                    undeclared_variable_names,
+                )
+
+                _, suggested_action = empty_child_turn_guidance(
+                    str(getattr(agent, "name", None) or tool_def.name),
+                    input_arg="input",
+                    undeclared=undeclared_variable_names(agent, variables),
+                )
             return ToolResult(
                 success=False,
                 error=ToolError(
                     error_type="agent_execution",
-                    message=f"Agent '{tool_def.prompt_id}' failed: {result.error}",
+                    message=f"Agent '{tool_def.prompt_id}' failed: {result.error}"
+                    + _hand_over_line(getattr(agent, "host_notes", None) or []),
                     is_retryable=False,
-                    suggested_action="Check the agent prompt configuration and input parameters.",
+                    suggested_action=suggested_action,
                 ),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -520,6 +665,7 @@ async def execute_agent_tool(
             )
 
         native_output = _native_agent_tool_output(result.output)
+        hand_over_notes = list(getattr(agent, "host_notes", None) or [])
 
         if handoff_mode:
             return await _finalize_handoff_result(
@@ -585,10 +731,11 @@ async def execute_agent_tool(
                 )
             stored = await _store_reference_result(agent, tool_def, args, result, ctx)
             if stored is not None:
-                output: Any = (
+                output: Any = _with_hand_over_notes(
                     stored
                     if tool_def.result_mode == "reference"
-                    else {"result": native_output, "stored": stored}
+                    else {"result": native_output, "stored": stored},
+                    hand_over_notes,
                 )
                 ref_result = ToolResult(
                     success=True,
@@ -628,6 +775,7 @@ async def execute_agent_tool(
         tool_output: Any = native_output
         if tool_media:
             tool_output = {"result": native_output, "media": tool_media}
+        tool_output = _with_hand_over_notes(tool_output, hand_over_notes)
 
         return ToolResult(
             success=True,

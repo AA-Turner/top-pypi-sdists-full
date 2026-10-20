@@ -8,7 +8,7 @@ The controls that shape the performance (voice, speed, pause, language, format,
 
 **Parts are semantic; translators decide the wire.** Each TTS translator asks
 ``matrx_ai.speech.compile`` for its own rendering of the same script (ElevenLabs
-dialogue turns with inline audio tags, a Gemini director's-notes + labelled
+dialogue turns with inline audio tags, a Gemini director's-notes + labeled
 transcript, an OpenAI input + ``instructions``). ``to_transcript()`` here is the
 vendor-neutral reading a TEXT model (or a human) sees.
 """

@@ -1,20 +1,34 @@
 import hashlib
 import json
+import os
 import typing as t
 from abc import ABC, abstractmethod
 from collections import deque
 from functools import cached_property
 from pathlib import Path
 
+import jinja2
 from dbt.config.runtime import RuntimeConfig
+from dbt.context.providers import RuntimeVar
+from dbt.contracts.files import SourceFile
 from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.nodes import (
     GenericTestNode,
     ModelNode,
     SeedNode,
 )
+from jinja2 import nodes as jinja_nodes
 
 from dbt_state._typing import ModelOrSnapshotOrTestOrSeedNode
+
+try:
+    from dbt_common.clients.jinja import get_environment
+    from dbt_common.context import get_invocation_context
+except ImportError:
+    # dbt 1.7: no dbt_common; jinja lives in dbt and env vars come from os.environ
+    from dbt.clients.jinja import get_environment  # type: ignore[no-redef]
+
+    get_invocation_context = None  # type: ignore[assignment]
 
 _HASH_READ_CHUNK_SIZE = 64 * 1024
 
@@ -27,15 +41,52 @@ def _calculate_hash(*args: object) -> str:
     return hashlib.md5("".join(str(x) for x in args).encode()).hexdigest()
 
 
+# Reserved key; cannot clash with a real dbt config key.
+_RUNTIME_VARS_KEY = "__runtime_vars__"
+_VAR_FUNCTIONS = frozenset({"var", "env_var"})
+
+
+def _extract_var_calls(sources: t.Iterable[str]) -> t.Tuple[t.Set[str], t.Set[str]]:
+    """Return the literal names passed to `var()` and `env_var()` in the Jinja sources.
+
+    Sources that fail to parse are skipped, and calls with a dynamic name are ignored.
+    """
+    var_names: t.Set[str] = set()
+    env_var_names: t.Set[str] = set()
+    env = get_environment()
+    for source in sources:
+        try:
+            ast = env.parse(source)
+        except jinja2.TemplateSyntaxError:
+            continue
+        for call in ast.find_all(jinja_nodes.Call):
+            func = call.node
+            if not isinstance(func, jinja_nodes.Name) or func.name not in _VAR_FUNCTIONS:
+                continue
+            if not call.args or not isinstance(call.args[0], jinja_nodes.Const):
+                continue
+            name = call.args[0].value
+            if not isinstance(name, str):
+                continue
+            (var_names if func.name == "var" else env_var_names).add(name)
+    return var_names, env_var_names
+
+
 class NodeHashCalculator(ABC):
     """Base calculator with shared hash component methods."""
 
     def __init__(
-        self, node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest, config: RuntimeConfig
+        self,
+        node: ModelOrSnapshotOrTestOrSeedNode,
+        manifest: Manifest,
+        config: RuntimeConfig,
+        *,
+        include_runtime_vars: bool = False,
     ) -> None:
         self.node = node
         self.manifest = manifest
         self._config = config
+        self._include_runtime_vars = include_runtime_vars
 
     def get_base_hash_parts(self) -> t.List[t.Any]:
         """Return the common hash parts used by most node types."""
@@ -61,12 +112,64 @@ class NodeHashCalculator(ABC):
     @cached_property
     def node_configs_hash(self) -> t.Optional[str]:
         unrendered_config = getattr(self.node, "unrendered_config", None)
-        if not unrendered_config:
+        runtime_vars = self.node_runtime_vars if self._include_runtime_vars else None
+        if not unrendered_config and runtime_vars is None:
             return None
-        filtered = {
-            k: v for k, v in unrendered_config.items() if k not in _CONFIG_HASH_EXCLUDED_KEYS
+        filtered: t.Dict[str, t.Any] = {
+            k: v
+            for k, v in (unrendered_config or {}).items()
+            if k not in _CONFIG_HASH_EXCLUDED_KEYS
         }
-        return _calculate_hash(json.dumps(filtered, sort_keys=True))
+        if runtime_vars is not None:
+            filtered[_RUNTIME_VARS_KEY] = runtime_vars
+        return _calculate_hash(json.dumps(filtered, sort_keys=True, default=str))
+
+    @cached_property
+    def node_runtime_vars(self) -> t.Optional[t.Dict[str, t.Dict[str, t.Any]]]:
+        """Values of the `var()` / `env_var()` calls used by the node's code, configs and macros.
+
+        Returns None when the node uses none. Only folded into `node_configs_hash` when
+        `include_runtime_vars` is set.
+        """
+        sources: t.List[str] = []
+        raw_code = getattr(self.node, "raw_code", None)
+        if isinstance(raw_code, str) and raw_code:
+            sources.append(raw_code)
+        unrendered_config = getattr(self.node, "unrendered_config", None)
+        if unrendered_config:
+            pending: t.List[t.Any] = list(unrendered_config.values())
+            while pending:
+                value = pending.pop()
+                if isinstance(value, str):
+                    sources.append(value)
+                elif isinstance(value, dict):
+                    pending.extend(value.values())
+                elif isinstance(value, (list, tuple)):
+                    pending.extend(value)
+        for macro_id in self._get_all_macros():
+            macro = self.manifest.macros.get(macro_id)
+            if macro:
+                sources.append(macro.macro_sql)
+
+        var_names, env_var_names = _extract_var_calls(sources)
+
+        file_id = getattr(self.node, "file_id", None)
+        source_file = self.manifest.files.get(file_id) if file_id else None
+        if isinstance(source_file, SourceFile):
+            env_var_names.update(source_file.env_vars)
+
+        if not var_names and not env_var_names:
+            return None
+
+        run_var = RuntimeVar(context={}, config=self._config, node=self.node)
+        vars_values = {
+            name: run_var._merged[name]  # noqa: SLF001
+            for name in sorted(var_names)
+            if run_var.has_var(name)
+        }
+        env = get_invocation_context().env if get_invocation_context else os.environ
+        env_values = {name: env.get(name) for name in sorted(env_var_names)}
+        return {"vars": vars_values, "env_vars": env_values}
 
     @cached_property
     def node_persisted_docs_hash(self) -> t.Optional[str]:
@@ -215,13 +318,18 @@ class SeedNodeHashCalculator(NodeHashCalculator):
 
 
 def create_node_hash_calculator(
-    node: ModelOrSnapshotOrTestOrSeedNode, manifest: Manifest, config: RuntimeConfig
+    node: ModelOrSnapshotOrTestOrSeedNode,
+    manifest: Manifest,
+    config: RuntimeConfig,
+    *,
+    include_runtime_vars: bool = False,
 ) -> NodeHashCalculator:
     """Factory function to create the appropriate calculator for a node type."""
+    kwargs = {"include_runtime_vars": include_runtime_vars}
     if isinstance(node, ModelNode):
-        return ModelNodeHashCalculator(node, manifest, config)
+        return ModelNodeHashCalculator(node, manifest, config, **kwargs)
     if isinstance(node, GenericTestNode):
-        return GenericTestNodeCalculator(node, manifest, config)
+        return GenericTestNodeCalculator(node, manifest, config, **kwargs)
     if isinstance(node, SeedNode):
-        return SeedNodeHashCalculator(node, manifest, config)
-    return DefaultNodeHashCalculator(node, manifest, config)
+        return SeedNodeHashCalculator(node, manifest, config, **kwargs)
+    return DefaultNodeHashCalculator(node, manifest, config, **kwargs)

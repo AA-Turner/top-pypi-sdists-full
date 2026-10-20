@@ -1,0 +1,65 @@
+# Plain markdown documents (OKF frontmatter, not SKILL.md) kept in common-docs and mirrored into
+# skill.definition as system-owned `reference` skills, so common-docs stays the single source of
+# truth. Loader + rules: matrx_ai/skills/docs.py.
+# Run: uv run python scripts/ingest_skills.py --docs packages/matrx-ai/matrx_ai/skills/doc_manifests/platform-facts.yaml <common-docs checkout> [--dry-run] [--prune]
+# Auto re-sync: common-docs/meta/scripts/sync_skills.py --ingest-catalog runs this manifest too.
+# `description` = what the document tells a model deciding whether to open it. Omit to fall
+# back to the document's own OKF description.
+
+set_id: platform-facts
+title: "Platform facts (intelligence overhaul)"
+published_to_web: false
+skill_type: reference
+category:
+  slug: platform-facts
+  name: "Platform facts"
+  icon: BookOpen
+  position: 90
+  description: "Read-only fact files about what AI Matrx can do today (agents, tools, models, workflows, data, integrations), read from code and the live database."
+
+docs:
+  platform_facts.capability_map:
+    path: projects/intelligence-overhaul/CAPABILITY_MAP.md
+    description: "One-page map of everything AI Matrx can do for designing intelligence (agents, orchestras, workflows, mandates, tools, data, outputs), each item marked works / partial / none; open it first, then drill into the specific fact file."
+  platform_facts.agent_anatomy:
+    path: projects/intelligence-overhaul/facts/AGENT_ANATOMY.md
+    description: "Every setting an agent definition, its versions and its launch shortcuts carry, and what the server does with each at run time."
+  platform_facts.data_systems:
+    path: projects/intelligence-overhaul/facts/DATA_SYSTEMS.md
+    description: "What an organization can build as its own no-code data, how agents read and write it, and which standard business data systems ship ready-made."
+  platform_facts.existing_intelligences:
+    path: projects/intelligence-overhaul/facts/EXISTING_INTELLIGENCES.md
+    description: "Catalog of the agents, orchestras and workflows the platform itself ships, with purpose, inputs and output, grouped by domain; check it before designing something that may already exist."
+  platform_facts.integrations:
+    path: projects/intelligence-overhaul/facts/INTEGRATIONS.md
+    description: "Every external service a user can connect, what an agent can read or do through it, how it authenticates, and how credentials stay in the vault."
+  platform_facts.knowledge_pipeline:
+    path: projects/intelligence-overhaul/facts/KNOWLEDGE_PIPELINE.md
+    description: "How content gets into the platform, how it is processed and searched, and how agents reach it, plus transcription, web search and scraping."
+  platform_facts.mandates_and_skills:
+    path: projects/intelligence-overhaul/facts/MANDATES_AND_SKILLS.md
+    description: "What mandates, provisions, skills, shortcuts, apps and templates are, how each is defined and bound to an agent or workflow."
+  platform_facts.model_catalog:
+    path: projects/intelligence-overhaul/facts/MODEL_CATALOG.md
+    description: "Every AI model the platform can call (text, image, video, audio, realtime, embedding), who serves it, what it can do and what it costs."
+  platform_facts.orchestra:
+    path: projects/intelligence-overhaul/facts/ORCHESTRA.md
+    description: "How an Orchestra (a lead Conductor agent plus member agents) is defined, run and returns output."
+  platform_facts.reliability_and_cost:
+    path: projects/intelligence-overhaul/facts/RELIABILITY_AND_COST.md
+    description: "What the platform offers to make runs checkable, repeatable, reviewable and cost-bounded: validation, retries, evals, traces, human review, cost tracking, limits."
+  platform_facts.runtime_and_callers:
+    path: projects/intelligence-overhaul/facts/RUNTIME_AND_CALLERS.md
+    description: "Every way an agent or workflow is started, what the running agent is told about its caller, where it executes, and how long runs, streaming and reconnects behave."
+  platform_facts.tool_catalog:
+    path: projects/intelligence-overhaul/facts/TOOL_CATALOG.md
+    description: "Every tool an agent can be given, what each group lets it do, and how tools reach a run (bundles, per-app defaults, auto-injection)."
+  platform_facts.user_facing_outputs:
+    path: projects/intelligence-overhaul/facts/USER_FACING_OUTPUTS.md
+    description: "All the ways an agent or workflow result can reach a person, which apps show each, and whether agents and workflows can produce it."
+  platform_facts.workflow_engine:
+    path: projects/intelligence-overhaul/facts/WORKFLOW_ENGINE.md
+    description: "The workflow engine's execution model, triggers, run state, and the ways workflows are called and authored."
+  platform_facts.workflow_node_catalog:
+    path: projects/intelligence-overhaul/facts/WORKFLOW_NODE_CATALOG.md
+    description: "Every node type (step type) a workflow can run, grouped into families; open it when designing or reading a workflow."

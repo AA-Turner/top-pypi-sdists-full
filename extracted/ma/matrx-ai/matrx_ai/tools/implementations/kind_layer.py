@@ -2,7 +2,7 @@
 
 ``target`` on a kindcomp tool picks the table it works in:
 
-- ``shared`` (default) — ``content_ir.kind_component``, today's behaviour and gates, untouched.
+- ``shared`` (default) — ``content_ir.kind_component``, today's behavior and gates, untouched.
 - ``mine`` — ``content_ir.kind_component_layer`` with ``audience_user_id`` = the caller.
 - ``organization`` — the same table with ``audience_organization_id`` = the ``organization_id``
   argument; the DATABASE decides whether the caller is an owner/admin of it.

@@ -1370,7 +1370,7 @@ def repair_warning(repair: SettingRepair, *, provider: str, model: Any) -> Any:
 
 # ── NET: the universal safety net (settings-translation lane NET) ────────────
 #
-# R1/R2 understand only rejection messages someone already catalogued. Every NEW
+# R1/R2 understand only rejection messages someone already cataloged. Every NEW
 # settings rejection (live 2026-10-04: Groq temperature 5, xAI ``stop``, Gemini
 # 2.5 Pro thinking budget) landed as ``provider_request_failed`` with no
 # fingerprint and no answer. The net closes the class at the shared dispatch

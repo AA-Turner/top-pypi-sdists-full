@@ -19,7 +19,7 @@ Two lanes, both bounded by ``platform.feature_knob`` rows (feature
   interactive parse needs.
 
 The lane rides a context variable the crawler sets for its own run; tasks it
-spawns inherit it. Outside a crawl the lane is ``interactive`` — the behaviour
+spawns inherit it. Outside a crawl the lane is ``interactive`` — the behavior
 every caller had before lanes existed.
 """
 

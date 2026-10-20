@@ -74,7 +74,7 @@ def _ai_view_fields(payload: Any) -> tuple[str, ...] | None:
 
     Never raises. A missing catalog, an unregistered kind, or any import
     problem means "no projection" — the whole payload travels, which is the
-    behaviour that predates this function.
+    behavior that predates this function.
     """
     if not isinstance(payload, dict):
         return None

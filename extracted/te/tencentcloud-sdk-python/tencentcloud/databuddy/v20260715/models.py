@@ -27,7 +27,7 @@ class AddConsoleUsersRequest(AbstractModel):
         r"""
         :param _UserUins: <p>用户 UIN 列表，单次最多100个</p>
         :type UserUins: list of str
-        :param _RoleIds: <p>角色 ID 列表</p><p>枚举值：</p><ul><li>2001： 控制台管理员</li><li>2002： 控制台成员</li></ul>
+        :param _RoleIds: <p>角色 ID 列表</p><p>枚举值：</p><ul><li>2001： 控制台管理员</li><li>2002： 控制台成员</li></ul><p>可通过 ListConsoleRoles 接口获取</p>
         :type RoleIds: list of str
         """
         self._UserUins = None
@@ -46,7 +46,7 @@ class AddConsoleUsersRequest(AbstractModel):
 
     @property
     def RoleIds(self):
-        r"""<p>角色 ID 列表</p><p>枚举值：</p><ul><li>2001： 控制台管理员</li><li>2002： 控制台成员</li></ul>
+        r"""<p>角色 ID 列表</p><p>枚举值：</p><ul><li>2001： 控制台管理员</li><li>2002： 控制台成员</li></ul><p>可通过 ListConsoleRoles 接口获取</p>
         :rtype: list of str
         """
         return self._RoleIds
@@ -157,11 +157,11 @@ class AddWorkspaceGroupsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _GroupIds: 用户组ID，可通过 ListWorkspaceGroups 接口获取
+        :param _GroupIds: <p>用户组ID，可通过 ListConsoleGroups 接口获取</p>
         :type GroupIds: list of str
-        :param _WorkspaceId: 工作空间ID
+        :param _WorkspaceId: <p>工作空间ID</p>
         :type WorkspaceId: str
-        :param _RoleIds: 角色ID，可通过 ListWorkspaceRoles 接口获取
+        :param _RoleIds: <p>角色ID，可通过 ListWorkspaceRoles 接口获取</p>
         :type RoleIds: list of str
         """
         self._GroupIds = None
@@ -170,7 +170,7 @@ class AddWorkspaceGroupsRequest(AbstractModel):
 
     @property
     def GroupIds(self):
-        r"""用户组ID，可通过 ListWorkspaceGroups 接口获取
+        r"""<p>用户组ID，可通过 ListConsoleGroups 接口获取</p>
         :rtype: list of str
         """
         return self._GroupIds
@@ -181,7 +181,7 @@ class AddWorkspaceGroupsRequest(AbstractModel):
 
     @property
     def WorkspaceId(self):
-        r"""工作空间ID
+        r"""<p>工作空间ID</p>
         :rtype: str
         """
         return self._WorkspaceId
@@ -192,7 +192,7 @@ class AddWorkspaceGroupsRequest(AbstractModel):
 
     @property
     def RoleIds(self):
-        r"""角色ID，可通过 ListWorkspaceRoles 接口获取
+        r"""<p>角色ID，可通过 ListWorkspaceRoles 接口获取</p>
         :rtype: list of str
         """
         return self._RoleIds
@@ -223,7 +223,7 @@ class AddWorkspaceGroupsResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Data: 添加结果
+        :param _Data: <p>添加结果</p>
         :type Data: :class:`tencentcloud.databuddy.v20260715.models.PlatformStatusRsp`
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -233,7 +233,7 @@ class AddWorkspaceGroupsResponse(AbstractModel):
 
     @property
     def Data(self):
-        r"""添加结果
+        r"""<p>添加结果</p>
         :rtype: :class:`tencentcloud.databuddy.v20260715.models.PlatformStatusRsp`
         """
         return self._Data
@@ -12294,12 +12294,12 @@ class ListSchemasRequest(AbstractModel):
         r"""
         :param _CatalogName: <p>数据目录名</p>
         :type CatalogName: str
+        :param _WorkspaceId: <p>调用时所在workspace唯一id</p>
+        :type WorkspaceId: str
         :param _MaxResults: <p>最大结果条数</p>
         :type MaxResults: int
         :param _PageToken: <p>分页token</p>
         :type PageToken: str
-        :param _WorkspaceId: <p>调用时所在workspace唯一id</p>
-        :type WorkspaceId: str
         :param _FetchOption: <p>数据获取选项，可选，控制是否返回权限信息及按权限过滤</p>
         :type FetchOption: :class:`tencentcloud.databuddy.v20260715.models.FetchOption`
         :param _ConnectionId: 数据源连接ID，可选（融合版新增字段）。非空→走分析版路径，空/缺省→走专业版TcLake路径
@@ -12308,9 +12308,9 @@ class ListSchemasRequest(AbstractModel):
         :type CatalogSource: str
         """
         self._CatalogName = None
+        self._WorkspaceId = None
         self._MaxResults = None
         self._PageToken = None
-        self._WorkspaceId = None
         self._FetchOption = None
         self._ConnectionId = None
         self._CatalogSource = None
@@ -12325,6 +12325,17 @@ class ListSchemasRequest(AbstractModel):
     @CatalogName.setter
     def CatalogName(self, CatalogName):
         self._CatalogName = CatalogName
+
+    @property
+    def WorkspaceId(self):
+        r"""<p>调用时所在workspace唯一id</p>
+        :rtype: str
+        """
+        return self._WorkspaceId
+
+    @WorkspaceId.setter
+    def WorkspaceId(self, WorkspaceId):
+        self._WorkspaceId = WorkspaceId
 
     @property
     def MaxResults(self):
@@ -12347,17 +12358,6 @@ class ListSchemasRequest(AbstractModel):
     @PageToken.setter
     def PageToken(self, PageToken):
         self._PageToken = PageToken
-
-    @property
-    def WorkspaceId(self):
-        r"""<p>调用时所在workspace唯一id</p>
-        :rtype: str
-        """
-        return self._WorkspaceId
-
-    @WorkspaceId.setter
-    def WorkspaceId(self, WorkspaceId):
-        self._WorkspaceId = WorkspaceId
 
     @property
     def FetchOption(self):
@@ -12395,9 +12395,9 @@ class ListSchemasRequest(AbstractModel):
 
     def _deserialize(self, params):
         self._CatalogName = params.get("CatalogName")
+        self._WorkspaceId = params.get("WorkspaceId")
         self._MaxResults = params.get("MaxResults")
         self._PageToken = params.get("PageToken")
-        self._WorkspaceId = params.get("WorkspaceId")
         if params.get("FetchOption") is not None:
             self._FetchOption = FetchOption()
             self._FetchOption._deserialize(params.get("FetchOption"))
@@ -12531,12 +12531,12 @@ class ListTablesRequest(AbstractModel):
         :type CatalogName: str
         :param _SchemaName: <p>数据库名</p>
         :type SchemaName: str
+        :param _WorkspaceId: <p>调用时所在workspace唯一id</p>
+        :type WorkspaceId: str
         :param _MaxResults: <p>最大结果条数</p>
         :type MaxResults: int
         :param _PageToken: <p>分页token</p>
         :type PageToken: str
-        :param _WorkspaceId: <p>调用时所在workspace唯一id</p>
-        :type WorkspaceId: str
         :param _FetchOption: <p>数据获取选项，可选，控制是否返回权限信息及按权限过滤</p>
         :type FetchOption: :class:`tencentcloud.databuddy.v20260715.models.FetchOption`
         :param _ConnectionId: 数据源连接ID，可选（融合版新增字段）。非空→走分析版路径，空/缺省→走专业版TcLake路径
@@ -12546,9 +12546,9 @@ class ListTablesRequest(AbstractModel):
         """
         self._CatalogName = None
         self._SchemaName = None
+        self._WorkspaceId = None
         self._MaxResults = None
         self._PageToken = None
-        self._WorkspaceId = None
         self._FetchOption = None
         self._ConnectionId = None
         self._CatalogSource = None
@@ -12576,6 +12576,17 @@ class ListTablesRequest(AbstractModel):
         self._SchemaName = SchemaName
 
     @property
+    def WorkspaceId(self):
+        r"""<p>调用时所在workspace唯一id</p>
+        :rtype: str
+        """
+        return self._WorkspaceId
+
+    @WorkspaceId.setter
+    def WorkspaceId(self, WorkspaceId):
+        self._WorkspaceId = WorkspaceId
+
+    @property
     def MaxResults(self):
         r"""<p>最大结果条数</p>
         :rtype: int
@@ -12596,17 +12607,6 @@ class ListTablesRequest(AbstractModel):
     @PageToken.setter
     def PageToken(self, PageToken):
         self._PageToken = PageToken
-
-    @property
-    def WorkspaceId(self):
-        r"""<p>调用时所在workspace唯一id</p>
-        :rtype: str
-        """
-        return self._WorkspaceId
-
-    @WorkspaceId.setter
-    def WorkspaceId(self, WorkspaceId):
-        self._WorkspaceId = WorkspaceId
 
     @property
     def FetchOption(self):
@@ -12645,9 +12645,9 @@ class ListTablesRequest(AbstractModel):
     def _deserialize(self, params):
         self._CatalogName = params.get("CatalogName")
         self._SchemaName = params.get("SchemaName")
+        self._WorkspaceId = params.get("WorkspaceId")
         self._MaxResults = params.get("MaxResults")
         self._PageToken = params.get("PageToken")
-        self._WorkspaceId = params.get("WorkspaceId")
         if params.get("FetchOption") is not None:
             self._FetchOption = FetchOption()
             self._FetchOption._deserialize(params.get("FetchOption"))
@@ -12783,7 +12783,7 @@ class ListWorkflowRunsRequest(AbstractModel):
         :type PageNumber: int
         :param _PageSize: <p>每页大小。非必填，默认 10，取值范围 [10, 200]</p>
         :type PageSize: int
-        :param _WorkflowId: <p>工作流ID，精确匹配。非必填，单值</p>
+        :param _WorkflowId: <p>工作流ID，精确匹配。非必填，单值</p><p>取值参考：<a href="https://cloud.tencent.com/document/api/1835/138002">ListWorkflows</a> 返回值 <code>Data</code></p>
         :type WorkflowId: str
         :param _WorkflowNameKeyword: <p>工作流名称关键字，对 WorkflowName 做模糊匹配。非必填，单值</p>
         :type WorkflowNameKeyword: str
@@ -12853,7 +12853,7 @@ class ListWorkflowRunsRequest(AbstractModel):
 
     @property
     def WorkflowId(self):
-        r"""<p>工作流ID，精确匹配。非必填，单值</p>
+        r"""<p>工作流ID，精确匹配。非必填，单值</p><p>取值参考：<a href="https://cloud.tencent.com/document/api/1835/138002">ListWorkflows</a> 返回值 <code>Data</code></p>
         :rtype: str
         """
         return self._WorkflowId
@@ -13468,7 +13468,7 @@ class ListWorkflowsRequest(AbstractModel):
         :type WorkflowNameKeyword: str
         :param _WorkflowNames: <p>工作流名称，精确匹配。非必填，多选（多个值之间为 OR 关系）</p>
         :type WorkflowNames: list of str
-        :param _WorkflowIds: <p>工作流ID，精确匹配。非必填，多选（多个值之间为 OR 关系）</p>
+        :param _WorkflowIds: <p>工作流ID，精确匹配。非必填，多选（多个值之间为 OR 关系）</p><p>取值参考：<a href="https://cloud.tencent.com/document/api/1835/138002">ListWorkflows</a> 返回值 <code>Data</code></p>
         :type WorkflowIds: list of str
         :param _RunUserUins: <p>工作流运行人UIN，精确匹配。非必填，多选（多个值之间为 OR 关系）</p>
         :type RunUserUins: list of str
@@ -13476,9 +13476,9 @@ class ListWorkflowsRequest(AbstractModel):
         :type LabelKeyIds: list of str
         :param _LabelValueIds: <p>标签值ID，精确匹配，可通过标签相关接口获取。非必填，多选（多个值之间为 OR 关系）</p>
         :type LabelValueIds: list of str
-        :param _QuickSelectionType: <p>快速筛选类型。非必填，单值</p><p>对齐老云 API（wedata/2025-10-10）文档示例值：</p><ul><li>MY_FAVORITE：我收藏的</li><li>MY_OWNER：我负责的</li><li>MY_AUTHORITY：我有权限</li><li>WorkflowId：支持多个工作流ID筛选</li></ul><p>后端实现现状：当前仅 MY_FAVORITE 生效（设置 favoriteUserUin 过滤当前用户收藏），MY_OWNER / MY_AUTHORITY 暂未在 Service 层实现，传入会被忽略（按全量返回）。</p>
+        :param _QuickSelectionType: <p>快速筛选类型。非必填，单值，当前仅支持 MY_FAVORITE（我收藏的）</p>
         :type QuickSelectionType: str
-        :param _OrderBys: <p>排序条件，多个之间按数组顺序表示优先级。非必填。<br>可排序字段白名单：CreateTime</p>
+        :param _OrderBys: <p>排序条件，多个之间按数组顺序表示优先级。非必填。可排序字段白名单：CreateTime</p>
         :type OrderBys: list of OrderBy
         """
         self._WorkspaceId = None
@@ -13550,7 +13550,7 @@ class ListWorkflowsRequest(AbstractModel):
 
     @property
     def WorkflowIds(self):
-        r"""<p>工作流ID，精确匹配。非必填，多选（多个值之间为 OR 关系）</p>
+        r"""<p>工作流ID，精确匹配。非必填，多选（多个值之间为 OR 关系）</p><p>取值参考：<a href="https://cloud.tencent.com/document/api/1835/138002">ListWorkflows</a> 返回值 <code>Data</code></p>
         :rtype: list of str
         """
         return self._WorkflowIds
@@ -13594,7 +13594,7 @@ class ListWorkflowsRequest(AbstractModel):
 
     @property
     def QuickSelectionType(self):
-        r"""<p>快速筛选类型。非必填，单值</p><p>对齐老云 API（wedata/2025-10-10）文档示例值：</p><ul><li>MY_FAVORITE：我收藏的</li><li>MY_OWNER：我负责的</li><li>MY_AUTHORITY：我有权限</li><li>WorkflowId：支持多个工作流ID筛选</li></ul><p>后端实现现状：当前仅 MY_FAVORITE 生效（设置 favoriteUserUin 过滤当前用户收藏），MY_OWNER / MY_AUTHORITY 暂未在 Service 层实现，传入会被忽略（按全量返回）。</p>
+        r"""<p>快速筛选类型。非必填，单值，当前仅支持 MY_FAVORITE（我收藏的）</p>
         :rtype: str
         """
         return self._QuickSelectionType
@@ -13605,7 +13605,7 @@ class ListWorkflowsRequest(AbstractModel):
 
     @property
     def OrderBys(self):
-        r"""<p>排序条件，多个之间按数组顺序表示优先级。非必填。<br>可排序字段白名单：CreateTime</p>
+        r"""<p>排序条件，多个之间按数组顺序表示优先级。非必填。可排序字段白名单：CreateTime</p>
         :rtype: list of OrderBy
         """
         return self._OrderBys
@@ -18093,13 +18093,13 @@ class TagValueInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TagValueId: 标签值ID
+        :param _TagValueId: <p>标签值ID。ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中必填，可通过 ListTags 接口出参 Items[].TagValues[].TagValueId 获取，也可通过 CreateTagValues 创建后获取；按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中无需传入；查询接口出参中回填。ID 不存在或已删除时接口报错 TagValueNotExist</p>
         :type TagValueId: str
-        :param _TagValue: 标签值内容，查询时填充，写入时不传
+        :param _TagValue: <p>标签值内容。按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中必填；ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中无需传入，服务端忽略；查询接口出参中回填</p>
         :type TagValue: str
-        :param _Source: 标签来源，参考 web_enum_standard.proto -> TagSource：0=未指定 1=用户直绑 2=用户组继承 3=两者都有，查询时填充，写入时不传
+        :param _Source: <p>标签来源，枚举值：0=未指定 1=用户直绑 2=用户组继承 3=两者都有。仅查询接口出参中返回；所有写接口均无需传入，服务端忽略</p>
         :type Source: int
-        :param _GroupNames: 继承来源的用户组名称列表，Source=1 时为空，查询时填充，写入时不传
+        :param _GroupNames: <p>继承来源的用户组名称列表（标签来源 Source=1 用户直绑时为空）。仅查询接口出参中返回；所有写接口均无需传入，服务端忽略</p>
         :type GroupNames: list of str
         """
         self._TagValueId = None
@@ -18109,7 +18109,7 @@ class TagValueInfo(AbstractModel):
 
     @property
     def TagValueId(self):
-        r"""标签值ID
+        r"""<p>标签值ID。ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中必填，可通过 ListTags 接口出参 Items[].TagValues[].TagValueId 获取，也可通过 CreateTagValues 创建后获取；按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中无需传入；查询接口出参中回填。ID 不存在或已删除时接口报错 TagValueNotExist</p>
         :rtype: str
         """
         return self._TagValueId
@@ -18120,7 +18120,7 @@ class TagValueInfo(AbstractModel):
 
     @property
     def TagValue(self):
-        r"""标签值内容，查询时填充，写入时不传
+        r"""<p>标签值内容。按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中必填；ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中无需传入，服务端忽略；查询接口出参中回填</p>
         :rtype: str
         """
         return self._TagValue
@@ -18131,7 +18131,7 @@ class TagValueInfo(AbstractModel):
 
     @property
     def Source(self):
-        r"""标签来源，参考 web_enum_standard.proto -> TagSource：0=未指定 1=用户直绑 2=用户组继承 3=两者都有，查询时填充，写入时不传
+        r"""<p>标签来源，枚举值：0=未指定 1=用户直绑 2=用户组继承 3=两者都有。仅查询接口出参中返回；所有写接口均无需传入，服务端忽略</p>
         :rtype: int
         """
         return self._Source
@@ -18142,7 +18142,7 @@ class TagValueInfo(AbstractModel):
 
     @property
     def GroupNames(self):
-        r"""继承来源的用户组名称列表，Source=1 时为空，查询时填充，写入时不传
+        r"""<p>继承来源的用户组名称列表（标签来源 Source=1 用户直绑时为空）。仅查询接口出参中返回；所有写接口均无需传入，服务端忽略</p>
         :rtype: list of str
         """
         return self._GroupNames
@@ -20493,11 +20493,11 @@ class UserTagInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TagId: <p>标签维度ID</p>
+        :param _TagId: <p>标签维度ID。ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中必填，可通过 ListTags 接口出参 Items[].TagId 获取，也可通过 CreateTags 创建后获取；按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中无需传入；查询接口出参中回填。ID 不存在或已删除时接口报错 TagNotExist</p>
         :type TagId: str
-        :param _TagName: <p>标签名称，查询时填充，写入时不传</p>
+        :param _TagName: <p>标签名称。按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中必填；ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中无需传入，服务端忽略；查询接口出参中回填</p>
         :type TagName: str
-        :param _Values: <p>该维度下绑定的所有标签值</p>
+        :param _Values: <p>该标签维度下绑定的标签值集合，元素结构见 TagValueInfo。ID 模式写接口中元素 TagValueId 必填；按名称模式接口中元素 TagValue 必填；查询接口出参中回填</p>
         :type Values: list of TagValueInfo
         """
         self._TagId = None
@@ -20506,7 +20506,7 @@ class UserTagInfo(AbstractModel):
 
     @property
     def TagId(self):
-        r"""<p>标签维度ID</p>
+        r"""<p>标签维度ID。ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中必填，可通过 ListTags 接口出参 Items[].TagId 获取，也可通过 CreateTags 创建后获取；按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中无需传入；查询接口出参中回填。ID 不存在或已删除时接口报错 TagNotExist</p>
         :rtype: str
         """
         return self._TagId
@@ -20517,7 +20517,7 @@ class UserTagInfo(AbstractModel):
 
     @property
     def TagName(self):
-        r"""<p>标签名称，查询时填充，写入时不传</p>
+        r"""<p>标签名称。按名称模式接口（AttachWorkspaceUserTags / DetachWorkspaceUserTags）中必填；ID 模式写接口（UpdateWorkspaceUsersTags / UpdateWorkspaceGroupsTags）中无需传入，服务端忽略；查询接口出参中回填</p>
         :rtype: str
         """
         return self._TagName
@@ -20528,7 +20528,7 @@ class UserTagInfo(AbstractModel):
 
     @property
     def Values(self):
-        r"""<p>该维度下绑定的所有标签值</p>
+        r"""<p>该标签维度下绑定的标签值集合，元素结构见 TagValueInfo。ID 模式写接口中元素 TagValueId 必填；按名称模式接口中元素 TagValue 必填；查询接口出参中回填</p>
         :rtype: list of TagValueInfo
         """
         return self._Values

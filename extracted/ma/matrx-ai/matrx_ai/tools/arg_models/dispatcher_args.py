@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
+from matrx_ai.tools.arg_models._provider_tiers import ProviderWithAnswers
+
 from pydantic import Field, RootModel, field_validator
 
 from matrx_ai.tools.arg_models._coercion import (
@@ -293,7 +295,7 @@ class SeoKeywordDataWire(ToolArgs):
 
 class SeoCollectRankWire(ToolArgs):
     action: Literal["collect_rank"]
-    provider: Literal["brave", "serpapi", "dataforseo"]
+    provider: ProviderWithAnswers
     keyword: str
     target_domain: str | None = None
     country: str = "US"
@@ -589,9 +591,10 @@ class SkillListWire(ToolArgs):
 class SkillGetWire(ToolArgs):
     action: Literal["get"]
     skill_id: str
-    mode: Literal["full", "page"] = "full"
+    mode: Literal["auto", "full", "page"] = "auto"
+    section: str | None = None
     offset: int = 0
-    chars: int = 4000
+    chars: int | None = None
 
 
 class SkillSearchWire(ToolArgs):

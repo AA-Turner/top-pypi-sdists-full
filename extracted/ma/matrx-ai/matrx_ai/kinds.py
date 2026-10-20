@@ -183,7 +183,7 @@ def discriminator_first(schema: dict[str, Any], slug: str) -> dict[str, Any]:
     reported on 2026-08-21.
 
     The registry cannot carry that order: ``emitted_json_schema`` is a
-    ``jsonb`` column and Postgres normalises object key order on write, so
+    ``jsonb`` column and Postgres normalizes object key order on write, so
     property order is DESTROYED at rest no matter what is stored. Order is
     therefore reconstructed here, at the wire, beside the other wire
     adaptation this binder already performs (portable/strict) — the same

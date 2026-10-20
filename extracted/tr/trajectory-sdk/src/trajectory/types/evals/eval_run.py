@@ -48,7 +48,13 @@ class EvalRun(BaseModel):
   """Evaluated checkpoint training step."""
 
   reward_mean: float | None = None
-  """Completed evaluation mean reward."""
+  """
+    Completed mean of effective evaluation rewards; cut-off trajectories can contribute zero
+    without a logged grader reward.
+    """
+
+  total_rollouts: int | None = None
+  """Rollout total fixed at launch; null for legacy or diagnostic runs."""
 
   created_at: datetime
   """Time when the evaluation run was created."""

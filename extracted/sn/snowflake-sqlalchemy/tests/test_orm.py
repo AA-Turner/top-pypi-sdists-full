@@ -120,7 +120,7 @@ def test_orm_one_to_many_relationship(engine_testaccount, db_parameters):
         session.delete(jack)
         got_addresses = session.query(Address).all()
         assert len(got_addresses) == 3, (
-            "address records still remain in no " "cascade mode"
+            "address records still remain in no cascade mode"
         )
 
     finally:
@@ -318,20 +318,16 @@ def test_delete_cascade_hybrid_table(engine_testaccount):
         Base.metadata.drop_all(engine_testaccount)
 
 
-@pytest.mark.skipif(
-    True,
-    reason="""
-WIP
-""",
-)
 def test_orm_query(engine_testaccount):
     """
-    Tests ORM query
+    Tests ORM query: column-tuple projection, iteration, .all(), and the
+    .one() / .one_or_none() result-cardinality contract (exactly one row,
+    otherwise NoResultFound / MultipleResultsFound).
     """
     Base = declarative_base()
 
     class User(Base):
-        __tablename__ = "user"
+        __tablename__ = "orm_query_user"
 
         id = Column(Integer, primary_key=True)
         name = Column(String)
@@ -341,17 +337,55 @@ def test_orm_query(engine_testaccount):
             return f"<User({self.name!r}, {self.fullname!r})>"
 
     Base.metadata.create_all(engine_testaccount)
+    try:
+        session = Session(bind=engine_testaccount)
+        session.add_all(
+            [
+                User(id=1, name="ed", fullname="Edward Jones"),
+                User(id=2, name="wendy", fullname="Wendy Williams"),
+                User(id=3, name="mary", fullname="Mary Contrary"),
+            ]
+        )
+        session.commit()
 
-    # TODO: insert rows
+        expected = [
+            ("ed", "Edward Jones"),
+            ("mary", "Mary Contrary"),
+            ("wendy", "Wendy Williams"),
+        ]
 
-    session = Session(bind=engine_testaccount)
+        # Column-tuple query: .all() returns (name, fullname) rows.
+        rows = sorted(
+            tuple(row) for row in session.query(User.name, User.fullname).all()
+        )
+        assert rows == expected
 
-    # TODO: query.all()
-    for name, fullname in session.query(User.name, User.fullname):
-        print(name, fullname)
+        # The query is iterable and yields the same rows (unpacking protocol).
+        iterated = sorted(
+            (name, fullname)
+            for name, fullname in session.query(User.name, User.fullname)
+        )
+        assert iterated == expected
 
-        # TODO: session.query.one() must return always one. NoResultFound and
-        # MultipleResultsFound if not one result
+        # Entity query .all() returns every mapped instance.
+        assert len(session.query(User).all()) == 3
+
+        # .one(): exactly one match -> returns that instance.
+        ed = session.query(User).filter_by(name="ed").one()
+        assert ed.fullname == "Edward Jones"
+
+        # .one(): zero matches -> NoResultFound.
+        with pytest.raises(exc.NoResultFound):
+            session.query(User).filter_by(name="nobody").one()
+
+        # .one(): more than one match -> MultipleResultsFound.
+        with pytest.raises(exc.MultipleResultsFound):
+            session.query(User).one()
+
+        # .one_or_none(): zero matches -> None (no exception).
+        assert session.query(User).filter_by(name="nobody").one_or_none() is None
+    finally:
+        Base.metadata.drop_all(engine_testaccount)
 
 
 def test_schema_including_db(engine_testaccount, db_parameters):
@@ -513,12 +547,13 @@ def test_outer_lateral_join(engine_testaccount, caplog):
 
     with caplog.at_level(logging.DEBUG):
         assert [res for res in session.execute(query)]
+    log_text = caplog.text.replace("\n", "")
     assert (
         "SELECT employees.employee_id, departments.department_id FROM departments"
-        in caplog.text
+        in log_text
     ) or (
         "SELECT employees.employee_id, departments.department_id FROM employees"
-        in caplog.text
+        in log_text
     )
 
 
@@ -548,8 +583,8 @@ def test_lateral_join_without_condition(engine_testaccount, caplog):
     with caplog.at_level(logging.DEBUG):
         session.execute(query)
     assert (
-        '[SELECT "Employee".uid FROM "Employee" JOIN LATERAL flatten(PARSE_JSON("Employee"'
-        in caplog.text
+        'SELECT "Employee".uid FROM "Employee" JOIN LATERAL flatten(PARSE_JSON("Employee"'
+        in caplog.text.replace("\n", "")
     )
 
 
@@ -576,9 +611,9 @@ def test_basic_table_with_large_lob_size_in_memory(engine_testaccount, sql_compi
                 query = text(f"SELECT GET_DDL('TABLE', '{User.__tablename__}')")
                 result = conn.execute(query)
                 row = str(result.mappings().fetchone())
-                assert (
-                    "VARCHAR(134217728)" in row
-                ), f"Expected VARCHAR(134217728) in {row}"
+                assert "VARCHAR(134217728)" in row, (
+                    f"Expected VARCHAR(134217728) in {row}"
+                )
 
     finally:
         Base.metadata.drop_all(engine_testaccount)

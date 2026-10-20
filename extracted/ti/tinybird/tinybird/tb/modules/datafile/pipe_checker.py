@@ -20,6 +20,10 @@ from tinybird.tb.modules.common import getenv_bool
 PIPE_CHECKER_RETRIES: int = 3
 
 
+def _escape_single_quote_str(value: str) -> str:
+    return "'" + value.replace("\\", "\\\\").replace("'", "''") + "'"
+
+
 class PipeChecker(unittest.TestCase):
     RETRIES_LIMIT = PIPE_CHECKER_RETRIES
 
@@ -262,6 +266,8 @@ class PipeCheckerRunner:
         pipe_stats_rt_table: str = "",
         extra_where_clause: str = "",
     ):
+        limit = int(limit)
+        sample_by_params = int(sample_by_params)
         pipe_stats_rt = pipe_stats_rt_table or "tinybird.pipe_stats_rt"
         # TODO it may not be needed to extract token, pipe_checker, form or debug. They may be used in next steps
         # TODO extractURLParameter(assumeNotNull(url), 'from') <> 'ui' should read from request_param_names.
@@ -289,7 +295,7 @@ class PipeCheckerRunner:
                             AND extractURLParameter(assumeNotNull(url), 'debug') <> 'query'
                             AND error = 0
                             AND not mapContains(parameters, '__tb__semver')
-                            {" AND " + " AND ".join([f"mapContains(pipe_request_params, '{match}')" for match in matches]) if matches and len(matches) > 0 else ""}
+                            {" AND " + " AND ".join([f"mapContains(pipe_request_params, {_escape_single_quote_str(match)})" for match in matches]) if matches and len(matches) > 0 else ""}
                             {extra_where_clause}
                         Limit 5000000 -- Enough to bring data while not processing all requests from highly used pipes
                         )
@@ -318,7 +324,7 @@ class PipeCheckerRunner:
                                         AND extractURLParameter(assumeNotNull(url), 'debug') <> 'query'
                                         AND error = 0
                                         AND not mapContains(parameters, '__tb__semver')
-                                        {" AND " + " AND ".join([f"mapContains(pipe_request_params, '{match}')" for match in matches]) if matches and len(matches) > 0 else ""}
+                                        {" AND " + " AND ".join([f"mapContains(pipe_request_params, {_escape_single_quote_str(match)})" for match in matches]) if matches and len(matches) > 0 else ""}
                                         {extra_where_clause}
                                     LIMIT {limit}
                                 )

@@ -184,15 +184,20 @@ async def test_anthropic_wire_ends_with_the_plan_after_the_cache_breakpoint(plan
     await prepare_for_send(config, stage=STAGE_LOOP, conversation_id="conv-1", policy=TrimPolicy())
     wire = AnthropicTranslator().to_anthropic(config, _anthropic_profile())
 
+    # Owner ruling 2026-10-18 (defects 23 + 35): host text never travels inside
+    # the person's / tool-result message. The plan rides its OWN host turn after
+    # the newest message.
     last = wire["messages"][-1]
     assert last["role"] == "user"
     tail = last["content"][-1]
     assert tail["type"] == "text" and "<your_plan" in tail["text"]
-    # The cache breakpoint stays on the newest tool_result, BEFORE the plan, so
-    # the next send reads the prefix this one wrote.
-    assert "cache_control" not in tail
-    assert last["content"][-2]["type"] == "tool_result"
-    assert "cache_control" in last["content"][-2]
+    assert len(last["content"]) == 1 and "cache_control" not in tail
+    # The cache breakpoint stays on the newest tool_result turn, BEFORE the plan,
+    # so the next send reads the prefix this one wrote.
+    newest = wire["messages"][-2]
+    assert newest["content"][-1]["type"] == "tool_result"
+    assert "cache_control" in newest["content"][-1]
+    assert "<your_plan" not in str(newest)
     system_text = " ".join(b.get("text", "") for b in wire.get("system", []))
     assert "<your_plan" not in system_text
 
@@ -224,9 +229,21 @@ async def test_openai_and_chat_completions_wires_end_with_the_plan(plan_source):
         make_profile(model_name="gpt-5", wire_format="openai_chat",
                      capabilities={"input": ["text"], "output": ["text"], "features": ["function_calling"], "interaction": "turn"}),
     )
+    # Chat-Completions providers (owner ruling L29, 2026-10-18): the block rides its
+    # OWN user turn after the newest message, exactly as on Anthropic/OpenAI/Google —
+    # never in the system message (their exact-prefix caches include it) and never
+    # inside the newest message. The plan is the last thing on the wire.
+    assert generic["messages"][0]["role"] == "system"
+    assert "<your_plan" not in str(generic["messages"][0])
+    last = generic["messages"][-1]
+    assert last["role"] == "user"
+    last_text = last["content"] if isinstance(last["content"], str) else " ".join(
+        b.get("text", "") for b in last["content"]
+    )
+    assert "<your_plan" in last_text
+    assert last_text.rstrip().endswith("</your_plan>"), "the plan (and its reminder) must be last"
     assert generic["messages"][-2]["role"] == "tool"
-    assert generic["messages"][-1]["role"] == "user"
-    assert "<your_plan" in generic["messages"][-1]["content"]
+    assert "<your_plan" not in str(generic["messages"][:-1])
 
 
 @pytest.mark.asyncio

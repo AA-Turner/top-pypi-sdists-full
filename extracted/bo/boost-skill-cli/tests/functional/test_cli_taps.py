@@ -104,7 +104,19 @@ class TestTap:
         # staleness a pin exists to prevent.
         r = boost("tap", tapped, "--at", "a" * 40, expect=1)
         assert "tap fixture-tap is already configured" in r.err
-        assert "boost update fixture-tap" in r.err  # the hint
+        # `boost update` skips a pinned tap and `--force` goes to HEAD, so
+        # the hint names the one sequence that lands on the commit asked for.
+        err = " ".join(r.err.split())
+        assert "boost untap fixture-tap" in err
+        assert "--at %s" % ("a" * 40) in err
+        assert "boost update" not in err
+
+    def test_untap_survives_a_nameless_config_row(self, boost, tapped):
+        cfg = config.load()
+        cfg["taps"].append({"url": "https://github.com/x/y"})
+        config.save(cfg)
+        boost("untap", "fixture-tap", "-f")
+        assert config.load()["taps"] == [{"url": "https://github.com/x/y"}]
 
     def test_garbage_spec_rc1(self, boost, sandbox):
         r = boost("tap", "@@@garbage@@@", expect=1)
@@ -530,7 +542,8 @@ class TestOutdated:
                                       "reason": "version",
                                       "latest_commit": None,
                                       "tap": "bumped-tap",
-                                      "pinned": True}]
+                                      "pinned": True,
+                                      "scope": "user"}]
 
     def test_local_import_always_current(self, boost, sandbox, tmp_path):
         d = tmp_path / "loc"
@@ -561,7 +574,7 @@ class TestOutdated:
                          "installed": "1.4.0", "latest": None,
                          "reason": staleness.SOURCE_MISSING,
                          "latest_commit": None,
-                         "tap": "fixture-tap", "pinned": False}]
+                         "tap": "fixture-tap", "pinned": False, "scope": "user"}]
 
     def test_mixed_footer_splits_upstream_from_source_missing(
             self, boost, fixture_tap_src, tmp_path):
@@ -583,6 +596,47 @@ class TestOutdated:
         assert "1 upstream" in r.out
         assert "1 source missing" in r.out
 
+    def test_entry_dropped_after_update_is_removed_upstream(
+            self, boost, fixture_tap_src, tmp_path):
+        # The reported path: `boost update` rescans, the catalog no longer
+        # lists the skill, and the footer used to say to re-tap a tap that
+        # `boost taps` shows present and current.
+        src = _copy_tap(fixture_tap_src, tmp_path / "drop-tap")
+        boost("tap", src)
+        boost("install", "brainstorming")
+        subprocess.run(["git", "-C", str(src), "rm", "-rq",
+                        "skills/brainstorming"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(src), "commit", "-qm", "drop"],
+                       check=True, capture_output=True)
+        assert "no longer in tap" in boost("update").out
+        r = boost("outdated")
+        assert "1 outdated · removed upstream" in r.out
+        assert "re-tap or" not in r.out
+        # The LATEST cell names the same state the footer does; the JSON
+        # keeps its machine reason unchanged.
+        row = next(l for l in r.out.splitlines() if "brainstorming" in l)
+        assert "removed upstream" in row
+        assert "source missing" not in r.out
+        data = json.loads(boost("outdated", "--json").out)
+        assert [(d["name"], d["reason"], d["latest"]) for d in data] == [
+            ("brainstorming", staleness.SOURCE_MISSING, None)]
+
+    def test_two_entries_dropped_upstream_read_in_the_plural(
+            self, boost, fixture_tap_src, tmp_path):
+        src = _copy_tap(fixture_tap_src, tmp_path / "drop2-tap")
+        boost("tap", src)
+        boost("install", "brainstorming")
+        boost("install", "jira-integration")
+        for d in ("skills/brainstorming", "skills/jira-integration"):
+            subprocess.run(["git", "-C", str(src), "rm", "-rq", d],
+                           check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(src), "commit", "-qm", "drop"],
+                       check=True, capture_output=True)
+        boost("update")
+        r = boost("outdated")
+        assert ("2 outdated · removed upstream — `boost update` can't bring "
+                "them back; `boost uninstall` them") in r.out
+
     def test_content_change_shows_head_commit(self, boost, installed):
         clone = paths.repos_dir() / "fixture-tap"
         md = clone / "skills" / "brainstorming" / "SKILL.md"
@@ -595,20 +649,27 @@ class TestOutdated:
         assert data == [{"name": "brainstorming", "kind": "skill",
                          "installed": "1.4.0", "latest": "1.4.0",
                          "reason": "content", "latest_commit": head[:7],
-                         "tap": "fixture-tap", "pinned": False}]
+                         "tap": "fixture-tap", "pinned": False, "scope": "user"}]
 
     def test_source_vanished_marker(self, boost, installed):
         clone = paths.repos_dir() / "fixture-tap"
         shutil.rmtree(clone / "skills" / "brainstorming")
         _commit_clone(clone, "drop skill")       # cache still lists it
         r = boost("outdated")
-        assert "source missing" in r.out
         assert "1 outdated" in r.out
+        # The tap is still configured, so re-tapping restores nothing: the
+        # row and the footer both name the item as removed upstream, not the
+        # tap as deleted (the JSON reason below stays source-missing).
+        row = next(l for l in r.out.splitlines() if "brainstorming" in l)
+        assert "removed upstream" in row
+        assert "source missing" not in r.out
+        assert "re-tap or" not in r.out
+        assert "deleted tap" not in r.out
         data = json.loads(boost("outdated", "--json").out)
         assert data == [{"name": "brainstorming", "kind": "skill",
                          "installed": "1.4.0", "latest": None,
                          "reason": "source-missing", "latest_commit": None,
-                         "tap": "fixture-tap", "pinned": False}]
+                         "tap": "fixture-tap", "pinned": False, "scope": "user"}]
 
     def test_changed_rule_source_is_listed_with_kind(self, boost,
                                                      fixture_tap_src, tmp_path):
@@ -637,7 +698,7 @@ class TestOutdated:
         assert data == [{"name": "house-style", "kind": "rule",
                          "installed": "1.0.0", "latest": "1.0.0",
                          "reason": "content", "latest_commit": None,
-                         "tap": "rule-tap", "pinned": False}]
+                         "tap": "rule-tap", "pinned": False, "scope": "user"}]
 
 
 # ── completion cache invalidation ───────────────────────────────────────

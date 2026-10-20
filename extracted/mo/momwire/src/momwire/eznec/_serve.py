@@ -474,7 +474,8 @@ from __future__ import annotations
 
 import cmath
 import math
-from dataclasses import dataclass, field
+import warnings
+from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from collections.abc import Mapping
 
@@ -483,7 +484,7 @@ import numpy as np
 from ..bspline import BSplineSolver
 from ..deck._cards import tokenize
 from .. import _ground_spec, _medium_spec
-from .. import _cmul, _lapack
+from .. import _cmul, _lapack, _times
 from ..deck._nec5 import (
     Nec5Conductivity,
     Nec5Deck,
@@ -560,7 +561,10 @@ from ._printout import (
     PortRow,
     PowerBudget,
     RunData,
+    RunPhases,
     WireCurrentRow,
+    execution_groups,
+    post_ge_cards,
 )
 from .._vec3 import norm3
 
@@ -971,6 +975,96 @@ def split_runs(text: str) -> list[str] | None:
         xq = [ln for ln in block if ln[:2].upper() == "XQ"] or ["XQ 0"]
         out.append("\n".join([*head, *common, *own, xq[0], "EN"]) + "\n")
     return out
+
+
+@dataclass(frozen=True)
+class SequenceGroup:
+    """One run of a sequence deck (:func:`split_sequence`): the single-run
+    deck that answers it, the post-``GE`` cards it echoes, whether it starts
+    a new frequency loop (``full``: the first run, or one carrying an
+    ``FR``) and whether it writes its own sources."""
+
+    text: str
+    cards: tuple[int, ...]
+    full: bool
+    sources: bool
+
+
+_SEQUENCE_CARDS = _RUN_CARDS | {"FR"}
+_REQUEST_CARDS = frozenset({"RP", "NE", "NH", "XQ"})
+_REFUSE_SEQUENCE_CHANGES = (
+    "run {run} carries {card}: a deck whose later runs change their "
+    "frequency, sources and requests (FR, EX, RP, NE, NH, PQ) is served, each "
+    "run at the FR in force, as the licensed NEC-5 reads it; every run reuses "
+    "the first run's structure, ground and loads, so a run that changes one "
+    "of those is refused rather than silently ignored"
+)
+
+
+def split_sequence(text: str) -> tuple[list[SequenceGroup], list[int]] | None:
+    """A deck read as the licensed NEC-5 reads it, a program top to bottom
+    (momwire 0.79.2): its runs (:func:`_printout.execution_groups`) and the
+    cards echoed after the last, when the deck needs that reading -- a later
+    run carries an ``FR``, or the first run steps the frequency and another
+    run follows it. ``None`` otherwise, which keeps every other deck on the
+    path it always took.
+
+    Each run's deck is the deck through ``GE``, the first run's structural
+    cards (ground, loads, lines), the ``FR`` in force, the sources in force
+    (the latest run that wrote ``EX``) and the run's own requests. A later
+    run that changes anything else refuses by name."""
+    cards = post_ge_cards(text)
+    groups, tail = execution_groups(cards)
+    if len(groups) < 2:
+        return None
+    first_steps = any(
+        cards[k].mnemonic == "FR" and cards[k].i(1) > 1 for k in groups[0]
+    )
+    later_fr = any(cards[k].mnemonic == "FR" for g in groups[1:] for k in g)
+    # a run of requests alone (an RP, NE or NH on the standing solution,
+    # momwire#1579), which no XQ-block reading prints in its place: NEC-5
+    # (x13) echoes the cards after it and prints its table after the run
+    # before it, one XQ or several (Steve, 10-19: NEC-5's order, Dan's
+    # lastConstructedNEC shape included)
+    requests_alone = any(
+        all(cards[k].mnemonic in _REQUEST_CARDS for k in g) for g in groups[1:]
+    )
+    if not (first_steps or later_fr or requests_alone):
+        return None
+    for run, group in enumerate(groups[1:], start=2):
+        for k in group:
+            if cards[k].mnemonic not in _SEQUENCE_CARDS:
+                raise ServeRefusal(
+                    _REFUSE_SEQUENCE_CHANGES.format(run=run, card=cards[k].mnemonic)
+                )
+    lines = text.splitlines()
+    ge = next(i for i, ln in enumerate(lines) if ln[:2].upper() == "GE")
+    head = lines[: ge + 1]
+    common = [
+        cards[k].raw for k in groups[0] if cards[k].mnemonic not in _SEQUENCE_CARDS
+    ]
+    out: list[SequenceGroup] = []
+    fr: str | None = None
+    sources: list[str] = []
+    for r, group in enumerate(groups):
+        own = [cards[k] for k in group]
+        frs = [c.raw for c in own if c.mnemonic == "FR"]
+        if frs:
+            fr = frs[-1]
+        exs = [c.raw for c in own if c.mnemonic == "EX"]
+        if exs:
+            sources = exs
+        requests = [c.raw for c in own if c.mnemonic in ("RP", "NE", "NH", "PQ")]
+        body = [*head, *common, *([fr] if fr is not None else []), *sources, *requests]
+        out.append(
+            SequenceGroup(
+                text="\n".join([*body, "XQ", "EN"]) + "\n",
+                cards=tuple(group),
+                full=r == 0 or bool(frs),
+                sources=bool(exs),
+            )
+        )
+    return out, tail
 
 
 def refusal(deck: Nec5Deck) -> str | None:
@@ -1806,6 +1900,26 @@ def _phantom_tags(deck: Nec5Deck, wavelength: float) -> frozenset[int]:
     """
     if len(deck.wires) < 2:
         return frozenset()
+    # momwire#1580 (Ward AE6TY's launch-angle deck): only a wire a TL or NT
+    # card connects to can be the circuit node. A short wire nothing connects
+    # to -- a 2-segment probe 236 m from a vertical -- is an ordinary wire,
+    # however small and far: read as the phantom it carried no current and
+    # the transfer it measures was lost, where NEC-5 solves it.
+    connected = {
+        at.tag
+        for card in (*deck.transmission_lines, *deck.networks)
+        for at in (card.end_a, card.end_b)
+    }
+    if not connected:
+        return frozenset()
+    tags = _phantom_tags_geometric(deck, wavelength)
+    return frozenset(tag for tag in tags if tag in connected)
+
+
+def _phantom_tags_geometric(deck: Nec5Deck, wavelength: float) -> frozenset[int]:
+    """:func:`_phantom_tags`' geometric half: small and standing clear."""
+    if len(deck.wires) < 2:
+        return frozenset()
     # `math.dist` on plain tuples, not `np.linalg.norm` on 3-vectors: this is
     # O(wires^2) scalar work, where numpy's per-call overhead dominates its
     # arithmetic.  Measured over the committed corpus, the numpy spelling cost
@@ -2133,6 +2247,17 @@ def build_mesh(
         if deck.frequency_mhz
         else frozenset()
     )
+    if phantom:
+        # momwire#1580: a wire the rule takes out of the solve is named, never
+        # dropped silently (stderr; the printout stays the engine's).
+        warnings.warn(
+            "momwire reads GW tag(s) "
+            + ", ".join(str(t) for t in sorted(phantom))
+            + " as EZNEC's parked circuit node (a short wire a TL or NT card "
+            "connects to, far from everything else): it carries no current in "
+            "the solve (momwire#1139, #1580)",
+            stacklevel=2,
+        )
     addressed = _addressed_nodes(deck)
     crossings = _plane_crossings(deck)
     crossing_nodes = frozenset(_crossing_nodes(deck))
@@ -4590,6 +4715,10 @@ class _Prepared:
     solver: object
     solution: object
     source_sites: frozenset
+    # MOMWIRE_TIMES: the solve's fill and factor seconds, printed in the
+    # MATRIX TIMING of the first run that uses this preparation (0 when off)
+    fill_seconds: float = 0.0
+    factor_seconds: float = 0.0
 
 
 def _prepare(
@@ -4692,7 +4821,16 @@ def _prepare(
         # NotImplementedError; on this seam that is a refusal by name, not
         # an INTERNAL ERROR frame (momwire#667).
         raise ServeRefusal(str(exc)) from None
-    solution = _port_solution(solver, shared)
+    times = _times.current()
+    fill_seconds = factor_seconds = 0.0
+    if times is None:
+        solution = _port_solution(solver, shared)
+    else:
+        fill0, factor0 = times.elapsed_ms("fill"), times.elapsed_ms("factor")
+        with _times.stage("fill"):
+            solution = _port_solution(solver, shared)
+        fill_seconds = (times.elapsed_ms("fill") - fill0) / 1e3
+        factor_seconds = (times.elapsed_ms("factor") - factor0) / 1e3
     return _Prepared(
         structure=structure,
         mesh=mesh,
@@ -4705,6 +4843,8 @@ def _prepare(
         solver=solver,
         solution=solution,
         source_sites=frozenset(source.at for source in deck.sources),
+        fill_seconds=fill_seconds,
+        factor_seconds=factor_seconds,
     )
 
 
@@ -4798,7 +4938,53 @@ def _geometry_digest(value) -> str:
 
 def _finish(deck: Nec5Deck, prepared: _Prepared) -> RunData:
     """The run half of :func:`serve`: this deck's sources driven through the
-    prepared port solution, then every table its printout reports."""
+    prepared port solution, then every table its printout reports.
+
+    Under MOMWIRE_TIMES (:mod:`momwire._times`) it is the ``run`` stage, and
+    the first run of a preparation carries its solve's MATRIX TIMING."""
+    times = _times.current()
+    before = None if times is None else times.snapshot()
+    with _times.stage("run"):
+        data = _finish_run(deck, prepared)
+    _times.count_run()
+    if prepared.fill_seconds or prepared.factor_seconds:
+        data = replace(
+            data,
+            fill_seconds=prepared.fill_seconds,
+            factor_seconds=prepared.factor_seconds,
+        )
+        prepared.fill_seconds = prepared.factor_seconds = 0.0
+    if times is not None:
+        data = replace(data, phases=_phases(times, before[0]))
+    return data
+
+
+def _phases(times, before: dict) -> RunPhases:
+    """The run's MOMWIRE_TIMES phase lines: the ground tables counted since
+    the previous run (its preparation's included) and this run's readouts."""
+    ms, counts = times.snapshot()
+    mark_ms, mark_counts = times.mark
+    times.mark = (ms, counts)
+    return RunPhases(
+        ground_seconds=(ms["ground"] - mark_ms["ground"]) / 1e3,
+        ground_built=counts["built"] - mark_counts["built"],
+        ground_disk=counts["disk"] - mark_counts["disk"],
+        ground_blended=counts["blended"] - mark_counts["blended"],
+        fill_threads=_times.fill_threads(),
+        factor_threads=_times.factor_threads(),
+        solution_seconds=(ms["run"] - before["run"]) / 1e3,
+        rp_seconds=(ms["rp"] - before["rp"]) / 1e3,
+        near_seconds=(ms["near"] - before["near"]) / 1e3,
+    )
+
+
+def _in_stage(name: str, build):
+    """``build()`` in the timing stage ``name`` (MOMWIRE_TIMES)."""
+    with _times.stage(name):
+        return build()
+
+
+def _finish_run(deck: Nec5Deck, prepared: _Prepared) -> RunData:
     structure = prepared.structure
     mesh = prepared.mesh
     by_address = prepared.by_address
@@ -4929,26 +5115,32 @@ def _finish(deck: Nec5Deck, prepared: _Prepared) -> RunData:
             ),
             efficiency_percent=(100.0 * p_radiated / p_in) if p_in > 0 else 0.0,
         ),
-        near_fields=tuple(
-            _near_field(request, solver, coeffs, deck, mesh, wavelength, medium)
-            for request in deck.requests
-            if isinstance(request, Nec5NearFieldRequest)
+        near_fields=_in_stage(
+            "near",
+            lambda: tuple(
+                _near_field(request, solver, coeffs, deck, mesh, wavelength, medium)
+                for request in deck.requests
+                if isinstance(request, Nec5NearFieldRequest)
+            ),
         ),
-        patterns=tuple(
-            _pattern(
-                request,
-                solver,
-                coeffs,
-                _far_ground(deck, medium),
-                frequency,
-                wavelength,
-                p_in,
-                lower_k=None
-                if medium is None
-                else (2.0 * math.pi / wavelength) * cmath.sqrt(medium.eps_c),
-                p_radiated=p_radiated,
-            )
-            for request in deck.requests
-            if isinstance(request, Nec5FarFieldRequest)
+        patterns=_in_stage(
+            "rp",
+            lambda: tuple(
+                _pattern(
+                    request,
+                    solver,
+                    coeffs,
+                    _far_ground(deck, medium),
+                    frequency,
+                    wavelength,
+                    p_in,
+                    lower_k=None
+                    if medium is None
+                    else (2.0 * math.pi / wavelength) * cmath.sqrt(medium.eps_c),
+                    p_radiated=p_radiated,
+                )
+                for request in deck.requests
+                if isinstance(request, Nec5FarFieldRequest)
+            ),
         ),
     )

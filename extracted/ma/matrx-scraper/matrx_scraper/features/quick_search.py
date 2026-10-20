@@ -46,4 +46,8 @@ If the context above sufficiently answers the query, respond directly to the use
 
     final_text_content = formatted_results + agent_guidance
 
-    return {"status": "success", "result": final_text_content}
+    return {
+        "status": "success",
+        "result": final_text_content,
+        "site_icons": search_result.get("site_icons") or {},
+    }

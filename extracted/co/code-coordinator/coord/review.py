@@ -1040,6 +1040,97 @@ def parse_test_verdict_from_log(log_path: str | Path) -> TestVerdictFindings | N
         return _parse_test_verdict_from_lines(text.splitlines(), stream_json=False)
 
 
+# ── Abandoned-background Test-stage legs (#3737) ────────────────────────────
+#
+# A Test-stage leg that ends its one-shot turn with the smoke command still
+# running in the background — session terminated, no `SMOKE:`/
+# `TEST_VERDICT:` marker printed — is an infra abort (the worker backgrounded
+# a run past its own turn and never came back to report it), not a genuine
+# "the suite won't speak". Left undetected it is indistinguishable from the
+# latter and charges the same #2272 mute-leg retry budget, so two
+# backgrounded legs in a row park a branch that was never actually silent.
+#
+# The signature is the worker's own hand-off sentence, which is always the
+# LAST assistant turn of a session that ends this way (quadraui#1616: "Smoke
+# suite is running in the background; I'll continue once the background
+# watcher notifies me", "still running in the background, will continue
+# when notified"). Scanning only the final turn — mirrors
+# :func:`coord.worker_events.detect_usage_limit_kill`'s "last meaningful
+# turn/line only" discipline — avoids false-positiving on a worker that
+# merely discusses backgrounding mid-session before going on to print a
+# real verdict later in the same transcript.
+#
+# Plain-text logs have no structured turn boundary to scan exactly, so
+# `detect_abandoned_background_leg` approximates "the final turn" with the
+# last `_ABANDONED_BACKGROUND_TAIL_LINES` non-blank, non-comment lines
+# instead (below) — wide enough to hold a multi-sentence hand-off without
+# reaching back far enough to catch an earlier, unrelated mention of
+# backgrounding. Stream-json logs (the common case) use the real turn
+# boundary via `coord.worker_events.latest_assistant_turn_text`.
+#
+# Deliberately narrow: this matches only the specific "running in the
+# background ... continue/notify/watcher/wait" hand-off shape quadraui#1616
+# actually produced, not every way a worker might phrase "I backgrounded
+# this". A differently-worded hand-off falls through to the #2272 mute-leg
+# accounting instead (an undercount, not a false positive) — acceptable
+# because #2272 still eventually parks the row, just under the wrong cause
+# text. Widen the pattern if a real transcript is seen phrasing this
+# differently, rather than guessing at alternate phrasings up front.
+_ABANDONED_BACKGROUND_RE = re.compile(
+    r"\brunning\s+in\s+the\s+background\b[\s\S]{0,200}?"
+    r"\b(?:continu\w*|notif\w*|watcher|wait\w*)\b",
+    re.IGNORECASE,
+)
+
+_ABANDONED_BACKGROUND_TAIL_LINES = 40
+
+
+def _is_abandoned_background_text(text: str | None) -> bool:
+    """``True`` if *text* — one assistant turn's worth of prose, or an
+    equivalent plain-text tail — is the hand-off a one-shot worker leaves
+    when its session ends with the smoke command still running in the
+    background rather than run to completion."""
+    if not text:
+        return False
+    return bool(_ABANDONED_BACKGROUND_RE.search(text))
+
+
+def detect_abandoned_background_leg(log_path: str | Path) -> bool:
+    """#3737: did this completed Test-stage leg end its turn with the smoke
+    command still running in the background, instead of to completion?
+
+    Sibling to :func:`parse_test_verdict_from_log`: same stream-json/
+    plain-text on-disk-shape detection (:func:`coord.worker_events.
+    is_stream_json`), so the two can never disagree about which parser a
+    given log needs. Returns ``False`` — never raises, never guesses "True"
+    — when the file is missing or unreadable, so a detection failure falls
+    through to the ordinary mute-leg accounting rather than silently
+    forgiving a genuinely mute suite.
+    """
+    from coord.worker_events import (  # noqa: PLC0415
+        is_stream_json,
+        latest_assistant_turn_text,
+    )
+
+    p = Path(log_path)
+    if not p.exists():
+        return False
+
+    if is_stream_json(p):
+        return _is_abandoned_background_text(latest_assistant_turn_text(p))
+
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    lines = [
+        line for line in text.splitlines()
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    tail = "\n".join(lines[-_ABANDONED_BACKGROUND_TAIL_LINES:])
+    return _is_abandoned_background_text(tail)
+
+
 # #3676: cross-repo gaps are the coordinator's to file. A worker that hits a
 # capability missing from another repo emits a `BLOCKED_ON_UPSTREAM: <repo>:
 # <title>` marker in its final message (`coord.upstream_gaps`), and the

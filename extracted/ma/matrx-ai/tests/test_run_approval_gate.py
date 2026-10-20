@@ -96,7 +96,7 @@ def test_a_held_subject_is_refused_before_the_provider_with_its_link(memory: _Me
     assert isinstance(exc, gate.RunApprovalRequiredError)
     assert spent == []
     # The person reads plain words; the id and admin link live only in the technical text + envelope.
-    assert URL not in str(exc) and "approval limit" in str(exc)
+    assert URL not in str(exc) and "administrator" in str(exc)  # the sentence follows the hold reason (review 4, F4)
     assert URL in exc.technical_message
     assert exc.envelope()["approval_url"] == URL
     assert exc.is_caller_refusal is True

@@ -1,5 +1,7 @@
-import mistune
+from time import perf_counter
 from unittest import TestCase
+
+import mistune
 
 
 class TestMiscCases(TestCase):
@@ -16,6 +18,20 @@ class TestMiscCases(TestCase):
         md.parse("", state)
         self.assertEqual(state.env["name"], "test")
 
+    def test_escape_applies_to_custom_renderer(self):
+        class CustomRenderer(mistune.HTMLRenderer):
+            pass
+
+        md = mistune.create_markdown(renderer=CustomRenderer(), escape=False)
+        self.assertEqual(md("<b>hi</b>").strip(), "<p><b>hi</b></p>")
+
+        md = mistune.create_markdown(renderer=CustomRenderer(escape=False), escape=True)
+        self.assertEqual(md("<b>hi</b>").strip(), "<p>&lt;b&gt;hi&lt;/b&gt;</p>")
+
+        # without an explicit escape flag the renderer keeps its own setting
+        md = mistune.create_markdown(renderer=CustomRenderer(escape=False))
+        self.assertEqual(md("<b>hi</b>").strip(), "<p><b>hi</b></p>")
+
     def test_hard_wrap(self):
         md = mistune.create_markdown(escape=False, hard_wrap=True)
         result = md("foo\nbar")
@@ -25,6 +41,24 @@ class TestMiscCases(TestCase):
         md = mistune.create_markdown(escape=False, hard_wrap=True, plugins=["speedup"])
         result = md("foo\nbar")
         self.assertEqual(result.strip(), expected)
+
+    def test_ordered_marker_needs_a_digit(self):
+        self.assertEqual(
+            mistune.html("1. a\n. b\n"),
+            "<ol>\n<li>a\n. b</li>\n</ol>\n",
+        )
+        self.assertEqual(
+            mistune.html("1) a\n) b\n"),
+            "<ol>\n<li>a\n) b</li>\n</ol>\n",
+        )
+        self.assertEqual(
+            mistune.html("1. a\n2. b\n"),
+            "<ol>\n<li>a</li>\n<li>b</li>\n</ol>\n",
+        )
+        self.assertEqual(
+            mistune.html("1. a\n123456789. b\n"),
+            "<ol>\n<li>a</li>\n<li>b</li>\n</ol>\n",
+        )
 
     def test_speedup_plugin_is_compat_noop(self):
         base = mistune.create_markdown(escape=False)
@@ -75,6 +109,13 @@ class TestMiscCases(TestCase):
         result = mistune.html("-\t\tfoo\n")
         expected = "<ul>\n<li><pre><code>  foo</code></pre>\n</li>\n</ul>"
         self.assertEqual(result.strip(), expected)
+
+    def test_deeply_indented_list_does_not_scale_quadratically(self):
+        payload = "\n".join("  " * i + "- item" for i in range(1000))
+        start = perf_counter()
+        result = mistune.create_markdown()(payload)
+        self.assertTrue(result.startswith("<ul>"))
+        self.assertLess(perf_counter() - start, 2.0)
 
     def test_escape_html(self):
         md = mistune.create_markdown(escape=True)
@@ -147,6 +188,14 @@ class TestMiscCases(TestCase):
         for text, html in cases.items():
             self.assertEqual(mistune.html(text).strip(), html)
 
+    def test_angle_link_escaped_backslash(self):
+        cases = {
+            r"[link](<foo\*bar>)": '<p><a href="foo*bar">link</a></p>',
+            "[x]: <a\\*b>\n\n[x]": '<p><a href="a*b">x</a></p>',
+        }
+        for text, html in cases.items():
+            self.assertEqual(mistune.html(text).strip(), html, text)
+
     def test_allow_harmful_protocols(self):
         renderer = mistune.HTMLRenderer(allow_harmful_protocols=True)
         md = mistune.Markdown(renderer)
@@ -176,7 +225,7 @@ class TestMiscCases(TestCase):
             return "<at>" + text + "</at>"
 
         def plugin(md):
-            md.inline.register("at", r"@+", parse_at)
+            md.inline.register("at", r"@+", parse_at, start_chars="@")
             md.renderer.register("at", render_at)
 
         md = mistune.create_markdown(escape=False)
@@ -202,6 +251,73 @@ class TestMiscCases(TestCase):
 
         self.assertEqual(md("xx").strip(), "<p><x>xx</x></p>")
 
+    def test_inline_plugin_alternation_without_start_hints(self):
+        def parse_word(inline, m, state):
+            state.append_token({"type": "word", "raw": m.group(0)})
+            return m.end()
+
+        def render_word(renderer, text):
+            return "<word>" + text + "</word>"
+
+        def plugin(md):
+            md.inline.register("word", r"foo|bar", parse_word)
+            md.renderer.register("word", render_word)
+
+        md = mistune.create_markdown(escape=False, plugins=[plugin])
+
+        self.assertEqual(md("foo bar").strip(), "<p><word>foo</word> <word>bar</word></p>")
+
+    def test_inline_plugin_alternation_with_start_hints(self):
+        def parse_word(inline, m, state):
+            state.append_token({"type": "word", "raw": m.group(0)})
+            return m.end()
+
+        def render_word(renderer, text):
+            return "<word>" + text + "</word>"
+
+        def plugin(md):
+            md.inline.register("word", r"foo|bar", parse_word, start_chars={"f", "b"})
+            md.renderer.register("word", render_word)
+
+        md = mistune.create_markdown(escape=False, plugins=[plugin])
+
+        self.assertEqual(md("foo bar").strip(), "<p><word>foo</word> <word>bar</word></p>")
+
+    def test_inline_plugin_rejects_invalid_start_hints(self):
+        def parse_word(inline, m, state):
+            return m.end()
+
+        inline = mistune.InlineParser()
+        for start_chars in ("", "ab", [], ["a", "bc"]):
+            with self.subTest(start_chars=start_chars):
+                with self.assertRaises(ValueError):
+                    inline.register("word", r"foo|bar", parse_word, start_chars=start_chars)
+
+    def test_inline_rules_with_shared_hint_preserve_registration_order(self):
+        def parse_first(inline, m, state):
+            state.append_token({"type": "first", "raw": m.group(0)})
+            return m.end()
+
+        def parse_second(inline, m, state):
+            state.append_token({"type": "second", "raw": m.group(0)})
+            return m.end()
+
+        def render_first(renderer, text):
+            return "<first>" + text + "</first>"
+
+        def render_second(renderer, text):
+            return "<second>" + text + "</second>"
+
+        def plugin(md):
+            md.inline.register("first", r"@+", parse_first, before="linebreak", start_chars="@")
+            md.inline.register("second", r"@+", parse_second, before="linebreak", start_chars="@")
+            md.renderer.register("first", render_first)
+            md.renderer.register("second", render_second)
+
+        md = mistune.create_markdown(escape=False, plugins=[plugin])
+
+        self.assertEqual(md("@@").strip(), "<p><first>@@</first></p>")
+
     def test_markdown_func(self):
         result = mistune.markdown("**b**")
         expected = "<p><strong>b</strong></p>\n"
@@ -210,6 +326,55 @@ class TestMiscCases(TestCase):
         # trigger to use cached parser
         result = mistune.markdown("**b**")
         self.assertEqual(result, expected)
+
+    def test_markdown_func_accepts_plugin_iterables(self):
+        expected = (
+            "<table>\n<thead>\n<tr>\n  <th>A</th>\n  <th>B</th>\n</tr>\n</thead>\n"
+            "<tbody>\n<tr>\n  <td>1</td>\n  <td>2</td>\n</tr>\n</tbody>\n</table>\n"
+        )
+        text = "A | B\n--|--\n1 | 2\n"
+
+        self.assertEqual(mistune.markdown(text, plugins=["table"]), expected)
+        self.assertEqual(mistune.markdown(text, plugins=("table",)), expected)
+
+        consumed = 0
+
+        def plugin_names():
+            nonlocal consumed
+            consumed += 1
+            yield "table"
+
+        self.assertEqual(mistune.markdown(text, plugins=plugin_names()), expected)
+        self.assertEqual(consumed, 1)
+
+    def test_markdown_func_does_not_cache_custom_renderer(self):
+        renderer = mistune.HTMLRenderer()
+        text = "<b>hi</b>"
+
+        self.assertEqual(mistune.markdown(text, escape=True, renderer=renderer).strip(), "<p>&lt;b&gt;hi&lt;/b&gt;</p>")
+        self.assertEqual(mistune.markdown(text, escape=False, renderer=renderer).strip(), "<p><b>hi</b></p>")
+        self.assertEqual(mistune.markdown(text, escape=True, renderer=renderer).strip(), "<p>&lt;b&gt;hi&lt;/b&gt;</p>")
+
+    def test_markdown_func_does_not_treat_equal_renderer_as_builtin(self):
+        class EqualRenderer(mistune.HTMLRenderer):
+            __hash__ = None
+
+            def __eq__(self, other):
+                return other == "html"
+
+        renderer = EqualRenderer()
+
+        self.assertEqual(mistune.markdown("<b>x</b>", renderer=renderer).strip(), "<p>&lt;b&gt;x&lt;/b&gt;</p>")
+
+    def test_markdown_func_cache_eviction_preserves_output(self):
+        expected = "<p><strong>b</strong></p>\n"
+        self.assertEqual(mistune.markdown("**b**"), expected)
+
+        for size in range(129):
+            plugins = ("speedup",) * size
+            self.assertEqual(mistune.markdown("plain", plugins=plugins), "<p>plain</p>\n")
+
+        self.assertEqual(mistune.markdown("**b**"), expected)
 
     def test_ast_output(self):
         md = mistune.create_markdown(escape=False, renderer=None)

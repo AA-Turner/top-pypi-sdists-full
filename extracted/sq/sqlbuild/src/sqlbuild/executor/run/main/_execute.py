@@ -36,6 +36,7 @@ from sqlbuild.executor.run._helpers.execution.results import (
 )
 from sqlbuild.executor.run._helpers.execution.schema import inspect_runtime_relation_schema
 from sqlbuild.executor.run._helpers.execution.staging import create_staging_relation
+from sqlbuild.executor.run._helpers.execution.table_config import model_table_config
 from sqlbuild.executor.run._helpers.execution.table_targets import resolve_table_targets
 from sqlbuild.executor.run._helpers.materializations.custom import (
     execute_custom_entry as execute_custom_entry,
@@ -243,6 +244,7 @@ def _staged_lifecycle(
                     staging_table=targets.staging_table,
                     declared_columns=declared_columns,
                     table_type=entry.table_type,
+                    physical_storage=entry.physical_storage,
                     statement_recorder=statement_recorder,
                 )
         except Exception as exc:
@@ -421,7 +423,7 @@ def _immediate_lifecycle(
                 connection=connection,
                 destination=target_qualified,
                 sql=state.resolved_sql,
-                config={"table_type": entry.table_type},
+                config=model_table_config(entry),
                 statement_recorder=statement_recorder,
             )
     except Exception as exc:

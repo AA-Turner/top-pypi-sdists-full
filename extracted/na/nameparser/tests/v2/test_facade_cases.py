@@ -73,9 +73,21 @@ _TRANSLATED = frozenset({
 #: to the unsubtracted default pushes every parenthesis-maiden row
 #: into this set and turns nothing red.
 _CORE_ONLY_IDS = frozenset({
+    # #718: S10's count under a declared family-first order, which v1
+    # cannot express
+    "a_lone_numeral_counts_in_units_under_family_first",
+    # #701: H6's peel under a declared family-first order, which v1
+    # cannot express
+    "a_title_before_a_family_comma_reads_the_same_family_first",
+    "a_title_before_a_family_comma_reads_the_same_given_last",
     # #296's bundle: the positional read of the pre-comma name under a
     # declared family-first order -- v1 has no name order to declare
     "family_comma_no_name_word_family_first",
+    # #687: a declared Vietnamese order, which v1 cannot express
+    "trailing_given_name_mai_is_not_a_credential",
+    # #700: P6's family-first site for the elided particle, under a
+    # declared order v1 has no spelling for
+    "an_elided_particle_ending_a_family_first_name",
     "family_comma_no_name_word_family_first_given_last",
     "family_comma_no_name_word_family_first_plain",
     "leading_never_given_particle_two_leftovers_family_first",
@@ -163,6 +175,8 @@ _CORE_ONLY_IDS = frozenset({
     "caps_switch_leaves_a_capitalized_title_a_title",
     "strict_comma_reads_the_dotted_numeral_as_a_name_word",
     "strict_comma_reads_the_bare_numeral_into_the_run",
+    "strict_comma_reads_a_one_case_numeral_as_its_capital",
+    "strict_comma_reports_a_one_case_numeral_in_a_third_part",
     "the_comma_flip_is_read_under_the_declared_order",
     "two_caps_credentials_peel_as_a_run",
     "the_caps_shape_is_script_agnostic_cyrillic",

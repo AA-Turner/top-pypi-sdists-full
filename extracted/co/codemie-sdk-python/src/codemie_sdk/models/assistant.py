@@ -456,7 +456,7 @@ class ToolConfig(BaseModel):
         At least one of these fields must be specified for the tool configuration
         to be valid. This ensures that the tool has a way to obtain credentials.
         """
-        if not self.tool_creds and not self.integration_id:
+        if not self.tool_creds and self.integration_id is None:
             raise ValueError("Either tool_creds or integration_id must be provided")
         if self.tool_creds and self.integration_id:
             raise ValueError(
@@ -652,3 +652,111 @@ class ReactionRequest(BaseModel):
     model_config = ConfigDict(extra="ignore", use_enum_values=True)
 
     reaction: ReactionType = Field(description="Reaction type: 'like' or 'dislike'")
+
+
+class AssistantProjectFeature(str, Enum):
+    """Feature discriminator for assistant/project mappings (e.g. Teams bot).
+
+    This enum is expected to grow over time on the backend; treat unrecognized
+    wire values defensively rather than assuming this is the complete set.
+    """
+
+    TEAMS = "teams"
+
+
+class AssistantProjectMappingRequest(BaseModel):
+    """Request body for POST /v1/assistants/{assistant_id}/projects/mapping."""
+
+    model_config = ConfigDict(extra="ignore", use_enum_values=True)
+
+    project_name: str = Field(description="Project (application) name")
+    feature: AssistantProjectFeature = Field(
+        description="Feature discriminator this mapping is for, e.g. 'teams'"
+    )
+
+
+class AssistantProjectMappingPagination(BaseModel):
+    """Pagination metadata returned by GET /v1/assistants/projects/mapping."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    page: int = Field(description="Current page, 0-indexed")
+    per_page: int = Field(description="Items per page")
+    total: int = Field(description="Total matching assistants across all pages")
+
+
+class AssistantProjectMappingListResponse(BaseModel):
+    """Response for GET /v1/assistants/projects/mapping.
+
+    List items are intentionally typed as ``dict[str, Any]`` rather than
+    ``Assistant``/``AssistantBase``. The backend contract documents this
+    endpoint as returning "the same shape as GET /v1/assistants", but that
+    endpoint's own shape is parameterized by a ``minimal_response`` flag that
+    this new endpoint does not expose, and the exact per-item fields returned
+    here are not otherwise confirmed. Rather than guess the wire format,
+    callers get the raw dict and can assert on whichever fields they need
+    (e.g. ``item["id"]``).
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    data: list[dict[str, Any]] = Field(default_factory=list)
+    pagination: AssistantProjectMappingPagination
+
+
+class UserMappingSlotConfig(BaseModel):
+    """Configuration for a single integration slot in user mapping."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(description="Integration slot name (tool name, e.g. 'Git')")
+    integration_id: Optional[str] = Field(
+        default=None,
+        description="Integration ID. None = auto-lookup; empty string = explicit 'no integration'",
+    )
+    auto_lookup: Optional[bool] = Field(
+        default=None,
+        description="Whether auto-credentials lookup is enabled for this slot",
+    )
+    explicit_none: Optional[bool] = Field(
+        default=None,
+        description="User explicitly chose no integration, blocking auto-lookup override",
+    )
+
+
+class UserMappingSaveRequest(BaseModel):
+    """Request body for POST /v1/assistants/{assistant_id}/users/mapping."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    tools_config: List[UserMappingSlotConfig] = Field(
+        default_factory=list,
+        description="Slot configurations to save",
+    )
+    workflow_id: Optional[str] = Field(
+        default=None,
+        description="Workflow scope reference. None = assistant scope",
+    )
+    apply_to_assistant_scope: bool = Field(
+        default=False,
+        description="When True, saves at assistant scope and removes workflow-scoped override",
+    )
+
+
+class UserMappingResponse(BaseModel):
+    """Response body for GET /v1/assistants/{assistant_id}/users/mapping."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    tools_config: List[UserMappingSlotConfig] = Field(
+        default_factory=list,
+        description="Current effective slot configurations",
+    )
+    has_assistant_scope_selection: bool = Field(
+        default=False,
+        description="Whether an assistant-scoped mapping row exists for this user",
+    )
+    workflow_id: Optional[str] = Field(
+        default=None,
+        description="Workflow scope the response is effective for",
+    )

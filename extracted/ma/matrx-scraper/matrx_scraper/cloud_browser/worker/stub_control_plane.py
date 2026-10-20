@@ -7,7 +7,7 @@ through the eight S2 operations exactly as the real manager would — minting a
 scoped bearer per call, incrementing the sequence for sequenced ops, and rotating
 the fence only through ``controller_transition``.
 
-It deliberately does NOT reimplement any worker behaviour. It is the client half of
+It deliberately does NOT reimplement any worker behavior. It is the client half of
 S2; the worker is the server half. The shared conformance suite runs the worker
 under this stub (and, symmetrically on WS-5's side, runs a ``FakeWorker`` under the
 real control plane).

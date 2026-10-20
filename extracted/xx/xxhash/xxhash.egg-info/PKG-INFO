@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xxhash
-Version: 4.0.1
+Version: 4.0.2
 Summary: Python binding for xxHash
 Home-page: https://github.com/ifduyue/python-xxhash
 Author: Yue Du
@@ -123,7 +123,7 @@ the module properties ``VERSION`` AND ``XXHASH_VERSION`` respectively.
 
     >>> import xxhash
     >>> xxhash.VERSION
-    '4.0.1'
+    '4.0.2'
     >>> xxhash.XXHASH_VERSION
     '0.8.3'
 
@@ -346,6 +346,12 @@ Licensed under `BSD 2-Clause License <http://opensource.org/licenses/BSD-2-Claus
 CHANGELOG
 -----------
 
+v4.0.2 2026-10-19
+~~~~~~~~~~~~~~~~~
+
+- Improve type annotation compatibility with ``hashlib``
+
+
 v4.0.1 2026-08-17
 ~~~~~~~~~~~~~~~~~
 
@@ -382,6 +388,12 @@ v4.0.0 2026-08-12
 - CI: shard the PyPI upload into parallel groups and create the GitHub
   Release automatically
 
+v3.8.2 2026-10-18
+~~~~~~~~~~~~~~~~~
+
+- Build wheels for Python 3.15
+
+
 v3.8.1 2026-07-06
 ~~~~~~~~~~~~~~~~~
 
@@ -403,6 +415,12 @@ v3.8.0 2026-06-27
   fallback with correct reference counting.
 - Correct type stubs for ``xxh64_digest()``, ``xxh64_hexdigest()``, and
   ``xxh64_intdigest()``, they were incorrectly aliased to xxh3_64 functions.
+
+
+v3.7.3 2026-10-18
+~~~~~~~~~~~~~~~~~
+
+- Build wheels for Python 3.15
 
 
 v3.7.2 2026-07-06

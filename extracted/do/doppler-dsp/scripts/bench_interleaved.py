@@ -2,7 +2,7 @@
 """Interleaved portable-vs-native benchmark measurement.
 
 `make bench-publish` measures the two builds in separate runs minutes apart, so
-the page's *from src* column picks up cross-run system drift (a build looking
+the page's *%Δ* column picks up cross-run system drift (a build looking
 slower than itself). This measures both builds **interleaved** and keeps the
 per-benchmark best, which cancels that drift:
 
@@ -93,9 +93,18 @@ def bench_args_set(environ=None) -> str:
 
 
 #: What a release's bench run leaves in the clone it ran from: the snapshot
-#: (untracked until its PR merges) and the page `make bench-docs` renders
-#: from it (tracked, so left modified). Paths are relative to the root.
-BENCH_OUTPUTS = ("benchmarks/published", "docs/benchmarks.md")
+#: (untracked until its PR merges), the page `make bench-docs` renders from
+#: it, and the label files `make bench-labels-fix` and a new row's label
+#: change for it (tracked, so left modified; legacy-units.toml is deleted
+#: by the first release that records every C row's unit). Paths are
+#: relative to the root.
+BENCH_OUTPUTS = (
+    "benchmarks/published",
+    "docs/benchmarks.md",
+    "benchmarks/labels.toml",
+    "benchmarks/.labels-exempt",
+    "benchmarks/legacy-units.toml",
+)
 
 
 def _unit(path: str) -> str:
@@ -333,15 +342,27 @@ def bench_once(wt, cpus=None):
     pinned: the builds in `setup_worktree` keep every core, because a build is
     not being measured. The affinity is set in the child before exec, so
     `make`, pytest and every benchmark binary below it inherit it.
+
+    A failed run stops the whole measurement, and its stderr is replayed
+    first (#2062). That is where a benchmark says why it refused -- a
+    jm_bench.h row it could not hold, a direct twin that differs from its
+    push -- and `jm bench` fails the run on any binary that exits non-zero
+    or writes no JSON (just-makeit#2189). Thrown away, a release run died
+    on a bare CalledProcessError naming `make bench` and nothing else.
     """
-    _run(
+    r = _run(
         ["make", "bench"],
         wt,
-        check=True,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
         preexec_fn=(lambda: os.sched_setaffinity(0, cpus)) if cpus else None,
     )
+    if r.returncode != 0:
+        sys.stderr.write(r.stderr)
+        raise SystemExit(
+            f"bench-interleaved: `make bench` failed in {wt} "
+            f"(exit {r.returncode}); its stderr is above"
+        )
     hist = os.path.join(wt, "benchmarks", "history")
     pj = max(
         (f for f in glob.glob(hist + "/*.json") if not f.endswith("-c.json")),
@@ -460,9 +481,11 @@ def main() -> int:
             samples[b]["py"].append(py)
             samples[b]["c"].append(c)
 
-    # Every C benchmark the tree has must be in each build's merged set: a
-    # bench that crashed in every pass wrote no JSON, and jm skips a binary
-    # with none, so the snapshot would be short without saying so.
+    # Every C benchmark the tree has must be in each build's merged set. jm
+    # now fails a run whose binary exits non-zero or writes no JSON
+    # (just-makeit#2189), and bench_once stops on that; this is the backstop
+    # for a set short of the tree any other way, which would otherwise
+    # publish short without saying so.
     short = {
         b: missing_components(_merge_best(samples[b]["c"]), BENCH_SRC)
         for b in BUILD_ARGS

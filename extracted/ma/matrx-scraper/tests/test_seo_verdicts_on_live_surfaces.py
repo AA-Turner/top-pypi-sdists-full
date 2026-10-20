@@ -242,7 +242,7 @@ async def test_audit_html_tool_leads_with_the_problems() -> None:
     tally = out["checks"]["tally"]
     assert tally["total"] == len(PAGE_CHECKS)
     assert tally["failed"] + tally["warned"] == len(problems)
-    # Passes are summarised, not dumped as verbose outcome objects.
+    # Passes are summarized, not dumped as verbose outcome objects.
     assert all(isinstance(key, str) for key in out["checks"]["passed_checks"])
     assert len(problems) + len(out["checks"]["passed_checks"]) + len(
         out["checks"]["not_applicable_checks"]

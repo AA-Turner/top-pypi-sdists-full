@@ -7,3 +7,6 @@ from typing import Required, TypedDict
 
 class SecretRefParam(TypedDict, total=False):
   secret_ref: Required[str]
+  """
+  Organization secret name. The containing env_vars key names the runtime variable.
+  """

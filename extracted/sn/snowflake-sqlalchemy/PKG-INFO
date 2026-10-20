@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snowflake-sqlalchemy
-Version: 1.11.1
+Version: 2.0.0
 Summary: Snowflake SQLAlchemy Dialect
 Project-URL: Changelog, https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/DESCRIPTION.md
 Project-URL: Documentation, https://docs.snowflake.com/en/user-guide/sqlalchemy.html
@@ -22,12 +22,10 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -35,14 +33,16 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
-Requires-Dist: snowflake-connector-python<5.0.0
-Requires-Dist: sqlalchemy>=1.4.19
+Requires-Python: >=3.11
+Requires-Dist: snowflake-connector-python>=5.0.0
+Requires-Dist: sqlalchemy<2.1,>=2.0.44
 Provides-Extra: development
 Requires-Dist: alembic; extra == 'development'
+Requires-Dist: mypy<2.0,>=1.0; extra == 'development'
 Requires-Dist: numpy; extra == 'development'
 Requires-Dist: pre-commit; extra == 'development'
 Requires-Dist: pytest; extra == 'development'
+Requires-Dist: pytest-asyncio>=0.24; extra == 'development'
 Requires-Dist: pytest-cov; extra == 'development'
 Requires-Dist: pytest-rerunfailures; extra == 'development'
 Requires-Dist: pytest-timeout; extra == 'development'
@@ -64,7 +64,7 @@ Description-Content-Type: text/markdown
 
 Snowflake SQLAlchemy runs on the top of the Snowflake Connector for Python as a [dialect](http://docs.sqlalchemy.org/en/latest/dialects/) to bridge a Snowflake database and SQLAlchemy applications.
 
-> **v1.11.0 — Sensitive connection parameters:** We curated a set of connector parameters (`host`, `protocol`, `token_file_path`, `private_key_file`, `ocsp_response_cache_filename`, `connection_diag_log_path`, `crl_cache_dir`, `unsafe_file_write`, `unsafe_skip_file_permissions_check`) that can no longer be supplied through the URL query string — pass them via `connect_args` in `create_engine()` instead. If you encounter a possible behavioral change, set `SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS=1` and follow the instructions in [Sensitive connection parameters](#sensitive-connection-parameters).
+> **v1.11.0 — Sensitive connection parameters:** We curated a set of connector parameters (`host`, `protocol`, `token_file_path`, `private_key_file`, `ocsp_response_cache_filename`, `connection_diag_log_path`, `crl_cache_dir`, `unsafe_file_write`, `unsafe_skip_file_permissions_check`) that can no longer be supplied through the URL query string — pass them via `connect_args` in `create_engine()` instead. See [Sensitive connection parameters](#sensitive-connection-parameters). The temporary `SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS` / `legacy_url_params` opt-out that 1.11.x offered was **removed in 2.x** and no longer has any effect.
 
 ---
 
@@ -80,12 +80,14 @@ Table of contents:
     * [Data Analytics and Web Application Frameworks (Optional)](#data-analytics-and-web-application-frameworks-optional)
   * [Installing Snowflake SQLAlchemy](#installing-snowflake-sqlalchemy)
   * [Verifying Your Installation](#verifying-your-installation)
+  * [Async Support](#async-support)
   * [Parameters and Behavior](#parameters-and-behavior)
     * [Connection Parameters](#connection-parameters)
       * [Escaping Special Characters such as `%, @` signs in Passwords](#escaping-special-characters-such-as---signs-in-passwords)
       * [Using a proxy server](#using-a-proxy-server)
       * [Using session parameters](#using-session-parameters)
     * [Opening and Closing Connection](#opening-and-closing-connection)
+    * [Transactions](#transactions)
     * [Auto-increment Behavior](#auto-increment-behavior)
     * [Object Name Case Handling](#object-name-case-handling)
     * [Index Support](#index-support)
@@ -96,8 +98,11 @@ Table of contents:
       * [DECFLOAT Precision](#decfloat-precision)
     * [VECTOR Data Type Support](#vector-data-type-support)
     * [UUID Data Type Support](#uuid-data-type-support)
+      * [UUID and DECFLOAT inside VARIANT and structured types](#uuid-and-decfloat-inside-variant-and-structured-types)
+      * [Native UUID with enable_native_uuid](#native-uuid-with-enable_native_uuid)
     * [Cache Column Metadata](#cache-column-metadata)
     * [Cross-Database Reflection](#cross-database-reflection)
+    * [Reflecting Large Schemas (10,000+ objects)](#reflecting-large-schemas-10000-objects)
     * [VARIANT, ARRAY and OBJECT Support](#variant-array-and-object-support)
     * [Structured Data Types Support](#structured-data-types-support)
       * [MAP](#map)
@@ -142,13 +147,16 @@ pip install --upgrade snowflake-sqlalchemy
 
 `pip` automatically installs all required modules, including the Snowflake Connector for Python.
 
+2.x requires Python 3.11+, SQLAlchemy `>=2.0.44,<2.1` and `snowflake-connector-python>=5.0.0`.
+If you are upgrading from 1.x, see the [1.x → 2.x migration guide](MIGRATING.md).
+
 ## Verifying Your Installation
 
 1. Create a file (e.g. `validate.py`) that contains the following Python sample code,
    which connects to Snowflake and displays the Snowflake version:
 
     ```python
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, text
 
     engine = create_engine(
         'snowflake://{user}:{password}@{account}/'.format(
@@ -159,7 +167,7 @@ pip install --upgrade snowflake-sqlalchemy
     )
     try:
         connection = engine.connect()
-        results = connection.execute('select current_version()').fetchone()
+        results = connection.execute(text('select current_version()')).fetchone()
         print(results[0])
     finally:
         connection.close()
@@ -177,6 +185,123 @@ pip install --upgrade snowflake-sqlalchemy
     ```
 
     The Snowflake version (e.g. `1.48.0`) should be displayed.
+
+## Async Support
+
+Snowflake SQLAlchemy supports SQLAlchemy's [`asyncio` extension](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html),
+letting you use `AsyncEngine` / `AsyncSession` for non-blocking database access.
+
+Async support is part of the standard install:
+
+```shell
+pip install snowflake-sqlalchemy
+```
+
+**Requirements:**
+
+* Python **3.11+** (connector 5.x requires 3.11+; it dropped
+  Python 3.10 support, which pip enforces by refusing to resolve the connector
+  at all on 3.10).
+* `snowflake-connector-python` 5.x (installed as a base dependency).
+* SQLAlchemy 2.0.44+ (< 2.1; see [DESCRIPTION.md](DESCRIPTION.md) for why the ceiling is pinned).
+* [`greenlet`](https://pypi.org/project/greenlet/), which SQLAlchemy's asyncio
+  extension relies on. SQLAlchemy installs it automatically only on some
+  platforms (e.g. `x86_64`, `aarch64`, `amd64`); elsewhere — notably Apple
+  Silicon macOS, which reports `arm64` — install it explicitly. Without it,
+  `create_async_engine()` raises an `ImportError` with the command below. Keep
+  the same SQLAlchemy range so pip does not move you onto 2.1:
+
+  ```shell
+  pip install "sqlalchemy[asyncio]>=2.0.44,<2.1"
+  ```
+
+### Quick Start
+
+Async support uses the **same `snowflake://` URL** as the sync dialect — there is
+no separate `+driver` suffix (unlike, e.g., `postgresql+asyncpg://`). SQLAlchemy
+detects and selects the async dialect automatically when you call
+`create_async_engine()`:
+
+```python
+import asyncio
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+engine = create_async_engine(
+    'snowflake://{user}:{password}@{account}/'.format(
+        user='<your_user_login_name>',
+        password='<your_password>',
+        account='<your_account_name>',
+    )
+)
+
+async def main():
+    async with engine.connect() as connection:
+        results = await connection.execute(text('select current_version()'))
+        print(results.scalar())
+    await engine.dispose()
+
+asyncio.run(main())
+```
+
+If you need a **case-sensitive schema name** (the same edge case the sync
+`create_snowflake_engine()` helper handles), use its async counterpart instead
+of building the URL by hand:
+
+```python
+from snowflake.sqlalchemy import create_snowflake_async_engine
+
+engine = create_snowflake_async_engine(
+    'user:password@account/database',
+    schema='MixedCaseSchema',
+    case_sensitive_schema=True,
+)
+```
+
+### How It Works
+
+* **No new URL scheme.** `create_async_engine()` picks the async dialect via
+  SQLAlchemy's `get_async_dialect_cls()` hook — the connection string is
+  identical to sync.
+* **DBAPI shim over `snowflake.connector.aio`.** Internally, the dialect wraps
+  the connector's native async driver behind a synchronous-looking PEP-249
+  facade, bridging blocking calls onto the running event loop via greenlets
+  (`await_only`). This is the same strategy used by SQLAlchemy's own
+  `aiomysql`/`asyncmy`/`aiosqlite` dialects.
+
+### Usage Notes
+
+These follow directly from SQLAlchemy's own asyncio rules — they are not
+Snowflake-specific, but worth restating here:
+
+* **No lazy loading.** Accessing an unloaded ORM relationship/deferred column
+  outside of an active greenlet context raises an error. Use eager loading
+  (`selectinload()`, `joinedload()`), the `AsyncAttrs` mixin
+  (`await obj.awaitable_attrs.rel`), or wrap sync-style logic in
+  `AsyncSession.run_sync()`.
+* **`expire_on_commit=False`** is commonly set on `async_sessionmaker()` to
+  avoid attribute-expiry-triggered lazy loads after commit.
+* **Dispose engines across event loops.** An `AsyncEngine` (and its pool)
+  should not be reused across unrelated event loops without
+  `await engine.dispose()` first.
+* **`?async_fallback=true`** on the URL switches the pool implementation to
+  `FallbackAsyncAdaptedQueuePool` instead of the default
+  `AsyncAdaptedQueuePool` — only needed for the same edge cases SQLAlchemy
+  documents for other async dialects (a real running event loop isn't always
+  guaranteed at pool-checkout time).
+
+### Known Limitations
+
+* Async test coverage in this repo covers PUT/GET file transfers and basic ORM
+  operations (CRUD, rollback, eager loading, cascades, `VARIANT` round-trips,
+  reflection); other ORM/session behavior is inherited from SQLAlchemy's
+  generic asyncio machinery rather than independently verified here.
+* No async-aware Alembic migration runner — Alembic migrations should
+  continue to use a sync engine/connection.
+
+### Further Reading
+
+* [SQLAlchemy — Asynchronous I/O (asyncio)](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
 
 ## Parameters and Behavior
 
@@ -341,7 +466,8 @@ local files, or relax a connector safety check:
 
 `host`, `protocol`, `token_file_path`, `private_key_file`, `ocsp_response_cache_filename`,
 `connection_diag_log_path`, `crl_cache_dir`, `unsafe_file_write`,
-`unsafe_skip_file_permissions_check`.
+`unsafe_skip_file_permissions_check`, `unsafe_skip_config_file_permissions_check`,
+`crl_unsafe_skip_file_permissions_check`.
 
 Passing any of these in the URL query string raises `sqlalchemy.exc.ArgumentError`. Supply
 them through the `connect_args` parameter of `create_engine` instead, which is fully under
@@ -370,31 +496,57 @@ Similarly, the `URL` helper validates the `account` and `region` values (which b
 of the connection URL authority) and percent-encodes `user`, so URL metacharacters such as
 `?`, `&`, `@`, and `#` cannot introduce additional parameters.
 
-##### Temporary compatibility: `legacy_url_params`
+##### Migration note: `legacy_url_params` removed
 
-If an existing application still relies on the previous behavior, you can re-enable it during
-migration. When enabled, the parameters above are forwarded from the URL query string as
-before and a `DeprecationWarning` is emitted for each one. This shim is temporary and will be
-removed in a future release.
+Earlier releases provided a temporary `legacy_url_params` opt-out (engine kwarg or the
+`SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS` environment variable) that re-enabled forwarding the
+blocked parameters from the URL query string. **This shim has been removed.** Passing
+`legacy_url_params` as a `create_engine()` keyword now raises
+`TypeError: Invalid argument(s) 'legacy_url_params' sent to create_engine()`; as a URL query
+parameter it is not rejected but has no effect, and the environment variable has no effect. Move any affected parameters to `connect_args=` as shown above.
 
-Enable it in either of two ways (an explicit kwarg always wins; the environment variable is a
-global fallback):
+#### Strict host-name mode
+
+Set `SNOWFLAKE_SQLALCHEMY_STRICT_HOST_NAMES=true` (or pass `strict_host_names=True` to `create_engine`) to stop the dialect from inferring or appending any domain to host names. In this mode the dialect forwards connection parameters (host, port, authentication, `connection_name`, ...) to the Snowflake Connector for Python unchanged and does not validate them; connection establishment, including how a missing parameter is handled, is the connector's responsibility. When strict mode is disabled (the default), existing behaviour is unchanged.
+
+All connection parameters supplied through SQLAlchemy:
 
 ```python
-# Per-engine, under application control (recommended over the env variable):
-engine = create_engine(url, legacy_url_params=True)
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    "snowflake://",
+    strict_host_names=True,
+    connect_args={
+        "account": "myaccount",
+        "host": "myaccount.snowflake.example.com",
+        "port": 443,
+        "user": "myuser",
+        "authenticator": "SNOWFLAKE_JWT",
+        "private_key_file": "/path/to/rsa_key.p8",
+        "database": "mydb",
+        "schema": "public",
+        "warehouse": "mywh",
+    },
+)
 ```
 
-```bash
-# Global fallback for the whole process:
-export SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS=1
+A named profile from the connector's `connections.toml`:
+
+```python
+from sqlalchemy import create_engine
+from snowflake.sqlalchemy import URL
+
+engine = create_engine(
+    URL(account=""),
+    strict_host_names=True,
+    connect_args={"connection_name": "my_profile"},
+)
 ```
 
-`legacy_url_params` is accepted only as an engine kwarg or the environment
-variable — it is intentionally **not** read from the URL query string, so a caller who controls
-only the URL cannot use it to relax this handling. Note that the `URL()` helper's `account` /
-`region` validation runs before any engine exists, so only the environment variable relaxes it
-at URL-construction time.
+The dialect passes the profile name to the connector, which reads and applies `connections.toml` itself.
+
+`AzureContainer` accepts an explicit `endpoint` (e.g. `endpoint="blob.storage.example.com"`); in strict mode an `AzureContainer` without one fails at SQL compilation instead of defaulting to `.blob.core.windows.net`.
 
 ### Opening and Closing Connection
 
@@ -426,6 +578,54 @@ finally:
     engine.dispose()
 ```
 
+#### Automatic reconnection on expired sessions
+
+The dialect implements `is_disconnect`, flagging Snowflake session/token-loss errors (for example
+_"Authentication token has expired"_ or _"Session no longer exists"_) as disconnects based on the
+connector's structured error codes. This lets SQLAlchemy's connection pool transparently discard
+the dead connection and open a fresh one, so long-lived engines recover instead of raising. Combine
+it with `pool_pre_ping=True` to validate connections before use:
+
+```python
+from sqlalchemy import create_engine
+from snowflake.sqlalchemy import URL
+
+engine = create_engine(
+    URL(account="myaccount", user="me", password="secret"),
+    pool_pre_ping=True,  # invalidate + reconnect stale/expired connections automatically
+)
+```
+
+> **Note:** only _recoverable_ session/token-loss errors are treated as disconnects. Permanent
+> authentication failures (for example revoked credentials) are **not** flagged as disconnects,
+> because reconnecting cannot recover them — they surface as errors so the underlying problem stays
+> visible.
+
+### Transactions
+
+Connections use the `READ COMMITTED` isolation level with the connector's autocommit
+turned off, so SQLAlchemy's standard transaction APIs work as documented:
+`connection.begin()`, `engine.begin()`, commit-as-you-go (`connection.commit()` /
+`connection.rollback()`), and ORM `Session` transactions. Uncommitted changes are
+not visible to other connections, and a connection returned to the pool without a
+commit is rolled back. Use `execution_options(isolation_level="AUTOCOMMIT")` to
+commit each statement immediately instead.
+
+Two Snowflake [transaction rules](https://docs.snowflake.com/en/sql-reference/transactions)
+differ from many other databases:
+
+* **DDL commits the open transaction.** Each DDL statement (`CREATE`, `ALTER`,
+  `DROP`, …) runs in its own transaction, and any transaction that is already open
+  is committed first. DML issued before the DDL can no longer be rolled back, so
+  keep DDL out of units of work that you may need to roll back.
+* **No savepoints.** `connection.begin_nested()` and `Session.begin_nested()` raise
+  `sqlalchemy.exc.ProgrammingError`, because Snowflake rejects `SAVEPOINT`. The
+  outer transaction stays open and can still be committed or rolled back.
+
+A statement that fails inside a transaction does not end it: the changes made
+before the failure are kept or discarded by your subsequent `commit()` or
+`rollback()`.
+
 ### Auto-increment Behavior
 
 Auto-incrementing a value requires the `Sequence` object. Include the `Sequence` object in the primary key column to automatically increment the value as each new record is inserted. For example:
@@ -436,6 +636,46 @@ t = Table('mytable', metadata,
     Column(...), ...
 )
 ```
+
+`Sequence` is the recommended approach for ORM primary keys because the generated value is
+available to the ORM after insert. See [Identity columns as primary keys](#identity-columns-as-primary-keys)
+in Known Limitations for why `Identity()` does not work as an ORM primary key.
+
+**`AUTOINCREMENT` columns.** The dialect renders a column as `AUTOINCREMENT` when it is the
+table's autoincrement column and has no other server default. This is driven by SQLAlchemy's
+standard `autoincrement=True`:
+
+```python
+t = Table('mytable', metadata,
+    Column('id', Integer, primary_key=True, autoincrement=True),  # rendered as AUTOINCREMENT
+    Column('name', String),
+)
+```
+
+**Sequences and Hybrid tables.** For Hybrid tables (which require a defined primary key), both
+`Sequence`-backed and `AUTOINCREMENT` columns work. Note the difference in how the key is
+produced (`MyModel` below is an ORM-mapped class over such a table):
+
+* With a `Sequence`, SQLAlchemy fetches the next value with a separate `SELECT <seq>.nextval`
+  before the `INSERT` — on both the ORM and Core paths:
+
+  ```python
+  from sqlalchemy import insert
+
+  # ORM — issues SELECT id_seq.nextval, then INSERT
+  session.add(MyModel(name="abc"))
+  session.commit()
+
+  # Core — same two-step behavior
+  connection.execute(insert(MyModel).values(name="abc"))
+  ```
+
+* With `AUTOINCREMENT` (no `Sequence`), Snowflake assigns the value server-side, so a plain
+  insert is a single statement:
+
+  ```python
+  connection.execute(insert(MyModel).values(name="abc"))  # single INSERT; id assigned by Snowflake
+  ```
 
 ### Object Name Case Handling
 
@@ -566,6 +806,27 @@ engine = create_engine(URL(
 
 **Why is `enable_decfloat` not enabled by default?** Enabling it sets `decimal.getcontext().prec = 38`, which modifies Python's thread-local decimal context and affects all `Decimal` operations in that thread, not just database queries. To avoid unexpected side effects on application code, the dialect emits a warning when `DECFLOAT` values are retrieved without full precision enabled, guiding users to opt-in explicitly.
 
+### Returning `float` Instead of `Decimal`
+
+By default, Snowflake `NUMBER` / `DECIMAL` columns are returned as Python
+`decimal.Decimal` values. If you prefer plain `float` results for a column, set
+`asdecimal=False` on its numeric type:
+
+```python
+from sqlalchemy import Column, Integer, MetaData, Table
+from snowflake.sqlalchemy import NUMBER
+
+metadata = MetaData()
+prices = Table(
+    "prices",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("amount", NUMBER(10, 2, asdecimal=False)),  # rows return float, not Decimal
+)
+```
+
+The default remains `asdecimal=True` (Decimal), so existing behavior is unchanged.
+
 ### VECTOR Data Type Support
 
 Snowflake SQLAlchemy supports the `VECTOR` data type with varying element type and dimension.
@@ -618,6 +879,88 @@ Column("id", UUID(as_uuid=True), primary_key=True)
 ```
 
 Note that Alembic autogenerate will render the column as `UUID(as_uuid=True)` in generated migration files, whereas the default (`as_uuid=False`) renders as `UUID()`.
+
+#### UUID and DECFLOAT inside `VARIANT` and structured types
+
+Snowflake can store `UUID` and `DECFLOAT` values directly inside `VARIANT`, `ARRAY`, `OBJECT` and
+`MAP`, so casting to `VARCHAR` first is no longer necessary. Using the explicit
+`sqlalchemy.sql.sqltypes.UUID` type as an element, key or field type works out of the box:
+
+```python
+from sqlalchemy import Column, MetaData, Table, VARCHAR
+from sqlalchemy.sql.sqltypes import UUID
+from snowflake.sqlalchemy import ARRAY, DECFLOAT, MAP, OBJECT
+
+t = Table(
+    "events",
+    MetaData(),
+    Column("ids", ARRAY(UUID())),                      # ARRAY(UUID)
+    Column("by_name", MAP(VARCHAR(), UUID())),         # MAP(VARCHAR, UUID)
+    Column("payload", OBJECT(user_id=UUID(), amt=DECFLOAT())),
+)
+```
+
+When writing a semi-structured (untyped) `VARIANT` / `OBJECT` / `ARRAY` payload,
+`decimal.Decimal` values are serialized as JSON strings so that all 38 `DECFLOAT` digits survive
+the round trip — a JSON number would be rounded through 64-bit binary floating point and lose
+precision.
+
+Reading a `DECFLOAT` back out of a semi-structured payload requires an intermediate cast to
+`VARCHAR`. Because `PARSE_JSON` stores the value as JSON text, Snowflake rejects a direct
+`TEXT` → `DECFLOAT` cast:
+
+```python
+from sqlalchemy import cast, select
+from sqlalchemy import types as sqltypes
+from snowflake.sqlalchemy import DECFLOAT
+
+# payload:amt::VARCHAR::DECFLOAT  — correct, and lossless for all 38 digits
+select(cast(cast(t.c.payload["amt"], sqltypes.VARCHAR), DECFLOAT))
+
+# payload:amt::DECFLOAT  — fails with "Cannot cast value of type TEXT[LOB] ... to DECFLOAT"
+```
+
+Set `enable_decfloat=True` as well, or the connector truncates the result to Python's default
+28-digit decimal context (see [DECFLOAT Precision](#decfloat-precision)).
+
+A `UUID` needs no intermediate cast — `payload:user_id::UUID` works directly:
+
+```python
+from sqlalchemy.sql.sqltypes import UUID
+
+select(cast(t.c.payload["user_id"], UUID))   # payload:user_id::UUID
+```
+
+Columns declared with an explicit inner type (`ARRAY(UUID())`, `OBJECT(amt=DECFLOAT())`) store real
+`UUID` / `DECFLOAT` values rather than JSON text, so a direct cast works for both.
+
+#### Native `UUID` with `enable_native_uuid`
+
+By default, SQLAlchemy's generic `Uuid` type (and the ORM annotation `Mapped[uuid.UUID]`) renders
+as `CHAR(32)` rather than Snowflake's native `UUID`. Set `enable_native_uuid=True` to render it as
+`UUID`, and to allow `uuid.UUID` objects inside semi-structured payloads:
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    "snowflake://testuser1:0123456@abc123/testdb/public?warehouse=testwh&enable_native_uuid=true"
+)
+# or: create_engine(URL(...), enable_native_uuid=True)
+```
+
+| | `enable_native_uuid=False` (default) | `enable_native_uuid=True` |
+|---|---|---|
+| `Column("u", Uuid())` | `CHAR(32)` | `UUID` |
+| `Mapped[uuid.UUID]` | `CHAR(32)` | `UUID` |
+| `ARRAY(Uuid())` | `ARRAY(CHAR(32))` | `ARRAY(UUID)` |
+| `uuid.UUID` in a `VARIANT` payload | `TypeError` | serialized as a JSON string |
+| `Column("u", UUID())` (explicit) | `UUID` | `UUID` |
+
+**Why is `enable_native_uuid` not enabled by default?** Turning it on changes the DDL of existing
+`Uuid` / `Mapped[uuid.UUID]` columns from `CHAR(32)` to `UUID`, so tables created before enabling it
+would no longer match their model definition. The explicit `sqlalchemy.sql.sqltypes.UUID` type
+always renders as native `UUID` and is unaffected by the flag.
 
 ### Timestamp and Timezone Support
 
@@ -687,7 +1030,7 @@ SQLAlchemy 2.x distinguishes bulk reflection from single-table inspection at the
 
 No configuration is needed; the routing is handled automatically by the SA 2.x dispatch layer.
 
-**Note on reflected type representations:** Because `inspector.get_columns()` uses `DESC TABLE`, reflected types always include Snowflake's resolved default sizes (e.g. `BINARY(8388608)` instead of `BINARY`, `VARCHAR(16777216)` instead of `VARCHAR`). The type *objects* are functionally identical; only `str()` output differs. Use `isinstance()` checks rather than string comparison for type introspection.
+**Note on reflected type representations:** Because `inspector.get_columns()` uses `DESC TABLE`, reflected types always include Snowflake's resolved default sizes (e.g. `BINARY(8388608)` instead of `BINARY`, `VARCHAR(16777216)` instead of `VARCHAR`). The type _objects_ are functionally identical; only `str()` output differs. Use `isinstance()` checks rather than string comparison for type introspection.
 
 ```python
 from sqlalchemy import MetaData, inspect, create_engine
@@ -705,22 +1048,7 @@ columns = inspector.get_columns('my_table', schema='public')
 
 **Per-table optimisation**
 
-On **SQLAlchemy 2.x**, `get_pk_constraint`, `get_unique_constraints`, `get_foreign_keys`, `get_indexes`, and `get_columns` automatically use per-table queries (`SHOW … IN TABLE`, `DESC TABLE`) for single-table Inspector calls (e.g. `Inspector.get_pk_constraint()`, `pandas.read_sql_table()`). `MetaData.reflect()` continues to use the schema-wide `get_multi_*` hooks, which issue one query per reflection pass.
-
-On **SQLAlchemy 1.4**, `MetaData.reflect()` calls the singular methods per-table. Add `cache_column_metadata=True` to the connection URL to opt in to per-table queries for `get_pk_constraint`, `get_unique_constraints`, `get_foreign_keys`, `get_indexes`, and `get_columns`. Without this flag, the existing schema-wide queries are used unchanged.
-
-```python
-engine = create_engine(URL(
-    account = 'abc123',
-    user = 'testuser1',
-    password = 'pass',
-    database = 'db',
-    schema = 'public',
-    warehouse = 'testwh',
-    role='myrole',
-    cache_column_metadata=True,  # SA 1.4 only: enables per-table reflection
-))
-```
+`get_pk_constraint`, `get_unique_constraints`, `get_foreign_keys`, `get_indexes`, and `get_columns` automatically use per-table queries (`SHOW … IN TABLE`, `DESC TABLE`) for single-table Inspector calls (e.g. `Inspector.get_pk_constraint()`, `pandas.read_sql_table()`). `MetaData.reflect()` continues to use the schema-wide `get_multi_*` hooks, which issue one query per reflection pass.
 
 **Performance Implications**
 
@@ -734,7 +1062,7 @@ For single-table inspection via `Inspector`, per-table queries (`DESC TABLE`, `S
 **Best Practices**
 
 1. **For bulk reflection**: use `metadata.reflect()` — schema-wide queries are issued once and cached.
-2. **For single-table inspection**: use `inspector.get_columns()` / `inspector.get_pk_constraint()` etc. — per-table queries are used automatically (SA 2.x) or with `cache_column_metadata=True` (SA 1.4).
+2. **For single-table inspection**: use `inspector.get_columns()` / `inspector.get_pk_constraint()` etc. — per-table queries are used automatically.
 3. **For very large schemas**: reflect only the tables you need:
 
 ```python
@@ -799,6 +1127,56 @@ table = Table('mytable', metadata, schema='database_b."my.schema"', autoload_wit
 
 The SQL compilation layer already treats unquoted dots as separators. This cross-database reflection feature makes the reflection layer consistent with that existing behavior.
 
+### Reflecting Large Schemas (10,000+ objects)
+
+Snowflake `SHOW` commands return at most **10,000 rows** per call. Reflection helpers that list objects in a schema issue `SHOW ... IN SCHEMA`, so before this was addressed a schema (or database) with more than 10,000 objects would fail with an error like:
+
+```
+090201 (22000): SHOW ... returned more than the maximum of 10000 results.
+Use LIMIT to reduce the number of results.
+```
+
+Snowflake SQLAlchemy now transparently pages through these object-listing `SHOW` commands using `LIMIT <n> FROM '<last_name>'`, so reflection works regardless of object count. No code change is required on your side:
+
+```python
+from sqlalchemy import create_engine, inspect
+
+engine = create_engine("snowflake://<user>:<password>@<account>/<db>/<schema>")
+inspector = inspect(engine)
+
+# All of these page automatically and no longer fail past 10,000 objects:
+inspector.get_table_names(schema="my_schema")     # SHOW TABLES IN SCHEMA
+inspector.get_view_names(schema="my_schema")      # SHOW VIEWS IN
+inspector.get_sequence_names(schema="my_schema")  # SHOW SEQUENCES IN SCHEMA
+inspector.get_schema_names()                       # SHOW SCHEMAS
+inspector.get_temp_table_names(schema="my_schema")  # SHOW TABLES IN SCHEMA (temp)
+```
+
+`MetaData.reflect()` / `Table(..., autoload_with=engine)` benefit as well, since they call these helpers internally.
+
+#### How paging works
+
+Each command is fetched in pages ordered lexicographically by object name; each page after the first seeks past the previous page's last name:
+
+```sql
+SHOW TABLES IN SCHEMA "MY_DB"."MY_SCHEMA" LIMIT 10000
+SHOW TABLES IN SCHEMA "MY_DB"."MY_SCHEMA" LIMIT 10000 FROM '<last name of previous page>'
+-- ...repeated until a page returns fewer than 10000 rows
+```
+
+The page size defaults to Snowflake's 10,000 maximum. It is exposed as `SnowflakeDialect._SHOW_TABLES_PAGE_SIZE` (clamped to 1–10,000) primarily so tests can exercise the paging loop with a small value; you normally do not need to change it.
+
+#### Known limitations
+
+Only the **object-listing** `SHOW ... IN [SCHEMA]` commands are paged (tables, views, temp tables, schemas, sequences). The **schema-wide constraint/index** commands are _not_ yet paged and can still hit the 10,000-row cap on very large schemas when using the bulk `MetaData.reflect()` path:
+
+* `SHOW PRIMARY KEYS IN SCHEMA`
+* `SHOW UNIQUE KEYS IN SCHEMA`
+* `SHOW IMPORTED KEYS IN SCHEMA`
+* `SHOW INDEXES IN SCHEMA`
+
+These lack a `name` column to page by and generally do not support `LIMIT ... FROM`, so they require a different approach (per-table fallback) tracked separately. Reflecting a **single** table's primary key, unique/foreign keys, or indexes is unaffected — those use the bounded `SHOW ... IN TABLE` form. Single-object lookups such as `get_view_definition()` (`SHOW VIEWS LIKE ...`) are likewise unaffected.
+
 ### VARIANT, ARRAY and OBJECT Support
 
 Snowflake SQLAlchemy supports fetching `VARIANT`, `ARRAY` and `OBJECT` data types. All types are converted into `str` in Python so that you can convert them to native data types using `json.loads`.
@@ -827,11 +1205,178 @@ data_object  = json.loads(row[1])
 data_array   = json.loads(row[2])
 ```
 
+#### Writing Python dicts/lists to VARIANT, OBJECT and ARRAY
+
+Snowflake does **not** accept a bound Python `dict`/`list` for a semi-structured column, and it
+rejects a function expression such as `PARSE_JSON(?)` inside an `INSERT ... VALUES` clause. Binding
+a raw `dict` raises `255001: Binding data in type (dict) is not supported`, and binding a JSON
+string fails with an `expecting VARIANT but got VARCHAR` type mismatch.
+
+The supported pattern is `INSERT ... SELECT` (or `UPDATE`) with `PARSE_JSON` applied to a
+JSON string:
+
+```python
+import json
+from sqlalchemy import select, literal, func
+
+# INSERT ... SELECT PARSE_JSON(?)
+connection.execute(
+    t.insert().from_select(
+        ["id", "va"],
+        select(literal(1), func.parse_json(json.dumps({"a": 1, "b": [2, 3]}))),
+    )
+)
+
+# UPDATE ... SET va = PARSE_JSON(?)
+connection.execute(
+    t.update().where(t.c.id == 1).values(va=func.parse_json(json.dumps({"a": 2})))
+)
+```
+
+Use `func.parse_json(json.dumps(value))` anywhere you would otherwise bind a dict/list to a
+`VARIANT`, `OBJECT`, or `ARRAY` column.
+
+#### Automatic JSON handling with `enable_structured_type_json`
+
+The manual `PARSE_JSON` / `json.loads` steps above are handled automatically by
+`enable_structured_type_json`, which is **enabled by default**. It can be controlled explicitly
+as a `create_engine` argument or a URL parameter:
+
+```python
+from sqlalchemy import create_engine
+from snowflake.sqlalchemy import URL
+
+# Enabled by default — no argument needed:
+engine = create_engine(URL(account="myaccount", user="me", password="secret"))
+# To opt out (deprecated; emits a DeprecationWarning):
+# create_engine(URL(...), enable_structured_type_json=False)
+# or: create_engine("snowflake://...?enable_structured_type_json=false")
+```
+
+When enabled, for **semi-structured (untyped)** `VARIANT`, `OBJECT` and `ARRAY` columns:
+
+* **Writing** a native `dict`/`list` serializes it and wraps it in `PARSE_JSON`. Because Snowflake
+  rejects functions in a `VALUES` clause, inserts are rendered as `INSERT ... SELECT` (multi-row
+  inserts become `SELECT ... UNION ALL SELECT ...`); `UPDATE` renders `SET col = PARSE_JSON(...)`.
+* **Reading** deserializes the JSON text Snowflake returns back into native Python (`dict`/`list`).
+
+```python
+with engine.begin() as conn:
+    conn.execute(t.insert().values(id=1, va={"a": 1, "b": [2, 3]}))          # single row
+    conn.execute(t.insert().values([{"id": 2, "va": {"a": 2}},
+                                    {"id": 3, "va": {"a": 3}}]))             # multi-row (UNION ALL)
+
+with engine.connect() as conn:
+    row = conn.execute(select(t.c.va).where(t.c.id == 1)).one()
+    assert row.va == {"a": 1, "b": [2, 3]}   # dict, not a JSON string
+```
+
+Notes:
+
+* The flag is **on by default**. To restore the previous behaviour (reading raw JSON strings and
+  writing pre-serialized values with the `PARSE_JSON` pattern above), set
+  `enable_structured_type_json=False`; this is deprecated and emits a `DeprecationWarning`.
+* Typed/structured columns (`OBJECT(...)` with fields, `ARRAY(<type>)`, `MAP(...)`) are handled the
+  same way, except the value is also cast to the declared type (`CAST(PARSE_JSON(...) AS MAP(...))`),
+  since Snowflake rejects a plain `VARIANT` for them. See
+  [Structured Data Types Support](#structured-data-types-support).
+* The engine-level `json_serializer` / `json_deserializer` (below) are used when provided.
+* `RETURNING` is not supported for inserts into semi-structured columns while this flag is on.
+* **`executemany` (2+ parameter sets) is not supported** while this flag is on. Passing a list of
+  two or more parameter dicts — `conn.execute(t.insert(), [row1, row2, ...])`, and equivalently ORM
+  bulk flushes that batch multiple new objects in one commit — raises
+  `252001: Failed to rewrite multi-row insert`. The driver tries to fold the rows into a single
+  `VALUES (...)` clause, which the `INSERT ... SELECT PARSE_JSON(...)` rewrite does not have. Use a
+  single-row insert, a single parameter dict (`conn.execute(t.insert(), {...})`), or the multi-row
+  `insert().values([...])` form shown above (rendered as `SELECT ... UNION ALL`).
+* For **large data volumes**, prefer staging + `COPY INTO` (or `write_pandas`) over the `PARSE_JSON`
+  write path. Because `PARSE_JSON` must be inlined into the statement text, both per-row and
+  `UNION ALL` rewrites are bounded by Snowflake's ~1 MB statement-size limit and are inefficient for
+  bulk loads.
+* **`literal_binds` is not supported** for semi-structured writes. Compiling an insert/update of a
+  `dict`/`list` with `compile_kwargs={"literal_binds": True}` raises, because inlining the JSON as a
+  SQL literal is unsafe (Snowflake unescapes backslashes in single-quoted literals _before_
+  `PARSE_JSON` runs, so escaping cannot both preserve the data and prevent literal breakout). Execute
+  with bound parameters (the default) instead; a `None` value still renders as SQL `NULL`.
+
+#### Reading keys and elements with subscript access
+
+`VARIANT`, `OBJECT`, `ARRAY` and `MAP` columns support Python subscript syntax in queries.
+`col["key"]` and `col[index]` compile to Snowflake's native bracket accessor, and access chains
+can be nested:
+
+```python
+from sqlalchemy import select
+
+# SELECT tbl.ob['name'], tbl.ar[0], tbl.mp['k'], tbl.ob['address']['city'] FROM tbl
+select(
+    t.c.ob["name"],
+    t.c.ar[0],
+    t.c.mp["k"],
+    t.c.ob["address"]["city"],
+)
+```
+
+Subscript expressions can also be used in `WHERE`, `ORDER BY`, and other clauses:
+
+```python
+# SELECT tbl.id FROM tbl WHERE tbl.ob['status'] = 'active'
+select(t.c.id).where(t.c.ob["status"] == "active")
+```
+
+The extracted value is itself semi-structured; cast it (for example `t.c.ob["age"].cast(Integer)`)
+when you need a specific SQL type.
+
+A few limitations follow from Snowflake's bracket accessor:
+
+* **Negative indices are not supported.** `col[-1]` compiles as-is, but Snowflake raises a
+  runtime error for negative array indices — use a non-negative index.
+* **A key/index bound as a parameter needs client-side substitution.** With the default
+  `pyformat` paramstyle the driver substitutes the bound value before the statement reaches
+  Snowflake, so `col[some_bindparam]` works. Under a positional `qmark` paramstyle the bracket
+  accessor cannot take a placeholder; pass the key/index as a literal (for example
+  `col["name"]` or `col[0]`) instead of a bound parameter.
+
+#### Customizing JSON serialization (`json_serializer` / `json_deserializer`)
+
+Snowflake SQLAlchemy accepts the standard SQLAlchemy engine-level `json_serializer` and
+`json_deserializer` callables, matching the built-in dialects. Use them to plug in a custom
+JSON encoder/decoder — for example to preserve `Decimal` precision instead of parsing floats:
+
+```python
+import json
+import decimal
+import simplejson
+from sqlalchemy import create_engine
+from snowflake.sqlalchemy import URL
+
+engine = create_engine(
+    URL(account="myaccount", user="me", password="secret"),
+    json_serializer=lambda obj: simplejson.dumps(obj, use_decimal=True),
+    json_deserializer=lambda value: json.loads(value, parse_float=decimal.Decimal),
+)
+```
+
 ### Structured Data Types Support
 
 This module defines custom SQLAlchemy types for Snowflake structured data, specifically for **Iceberg tables**.
 The types —**MAP**, **OBJECT**, and **ARRAY**— allow you to store complex data structures in your SQLAlchemy models.
 For detailed information, refer to the Snowflake [Structured data types](https://docs.snowflake.com/en/sql-reference/data-types-structured) documentation.
+
+With [`enable_structured_type_json`](#automatic-json-handling-with-enable_structured_type_json) (the
+default), these columns accept Python `dict`/`list` values on insert and update, and return
+`dict`/`list` on read:
+
+```python
+conn.execute(t.insert().values(id=1, map_col={"k": 1}, array_col=["a", "b"]))
+# INSERT INTO t (id, map_col, array_col)
+#   SELECT ?, CAST(PARSE_JSON(?) AS MAP(...)), CAST(PARSE_JSON(?) AS ARRAY(...))
+```
+
+The same limitations as the untyped path apply (no `RETURNING`, no `executemany`, no
+`literal_binds`). Read values are decoded from JSON and are not converted to the declared element
+types: for example, `MAP(NUMBER, ...)` keys are returned as strings and `DATE` elements as ISO
+strings.
 
 ---
 
@@ -843,7 +1388,7 @@ The `MAP` type represents a collection of key-value pairs, where each key and va
 * **Value Type**: The type of the values (e.g., `TEXT`, `NUMBER`).
 * **Not Null**: Whether `NULL` values are allowed (default is `False`).
 
-*Example Usage*
+_Example Usage_
 
 ```python
 IcebergTable(
@@ -862,7 +1407,7 @@ The `OBJECT` type represents a semi-structured object with named fields. Each fi
 
 * **Items Types**: A dictionary of field names and their types. The type can optionally include a nullable flag (`True` for not nullable, `False` for nullable, default is `False`).
 
-*Example Usage*
+_Example Usage_
 
 ```python
 IcebergTable(
@@ -886,7 +1431,7 @@ The `ARRAY` type represents an ordered list of values, where each element has th
 * **Value Type**: The type of the elements in the array (e.g., `TEXT`, `NUMBER`).
 * **Not Null**: Whether `NULL` values are allowed (default is `False`).
 
-*Example Usage*
+_Example Usage_
 
 ```python
 IcebergTable(
@@ -913,6 +1458,122 @@ t = Table('myuser', metadata,
 )
 metadata.create_all(engine)
 ```
+
+#### ORM / Declarative usage
+
+For declarative models, use the `SnowflakeTable` construct, which accepts a `cluster_by`
+argument (plain column names and/or `text()` expressions) — see
+[#313](https://github.com/snowflakedb/snowflake-sqlalchemy/issues/313):
+
+```python
+from sqlalchemy import Column, Integer, String, text
+from snowflake.sqlalchemy.sql.custom_schema import SnowflakeTable
+
+my_table = SnowflakeTable(
+    "my_table",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("name", String),
+    cluster_by=["id", text("date_trunc('hour', ts)")],
+)
+```
+
+`CLUSTER BY` is a storage optimization applied at DDL time and does not change query semantics —
+you query a clustered table exactly as any other table. To filter on a clustering expression,
+build it in the `WHERE` clause as usual:
+
+```python
+from datetime import datetime, timedelta
+from sqlalchemy import func, select
+
+stmt = select(my_table).where(
+    func.date_trunc("hour", my_table.c.ts) > datetime.utcnow() - timedelta(hours=1)
+)
+```
+
+### Row Access Policy Support
+
+Snowflake SQLAlchemy can attach an existing [row access policy](https://docs.snowflake.com/en/user-guide/security-row-intro)
+to a table at `CREATE TABLE` time. Use the `SnowflakeTable` construct and pass
+`row_access_policy` as a `(policy_name, [columns])` tuple:
+
+```python
+from sqlalchemy import Column, Integer, MetaData, String
+from snowflake.sqlalchemy.sql.custom_schema import SnowflakeTable
+
+metadata = MetaData()
+
+my_table = SnowflakeTable(
+    "my_table",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("geom", String),
+    Column("name", String),
+    row_access_policy=("my_policy", ["geom", "name"]),
+)
+metadata.create_all(engine)
+# CREATE TABLE my_table (...) WITH ROW ACCESS POLICY my_policy ON (geom, name)
+```
+
+You can also pass an explicit `RowAccessPolicyOption` instead of a tuple:
+
+```python
+from snowflake.sqlalchemy import RowAccessPolicyOption
+
+row_access_policy = RowAccessPolicyOption("my_policy", ["geom", "name"])
+```
+
+The policy name may be fully qualified. A string is parsed as `[[database.]schema.]name`
+(each part is quoted independently, and only when it requires quoting or was already
+quoted), or you can pass a `FQN` explicitly:
+
+```python
+from snowflake.sqlalchemy import FQN
+
+# both render: WITH ROW ACCESS POLICY gov_db.security.my_policy ON (geom, name)
+row_access_policy = ("gov_db.security.my_policy", ["geom", "name"])
+row_access_policy = RowAccessPolicyOption(
+    FQN.from_string("gov_db.security.my_policy"), ["geom", "name"]
+)
+
+# a quoted part is preserved verbatim; unquoted parts stay bare:
+# renders: WITH ROW ACCESS POLICY gov_db."Sec".my_policy ON (geom, name)
+row_access_policy = ('gov_db."Sec".my_policy', ["geom", "name"])
+```
+
+The policy itself must already exist in Snowflake. The option is opt-in and additive —
+tables declared without `row_access_policy` are unaffected.
+
+### RELY Constraint Property
+
+Snowflake does not enforce `PRIMARY KEY`, `UNIQUE`, or `FOREIGN KEY` constraints — they are metadata only. The `RELY` property tells the query optimizer it may **trust** such a constraint for rewrites like join elimination, even though it isn't enforced. Set the opt-in `snowflake_rely=True` dialect keyword on a constraint to emit it:
+
+```python
+from sqlalchemy import (
+    Column, ForeignKeyConstraint, Integer, MetaData,
+    PrimaryKeyConstraint, String, Table, UniqueConstraint,
+)
+
+metadata = MetaData()
+
+dim = Table(
+    "dim", metadata,
+    Column("id", Integer),
+    Column("email", String),
+    PrimaryKeyConstraint("id", snowflake_rely=True),
+    UniqueConstraint("email", snowflake_rely=True),
+)
+# ... PRIMARY KEY (id) RELY ... UNIQUE (email) RELY
+
+fact = Table(
+    "fact", metadata,
+    Column("dim_id", Integer),
+    ForeignKeyConstraint(["dim_id"], ["dim.id"], snowflake_rely=True),
+)
+# ... FOREIGN KEY(dim_id) REFERENCES dim (id) RELY
+```
+
+> **Warning:** `RELY` is an unverified promise. Snowflake trusts it without checking the data. If the data actually violates the constraint (duplicate keys, orphan foreign keys), the optimizer may rewrite queries based on a false assumption and return **incorrect results**. Only set `snowflake_rely=True` when you are certain the data satisfies the constraint. It defaults to off, so existing DDL is unaffected.
 
 ### Alembic Support
 
@@ -969,6 +1630,95 @@ Where `PRIVATE_KEY_PASSPHRASE` is a passphrase to decrypt the private key file, 
 
 Currently a private key parameter is not accepted by the `snowflake.sqlalchemy.URL` method.
 
+### PrivateLink and Account Name Handling
+
+When connecting over [AWS PrivateLink](https://docs.snowflake.com/en/user-guide/admin-security-privatelink),
+the host uses the `.privatelink` notation. Snowflake SQLAlchemy normalizes the account name from
+the host using the Snowflake Connector's own account parsing, so behavior matches the driver for
+all supported notations:
+
+| Host notation | Derived account |
+| --- | --- |
+| `myaccount` | `myaccount` |
+| `myaccount.us-east-1` | `myaccount` |
+| `orgname-account_name.us-east-1` (regional) | `orgname-account_name` |
+| `myaccount.us-east-1.privatelink` | `myaccount` |
+| `orgname-account_name.privatelink` (regionless) | `orgname-account_name` |
+| `myaccount-<external_id>.global` | `myaccount` |
+
+Account names that contain a dash (org-style `orgname-account_name`, for example over regionless
+PrivateLink) are preserved intact, so the account name in a Key Pair / JWT token matches the
+account used to connect. No extra configuration is required.
+
+### SSO Authentication (Okta, Azure AD, etc.)
+
+Snowflake SQLAlchemy supports federated/SSO authentication by forwarding the `authenticator`
+parameter to the Snowflake Connector for Python. No dialect-specific configuration is required.
+
+For native Okta, pass your Okta endpoint URL as the `authenticator`:
+
+```python
+from sqlalchemy import create_engine
+from snowflake.sqlalchemy import URL
+
+engine = create_engine(
+    URL(
+        account="abc123",
+        user="testuser1",
+        database="testdb",
+        schema="public",
+    ),
+    connect_args={"authenticator": "https://your-okta-domain.okta.com"},
+)
+```
+
+For browser-based SSO (any configured identity provider, including Azure AD), use
+`externalbrowser`, which opens your default browser to complete the login:
+
+```python
+engine = create_engine(
+    URL(account="abc123", user="testuser1"),
+    connect_args={"authenticator": "externalbrowser"},
+)
+```
+
+See Snowflake's [federated authentication and SSO documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-overview)
+for identity-provider setup instructions.
+
+### Boolean Column Comparisons (`IS TRUE` / `IS FALSE`)
+
+SQLAlchemy's idiomatic `col.is_(True)` / `col.is_(False)` compile to `IS TRUE` / `IS FALSE`,
+which **Snowflake does not support** (Snowflake only allows `IS [NOT] NULL`). Using them raises a
+syntax error (see [#680](https://github.com/snowflakedb/snowflake-sqlalchemy/issues/680)):
+
+```python
+from sqlalchemy import select
+
+# ❌ Fails — Snowflake has no IS TRUE / IS FALSE:
+select(t).where(t.c.flag.is_(True))
+# snowflake.connector.errors.ProgrammingError: 001003 (42000):
+#   SQL compilation error: syntax error ... unexpected 'IS'.
+```
+
+Use equality against SQLAlchemy's `true()` / `false()` helpers instead:
+
+```python
+from sqlalchemy import true, false, select
+
+select(t).where(t.c.flag == true())     # WHERE flag = TRUE
+select(t).where(t.c.flag == false())    # WHERE flag = FALSE
+```
+
+Note the NULL semantics differ from `IS TRUE`/`IS FALSE`: `flag = TRUE` yields `NULL` for a
+`NULL` row (which filters it out), whereas `flag IS TRUE` would yield `FALSE`. If you need the
+strict `IS TRUE` behavior, add an explicit null check:
+
+```python
+from sqlalchemy import and_, true
+select(t).where(and_(t.c.flag.isnot(None), t.c.flag == true()))
+# WHERE flag IS NOT NULL AND flag = TRUE
+```
+
 ### Merge Command Support
 
 Snowflake SQLAlchemy supports upserting with its `MergeInto` custom expression.
@@ -997,6 +1747,71 @@ merge.when_matched_then_update().values(val=t2.c.newval)
 merge.when_not_matched_then_insert().values(val=t2.c.newval, status=t2.c.newstatus)
 connection.execute(merge)
 ```
+
+#### Using a `VALUES` source (no staging table required)
+
+`MergeInto`'s `source` accepts any SQLAlchemy `Selectable`, so you can merge from an inline
+`VALUES` list (wrapped in a subquery) instead of an existing table:
+
+```python
+from sqlalchemy import values, column, Integer, String, select
+
+src = select(
+    values(
+        column("id", Integer),
+        column("status", String),
+        name="src",
+    ).data([(1, "active"), (2, "inactive")])
+).subquery()
+
+merge = MergeInto(target=t1, source=src, on=t1.c.id == src.c.id)
+merge.when_matched_then_update().values(status=src.c.status)
+merge.when_not_matched_then_insert().values(id=src.c.id, status=src.c.status)
+connection.execute(merge)
+```
+
+### Multi-Table Insert (`INSERT ALL` / `INSERT FIRST`)
+
+Snowflake SQLAlchemy supports Snowflake's multi-table
+[`INSERT ALL` / `INSERT FIRST`](https://docs.snowflake.com/en/sql-reference/sql/insert-multi-table)
+statements through the `InsertMulti` custom command. Build it from a source
+`SELECT` and add one or more targets.
+
+Unconditional insert with `.into(...)`:
+
+```python
+from sqlalchemy import select
+from snowflake.sqlalchemy import InsertMulti
+
+stmt = (
+    InsertMulti(select(source_table))
+    .into(target1, columns=["id", "name", "value"])
+    .into(target2, columns=["id", "name", "value"])
+)
+connection.execute(stmt)
+# INSERT ALL INTO target1 (...) INTO target2 (...) SELECT ... FROM source_table
+```
+
+Each target may map specific source columns/expressions via `values`; when omitted,
+the subquery output columns are used positionally.
+
+Conditional insert with `.when(...)` / `.else_(...)` (use `first=True` for
+`INSERT FIRST`, `overwrite=True` for `INSERT OVERWRITE`):
+
+```python
+stmt = select(src.c.id, src.c.name, src.c.active)
+insert = (
+    InsertMulti(stmt)
+    .when(stmt.selected_columns.active, active_users,
+          values=[stmt.selected_columns.id, stmt.selected_columns.name])
+    .when(~stmt.selected_columns.active, inactive_users,
+          values=[stmt.selected_columns.id, stmt.selected_columns.name])
+    .else_(other_users)
+)
+connection.execute(insert)
+```
+
+`InsertMulti` is a new, additive construct; existing code is unaffected.
 
 ### Bulk Insert Optimization for ORM Models
 
@@ -1082,6 +1897,53 @@ session.commit()
   the base class is required to unify the column-key sets before `SnowflakeSession`
   can batch them together.
 
+### Bulk Array Binding for Large `executemany` Inserts
+
+For large batch inserts (e.g. `Connection.execute(insert(t), [row1, row2, ...])`,
+`session.bulk_insert_mappings()`, or any `cursor.executemany`-backed path), the Snowflake
+Connector for Python can upload the bind values to a temporary internal stage as CSV and run a
+single insert that reads them from the stage, instead of embedding a large inline `VALUES`
+payload. This "bulk array binding" is faster and far more scalable for high row counts.
+
+This optimization is only used when the paramstyle is `qmark` (or `numeric`). The dialect defaults
+to `pyformat` (to match the connector default), so you must switch **both** the SQLAlchemy engine
+and the underlying connector connection to `qmark` — they must agree, or binding will fail:
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    "snowflake://<account>/<db>/<schema>",
+    paramstyle="qmark",                 # SQLAlchemy renders positional "?" placeholders
+    connect_args={
+        "paramstyle": "qmark",          # connector uses qmark -> enables stage array binding
+    },
+)
+```
+
+Optionally tune when the stage upload kicks in with the connector session parameter
+`CLIENT_STAGE_ARRAY_BINDING_THRESHOLD` (total bind size in bytes; `0` disables the optimization):
+
+```python
+engine = create_engine(
+    "snowflake://<account>/<db>/<schema>",
+    paramstyle="qmark",
+    connect_args={
+        "paramstyle": "qmark",
+        "CLIENT_STAGE_ARRAY_BINDING_THRESHOLD": 65536,
+    },
+)
+```
+
+Notes:
+
+* Both `paramstyle` settings must match. Setting only one side causes a placeholder/binding
+  mismatch — the engine `paramstyle` controls how SQLAlchemy renders the SQL, while the
+  `connect_args["paramstyle"]` controls how the connector processes the parameters.
+* `qmark` applies engine-wide: every statement compiled by that engine uses positional binds.
+* Below the threshold (or for smaller batches) the connector sends the binds inline as usual;
+  the staged path is transparent to your code either way.
+
 ### CopyIntoStorage Support
 
 Snowflake SQLAlchemy supports saving tables/query results into different stages, as well as into Azure Containers and
@@ -1119,7 +1981,7 @@ log is enabled (`create_engine(..., echo=True)` or the `sqlalchemy.engine` logge
 at `INFO`/`DEBUG`), the full statement, secrets included, is written to your log
 sink. That logger is independent of the Snowflake connector's secret masking.
 
-- **Preferred:** use a named `STORAGE_INTEGRATION` instead of inline credentials,
+* **Preferred:** use a named `STORAGE_INTEGRATION` instead of inline credentials,
   so no secret ever appears in the SQL:
 
   ```python
@@ -1127,7 +1989,7 @@ sink. That logger is independent of the Snowflake connector's secret masking.
   copy_into.storage_integration('my_s3_integration')
   ```
 
-- **When inline credentials are unavoidable**, attach the redaction filter so the
+* **When inline credentials are unavoidable**, attach the redaction filter so the
   secret values are masked (`***`) in log output. Attach it to the handler that
   actually emits the records (handler filters run on propagated records; logger
   filters do not):
@@ -1144,6 +2006,26 @@ sink. That logger is independent of the Snowflake connector's secret masking.
   `redact_secrets(text)` is also exported for redacting a statement string
   directly. Note that object `repr()` (`AWSBucket`, `AzureContainer`,
   `CopyIntoStorage`, ...) already masks these secrets.
+
+### Creating a named file format
+
+Use `CreateFileFormat` together with a formatter to emit a `CREATE FILE FORMAT` statement.
+It supports `OR REPLACE` (`replace_if_exists=True`), `IF NOT EXISTS` (`if_not_exists=True`,
+which is mutually exclusive with `OR REPLACE`) and an optional `comment`:
+
+```python
+from snowflake.sqlalchemy import CreateFileFormat, CSVFormatter
+
+create_format = CreateFileFormat(
+    format_name="my_db.my_schema.my_csv_format",
+    formatter=CSVFormatter().field_delimiter(","),
+    if_not_exists=True,
+    comment="CSV format for ingestion",
+)
+connection.execute(create_format)
+# CREATE FILE FORMAT IF NOT EXISTS my_db.my_schema.my_csv_format
+#     TYPE='csv' FIELD_DELIMITER = ',' COMMENT = 'CSV format for ingestion'
+```
 
 ### Iceberg Table with Snowflake Catalog support
 
@@ -1255,36 +2137,6 @@ dynamic_test_table_1 = DynamicTable(
 * When using the `as_query` parameter with a string, you must explicitly define the columns. However, if you use the SQLAlchemy `select()` construct, you don’t need to explicitly define the columns.
 * Direct data insertion into Dynamic Tables is not supported.
 
-## Division operators and `force_div_is_floordiv`
-
-The `force_div_is_floordiv` flag is **deprecated** and has **no effect** on the
-generated SQL. It only gates a `PendingDeprecationWarning` reminding you to
-remove it. The `/` and `//` operators always compile to the correct Snowflake
-SQL regardless of the flag value:
-
-| Python expression | Generated SQL | Behaviour |
-| --- | --- | --- |
-| `col1 / col2` | `col1 / col2` | True division (Snowflake's native `/`) |
-| `col1 // col2` | `FLOOR(col1 / col2)` | Floor division |
-
-- `/` always performs true division — Snowflake's `/` already returns a
-  fractional result, so no `CAST` or `FLOOR` is applied.
-- `//` always emits `FLOOR(left / right)` — this is correct even for
-  `Integer`/`Integer` pairs, where SQLAlchemy's base implementation would
-  otherwise skip `FLOOR()` (it assumes the database floors natively, which
-  Snowflake does not).
-
-The flag will be removed in a future major release (2.x). Remove it from your
-`create_engine()` call to silence the deprecation warning:
-
-```python
-# Before (deprecated — emits a warning, no SQL effect)
-create_engine(URL(...), force_div_is_floordiv=True)
-
-# After (recommended)
-create_engine(URL(...))
-```
-
 ## Verifying Package Signatures
 
 To ensure the authenticity and integrity of the Python package, follow the steps below to verify the package signature using `cosign`.
@@ -1311,7 +2163,7 @@ To ensure the authenticity and integrity of the Python package, follow the steps
 
 ## Support
 
-Feel free to file an issue or submit a PR here for general cases. For official support, contact Snowflake support at:
+Feel free to file an issue or submit a PR here for general cases. For contributor guidelines, development setup, and how to run the tests, see [CONTRIBUTING.md](CONTRIBUTING.md). For official support, contact Snowflake support at:
 <https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge>
 
 ## Known Limitations
@@ -1387,6 +2239,56 @@ with Session(engine) as session:
 
 ---
 
+### `PUT` with a file stream (`BytesIO`)
+
+The Snowflake connector's `PUT` command accepts an in-memory `file_stream` keyword, but
+SQLAlchemy's execution API treats every keyword passed to `Connection.execute()` as a bound
+SQL parameter. Passing `file_stream` through SQLAlchemy therefore fails
+(see [#337](https://github.com/snowflakedb/snowflake-sqlalchemy/issues/337)):
+
+```
+snowflake.connector.errors.ProgrammingError: 255001: Binding data in type (bytesio) is not supported.
+```
+
+For example, the intuitive call below does **not** work:
+
+```python
+from io import BytesIO
+from sqlalchemy import text
+
+buf = BytesIO()
+# ❌ Fails — SQLAlchemy binds file_stream as a SQL parameter:
+connection.execute(text("PUT file://example.txt @my_stage"), {"file_stream": buf})
+# snowflake.connector.errors.ProgrammingError: 255001:
+#   Binding data in type (bytesio) is not supported.
+```
+
+**Workaround — use the raw connector cursor** for `PUT`/`GET` file-stream operations. You can
+obtain one from the SQLAlchemy engine without opening a second connection:
+
+```python
+from io import BytesIO
+
+buf = BytesIO()
+df.to_json(buf, orient="records", date_format="iso")
+buf.seek(0)
+
+raw = engine.raw_connection()
+try:
+    cur = raw.cursor()
+    cur.execute(
+        f"PUT file://example.txt @{stage} auto_compress=true",
+        file_stream=buf,
+    )
+finally:
+    raw.close()
+```
+
+Regular SQL (including `COPY INTO`) continues to work through SQLAlchemy as usual; only the
+file-stream keyword of `PUT`/`GET` requires the raw cursor.
+
+---
+
 ### Case-sensitive identifiers
 
 Snowflake stores unquoted identifiers in UPPERCASE and treats them case-insensitively.  SQLAlchemy uses lowercase for case-insensitive identifiers.  The dialect bridges this gap via `normalize_name` / `denormalize_name`, but a few edge cases require explicit opt-in.
@@ -1396,7 +2298,7 @@ Snowflake stores unquoted identifiers in UPPERCASE and treats them case-insensit
 When the dialect reflects a table, each column name passes through `normalize_name`, which produces one of three outcomes depending on how the identifier was stored in Snowflake:
 
 | Snowflake stored form | How it was created | `normalize_name` returns (default) | `normalize_name` returns (`case_sensitive_identifiers=True`) | SQLAlchemy treats it as |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `MYCOL` (all-uppercase) | `CREATE TABLE t (MYCOL INT)` — unquoted | `"mycol"` (plain `str`) | `"mycol"` (plain `str`) | case-insensitive |
 | `mycol` (lowercase) | `CREATE TABLE t ("mycol" INT)` — quoted | `quoted_name("mycol", True)` | `quoted_name("mycol", True)` | case-sensitive |
 | `MyCol` (mixed-case) | `CREATE TABLE t ("MyCol" INT)` — quoted | `"MyCol"` (plain `str`) | `quoted_name("MyCol", True)` | case-sensitive — emitted SQL is `"MyCol"` in both modes (`_requires_quotes` forces quoting for any uppercase character) |
@@ -1591,7 +2493,7 @@ Table("orders", metadata, schema='"my""schema"')   # schema name: my"schema
 
 #### Case-sensitive schema names — engine connection
 
-`create_snowflake_engine` sets the *default schema for the connection* (equivalent to `USE SCHEMA` on connect).  Use it when all queries in the session target the same case-sensitive schema and you do not want to qualify every table individually:
+`create_snowflake_engine` sets the _default schema for the connection_ (equivalent to `USE SCHEMA` on connect).  Use it when all queries in the session target the same case-sensitive schema and you do not want to qualify every table individually:
 
 ```python
 from snowflake.sqlalchemy import create_snowflake_engine

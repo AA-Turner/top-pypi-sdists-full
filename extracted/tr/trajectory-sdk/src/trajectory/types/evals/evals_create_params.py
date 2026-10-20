@@ -9,10 +9,16 @@ from trajectory.types.run_options_param import RunOptionsParam
 
 class EvalsCreateParams(TypedDict, total=False):
   bench_id: str | None
+  """
+  Benchmark ID; use instead of agent_name and benchmark_name.
+  """
   agent_name: str | None
+  """
+  Use with benchmark_name to select its latest benchmark version.
+  """
   benchmark_name: str | None
   """
-  Resolve the latest version and run its benchmark ID.
+  Use with agent_name to select the latest benchmark version.
   """
   bypass_ownership: bool
   """
@@ -20,6 +26,9 @@ class EvalsCreateParams(TypedDict, total=False):
   attribution uses the benchmark owner.
   """
   agent_id: str | None
+  """
+  Optional agent for ownership checks; not a benchmark selector.
+  """
   base_model_slug: (
     Literal[
       "thinkingmachines/Inkling-Small",
@@ -59,7 +68,9 @@ class EvalsCreateParams(TypedDict, total=False):
   """
   parent_checkpoint_id: str | None
   """
-  Checkpoint to resume training from or evaluate; must match the selected base model.
+  Checkpoint to resume training from or evaluate; must match the selected base model. Checkpoint
+  evaluations inherit supported token and turn limits from the source training run unless the
+  evaluation overrides them.
   """
   display_name: str | None
   deployment_id: str | None

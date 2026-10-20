@@ -34,7 +34,6 @@ logger = logging.getLogger(__name__)
 TOOL_INPUT_CONTRACT_DRIFT_KIND = "tool_input_contract_drift"
 TOOL_OUTPUT_CONTRACT_DRIFT_KIND = "tool_output_contract_drift"
 CONTEXT_PATCH_NO_MATCH_KIND = "context_patch_no_match"
-TOOL_ARGUMENT_VALIDATION_FAILED_KIND = "tool_argument_validation_failed"
 TOOL_EXECUTION_FAILED_KIND = "tool_execution_failed"
 TOOL_RESULT_KIND_MISSING_KIND = "tool_result_kind_missing"
 TOOL_RESULT_KIND_UNAVAILABLE_KIND = "tool_result_kind_unavailable"
@@ -42,7 +41,7 @@ TOOL_RESULT_SIZE_UNMANAGED_KIND = "tool_result_size_unmanaged"
 
 # These tools validate a caller-selected process deadline themselves. The
 # executor's registry default is a dispatch fallback, not a second shorter
-# process limit: otherwise a valid 121–300s shell request is cancelled before
+# process limit: otherwise a valid 121–300s shell request is canceled before
 # its own implementation can enforce the declared deadline.
 _CALLER_BOUNDED_PROCESS_TOOLS = frozenset({"shell_execute", "shell_python"})
 
@@ -106,11 +105,20 @@ def _dispatch_timeout_seconds(
     return max(configured_timeout, float(requested_timeout))
 
 
+def _timeout_safe_to_repeat(tool_def: Any) -> bool:
+    from matrx_ai.tools.mcp_resilience import safe_to_repeat
+
+    if getattr(tool_def, "tool_type", None) == ToolType.EXTERNAL_MCP:
+        return safe_to_repeat(tool_def)
+    return not getattr(tool_def, "annotations", None) or safe_to_repeat(tool_def)
+
+
 def timeout_tool_error(
     *,
     tool_name: str,
     dispatch_timeout: float,
     user_message: str,
+    safe_to_repeat: bool = True,
 ) -> ToolError:
     """THE HONEST TIMEOUT (2026-09-12).
 
@@ -118,7 +126,7 @@ def timeout_tool_error(
     with no word of what it had been doing, so neither the agent nor the Expert
     could tell whether the agent it was building now half-existed — and the
     generic "try with different parameters" that rode with it reads as a refusal
-    of the request. So the envelope names the work, says the call was cancelled
+    of the request. So the envelope names the work, says the call was canceled
     and nothing unfinished was written, and names the ceiling as the knob an
     admin can raise. A function, not an inline literal, so a test can drive the
     real envelope instead of reading the executor's source.
@@ -127,13 +135,15 @@ def timeout_tool_error(
         error_type="timeout",
         message=(
             f"Tool '{tool_name}' timed out after {dispatch_timeout:.0f}s "
-            f"while: {user_message}. The call was cancelled and its work "
+            f"while: {user_message}. The call was canceled and its work "
             "abandoned — nothing it had not already finished was written."
         ),
-        is_retryable=True,
+        is_retryable=safe_to_repeat,
         suggested_action=(
-            "Retry the same call (it is safe to repeat), or break the work into "
-            "smaller steps. If this tool legitimately needs longer, the ceiling is "
+            ("Retry the same call (it is safe to repeat), or break the work into " if safe_to_repeat else
+             "Do NOT simply repeat it: it may already have been done on the other side. Check whether it was, "
+             "then repeat only what is missing, or break the work into ")
+            + "smaller steps. If this tool legitimately needs longer, the ceiling is "
             "the platform.feature_knob 'agents.tool_dispatch' "
             "(default_timeout_seconds / per_tool_timeout_seconds) an admin can "
             "raise — it is not a refusal of the request."
@@ -186,36 +196,32 @@ async def _capture_context_patch_no_match(*, ctx: ToolContext) -> None:
     )
 
 
-async def _capture_tool_argument_validation_failed(
+def _note_tool_argument_refusal(
     *,
     ctx: ToolContext,
     tool_name: str,
     validation_error: ValidationError,
 ) -> None:
-    """Capture a rejected tool call without retaining model-supplied arguments."""
-    from matrx_connect.streaming.error_capture import capture_error
+    """A refused tool call is the MODEL's mistake, never a platform error.
 
+    The refusal goes back to the model as a normal tool result it corrects on its
+    next step (PB-08, 2026-10-19: the lead left out ``agent_id``, was refused, and
+    called again correctly 1 s later — and the same refusal was ALSO filed as a
+    system_error, paging operations for a mistake the loop had already handled).
+    So: one WARNING line naming the tool and the pydantic error CODES, never what
+    the model sent, and nothing on the errors surface. A server fault behind a
+    tool still files ``tool_execution_failed`` from the dispatch path.
+    Guard: tools/tests/test_a_model_correctable_refusal_is_never_a_platform_error.py.
+    """
     allowed_codes = frozenset(get_args(ErrorType))
     errors = validation_error.errors(include_url=False, include_context=False, include_input=False)
     codes = sorted(
         {e["type"] if e["type"] in allowed_codes else "custom_validation" for e in errors}
     )
-    exc = RuntimeError(f"Tool arguments failed declared validation: {tool_name}")
-    await capture_error(
-        exc,
-        kind=TOOL_ARGUMENT_VALIDATION_FAILED_KIND,
-        request_id=ctx.request_id or None,
-        user_id=ctx.user_id or None,
-        conversation_id=ctx.conversation_id or None,
-        route="tool_executor.argument_validation",
-        error_type="ToolArgumentValidationError",
-        context={
-            "tool_name": tool_name,
-            "call_id": ctx.call_id,
-            "validation_error_count": validation_error.error_count(),
-            "validation_error_codes": codes[:20],
-            "validation_error_codes_truncated": len(codes) > 20,
-        },
+    vcprint(
+        f"[ToolExecutor] {tool_name} call refused for its arguments (the model corrects it): "
+        f"{validation_error.error_count()} error(s), codes {codes[:20]}, call {ctx.call_id}",
+        color="yellow",
     )
 
 
@@ -413,7 +419,7 @@ async def _await_must_complete(
         vcprint(
             f"[ToolExecutor] Tool '{tool_name}' crossed its {timeout_seconds:.0f}s "
             "soft timeout, but must_complete=True — waiting for the real result. "
-            "The execution was NOT cancelled and MUST NOT be retried.",
+            "The execution was NOT canceled and MUST NOT be retried.",
             color="yellow",
         )
         detached_task(
@@ -572,7 +578,7 @@ MODEL_NOTICE_STEP = "model_notice"
 def _chosen_variant_schema(tool_def: ToolDefinition, args: dict[str, Any]) -> dict[str, Any] | None:
     """The provider-dialect JSON Schema of the action ``args`` chose, or ``None``.
 
-    ``None`` when the tool has no ``$variants``, no recognisable discriminator,
+    ``None`` when the tool has no ``$variants``, no recognizable discriminator,
     or the call names no known action (the flattened check already refused an
     unknown action through the discriminator's enum).
     """
@@ -798,7 +804,7 @@ class ToolExecutor:
         error_type='invalid_arguments' (fault_domain model_error), recorded to
         both trace sinks with the full args (forensics: 'what did the model
         actually send?') and streamed to the client."""
-        await _capture_tool_argument_validation_failed(
+        _note_tool_argument_refusal(
             ctx=ctx,
             tool_name=canonical_name,
             validation_error=validation_error,
@@ -967,29 +973,50 @@ class ToolExecutor:
         # Reject any tool the model was not explicitly given in this request.
         # This prevents the model from invoking arbitrary registered tools by
         # guessing their names (accidental or adversarial).
+        from matrx_ai.tools.declaration_ledger import retained_reason
+
         if (
             allowed_tools is not None
             and tool_name not in allowed_tools
             and as_called not in allowed_tools
+        ) or (
+            # No allowlist this request (no registered tools left): a tool the
+            # conversation still declares but withdrew must not run either.
+            allowed_tools is None and retained_reason(tool_name, as_called) is not None
         ):
             vcprint(
                 {
                     "tool_name": tool_name,
                     "call_id": ctx.call_id,
-                    "allowed_tools": sorted(allowed_tools),
+                    "allowed_tools": sorted(allowed_tools or ()),
                 },
                 f"[ToolExecutor] Tool '{tool_name}' was not in the allowed set for this request",
                 color="yellow",
             )
+            # A tool this conversation still DECLARES (the provider tools array
+            # never shrinks mid-conversation, declaration_ledger.py) but no
+            # longer offers is refused by name, with why, never as "not provided".
+            _withdrawn = retained_reason(tool_name, as_called)
+            if _withdrawn is not None:
+                _err_type = "tool_unavailable"
+                _message = (
+                    f"Tool '{tool_name}' cannot be used: {_withdrawn}. It is still listed "
+                    "so the conversation's prompt cache survives, but calling it does nothing."
+                )
+                _action = "Continue with your other tools, and tell the user if the job needs this one."
+            else:
+                _err_type = "not_allowed"
+                _message = (
+                    f"Tool '{tool_name}' was not provided to the model for this request "
+                    "and cannot be executed."
+                )
+                _action = "Only call tools that were listed in your available tools."
             result = ToolResult(
                 success=False,
                 error=ToolError(
-                    error_type="not_allowed",
-                    message=(
-                        f"Tool '{tool_name}' was not provided to the model for this request "
-                        "and cannot be executed."
-                    ),
-                    suggested_action="Only call tools that were listed in your available tools.",
+                    error_type=_err_type,
+                    message=_message,
+                    suggested_action=_action,
                 ),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -1006,8 +1033,9 @@ class ToolExecutor:
             )
             stream = ToolStreamManager(ctx.emitter, ctx.call_id, tool_name)
             await stream.error(
-                f"Tool '{tool_name}' is not in the allowed set for this request.",
-                error_type="not_allowed",
+                _message if _withdrawn is not None
+                else f"Tool '{tool_name}' is not in the allowed set for this request.",
+                error_type=_err_type,
             )
             return result.to_tool_result_content(), result
 
@@ -1814,6 +1842,10 @@ class ToolExecutor:
             is_delegated=is_delegated,
         )
         cancellation_after_completion: asyncio.CancelledError | None = None
+        # the connection layer counts its budget from HERE (the dispatch), so its own words always beat this ceiling
+        from matrx_ai.tools.mcp_resilience import DISPATCH_ENDS_AT
+
+        _ends_token = DISPATCH_ENDS_AT.set(time.monotonic() + dispatch_timeout)
         try:
             dispatch = self._dispatch(
                 tool_def,
@@ -1859,7 +1891,7 @@ class ToolExecutor:
                             reason="client_disconnected",
                             error_message=(
                                 f"Tool '{tool_name}' was abandoned — the request "
-                                "was cancelled (client disconnected) before the "
+                                "was canceled (client disconnected) before the "
                                 "tool finished."
                             ),
                             execution_events=stream.get_events_for_persistence(),
@@ -1879,6 +1911,10 @@ class ToolExecutor:
                     tool_name=tool_name,
                     dispatch_timeout=dispatch_timeout,
                     user_message=user_message,
+                    # honest about a repeat: a tool that declares its hints is safe to repeat only when it says so
+                    # a connected (MCP) tool is safe to repeat only when it SAYS so — most declare nothing, and a
+                    # write that may already have happened must never be invited twice (re-review R-C1b)
+                    safe_to_repeat=_timeout_safe_to_repeat(tool_def),
                 ),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -1900,6 +1936,8 @@ class ToolExecutor:
                 tool_name=tool_name,
                 call_id=ctx.call_id,
             )
+        finally:
+            DISPATCH_ENDS_AT.reset(_ends_token)
 
         result.compute_duration()
 
@@ -2276,6 +2314,14 @@ class ToolExecutor:
                     SURFACE_WRITE_STEP,
                     "Recorded the change",
                     data=result.surface_write.model_dump(),
+                )
+            if result.site_icons:
+                from matrx_ai.tools.site_icons import SITE_ICONS_STEP
+
+                await stream.step(
+                    SITE_ICONS_STEP,
+                    "Site icons",
+                    data={"icons": result.site_icons},
                 )
             await stream.completed("Done", result=result)
         else:
@@ -2678,7 +2724,7 @@ class ToolExecutor:
             return bool(task and task.cancelling())
 
         # Every call's outcome lands in its own slot, exactly as the previous
-        # gather(return_exceptions=True) recorded it — a call cancelled on its
+        # gather(return_exceptions=True) recorded it — a call canceled on its
         # own (not the batch) is that call's result, never a sibling's loss.
         async def _run_chain(indices: list[int]) -> None:
             for idx in indices:
@@ -3254,13 +3300,15 @@ class ToolExecutor:
                             updates["mcp_server_url"] = endpoint
                         tool_def = tool_def.model_copy(update=updates)
 
-        client = ExternalMCPClient(
-            timeout=(
-                float(tool_def.timeout_seconds)
-                if tool_def.timeout_seconds is not None
-                else dispatch_timeout_ceiling(tool_def.name)
-            )
+        ceiling = (
+            float(tool_def.timeout_seconds)
+            if tool_def.timeout_seconds is not None
+            else dispatch_timeout_ceiling(tool_def.name)
         )
+        # Every attempt and every wait between them fits inside the dispatch ceiling, so the connection's own words
+        # ("the provider did not answer … nothing failed on ours") reach the agent — never the ceiling's generic
+        # timeout first (adversarial review 2026-10-18: both were 120s, so a hung provider never got its retry).
+        client = ExternalMCPClient(timeout=ceiling, budget_seconds=ceiling)
         return await client.call_tool(tool_def, args, ctx)
 
     async def _execute_agent(

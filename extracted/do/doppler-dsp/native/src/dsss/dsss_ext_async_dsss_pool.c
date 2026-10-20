@@ -17,6 +17,8 @@ typedef struct
 {
   PyObject_HEAD dp_async_dsss_pool_state_t *handle;
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
+  PyObject     *_jm_retain_set_event_log_log; /* keeps log's owner alive */
+  PyObject     *_jm_retain_set_telemetry_tlm; /* keeps tlm's owner alive */
 } AsyncDsssPoolObject;
 
 static void
@@ -25,6 +27,8 @@ AsyncDsssPoolObj_dealloc (AsyncDsssPoolObject *self)
   if (self->handle)
     dp_async_dsss_pool_destroy (self->handle);
   jm_inflight_free (&self->_jm_inflight);
+  Py_XDECREF (self->_jm_retain_set_event_log_log);
+  Py_XDECREF (self->_jm_retain_set_telemetry_tlm);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -344,7 +348,8 @@ static PyStructSequence_Field AsyncDsssPoolObj_status_fields[] = {
   { "seed_cn0_dbhz", "The seed's C/N0 estimate, dB-Hz." },
   { "doppler_hz", "Where the emitter is now, Hz." },
   { "chip_phase", "Live Dll code phase, chips." },
-  { "code_rate", "Live Dll code rate, chips per sample." },
+  { "code_rate", "The Dll's code rate, chips per nominal chip (~1.0), without "
+                 "the aid; a coasting Dll's is its held rate." },
   { "cn0_dbhz_est", "C/N0 estimate, dB-Hz." },
   { "code_locked", "Presence flag." },
   { "locked", "Health flag (symbol lock)." },
@@ -631,6 +636,71 @@ AsyncDsssPoolObj_set_event_log (AsyncDsssPoolObject *self, PyObject *args,
                     (long long)_rc);
       return NULL;
     }
+  /* retain: the kernel keeps `log`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (log_obj != Py_None)
+    Py_INCREF (log_obj);
+  Py_XSETREF (self->_jm_retain_set_event_log_log,
+              log_obj != Py_None ? log_obj : NULL);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+AsyncDsssPoolObj_set_telemetry (AsyncDsssPoolObject *self, PyObject *args,
+                                PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "tlm", "prefix", "decim", NULL };
+  PyObject    *tlm_obj   = Py_None;
+  const char  *prefix    = NULL;
+  long long    decim_raw = 1;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Os|L", _kwlist, &tlm_obj,
+                                    &prefix, &decim_raw))
+    return NULL;
+  dp_tlm_t *tlm = NULL;
+  if (tlm_obj != Py_None)
+    {
+      PyObject *tlm_cap = tlm_obj;
+      Py_INCREF (tlm_cap);
+      if (!PyCapsule_CheckExact (tlm_cap))
+        {
+          Py_DECREF (tlm_cap);
+          tlm_cap = PyObject_GetAttrString (tlm_obj, "_capsule");
+          if (!tlm_cap)
+            return NULL;
+        }
+      tlm = (dp_tlm_t *)PyCapsule_GetPointer (tlm_cap,
+                                              "doppler.telemetry.dp_tlm");
+      Py_DECREF (tlm_cap);
+      if (!tlm)
+        return NULL;
+    }
+  if (decim_raw < 0 || decim_raw > (long long)UINT32_MAX)
+    {
+      PyErr_Format (PyExc_OverflowError,
+                    "decim: %lld is out of range for uint32_t [%lld, %lld]",
+                    (long long)decim_raw, (long long)0, (long long)UINT32_MAX);
+      return NULL;
+    }
+  uint32_t decim = (uint32_t)decim_raw;
+  int      _rc
+      = dp_async_dsss_pool_set_telemetry (self->handle, tlm, prefix, decim);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)", "set_telemetry failed",
+                    (long long)_rc);
+      return NULL;
+    }
+  /* retain: the kernel keeps `tlm`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (tlm_obj != Py_None)
+    Py_INCREF (tlm_obj);
+  Py_XSETREF (self->_jm_retain_set_telemetry_tlm,
+              tlm_obj != Py_None ? tlm_obj : NULL);
   Py_RETURN_NONE;
 }
 
@@ -776,16 +846,16 @@ AsyncDsssPool_getprop_coherent_bins (AsyncDsssPoolObject *self,
 
 static PyGetSetDef AsyncDsssPool_getset[] = {
   { "n_slots", (getter)AsyncDsssPool_getprop_n_slots, NULL,
-    "Receivers the pool holds; it never exceeds this.\n", NULL },
+    "Receivers held; never exceeded.\n", NULL },
   { "n_assigned", (getter)AsyncDsssPool_getprop_n_assigned, NULL,
     "Slots assigned right now.\n", NULL },
   { "dropped", (getter)AsyncDsssPool_getprop_dropped, NULL,
     "Detections dropped for want of a free slot since create or reset.\n",
     NULL },
   { "events", (getter)AsyncDsssPool_getprop_events, NULL,
-    "Transitions since create or reset, logged or not.\n", NULL },
+    "Transitions since create/reset, logged or not.\n", NULL },
   { "samples_consumed", (getter)AsyncDsssPool_getprop_samples_consumed, NULL,
-    "Input samples pushed since create or reset -- the stream position every "
+    "Input samples pushed since create or reset: the stream position every "
     "event is stamped at.\n",
     NULL },
   { "doppler_res_hz", (getter)AsyncDsssPool_getprop_doppler_res_hz, NULL,
@@ -794,7 +864,7 @@ static PyGetSetDef AsyncDsssPool_getset[] = {
     NULL },
   { "coherent_bins", (getter)AsyncDsssPool_getprop_coherent_bins, NULL,
     "The searcher's block-coherent depth D, from code_only_epochs and "
-    "doppler_rate (section 2.3).\n",
+    "doppler_rate (docs/design/async-dsss-receiver.md §2.3).\n",
     NULL },
   { NULL, NULL, NULL, NULL, NULL }
 };
@@ -874,32 +944,26 @@ static PyMethodDef AsyncDsssPoolObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "push(x) -> int\n"
     "\n"
-    "One block of raw cf32 samples through the population (design section "
-    "8.2), in order: the searcher; the table refreshed from every live "
-    "receiver's status(); every peak within one chip of a live row's code "
-    "phase, at any Doppler, dropped as that emitter's own (the zone is the "
-    "code axis alone: a tracked emitter's data blocks put smeared copies of "
-    "it at its own phase rows away, section 12.14); each survivor seeded into "
-    "a free slot, or counted dropped when there is none (a hit outside the "
-    "seed domain is logged refused, not dropped); every receiver fed (an idle "
-    "or lost one consumes and discards, so the feed has no per-state branch), "
-    "across the threads the pool was given; then every receiver that reports "
-    "lost, or has held its slot past max_emitter_on_time_secs, released -- "
-    "the row cleared, the receiver reset to idle. Every transition -- seeded, "
-    "tracking, degrade, lost, released, dropped, refused -- goes to the "
-    "attached event log at the sample it happened. Accepts any block size; a "
-    "searcher dwell is decided when its samples arrive. Returns the receivers "
-    "assigned after this push.\n"
+    "One block of raw cf32 samples through the population.\n"
     "\n"
-    "In order: the searcher; the table refreshed; every peak within one chip\n"
-    "of a live row's code phase, at any Doppler, dropped as that emitter's\n"
-    "own; each survivor seeded into a free slot or counted dropped; every\n"
-    "receiver fed, across the pool's threads; every receiver that reports\n"
-    "lost, or has held its slot past the maximum on-air time, released.\n"
-    "Every transition goes to the attached log at the sample it happened.\n"
+    "In order: the table refreshed from every live receiver's status(); the\n"
+    "searcher, whose every peak within one chip of a live row's code phase,\n"
+    "at any Doppler, is discarded silently as that emitter's own (the zone\n"
+    "is the code axis alone: a tracked emitter's data blocks put smeared\n"
+    "copies of it at its own phase rows away,\n"
+    "docs/design/async-dsss-receiver-measurements.md §12.14), and each\n"
+    "survivor seeded into a free slot or counted dropped when there is none\n"
+    "(a hit outside the seed domain is logged refused, not dropped); every\n"
+    "receiver fed, across the pool's threads (an idle or lost one consumes\n"
+    "and discards); then every receiver that reports lost, or has held its\n"
+    "slot past `max_emitter_on_time_secs`, released -- the row cleared, the\n"
+    "receiver reset to idle. Every transition goes to the attached log (the\n"
+    "seven labels are set_event_log()'s): a seed, a drop and a refusal at\n"
+    "the hit's sample, a receiver's transitions at the end of this push.\n"
     "Accepts any block size: a hit decided inside the block is referred to\n"
     "the block's start before it seeds (the receiver is fed the whole\n"
-    "block), on the dilated clock when the carrier is known.\n"
+    "block), on the dilated clock when the carrier is known; a dwell is\n"
+    "decided when its samples arrive.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -930,12 +994,9 @@ static PyMethodDef AsyncDsssPoolObj_methods[] = {
     "code_rate, cn0_dbhz_est, code_locked, locked, lock_metric, "
     "state_samples, both_down_samples, assigned_samples)\n"
     "\n"
-    "One slot's picture, by value: whether it is assigned, the seed it was "
-    "assigned from (sample, chip phase, Doppler, C/N0 -- the searcher's "
-    "hand-off record, verbatim), the receiver's own status record (state, the "
-    "live Doppler, chip phase, code rate and C/N0, both lock flags, the "
-    "symbol-lock metric, the two clocks), and the samples since the "
-    "assignment. Raises ValueError for a slot outside [0, n_slots).\n"
+    "One slot's picture, by value: whether it is assigned, the seed it\n"
+    "was assigned from (sample, chip phase, Doppler, C/N0), the receiver's\n"
+    "own status record, and the samples since the assignment.\n"
     "\n"
     "Allocation-free: the row plus the receiver's own status record. A slot\n"
     "outside `[0, n_slots)` returns a zero record with `state` -1.\n"
@@ -967,15 +1028,11 @@ static PyMethodDef AsyncDsssPoolObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "symbols(slot, out) -> ndarray\n"
     "\n"
-    "The symbols slot `slot`'s receiver decided on the last push(), borrowed "
-    "from the pool's own buffer (grown on demand to the largest block pushed "
-    "so far, and never shrunk): empty while the slot is idle, refining or "
-    "lost. Valid until the next push(), reset() or set_state(). Raises "
-    "ValueError for a slot outside [0, n_slots).\n"
+    "The symbols the receiver in slot decided on the last push().\n"
     "\n"
     "Copied from the pool's own buffer, which the next push() overwrites.\n"
-    "Empty while the slot is idle, refining or lost, and for a slot outside\n"
-    "`[0, n_slots)`.\n"
+    "Empty while the slot is idle or lost, and for a slot outside `[0,\n"
+    "n_slots)`; a cell receiver's pull-in (refining) emits.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1015,20 +1072,18 @@ static PyMethodDef AsyncDsssPoolObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "set_event_log(log) -> None\n"
     "\n"
-    "Attach the run's event log (design section 8.1): from now on every "
-    "transition -- seeded, tracking, degrade, lost, released, dropped, "
-    "refused -- is appended at the sample it happened, with the slot, the "
-    "receiver's state, the Doppler, the chip phase and the C/N0 staged as "
-    "doppler:<name> fields beside the label (core:label). The pool is the one "
-    "component that stamps; the log is borrowed, never owned. None detaches.\n"
+    "Attach the run's event log (docs/design/async-dsss-receiver.md\n"
+    "§8.1); NULL (None) detaches.\n"
     "\n"
     "Borrowed, never owned: the holder opens, finalizes and closes it. From\n"
-    "now on every transition is appended at the sample it happened, with\n"
-    "`slot`, `state`, `doppler_hz`, `chip_phase` and `cn0_dbhz` staged as\n"
-    "`doppler:<name>` fields beside the label (`core:label`) and, on\n"
-    "`released`, `reason` (`lost` or `on_time`). A log that has already\n"
-    "failed keeps failing (its error is sticky); the pool counts the\n"
-    "transition either way.\n"
+    "now on every transition is appended, labelled `seeded`, `tracking`,\n"
+    "`degrade`, `lost`, `released`, `dropped` or `refused` -- a seed, a drop\n"
+    "and a refusal at the hit's sample, a receiver's transitions at the end\n"
+    "of the push that saw them -- with `slot`, `state`, `doppler_hz`,\n"
+    "`chip_phase` and `cn0_dbhz` staged as `doppler:<name>` fields beside\n"
+    "the label (`core:label`) and, on `released`, `reason` (`lost` or\n"
+    "`on_time`). A log that has already failed keeps failing (its error is\n"
+    "sticky); the pool counts the transition either way.\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1057,6 +1112,73 @@ static PyMethodDef AsyncDsssPoolObj_methods[] = {
     ">>> _ = pool.push(np.zeros(2046, np.complex64))\n"
     ">>> pool.set_event_log(None)              # detached\n"
     ">>> log.close()\n" },
+  { "set_telemetry", (PyCFunction)(void *)AsyncDsssPoolObj_set_telemetry,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_telemetry(tlm, prefix, decim) -> None\n"
+    "\n"
+    "Attach (or detach) a telemetry context across the pool: the\n"
+    "searcher, every slot's receiver, and the pool's own counters.\n"
+    "\n"
+    "Registers, under prefix:\n"
+    "\n"
+    "- \"<prefix>.acq\" -- the searcher (dp_acq_set_telemetry(): its test\n"
+    "  statistic, gate, CFAR reference, strongest cell and its coordinates,\n"
+    "  picks and held twins, concentration and hit flag), once per decided\n"
+    "  dwell;\n"
+    "- \"<prefix>.s<i>\" -- slot i's receiver, every loop it holds\n"
+    "  (dp_async_dsss_receiver_set_telemetry()), at each loop's own rate,\n"
+    "  and continuous across the seeds and releases that reuse the slot;\n"
+    "- \"<prefix>.assigned\", \"<prefix>.dropped\", \"<prefix>.events\" -- "
+    "the\n"
+    "  pool's `n_assigned` and its running `dropped` and `events` counts,\n"
+    "  once per push(), after its releases.\n"
+    "\n"
+    "The probes come to 13 plus each slot's (a cell receiver's: its loops,\n"
+    "its symbol-lock pair and its lifecycle probes, 30 in all), so a large\n"
+    "pool needs a context with room: an attach that cannot register every\n"
+    "probe fails whole. One context's DP_TLM_MAX_PROBES (512) holds up to 16\n"
+    "slots, 13 + 16 * 30 = 493.\n"
+    "\n"
+    "A context is single-producer (dp_tlm/dp_tlm_core.h), and a pool created\n"
+    "with `threads != 1` (more than one, or `<= 0` for the core count) may\n"
+    "step its receivers on several, so it is refused: observe a pool on one\n"
+    "thread.\n"
+    "\n"
+    "Setup path, never hot; the context is borrowed and must outlive the\n"
+    "attachment. Passing NULL detaches everything.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "tlm : object | None\n"
+    "    Telemetry context to attach, or NULL to detach.\n"
+    "prefix : str\n"
+    "    Probe-name prefix; NULL means \"pool\".\n"
+    "decim : int\n"
+    "    Emit every decim-th event on each probe; >= 1.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a non-zero status. The exception message is\n"
+    "    ``set_telemetry failed``, with the return code appended (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.dsss import AsyncDsssPool\n"
+    ">>> from doppler.telemetry import Telemetry\n"
+    ">>> from doppler.wfm import Gold\n"
+    ">>> code = np.asarray(Gold().generate(1023)).astype(np.uint8)\n"
+    ">>> pool = AsyncDsssPool(code, chip_rate=5e6, symbol_rate=2700.0,\n"
+    "...                      spc=2, cn0_dbhz=45.0, n_slots=2)\n"
+    ">>> tlm = Telemetry(1 << 16)\n"
+    ">>> pool.set_telemetry(tlm, \"pool\")\n"
+    ">>> sorted(p for p in tlm.probe_names if p.count(\".\") == 1)\n"
+    "['pool.assigned', 'pool.dropped', 'pool.events']\n"
+    ">>> sorted({p.split(\".\")[1] for p in tlm.probe_names})\n"
+    "['acq', 'assigned', 'dropped', 'events', 's0', 's1']\n"
+    ">>> _ = pool.push(np.zeros(2046, np.complex64))\n"
+    ">>> pool.set_telemetry(None, \"pool\")      # detach\n" },
   { "state_bytes", (PyCFunction)AsyncDsssPoolObj_state_bytes, METH_NOARGS,
     "Size in bytes of this object's serialized state.\n"
     "\n"
@@ -1157,8 +1279,8 @@ static PyTypeObject AsyncDsssPoolObjType = {
   .tp_doc
   = "Create a async_dsss_pool instance: the population on cell receivers, "
     "the\n"
-    "searcher's timing driving every slot (design section 12.22-12.28, "
-    "#1283).\n"
+    "searcher's timing driving every slot\n"
+    "(docs/design/async-dsss-receiver-measurements.md §12.22-12.28, #1283).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1176,15 +1298,18 @@ static PyTypeObject AsyncDsssPoolObjType = {
     "    Design C/N0 for the searcher's sizing and the receivers' (default:\n"
     "    55.0).\n"
     "pfa : float, default 1e-3\n"
-    "    False-alarm target, the searcher's (default: 1e-3).\n"
+    "    False-alarm target: the searcher's, and the receivers' pull-in\n"
+    "    estimator's (default: 1e-3).\n"
     "pd : float, default 0.9\n"
-    "    Detection-probability target (default: 0.9).\n"
+    "    Detection-probability target, both as for pfa (default: 0.9).\n"
     "doppler_uncertainty : float, default 100.0\n"
     "    The searcher's one-sided span, Hz (default: 100.0).\n"
     "code_only_epochs : int, default 813\n"
     "    Whole code-only epochs the waveform's window holds at any chip phase "
     "--\n"
-    "    the block depth of section 2.3; must give D > 1 (default: 813).\n"
+    "    the block depth of docs/design/async-dsss-receiver.md §2.3; must "
+    "give D\n"
+    "    > 1 (default: 813).\n"
     "doppler_rate : float, default 0.0\n"
     "    Doppler rate the depth is bounded against, Hz/s; 0 leaves the window "
     "as\n"
@@ -1203,7 +1328,8 @@ static PyTypeObject AsyncDsssPoolObjType = {
     "Coupled,\n"
     "    it is above half the sample rate (dp_acq_carrier_freq_ok()).\n"
     "lost_confirm_s : float, default 2.0\n"
-    "    The release rule's interval, seconds (section 10) (default: 2.0).\n"
+    "    The release rule's interval, seconds\n"
+    "    (docs/design/async-dsss-receiver.md §10) (default: 2.0).\n"
     "max_emitter_on_time_secs : float, default 900.0\n"
     "    Maximum on-air time of one emitter, seconds; 0 = never (default:\n"
     "    900.0).\n"

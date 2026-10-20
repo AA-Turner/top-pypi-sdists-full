@@ -8,16 +8,18 @@ use std::collections::{BTreeMap, HashSet};
 use std::io::{Cursor, Read};
 use zip::ZipArchive;
 
-pub(super) type Archive<'a> = ZipArchive<Cursor<&'a [u8]>>;
+pub(crate) type Archive<'a> = ZipArchive<Cursor<&'a [u8]>>;
 #[derive(Debug)]
 pub(super) struct Relationship {
     pub kind: String,
     pub target: Option<String>,
 }
 #[derive(Debug)]
-pub(super) struct Sheet {
+pub(crate) struct Sheet {
     pub name: String,
     pub part: String,
+    pub inert: bool,
+    pub kind: &'static str,
     /// `sheet/@sheetId`, the key of `xl/calcChain.xml` entries.
     pub sheet_id: u32,
     pub tables: BTreeMap<String, String>,
@@ -402,11 +404,8 @@ pub(super) fn admit<'a>(
         if file.name().starts_with("_xmlsignatures/") || file.name().ends_with("origin.sigs") {
             return Err(unsupported("package digital signature", "XLSX package"));
         }
-        if file.name().starts_with("xl/externalLinks/") || file.name().starts_with("xl/richData/") {
-            return Err(unsupported(
-                "external links or rich value data",
-                "XLSX package",
-            ));
+        if file.name().starts_with("xl/richData/") {
+            return Err(unsupported("rich value data", "XLSX package"));
         }
         let mut member_bytes = 0u64;
         loop {
@@ -429,7 +428,7 @@ pub(super) fn admit<'a>(
     }
     Ok(archive)
 }
-pub(super) fn read_part(
+pub(crate) fn read_part(
     archive: &mut Archive<'_>,
     name: &str,
     limit: usize,
@@ -529,10 +528,10 @@ fn x15_workbook_pr(
         ));
     }
     if let xml::Kind::Open { attributes, .. } = &node.kind {
-        for a in attributes {
+        for a in attributes.iter() {
             if !(a.ns.is_empty()
                 && a.local == "chartTrackingRefBase"
-                && matches!(a.value.as_str(), "0" | "1" | "false" | "true"))
+                && matches!(&*a.value, "0" | "1" | "false" | "true"))
             {
                 return Err(unsupported(
                     "foreign workbook metadata lookalike",
@@ -543,12 +542,22 @@ fn x15_workbook_pr(
     }
     Ok(())
 }
-/// Workbook discovery. Also returns the single relationship-resolved sheet
-/// metadata part, if any.
+/// The workbook as discovered from its package.
+pub(super) struct Discovery {
+    pub sheets: Vec<Sheet>,
+    pub date_system: formualizer_common::DateSystem,
+    /// The single relationship-resolved sheet metadata part, if any.
+    pub metadata: Option<String>,
+    /// External link parts in `externalReference` order: `[n]` is entry `n - 1`.
+    pub external_links: Vec<String>,
+    /// Every defined name: `(name, formula text, localSheetId)`.
+    pub defined_names: Vec<(String, String, Option<usize>)>,
+}
+/// Workbook discovery.
 pub(super) fn discover(
     archive: &mut Archive<'_>,
     options: &XlsxRecalculateOptions,
-) -> Result<(Vec<Sheet>, formualizer_common::DateSystem, Option<String>), IoError> {
+) -> Result<Discovery, IoError> {
     let root = relationships(archive, "", options)?;
     if root.values().any(|r| r.kind.contains("digital-signature")) {
         return Err(unsupported(
@@ -566,7 +575,10 @@ pub(super) fn discover(
     }
     let relations = relationships(archive, "xl/workbook.xml", options)?;
     for rel in relations.values() {
-        if rel.kind.ends_with("/externalLink") || rel.kind.contains("digital-signature") {
+        if (rel.kind.ends_with("/externalLink")
+            && rel.kind != super::external_links::LINK_RELATIONSHIP)
+            || rel.kind.contains("digital-signature")
+        {
             return Err(unsupported(
                 "external workbook link/signature",
                 "workbook relationships",
@@ -599,9 +611,36 @@ pub(super) fn discover(
     let mut metadata_sections = HashSet::new();
     let mut defined_names = HashSet::new();
     let mut sheet_ids = HashSet::new();
+    let mut external_links = Vec::new();
+    let mut name_formulas: Vec<(String, String, Option<usize>)> = Vec::new();
+    let mut name_open = false;
     #[cfg(not(feature = "system-clock"))]
     let mut clock_name: Option<(String, String)> = None;
     xml::walk(&data, options, |path, node| {
+        if xml::path_is(
+            path,
+            xml::MAIN,
+            &["workbook", "definedNames", "definedName"],
+        ) {
+            match &node.kind {
+                xml::Kind::Open { empty, .. } => {
+                    let scope = node
+                        .value("localSheetId")
+                        .map(str::parse::<usize>)
+                        .transpose()
+                        .map_err(|_| unsupported("invalid defined-name scope", "workbook XML"))?;
+                    name_formulas.push((node.required("name")?.to_owned(), String::new(), scope));
+                    name_open = !empty;
+                }
+                xml::Kind::Text(text) if name_open => {
+                    if let Some((_, formula, _)) = name_formulas.last_mut() {
+                        formula.push_str(text);
+                    }
+                }
+                xml::Kind::Close => name_open = false,
+                _ => {}
+            }
+        }
         #[cfg(not(feature = "system-clock"))]
         if xml::path_is(
             path,
@@ -652,14 +691,16 @@ pub(super) fn discover(
             "workbookPr",
             "calcPr",
         ]
-        .contains(&e.local.as_str())
+        .contains(&e.local)
             && e.ns != xml::MAIN
         {
-            return Err(unsupported("foreign workbook metadata lookalike", &e.local));
+            return Err(unsupported("foreign workbook metadata lookalike", e.local));
         }
-        if matches!(e.local.as_str(), "sheets" | "definedNames" | "calcPr")
-            && (!xml::path_is(path, xml::MAIN, &["workbook", e.local.as_str()])
-                || !metadata_sections.insert(e.local.clone()))
+        if matches!(
+            e.local,
+            "sheets" | "definedNames" | "calcPr" | "externalReferences"
+        ) && (!xml::path_is(path, xml::MAIN, &["workbook", e.local])
+            || !metadata_sections.insert(e.local))
         {
             return Err(unsupported(
                 "duplicate/misplaced workbook metadata",
@@ -697,8 +738,33 @@ pub(super) fn discover(
                 _ => return Err(unsupported("invalid workbook date system", "workbook XML")),
             };
         }
-        if e.local == "externalReferences" {
-            return Err(unsupported("external workbook references", "workbook XML"));
+        if e.local == "externalReference" {
+            if !xml::path_is(
+                path,
+                xml::MAIN,
+                &["workbook", "externalReferences", "externalReference"],
+            ) {
+                return Err(unsupported("misplaced external reference", "workbook XML"));
+            }
+            let id = node
+                .attribute(xml::OFFICE, "id")
+                .ok_or_else(|| unsupported("missing external link relationship", "workbook XML"))?;
+            let rel = relations
+                .get(&*id.value)
+                .filter(|r| r.kind == super::external_links::LINK_RELATIONSHIP)
+                .ok_or_else(|| unsupported("missing external link relationship", "workbook XML"))?;
+            let part = rel
+                .target
+                .clone()
+                .filter(|t| archive.file_names().any(|n| n == t))
+                .ok_or_else(|| unsupported("missing external link part", "workbook XML"))?;
+            if external_links.contains(&part) {
+                return Err(unsupported(
+                    "duplicate external link target",
+                    "workbook XML",
+                ));
+            }
+            external_links.push(part);
         }
         if e.local == "sheet" {
             if !xml::path_is(path, xml::MAIN, &["workbook", "sheets", "sheet"]) {
@@ -724,22 +790,47 @@ pub(super) fn discover(
                     "workbook XML",
                 ));
             }
-            let rel = relations
-                .get(&id.value)
-                .ok_or_else(|| unsupported("missing worksheet relationship", "workbook XML"))?;
-            if rel.kind != format!("{}/worksheet", xml::OFFICE) {
+            let rel = relations.get(&*id.value);
+            if id.value.is_empty() && rel.is_none() {
+                sheets.push(Sheet {
+                    name: name.to_owned(),
+                    part: String::new(),
+                    inert: true,
+                    kind: "",
+                    sheet_id,
+                    tables: BTreeMap::new(),
+                });
+                return Ok(());
+            }
+            let rel =
+                rel.ok_or_else(|| unsupported("missing worksheet relationship", "workbook XML"))?;
+            let inert = rel.kind == format!("{}/chartsheet", xml::OFFICE)
+                || rel.kind == format!("{}/dialogsheet", xml::OFFICE);
+            let kind = if rel.kind == format!("{}/chartsheet", xml::OFFICE) {
+                "chartsheet"
+            } else if rel.kind == format!("{}/dialogsheet", xml::OFFICE) {
+                "dialogsheet"
+            } else {
+                "worksheet"
+            };
+            if !inert && rel.kind != format!("{}/worksheet", xml::OFFICE) {
                 return Err(unsupported("non-worksheet sheet", "workbook XML"));
             }
             let part = rel
                 .target
                 .clone()
                 .ok_or_else(|| unsupported("external worksheet", "workbook XML"))?;
+            if inert && !archive.file_names().any(|name| name == part) {
+                return Err(unsupported("missing non-worksheet part", "workbook XML"));
+            }
             if !targets.insert(part.clone()) {
                 return Err(unsupported("duplicate worksheet target", "workbook XML"));
             }
             sheets.push(Sheet {
                 name: name.to_owned(),
                 part,
+                inert,
+                kind,
                 sheet_id,
                 tables: BTreeMap::new(),
             });
@@ -778,6 +869,9 @@ pub(super) fn discover(
     }
     let mut table_targets = HashSet::new();
     for sheet in &mut sheets {
+        if sheet.inert {
+            continue;
+        }
         let (parent, name) = sheet.part.rsplit_once('/').unwrap_or(("", &sheet.part));
         let rel_part = format!("{parent}/_rels/{name}.rels");
         if archive.file_names().any(|n| n == rel_part) {
@@ -802,8 +896,31 @@ pub(super) fn discover(
             }
         }
     }
-    content_types::validate(archive, &sheets, metadata.as_deref(), options)?;
-    Ok((sheets, epoch, metadata))
+    if relations
+        .values()
+        .filter(|r| r.kind == super::external_links::LINK_RELATIONSHIP)
+        .count()
+        != external_links.len()
+    {
+        return Err(unsupported(
+            "unreferenced external link relationship",
+            "workbook relationships",
+        ));
+    }
+    content_types::validate(
+        archive,
+        &sheets,
+        metadata.as_deref(),
+        &external_links,
+        options,
+    )?;
+    Ok(Discovery {
+        sheets,
+        date_system: epoch,
+        metadata,
+        external_links,
+        defined_names: name_formulas,
+    })
 }
 /// The workbook relationship part.
 pub(super) const WORKBOOK_RELS: &str = "xl/_rels/workbook.xml.rels";
@@ -857,7 +974,7 @@ pub(super) fn append_child(
     xml::walk(data, options, |path, node| {
         match node.kind {
             xml::Kind::Open { empty, .. } if path.len() == 1 => {
-                root = Some((path[0].qualified.clone(), node.span.clone(), empty));
+                root = Some((path[0].qualified.to_owned(), node.span.clone(), empty));
             }
             xml::Kind::Close if path.len() == 1 => close = Some(node.span.start),
             _ => {}
@@ -889,9 +1006,9 @@ pub(super) fn append_child(
 pub(super) fn check_output(bytes: &[u8], options: &XlsxRecalculateOptions) -> Result<(), IoError> {
     let directory = audit_directory(bytes, options)?;
     let mut archive = open(bytes, &directory)?;
-    let (_, _, metadata) = discover(&mut archive, options)?;
-    let part =
-        metadata.ok_or_else(|| unsupported("unrelated added metadata part", "XLSX output"))?;
+    let part = discover(&mut archive, options)?
+        .metadata
+        .ok_or_else(|| unsupported("unrelated added metadata part", "XLSX output"))?;
     super::dynamic_metadata::parse(&mut archive, &part, options)?;
     Ok(())
 }
@@ -958,15 +1075,12 @@ fn validate_aux(
                 "tableColumn",
                 "tableColumns",
             ]
-            .contains(&e.local.as_str())
+            .contains(&e.local)
                 && e.ns != xml::MAIN
             {
                 return Err(unsupported("foreign adapter metadata lookalike", part));
             }
-            if matches!(
-                e.local.as_str(),
-                "calculatedColumnFormula" | "totalsRowFormula"
-            ) {
+            if matches!(e.local, "calculatedColumnFormula" | "totalsRowFormula") {
                 return Err(unsupported("table-managed formula metadata", part));
             }
         }

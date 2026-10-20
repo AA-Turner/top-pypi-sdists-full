@@ -68,12 +68,14 @@ from pathlib import Path
 
 import momwire_serve_client as _mech
 
+from .. import _times
 from ..deck import DeckError
 from ..deck._nec5 import (
     Nec5Deck,
     Nec5Structure,
     ends_on_nx,
     next_structure,
+    parse_nec5,
     parse_nec5_shared,
     split_structures,
 )
@@ -367,7 +369,37 @@ def _print(
 ) -> str:
     """One structure's printout in the layout its answers came in:
     ``"single"``, ``"multi"`` (momwire#1237's ``XQ`` blocks) or
-    ``"stepped"`` (momwire#1508's stepping ``FR``)."""
+    ``"stepped"`` (momwire#1508's stepping ``FR``).
+
+    Under MOMWIRE_TIMES its ``RUN TIME`` is the answer's measured seconds."""
+    times = _times.current()
+    if times is not None and closing:
+        run_seconds = times.run_seconds()
+    with _times.stage("printout"):
+        return _print_layout(
+            deck, answers, layout, basis=basis, closing=closing, run_seconds=run_seconds
+        )
+
+
+def _print_layout(
+    deck: Nec5Deck,
+    answers: list[_printout.RunData],
+    layout: str,
+    *,
+    basis: str,
+    closing: bool,
+    run_seconds: float | None,
+) -> str:
+    if layout == "sequence":
+        (sequence,) = answers
+        return _printout.render_sequence_printout(
+            deck,
+            sequence.runs,
+            sequence.tail,
+            basis=basis,
+            closing=closing,
+            run_seconds=run_seconds,
+        )
     if layout == "multi":
         return _printout.render_multi_printout(
             deck, answers, basis=basis, closing=closing, run_seconds=run_seconds
@@ -415,6 +447,16 @@ def _answer(
         return _printout.render_refusal(echo, str(exc), basis=basis)
     if echo_text is not None:
         deck = replace(deck, source_text=echo_text)
+    # momwire 0.79.2: a deck whose frequency changes between its runs, or
+    # whose first run steps it and another run follows, read as the licensed
+    # NEC-5 reads it (`_serve.split_sequence`), before the one-run and
+    # multi-run readings below, which it replaces for exactly those decks.
+    try:
+        sequence = _serve.split_sequence(text)
+    except _serve.ServeRefusal as exc:
+        return _printout.render_refusal(echo, str(exc), basis=basis)
+    if sequence is not None:
+        return _answer_sequence(deck, *sequence, echo=echo, basis=basis)
     try:
         if split_failure is not None:
             raise split_failure
@@ -449,6 +491,57 @@ def _answer(
     except _serve.ServeRefusal as exc:
         return _printout.render_refusal(echo, str(exc), basis=basis)
     return deck, [data], "single"
+
+
+class _Sequence:
+    """A sequence deck's answers (`_answer_sequence`): its runs and the
+    cards echoed after the last, with the seconds the chain sums."""
+
+    def __init__(self, runs: list[_printout.SequenceRun], tail: list[int]):
+        self.runs = runs
+        self.tail = tail
+        self.run_seconds = sum(
+            getattr(d, "run_seconds", 0.0) for run in runs for d in run.answers
+        )
+
+
+def _answer_sequence(deck, groups, tail, *, echo: str, basis: str):
+    """Each run of a sequence deck (`_serve.split_sequence`) solved at the
+    frequency in force: a run that carries an ``FR`` (and the first) over
+    its whole list, a run that does not at the last frequency the run
+    before it solved, as the licensed NEC-5 leaves it after a loop."""
+    runs: list[_printout.SequenceRun] = []
+    last: float | None = None
+    try:
+        for group in groups:
+            try:
+                deck_g = parse_nec5(group.text)
+            except DeckError as exc:
+                return _printout.render_refusal(echo, str(exc), basis=basis)
+            if group.full:
+                freqs = deck_g.frequencies_mhz or (deck_g.frequency_mhz,)
+            else:
+                freqs = (last,)
+            # one sweep state per run: the runs' decks differ
+            shared: dict = {}
+            answers = tuple(
+                _serve.serve(
+                    replace(deck_g, frequency_mhz=f), basis=basis, shared=shared
+                )
+                for f in freqs
+            )
+            last = freqs[-1]
+            runs.append(
+                _printout.SequenceRun(
+                    cards=group.cards,
+                    answers=answers,
+                    full=group.full,
+                    requests_only=not group.full and not group.sources,
+                )
+            )
+    except _serve.ServeRefusal as exc:
+        return _printout.render_refusal(echo, str(exc), basis=basis)
+    return deck, [_Sequence(runs, tail)], "sequence"
 
 
 def _stepping_refusal(deck: Nec5Deck, *, multi_run: bool) -> str | None:
@@ -580,9 +673,10 @@ def run(
             text, basis=basis, dialect=dialect, en_optional=en_optional
         )
 
-    if gmo is not None:
-        write_gmo(Path(_gmo.gmo_path(str(printout_path))), gmo)
-    write_printout(out, printout)
+    with _times.stage("write"):
+        if gmo is not None:
+            write_gmo(Path(_gmo.gmo_path(str(printout_path))), gmo)
+        write_printout(out, printout)
     return printout
 
 
@@ -625,6 +719,49 @@ def _stream_piece(text: str, *, basis: str) -> tuple[str, bool]:
             _printout.render_refusal(text, _internal_error_reason(exc), basis=basis),
             False,
         )
+
+
+def _timed_piece(piece: str, basis: str, write) -> bool:
+    """One stream piece answered and written (``go_on``); under
+    MOMWIRE_TIMES with its ``times:`` line on stderr."""
+    if not _times.env_on():
+        printout, go_on = _stream_piece(piece, basis=basis)
+        write(printout_bytes(printout))
+        return go_on
+    with _times.answering("stream", **_times_pre()) as times:
+        printout, go_on = _stream_piece(piece, basis=basis)
+        with _times.stage("write"):
+            write(printout_bytes(printout))
+    _emit_times(times)
+    return go_on
+
+
+def _times_pre() -> dict:
+    """The ``times:`` line's process start and load for this process's FIRST
+    answer: the standalone executable's (its fallback hands them over as
+    ``sys._mw_times_pre``) plus the momwire import, else the import alone.
+    Taken once: a stream's later pieces start from nothing."""
+    global _TIMES_PRE_TAKEN
+    if _TIMES_PRE_TAKEN:
+        return {}
+    _TIMES_PRE_TAKEN = True
+    pre = getattr(sys, "_mw_times_pre", None) or {}
+    out = {"load_ms": float(pre.get("load_ms", 0.0)) + _times.import_ms()}
+    if "start_ms" in pre:
+        out["start_ms"] = float(pre["start_ms"])
+    return out
+
+
+_TIMES_PRE_TAKEN = False
+
+
+def _emit_times(times) -> None:
+    """``times``' line on stderr (MOMWIRE_TIMES), flushed: a stream's reader
+    may hold the process open."""
+    pre = getattr(sys, "_mw_times_pre", None)
+    if pre and pre.get("route") and times.route == "python":
+        times.route = pre["route"]
+    print(times.line(), file=sys.stderr, flush=True)
 
 
 def stream(read=None, write=None, *, basis: str = _serve.BASIS) -> int:
@@ -681,15 +818,12 @@ def stream(read=None, write=None, *, basis: str = _serve.BASIS) -> int:
             cut = next_structure(pending, final=final)
             if cut is None:
                 if final and pending.strip():
-                    printout, _ = _stream_piece(pending, basis=basis)
-                    write(printout_bytes(printout))
+                    _timed_piece(pending, basis, write)
                 break
             end = cut[0]
             piece, pending = pending[:end], pending[end:]
             swallow_lf = piece.endswith("\r") and not pending and not final
-            printout, go_on = _stream_piece(piece, basis=basis)
-            write(printout_bytes(printout))
-            if not go_on:
+            if not _timed_piece(piece, basis, write):
                 return 0
     return 0
 
@@ -760,14 +894,26 @@ def main(
         # status, which SimNEC reports as a NEC failure.
         print(STREAMING_REFUSAL, file=sys.stderr)
         return 2
+    times_on = _times.env_on()
     try:
-        run(
-            deck_path,
-            printout_path,
-            basis=basis,
-            dialect=dialect,
-            en_optional=en_optional,
-        )
+        if times_on:
+            with _times.answering("python", **_times_pre()) as times:
+                run(
+                    deck_path,
+                    printout_path,
+                    basis=basis,
+                    dialect=dialect,
+                    en_optional=en_optional,
+                )
+            _emit_times(times)
+        else:
+            run(
+                deck_path,
+                printout_path,
+                basis=basis,
+                dialect=dialect,
+                en_optional=en_optional,
+            )
     except Exception as exc:  # noqa: BLE001 - the last line of defence
         # A traceback on stderr would be invisible (EZNEC captures neither
         # stderr nor the exit code), and a missing file would be read as a
@@ -824,12 +970,18 @@ def _internal_error_reason(exc: BaseException) -> str:
 _EN_OPTIONAL_REQUEST = _mech.EN_OPTIONAL_REQUEST.decode("latin-1")
 _GMO_FRAME_START = _mech.GMO_FRAME_START.decode("latin-1").replace("\r\n", "\n")
 _GMO_FRAME_END = _mech.GMO_FRAME_END.decode("latin-1").replace("\r\n", "\n")
+_TIMES_REQUEST = _mech.TIMES_REQUEST.decode("latin-1")
+_TIMES_FRAME_START = _mech.TIMES_FRAME_START.decode("latin-1").replace("\r\n", "\n")
+_TIMES_FRAME_END = _mech.TIMES_FRAME_END.decode("latin-1").replace("\r\n", "\n")
 
 
 def _request(body: str) -> tuple[str, bool]:
     """``(deck text, en_optional)`` from a resident request's body: a launcher
     whose paths came from stdin sends :data:`momwire_serve_client.
-    EN_OPTIONAL_REQUEST` ahead of the deck."""
+    EN_OPTIONAL_REQUEST` ahead of the deck (after MOMWIRE_TIMES's request
+    line, :data:`momwire_serve_client.TIMES_REQUEST`, when it sends one)."""
+    if body.startswith(_TIMES_REQUEST):
+        body = body[len(_TIMES_REQUEST) :]
     if body.startswith(_EN_OPTIONAL_REQUEST):
         return body[len(_EN_OPTIONAL_REQUEST) :], True
     return body, False
@@ -894,14 +1046,25 @@ def seam(*, basis: str = _serve.BASIS, dialect: str = "nec5") -> Seam:
     """
 
     def answer(body: str, terminator: str) -> tuple[str, str]:
+        timed = body.startswith(_TIMES_REQUEST)
+        if timed:
+            # MOMWIRE_TIMES on the launcher's side: this answer timed, its
+            # `times:` line framed ahead of the rest
+            body = body[len(_TIMES_REQUEST) :]
+            with _times.answering("resident") as times:
+                answered = _answer_body(body)
+            return f"{_TIMES_FRAME_START}{times.line()}{_TIMES_FRAME_END}{answered}", ""
+        return _answer_body(body), ""
+
+    def _answer_body(body: str) -> str:
         try:
             text, en_optional = _request(body)
             printout, gmo = render_files(
                 text, basis=basis, dialect=dialect, en_optional=en_optional
             )
-            return framed(printout, gmo), ""
+            return framed(printout, gmo)
         except Exception as exc:  # noqa: BLE001 - the seam's last line of defence
-            return seam_failure(body, exc, basis=basis, dialect=dialect)
+            return seam_failure(body, exc, basis=basis, dialect=dialect)[0]
 
     return Seam(
         name="eznec",

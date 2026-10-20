@@ -135,6 +135,9 @@ OWNERS: dict[str, str] = {
     # `probe status`: this device's install as data (the desktop app's read);
     # `--refresh` asks the agents' CLIs and the server, and writes nothing.
     "status": READ,
+    # The machine-wide Probe service: its status is a read; starting or
+    # stopping it is the machine's plumbing, never the daemon's.
+    "service status": READ, "service start": SETUP, "service stop": SETUP, "service check-now": SETUP,
     "span add": SDK, "span get": READ, "span list": READ,
     # A project's or experiment's summary and its Metrics-center visuals
     # (writer-owns-summary): the recorder's. A checkout and `visuals options`

@@ -125,7 +125,7 @@ def test_the_always_present_eight_round_trip():
 
 def test_the_cost_methods_are_NOT_ported_yet_and_that_blocks_the_flip():
     """Forcing function against a premature flip. The twin models the shape; the
-    catalog-reading behaviour has not moved. Row 8 cannot reach S3 until it
+    catalog-reading behavior has not moved. Row 8 cannot reach S3 until it
     does, and this test is what makes that concrete rather than a note."""
     not_ported = [
         "calculate_cost", "calculate_catalog_cost", "calculate_cost_breakdown",

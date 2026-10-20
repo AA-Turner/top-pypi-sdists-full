@@ -71,6 +71,8 @@ defaults = {
     "RECURSION_WARN_WEIGHT": 700,
     "RECURSION_ABORT_WEIGHT": 1000,
     "RECURSION_TTL_SECONDS": 3600,
+    # Percent of sessions logged at every hop, chosen by hashing the session prefix.
+    "SESSION_SAMPLE_PERCENT": 1,
 }
 
 settings = Settings(defaults)

@@ -4,7 +4,7 @@ A fetch that never got an answer (the name does not resolve, the connection is r
 network has no route) has no HTTP status. It used to be recorded as ``status_code=500`` with the
 bare reason ``request_error``, so a person typing a misspelled address read "the site answered
 500" — a server error from a server that does not exist (web-app walk, 2026-09-26). This module
-is the ONE place that recognises those failures (the crawler's escalation gate reads the same
+is the ONE place that recognizes those failures (the crawler's escalation gate reads the same
 signatures) and writes the sentence every result surface shows.
 """
 

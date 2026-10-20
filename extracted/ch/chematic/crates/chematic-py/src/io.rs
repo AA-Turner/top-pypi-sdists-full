@@ -1,0 +1,1385 @@
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use std::io::BufRead;
+use std::sync::Arc;
+
+use crate::Mol;
+
+mod dataset;
+mod dataset_batch;
+mod dataset_selector;
+mod forward_sdf;
+mod tdt;
+use dataset::PySdfDataset;
+use tdt::{PyTdtMolSupplier, PyTdtWriter};
+
+// ---------------------------------------------------------------------------
+// PySdfRecord — one entry from an SDF file
+// ---------------------------------------------------------------------------
+
+/// One record from an SDF file: a molecule, its name, and SD data properties.
+///
+///     for rec in chematic.iter_sdf("compounds.sdf"):
+///         print(rec.smiles, rec.name)
+///         print(rec.properties())          # dict of SD fields
+///         activity = rec.get("Activity")   # None if not present
+#[pyclass(name = "SdfRecord")]
+pub struct PySdfRecord {
+    #[pyo3(get)]
+    pub(crate) mol: Mol,
+    #[pyo3(get)]
+    pub name: String,
+    pub props: std::collections::HashMap<String, String>,
+    pub stereo_diagnostics: Vec<chematic_perception::StereoDiagnostic>,
+    pub ez_diagnostics: Vec<chematic_perception::EzDirectionDiagnostic>,
+}
+
+impl PySdfRecord {
+    fn ogb_graph(&self, remove_hs: bool) -> PyResult<chematic_smiles::OgbGraphFeatures> {
+        let mut graph =
+            chematic_smiles::ogb_graph_features_with_options(&self.mol.inner, remove_hs)
+                .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))?;
+        for diagnostic in &self.ez_diagnostics {
+            if diagnostic.reason
+                != chematic_perception::EzDirectionRejectionReason::ExplicitlyUnspecified
+            {
+                continue;
+            }
+            let index = diagnostic.bond.0 as usize;
+            let bond = self.mol.inner.bond(diagnostic.bond);
+            let Some(&[source, destination]) = graph.edge_index.get(index * 2) else {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "SDF bond indices changed during OGB conversion",
+                ));
+            };
+            if source != i64::from(bond.atom1.0) || destination != i64::from(bond.atom2.0) {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "SDF bond indices changed during OGB conversion",
+                ));
+            }
+            graph.edge_feat[index * 2][1] = 5; // OGB STEREOANY
+            graph.edge_feat[index * 2 + 1][1] = 5;
+        }
+        Ok(graph)
+    }
+}
+
+#[pymethods]
+impl PySdfRecord {
+    /// OGB graph including the SDF record's explicit unknown double-bond stereo.
+    #[pyo3(signature = (remove_hs=true))]
+    fn ogb_graph_features<'py>(
+        &self,
+        py: Python<'py>,
+        remove_hs: bool,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        crate::mol_methods::ogb::numpy_ogb_graph_dict(py, self.ogb_graph(remove_hs)?)
+    }
+
+    /// Benchmark hook: the same graph before NumPy allocation.
+    #[pyo3(signature = (remove_hs=true))]
+    fn _ogb_graph_features_raw<'py>(
+        &self,
+        py: Python<'py>,
+        remove_hs: bool,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        crate::mol_methods::ogb::raw_ogb_graph_dict(py, self.ogb_graph(remove_hs)?)
+    }
+
+    /// Canonical SMILES of the molecule.
+    #[getter]
+    fn smiles(&self) -> String {
+        chematic_smiles::canonical_smiles(&self.mol.inner)
+    }
+
+    /// Return all SD data fields as a Python dict.
+    fn properties<'py>(&self, py: Python<'py>) -> Bound<'py, PyDict> {
+        let d = PyDict::new(py);
+        for (k, v) in &self.props {
+            d.set_item(k, v).ok();
+        }
+        d
+    }
+
+    /// Get one SD property by name, returning ``None`` if not present.
+    fn get(&self, key: &str) -> Option<&str> {
+        self.props.get(key).map(|s| s.as_str())
+    }
+
+    /// Rejected wedge/hash stereocenters for this record.
+    ///
+    /// A list of ``{"atom_idx": int, "reason": str}`` dicts -- see
+    /// :func:`from_mol_block_with_diagnostics` for the reason vocabulary.
+    /// Empty unless a wedge/hash bond was present at some center and got
+    /// rejected.
+    fn stereo_diagnostics<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyDict>>> {
+        crate::formats::stereo_diagnostics_to_py(py, &self.stereo_diagnostics)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "SdfRecord(smiles='{}', name={:?}, n_props={})",
+            chematic_smiles::canonical_smiles(&self.mol.inner),
+            self.name,
+            self.props.len()
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SdfIterStr — lazy Python iterator over pre-collected SDF records
+// ---------------------------------------------------------------------------
+
+/// Iterator returned by ``iter_sdf`` and ``iter_sdf_str``.
+///
+/// Records are parsed eagerly on creation and yielded lazily.
+/// Invalid records are silently skipped.
+#[pyclass]
+pub struct SdfIter {
+    records: std::vec::IntoIter<PySdfRecord>,
+}
+
+#[pymethods]
+impl SdfIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> Option<PySdfRecord> {
+        self.records.next()
+    }
+
+    fn __len__(&self) -> usize {
+        self.records.len()
+    }
+}
+
+fn parse_to_iter(content: &str) -> SdfIter {
+    let records: Vec<PySdfRecord> = chematic_mol::SdfRecordReader::new(content)
+        .filter_map(|r| r.ok())
+        .map(|rec| PySdfRecord {
+            mol: Mol {
+                num_rings_cache: Default::default(),
+                inner: Arc::new(rec.mol),
+                props: Default::default(),
+            },
+            name: rec.meta.name,
+            props: rec.properties,
+            stereo_diagnostics: rec.stereo_diagnostics,
+            ez_diagnostics: rec.ez_diagnostics,
+        })
+        .collect();
+    SdfIter {
+        records: records.into_iter(),
+    }
+}
+
+fn py_sdf_record(rec: chematic_mol::SdfRecord) -> PySdfRecord {
+    PySdfRecord {
+        mol: Mol {
+            num_rings_cache: Default::default(),
+            inner: Arc::new(rec.mol),
+            props: Default::default(),
+        },
+        name: rec.meta.name,
+        props: rec.properties,
+        stereo_diagnostics: rec.stereo_diagnostics,
+        ez_diagnostics: rec.ez_diagnostics,
+    }
+}
+
+fn sdf_dataset_error(error: chematic_mol::MolParseError) -> PyErr {
+    match error {
+        chematic_mol::MolParseError::Io(message) => pyo3::exceptions::PyIOError::new_err(message),
+        error @ chematic_mol::MolParseError::ResourceLimit { .. } => crate::errors::input_error(
+            "resource_limit",
+            "sdf_resource_limit",
+            "sdf",
+            error.to_string(),
+        ),
+        error => crate::errors::malformed("sdf", error.to_string()),
+    }
+}
+
+fn dataset_index(index: isize, len: usize) -> PyResult<usize> {
+    let len = isize::try_from(len).unwrap_or(isize::MAX);
+    let normalized = if index < 0 {
+        len.checked_add(index)
+    } else {
+        Some(index)
+    };
+    normalized
+        .filter(|&index| index >= 0 && index < len)
+        .map(|index| index as usize)
+        .ok_or_else(|| pyo3::exceptions::PyIndexError::new_err("SDF record index out of range"))
+}
+
+/// Metadata collected while indexing an SDF file, without parsing the graph.
+#[pyclass(name = "SdfRecordMetadata", frozen)]
+pub struct PySdfRecordMetadata {
+    #[pyo3(get)]
+    index: usize,
+    #[pyo3(get)]
+    byte_offset: u64,
+    #[pyo3(get)]
+    byte_len: usize,
+    #[pyo3(get)]
+    title: String,
+}
+
+impl From<&chematic_mol::SdfRecordMetadata> for PySdfRecordMetadata {
+    fn from(metadata: &chematic_mol::SdfRecordMetadata) -> Self {
+        Self {
+            index: metadata.index,
+            byte_offset: metadata.byte_offset,
+            byte_len: metadata.byte_len,
+            title: metadata.title.clone(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Public functions
+// ---------------------------------------------------------------------------
+
+/// Iterate over molecules in an SDF file by file path (streaming).
+///
+/// Reads one MOL block at a time — suitable for large SDF files where loading
+/// the entire content into memory is undesirable.  Invalid records are silently
+/// skipped.  IO errors raise ``IOError``.
+///
+///     for rec in chematic.iter_sdf("chembl.sdf"):
+///         print(rec.smiles, rec.get("pChEMBL Value"))
+///
+///     # Build a Pandas DataFrame:
+///     import pandas as pd
+///     rows = [{"smiles": r.smiles, **r.properties()} for r in chematic.iter_sdf("data.sdf")]
+///     df = pd.DataFrame(rows)
+///
+/// .. note::
+///     Unlike previous versions, this iterator does not support ``len()``
+///     because the total record count is not known until the file is fully read.
+///     Use ``iter_sdf_str`` if you need ``len()`` on an in-memory string.
+#[pyfunction]
+pub fn iter_sdf(
+    #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+) -> PyResult<SdfFileIter> {
+    let file = std::fs::File::open(&path)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display())))?;
+    Ok(SdfFileIter {
+        inner: chematic_mol::SdfFileReader::new(std::io::BufReader::new(file)),
+    })
+}
+
+/// Stream SDF records with their source positions and parse errors.
+///
+/// Yields ``(index, record, error)`` for every non-empty record. Exactly one
+/// of ``record`` and ``error`` is non-None. A malformed record does not stop
+/// later records. Opening the file can raise ``IOError``; read errors are
+/// yielded in place and end the stream.
+/// ``compression`` is ``plain`` (default), ``gzip`` or ``auto``. Auto detects
+/// gzip magic independently for each input, ignoring its filename. Gzip
+/// members can be concatenated; limits count decoded bytes. Auto header-probe
+/// failures raise ``IOError`` at construction. Consume to EOF to check trailers.
+#[pyfunction]
+#[pyo3(signature = (path, *, compression="plain", max_input_bytes=None, max_record_bytes=None, max_line_bytes=None, max_records=None))]
+pub fn iter_sdf_checked(
+    #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+    compression: &str,
+    max_input_bytes: Option<usize>,
+    max_record_bytes: Option<usize>,
+    max_line_bytes: Option<usize>,
+    max_records: Option<usize>,
+) -> PyResult<SdfCheckedIter> {
+    let compression = match compression {
+        "plain" => chematic_mol::SdfCompression::Plain,
+        "gzip" => chematic_mol::SdfCompression::Gzip,
+        "auto" => chematic_mol::SdfCompression::Auto,
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "compression must be plain, gzip or auto",
+            ));
+        }
+    };
+    let mut limits = chematic_mol::SdfParseLimits::default();
+    for (name, supplied, field) in [
+        (
+            "max_input_bytes",
+            max_input_bytes,
+            &mut limits.max_input_bytes,
+        ),
+        (
+            "max_record_bytes",
+            max_record_bytes,
+            &mut limits.max_record_bytes,
+        ),
+        ("max_line_bytes", max_line_bytes, &mut limits.max_line_bytes),
+        ("max_records", max_records, &mut limits.max_records),
+    ] {
+        if let Some(value) = supplied {
+            if value == 0 {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "{name} must be greater than zero"
+                )));
+            }
+            *field = value;
+        }
+    }
+    let file = std::fs::File::open(&path)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display())))?;
+    let input = chematic_mol::SdfInput::new(file, compression)
+        .map_err(|error| pyo3::exceptions::PyIOError::new_err(error.to_string()))?;
+    Ok(SdfCheckedIter {
+        inner: chematic_mol::SdfFileReader::with_limits(input, limits),
+        next_index: 0,
+    })
+}
+
+/// Iterate over batches of SDF records from a file (streaming).
+///
+/// Yields lists of up to ``batch_size`` SDF records.  Suitable for pipelining
+/// SDF parsing with bulk computations:
+///
+///     for batch in chematic.iter_sdf_batched("large.sdf", batch_size=1000):
+///         smiles = [r.smiles for r in batch]
+///         descs = chematic.bulk.descriptors(smiles)
+///
+///     stream = chematic.iter_sdf_batched("large.sdf", batch_size=1000)
+///     batch = next(stream, None)
+///     stream.cancel()                 # stop before reading another batch
+///     print(stream.manifest_json())    # deterministic progress/status JSON
+#[pyfunction]
+#[pyo3(signature = (path, batch_size=1000))]
+pub fn iter_sdf_batched(
+    #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+    batch_size: usize,
+) -> PyResult<SdfBatchIter> {
+    if batch_size == 0 {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "batch_size must be greater than zero",
+        ));
+    }
+    const MAX_BATCH_SIZE: usize = 10_000;
+    if batch_size > MAX_BATCH_SIZE {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "batch_size exceeds maximum ({MAX_BATCH_SIZE})"
+        )));
+    }
+    let file = std::fs::File::open(&path)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display())))?;
+    Ok(SdfBatchIter {
+        inner: chematic_mol::SdfFileReader::new(std::io::BufReader::new(file)),
+        batch_size,
+        cancelled: false,
+        exhausted: false,
+        records_emitted: 0,
+        batches_emitted: 0,
+        records_seen: 0,
+        rejected_records: 0,
+    })
+}
+
+/// Iterate over molecules in an SDF string.
+///
+///     sdf_text = open("compounds.sdf").read()
+///     for rec in chematic.iter_sdf_str(sdf_text):
+///         print(rec.smiles, rec.properties())
+#[pyfunction]
+pub fn iter_sdf_str(content: &str) -> SdfIter {
+    parse_to_iter(content)
+}
+
+// ---------------------------------------------------------------------------
+// SdfFileIter — true streaming iterator backed by a file
+// ---------------------------------------------------------------------------
+
+/// Streaming SDF iterator that reads one record at a time from disk.
+///
+/// Unlike ``SdfIter`` (which loads the entire file into memory), this iterator
+/// reads one MOL block at a time and is suitable for large SDF files.
+/// Invalid records are silently skipped.  IO errors are raised as Python
+/// ``IOError``.
+///
+/// Does **not** support ``len()`` because the total record count is unknown
+/// until the file is fully read.
+#[pyclass]
+pub struct SdfFileIter {
+    inner: chematic_mol::SdfFileReader<std::io::BufReader<std::fs::File>>,
+}
+
+/// Streaming SDF iterator which preserves rejected record positions.
+#[pyclass]
+pub struct SdfCheckedIter {
+    inner: chematic_mol::SdfFileReader<chematic_mol::SdfInput<std::fs::File>>,
+    next_index: usize,
+}
+
+type CheckedSdfItem = (usize, Option<PySdfRecord>, Option<String>);
+
+#[pymethods]
+impl SdfCheckedIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> PyResult<Option<CheckedSdfItem>> {
+        let Some(result) = self.inner.next() else {
+            return Ok(None);
+        };
+        let index = self.next_index;
+        self.next_index += 1;
+        match result {
+            Ok(record) => Ok(Some((index, Some(py_sdf_record(record)), None))),
+            Err(error) => Ok(Some((index, None, Some(error.to_string())))),
+        }
+    }
+}
+
+#[pymethods]
+impl SdfFileIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self) -> PyResult<Option<PySdfRecord>> {
+        loop {
+            match self.inner.next() {
+                None => return Ok(None),
+                Some(Ok(rec)) => {
+                    return Ok(Some(PySdfRecord {
+                        mol: Mol {
+                            num_rings_cache: Default::default(),
+                            inner: Arc::new(rec.mol),
+                            props: Default::default(),
+                        },
+                        name: rec.meta.name,
+                        props: rec.properties,
+                        stereo_diagnostics: rec.stereo_diagnostics,
+                        ez_diagnostics: rec.ez_diagnostics,
+                    }));
+                }
+                Some(Err(chematic_mol::MolParseError::Io(msg))) => {
+                    return Err(pyo3::exceptions::PyIOError::new_err(msg));
+                }
+                Some(Err(_)) => {
+                    // Parse error → skip malformed record, continue
+                    continue;
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SdfBatchIter — streaming batch iterator
+// ---------------------------------------------------------------------------
+
+/// Streaming SDF iterator that yields batches (lists) of SDF records.
+///
+/// Useful for pipelining SDF parsing with bulk descriptor computation:
+///
+///     for batch in chematic.iter_sdf_batched("large.sdf", batch_size=1000):
+///         smiles = [r.smiles for r in batch]
+///         descs = chematic.bulk.descriptors(smiles)
+#[pyclass]
+pub struct SdfBatchIter {
+    inner: chematic_mol::SdfFileReader<std::io::BufReader<std::fs::File>>,
+    batch_size: usize,
+    cancelled: bool,
+    exhausted: bool,
+    records_emitted: usize,
+    batches_emitted: usize,
+    records_seen: usize,
+    rejected_records: usize,
+}
+
+#[pymethods]
+impl SdfBatchIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    /// Stop reading at the next iterator boundary.
+    ///
+    /// Dropping the iterator also stops reading, but this explicit method lets
+    /// a producer communicate cancellation to a consumer before it releases
+    /// the iterator and makes the state visible through ``manifest_json``.
+    fn cancel(&mut self) {
+        self.cancelled = true;
+    }
+
+    /// Return a deterministic JSON progress manifest for this stream.
+    fn manifest_json(&self) -> String {
+        let status = if self.cancelled {
+            "cancelled"
+        } else if self.exhausted {
+            "complete"
+        } else {
+            "running"
+        };
+        serde_json::json!({
+            "schema_version": 1,
+            "status": status,
+            "batch_size": self.batch_size,
+            "records_seen": self.records_seen,
+            "records_emitted": self.records_emitted,
+            "rejected_records": self.rejected_records,
+            "batches_emitted": self.batches_emitted,
+        })
+        .to_string()
+    }
+
+    fn __next__(&mut self) -> PyResult<Option<Vec<PySdfRecord>>> {
+        if self.cancelled || self.exhausted {
+            return Ok(None);
+        }
+        let mut batch = Vec::with_capacity(self.batch_size);
+        loop {
+            if batch.len() >= self.batch_size {
+                break;
+            }
+            match self.inner.next() {
+                None => {
+                    self.exhausted = true;
+                    break;
+                }
+                Some(Ok(rec)) => {
+                    self.records_seen += 1;
+                    batch.push(PySdfRecord {
+                        mol: Mol {
+                            num_rings_cache: Default::default(),
+                            inner: Arc::new(rec.mol),
+                            props: Default::default(),
+                        },
+                        name: rec.meta.name,
+                        props: rec.properties,
+                        stereo_diagnostics: rec.stereo_diagnostics,
+                        ez_diagnostics: rec.ez_diagnostics,
+                    });
+                }
+                Some(Err(chematic_mol::MolParseError::Io(msg))) => {
+                    self.records_seen += 1;
+                    return Err(pyo3::exceptions::PyIOError::new_err(msg));
+                }
+                Some(Err(_)) => {
+                    self.records_seen += 1;
+                    self.rejected_records += 1;
+                    continue;
+                }
+            }
+        }
+        if batch.is_empty() {
+            Ok(None)
+        } else {
+            self.records_emitted += batch.len();
+            self.batches_emitted += 1;
+            Ok(Some(batch))
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// XyzBatchIter — streaming XYZ / Extended XYZ batches
+// ---------------------------------------------------------------------------
+
+/// File-backed XYZ reader with bounded recovery at an unambiguous count-line
+/// boundary. The core readers remain fail-stop because they cannot safely
+/// resynchronize an arbitrary `BufRead`; this Python batch surface owns the
+/// frame boundary policy, keeps only one look-ahead line, and caps one
+/// recovery block at the normal 16 MiB XYZ line/input safety boundary.
+struct RecoverableXyzReader<R> {
+    reader: R,
+    extxyz: bool,
+    pending_line: Option<String>,
+    finished: bool,
+}
+
+const MAX_RECOVERY_FRAME_BYTES: usize = 16 << 20;
+const MAX_RECOVERY_ATOMS: usize = 1_000_000;
+
+impl<R: BufRead> RecoverableXyzReader<R> {
+    fn read_line(&mut self) -> std::io::Result<Option<String>> {
+        if let Some(line) = self.pending_line.take() {
+            return Ok(Some(line));
+        }
+        let mut line = String::new();
+        if self.reader.read_line(&mut line)? == 0 {
+            return Ok(None);
+        }
+        Ok(Some(line))
+    }
+
+    fn next_frame(
+        &mut self,
+    ) -> std::io::Result<Option<Result<chematic_mol::XyzFrame, chematic_mol::XyzError>>> {
+        if self.finished {
+            return Ok(None);
+        }
+        let start = loop {
+            match self.read_line()? {
+                Some(line) if !line.trim().is_empty() => break line,
+                Some(_) => continue,
+                None => {
+                    self.finished = true;
+                    return Ok(None);
+                }
+            }
+        };
+        let mut block = start.clone();
+        let append_line = |block: &mut String, line: String| {
+            if block.len().saturating_add(line.len()) <= MAX_RECOVERY_FRAME_BYTES {
+                block.push_str(&line);
+            }
+        };
+        if let Some(atom_count) = start
+            .trim()
+            .parse::<usize>()
+            .ok()
+            .filter(|count| *count <= MAX_RECOVERY_ATOMS)
+        {
+            for _ in 0..=atom_count {
+                match self.read_line()? {
+                    Some(line) => append_line(&mut block, line),
+                    None => {
+                        self.finished = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            loop {
+                match self.read_line()? {
+                    Some(line) if line.trim().parse::<usize>().is_ok() => {
+                        self.pending_line = Some(line);
+                        break;
+                    }
+                    Some(line) => append_line(&mut block, line),
+                    None => {
+                        self.finished = true;
+                        break;
+                    }
+                }
+            }
+        }
+        let parsed = if self.extxyz {
+            chematic_mol::parse_extxyz(&block)
+        } else {
+            chematic_mol::parse_xyz(&block)
+        };
+        Ok(Some(parsed))
+    }
+}
+
+enum XyzStreamReader {
+    Xyz(RecoverableXyzReader<std::io::BufReader<std::fs::File>>),
+    Extxyz(RecoverableXyzReader<std::io::BufReader<std::fs::File>>),
+}
+
+impl XyzStreamReader {
+    fn next_frame(
+        &mut self,
+    ) -> PyResult<Option<Result<chematic_mol::XyzFrame, chematic_mol::XyzError>>> {
+        let result = match self {
+            Self::Xyz(reader) | Self::Extxyz(reader) => reader.next_frame(),
+        };
+        result.map_err(|error| pyo3::exceptions::PyIOError::new_err(error.to_string()))
+    }
+}
+
+/// Streaming XYZ or Extended XYZ batch iterator.
+///
+/// Both formats share the SDF batch contract: source order is preserved,
+/// batches are bounded, ``cancel()`` stops at a batch boundary, and
+/// ``manifest_json()`` reports deterministic progress. Invalid frames are
+/// skipped and counted in ``rejected_frames``.
+#[pyclass]
+pub struct XyzBatchIter {
+    inner: XyzStreamReader,
+    format: &'static str,
+    batch_size: usize,
+    cancelled: bool,
+    exhausted: bool,
+    frames_seen: usize,
+    frames_emitted: usize,
+    batches_emitted: usize,
+    rejected_frames: usize,
+}
+
+fn open_xyz_batch(
+    path: &std::path::Path,
+    batch_size: usize,
+    extxyz: bool,
+) -> PyResult<XyzBatchIter> {
+    if batch_size == 0 {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "batch_size must be greater than zero",
+        ));
+    }
+    const MAX_BATCH_SIZE: usize = 10_000;
+    if batch_size > MAX_BATCH_SIZE {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "batch_size exceeds maximum ({MAX_BATCH_SIZE})"
+        )));
+    }
+    let file = std::fs::File::open(path)
+        .map_err(|e| pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display())))?;
+    let reader = std::io::BufReader::new(file);
+    Ok(XyzBatchIter {
+        inner: if extxyz {
+            XyzStreamReader::Extxyz(RecoverableXyzReader {
+                reader,
+                extxyz: true,
+                pending_line: None,
+                finished: false,
+            })
+        } else {
+            XyzStreamReader::Xyz(RecoverableXyzReader {
+                reader,
+                extxyz: false,
+                pending_line: None,
+                finished: false,
+            })
+        },
+        format: if extxyz { "extxyz" } else { "xyz" },
+        batch_size,
+        cancelled: false,
+        exhausted: false,
+        frames_seen: 0,
+        frames_emitted: 0,
+        batches_emitted: 0,
+        rejected_frames: 0,
+    })
+}
+
+/// Iterate over bounded batches of plain XYZ frames from a file.
+#[pyfunction]
+#[pyo3(signature = (path, batch_size=1000))]
+pub fn iter_xyz_batched(
+    #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+    batch_size: usize,
+) -> PyResult<XyzBatchIter> {
+    open_xyz_batch(&path, batch_size, false)
+}
+
+/// Iterate over bounded batches of Extended XYZ frames from a file.
+#[pyfunction]
+#[pyo3(signature = (path, batch_size=1000))]
+pub fn iter_extxyz_batched(
+    #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+    batch_size: usize,
+) -> PyResult<XyzBatchIter> {
+    open_xyz_batch(&path, batch_size, true)
+}
+
+#[pymethods]
+impl XyzBatchIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn cancel(&mut self) {
+        self.cancelled = true;
+    }
+
+    fn manifest_json(&self) -> String {
+        let status = if self.cancelled {
+            "cancelled"
+        } else if self.exhausted {
+            "complete"
+        } else {
+            "running"
+        };
+        serde_json::json!({
+            "schema_version": 1,
+            "format": self.format,
+            "status": status,
+            "batch_size": self.batch_size,
+            "frames_seen": self.frames_seen,
+            "frames_emitted": self.frames_emitted,
+            "rejected_frames": self.rejected_frames,
+            "batches_emitted": self.batches_emitted,
+        })
+        .to_string()
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<Vec<Py<PyAny>>>> {
+        if self.cancelled || self.exhausted {
+            return Ok(None);
+        }
+        let mut batch = Vec::with_capacity(self.batch_size);
+        while batch.len() < self.batch_size {
+            match self.inner.next_frame()? {
+                None => {
+                    self.exhausted = true;
+                    break;
+                }
+                Some(Ok(frame)) => {
+                    self.frames_seen += 1;
+                    let value = crate::formats::extxyz_frame_to_pydict(py, &frame)?;
+                    batch.push(value.into_any().unbind());
+                }
+                Some(Err(_)) => {
+                    self.frames_seen += 1;
+                    self.rejected_frames += 1;
+                    continue;
+                }
+            }
+        }
+        if batch.is_empty() {
+            Ok(None)
+        } else {
+            self.frames_emitted += batch.len();
+            self.batches_emitted += 1;
+            Ok(Some(batch))
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SDMolSupplier — RDKit-compatible streaming SDF reader
+// ---------------------------------------------------------------------------
+
+/// Streaming SDF reader that yields ``Mol`` objects with SD properties attached.
+///
+/// RDKit-compatible API:
+///
+///     sup = chematic.SDMolSupplier("compounds.sdf")
+///     for mol in sup:
+///         if mol is None:
+///             continue          # malformed record (strict_parsing=False only)
+///         print(mol.smiles, mol.GetProp("Activity"))
+///
+/// ``sanitize`` and ``remove_hs`` are accepted for API compatibility but are no-ops:
+/// chematic's parser already applies default aromaticity perception and stores
+/// only heavy atoms.
+#[pyclass(name = "SDMolSupplier")]
+pub struct SdMolSupplier {
+    inner: chematic_mol::SdfFileReader<std::io::BufReader<std::fs::File>>,
+    strict_parsing: bool,
+}
+
+#[pymethods]
+impl SdMolSupplier {
+    #[new]
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (path, sanitize=true, removeHs=true, strictParsing=true))]
+    fn new(
+        #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+        sanitize: bool,
+        removeHs: bool,
+        strictParsing: bool,
+    ) -> PyResult<Self> {
+        let _ = (sanitize, removeHs); // accepted, no-op
+        let file = std::fs::File::open(&path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display()))
+        })?;
+        Ok(SdMolSupplier {
+            // SDMolSupplier exposes RDKit-style molecules, not chematic's
+            // optional stereo/3D diagnostics. Use the matching lightweight
+            // reader so diagnostics do not inflate ordinary supplier reads.
+            inner: chematic_mol::SdfFileReader::fast(std::io::BufReader::new(file)),
+            strict_parsing: strictParsing,
+        })
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<pyo3::Py<pyo3::PyAny>>> {
+        match self.inner.next() {
+            None => Ok(None),
+            Some(Ok(rec)) => {
+                let mut props = rec.properties;
+                if !rec.meta.name.is_empty() {
+                    props.insert("_Name".to_string(), rec.meta.name);
+                }
+                let mol = Mol {
+                    num_rings_cache: Default::default(),
+                    inner: std::sync::Arc::new(rec.mol),
+                    props: props.into(),
+                };
+                Ok(Some(pyo3::Py::new(py, mol)?.into_any()))
+            }
+            Some(Err(chematic_mol::MolParseError::Io(msg))) => {
+                Err(pyo3::exceptions::PyIOError::new_err(msg))
+            }
+            Some(Err(_)) => {
+                if self.strict_parsing {
+                    return Err(pyo3::exceptions::PyValueError::new_err(
+                        "malformed SDF record",
+                    ));
+                }
+                Ok(Some(py.None()))
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SDWriter — RDKit-compatible SDF writer
+// ---------------------------------------------------------------------------
+
+/// Streaming SDF writer that writes ``Mol`` objects with their SD properties.
+///
+///     with chematic.SDWriter("output.sdf") as w:
+///         mol = chematic.from_smiles("c1ccccc1")
+///         mol.SetProp("Activity", "7.2")
+///         w.write(mol)
+///
+/// 2D coordinates are computed automatically. The ``_Name`` property, if set,
+/// is written into the MOL header line; other ``_``-prefixed properties are
+/// omitted from the SD block.
+#[pyclass(name = "SDWriter")]
+pub struct SdWriter {
+    writer: Option<std::io::BufWriter<std::fs::File>>,
+    record_buffer: String,
+    props_filter: Option<Vec<String>>,
+    force_v3000: bool,
+    compute_2d: bool,
+}
+
+#[pymethods]
+impl SdWriter {
+    #[new]
+    #[pyo3(signature = (path, compute2d=true))]
+    fn new(
+        #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+        compute2d: bool,
+    ) -> PyResult<Self> {
+        let file = std::fs::File::create(&path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display()))
+        })?;
+        Ok(SdWriter {
+            writer: Some(std::io::BufWriter::new(file)),
+            record_buffer: String::new(),
+            props_filter: None,
+            force_v3000: false,
+            compute_2d: compute2d,
+        })
+    }
+
+    fn write(&mut self, mol: &Mol) -> PyResult<()> {
+        use std::io::Write as _;
+        let w = self
+            .writer
+            .as_mut()
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("SDWriter is already closed"))?;
+        let coords: Vec<(f64, f64)> = if self.compute_2d && self.force_v3000 {
+            // Å with y up, and the stereo depiction when there is stereo
+            // (depiction-unit coordinates here wrote 40 Å bonds and lost
+            // E/Z geometry).
+            chematic_mol::stereo_depiction::mol_block_coords(&mol.inner)
+        } else {
+            Vec::new()
+        };
+        let name = mol.props.get("_Name").cloned().unwrap_or_default();
+        let meta = chematic_mol::MolMetadata {
+            name,
+            comment: String::new(),
+            ..Default::default()
+        };
+        let filtered_props = self.props_filter.as_ref().map(|keys| {
+            keys.iter()
+                .filter_map(|k| mol.props.get(k).map(|v| (k.clone(), v.clone())))
+                .collect()
+        });
+        let props = filtered_props.as_ref().unwrap_or(&mol.props);
+        if self.force_v3000 {
+            self.record_buffer =
+                chematic_mol::write_sdf_record_v3000(&mol.inner, &meta, &coords, props);
+        } else if self.compute_2d {
+            // The same layout and "either" marking as `Mol.to_mol_block`.
+            chematic_mol::write_laid_out_sdf_record_into(
+                &mut self.record_buffer,
+                &mol.inner,
+                &meta,
+                props,
+            );
+        } else {
+            chematic_mol::mol2000::write_sdf_record_into(
+                &mut self.record_buffer,
+                &mol.inner,
+                &meta,
+                &coords,
+                props,
+            );
+        }
+        w.write_all(self.record_buffer.as_bytes())
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    /// Restrict which SD properties are written. Pass ``None`` to reset (write all).
+    #[pyo3(name = "SetProps")]
+    fn set_props(&mut self, props: Vec<String>) {
+        self.props_filter = Some(props);
+    }
+
+    /// No-op: chematic always writes aromatic SMILES internally.
+    #[pyo3(name = "SetKekulize")]
+    fn set_kekulize(&mut self, _val: bool) {}
+
+    /// Enable or disable automatic 2D coordinate generation.
+    ///
+    /// The default is `True` for compatibility. Set it to `False` when the
+    /// caller only needs graph serialization and does not want depiction
+    /// layout work on every record.
+    #[pyo3(name = "SetCompute2D")]
+    fn set_compute_2d(&mut self, val: bool) {
+        self.compute_2d = val;
+    }
+
+    /// When ``True``, subsequent ``write()`` calls emit MOL V3000 (Extended
+    /// Ctab) blocks instead of V2000 — required for molecules with more
+    /// than 999 atoms or bonds.
+    #[pyo3(name = "SetForceV3000")]
+    fn set_force_v3000(&mut self, val: bool) {
+        self.force_v3000 = val;
+    }
+
+    /// Flush buffered data to disk.
+    fn flush(&mut self) -> PyResult<()> {
+        use std::io::Write as _;
+        if let Some(w) = self.writer.as_mut() {
+            w.flush()
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    fn close(&mut self) {
+        self.writer.take();
+    }
+
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    #[allow(unused_variables)]
+    fn __exit__(
+        &mut self,
+        exc_type: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+        exc_val: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+        exc_tb: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+    ) -> bool {
+        self.close();
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SmilesMolSupplier / SmilesWriter — RDKit-compatible SMILES table I/O
+// ---------------------------------------------------------------------------
+
+/// Parse an RDKit-style delimiter string into a [`chematic_mol::Delimiter`].
+///
+/// A string consisting only of spaces/tabs (RDKit's own multi-char
+/// delimiter *class* convention, e.g. `" \t"`) maps to
+/// [`chematic_mol::Delimiter::Whitespace`] (runs collapsed) — chematic does
+/// not offer RDKit's non-collapsing `keep_empty_tokens` behavior for a
+/// multi-character class, only for the single-character
+/// [`chematic_mol::Delimiter::Tab`]/[`chematic_mol::Delimiter::Custom`] cases.
+/// Any other multi-character string is rejected explicitly rather than
+/// silently truncated to its first character.
+fn parse_delimiter(s: &str) -> PyResult<chematic_mol::Delimiter> {
+    if !s.is_empty() && s.chars().all(|c| c == ' ' || c == '\t') {
+        return Ok(chematic_mol::Delimiter::Whitespace);
+    }
+    let mut chars = s.chars();
+    match (chars.next(), chars.next()) {
+        (Some(','), None) => Ok(chematic_mol::Delimiter::Comma),
+        (Some('\t'), None) => Ok(chematic_mol::Delimiter::Tab),
+        (Some(c), None) if c.is_ascii() => Ok(chematic_mol::Delimiter::Custom(c as u8)),
+        _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "unsupported delimiter {s:?}: chematic requires a single ASCII byte, or a \
+             space/tab-only string (mapped to whitespace-class splitting)"
+        ))),
+    }
+}
+
+/// Streaming reader for SMILES table files (`.smi`/`.smiles`/`.csv`/`.tsv`/`.txt`).
+///
+/// RDKit-compatible API:
+///
+///     sup = chematic.SmilesMolSupplier("compounds.smi")
+///     for mol in sup:
+///         if mol is None:
+///             continue  # malformed row
+///         print(mol.smiles, mol.GetProp("_Name"))
+///
+/// ``sanitize`` is accepted for API compatibility but is a no-op (chematic's
+/// SMILES parser already applies default aromaticity perception). Unlike
+/// RDKit's own ``SmilesMolSupplier``, this reader is forward-only streaming
+/// (no ``len()``/index access) — see ``chematic_mol::smiles_table``'s module
+/// docs for the full list of deliberate, documented divergences from RDKit.
+#[pyclass(name = "SmilesMolSupplier")]
+pub struct PySmilesMolSupplier {
+    inner: chematic_mol::SmilesRecordReader<std::io::BufReader<std::fs::File>>,
+}
+
+#[pymethods]
+impl PySmilesMolSupplier {
+    #[new]
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (path, delimiter=" ".to_string(), smilesColumn=0, nameColumn=1, titleLine=true, sanitize=true))]
+    fn new(
+        #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+        delimiter: String,
+        smilesColumn: usize,
+        nameColumn: i64,
+        titleLine: bool,
+        sanitize: bool,
+    ) -> PyResult<Self> {
+        let _ = sanitize; // accepted, no-op (see doc comment)
+        let delim = parse_delimiter(&delimiter)?;
+        let file = std::fs::File::open(&path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display()))
+        })?;
+        let options = chematic_mol::SmilesReaderOptions {
+            delimiter: delim,
+            smiles_column: smilesColumn,
+            name_column: if nameColumn < 0 {
+                None
+            } else {
+                Some(nameColumn as usize)
+            },
+            title_line: titleLine,
+            // RDKit's own SmilesMolSupplier has no strict/lax toggle at all --
+            // it unconditionally returns None for a bad row and continues.
+            // This constructor matches that behavior; chematic's stricter
+            // stop-on-error mode is only reachable via the Rust API.
+            strict_parsing: false,
+            ..Default::default()
+        };
+        Ok(PySmilesMolSupplier {
+            inner: chematic_mol::SmilesRecordReader::new(std::io::BufReader::new(file), options),
+        })
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(&mut self, py: Python<'_>) -> PyResult<Option<pyo3::Py<pyo3::PyAny>>> {
+        match self.inner.next() {
+            None => Ok(None),
+            Some(Ok(rec)) => {
+                let mut props: std::collections::HashMap<String, String> =
+                    rec.properties.into_iter().collect();
+                if !rec.name.is_empty() {
+                    props.insert("_Name".to_string(), rec.name);
+                }
+                let mol = Mol {
+                    num_rings_cache: Default::default(),
+                    inner: Arc::new(rec.mol),
+                    props: props.into(),
+                };
+                Ok(Some(pyo3::Py::new(py, mol)?.into_any()))
+            }
+            Some(Err(chematic_mol::SmilesTableError::Io(msg))) => {
+                Err(pyo3::exceptions::PyIOError::new_err(msg))
+            }
+            Some(Err(_)) => Ok(Some(py.None())), // malformed row -> None, matches RDKit
+        }
+    }
+}
+
+/// Streaming writer for SMILES table files.
+///
+///     with chematic.SmilesWriter("output.smi") as w:
+///         mol = chematic.from_smiles("c1ccccc1")
+///         mol.SetProp("_Name", "benzene")
+///         w.write(mol)
+///
+/// ``isomericSmiles=False`` and ``kekuleSmiles=True`` raise
+/// ``NotImplementedError`` -- chematic has no non-isomeric or Kekule-form
+/// SMILES writer at present, and this binding does not silently fall back
+/// to the isomeric/aromatic form it can actually produce.
+#[pyclass(name = "SmilesWriter")]
+pub struct PySmilesWriter {
+    writer: Option<chematic_mol::SmilesRecordWriter<std::io::BufWriter<std::fs::File>>>,
+}
+
+#[pymethods]
+impl PySmilesWriter {
+    #[new]
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (path, delimiter=" ".to_string(), nameHeader="Name".to_string(), includeHeader=true, isomericSmiles=true, kekuleSmiles=false))]
+    fn new(
+        #[pyo3(from_py_with=crate::filesystem::path)] path: std::path::PathBuf,
+        delimiter: String,
+        nameHeader: String,
+        includeHeader: bool,
+        isomericSmiles: bool,
+        kekuleSmiles: bool,
+    ) -> PyResult<Self> {
+        if !isomericSmiles {
+            return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "chematic has no non-isomeric SMILES writer mode; isomericSmiles=False is not supported",
+            ));
+        }
+        if kekuleSmiles {
+            return Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "chematic has no Kekule-form SMILES writer mode; kekuleSmiles=True is not supported",
+            ));
+        }
+        let delim = parse_delimiter(&delimiter)?;
+        let file = std::fs::File::create(&path).map_err(|e| {
+            pyo3::exceptions::PyIOError::new_err(format!("{}: {e}", path.display()))
+        })?;
+        let options = chematic_mol::SmilesWriterOptions {
+            delimiter: delim,
+            name_header: nameHeader,
+            include_header: includeHeader,
+            properties: Vec::new(),
+        };
+        Ok(PySmilesWriter {
+            writer: Some(chematic_mol::SmilesRecordWriter::new(
+                std::io::BufWriter::new(file),
+                options,
+            )),
+        })
+    }
+
+    fn write(&mut self, mol: &Mol) -> PyResult<()> {
+        let writer = self.writer.as_mut().ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("SmilesWriter is already closed")
+        })?;
+        let name = mol.props.get("_Name").cloned().unwrap_or_default();
+        let mut properties: Vec<(String, String)> = mol
+            .props
+            .iter()
+            .filter(|(k, _)| k.as_str() != "_Name")
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        properties.sort_unstable();
+        let record = chematic_mol::MoleculeRecord {
+            mol: (*mol.inner).clone(),
+            name,
+            properties,
+            coordinates_2d: None,
+            coordinates_3d: None,
+        };
+        writer
+            .write_record(&record)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    /// Restrict (and order) which properties are written, mirroring RDKit's
+    /// ``SetProps``. Defaults to writing no extra properties beyond
+    /// SMILES + name, matching RDKit's own ``SmilesWriter`` default.
+    #[pyo3(name = "SetProps")]
+    fn set_props(&mut self, props: Vec<String>) -> PyResult<()> {
+        let writer = self.writer.as_mut().ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("SmilesWriter is already closed")
+        })?;
+        // SmilesRecordWriter doesn't expose a setter for its own options
+        // struct post-construction; rebuild is unnecessary since `properties`
+        // is the only field this method touches -- reach it directly.
+        writer.set_properties(props);
+        Ok(())
+    }
+
+    fn flush(&mut self) -> PyResult<()> {
+        if let Some(w) = self.writer.as_mut() {
+            w.flush()
+                .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    fn close(&mut self) {
+        self.writer.take();
+    }
+
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    #[allow(unused_variables)]
+    fn __exit__(
+        &mut self,
+        exc_type: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+        exc_val: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+        exc_tb: Option<&pyo3::Bound<'_, pyo3::PyAny>>,
+    ) -> bool {
+        self.close();
+        false
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Register
+// ---------------------------------------------------------------------------
+
+pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    register_classes(m)?;
+    register_functions(m)
+}
+
+fn register_classes(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PySdfRecord>()?;
+    m.add_class::<PySdfRecordMetadata>()?;
+    m.add_class::<PySdfDataset>()?;
+    dataset_batch::register(m)?;
+    m.add_class::<SdfIter>()?;
+    m.add_class::<SdfFileIter>()?;
+    m.add_class::<SdfCheckedIter>()?;
+    m.add_class::<SdfBatchIter>()?;
+    m.add_class::<XyzBatchIter>()?;
+    m.add_class::<SdMolSupplier>()?;
+    m.add_class::<forward_sdf::ForwardSdMolSupplier>()?;
+    m.add_class::<SdWriter>()?;
+    m.add_class::<PySmilesMolSupplier>()?;
+    m.add_class::<PySmilesWriter>()?;
+    m.add_class::<PyTdtMolSupplier>()?;
+    m.add_class::<PyTdtWriter>()?;
+    Ok(())
+}
+
+fn register_functions(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(iter_sdf, m)?)?;
+    m.add_function(wrap_pyfunction!(iter_sdf_checked, m)?)?;
+    m.add_function(wrap_pyfunction!(iter_sdf_str, m)?)?;
+    m.add_function(wrap_pyfunction!(iter_sdf_batched, m)?)?;
+    m.add_function(wrap_pyfunction!(iter_xyz_batched, m)?)?;
+    m.add_function(wrap_pyfunction!(iter_extxyz_batched, m)?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod xyz_recovery_tests {
+    use super::RecoverableXyzReader;
+    use std::io::Cursor;
+
+    #[test]
+    fn malformed_xyz_frame_is_rejected_and_following_frame_is_read() {
+        let input = "not-a-count\ncomment\nC 0 0 0\n1\nvalid\nC 2 0 0\n";
+        let mut reader = RecoverableXyzReader {
+            reader: Cursor::new(input.as_bytes()),
+            extxyz: false,
+            pending_line: None,
+            finished: false,
+        };
+        assert!(reader.next_frame().unwrap().unwrap().is_err());
+        assert!(reader.next_frame().unwrap().unwrap().is_ok());
+        assert!(reader.next_frame().unwrap().is_none());
+    }
+
+    #[test]
+    fn malformed_extxyz_frame_is_rejected_and_following_frame_is_read() {
+        let input = concat!(
+            "not-a-count\ncomment\nC 0 0 0\n",
+            "1\nProperties=species:S:1:pos:R:3\nC 2 0 0\n",
+        );
+        let mut reader = RecoverableXyzReader {
+            reader: Cursor::new(input.as_bytes()),
+            extxyz: true,
+            pending_line: None,
+            finished: false,
+        };
+        assert!(reader.next_frame().unwrap().unwrap().is_err());
+        assert!(reader.next_frame().unwrap().unwrap().is_ok());
+        assert!(reader.next_frame().unwrap().is_none());
+    }
+}

@@ -79,7 +79,9 @@ REAL_MCP_CLASSES: frozenset[str] = frozenset({READ_ONLY})
 #: child. Guards: ``tests/test_candidate_sub_agent_containment.py`` (the real
 #: agent_call body), aidream ``mandates/candidates/tests/test_sub_agent_never_hands_off.py``
 #: and ``…/test_sub_agent_containment_live.py`` (live, end to end).
-SUB_AGENT_TOOLS: frozenset[str] = frozenset({"agent_call", "mandate_call", "staff_escalate"})
+SUB_AGENT_TOOLS: frozenset[str] = frozenset(
+    {"agent", "send_message", "agent_call", "mandate_call", "staff_escalate"}
+)
 #: The one sub-agent write that is NOT the child's own tool call: agent_call's
 #: ``remember`` enqueues a durable note INTO ANOTHER CONVERSATION. Stopped.
 SUB_AGENT_WRITE_BACK_ARGS: tuple[str, ...] = ("remember", "remember_visible_to_user")

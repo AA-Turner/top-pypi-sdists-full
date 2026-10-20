@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-operator"
-version = "0.81.0"
+version = "0.82.3"
 description = "A team of proactive AI assistants that can work together behind the scenes to help you get mundane tasks done so you can focus on the fun stuff."
 readme = "README.md"
 authors = [{ name = "Radient Inc.", email = "contact@radienthq.com" }]
@@ -356,6 +356,12 @@ local_operator = [
     "mobile/web/src/*.tsx",
     "mobile/web/src/components/*.tsx",
     "mobile/web/src/components/ui/*.tsx",
+    # The Library surface's own components: `screens/library.tsx` and
+    # `screens/library-asset.tsx` import them, and the installed source tree
+    # compiles every file under src, so an omitted glob breaks the documented
+    # repair build (the same omission class the fixtures glob above records).
+    "mobile/web/src/components/library/*.tsx",
+    "mobile/web/src/components/library/*.ts",
     "mobile/web/src/lib/*.ts",
     "mobile/web/src/i18n/*.ts",
     # The mandatory build/check/test scanner reads this exact fingerprint state.

@@ -7,4 +7,7 @@ from trajectory._models import BaseModel
 
 class CreateTrajectoryResponse(BaseModel):
   tid: str
-  """ID of the created or existing trajectory."""
+  """
+    ID of the created or existing trajectory; list and detail responses call it
+    trajectory_id.
+    """

@@ -23,6 +23,7 @@ from connector_sdk_types.generated.models.access_graph_entitlement_rule import A
 from connector_sdk_types.generated.models.access_graph_entitlement_type import AccessGraphEntitlementType
 from connector_sdk_types.generated.models.access_graph_implied_access_rule import AccessGraphImpliedAccessRule
 from connector_sdk_types.generated.models.entitlement_type import EntitlementType
+from connector_sdk_types.generated.models.probe_check_name import ProbeCheckName
 from connector_sdk_types.generated.models.resource_type import ResourceType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -46,8 +47,9 @@ class OpenAPISpecificationInfo(BaseModel):
     x_oauth_settings: Optional[Dict[str, Any]] = Field(default=None, alias="x-oauth-settings")
     x_capabilities: List[StrictStr] = Field(alias="x-capabilities")
     x_multi_credential: StrictBool = Field(alias="x-multi-credential")
+    x_probe_checks: Optional[List[ProbeCheckName]] = Field(default=None, description="The `probe_integration` checks this connector implements, in the order it runs them.  Null when the connector has no probe, or a probe that declares no checks, which callers should read as a legacy probe performing the baseline checks. An empty list means the probe declares checks but can perform none of them.", alias="x-probe-checks")
     x_allowed_credentials: List[List[StrictStr]] = Field(alias="x-allowed-credentials")
-    __properties: ClassVar[List[str]] = ["title", "description", "version", "x-app-id", "x-app-logo-url", "x-app-vendor-domain", "x-entitlement-types", "x-access-graph-entitlement-types", "x-access-graph-entitlement-rules", "x-implied-access-rules", "x-resource-types", "x-categories", "x-oauth-settings", "x-capabilities", "x-multi-credential", "x-allowed-credentials"]
+    __properties: ClassVar[List[str]] = ["title", "description", "version", "x-app-id", "x-app-logo-url", "x-app-vendor-domain", "x-entitlement-types", "x-access-graph-entitlement-types", "x-access-graph-entitlement-rules", "x-implied-access-rules", "x-resource-types", "x-categories", "x-oauth-settings", "x-capabilities", "x-multi-credential", "x-probe-checks", "x-allowed-credentials"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -150,6 +152,7 @@ class OpenAPISpecificationInfo(BaseModel):
             "x-oauth-settings": obj.get("x-oauth-settings"),
             "x-capabilities": obj.get("x-capabilities"),
             "x-multi-credential": obj.get("x-multi-credential"),
+            "x-probe-checks": obj.get("x-probe-checks"),
             "x-allowed-credentials": obj.get("x-allowed-credentials")
         })
         return _obj

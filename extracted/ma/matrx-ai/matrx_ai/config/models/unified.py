@@ -5,7 +5,7 @@ construction sites, 35 `replace`/`fields`/`asdict` call sites.
 
 GENERATED FROM THE DATACLASS, ON PURPOSE. Every other twin in this migration was
 written by hand because the corpus disagreed with the annotations and each field
-needed a judgement. Here it does not: **56 of 57 observed keys agree with their
+needed a judgment. Here it does not: **56 of 57 observed keys agree with their
 declared type** (FIELD_TRUTH §4d, measured across 6,485 stored configs). With
 the annotations verified, hand-typing 90 fields adds transcription risk and no
 information, so these were emitted from `dataclasses.fields()` and are guarded
@@ -69,15 +69,19 @@ class UnifiedConfigModel(BaseModel):
     temperature: float | None = None
     top_p: float | None = None
     top_k: int | None = None  # never populated in 6,485 stored configs
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
     tools: list = Field(default_factory=list)
     authored_tools: list | None = None
     dynamic_tools: list[str] | None = None
     dynamic_tool_sources: dict[str, str] = Field(default_factory=dict)
     dynamic_tools_withheld: list[str] = Field(default_factory=list)
+    tool_declarations: dict[str, list[dict[str, Any]]] | None = None
     agent_auto_tools_disabled: bool | None = None
     agent_excluded_tools: list[str] | None = None
     prompt_blocks: list[str] = Field(default_factory=list)
     prompt_block_creator: str | None = None
+    agent_organization_id: str | None = None
     prompt_block_texts: dict[str, str] | None = None
     prompt_block_report: list[dict[str, Any]] = Field(default_factory=list)
     prompt_block_tool_ids: list[str] = Field(default_factory=list)
@@ -91,6 +95,7 @@ class UnifiedConfigModel(BaseModel):
     tool_delegation_registry_fingerprint: str | None = None
     tool_delegation_filter_applied_runtime: bool = False
     responder_mandate_key: str | None = None
+    held_prompt: dict[str, Any] | None = None
     model_turn_only_restore: dict[str, Any] | None = None
     tool_choice: Optional[Literal['none', 'auto', 'required']] = None  # never populated in 6,485 stored configs
     parallel_tool_calls: bool = True
@@ -175,7 +180,7 @@ class UnifiedConfigModel(BaseModel):
 
         Kept in parity with the dataclass on purpose: `_unrecognized_keys` holds
         both populations, so any user-facing consumer must subtract the
-        deliberate passthrough set or it reports honoured features as ignored.
+        deliberate passthrough set or it reports honored features as ignored.
         """
         from matrx_ai.config.unified_config import _KNOWN_PASSTHROUGH_KEYS
 

@@ -13,7 +13,7 @@ reproduces the golden params byte-identically. It guards the ENGINE
 (canonicalize / controls / processors). The live DB rules are guarded against
 the same fixture by ``scripts/validate_catalog_parity.py`` Section B.
 
-Regenerate the fixture ONLY for a deliberate, reviewed behaviour change:
+Regenerate the fixture ONLY for a deliberate, reviewed behavior change:
 
     uv run python scripts/dump_chat_param_golden.py
 """

@@ -1,4 +1,4 @@
-"""The pydantic UnifiedMessage — modelled on production data, not on the hints.
+"""The pydantic UnifiedMessage — modeled on production data, not on the hints.
 
 Corpus: 57,213 message objects inside ``chat.request_snapshot`` (Phase 1a).
 Five of the ten declared fields appeared in the measured corpus; ``name``, ``status``,
@@ -34,11 +34,11 @@ class UnifiedMessageModel(BaseModel):
     """Shadow twin of ``matrx_ai.config.message_config.UnifiedMessage``.
 
     Config choices are deliberately the LEAST surprising ones for step one —
-    they reproduce dataclass behaviour exactly (CUTOVER.md §4):
+    they reproduce dataclass behavior exactly (CUTOVER.md §4):
 
     * ``extra="allow"`` — the dataclass filters unknown keys via
       ``_filter_kwargs`` rather than raising. Forbidding here would change
-      behaviour before the shadow has proven anything. Tightening is its own
+      behavior before the shadow has proven anything. Tightening is its own
       later flip.
     * ``validate_assignment=False`` — dataclasses allow free mutation and the
       orchestrator mutates messages mid-loop.

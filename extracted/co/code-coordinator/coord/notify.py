@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -66,6 +67,9 @@ from coord.progress import parse_progress
 from coord.smoke import MUTE_SMOKE_LEG_BUDGET, TEST_STATE_BLOCKED
 from coord.smoke import NO_SMOKE_VERDICT_MARKER as _NO_SMOKE_VERDICT_MARKER
 from coord.smoke import (
+    ABANDONED_BACKGROUND_SMOKE_BUDGET,
+    abandoned_background_smoke_legs,
+    abandoned_background_smoke_tally,
     finalize_smoke_fanout,
     mute_smoke_legs,
     mute_smoke_tally,
@@ -3342,6 +3346,69 @@ def _record_smoke_verdict(
             transition.assignment_id, state,
         )
         return
+
+    # #3737: a leg that ended its turn with the smoke command still running
+    # in the background is an infra abort — the worker backgrounded a build
+    # past its own turn and never came back to report it — not a genuinely
+    # mute suite, so don't let it eat the #2272 budget meant for the latter.
+    # `_is_plain_runner_leg` (#3693) legs have no `claude -p` session
+    # narrating a hand-off at all, so they are excluded rather than risk a
+    # false match against raw subprocess stdout.
+    smoke_log_path = entry.get("log_path")
+    if smoke_log_path and not _is_plain_runner_leg(entry):
+        from coord.review import detect_abandoned_background_leg  # noqa: PLC0415
+
+        if detect_abandoned_background_leg(smoke_log_path):
+            previous_reason = load_assignment_test_reason(parent_id) or ""
+            abandoned_legs = abandoned_background_smoke_legs(previous_reason) + 1
+            if abandoned_legs >= ABANDONED_BACKGROUND_SMOKE_BUDGET:
+                record_test_verdict(
+                    assignment_id=parent_id,
+                    test_state=TEST_STATE_BLOCKED,
+                    test_reason=(
+                        f"{abandoned_background_smoke_tally(abandoned_legs)}: "
+                        f"{abandoned_legs} Test-stage legs in a row ended "
+                        "their turn with the smoke command still running in "
+                        "the background instead of to completion — the "
+                        f"retry budget ({ABANDONED_BACKGROUND_SMOKE_BUDGET}) "
+                        "for that is exhausted, so the row is parked instead "
+                        "of re-dispatched (#3737). This is not a suite "
+                        "failure: the smoke command itself needs to finish "
+                        "inside the worker's one-shot turn (no backgrounding, "
+                        "no `run_in_background`). Recover with `coord "
+                        "diagnose <repo> <issue> --stage test --reset`, or "
+                        "record the verdict by hand with `coord test "
+                        f"--passed|--fail {parent_id}`."
+                    ),
+                )
+                log.warning(
+                    "smoke %s: #3737 abandoned-background retry budget "
+                    "(%d) exhausted for %s — parked %s.",
+                    transition.assignment_id, ABANDONED_BACKGROUND_SMOKE_BUDGET,
+                    parent_id, TEST_STATE_BLOCKED,
+                )
+                return
+            record_test_verdict(
+                assignment_id=parent_id,
+                test_state=None,
+                test_reason=(
+                    f"{abandoned_background_smoke_tally(abandoned_legs)}: the "
+                    f"Test-stage worker {transition.assignment_id} ended its "
+                    "turn with the smoke command still running in the "
+                    "background instead of to completion — an infra abort, "
+                    "not a verdict (#3737). Cleared for an automatic "
+                    "Test-stage re-dispatch; run the smoke command "
+                    "SYNCHRONOUSLY to completion this time rather than "
+                    "backgrounding it."
+                ),
+            )
+            log.info(
+                "smoke %s: #3737 abandoned-background leg %d/%d — cleared "
+                "for re-dispatch, not counted against the #2272 mute budget.",
+                transition.assignment_id, abandoned_legs,
+                ABANDONED_BACKGROUND_SMOKE_BUDGET,
+            )
+            return
 
     # #2272: count the legs, don't just test for the marker's presence. The
     # tally lives at the FRONT of `test_reason` so a bounded `/board` preview

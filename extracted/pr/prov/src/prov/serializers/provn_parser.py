@@ -26,9 +26,12 @@ level or inside a bundle.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
+from prov._warnings import future_rejection_message
 from prov.constants import (
+    PROV,
     PROV_ACTIVITY,
     PROV_AGENT,
     PROV_ALTERNATE,
@@ -49,10 +52,12 @@ from prov.constants import (
     PROV_SPECIALIZATION,
     PROV_START,
     PROV_USAGE,
+    XSD,
+    XSD_QNAME,
+    XSI,
 )
 from prov.identifier import Namespace, QualifiedName
 from prov.model import (
-    DEFAULT_NAMESPACES,
     PROV_REC_CLS,
     Literal,
     ProvBundle,
@@ -60,7 +65,14 @@ from prov.model import (
     ProvException,
     parse_xsd_datetime,
 )
-from prov.serializers.provn_lexer import ProvNSyntaxError, Token, TokenKind, tokenize
+from prov.model.records import _reader_checking_names
+from prov.serializers.provn_lexer import (
+    _PN_PREFIX,
+    ProvNSyntaxError,
+    Token,
+    TokenKind,
+    tokenize,
+)
 
 __all__ = ["PROFILES", "ProvNParser"]
 
@@ -113,6 +125,15 @@ _STRICT_REQUIRED_LEADING: dict[str, int] = {
     name: min(arities) for name, (_, arities) in _RELATIONS.items()
 } | {"mentionOf": min(_MENTION[1])}
 
+# Productions 24 to 26 give these relations neither an identifier nor an
+# attribute block.
+_BARE_RELATIONS = frozenset({"alternateOf", "specializationOf", "hadMember"})
+
+# PROV-N predeclares these two prefixes; ``xsi`` is an ordinary prefix.
+_RESERVED_PREFIXES: dict[str, Namespace] = {"prov": PROV, "xsd": XSD}
+
+_PN_PREFIX_NAME = re.compile(_PN_PREFIX)
+
 
 class ProvNParser:
     """Parse one PROV-N document.
@@ -125,6 +146,11 @@ class ProvNParser:
         skipped: Messages for the statements the ``lenient`` profile
             skipped, in source order; empty for every other profile. Read
             after :meth:`parse` returns.
+        warnings: Messages for input that ``prov`` 3.3.0 rejects or reads
+            differently, each built by
+            :func:`prov._warnings.future_rejection_message`. The lexer's
+            messages come first, then the parser's, each in source order.
+            Read after :meth:`parse` returns.
 
     Raises:
         ValueError: If ``profile`` is not one of :data:`PROFILES`.
@@ -135,6 +161,10 @@ class ProvNParser:
             raise ValueError(f"profile must be one of {PROFILES}, got {profile!r}")
         self.profile = profile
         self.skipped: list[str] = []
+        self.warnings: list[str] = []
+        # Namespaces declared in the scope being parsed, by prefix: the
+        # document's, overlaid with the current bundle's.
+        self._scope: dict[str, Namespace] = {}
         self._text = text
         self._tokens: list[Token] = []
         self._pos = 0
@@ -248,19 +278,38 @@ class ProvNParser:
 
     def parse(self) -> ProvDocument:
         """Parse the whole input and return the document."""
-        self._tokens = list(tokenize(self._text))
+        # The parser warns about its own qualified-name values, with their
+        # position, so the model does not warn about them again.
+        with _reader_checking_names():
+            return self._parse()
+
+    def _parse(self) -> ProvDocument:
+        self._tokens = list(tokenize(self._text, self.warnings))
         self._pos = 0
         self._depth = 0
         document = ProvDocument()
         self._expect_keyword("document")
         namespaces, default = self._declarations()
+        self._scope = {namespace.prefix: namespace for namespace in namespaces}
         self._apply_declarations(document, namespaces, default)
+        after_bundle = False
         while not self._at_keyword("endDocument"):
             if self._current.kind is TokenKind.EOF:
                 raise self._error("expected 'endDocument', found end of input")
             if self._at_keyword("bundle"):
                 self._bundle(document)
+                after_bundle = True
             else:
+                # Production 1 puts every expression before the first bundle.
+                if after_bundle and self.profile == "strict":
+                    self._future(
+                        "a statement follows a bundle, which the strict profile"
+                        " does not allow",
+                        self._current,
+                        "reject this under the strict profile",
+                        issue=519,
+                    )
+                after_bundle = False
                 self._statement(document)
         self._advance()
         if self._current.kind is not TokenKind.EOF:
@@ -290,30 +339,97 @@ class ProvNParser:
                         f"prefix '{local}' is declared twice in this scope", name
                     )
                 iri = self._expect(TokenKind.IRI, "an IRI in angle brackets")
+                if not iri.value:
+                    raise self._error("a namespace IRI cannot be empty", iri)
                 self._check_reserved_prefix(local, iri.value, name)
+                if not _PN_PREFIX_NAME.fullmatch(local):
+                    self._future(
+                        f"'{local}' is not a PROV-N prefix name, so no qualified"
+                        " name can use it",
+                        name,
+                        issue=511,
+                    )
                 namespaces.append(Namespace(local, iri.value))
                 seen.add(local)
             elif self._at_keyword("default"):
-                self._advance()
+                keyword = self._advance()
                 iri = self._expect(TokenKind.IRI, "an IRI in angle brackets")
+                if not iri.value:
+                    raise self._error("a namespace IRI cannot be empty", iri)
+                if default is not None:
+                    self._future(
+                        "'default' is declared twice in this scope; the last one"
+                        " is used",
+                        keyword,
+                        issue=508,
+                    )
+                if namespaces and self.profile == "strict":
+                    self._future(
+                        "'default' follows a 'prefix' declaration, which the"
+                        " strict profile does not allow",
+                        keyword,
+                        "reject this under the strict profile",
+                        issue=519,
+                    )
                 default = iri.value
             else:
                 return namespaces, default
 
     def _check_reserved_prefix(self, prefix: str, uri: str, token: Token) -> None:
-        builtin = DEFAULT_NAMESPACES.get(prefix)
-        if builtin is not None and builtin.uri != uri:
+        reserved = _RESERVED_PREFIXES.get(prefix)
+        if reserved is not None and reserved.uri != uri:
             raise self._error(
-                f"prefix '{prefix}' is reserved for <{builtin.uri}> and cannot"
+                f"prefix '{prefix}' is reserved for <{reserved.uri}> and cannot"
                 " be redeclared",
                 token,
             )
+        if reserved is not None and self.profile == "strict":
+            self._future(
+                f"prefix '{prefix}' is predeclared, and the strict profile does"
+                " not allow declaring it",
+                token,
+                "reject this under the strict profile",
+                issue=519,
+            )
+
+    def _future(
+        self, detail: str, token: Token, outcome: str = "reject this", *, issue: int
+    ) -> None:
+        """Record a message for input that 3.3.0 rejects or reads differently."""
+        self.warnings.append(
+            future_rejection_message(
+                f"line {token.line}, column {token.column}: {detail}",
+                outcome,
+                issue=issue,
+            )
+        )
+
+    def _xsi_name(self, token: Token, local: str | None = None) -> QualifiedName | None:
+        """Resolve an ``xsi:`` name against this scope's own declaration.
+
+        The local part comes from ``token`` unless ``local`` is given, as
+        for a name held in a string literal. Returns ``None``, after
+        recording a 3.3.0 message at ``token``, when no declaration is in
+        scope, so the caller falls back to the built-in namespace.
+        """
+        declared = self._scope.get("xsi")
+        if declared is not None:
+            return declared[token.value[1] if local is None else local]
+        self._future(
+            f"prefix 'xsi' is not declared; it resolves to <{XSI.uri}>",
+            token,
+            issue=510,
+        )
+        return None
 
     def _apply_declarations(
         self, target: ProvBundle, namespaces: list[Namespace], default: str | None
     ) -> None:
         for namespace in namespaces:
-            target.add_namespace(namespace)
+            # The model may register the namespace under a different prefix, so
+            # resolve names through what it returns to keep parsed values
+            # writable.
+            self._scope[namespace.prefix] = target.add_namespace(namespace)
         if default is not None:
             target.set_default_namespace(default)
 
@@ -331,36 +447,44 @@ class ProvNParser:
         # resolve against the document directly, exactly as a bundle with no
         # declarations of its own would, so a document-level prefix used for
         # the identifier is not redundantly copied onto the bundle too.
-        prefix, _ = id_token.value
+        outer_scope = self._scope
+        self._scope = {
+            **outer_scope,
+            **{namespace.prefix: namespace for namespace in namespaces},
+        }
         try:
-            if (prefix and prefix in {ns.prefix for ns in namespaces}) or (
-                not prefix and default is not None
-            ):
-                bundle = ProvBundle(document=document)
-                self._apply_declarations(bundle, namespaces, default)
-                identifier = self._resolve(id_token, bundle)
-                document.add_bundle(bundle, identifier)
-            else:
-                identifier = self._resolve(id_token, document)
-                bundle = document.bundle(identifier)
-                self._apply_declarations(bundle, namespaces, default)
-        except ProvNSyntaxError:
-            raise
-        except ProvException as exc:
-            error = ProvNSyntaxError(str(exc), id_token.line, id_token.column)
-            if self.profile != "lenient":
-                raise error from exc
-            error.__cause__ = exc
-            self.skipped.append(f"PROV-N bundle skipped: {error}")
-            self._skip_bundle_body()
-            return
-        while not self._at_keyword("endBundle"):
-            if self._current.kind is TokenKind.EOF:
-                raise self._error("expected 'endBundle', found end of input")
-            if self._at_keyword("bundle"):
-                raise self._error("a bundle cannot contain a bundle")
-            self._statement(bundle)
-        self._advance()
+            prefix, _ = id_token.value
+            try:
+                if (prefix and prefix in {ns.prefix for ns in namespaces}) or (
+                    not prefix and default is not None
+                ):
+                    bundle = ProvBundle(document=document)
+                    self._apply_declarations(bundle, namespaces, default)
+                    identifier = self._resolve(id_token, bundle)
+                    document.add_bundle(bundle, identifier)
+                else:
+                    identifier = self._resolve(id_token, document)
+                    bundle = document.bundle(identifier)
+                    self._apply_declarations(bundle, namespaces, default)
+            except ProvNSyntaxError:
+                raise
+            except ProvException as exc:
+                error = ProvNSyntaxError(str(exc), id_token.line, id_token.column)
+                if self.profile != "lenient":
+                    raise error from exc
+                error.__cause__ = exc
+                self.skipped.append(f"PROV-N bundle skipped: {error}")
+                self._skip_bundle_body()
+                return
+            while not self._at_keyword("endBundle"):
+                if self._current.kind is TokenKind.EOF:
+                    raise self._error("expected 'endBundle', found end of input")
+                if self._at_keyword("bundle"):
+                    raise self._error("a bundle cannot contain a bundle")
+                self._statement(bundle)
+            self._advance()
+        finally:
+            self._scope = outer_scope
 
     def _skip_bundle_body(self) -> None:
         """Consume everything up to and including the next 'endBundle'."""
@@ -378,9 +502,8 @@ class ProvNParser:
         except ProvNSyntaxError as error:
             self._skip_or_raise(error, start_depth)
         except (ProvException, ValueError, OverflowError) as exc:
-            # A model rejection (e.g. from new_record()) or a bad typed
-            # literal (e.g. int("abc") inside parse_xsd_types()) is reported
-            # as a positioned syntax error and, under lenient, skipped.
+            # A model rejection (e.g. from new_record()) is reported as a
+            # positioned syntax error and, under lenient, skipped.
             wrapped = ProvNSyntaxError(str(exc), start.line, start.column)
             wrapped.__cause__ = exc
             self._skip_or_raise(wrapped, start_depth)
@@ -476,6 +599,7 @@ class ProvNParser:
         else:
             first = self._argument()
             if self._current.kind is TokenKind.SEMICOLON:
+                self._check_strict_bare_relation(keyword, first, "an identifier")
                 if first.kind is TokenKind.MARKER:
                     identifier = None
                 elif first.kind is TokenKind.NAME:
@@ -486,12 +610,15 @@ class ProvNParser:
                 args.append(self._argument())
             else:
                 args.append(first)
-        other_attributes: list[tuple[QualifiedName, Any]] = []
+        attribute_block: list[tuple[QualifiedName, Any, Token]] = []
         separator = self._current.kind
         while separator is TokenKind.COMMA:
             self._advance()
             if self._current.kind is TokenKind.LBRACKET:
-                other_attributes = self._attributes(bundle)
+                self._check_strict_bare_relation(
+                    keyword, self._current, "an attribute block"
+                )
+                attribute_block = self._attributes(bundle)
                 break
             args.append(self._argument())
             separator = self._current.kind
@@ -509,7 +636,39 @@ class ProvNParser:
             value = self._argument_value(token, attr, bundle)
             if value is not None:
                 attributes.append((attr, value))
+        other_attributes = [(name, value) for name, value, _ in attribute_block]
         bundle.new_record(rec_type, identifier, attributes, other_attributes)
+        self._check_formal_attributes(keyword, formal_names, attribute_block)
+
+    def _check_strict_bare_relation(
+        self, keyword: Token, token: Token, what: str
+    ) -> None:
+        """Under ``strict``, record a 3.3.0 message for an identifier or an
+        attribute block on a relation whose production has neither."""
+        if self.profile == "strict" and keyword.value[1] in _BARE_RELATIONS:
+            self._future(
+                f"'{keyword.text}' has {what}, which the strict profile does not allow",
+                token,
+                "reject this under the strict profile",
+                issue=519,
+            )
+
+    def _check_formal_attributes(
+        self,
+        keyword: Token,
+        formal_names: tuple[QualifiedName, ...],
+        attribute_block: list[tuple[QualifiedName, Any, Token]],
+    ) -> None:
+        """Record a 3.3.0 message for each attribute named after one of the
+        statement's own arguments; new_record() reads it as that argument."""
+        for name, _, token in attribute_block:
+            if name in formal_names:
+                self._future(
+                    f"'{token.text}' names the '{name.localpart}' argument of"
+                    f" '{keyword.text}', which PROV-N gives only by position",
+                    token,
+                    issue=523,
+                )
 
     def _check_strict_required_positions(
         self, keyword: Token, args: list[Token]
@@ -579,6 +738,9 @@ class ProvNParser:
         # new_record()'s later, unpositioned resolution.
         resolved = self._resolve(token, bundle)
         prefix, local = token.value
+        if prefix == "xsi" and "xsi" in self._scope:
+            # new_record() would resolve the text against the built-in xsi.
+            return resolved
         if not prefix and ":" in local:
             # An escaped colon in a bare local part can't be turned back
             # into text without looking like a (wrong) prefixed name, so
@@ -596,6 +758,10 @@ class ProvNParser:
     def _resolve(self, token: Token, bundle: ProvBundle) -> QualifiedName:
         prefix, local = token.value
         if prefix:
+            if prefix == "xsi":
+                declared = self._xsi_name(token)
+                if declared is not None:
+                    return declared
             qname = bundle.valid_qualified_name(f"{prefix}:{local}")
             if qname is None:
                 raise self._error(
@@ -624,9 +790,10 @@ class ProvNParser:
 
     # -- attributes and literals -----------------------------------------------
 
-    def _attributes(self, bundle: ProvBundle) -> list[tuple[QualifiedName, Any]]:
+    def _attributes(self, bundle: ProvBundle) -> list[tuple[QualifiedName, Any, Token]]:
+        """Parse an attribute block into (name, value, name token) triples."""
         self._expect(TokenKind.LBRACKET)
-        pairs: list[tuple[QualifiedName, Any]] = []
+        pairs: list[tuple[QualifiedName, Any, Token]] = []
         if self._current.kind is TokenKind.RBRACKET:
             self._advance()
             return pairs
@@ -636,7 +803,7 @@ class ProvNParser:
             )
             attr = self._resolve(name, bundle)
             self._expect(TokenKind.EQUALS)
-            pairs.append((attr, self._literal(bundle)))
+            pairs.append((attr, self._literal(bundle), name))
             if self._current.kind is TokenKind.COMMA:
                 self._advance()
                 continue
@@ -655,6 +822,12 @@ class ProvNParser:
                     TokenKind.NAME, "a datatype"
                 )
                 datatype = self._resolve(datatype_token, bundle)
+                if datatype == PROV_QUALIFIEDNAME and token.value.startswith("xsi:"):
+                    # The model would look the text up in its own prefix map.
+                    declared = self._xsi_name(token, token.value.partition(":")[2])
+                    if declared is not None:
+                        return declared
+                self._check_typed_name_value(token, datatype, bundle)
                 return Literal(token.value, datatype)
             return token.value
         if token.kind is TokenKind.INT:
@@ -662,6 +835,10 @@ class ProvNParser:
         if token.kind is TokenKind.QNAME_LITERAL:
             self._advance()
             prefix, local = token.value
+            if prefix == "xsi":
+                declared = self._xsi_name(token)
+                if declared is not None:
+                    return declared
             if not prefix and ":" in local:
                 # Mirrors _resolve()'s bare-local branch: an escaped colon
                 # inside an unprefixed local part would otherwise be
@@ -676,7 +853,51 @@ class ProvNParser:
                 return default[local]
             text = f"{prefix}:{local}" if prefix else local
             qname = bundle.valid_qualified_name(text)
+            self._check_name_value(text, token, bundle, True)
             # An unresolvable prefix stays an opaque literal, as it does when
             # decoded from PROV-JSON.
             return qname if qname is not None else Literal(text, PROV_QUALIFIEDNAME)
         raise self._error(f"expected a literal value, found {self._found()}")
+
+    def _check_typed_name_value(
+        self, token: Token, datatype: QualifiedName, bundle: ProvBundle
+    ) -> None:
+        """Check the text of the string ``token`` when ``datatype`` is a
+        qualified-name datatype."""
+        if datatype in (PROV_QUALIFIEDNAME, XSD_QNAME):
+            # The model resolves a prov:QUALIFIED_NAME text and keeps an
+            # xsd:QName one as a Literal.
+            self._check_name_value(
+                token.value, token, bundle, datatype == PROV_QUALIFIEDNAME
+            )
+
+    def _check_name_value(
+        self, text: str, token: Token, bundle: ProvBundle, resolves: bool
+    ) -> None:
+        """Record a 3.3.0 message at ``token`` when the qualified-name value
+        ``text`` does not resolve by its prefix (#510, #516, #553).
+
+        ``resolves`` says whether the model resolves ``text`` today, possibly
+        by compacting an IRI, rather than keeping it as a Literal.
+        """
+        if not resolves and text.startswith("xsi:") and "xsi" not in self._scope:
+            # The model keeps the text as a Literal, so nothing else reports
+            # the undeclared prefix.
+            reason: str | None = "its prefix 'xsi' is not declared"
+            issue: int | None = 510
+        else:
+            reason = bundle._unresolved_reason(text)
+            issue = None
+        if reason is None:
+            return
+        qname = bundle.valid_qualified_name(text) if resolves else None
+        if issue is None:
+            issue = 553 if qname is not None else 516
+        today = (
+            f"it reads as {qname}" if qname is not None else "it is kept as a Literal"
+        )
+        self._future(
+            f"the qualified name {text!r} does not resolve, because {reason}; {today}",
+            token,
+            issue=issue,
+        )

@@ -25,7 +25,7 @@ their conversation's, because the queue door stamped the ambient request's
 organization — the user's ACTIVE organization, or a previous request's context
 leaking across a detached-task boundary.
 
-Bounded and process-local by design: a miss degrades to the previous behaviour
+Bounded and process-local by design: a miss degrades to the previous behavior
 (ambient stamp + the DB's NULL-only inheritance trigger), never to a wrong
 answer of its own invention.
 """

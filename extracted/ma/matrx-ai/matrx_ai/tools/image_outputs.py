@@ -20,7 +20,7 @@ The funnel is process-wide. Its callers today:
 - `aidream/services/cloud_browser/tools.py::cloud_browser` (action=screenshot) — the
   server-side tool (host-registered; matrx-ai has no in-package browser tools).
 
-Every future image-producing tool inherits the behaviour for free. AI image
+Every future image-producing tool inherits the behavior for free. AI image
 GENERATION is a separate path (`providers/base_media.py::_persist_asset`),
 which persists and emits an `ImageContent` block carrying the `file_id`.
 """

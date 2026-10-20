@@ -23,6 +23,9 @@ from fastapi.testclient import TestClient
 from pydantic_ai.exceptions import UserError
 from pydantic_ai.workspaces import (
     LocalWorkspaceBackend,
+    SupportsFilesystem,
+    SupportsRealpath,
+    Workspace,
     WorkspaceBackend,
     WorkspaceOutputLimitError,
     WorkspaceRef,
@@ -36,6 +39,8 @@ from pydantic_ai_backends.remote import wire
 from pydantic_ai_backends.remote.server import SandboxdConfig, create_app
 from pydantic_ai_backends.types import CommandOutcome
 from pydantic_ai_backends.workspaces import SandboxdWorkspace, SandboxdWorkspaceBackend
+from pydantic_ai_backends.workspaces import _sandboxd as sandboxd_module
+from pydantic_ai_backends.workspaces._sandboxd import DEFAULT_OPENING_TIMEOUT
 from tests.test_remote_sandbox import FakeSandbox, Harness, _open_session, _service_headers
 
 TOKEN = "workspace-service-token"
@@ -333,10 +338,147 @@ class TestNamedSessions:
 
         async with _answering(handler) as client:
             backend = SandboxdWorkspaceBackend(
-                "http://x", token="t", client=client, session_name="conv-busy", request_timeout=0.3
+                "http://x",
+                token="t",
+                client=client,
+                session_name="conv-busy",
+                request_timeout=0.3,
+                opening_timeout=0.3,
             )
             with pytest.raises(httpx.HTTPStatusError):
                 await backend.run(["true"])
+
+    async def test_opening_waits_longer_than_a_plain_request(self) -> None:
+        """An open can build the runtime's image first: minutes, not 30 seconds."""
+        backend = SandboxdWorkspaceBackend("http://x", token="t", request_timeout=5)
+        assert backend._opening_timeout == DEFAULT_OPENING_TIMEOUT
+        assert (
+            SandboxdWorkspaceBackend(
+                "http://x", token="t", request_timeout=900, opening_timeout=60
+            )._opening_timeout
+            == 900
+        )
+
+
+class TestTheCallerHearsThatOpeningIsSlow:
+    """A runtime built inside the first open left the person looking at a run
+    that said nothing for minutes (vstorm-co/agenticos#2222)."""
+
+    async def test_a_slow_open_is_announced_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(sandboxd_module, "WAIT_NOTICE_SECONDS", 0.05)
+        asked: list[bool] = []
+        heard: list[bool] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if request.url.path == "/sessions":
+                asked.append(True)
+                if len(asked) < 4:
+                    return httpx.Response(409, text="Session is opening: conv-busy")
+            ran = wire.RunResponse(stdout="ok", stderr="", exit_code=0)
+            return _opened(request) or httpx.Response(200, content=ran.model_dump_json())
+
+        async def on_wait() -> None:
+            heard.append(True)
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend(
+                "http://x", token="t", client=client, session_name="conv-busy", on_wait=on_wait
+            )
+            assert (await backend.run(["true"])).stdout == "ok"
+        assert heard == [True]
+
+    async def test_a_quick_open_says_nothing(self) -> None:
+        heard: list[bool] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            ran = wire.RunResponse(stdout="ok", stderr="", exit_code=0)
+            return _opened(request) or httpx.Response(200, content=ran.model_dump_json())
+
+        async def on_wait() -> None:
+            heard.append(True)
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend(
+                "http://x", token="t", client=client, on_wait=on_wait
+            )
+            await backend.run(["true"])
+        assert heard == []
+
+    async def test_a_notice_that_fails_does_not_stop_the_open(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.setattr(sandboxd_module, "WAIT_NOTICE_SECONDS", 0.0)
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            ran = wire.RunResponse(stdout="ok", stderr="", exit_code=0)
+            return _opened(request) or httpx.Response(200, content=ran.model_dump_json())
+
+        async def on_wait() -> None:
+            raise RuntimeError("the chat went away")
+
+        async def slow_create(self: SandboxdWorkspaceBackend) -> httpx.Response:
+            await anyio.sleep(0.05)
+            return await original(self)
+
+        original = SandboxdWorkspaceBackend._create
+        monkeypatch.setattr(SandboxdWorkspaceBackend, "_create", slow_create)
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend(
+                "http://x", token="t", client=client, on_wait=on_wait
+            )
+            with caplog.at_level("WARNING"):
+                assert (await backend.run(["true"])).stdout == "ok"
+        assert "sandboxd_wait_notice_failed" in caplog.text
+
+    async def test_a_failed_open_raises_what_it_raised(self) -> None:
+        """Not an `ExceptionGroup`: the notice runs beside the open in a task group,
+        and a caller of `run` catches `httpx.HTTPError`."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("refused", request=request)
+
+        async def on_wait() -> None:
+            return None
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend(
+                "http://x", token="t", client=client, on_wait=on_wait
+            )
+            with pytest.raises(httpx.ConnectError):
+                await backend.run(["true"])
+
+    def test_the_capability_hands_both_to_its_backends(self) -> None:
+        async def on_wait() -> None:
+            return None
+
+        capability = SandboxdWorkspace(
+            service_url="http://x", token="t", opening_timeout=120, on_wait=on_wait
+        )
+        backend = capability.backend()
+        assert backend._opening_timeout == 120
+        assert backend._on_wait is on_wait
+
+
+class TestOwningAClient:
+    """AUD-1019-09: with no client, every request opened and closed one of its own."""
+
+    async def test_inside_the_context_every_backend_shares_one_client(self) -> None:
+        capability = SandboxdWorkspace(service_url="http://x", token="t")
+        async with capability as entered:
+            assert entered is capability
+            first, second = capability.backend(), capability.backend()
+            assert first._client is not None
+            assert first._client is second._client
+            owned = first._client
+        assert owned.is_closed
+        assert capability.backend()._client is None
+
+    async def test_a_client_passed_in_stays_the_callers(self) -> None:
+        async with httpx.AsyncClient() as client:
+            capability = SandboxdWorkspace(service_url="http://x", token="t", client=client)
+            async with capability:
+                assert capability.backend()._client is client
+            assert not client.is_closed
 
 
 class TestSandboxdWorkspaceCapability:
@@ -533,3 +675,242 @@ class TestPurgeRaces:
 
         async with _answering(handler) as client:
             await SandboxdWorkspaceBackend("http://sandboxd", token="t", client=client).purge()
+
+
+def _native(
+    request: httpx.Request, *, writes: bool = True, realpath: bool = True
+) -> httpx.Response | None:
+    """`_opened`, from a service that serves file operations off the host."""
+    if request.url.path == "/policy":
+        policy = wire.ServicePolicy(
+            execute_timeout=60, native_files=True, native_writes=writes, native_realpath=realpath
+        )
+        return httpx.Response(200, content=policy.model_dump_json())
+    return _opened(request)
+
+
+class TestNativeFileOperations:
+    """One request per file operation where the service offers it, the shell where not."""
+
+    async def test_each_operation_is_one_request_and_no_command(self) -> None:
+        seen: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if (opened := _native(request)) is not None:
+                return opened
+            seen.append(request.url.path.rsplit("/", 1)[1])
+            op = seen[-1]
+            if op == "read":
+                return httpx.Response(200, content=b"bytes")
+            if op == "stat":
+                entry = wire.FileEntry(name="a", path="/workspace/a", is_dir=False, size=5)
+                return httpx.Response(200, content=entry.model_dump_json())
+            if op == "list":
+                return httpx.Response(
+                    200, json=[{"name": "a", "path": "/workspace/a", "is_dir": True}]
+                )
+            if op == "write":
+                assert request.url.params["path"] == "/workspace/a"
+                assert request.content == b"new"
+            return httpx.Response(204)
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            assert await backend.read_bytes("/workspace/a") == b"bytes"
+            await backend.write_bytes("/workspace/a", b"new")
+            assert (await backend.stat("/workspace/a")).size == 5
+            assert (await backend.list_dir("/workspace"))[0].is_dir
+            await backend.make_dir("/workspace/d")
+            await backend.remove("/workspace/d")
+            assert await backend.exists("/workspace/a") is True
+        assert seen == ["read", "write", "stat", "list", "mkdir", "remove", "stat"]
+
+    async def test_what_the_service_hands_back_goes_through_the_shell(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The shell path itself is the conformance suite's to prove, against Docker."""
+        handed: list[tuple[str, str]] = []
+
+        class Shell:
+            def __getattr__(self, op: str) -> Any:
+                async def call(path: str, *_args: Any) -> Any:
+                    handed.append((op, path))
+                    return [] if op == "list_dir" else b"" if op == "read_bytes" else None
+
+                return call
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if (opened := _native(request)) is not None:
+                return opened
+            return httpx.Response(wire.NOT_NATIVE_STATUS, json={"detail": "a link"})
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            monkeypatch.setattr(backend, "_shell", Shell)
+            await backend.read_bytes("/workspace/l")
+            await backend.write_bytes("/workspace/l", b"x")
+            await backend.stat("/workspace/l")
+            await backend.list_dir("/workspace/l")
+            await backend.make_dir("/workspace/l")
+            await backend.remove("/workspace/l")
+        assert [op for op, _ in handed] == [
+            "read_bytes",
+            "write_bytes",
+            "stat",
+            "list_dir",
+            "make_dir",
+            "remove",
+        ]
+
+    async def test_realpath_is_one_request_for_a_path_with_no_link(self) -> None:
+        """AUD-1019-10: the console's path guard asks this before every read."""
+        seen: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if (opened := _native(request)) is not None:
+                return opened
+            seen.append(request.url.path)
+            resolved = wire.RealpathResponse(path="/workspace/a.txt")
+            return httpx.Response(200, content=resolved.model_dump_json())
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            assert isinstance(backend, SupportsRealpath)
+            assert await backend.realpath("/workspace/a.txt") == "/workspace/a.txt"
+        assert seen == ["/sessions/s-1/files/realpath"]
+
+    @pytest.mark.parametrize("offered", [True, False])
+    async def test_a_link_or_an_older_service_resolves_in_the_sandbox(
+        self, monkeypatch: pytest.MonkeyPatch, offered: bool
+    ) -> None:
+        asked: list[str] = []
+
+        class Shell:
+            async def realpath(self, path: str) -> str:
+                asked.append(path)
+                return "/workspace/target"
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if (opened := _native(request, realpath=offered)) is not None:
+                return opened
+            assert offered, "an older service is never asked"
+            return httpx.Response(wire.NOT_NATIVE_STATUS, json={"detail": "a link"})
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            monkeypatch.setattr(backend, "_shell", Shell)
+            assert await backend.realpath("/workspace/link") == "/workspace/target"
+        assert asked == ["/workspace/link"]
+
+    async def test_the_shell_path_is_a_workspace_over_its_commands(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            ran = wire.RunResponse(stdout="/workspace\n", stderr="", exit_code=0)
+            return _native(request) or httpx.Response(200, content=ran.model_dump_json())
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            shell = backend._shell()
+            assert isinstance(shell, Workspace)
+            assert not isinstance(shell.backend, SupportsFilesystem)
+            assert await shell.working_dir() == "/workspace"
+            assert shell.ref == backend.ref
+
+    async def test_a_service_without_native_files_is_only_ever_asked_for_commands(
+        self,
+    ) -> None:
+        paths: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            paths.append(request.url.path)
+            ran = wire.RunResponse(stdout="", stderr="", exit_code=0)
+            return _opened(request) or httpx.Response(200, content=ran.model_dump_json())
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            await backend.make_dir("/workspace/d")
+        assert not any("/files/" in path for path in paths)
+
+    async def test_a_service_that_keeps_writes_reads_natively_and_writes_by_shell(self) -> None:
+        paths: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            if (opened := _native(request, writes=False)) is not None:
+                return opened
+            paths.append(request.url.path)
+            if request.url.path.endswith("/files/read"):
+                return httpx.Response(200, content=b"x")
+            ran = wire.RunResponse(stdout="", stderr="", exit_code=0)
+            return httpx.Response(200, content=ran.model_dump_json())
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            assert await backend.read_bytes("/workspace/a") == b"x"
+            await backend.make_dir("/workspace/d")
+        assert paths[0].endswith("/files/read")
+        assert all(path.endswith("/run") for path in paths[1:])
+
+    @pytest.mark.parametrize(
+        ("status", "error", "raised"),
+        [
+            (404, "FileNotFoundError", FileNotFoundError),
+            (400, "IsADirectoryError", IsADirectoryError),
+            (400, "NotADirectoryError", NotADirectoryError),
+            (400, "FileExistsError", FileExistsError),
+            (400, "ValueError", ValueError),
+        ],
+    )
+    async def test_a_path_error_is_the_builtin_one(
+        self, status: int, error: str, raised: type[Exception]
+    ) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            opened = _native(request)
+            if opened is not None:
+                return opened
+            return httpx.Response(status, json={"detail": {"error": error, "message": "it"}})
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            with pytest.raises(raised):
+                await backend.read_bytes("/workspace/a")
+
+    async def test_a_missing_path_does_not_exist(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            opened = _native(request)
+            if opened is not None:
+                return opened
+            detail = {"error": "FileNotFoundError", "message": "no"}
+            return httpx.Response(404, json={"detail": detail})
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            assert await backend.exists("/workspace/absent") is False
+
+    @pytest.mark.parametrize("body", [{"detail": "No such session: s-1"}, None])
+    async def test_a_gone_session_is_unavailable(self, body: dict[str, str] | None) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            opened = _native(request)
+            if opened is not None:
+                return opened
+            return httpx.Response(404, json=body) if body else httpx.Response(410, text="gone")
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            with pytest.raises(WorkspaceUnavailableError):
+                await backend.read_bytes("/workspace/a")
+
+    @pytest.mark.parametrize(
+        "response",
+        [
+            httpx.Response(400, text="not json"),
+            httpx.Response(400, json={"detail": {"error": "SomethingElse"}}),
+            httpx.Response(500, text="boom"),
+        ],
+    )
+    async def test_anything_else_is_an_http_error(self, response: httpx.Response) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            return _native(request) or response
+
+        async with _answering(handler) as client:
+            backend = SandboxdWorkspaceBackend("http://x", token="t", client=client)
+            with pytest.raises(httpx.HTTPStatusError):
+                await backend.read_bytes("/workspace/a")

@@ -18,8 +18,8 @@ never imports aidream (``scripts/check_package_boundaries.py``).
 
 Family ``media_forensics``: what a file and the open web say about an image,
 without anyone drawing a conclusion. Neither kind carries a verdict field on
-purpose — "is this photo fake" is a judgement a human or an agent makes from
-these facts, and a score field here would launder that judgement into data.
+purpose — "is this photo fake" is a judgment a human or an agent makes from
+these facts, and a score field here would launder that judgment into data.
 
 Publish: ``scripts/publish_kind_catalog.py matrx_ai.tools.kinds.media_forensics --apply``.
 """
@@ -36,7 +36,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 
 class ReverseImageMatchItem(BaseModel):
-    """Mirrors ``ReverseImageMatch`` — closed, because the node normalises each
+    """Mirrors ``ReverseImageMatch`` — closed, because the node normalizes each
     engine's payload INTO this shape rather than passing provider keys through."""
 
     model_config = ConfigDict(extra="forbid")
@@ -94,7 +94,7 @@ class ReverseImageMatchItem(BaseModel):
                 "match_type": "visual",
                 "engine": "google_lens",
                 "position": 1,
-                "title": "Black bear at a wildlife centre",
+                "title": "Black bear at a wildlife center",
                 "link": "https://example.com/bear-story",
                 "source": "Example News",
                 "displayed_link": None,

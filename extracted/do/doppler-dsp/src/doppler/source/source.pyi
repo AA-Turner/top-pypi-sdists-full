@@ -171,6 +171,7 @@ class NCO:
     def steps_u32_ovf(
         self,
         count: int = 1,
+        /,
     ) -> tuple[NDArray[np.uint32], NDArray[np.uint8]]:
         """Advance n samples; write raw phase values and per-sample carry.
         Identical to dp_nco_steps_u32 for the phase array, but simultaneously
@@ -182,9 +183,7 @@ class NCO:
         Parameters
         ----------
         count : int
-            How many output samples to ask for. The call may return fewer; size
-            an `out=` buffer with the matching `_max_out()` when you need the
-            worst case.
+            How many output samples to ask for. The call may return fewer.
 
         Returns
         -------
@@ -438,7 +437,7 @@ class NCO:
             Opaque snapshot, `state_bytes()` bytes long.
         """
 
-    def set_state(self, blob: bytes) -> None:
+    def set_state(self, blob: bytes, /) -> None:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place, including any value a setter
@@ -512,6 +511,7 @@ class NCO:
         exc_type: object | None = ...,
         exc: object | None = ...,
         tb: object | None = ...,
+        /,
     ) -> None:
         """Exit a context manager, releasing the NCO.
 
@@ -715,7 +715,7 @@ class LO:
             Opaque snapshot, `state_bytes()` bytes long.
         """
 
-    def set_state(self, blob: bytes) -> None:
+    def set_state(self, blob: bytes, /) -> None:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place, including any value a setter
@@ -787,6 +787,7 @@ class LO:
         exc_type: object | None = ...,
         exc: object | None = ...,
         tb: object | None = ...,
+        /,
     ) -> None:
         """Exit a context manager, releasing the LO.
 
@@ -970,7 +971,7 @@ class AWGN:
             Opaque snapshot, `state_bytes()` bytes long.
         """
 
-    def set_state(self, blob: bytes) -> None:
+    def set_state(self, blob: bytes, /) -> None:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place, including any value a setter
@@ -993,8 +994,15 @@ class AWGN:
     @property
     def amplitude(self) -> float:
         """Per-component standard deviation. Assigning an invalid value (NaN,
-        infinite or negative) is ignored: the amplitude keeps its old value,
-        and the property does not raise.
+        infinite or negative) raises ValueError, and the amplitude keeps its
+        old value.
+
+        Raises
+        ------
+        ValueError
+            On assignment, if ``dp_awgn_set_amplitude`` refuses the value by
+            returning non-zero. The exception message is ``AWGN: amplitude must
+            be finite and >= 0``, with the return code appended.
         """
     @amplitude.setter
     def amplitude(self, value: float) -> None: ...
@@ -1027,6 +1035,7 @@ class AWGN:
         exc_type: object | None = ...,
         exc: object | None = ...,
         tb: object | None = ...,
+        /,
     ) -> None:
         """Exit a context manager, releasing the AWGN.
 

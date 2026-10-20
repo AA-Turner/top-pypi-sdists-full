@@ -53,6 +53,7 @@ it now answers.
 from __future__ import annotations
 
 import functools
+import os
 from dataclasses import dataclass
 from typing import NamedTuple
 
@@ -780,6 +781,24 @@ class GroundMedium:
 
 
 @dataclass(frozen=True)
+class RunPhases:
+    """One run's phase lines under MATRIX TIMING, printed only under
+    MOMWIRE_TIMES (:mod:`momwire._times`): the ground tables counted since
+    the previous run and how they were obtained, the fill's and the factor's
+    threads, and the run's own readouts."""
+
+    ground_seconds: float = 0.0
+    ground_built: int = 0
+    ground_disk: int = 0
+    ground_blended: int = 0
+    fill_threads: int = 0
+    factor_threads: int = 0
+    solution_seconds: float = 0.0
+    rp_seconds: float = 0.0
+    near_seconds: float = 0.0
+
+
+@dataclass(frozen=True)
 class RunData:
     """Everything a full printout needs that the deck does not already say.
 
@@ -835,6 +854,8 @@ class RunData:
     fill_seconds: float = 0.0
     factor_seconds: float = 0.0
     run_seconds: float = 0.0
+    # MOMWIRE_TIMES only (None otherwise, and then nothing is printed)
+    phases: RunPhases | None = None
 
 
 # ==========================================================================
@@ -1064,6 +1085,41 @@ def _post_ge_cards(deck_text: str) -> list[Card]:
         if card.mnemonic == "EN":
             break
     return cards
+
+
+def execution_groups(cards: list[Card]) -> tuple[list[list[int]], list[int]]:
+    """The runs a deck's post-``GE`` cards execute, as the licensed NEC-5
+    executes them (momwire 0.79.2, probed black-box): ``(groups, tail)``,
+    each group the indices of the cards echoed with it, ``tail`` the cards
+    echoed after the last (a no-op ``XQ``), the terminator excluded.
+
+    The deck is a program read top to bottom. An ``RP`` runs on the spot,
+    always; an ``XQ`` runs when something changed since the last run, and is
+    otherwise a no-op echoed with what follows. An ``NE`` / ``NH`` runs on the
+    spot too when nothing changed since the last run -- it reads the
+    solution standing (momwire#1579: Ward AE6TY's ``RP .. NE .. XQ`` per
+    excitation, the NE printed after the pattern) -- and is otherwise a
+    request the next run answers. Every other card is a change. Each run
+    takes the ``FR`` in force when it runs."""
+    groups: list[list[int]] = []
+    pending: list[int] = []
+    changed = True
+    for k, card in enumerate(cards):
+        if card.mnemonic in _STRUCTURE_TERMINATORS:
+            break
+        pending.append(k)
+        m = card.mnemonic
+        if (
+            m == "RP"
+            or (m == "XQ" and changed)
+            or (m in ("NE", "NH") and not changed and groups)
+        ):
+            groups.append(pending)
+            pending = []
+            changed = False
+        elif m not in ("XQ", "NE", "NH"):
+            changed = True
+    return groups, pending
 
 
 # The deck's post-``GE`` card images, for a caller outside this module that
@@ -1305,12 +1361,63 @@ def _load_row(row: LoadRow) -> str:
 
 
 def _timing(data: RunData) -> list[str]:
-    return [
+    lines = [
         _TIMING_HEADING,
         "",
         " " * 24
         + f"FILL={data.fill_seconds:9.3f}"
         + f" SEC.,  FACTOR={data.factor_seconds:9.3f} SEC.",
+    ]
+    if data.phases is not None:
+        lines += _phase_lines(data, data.phases)
+    return lines
+
+
+def _phase_lines(data: RunData, ph: RunPhases) -> list[str]:
+    """MOMWIRE_TIMES: the run's phases, as the licensed engine's timed build
+    prints its own (the standalone executables print the same text)."""
+    pad = " " * 24
+
+    def ms(seconds: float) -> int:
+        return round(seconds * 1e3)
+
+    return [
+        pad
+        + f"GROUND TABLES={ph.ground_seconds:9.3f} SEC.  (BUILT {ph.ground_built}, "
+        + f"FROM DISK CACHE {ph.ground_disk}, ANCHOR-BLENDED {ph.ground_blended})",
+        pad
+        + f"FILL: {ms(data.fill_seconds)} msec ({ph.fill_threads} threads) "
+        + f"FACTOR: {ms(data.factor_seconds)} msec ({ph.factor_threads} threads)",
+        pad + f"SOLUTION (PORTS+CURRENTS+POWER)={ph.solution_seconds:9.3f} SEC.",
+        pad + f"RADIATED FIELD (RP)={ph.rp_seconds:9.3f} SEC.",
+        pad + f"NEAR FIELD (NE/NH)={ph.near_seconds:9.3f} SEC.",
+    ]
+
+
+def _times_environment() -> list[str]:
+    """MOMWIRE_TIMES only: the environment in effect, at the top of the
+    printout (the standalone executables print the same text); nothing when
+    it is off."""
+    from .. import _somm_disk_cache, _sommerfeld_below, _times
+
+    if _times.current() is None:
+        return []
+
+    def var(name: str) -> str:
+        return f"  {name} = {os.environ.get(name) or '(NOT SET)'}"
+
+    cache = str(_somm_disk_cache.cache_dir()) if _somm_disk_cache.enabled() else "OFF"
+    return [
+        " " * 30 + "- - - MOMWIRE_TIMES ENVIRONMENT - - -",
+        "",
+        var("MOMWIRE_THREADS"),
+        var("OMP_NUM_THREADS"),
+        var("OPENBLAS_NUM_THREADS"),
+        f"  THREADS = {_times.fill_threads()} (FILL), {_times.factor_threads()} (FACTOR)",
+        f"  VARIANT = {_accelerator_variant()}",
+        f"  MOMWIRE_BELOW_ANCHORS = {_sommerfeld_below.anchor_mode()}",
+        f"  GROUND TABLE CACHE = {cache}",
+        *_blank(_SECTION_GAP),
     ]
 
 
@@ -1604,12 +1711,22 @@ def _pattern(block: PatternBlock) -> list[str]:
     return lines
 
 
-def _run_sections(data: RunData) -> list[str]:
+def _run_sections(data: RunData, *, requests_only: bool = False) -> list[str]:
     """One run's results, from the network excitation through the patterns:
     everything a run prints after the solve, each section followed by its
     captured gap. A single-run printout prints it once; a multi-run deck
-    (momwire#1237) prints it once per ``XQ`` block."""
+    (momwire#1237) prints it once per ``XQ`` block. ``requests_only``: a
+    run that changed no source prints its near fields and patterns alone
+    (an ``RP`` after an ``XQ``, probed on x13, momwire 0.79.2)."""
     body: list[str] = []
+    if requests_only:
+        for near in data.near_fields:
+            body += _near_field(near)
+            body += _blank(_SECTION_GAP)
+        for block in data.patterns:
+            body += _pattern(block)
+            body += _blank(_PATTERN_GAP)
+        return body
     if data.network_excitation:
         body += [_NETWORK_EXCITATION_HEADING, "", *_PORT_COLUMNS]
         body += [_port_row(row) for row in data.network_excitation]
@@ -1660,6 +1777,10 @@ def _closing(seconds: float, *, closing: bool) -> list[str]:
     deck)."""
     if not closing:
         return []
+    from .. import _times
+
+    if _times.current() is not None:  # MOMWIRE_TIMES: measured, and says so
+        return ["", f"{_RUN_TIME_LABEL}{seconds:10.3f} SEC. (WALL CLOCK)"]
     return ["", f"{_RUN_TIME_LABEL}{seconds:10.3f}"]
 
 
@@ -1713,6 +1834,7 @@ def render_multi_printout(
         raise ValueError(f"{len(blocks)} executed runs and {len(runs)} answers")
     first = runs[0]
     body: list[str] = []
+    body += _times_environment()
     body += _structure_specification(deck, first)
     body += _blank(_STRUCTURE_GAP)
     body += [_card_echo(i, c) for i, c in blocks[0]]
@@ -1739,6 +1861,94 @@ def render_multi_printout(
     if terminator is not None:
         body.append(_card_echo(len(cards), terminator))
     seconds = sum(r.run_seconds for r in runs) if run_seconds is None else run_seconds
+    body += _closing(seconds, closing=closing)
+    return render_header(deck.source_text, basis=basis) + "\n".join(body) + "\n"
+
+
+@dataclass(frozen=True)
+class SequenceRun:
+    """One run of a sequence deck (:func:`render_sequence_printout`): the
+    cards echoed with it (post-``GE`` indices), its answers (one per
+    frequency), and how it prints -- ``full`` (a new ``FR``, or the first
+    run: every frequency a whole block) or results only, at the frequency in
+    force; ``requests_only`` for a results-only run whose cards change no
+    source (only its near fields and patterns print)."""
+
+    cards: tuple[int, ...]
+    answers: tuple[RunData, ...]
+    full: bool
+    requests_only: bool = False
+
+
+def render_sequence_printout(
+    deck: Nec5Deck,
+    runs: list[SequenceRun],
+    tail: list[int],
+    *,
+    basis: str | None = None,
+    closing: bool = True,
+    run_seconds: float | None = None,
+) -> str:
+    """A deck read as the licensed NEC-5 reads it, a program top to bottom
+    (momwire 0.79.2): each ``RP`` / ``XQ`` runs with the ``FR`` in force at
+    that point, so an ``FR`` after an ``XQ`` starts a new frequency loop
+    (probed black-box on x13, every shape served here):
+
+      * the structure, then the first run's card echoes and, per frequency,
+        a whole block -- frequency, environment, loading (``ALLOCATE CM:``
+        in the printout's first block only), timing, results -- one blank
+        more between blocks (:func:`render_stepped_printout`'s);
+      * per later run: one blank, its card echoes, then either whole blocks
+        per frequency (it carries an ``FR``; ``_STRUCTURE_GAP`` blanks after
+        the echoes, as after the first) or its results only, at the
+        frequency in force (``_SECTION_GAP`` blanks, the multi-run layout),
+        a run that changes no source printing only its near fields and
+        patterns;
+      * the echoes after the last run, the terminator's and one ``RUN TIME``.
+    """
+    cards = _post_ge_cards(deck.source_text)
+    terminator = _terminator(cards)
+    first = runs[0].answers[0]
+    body: list[str] = []
+    body += _times_environment()
+    body += _structure_specification(deck, first)
+    body += _blank(_STRUCTURE_GAP)
+    allocate = True
+    for r, run in enumerate(runs):
+        if r:
+            body.append("")
+        body += [_card_echo(i + 1, cards[i]) for i in run.cards]
+        if run.full:
+            body += _blank(_STRUCTURE_GAP)
+            for k, data in enumerate(run.answers):
+                if k:
+                    body.append("")
+                body += _frequency(data)
+                body += _blank(_SECTION_GAP)
+                body += _environment(data)
+                body += _blank(_SECTION_GAP)
+                body += _loading(data, allocate=allocate)
+                allocate = False
+                body += _blank(_SECTION_GAP)
+                body += _timing(data)
+                body += _blank(_SECTION_GAP)
+                if data.networks:
+                    body += _network_data(data)
+                    body += _blank(_SECTION_GAP)
+                body += _run_sections(data)
+        else:
+            body += _blank(_SECTION_GAP)
+            for data in run.answers:
+                body += _run_sections(data, requests_only=run.requests_only)
+    body.append("")
+    body += [_card_echo(i + 1, cards[i]) for i in tail]
+    if terminator is not None:
+        body.append(_card_echo(len(cards), terminator))
+    seconds = (
+        sum(d.run_seconds for run in runs for d in run.answers)
+        if run_seconds is None
+        else run_seconds
+    )
     body += _closing(seconds, closing=closing)
     return render_header(deck.source_text, basis=basis) + "\n".join(body) + "\n"
 
@@ -1772,6 +1982,7 @@ def render_stepped_printout(
     run_at = next(k for k, (_, c) in enumerate(numbered) if c.mnemonic in ("RP", "XQ"))
     first = runs[0]
     body: list[str] = []
+    body += _times_environment()
     body += _structure_specification(deck, first)
     body += _blank(_STRUCTURE_GAP)
     body += [_card_echo(i, c) for i, c in numbered[: run_at + 1]]
@@ -1831,6 +2042,7 @@ def render_printout(
     cards = _post_ge_cards(deck.source_text)
     terminator = _terminator(cards)
     body: list[str] = []
+    body += _times_environment()
     body += _structure_specification(deck, data)
     body += _blank(_STRUCTURE_GAP)
     body += [

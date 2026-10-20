@@ -11,25 +11,33 @@ from connector_sdk_types.generated import (
     FoundAccountData,
     FoundEntitlementAssociation,
     FoundEntitlementData,
+    ProbeCapabilityConfigStatus,
+    ProbeCapabilityType,
     ProbeCheck,
     ProbeCheckName,
     ProbeCheckSource,
     ProbeCheckStatus,
+    ProbeConfigFinding,
+    ProbeConfigFindingSeverity,
     ProbeCoverageStatus,
     ProbeCustomAttributeResult,
     ProbeEntitlementTypeResult,
     ProbeIntegration,
     ProbeIntegrationRequest,
     ProbeSampleAccount,
+    ProbeSampleCapabilityConfig,
     ProbeStatus,
 )
 from connector_sdk_types.oai.probe import (
+    BASELINE_PROBE_CHECKS,
     ProbeCheckSpec,
     ProbeSession,
     aggregate_probe_status,
     probe_account_label,
+    probe_capability_config_check,
     probe_sample_account,
     probe_sample_association,
+    probe_sample_capability_config,
     probe_sample_entitlement,
     run_probe,
     run_probe_sync,
@@ -92,9 +100,9 @@ async def test_run_probe_reports_every_check():
         )
     ).response
 
-    assert {result.check for result in results.checks} == set(ProbeCheckName)
+    assert {result.check for result in results.checks} == set(BASELINE_PROBE_CHECKS)
     assert _by_check(results, ProbeCheckName.ACCOUNTS).status is ProbeCheckStatus.PASSED
-    for absent in set(ProbeCheckName) - {ProbeCheckName.ACCOUNTS}:
+    for absent in set(BASELINE_PROBE_CHECKS) - {ProbeCheckName.ACCOUNTS}:
         assert _by_check(results, absent).status is ProbeCheckStatus.UNSUPPORTED
     assert results.status is ProbeStatus.PASSED
     assert results.duration_ms is not None
@@ -385,7 +393,7 @@ def test_sync_driver_reports_every_check():
         app_id=APP_ID,
     ).response
 
-    assert {result.check for result in results.checks} == set(ProbeCheckName)
+    assert {result.check for result in results.checks} == set(BASELINE_PROBE_CHECKS)
     check = _by_check(results, ProbeCheckName.ACCOUNTS)
     assert check.status is ProbeCheckStatus.PASSED
     assert check.capability == "list_accounts"
@@ -926,3 +934,198 @@ async def test_a_check_that_did_not_time_itself_is_timed_by_the_driver():
     )
 
     assert _by_check(response.response, ProbeCheckName.ACCOUNTS).duration_ms is not None
+
+
+# capability_config
+
+
+def _finding(severity: ProbeConfigFindingSeverity, code: str = "code") -> ProbeConfigFinding:
+    return ProbeConfigFinding(severity=severity, code=code, message=f"{severity.value}: {code}")
+
+
+def _config(
+    capability: str = "assign_entitlement",
+    *findings: ProbeConfigFinding,
+    configured: bool = True,
+) -> ProbeSampleCapabilityConfig:
+    return probe_sample_capability_config(
+        capability,
+        setting=f"{capability}_query",
+        findings=findings,
+        configured=configured,
+    )
+
+
+@pytest.mark.parametrize(
+    ("severities", "expected"),
+    [
+        ((), ProbeCapabilityConfigStatus.VALID),
+        ((ProbeConfigFindingSeverity.INFO,), ProbeCapabilityConfigStatus.VALID),
+        ((ProbeConfigFindingSeverity.WARNING,), ProbeCapabilityConfigStatus.WARNING),
+        (
+            (ProbeConfigFindingSeverity.WARNING, ProbeConfigFindingSeverity.ERROR),
+            ProbeCapabilityConfigStatus.INVALID,
+        ),
+    ],
+)
+def test_a_capability_config_verdict_follows_its_worst_finding(
+    severities: tuple[ProbeConfigFindingSeverity, ...],
+    expected: ProbeCapabilityConfigStatus,
+):
+    sample = _config("assign_entitlement", *(_finding(severity) for severity in severities))
+    assert sample.status is expected
+
+
+def test_capability_config_findings_are_ordered_most_severe_first():
+    sample = _config(
+        "assign_entitlement",
+        _finding(ProbeConfigFindingSeverity.INFO, "note"),
+        _finding(ProbeConfigFindingSeverity.ERROR, "unknown_placeholder"),
+        _finding(ProbeConfigFindingSeverity.WARNING, "unscoped_where"),
+    )
+    assert [finding.code for finding in sample.findings] == [
+        "unknown_placeholder",
+        "unscoped_where",
+        "note",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("capability", "expected"),
+    [
+        ("list_accounts", ProbeCapabilityType.READ),
+        ("assign_entitlement", ProbeCapabilityType.WRITE),
+        ("rotate_api_key", ProbeCapabilityType.WRITE),
+    ],
+)
+def test_capability_type_defaults_to_the_capabilitys_level(
+    capability: str, expected: ProbeCapabilityType
+):
+    """A custom capability counts as a write, the cautious reading."""
+    assert _config(capability).capability_type is expected
+
+
+def test_an_explicit_capability_type_wins():
+    sample = probe_sample_capability_config(
+        "list_accounts", capability_type=ProbeCapabilityType.WRITE
+    )
+    assert sample.capability_type is ProbeCapabilityType.WRITE
+
+
+def test_an_unconfigured_capability_is_not_judged():
+    """Not set up is not the same as set up wrong, even with findings attached."""
+    sample = _config("delete_account", _finding(ProbeConfigFindingSeverity.ERROR), configured=False)
+    assert sample.status is ProbeCapabilityConfigStatus.NOT_CONFIGURED
+
+
+def test_capability_config_check_fails_on_an_invalid_capability():
+    check = probe_capability_config_check(
+        [
+            _config("list_accounts"),
+            _config("assign_entitlement", _finding(ProbeConfigFindingSeverity.ERROR)),
+            _config("delete_account", configured=False),
+        ]
+    )
+
+    assert check.check is ProbeCheckName.CAPABILITY_CONFIG
+    assert check.status is ProbeCheckStatus.FAILED
+    assert check.observed_count == 3
+    assert len(check.samples) == 3
+    assert check.message == (
+        "Checked 2 configured capabilities (1 not configured): "
+        "1 cannot be executed (assign_entitlement)."
+    )
+
+
+def test_capability_config_check_passes_with_warnings():
+    check = probe_capability_config_check(
+        [_config("assign_entitlement", _finding(ProbeConfigFindingSeverity.WARNING))]
+    )
+
+    assert check.status is ProbeCheckStatus.PASSED
+    assert check.message == "Checked 1 configured capability: all can be executed, 1 with warnings."
+
+
+def test_capability_config_check_with_nothing_configured_is_skipped():
+    """A passing check must carry evidence, and there is none to give."""
+    check = probe_capability_config_check([_config("delete_account", configured=False)])
+
+    assert check.status is ProbeCheckStatus.SKIPPED
+    assert check.samples == []
+
+
+def test_a_capability_config_sample_survives_a_round_trip():
+    """The samples union is not discriminated by the generator, so the kind must still win."""
+    check = probe_capability_config_check(
+        [_config("assign_entitlement", _finding(ProbeConfigFindingSeverity.WARNING))]
+    )
+
+    parsed = ProbeCheck.model_validate_json(check.model_dump_json())
+
+    assert isinstance(parsed.samples[0], ProbeSampleCapabilityConfig)
+    assert parsed.samples[0].findings[0].severity is ProbeConfigFindingSeverity.WARNING
+
+
+def test_a_finding_can_point_at_a_setting_other_than_its_samples():
+    """A capability's config can be broken by a shared setting, e.g. a relative URL with no base."""
+    finding = ProbeConfigFinding(
+        severity=ProbeConfigFindingSeverity.ERROR,
+        code="relative_url_without_base",
+        message="The request URL is relative, but base_url is empty.",
+        setting="base_url",
+    )
+    check = probe_capability_config_check(
+        [
+            probe_sample_capability_config(
+                "assign_entitlement", setting="assign_config", findings=[finding]
+            )
+        ]
+    )
+
+    parsed = ProbeCheck.model_validate_json(check.model_dump_json())
+
+    assert isinstance(parsed.samples[0], ProbeSampleCapabilityConfig)
+    assert parsed.samples[0].setting == "assign_config"
+    assert parsed.samples[0].findings[0].setting == "base_url"
+
+
+async def test_an_optional_capability_config_failure_degrades_the_run():
+    """A broken write config must not block connecting a connector used only for syncs."""
+
+    def accounts(probe: ProbeIntegration, session: object) -> ProbeCheck:
+        return _passed(ProbeCheckName.ACCOUNTS)
+
+    def capability_config(probe: ProbeIntegration, session: object) -> ProbeCheck:
+        return probe_capability_config_check(
+            [_config("assign_entitlement", _finding(ProbeConfigFindingSeverity.ERROR))]
+        )
+
+    response = await run_probe(
+        _probe(),
+        [
+            ProbeCheckSpec(check=ProbeCheckName.ACCOUNTS, run=accounts),
+            ProbeCheckSpec(
+                check=ProbeCheckName.CAPABILITY_CONFIG, run=capability_config, required=False
+            ),
+        ],
+        app_id=APP_ID,
+    )
+
+    assert response.response.status is ProbeStatus.PARTIAL
+
+
+async def test_only_baseline_checks_are_padded_as_unsupported():
+    """A connector-only check is absent unless implemented, so adding one to the contract does
+    not change what every other connector reports."""
+
+    def accounts(probe: ProbeIntegration, session: object) -> ProbeCheck:
+        return _passed(ProbeCheckName.ACCOUNTS)
+
+    response = await run_probe(
+        _probe(), [ProbeCheckSpec(check=ProbeCheckName.ACCOUNTS, run=accounts)], app_id=APP_ID
+    )
+    reported = {check.check: check.status for check in response.response.checks}
+
+    assert set(reported) == set(BASELINE_PROBE_CHECKS)
+    assert reported[ProbeCheckName.ENTITLEMENTS] is ProbeCheckStatus.UNSUPPORTED
+    assert ProbeCheckName.CAPABILITY_CONFIG not in reported

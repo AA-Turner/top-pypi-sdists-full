@@ -171,7 +171,7 @@ DEAD_RUN_LEASE_AFTER = timedelta(minutes=5)
 EVENT_SEQUENCE_MAX_RETRIES = 8
 
 # MKT-160: a live schema change queues ACCESS EXCLUSIVE locks on web.* tables; a crawl write
-# waiting behind it is cancelled (55P03) inside its transaction and, un-retried, fails the whole
+# waiting behind it is canceled (55P03) inside its transaction and, un-retried, fails the whole
 # crawl. Every crawl write unit is all-or-nothing, so it re-runs: 0.5 s doubling over 6 retries
 # (~31 s of backoff plus each attempt's own lock wait) outlasts a queued ALTER TABLE.
 LOCK_CONTENTION_ATTEMPTS = 7
@@ -179,7 +179,7 @@ LOCK_CONTENTION_BASE_BACKOFF = 0.5
 
 
 async def _retry_lock_contention(factory: Callable[[], Awaitable[Any]], *, label: str) -> Any:
-    """Re-run one all-or-nothing crawl write when Postgres cancelled it for lock contention."""
+    """Re-run one all-or-nothing crawl write when Postgres canceled it for lock contention."""
     return await retry_on_transient(
         factory,
         attempts=LOCK_CONTENTION_ATTEMPTS,
@@ -464,7 +464,7 @@ def _lease_filter(lease_token: str | None) -> dict[str, Any]:
     """Extra `update_where` filter that pins a write to the lease holder.
 
     Empty when the caller holds no token (legacy/unleased callers keep their
-    previous unconditional behaviour); otherwise a JSONB containment test on
+    previous unconditional behavior); otherwise a JSONB containment test on
     `metadata @> {"run_lease": {"owner": <token>}}`, which the database
     re-evaluates at UPDATE time — so a process whose lease was stolen matches
     zero rows instead of overwriting the new owner's truth.
@@ -636,7 +636,7 @@ class CrawlPersistenceState:
     # This run's ownership token (`metadata.run_lease.owner`). Every session
     # status/terminal write is gated on it, so a process that lost the race
     # can never mark the WINNER's session failed. None = unleased legacy path:
-    # the guards degrade to their old unconditional behaviour.
+    # the guards degrade to their old unconditional behavior.
     run_lease_token: str | None = None
     # Honest progress across process lives. `prior_pages_done` is the durable
     # count of pages this session captured BEFORE this life (0 for a fresh run;
@@ -1170,7 +1170,7 @@ class WebCrawlRepository:
     ) -> list[WebCrawlSession]:
         """Sessions THIS deployment's sweep may auto-resume — only those whose
         last run lease `deployment` held (see `set_run_deployment`), failed for INFRASTRUCTURE
-        reasons — reaped as stale (STALE_SESSION_ERROR) or gracefully cancelled
+        reasons — reaped as stale (STALE_SESSION_ERROR) or gracefully canceled
         by a shutdown/deploy (WORKER_STOPPED_ERROR) — recent, and not
         soft-deleted. Mode/cancel/attempt gates are enforced by prepare_resume
         per session (worker-owned read, no RLS — the sweep acts as each
@@ -1289,7 +1289,7 @@ class WebCrawlRepository:
     async def request_cancel(self, session_id: str, requested_by: str) -> None:
         """Persist a cross-worker cancellation signal after RLS authorization.
 
-        A RUNNING (or freshly leased) session is cancelled cooperatively: the
+        A RUNNING (or freshly leased) session is canceled cooperatively: the
         metadata stamp is polled by the run's cancel watcher. But a QUEUED
         session with no live lease has NO worker to poll it — a metadata-only
         stamp would never terminate it, and worse, the UPDATE bumps
@@ -1317,7 +1317,7 @@ class WebCrawlRepository:
                     metadata=metadata,
                     status="partial",
                     finished_at=utcnow(),
-                    error="cancelled by user before the crawl started",
+                    error="canceled by user before the crawl started",
                 )
                 if result.rows_affected:
                     logger.info(
@@ -2075,7 +2075,7 @@ def snapshot_evidence_columns(
                 twitter_tags=summary.twitter_tags,
                 headings=[item.model_dump(mode="json") for item in summary.headings_full],
                 http_status=summary.http_status,
-                # Meta tag AND X-Robots-Tag header — Google honours both.
+                # Meta tag AND X-Robots-Tag header — Google honors both.
                 meta_robots=effective_robots_directives(
                     summary.meta_robots, summary.response_headers
                 ),
@@ -2282,7 +2282,7 @@ class CanonicalBodyPersister:
                 # Append-only: every capture creates a NEW web.screenshot row
                 # (newest wins — the frontend resolves the latest live row per
                 # kind). Bounded history is enforced by the retention prune
-                # below; the previous update-in-place behaviour left the prior
+                # below; the previous update-in-place behavior left the prior
                 # immutable file row floating with no referencing screenshot.
                 for shot, (_, result) in zip(shots, written, strict=True):
                     width, height = resolve_screenshot_dimensions(

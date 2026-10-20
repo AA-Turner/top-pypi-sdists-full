@@ -179,6 +179,7 @@ sepa_countries = {
 }
 
 
+@pytest.mark.filterwarnings("ignore:No national checksum algorithm is registered")
 @pytest.mark.parametrize("value", valid)
 def test_parse_iban(value: str) -> None:
     iban = IBAN(value, validate_bban=True)
@@ -187,6 +188,7 @@ def test_parse_iban(value: str) -> None:
     assert iban.in_sepa_zone is (iban.country_code in sepa_countries)
 
 
+@pytest.mark.filterwarnings("ignore:No national checksum algorithm is registered")
 @pytest.mark.parametrize("value", experimental)
 def test_experimental_iban(value: str) -> None:
     iban = IBAN(value, validate_bban=True)
@@ -338,6 +340,19 @@ def test_generate_iban_invalid(components: tuple[str, ...]) -> None:
         IBAN.generate(*components)
 
 
+@pytest.mark.parametrize(
+    ("country_code", "bban", "expected"),
+    [
+        ("DE", "370400440532013000", "DE89370400440532013000"),
+        ("DE", "3704 0044 0532 0130 00", "DE89370400440532013000"),
+        ("de", "370400440532013000", "DE89370400440532013000"),
+        ("BE", "5390 0754 7034", "BE68539007547034"),
+    ],
+)
+def test_from_bban_normalizes_text_input(country_code: str, bban: str, expected: str) -> None:
+    assert IBAN.from_bban(country_code, bban).compact == expected
+
+
 def test_magic_methods() -> None:
     iban = IBAN("DE42430609677000534100")
     assert iban == "DE42430609677000534100"
@@ -360,7 +375,7 @@ def test_magic_methods() -> None:
         ("BA393385804800211234", "UNCRBA22XXX"),
         ("BE71096123456769", "GKCCBEBB"),
         ("BG18RZBB91550123456789", "RZBBBGSF"),
-        ("CH5604835012345678009", "CRESCHZZ80A"),
+        ("CH5604835012345678009", "UBSWCHZH80A"),
         ("CR23015108410026012345", "BNCRCRSJXXX"),
         ("CY21002001950000357001234567", "BCYPCY2N"),
         ("CZ5508000000001234567899", "GIBACZPX"),
@@ -527,3 +542,15 @@ def test_copy() -> None:
     iban_copy = copy.copy(iban)
     assert id(iban) != id(iban_copy)
     assert iban == iban_copy
+
+
+@pytest.mark.parametrize("value", ["DE99 3704 0044 0532 0130 00", "XX89 3704 0044 0532 0130 00"])
+def test_deepcopy_allow_invalid(value: str) -> None:
+    original = IBAN(value, allow_invalid=True)
+
+    copied = copy.deepcopy(original)
+
+    assert copied is not original
+    assert isinstance(copied, IBAN)
+    assert copied == original
+    assert not copied.is_valid

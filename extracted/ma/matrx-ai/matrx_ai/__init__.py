@@ -288,7 +288,7 @@ def configure(
 
     # Register the vision-class encoder with matrx-utils so MediaRefs that
     # carry ``vision_class`` resolve to a variant ``cld_files`` row at the
-    # boundary normaliser. matrx-utils never imports matrx-ai at module
+    # boundary normalizer. matrx-utils never imports matrx-ai at module
     # top-level — this is the wiring point.
     _register_vision_encoder()
 

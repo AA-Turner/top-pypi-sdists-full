@@ -11,8 +11,9 @@
  * two-epoch rule for a pick at an already-listed code phase (one emitter's
  * data transition splits it into twins at its own code phase on other
  * tiles; a twin moves with the transition, a real second emitter at that
- * code phase stays at its tile). §12 steps 2-4 ask what that buys and
- * costs, and this harness measures them on the engine as built:
+ * code phase stays at its tile). This harness measures what that buys
+ * and costs on the engine as built
+ * (docs/design/async-dsss-receiver-measurements.md §12.6):
  *
  *   separability   two equal emitters `df` tiles and `dtau` chips apart:
  *                  how often BOTH are listed, and where they are reported.
@@ -61,6 +62,7 @@
 #include "doppler/dp_complex.h"
 #include "doppler/gold/gold_core.h"
 #include "doppler/wfm_synth/wfm_synth_core.h"
+#include "dp_dsss_test.h"
 #include "dp_test.h"
 #include "dp_tx_test.h"
 #include <math.h>
@@ -99,14 +101,6 @@ typedef struct
   size_t                col;  /* the code phase it reports           */
   int                   half; /* sits half a tile off: either neighbour */
 } source_t;
-
-static void
-gold_1023 (uint8_t *code)
-{
-  dp_gold_state_t *gd = dp_gold_create (934, 350, 567, 73, 10);
-  dp_gold_generate (gd, SF, code, SF);
-  dp_gold_destroy (gd);
-}
 
 static const uint8_t two_bits[2] = { 0, 1 };
 
@@ -341,7 +335,7 @@ main (int argc, char **argv)
 {
   int     check = (argc > 1 && strcmp (argv[1], "--check") == 0);
   uint8_t code[SF];
-  gold_1023 (code);
+  dp_dsss_gold_1023 (code);
 
   /* The scene's two emitters: A at tile 5, code phase 777 samples; B four
      tiles and 100 chips away unless a cell says otherwise. */

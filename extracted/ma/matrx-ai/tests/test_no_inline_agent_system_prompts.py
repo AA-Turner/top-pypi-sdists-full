@@ -120,7 +120,7 @@ def _offenders() -> list[str]:
         # input, never an agent the platform runs. It is not an ALLOWLIST entry
         # (that list is infrastructure) and not a PENDING_CONVERSION entry (that
         # list only shrinks, and there is nothing here to convert); the honest
-        # answer is that this guard's subject is shipped agent behaviour, so a
+        # answer is that this guard's subject is shipped agent behavior, so a
         # test tree is out of scope. Production code never belongs under
         # `tests/`, which is what keeps this from becoming a hiding place.
         if relative.parts and relative.parts[0] == "tests":

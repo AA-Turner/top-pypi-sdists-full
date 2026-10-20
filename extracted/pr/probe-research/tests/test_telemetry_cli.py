@@ -29,7 +29,7 @@ def isolate(tmp_path, monkeypatch):
     monkeypatch.setenv("PROBE_CONFIG_PATH", str(tmp_path / "probe" / "config.json"))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
-    for var in ("PROBE_BASE_URL", "PROBE_TOKEN", "PROBE_MCP_TOKEN"):
+    for var in ("PROBE_BASE_URL", "PROBE_TOKEN", "PROBE_MCP_TOKEN", "PROBE_DESKTOP_HUMAN"):
         monkeypatch.delenv(var, raising=False)
     (tmp_path / "probe").mkdir(parents=True, exist_ok=True)
     return tmp_path
@@ -53,6 +53,42 @@ def captured(monkeypatch, telemetry_on):
 
 def _write_config(tmp_path, data: dict) -> None:
     (tmp_path / "probe" / "config.json").write_text(json.dumps(data))
+
+
+def test_explicit_desktop_origin_is_human_without_changing_interactivity(captured, monkeypatch):
+    monkeypatch.setenv(tm.DESKTOP_HUMAN_ENV, "1")
+    ctx = tm.TelemetryContext.start(via=tm.Via.WIZARD, interactive=False,
+                                    base_url="https://api.research.prbe.ai")
+    ctx.emit(tm.EVENT_WIZARD_CONFIGURE_COMPLETED, outcome="success")
+    assert ctx.invoked_by == tm.InvokedBy.HUMAN
+    assert captured[0]["properties"]["surface"] == "desktop"
+    assert captured[0]["properties"]["invoked_by"] == "human"
+    origin = tm.origin_stamp()
+    monkeypatch.delenv(tm.DESKTOP_HUMAN_ENV)
+    worker = tm.job_context(origin)
+    worker.emit(tm.EVENT_IMPORT_JOB_FINISHED, outcome="succeeded")
+    assert captured[-1]["properties"]["surface"] == "desktop"
+    assert worker.session_id == ctx.session_id and worker.invoked_by == tm.InvokedBy.HUMAN
+
+
+@pytest.mark.parametrize("via", [tm.Via.OUTBOX, tm.Via.DAEMON, tm.Via.IMPORT_JOB])
+def test_background_context_never_infers_human_from_an_inherited_marker(captured, monkeypatch, via):
+    monkeypatch.setenv(tm.DESKTOP_HUMAN_ENV, "1")
+    ctx = tm.TelemetryContext.start(via=via, interactive=False, base_url="https://prbe.ai")
+    assert ctx.invoked_by == tm.InvokedBy.AUTOMATION and ctx.surface is None
+
+
+@pytest.mark.parametrize("marker", [None, "true", "desktop", "0"])
+def test_non_tty_cli_without_exact_desktop_marker_remains_automation(captured, monkeypatch, marker):
+    if marker is not None:
+        monkeypatch.setenv(tm.DESKTOP_HUMAN_ENV, marker)
+    ctx = tm.TelemetryContext.start(via=tm.Via.COMMAND, interactive=False, base_url="https://prbe.ai")
+    assert ctx.invoked_by == tm.InvokedBy.AUTOMATION and ctx.surface is None
+
+
+def test_worker_replay_refuses_an_arbitrary_surface(captured):
+    worker = tm.job_context({"session_id":"approved", "via":"wizard", "invoked_by":"human", "surface":"secret-path"})
+    assert worker.surface is None
 
 
 # --- killswitch + hosted gate ----------------------------------------------

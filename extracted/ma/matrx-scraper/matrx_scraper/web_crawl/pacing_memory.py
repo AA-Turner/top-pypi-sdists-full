@@ -71,7 +71,7 @@ async def load_remembered_pacing(site_id: str, host: str) -> RememberedPacing | 
     """What the last crawl learned about ``host``, or None if nothing yet.
 
     Fails OPEN and silent-to-the-crawl: a read error here means the crawl probes
-    from scratch, which is the pre-memory behaviour and never a failure. It is
+    from scratch, which is the pre-memory behavior and never a failure. It is
     logged, because a persistently failing read is a real defect that would
     otherwise show up only as crawls that never get faster.
     """

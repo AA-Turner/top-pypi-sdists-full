@@ -6,7 +6,7 @@ as a FIELD named `kind` carrying `serialization_alias=KIND_KEY`, so such a dump
 writes `"kind": "decision_answers"` into `chat.message.content` and NO client
 can resolve the part to its kind component. It happened: the first real
 end-to-end decision run through the agent builder (2026-09-20) persisted a
-correct answer that no renderer could recognise.
+correct answer that no renderer could recognize.
 
 THE __KIND LAW: the marker is part of the DATA, everywhere it is stored,
 passed or rendered — `common-docs/systems/architecture/content-ir/FEATURE.md`.

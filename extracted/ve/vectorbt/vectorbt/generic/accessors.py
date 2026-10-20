@@ -30,7 +30,7 @@ specialized accessors, such as `vectorbt.signals.accessors` and `vectorbt.return
     Accessors do not utilize caching.
 
 Run for the examples below:
-    
+
 ```pycon
 >>> import vectorbt as vbt
 >>> import numpy as np
@@ -315,9 +315,7 @@ nb_config = Config(
 )
 """_"""
 
-__pdoc__[
-    "nb_config"
-] = f"""Config of Numba methods to be added to `GenericAccessor`.
+__pdoc__["nb_config"] = f"""Config of Numba methods to be added to `GenericAccessor`.
 
 ```json
 {nb_config.to_doc()}
@@ -358,9 +356,7 @@ transform_config = Config(
 )
 """_"""
 
-__pdoc__[
-    "transform_config"
-] = f"""Config of transform methods to be added to `GenericAccessor`.
+__pdoc__["transform_config"] = f"""Config of transform methods to be added to `GenericAccessor`.
 
 ```json
 {transform_config.to_doc()}
@@ -469,7 +465,13 @@ class GenericAccessor(BaseAccessor, StatsBuilderMixin, PlotsBuilderMixin, metacl
         engine: tp.Optional[str] = None,
         wrap_kwargs: tp.KwargsLike = None,
     ) -> tp.SeriesFrame:  # pragma: no cover
-        """See `vectorbt.generic.dispatch.ewm_std`."""
+        """Exponentially weighted standard deviation.
+
+        Defaults to the unbiased weighted correction (`ddof=1`), matching pandas
+        EWM standard deviation with `bias=False`. Use `ddof=0` for population
+        variance (`bias=True`).
+
+        See `vectorbt.generic.dispatch.ewm_std`."""
         engine = engine if engine is not None else self.engine
         out = dispatch.ewm_std(
             self.to_2d_array(),
@@ -2455,10 +2457,6 @@ class GenericSRAccessor(GenericAccessor, BaseSRAccessor):
                 symmetric=symmetric,
                 sort=sort,
             )
-            if x_labels is None:
-                x_labels = df.columns
-            if y_labels is None:
-                y_labels = df.index
             _kwargs = merge_dicts(
                 dict(
                     trace_kwargs=dict(name=str(name) if name is not None else None, visible=False),
@@ -2466,10 +2464,11 @@ class GenericSRAccessor(GenericAccessor, BaseSRAccessor):
                 kwargs,
             )
             default_size = fig is None and "height" not in _kwargs
+            # Automatic axes must follow each frame's values, not the first frame's order.
             fig = plotting.Heatmap(
                 data=reshape_fns.to_2d_array(df),
-                x_labels=x_labels,
-                y_labels=y_labels,
+                x_labels=df.columns if x_labels is None else x_labels,
+                y_labels=df.index if y_labels is None else y_labels,
                 fig=fig,
                 **_kwargs,
             ).fig

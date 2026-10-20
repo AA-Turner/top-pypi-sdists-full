@@ -189,7 +189,7 @@ async def _run_one_turn(
 
     def _no_coordinator() -> None:
         # The executor probes for a coordinator (message-row reservation is a
-        # streaming-only optimisation). Out of a request lane the real answer is
+        # streaming-only optimization). Out of a request lane the real answer is
         # None; this double pins that answer even when another suite has left a
         # lane and real credentials behind in the process.
         return None

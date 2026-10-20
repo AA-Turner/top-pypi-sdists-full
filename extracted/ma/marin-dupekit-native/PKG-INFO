@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: marin-dupekit-native
-Version: 0.1.11.dev38062449553
+Version: 0.1.12.dev39325146809
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

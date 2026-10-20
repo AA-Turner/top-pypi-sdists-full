@@ -162,16 +162,17 @@ class BIC(common.Base):
             * United Arab Emirates
             * United Kingdom
         """
-        banks = sorted(
-            registry.get_banks_by_code(country_code, bank_code),
-            key=lambda b: b.primary,
-            reverse=True,
-        )
+        banks = registry.get_banks_by_code(country_code, bank_code)
         if not banks:
             raise exceptions.InvalidBankCode(
                 f"Unknown bank code {bank_code!r} for country {country_code!r}"
             )
-        return [cls(entry.bic) for entry in banks if entry.bic]
+        sorted_banks = sorted(
+            banks,
+            key=lambda b: b.primary,
+            reverse=True,
+        )
+        return [cls(entry.bic) for entry in sorted_banks if entry.bic]
 
     @classmethod
     def from_bank_code(cls, country_code: str, bank_code: str) -> BIC:
@@ -231,17 +232,29 @@ class BIC(common.Base):
         try:
             candidates = cls.candidates_from_bank_code(country_code, bank_code)
             if len(candidates) > 1:
+                # Among equally generic codes, entries the registry marks as primary win
+                # over the rest before the alphabetical tie-break is applied.
+                primary = {
+                    entry.bic
+                    for entry in registry.get_banks_by_code(country_code, bank_code)
+                    if entry.primary and entry.bic
+                }
+
+                def prefer_primary(codes: list[BIC]) -> list[BIC]:
+                    flagged = [c for c in codes if c.compact in primary]
+                    return flagged or codes
+
                 # If we have multiple candidates, we try to pick the
                 # one with no branch code which is the most generic one.
                 generic_codes = [c for c in candidates if not c.branch_code]
                 if generic_codes:
-                    return sorted(generic_codes)[-1]
+                    return max(prefer_primary(generic_codes))
 
                 # If we don't have one, we try to pick the one with
                 # 'XXX' as a branch code
                 generic_codes = [c for c in candidates if c.branch_code == "XXX"]
                 if generic_codes:
-                    return sorted(generic_codes)[-1]
+                    return max(prefer_primary(generic_codes))
             return candidates[0]
         except (KeyError, IndexError) as e:
             raise exceptions.InvalidBankCode(
@@ -325,7 +338,7 @@ class BIC(common.Base):
 
         try:
             bic = cls(value)
-        except exceptions.SchwiftyException as err:
+        except (exceptions.SchwiftyException, TypeError) as err:
             raise PydanticCustomError("bic_format", "{err}", {"err": str(err)}) from err
         return handler(bic)
 
@@ -363,7 +376,16 @@ class BIC(common.Base):
 
     def _lookup_values(self, key: str) -> list[str]:
         entries = registry.get_banks_by_bic(str(self))
-        return sorted({getattr(entry, key) for entry in entries if getattr(entry, key)})
+        if not entries and self.branch_code:
+            # An 11-character BIC denotes a branch of the institution that the
+            # first 8 characters identify. Not every national registry lists
+            # entries per branch, so fall back to the institution's BIC when
+            # the branch-specific lookup comes up empty.
+            entries = registry.get_banks_by_bic(str(self)[:8])
+        elif not entries and len(self) == 8:
+            # Some registries store only the equivalent 11-character XXX form.
+            entries = registry.get_banks_by_bic(f"{self}XXX")
+        return sorted({val for entry in entries if (val := getattr(entry, key))})
 
     @property
     def domestic_bank_codes(self) -> list[str]:

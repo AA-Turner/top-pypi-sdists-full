@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testmuai-playwright-bindings
-Version: 0.1.48
+Version: 0.1.49
 Summary: TestMu binding for Playwright Python — thin test runtime for TestMu-exported tests on the LambdaTest grid
 Author-email: TestMu AI <engineering@testmu.ai>
 License-Expression: MIT
@@ -156,7 +156,7 @@ class is identical in both modes and is exported as the real class.
 - **Helpers** — `execute_js`, `execute_api`, `execute_db`, `vision_query`, `network_query`, `smartui_snapshot_async`, and more
 - **Reporters** — local console reporter and TestMu cloud reporter (LambdaTest dashboard)
 - **Self-healing locators** — automatic locator recovery via heal patch (when smart mode enabled)
-- **Replayed reads** — `textual_analyzer` re-reads an answer that disagrees with its expected answer until it holds (budget above), and a drift heal re-derives the extraction from the query
+- **Replayed reads** — `textual_analyzer` re-reads an answer that disagrees with its expected answer until it holds (budget above), and a drift heal re-derives the extraction from the query. Its optional `variables={name: value}` fills `{{name}}` references in the recorded code (JS-escaped) and in the query, condition and expected value before the read runs
 
 ## Requirements
 

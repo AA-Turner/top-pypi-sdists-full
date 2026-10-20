@@ -71,7 +71,8 @@ def test_strict_schema_carries_the_bound_in_the_description() -> None:
     strict = tool._build_json_schema(strip_openai_unsupported=True)
     prop = strict["properties"]["timeout_seconds"]
     assert "minimum" not in prop
-    assert "at least 30" in prop["description"] and "at most 600" in prop["description"]
+    # The bound is dropped and recorded, NEVER appended to the description as prose.
+    assert prop["description"] == "Stop waiting after this many seconds."
     loose = tool._build_json_schema()
     assert loose["properties"]["timeout_seconds"]["minimum"] == 30
 

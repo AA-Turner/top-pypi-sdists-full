@@ -20,6 +20,14 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
+from matrx_ai.skills.knobs import get_outline_rows, outline_min_chars
+from matrx_ai.skills.sections import (
+    SkillSection,
+    find_section,
+    next_section,
+    parse_sections,
+    section_text,
+)
 from matrx_ai.tools._dispatch_util import format_args_error
 from matrx_ai.tools.arg_models import SkillArgs
 from matrx_ai.tools.models import (
@@ -166,8 +174,100 @@ async def skill_list(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 # skill_get
 # ---------------------------------------------------------------------------
 
-_VALID_GET_MODES = frozenset({"full", "page"})
-_DEFAULT_PAGE_CHARS = 4000
+_VALID_GET_MODES = frozenset({"auto", "full", "page"})
+# Page size = agents.context.skill_outline_min_chars; outline rows = agents.context.skill_get_outline_rows
+# (a 137k-char reference has hundreds of headings). Both knobs: matrx_ai.skills.knobs.
+
+
+def _outline_fields(sections: list[SkillSection]) -> dict[str, Any]:
+    max_rows = get_outline_rows()
+    rows = [s.outline_entry() for s in sections[:max_rows]]
+    return {
+        "outline": rows,
+        "outline_truncated": len(sections) > max_rows,
+        "section_count": len(sections),
+    }
+
+
+def _read_section(
+    body: str, sections: list[SkillSection], section: SkillSection, offset: int, chars: int
+) -> dict[str, Any]:
+    """One section's text (incl. subsections), paged by offset/chars when it is huge."""
+    text = section_text(body, section)
+    piece = text[offset : offset + chars]
+    has_more = (offset + chars) < len(text)
+    following = next_section(sections, section)
+    return {
+        "section": section.outline_entry(),
+        "body": piece,
+        "offset": offset,
+        "chars_returned": len(piece),
+        "has_more": has_more,
+        "next_offset": offset + chars if has_more else None,
+        "next_section_id": following.id if following else None,
+    }
+
+
+def _section_result(
+    body: Any, common: dict[str, Any], handle: str, offset: int, chars: int
+) -> ToolResult:
+    sections = parse_sections(body.body)
+    found = find_section(sections, handle)
+    if found is None:
+        known = ", ".join(f"{s.number} {s.id}" for s in sections[:40]) or "none (no headings)"
+        return _err(
+            "not_found",
+            f"Section {handle!r} not found in skill {body.skill_id!r}.",
+            f"Pass a section number or id from the outline. Sections: {known}",
+        )
+    return ToolResult(
+        success=True,
+        output={
+            **common,
+            **_outline_fields(sections),
+            **_read_section(body.body, sections, found, offset, chars),
+            "mode": "section",
+            "total_chars": len(body.body),
+        },
+    )
+
+
+async def _set_result(
+    body: Any, common: dict[str, Any], provider: Any, user_id: UUID | None, config: Any
+) -> ToolResult:
+    """A skill SET reads as its member list — each member is then read by its own id."""
+    members: list[dict[str, Any]] = []
+    skipped = 0  # members that are forbidden, deleted or not readable by this person
+    for member_id in body.set_members:
+        if _is_forbidden(member_id, config):
+            skipped += 1
+            continue
+        member = await provider.get_by_id(member_id, user_id=user_id)
+        if member is None:
+            skipped += 1
+            continue
+        members.append(
+            {
+                "id": str(member.id),
+                "skill_id": member.skill_id,
+                "label": member.label,
+                "description": member.description,
+                "skill_type": member.skill_type,
+                "total_chars": len(member.body),
+            }
+        )
+    return ToolResult(
+        success=True,
+        output={
+            **common,
+            "mode": "set",
+            "body": body.body,
+            "members": members,
+            "count": len(members),
+            "skipped": skipped,
+            "hint": "A skill set. Read a member with skill(action='get', skill_id=<member skill_id>).",
+        },
+    )
 
 
 async def skill_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -216,15 +316,18 @@ async def skill_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 "The agent's configuration explicitly hides this skill.",
             )
 
-        mode: str = args.get("mode", "full")
+        mode: str = args.get("mode") or "auto"
         if mode not in _VALID_GET_MODES:
             return _err(
                 "validation",
                 f"Invalid mode {mode!r}. Use one of {sorted(_VALID_GET_MODES)}.",
             )
 
-        offset = int(args.get("offset", 0) or 0)
-        chars = int(args.get("chars", _DEFAULT_PAGE_CHARS) or _DEFAULT_PAGE_CHARS)
+        offset = max(0, int(args.get("offset", 0) or 0))
+        default_page = outline_min_chars()
+        chars = int(args.get("chars", default_page) or default_page)
+        if chars <= 0:
+            chars = default_page
 
         common: dict[str, Any] = {
             "id": str(body.id),
@@ -240,24 +343,44 @@ async def skill_get(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             "not_runnable": body.not_runnable,
         }
 
-        if mode == "full":
+        if body.is_set:
+            return await _set_result(body, common, provider, user_id, config)
+
+        section_arg = args.get("section")
+        if isinstance(section_arg, str) and section_arg.strip():
+            return _section_result(body, common, section_arg, offset, chars)
+
+        total = len(body.body)
+        # Outline-by-default is for REFERENCE documents only: a procedure, task or convention
+        # skill is read whole (a truncated procedure is acted on as if complete).
+        if mode == "full" or (mode == "auto" and (total <= chars or body.skill_type != "reference")):
             return ToolResult(
                 success=True,
-                output={
-                    **common,
-                    "mode": "full",
-                    "body": body.body,
-                    "total_chars": len(body.body),
-                },
+                output={**common, "mode": "full", "body": body.body, "total_chars": total},
             )
 
-        # page mode
-        if offset < 0:
-            offset = 0
-        if chars <= 0:
-            chars = _DEFAULT_PAGE_CHARS
+        if mode == "auto":
+            sections = parse_sections(body.body)
+            if len(sections) >= 2:
+                # A long document: its map plus the opening section (paged when huge).
+                out = _read_section(body.body, sections, sections[0], 0, chars)
+                return ToolResult(
+                    success=True,
+                    output={
+                        **common,
+                        **_outline_fields(sections),
+                        **out,
+                        "mode": "outline",
+                        "total_chars": total,
+                        "hint": (
+                            "Long document: the outline lists every section. Read one with "
+                            "skill(action='get', skill_id=..., section=<number or id>)."
+                        ),
+                    },
+                )
+            # No headings to navigate by — fall through to plain paging.
+
         slice_text = body.body[offset : offset + chars]
-        total = len(body.body)
         has_more = (offset + chars) < total
         return ToolResult(
             success=True,
@@ -364,7 +487,8 @@ async def skill(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Unified skill-library tool. Dispatches on ``action``:
 
     - ``list``   → browse the category overview, or hints within a category
-    - ``get``    → read one skill body by id (modes full / page)
+    - ``get``    → read one skill by id: a short body whole; a long document as its outline
+      + first section; ``section=`` for exactly one section; modes full / page; a set → members
     - ``search`` → keyword search across skills
     """
     started_at = time.time()

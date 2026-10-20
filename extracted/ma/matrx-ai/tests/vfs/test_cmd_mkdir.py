@@ -82,7 +82,7 @@ async def test_mkdir_pv_combined(vfs: MatrxAsyncFS):
     r = await cmd_mkdir(ctx)
     assert r.exit_code == 0
     # GNU mkdir emits a "created directory" line per parent created.
-    # We accept the common collapsed behaviour: at least the leaf appears.
+    # We accept the common collapsed behavior: at least the leaf appears.
     assert b"/a/b/c" in r.stdout or r.stdout == b""
 
 

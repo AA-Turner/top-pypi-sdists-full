@@ -56,6 +56,8 @@ What it owns
   3a. stage the LIVE PLAN — the agent's open task list, restated in the
      MessageList tail channel so it rides after the newest tool result and
      after every cache breakpoint (``config/live_plan.py``),
+  3b. check that the newest person turn, as every chat translator will compose it,
+     ENDS with the person's typed text (``config/typed_text_last.py``, announced),
   4. derive the provider prompt-cache routing key,
   5. build the clone-at-send wire config (picklist / fence materialization).
 
@@ -83,7 +85,12 @@ from typing import Any
 
 from matrx_utils import vcprint
 
-from matrx_ai.config.context_trim import TrimPolicy, TrimReport, trim_messages_context
+from matrx_ai.config.context_trim import (
+    CacheGateInputs,
+    TrimPolicy,
+    TrimReport,
+    trim_messages_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +129,9 @@ class SendPrep:
     # What the live-plan step staged at the end of this send (loop stage only).
     # ``None`` = no open tasks / no host source / the step failed (announced).
     live_plan: dict[str, Any] | None = None
+    # What rides after the person's typed text in this send's composed person turn (loop stage),
+    # or ``None`` — the law holds (``config/typed_text_last.py``).
+    typed_text_problem: str | None = None
 
 
 async def prepare_for_send(
@@ -204,6 +214,16 @@ async def prepare_for_send(
         await _mark_perishable_state(prep, config, conversation_id=conversation_id)
 
     if stage == STAGE_LOOP:
+        # FIRST, before anything reads the prompt: a mandate-held turn sends the
+        # held system text its row froze, unless the Holder or the org catalog
+        # really changed (then a deliberate, loud cache break). Here and not at
+        # the resolve stage because the org catalog is injected AFTER the
+        # resolver, by the host's context assembly.
+        _run_step(
+            prep,
+            "settle_held_prompt",
+            lambda: _settle_held_prompt(config, conversation_id=conversation_id),
+        )
         await _stage_reference_fences(prep, config)
         await _enforce_document_output_ceiling(prep, config)
 
@@ -251,12 +271,27 @@ async def prepare_for_send(
         await _stage_live_plan(
             prep, config, conversation_id=conversation_id, organization_id=organization_id
         )
+        # THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): the newest person
+        # turn, composed exactly as every chat translator will render it, must end with their
+        # typed text. Announced loudly, never fatal (``config/typed_text_last.py``).
+        _run_step(
+            prep,
+            "typed_text_last",
+            lambda: _check_typed_text_last(prep, config, conversation_id=conversation_id),
+        )
         _run_step(
             prep,
             "prompt_cache_key",
             lambda: _set_prompt_cache_key(config, conversation_id, request_id),
         )
         _run_step(prep, "wire_config", lambda: _build_wire(prep, config))
+        # What this send is made of (after the trim, i.e. what really goes out),
+        # kept for the request's completion to store on the conversation.
+        _run_step(
+            prep,
+            "context_breakdown",
+            lambda: _remember_breakdown(conversation_id, config),
+        )
         _mark_sent(conversation_id, request_id)
 
     return prep
@@ -453,7 +488,18 @@ def _gated_trim(
         return
     messages_list = messages if isinstance(messages, list) else list(messages)
 
-    report = trim_messages_context(messages_list, policy=policy, cache_state=cache_state)
+    gate_inputs = None
+    if cache_state:
+        gate_inputs = _cache_gate_inputs(config, policy)
+        if gate_inputs is not None and gate_inputs.rewrite_ttl_secs:
+            # The history's REAL lifetime from the wire's marks wins over the
+            # persisted provider default (cache_marks.history_cache_ttl).
+            cache_state = {**cache_state, "est_cache_ttl_secs": gate_inputs.rewrite_ttl_secs}
+            prep.cache_state = cache_state
+
+    report = trim_messages_context(
+        messages_list, policy=policy, cache_state=cache_state, gate_inputs=gate_inputs
+    )
     prep.trim_report = report
     _record_trim_report(report, stage=stage, iteration=iteration)
 
@@ -466,12 +512,73 @@ def _gated_trim(
         )
     elif report.eligible_but_skipped_reason == "cache_protect":
         gate = (report.policy or {}).get("cache_gate") or {}
+        if gate.get("rule") == "payback":
+            why = (
+                f"frees ~{gate.get('est_savings_tokens')} tokens worth "
+                f"${gate.get('benefit_usd')} over {gate.get('expected_remaining_calls')} sends "
+                f"< ${gate.get('rewrite_cost_usd')} to rewrite {gate.get('rewrite_tokens')} tokens"
+            )
+        else:
+            why = (
+                f"est {gate.get('est_savings_tokens')} tokens < "
+                f"{gate.get('min_required_tokens')} required"
+            )
         vcprint(
-            f"[send_boundary/{stage}] context-trim SKIPPED to protect a live prompt "
-            f"cache (est {gate.get('est_savings_tokens')} tokens < "
-            f"{gate.get('min_required_tokens')} required) for {conversation_id}",
+            f"[send_boundary/{stage}] context-trim HELD to protect a live prompt "
+            f"cache ({gate.get('rule')}: {why}) for {conversation_id}",
             color="cyan",
         )
+
+
+def _cache_gate_inputs(config: Any, policy: TrimPolicy | None) -> CacheGateInputs | None:
+    """Catalog prices, the history's cache lifetime and the pre-flight numbers for
+    the payback gate. Only built in payback mode (legacy needs none of it); any
+    failure yields ``None`` and the gate announces its fallback."""
+    if policy is None or policy.cache_gate_mode != "payback":
+        return None
+    from matrx_ai.config.cache_marks import history_cache_ttl
+    from matrx_ai.config.context_preflight import (
+        _declared_window,
+        current_policy,
+        estimate_prompt_tokens,
+    )
+    from matrx_ai.config.usage_config import _get_db_pricing_lookup, lookup_model_pricing
+
+    model_ref = str(getattr(config, "matrx_model_name", None) or getattr(config, "model", "") or "")
+    long_cache = bool(getattr(config, "extended_prompt_cache", False))
+    inputs = CacheGateInputs(model=model_ref or None, long_cache=long_cache)
+    try:
+        inputs.estimated_prompt_tokens = estimate_prompt_tokens(config)
+        window = _declared_window(model_ref) if model_ref else None
+        if window:
+            inputs.preflight_ceiling_tokens = int(window * current_policy().trip_fraction)
+    except Exception as exc:  # noqa: BLE001 — measurement must never block a send
+        vcprint(f"[send_boundary] payback gate could not measure the prompt: {exc!r}", color="yellow")
+    try:
+        offering = str(getattr(config, "routing_offering_id", None) or "")
+        lookup = _get_db_pricing_lookup()
+        pricing = lookup_model_pricing(lookup, offering_id=offering, model_name=model_ref)
+        if pricing is None and offering:
+            pricing = lookup_model_pricing(lookup, model_name=model_ref)
+        if pricing is not None:
+            tier = pricing.get_tier(inputs.estimated_prompt_tokens or 0)
+            ttl_secs, write_tier, _prefix = history_cache_ttl(pricing.api or model_ref, long=long_cache)
+            inputs.rewrite_ttl_secs = ttl_secs
+            if tier is not None:
+                read = tier.cache_hit_price if tier.cache_hit_price is not None else tier.cached_input_price
+                if write_tier == "1h" and tier.cache_write_1h_price is not None:
+                    write = tier.cache_write_1h_price
+                elif tier.cache_write_5m_price is not None:
+                    write = tier.cache_write_5m_price
+                else:
+                    # No write premium on this wire (OpenAI, Gemini implicit): a
+                    # rewrite is billed as fresh input.
+                    write = tier.input_price
+                inputs.read_price = float(read)
+                inputs.write_price = float(write)
+    except Exception as exc:  # noqa: BLE001 — pricing must never block a send
+        vcprint(f"[send_boundary] payback gate could not read prices: {exc!r}", color="yellow")
+    return inputs
 
 
 def _record_trim_report(report: TrimReport, *, stage: str, iteration: int | None) -> None:
@@ -553,7 +660,7 @@ async def _enforce_document_output_ceiling(prep: SendPrep, config: Any) -> None:
     SCOPE, deliberately narrow: only a call that DECLARES a structured output
     whose schema cannot bound its own size (an array, or a free-form string).
     That case is total loss by construction — truncated JSON does not parse, so
-    nobody gets a partial answer — and it is the same judgement in a chat as in
+    nobody gets a partial answer — and it is the same judgment in a chat as in
     a workflow. Free PROSE is left alone here: in a conversation a small prose
     ceiling is a legitimate cost knob the organization chose (law 6), and the
     author-time layers already treat prose-with-nowhere-to-continue as a
@@ -647,6 +754,23 @@ def _announce_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: l
     )
 
 
+def _check_typed_text_last(prep: SendPrep, config: Any, *, conversation_id: str | None) -> None:
+    from matrx_ai.config.typed_text_last import (
+        announce_problem,
+        place_before_typed_text,
+        typed_text_problem,
+    )
+
+    messages = getattr(config, "messages", None)
+    render = getattr(messages, "render_turn_context", None)
+    block = render() if callable(render) else None
+    composed, _ = place_before_typed_text(list(messages or []), block)
+    problem = typed_text_problem(composed)
+    prep.typed_text_problem = problem
+    if problem:
+        announce_problem(problem, conversation_id=conversation_id, stage=prep.stage)
+
+
 def _set_prompt_cache_key(config: Any, conversation_id: str | None, request_id: str | None) -> None:
     from matrx_ai.providers.cache_guard import provider_prompt_cache_key
 
@@ -679,16 +803,27 @@ def _pin_system_date(config: Any, conversation_row: Any) -> None:
     created = getattr(conversation_row, "created_at", None)
     if created is None:
         return
-    if isinstance(created, str):
-        # Persisted ISO timestamp — the date is the leading 10 chars.
-        anchor = created[:10]
-    else:
-        try:
-            anchor = created.strftime("%Y-%m-%d")
-        except Exception:  # noqa: BLE001
-            return
+    anchor = _utc_date(created)
+    if anchor is None:
+        return
     if len(anchor) == 10:
         si.date_anchor = anchor
+
+
+def _utc_date(created: Any) -> str | None:
+    """``YYYY-MM-DD`` of ``created`` in UTC — the one clock the system date uses
+    (``SystemInstruction.effective_date`` renders turn one in UTC too)."""
+    if isinstance(created, str):
+        try:
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            return created[:10] if len(created) >= 10 else None
+    try:
+        if getattr(created, "tzinfo", None) is not None:
+            created = created.astimezone(UTC)
+        return created.strftime("%Y-%m-%d")
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _enforce_frozen_prompt(
@@ -716,10 +851,25 @@ def _enforce_frozen_prompt(
     current = getattr(config, "resolved_system_instruction", None) or ""
     if current == stored:
         return
+    from matrx_ai.providers.cache_guard import scream_cache_line_violation
+
+    restored = _restored_prompt(config, stored)
+    scream_cache_line_violation(
+        kind="frozen_prompt_differs_from_row",
+        conversation_id=conversation_id,
+        request_id=None,
+        prev_text=stored,
+        new_text=current,
+        where="matrx_ai.config.send_boundary.prepare_for_send",
+    )
+    config.system_instruction = restored
+
+
+def _restored_prompt(config: Any, stored: str) -> Any:
+    """The stored system text, as the config's ``system_instruction`` must carry it."""
     import re
 
     from matrx_ai.instructions.core import SystemInstruction
-    from matrx_ai.providers.cache_guard import scream_cache_line_violation
 
     restored: Any = SystemInstruction.from_value(stored)
     # The stored text names the date turn one rendered; pin to THAT, not to a
@@ -736,15 +886,70 @@ def _enforce_frozen_prompt(
         # The stored text does not round-trip through SystemInstruction (a date
         # line it would re-render): send the stored bytes verbatim.
         restored = stored
-    scream_cache_line_violation(
-        kind="frozen_prompt_differs_from_row",
-        conversation_id=conversation_id,
-        request_id=None,
-        prev_text=stored,
-        new_text=current,
-        where="matrx_ai.config.send_boundary.prepare_for_send",
-    )
-    config.system_instruction = restored
+    return restored
+
+
+def _settle_held_prompt(config: Any, *, conversation_id: str | None) -> None:
+    """THE CACHE LINE LAW on a mandate-held conversation (Arman, 2026-10-16).
+
+    A held thread re-resolves its LIVE Holder every turn (belt, model, rebound
+    mandate — ``agents/live_structure.py``), and until now that re-rendered the
+    system text every turn too: the per-turn framing values and a rebuilt org
+    catalog sat in front of the whole cached history (thread 3af9e95c: a
+    144,074-byte system block with a new sha256 on every turn). Settled once per
+    turn, on the first send, after the host injected the catalog:
+
+    * the row holds a frozen record whose Holder and catalog fingerprints match
+      this turn -> send the record's text, byte for byte;
+    * no record yet -> freeze this turn's text (persistence writes it back);
+    * a fingerprint changed (the Holder was edited or rebound, or the org catalog
+      changed) -> send the new text, freeze it, and say so LOUDLY as a
+      deliberate cache break. Nothing else may change it.
+    """
+    state = getattr(config, "held_prompt", None)
+    if not isinstance(state, dict) or state.get("settled"):
+        return
+    from datetime import UTC, datetime
+
+    from matrx_ai.agents.live_structure import catalog_fingerprint
+
+    live = getattr(config, "resolved_system_instruction", None) or ""
+    fingerprint = {"holder": state.get("holder") or "", "catalog": catalog_fingerprint(config)}
+    stored = state.get("stored")
+    if not (isinstance(stored, dict) and isinstance(stored.get("text"), str) and stored["text"]):
+        stored = None
+    if (
+        stored is not None
+        and stored.get("holder") == fingerprint["holder"]
+        and stored.get("catalog") == fingerprint["catalog"]
+    ):
+        if live != stored["text"]:
+            config.system_instruction = _restored_prompt(config, stored["text"])
+        state["record"] = dict(stored)
+        state["outcome"] = "kept"
+    else:
+        state["record"] = {
+            "text": live,
+            **fingerprint,
+            "frozen_at": datetime.now(UTC).isoformat(),
+        }
+        state["outcome"] = "frozen" if stored is None else "rerendered"
+        if stored is not None:
+            from matrx_ai.providers.cache_guard import deliberate_cache_break
+
+            changed = [k for k in ("holder", "catalog") if stored.get(k) != fingerprint[k]]
+            deliberate_cache_break(
+                kind="held_prompt_rerendered",
+                reason=" and ".join(
+                    {"holder": "the Holder changed", "catalog": "the org catalog changed"}[k]
+                    for k in changed
+                ),
+                conversation_id=conversation_id,
+                prev_text=stored["text"],
+                new_text=live,
+                where="matrx_ai.config.send_boundary.prepare_for_send",
+            )
+    state["settled"] = True
 
 
 #: The turn-context slot the live date travels in (its own slot, so no other
@@ -948,6 +1153,29 @@ def remember_cache_state(conversation_id: str | None, cache_state: dict[str, Any
     _CACHE_STATE_MEMO.move_to_end(conversation_id)
     while len(_CACHE_STATE_MEMO) > _MAX_TRACKED:
         _CACHE_STATE_MEMO.popitem(last=False)
+
+
+#: The latest send's context breakdown per conversation, until the request's
+#: completion stores it (``take_context_breakdown``). Bounded like _LAST_SEND_AT.
+_LAST_BREAKDOWN: OrderedDict[str, dict[str, Any]] = OrderedDict()
+
+
+def _remember_breakdown(conversation_id: str | None, config: Any) -> None:
+    if not conversation_id:
+        return
+    from matrx_ai.config.context_breakdown import measure
+
+    _LAST_BREAKDOWN[str(conversation_id)] = measure(config)
+    _LAST_BREAKDOWN.move_to_end(str(conversation_id))
+    while len(_LAST_BREAKDOWN) > _MAX_TRACKED:
+        _LAST_BREAKDOWN.popitem(last=False)
+
+
+def take_context_breakdown(conversation_id: str | None) -> dict[str, Any] | None:
+    """The last send's breakdown for this conversation, removed once taken."""
+    if not conversation_id:
+        return None
+    return _LAST_BREAKDOWN.pop(str(conversation_id), None)
 
 
 def _mark_sent(conversation_id: str | None, request_id: str | None) -> None:

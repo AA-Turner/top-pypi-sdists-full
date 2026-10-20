@@ -5,7 +5,7 @@ Live failure, 2026-09-12 (conversation 2050e02b-c663-4b6d-99f8-7996eff7cd81).
 A non-technical Expert asked the Masterwork Conductor to change how her desk's
 Writer thinks. Both attempts died in the ``workflow_plan`` tool:
 
-* 23:23:42Z — cancelled at 120s, the unturnable literal on
+* 23:23:42Z — canceled at 120s, the unturnable literal on
   ``ToolDefinition.timeout_seconds``, while the agent-builder meta-agent ran;
 * 23:24:08Z — ``Matrx ORM IntegrityError … "This write declares actor_tier=code,
   but names no actor_system … x-matrx-actor-system on the client channel, or the
@@ -305,7 +305,7 @@ def test_a_timeout_names_the_work_and_what_to_retry() -> None:
     assert error.is_retryable is True
     # What it was doing, and that nothing unfinished was written.
     assert 'building "Writer (v2026-09-12T2215)"' in error.message
-    assert "The call was cancelled and its work abandoned" in error.message
+    assert "The call was canceled and its work abandoned" in error.message
     assert "nothing it had not already finished was written" in error.message
     # The ceiling is a knob an admin can raise, and this is NOT a refusal.
     assert error.suggested_action is not None

@@ -435,6 +435,40 @@ def test_a_second_worker_waits_for_the_first_and_leaves_if_the_switch_moves(tmp_
         held.close()
 
 
+def test_a_barrier_raised_while_a_worker_loads_is_seen_once_it_holds_its_lock(tmp_path, monkeypatch):
+    """The Probe service raises its update barrier, waits a second and looks
+    for daemon locks again (plan X1). A worker that passed its barrier check
+    just before, then spent longer loading its AI libraries, takes its lock
+    after that second look: it must look again once it holds the lock."""
+    from probe.service import barrier
+
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "k-test")
+    _set_state("full")
+    monkeypatch.setattr(barrier, "WAIT_S", 0.2)
+    token = "w" * 32
+    real_lock = worker_mod.session_lock
+
+    def lock_after_the_barrier(*args, **kwargs):
+        barrier.raise_barrier(token)  # this test stands in for the service
+        return real_lock(*args, **kwargs)
+
+    built: list = []
+
+    class NoWorker:
+        def __init__(self, *args, **kwargs):
+            built.append(args)
+            raise LookupError("a worker started under the update")
+
+    monkeypatch.setattr(worker_mod, "session_lock", lock_after_the_barrier)
+    monkeypatch.setattr(worker_mod, "Worker", NoWorker)
+    try:
+        assert _run_main(_argv(tmp_path)) == worker_mod.EXIT_RESPAWN_LATER
+    finally:
+        barrier.lower(token)
+    assert built == [], "it started recording under the update"
+    assert not store_mod.store_path(SID).exists()
+
+
 def test_the_session_lock_is_taken_once_the_first_worker_lets_go(tmp_path):
     held = _hold_lock()
     threading.Timer(0.3, held.close).start()
@@ -1896,6 +1930,24 @@ def test_a_bite_waiting_on_its_model_stops_when_probe_goes_inline(tmp_path):
     assert stop.value.kind == worker_mod.STOP_LEASE and stop.value.why == worker_mod.INLINE_STOP
 
 
+def test_reader_quota_handoff_interrupts_an_inflight_writer_and_fences_its_writes(tmp_path):
+    from pydantic_ai.exceptions import ModelHTTPError
+    _daemon_profile()
+    w = _worker(tmp_path)
+    w.read_new()
+    async def slow():
+        await asyncio.sleep(30)
+    async def run():
+        task = asyncio.ensure_future(w._until_finish_by(slow()))
+        await asyncio.sleep(0)
+        assert w._quota_inline(ModelHTTPError(429, "default", body={"code": "budget_exhausted"}), "daemon")
+        assert lease.may_write(SID) is not None
+        return await asyncio.wait_for(task, timeout=worker_mod.DEADLINE_POLL_S + 5)
+    with pytest.raises(worker_mod.Interrupted) as stop:
+        asyncio.run(run())
+    assert stop.value.kind == worker_mod.STOP_LEASE
+
+
 def test_between_rounds_nothing_is_settled_once_probe_is_inline(tmp_path, monkeypatch):
     _daemon_profile()
     w = _worker(tmp_path)
@@ -1926,6 +1978,24 @@ def test_a_worker_started_while_inline_leaves_before_loading_anything(tmp_path, 
     assert worker_mod.main(argv) == worker_mod.EXIT_DO_NOT_RESPAWN
     monkeypatch.setenv(worker_mod.SUPERVISOR_FOLLOWS_INLINE_ENV, "1")
     assert worker_mod.main(argv) == 0
+
+
+@pytest.mark.parametrize("modern,code", [(False, worker_mod.EXIT_DO_NOT_RESPAWN), (True, 0)])
+def test_read_only_quota_inline_exits_real_entry_and_tick_with_compatible_code(tmp_path, monkeypatch, modern, code):
+    monkeypatch.setenv(worker_mod.SUPERVISOR_FOLLOWS_INLINE_ENV, "1")
+    if modern:
+        monkeypatch.setenv(worker_mod.SUPERVISOR_READ_ONLY_INLINE_ENV, "1")
+    else:
+        monkeypatch.delenv(worker_mod.SUPERVISOR_READ_ONLY_INLINE_ENV, raising=False)
+    _daemon_profile()
+    w = _worker(tmp_path)
+    assert w._renew()
+    _set_state(session_marker.STATE_READ_ONLY)
+    assert session_marker.inline_on_budget(SID, session_marker.STATE_READ_ONLY)
+    argv = ["--session-id", SID, "--transcript", str(tmp_path / "t.jsonl"), "--cwd", str(tmp_path)]
+    assert worker_mod.main(argv) == code
+    assert asyncio.run(w.tick()) == code
+    assert not lease.held(SID)
 
 
 def test_a_worker_waiting_for_the_lock_leaves_for_inline(tmp_path, monkeypatch):

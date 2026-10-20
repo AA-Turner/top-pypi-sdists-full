@@ -25,6 +25,21 @@ from matrx_ai.providers.sdk_drift import route_undeclared_params
 from .translator import GoogleTranslator
 
 
+class VideoOperationTimeout(TimeoutError):
+    """A provider video operation stayed unfinished past its limit. Never retried (a stuck operation stays stuck);
+    its message is plain words for the person."""
+
+    never_retry = True
+    plain = True
+
+
+class VideoFilteredByProvider(RuntimeError):
+    """Veo finished but returned no video (its filter, or no reason). Plain words for the person; a repeat gives the same answer."""
+
+    never_retry = True
+    plain = True
+
+
 class GoogleVideoGeneration(BaseMediaGeneration):
     provider = "google"
     modality = "video"
@@ -198,19 +213,43 @@ class GoogleVideoGeneration(BaseMediaGeneration):
             **route_undeclared_params(self.client.models.generate_videos, kwargs, provider="google")
         )
 
+    #: A Veo operation that is not done by now is stuck: the poll ends with a plain timeout instead of waiting forever
+    #: (the thread would outlive the request and the person would see a take "making" for ever). Normal takes finish in 1-3 min.
+    poll_timeout_seconds: float = 300.0
+    poll_interval_seconds: float = 10.0
+
     def _poll_if_long_running(self, raw: Any) -> Any:
         import time
 
         from matrx_utils import vcprint
 
         op = raw
+        started = time.monotonic()
         while not op.done:
+            waited = time.monotonic() - started
+            if waited >= self.poll_timeout_seconds:
+                raise VideoOperationTimeout(
+                    f"Veo did not finish this video within {int(self.poll_timeout_seconds // 60)} minutes "
+                    f"({getattr(op, 'name', None) or 'unnamed operation'} was still running), so it was stopped. Try again.")
             vcprint(
                 "[Google Video] Waiting for video... polling in 10s",
                 color="cyan",
             )
-            time.sleep(10)
+            time.sleep(self.poll_interval_seconds)
             op = self.client.operations.get(op)
+        err = getattr(op, "error", None)
+        if err:
+            detail = err.get("message") if isinstance(err, dict) else getattr(err, "message", None)
+            raise RuntimeError(f"Veo finished without a video: {detail or err}")
+        result = getattr(op, "result", None) or getattr(op, "response", None)
+        if result is not None and not getattr(result, "generated_videos", None):
+            # Veo answers "done" with no video when its own filter removed it; the filter's words are the reason.
+            reasons = getattr(result, "rai_media_filtered_reasons", None)
+            count = getattr(result, "rai_media_filtered_count", None)
+            raise VideoFilteredByProvider(
+                "Veo made no video for this line" + (f": {'; '.join(str(r) for r in reasons)}" if reasons else
+                                                      (" (its content filter removed it)" if count else " and gave no reason")) +
+                ". Change the line and try again.")
         return op
 
     def _extract_assets(self, raw: Any) -> list[GeneratedAsset]:

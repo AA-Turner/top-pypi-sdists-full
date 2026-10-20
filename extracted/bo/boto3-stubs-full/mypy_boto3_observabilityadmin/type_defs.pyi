@@ -632,6 +632,7 @@ class DestinationLogsConfigurationTypeDef(TypedDict):
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
     LogGroupNameConfiguration: NotRequired[LogGroupNameConfigurationTypeDef]
     TagPropagationConfiguration: NotRequired[TagPropagationConfigurationTypeDef]
+    LogGroupDeletionProtection: NotRequired[Literal["ENABLED"]]
 
 class DestinationMetricsConfigurationTypeDef(TypedDict):
     BackupConfiguration: NotRequired[MetricsBackupConfigurationTypeDef]

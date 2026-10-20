@@ -52,13 +52,13 @@ class RunOptions(BaseModel):
   min_lr_ratio: float | None = None
   """Cosine decay floor as a fraction of the base learning rate."""
 
-  reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None = (
-    None
-  )
-  """Reasoning effort for models that support it; null preserves the model default."""
-
-  disable_thinking: bool | None = None
-  """Disable model thinking during training or evaluation."""
+  reasoning_effort: (
+    Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
+  ) = None
+  """
+    Reasoning effort supported by the model; off disables thinking, on enables models
+    without effort levels, and null preserves the model default.
+    """
 
   num_steps: int | None = None
   """Number of optimizer steps to run."""
@@ -72,16 +72,14 @@ class RunOptions(BaseModel):
     while Reinforce++ requires 1.
     """
 
-  n_parallel_agents: int | None = None
-  """Maximum active training rollouts (per worker for legacy runs)."""
-
   max_active_rollouts: int | None = None
   """Maximum active training rollouts per run."""
 
   execution_timeout_seconds: int | None = None
   """
     Maximum execution time per training or evaluation rollout, including policy and grading.
-    Collection timeouts must cover this budget and are not adjusted automatically.
+    The clock starts when the harness runs, after queueing and sandbox startup. Collection
+    timeouts must cover this budget and are not adjusted automatically.
     """
 
   batch_collection_idle_timeout_seconds: int | None = None
@@ -93,10 +91,17 @@ class RunOptions(BaseModel):
     """
 
   max_output_tokens_per_step: int | None = None
-  """Maximum assistant output tokens allowed in one model step."""
+  """
+    On an endpoint created for the run, maximum assistant output tokens per model step;
+    replaces the harness request's max_tokens.
+    """
 
   max_total_tokens_per_trajectory: int | None = None
-  """Maximum assistant output tokens across all steps of one trajectory."""
+  """
+    On an endpoint created for the run, maximum assistant output tokens across all steps of
+    one trajectory. Reaching this cap during a reply can end the trajectory as LIMIT_REACHED
+    before the harness logs reward.
+    """
 
   max_turns_per_trajectory: int | None = None
   """Maximum agent and environment turns allowed in each trajectory."""

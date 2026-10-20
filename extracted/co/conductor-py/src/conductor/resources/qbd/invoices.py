@@ -179,6 +179,8 @@ class InvoicesResource(SyncAPIResource):
           memo: A memo or note for this invoice that appears in reports, but not on the invoice.
               Use `customerMessage` to add a note to this invoice.
 
+              Maximum length: 4095 characters.
+
           other_custom_field: A built-in custom field for additional information specific to this invoice.
               Unlike the user-defined fields in the `customFields` array, this is a standard
               QuickBooks field that exists for all invoices for convenience. Developers often
@@ -186,6 +188,8 @@ class InvoicesResource(SyncAPIResource):
               QuickBooks fields. Unlike `otherCustomField1` and `otherCustomField2`, which are
               line item fields, this exists at the transaction level. Hidden by default in the
               QuickBooks UI.
+
+              Maximum length: 29 characters.
 
           purchase_order_number: The customer's Purchase Order (PO) number associated with this invoice. This
               field is often used to cross-reference the invoice with the customer's
@@ -481,6 +485,8 @@ class InvoicesResource(SyncAPIResource):
           memo: A memo or note for this invoice that appears in reports, but not on the invoice.
               Use `customerMessage` to add a note to this invoice.
 
+              Maximum length: 4095 characters.
+
           other_custom_field: A built-in custom field for additional information specific to this invoice.
               Unlike the user-defined fields in the `customFields` array, this is a standard
               QuickBooks field that exists for all invoices for convenience. Developers often
@@ -488,6 +494,8 @@ class InvoicesResource(SyncAPIResource):
               QuickBooks fields. Unlike `otherCustomField1` and `otherCustomField2`, which are
               line item fields, this exists at the transaction level. Hidden by default in the
               QuickBooks UI.
+
+              Maximum length: 29 characters.
 
           purchase_order_number: The customer's Purchase Order (PO) number associated with this invoice. This
               field is often used to cross-reference the invoice with the customer's
@@ -694,6 +702,9 @@ class InvoicesResource(SyncAPIResource):
               numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific invoices by their ref-number(s), case-sensitive. In
               QuickBooks, ref-numbers are not required to be unique and can be arbitrarily
               changed by the QuickBooks user.
@@ -713,6 +724,9 @@ class InvoicesResource(SyncAPIResource):
               omitted, the range will end with the last number of the list. Uses a numerical
               comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for invoices whose `date` field is on or after this date, in ISO 8601
               format (YYYY-MM-DD).
@@ -1029,6 +1043,8 @@ class AsyncInvoicesResource(AsyncAPIResource):
           memo: A memo or note for this invoice that appears in reports, but not on the invoice.
               Use `customerMessage` to add a note to this invoice.
 
+              Maximum length: 4095 characters.
+
           other_custom_field: A built-in custom field for additional information specific to this invoice.
               Unlike the user-defined fields in the `customFields` array, this is a standard
               QuickBooks field that exists for all invoices for convenience. Developers often
@@ -1036,6 +1052,8 @@ class AsyncInvoicesResource(AsyncAPIResource):
               QuickBooks fields. Unlike `otherCustomField1` and `otherCustomField2`, which are
               line item fields, this exists at the transaction level. Hidden by default in the
               QuickBooks UI.
+
+              Maximum length: 29 characters.
 
           purchase_order_number: The customer's Purchase Order (PO) number associated with this invoice. This
               field is often used to cross-reference the invoice with the customer's
@@ -1331,6 +1349,8 @@ class AsyncInvoicesResource(AsyncAPIResource):
           memo: A memo or note for this invoice that appears in reports, but not on the invoice.
               Use `customerMessage` to add a note to this invoice.
 
+              Maximum length: 4095 characters.
+
           other_custom_field: A built-in custom field for additional information specific to this invoice.
               Unlike the user-defined fields in the `customFields` array, this is a standard
               QuickBooks field that exists for all invoices for convenience. Developers often
@@ -1338,6 +1358,8 @@ class AsyncInvoicesResource(AsyncAPIResource):
               QuickBooks fields. Unlike `otherCustomField1` and `otherCustomField2`, which are
               line item fields, this exists at the transaction level. Hidden by default in the
               QuickBooks UI.
+
+              Maximum length: 29 characters.
 
           purchase_order_number: The customer's Purchase Order (PO) number associated with this invoice. This
               field is often used to cross-reference the invoice with the customer's
@@ -1544,6 +1566,9 @@ class AsyncInvoicesResource(AsyncAPIResource):
               numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific invoices by their ref-number(s), case-sensitive. In
               QuickBooks, ref-numbers are not required to be unique and can be arbitrarily
               changed by the QuickBooks user.
@@ -1563,6 +1588,9 @@ class AsyncInvoicesResource(AsyncAPIResource):
               omitted, the range will end with the last number of the list. Uses a numerical
               comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for invoices whose `date` field is on or after this date, in ISO 8601
               format (YYYY-MM-DD).

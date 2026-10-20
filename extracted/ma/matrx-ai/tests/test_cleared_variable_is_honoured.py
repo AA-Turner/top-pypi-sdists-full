@@ -1,4 +1,4 @@
-"""A value the person clears is sent as "" and honoured; an untouched value falls back (2026-10-16).
+"""A value the person clears is sent as "" and honored; an untouched value falls back (2026-10-16).
 
 Proof case: a saved default "Gold", the person cleared the field, the server still used "Gold"."""
 

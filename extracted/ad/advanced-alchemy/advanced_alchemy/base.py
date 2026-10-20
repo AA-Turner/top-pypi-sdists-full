@@ -4,7 +4,7 @@ import contextlib
 import datetime
 import re
 from collections.abc import Iterator, Mapping
-from typing import TYPE_CHECKING, Any, Optional, Protocol, Union, cast, runtime_checkable
+from typing import TYPE_CHECKING, Any, ClassVar, Optional, Protocol, Union, cast, runtime_checkable
 from uuid import UUID
 
 from sqlalchemy import Date, MetaData, String
@@ -34,7 +34,6 @@ from advanced_alchemy.mixins import (
     UUIDv7PrimaryKey,
 )
 from advanced_alchemy.types import GUID, DateTimeUTC, FileObject, FileObjectList, JsonB, StoredObject
-from advanced_alchemy.utils.dataclass import DataclassProtocol
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import FromClause
@@ -151,13 +150,11 @@ class ModelProtocol(Protocol):
     Attributes:
         __table__ (:class:`sqlalchemy.sql.FromClause`): The table associated with the model.
         __mapper__ (:class:`sqlalchemy.orm.Mapper`): The mapper for the model.
-        __name__ (str): The name of the model.
     """
 
     if TYPE_CHECKING:
-        __table__: FromClause
-        __mapper__: Mapper[Any]
-        __name__: str
+        __table__: ClassVar[FromClause]
+        __mapper__: ClassVar[Mapper[Any]]
 
 
 def model_to_dict(instance: "ModelProtocol", exclude: Optional[set[str]] = None) -> dict[str, Any]:
@@ -202,9 +199,8 @@ class BasicAttributes:
     """
 
     if TYPE_CHECKING:
-        __name__: str
-        __table__: FromClause
-        __mapper__: Mapper[Any]
+        __table__: ClassVar[FromClause]
+        __mapper__: ClassVar[Mapper[Any]]
 
     def to_dict(self, exclude: Optional[set[str]] = None) -> dict[str, Any]:
         """Convert model to dictionary.
@@ -405,7 +401,6 @@ def create_registry(
         dict: JsonB,
         dict[str, Any]: JsonB,
         dict[str, str]: JsonB,
-        DataclassProtocol: JsonB,
         FileObject: StoredObject,
         FileObjectList: StoredObject,
     }
@@ -423,10 +418,6 @@ def create_registry(
                 IPvAnyNetwork: String,
             }
         )
-    with contextlib.suppress(ImportError):
-        from msgspec import Struct
-
-        type_annotation_map[Struct] = JsonB
     if custom_annotation_map is not None:
         type_annotation_map.update(custom_annotation_map)
     return SQLAlchemyRegistry(metadata=meta, type_annotation_map=type_annotation_map)

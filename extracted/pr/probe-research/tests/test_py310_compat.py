@@ -30,8 +30,11 @@ _SRC = Path(__file__).resolve().parents[1] / "src" / "probe"
 _PYPROJECT = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 #: Modules that are the CLI (or the daemon, which drives the CLI) and may import
-#: it, and the console-script shim that exists to import it.
-_CLI_SIDE = {"cli", "daemon", "_entry.py"}
+#: it, and the console-script shim that exists to import it. `probe.core` is a
+#: facade over the CLI's own functions (Probe service T1): its operations import
+#: the CLI when they run, while `import probe.core` itself loads none of it
+#: (`test_core_run.py` pins that).
+_CLI_SIDE = {"cli", "core", "daemon", "_entry.py"}
 
 
 def _imports(path: Path):

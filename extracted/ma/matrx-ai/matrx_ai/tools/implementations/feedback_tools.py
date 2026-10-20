@@ -89,9 +89,11 @@ def _assert_admin(ctx: ToolContext) -> ToolError | None:
         app_ctx = get_app_context()
     except Exception:
         return _ADMIN_ERR
-    from matrx_connect import admin_surface_active
+    # Admin REACH for a person acting from the admin system: the admin app's agent runs ride the
+    # verified admin-lane header, not an admin-mounted route (same signal as kind_shared.ctx_is_admin).
+    from matrx_connect import admin_lane_active
 
-    if not admin_surface_active(app_ctx):
+    if not admin_lane_active(app_ctx, user_id=getattr(app_ctx, "user_id", None)):
         return _ADMIN_ERR
     return None
 
@@ -101,7 +103,7 @@ def _compute_dedupe_key(
 ) -> str:
     """Stable across triage runs. We deliberately key on the COARSE
     triple — not on err_msg_normalised — because the agent's
-    normalisation may vary slightly between runs and would defeat the
+    normalization may vary slightly between runs and would defeat the
     dedup if included."""
     raw = f"{tool_name}:{err_type}:{source_environment}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
@@ -159,7 +161,7 @@ def _format_description(
         f"| **Occurrences in window** | {occurrence_count} |\n"
         f"| **First seen** | {first_seen_ts or '_unknown_'} |\n"
         f"| **Last seen** | {last_seen_ts or '_unknown_'} |\n\n"
-        f"## Normalised error message\n\n"
+        f"## Normalized error message\n\n"
         f"```\n{err_msg_normalised[:2000]}\n```\n\n"
         f"## Sample call_ids\n\n{sample_ids_block}\n\n"
         f"## Args sample\n\n{args_block}\n\n"

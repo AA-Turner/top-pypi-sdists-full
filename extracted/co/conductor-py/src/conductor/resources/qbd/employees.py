@@ -119,6 +119,8 @@ class EmployeesResource(SyncAPIResource):
               the account number may not be visible in the user interface, but it can still be
               set and retrieved through the API.
 
+              Maximum length: 99 characters.
+
           additional_notes: Additional notes about this employee.
 
           address: The employee's address.
@@ -146,14 +148,22 @@ class EmployeesResource(SyncAPIResource):
           department: The employee's department. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
+              Maximum length: 31 characters.
+
           description: A description of this employee. Found in the "employment job details" section of
               the employee's record in QuickBooks.
 
+              Maximum length: 64 characters.
+
           disability_description: A description of this employee's disability.
+
+              Maximum length: 25 characters.
 
           disability_status: Indicates whether this employee is disabled.
 
           email: The employee's email address.
+
+              Maximum length: 1023 characters.
 
           emergency_contact: The employee's emergency contacts.
 
@@ -194,6 +204,8 @@ class EmployeesResource(SyncAPIResource):
 
           job_title: The employee's job title.
 
+              Maximum length: 41 characters.
+
           key_employee_status: Indicates whether this employee is a key employee.
 
           last_name: The employee's last name.
@@ -212,6 +224,8 @@ class EmployeesResource(SyncAPIResource):
 
           note: A note or comment about this employee.
 
+              Maximum length: 4095 characters.
+
           original_hire_date: The original hire date for this employee, in ISO 8601 format (YYYY-MM-DD).
 
           overtime_exempt_status: Indicates whether this employee is exempt from overtime pay. This classification
@@ -223,6 +237,8 @@ class EmployeesResource(SyncAPIResource):
 
           pager_pin: The employee's pager PIN.
 
+              Maximum length: 10 characters.
+
           phone: The employee's primary telephone number.
 
               Maximum length: 21 characters.
@@ -230,18 +246,27 @@ class EmployeesResource(SyncAPIResource):
           print_as: The name to use when printing this employee from QuickBooks. By default, this is
               the same as the `name` field.
 
+              Maximum length: 41 characters.
+
           salutation: The employee's formal salutation title that precedes their name, such as "Mr.",
               "Ms.", or "Dr.".
+
+              Maximum length: 15 characters.
 
           ssn: The employee's Social Security Number. The value can be with or without dashes.
 
               **NOTE**: This field cannot be changed after the employee is created.
+
+              Maximum length: 15 characters.
 
           supervisor_id: The employee's supervisor. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
           target_bonus: The target bonus for this employee, represented as a decimal string. Found in
               the "employment job details" section of the employee's record in QuickBooks.
+
+              Decimal string format: exactly 2 decimal places when cents are included and up
+              to 13 digits before the decimal point (for example, "123.45").
 
           termination_date: The date this employee's employment ended with the company, in ISO 8601 format
               (YYYY-MM-DD). This is also known as the released date or separation date.
@@ -443,6 +468,8 @@ class EmployeesResource(SyncAPIResource):
               the account number may not be visible in the user interface, but it can still be
               set and retrieved through the API.
 
+              Maximum length: 99 characters.
+
           additional_notes: Additional notes about this employee.
 
           address: The employee's address.
@@ -470,14 +497,22 @@ class EmployeesResource(SyncAPIResource):
           department: The employee's department. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
+              Maximum length: 31 characters.
+
           description: A description of this employee. Found in the "employment job details" section of
               the employee's record in QuickBooks.
 
+              Maximum length: 64 characters.
+
           disability_description: A description of this employee's disability.
+
+              Maximum length: 25 characters.
 
           disability_status: Indicates whether this employee is disabled.
 
           email: The employee's email address.
+
+              Maximum length: 1023 characters.
 
           emergency_contact: The employee's emergency contacts.
 
@@ -517,6 +552,8 @@ class EmployeesResource(SyncAPIResource):
 
           job_title: The employee's job title.
 
+              Maximum length: 41 characters.
+
           key_employee_status: Indicates whether this employee is a key employee.
 
           last_name: The employee's last name.
@@ -535,6 +572,8 @@ class EmployeesResource(SyncAPIResource):
 
           note: A note or comment about this employee.
 
+              Maximum length: 4095 characters.
+
           original_hire_date: The original hire date for this employee, in ISO 8601 format (YYYY-MM-DD).
 
           overtime_exempt_status: Indicates whether this employee is exempt from overtime pay. This classification
@@ -546,6 +585,8 @@ class EmployeesResource(SyncAPIResource):
 
           pager_pin: The employee's pager PIN.
 
+              Maximum length: 10 characters.
+
           phone: The employee's primary telephone number.
 
               Maximum length: 21 characters.
@@ -553,14 +594,21 @@ class EmployeesResource(SyncAPIResource):
           print_as: The name to use when printing this employee from QuickBooks. By default, this is
               the same as the `name` field.
 
+              Maximum length: 41 characters.
+
           salutation: The employee's formal salutation title that precedes their name, such as "Mr.",
               "Ms.", or "Dr.".
+
+              Maximum length: 15 characters.
 
           supervisor_id: The employee's supervisor. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
           target_bonus: The target bonus for this employee, represented as a decimal string. Found in
               the "employment job details" section of the employee's record in QuickBooks.
+
+              Decimal string format: exactly 2 decimal places when cents are included and up
+              to 13 digits before the decimal point (for example, "123.45").
 
           termination_date: The date this employee's employment ended with the company, in ISO 8601 format
               (YYYY-MM-DD). This is also known as the released date or separation date.
@@ -703,6 +751,9 @@ class EmployeesResource(SyncAPIResource):
           name_from: Filter for employees whose `name` is alphabetically greater than or equal to
               this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific employees by their name(s), case-insensitive. Like `id`,
               `name` is a unique identifier for an employee.
 
@@ -719,6 +770,9 @@ class EmployeesResource(SyncAPIResource):
 
           name_to: Filter for employees whose `name` is alphabetically less than or equal to this
               value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for employees that are active, inactive, or both.
 
@@ -874,6 +928,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
               the account number may not be visible in the user interface, but it can still be
               set and retrieved through the API.
 
+              Maximum length: 99 characters.
+
           additional_notes: Additional notes about this employee.
 
           address: The employee's address.
@@ -901,14 +957,22 @@ class AsyncEmployeesResource(AsyncAPIResource):
           department: The employee's department. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
+              Maximum length: 31 characters.
+
           description: A description of this employee. Found in the "employment job details" section of
               the employee's record in QuickBooks.
 
+              Maximum length: 64 characters.
+
           disability_description: A description of this employee's disability.
+
+              Maximum length: 25 characters.
 
           disability_status: Indicates whether this employee is disabled.
 
           email: The employee's email address.
+
+              Maximum length: 1023 characters.
 
           emergency_contact: The employee's emergency contacts.
 
@@ -949,6 +1013,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           job_title: The employee's job title.
 
+              Maximum length: 41 characters.
+
           key_employee_status: Indicates whether this employee is a key employee.
 
           last_name: The employee's last name.
@@ -967,6 +1033,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           note: A note or comment about this employee.
 
+              Maximum length: 4095 characters.
+
           original_hire_date: The original hire date for this employee, in ISO 8601 format (YYYY-MM-DD).
 
           overtime_exempt_status: Indicates whether this employee is exempt from overtime pay. This classification
@@ -978,6 +1046,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           pager_pin: The employee's pager PIN.
 
+              Maximum length: 10 characters.
+
           phone: The employee's primary telephone number.
 
               Maximum length: 21 characters.
@@ -985,18 +1055,27 @@ class AsyncEmployeesResource(AsyncAPIResource):
           print_as: The name to use when printing this employee from QuickBooks. By default, this is
               the same as the `name` field.
 
+              Maximum length: 41 characters.
+
           salutation: The employee's formal salutation title that precedes their name, such as "Mr.",
               "Ms.", or "Dr.".
+
+              Maximum length: 15 characters.
 
           ssn: The employee's Social Security Number. The value can be with or without dashes.
 
               **NOTE**: This field cannot be changed after the employee is created.
+
+              Maximum length: 15 characters.
 
           supervisor_id: The employee's supervisor. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
           target_bonus: The target bonus for this employee, represented as a decimal string. Found in
               the "employment job details" section of the employee's record in QuickBooks.
+
+              Decimal string format: exactly 2 decimal places when cents are included and up
+              to 13 digits before the decimal point (for example, "123.45").
 
           termination_date: The date this employee's employment ended with the company, in ISO 8601 format
               (YYYY-MM-DD). This is also known as the released date or separation date.
@@ -1198,6 +1277,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
               the account number may not be visible in the user interface, but it can still be
               set and retrieved through the API.
 
+              Maximum length: 99 characters.
+
           additional_notes: Additional notes about this employee.
 
           address: The employee's address.
@@ -1225,14 +1306,22 @@ class AsyncEmployeesResource(AsyncAPIResource):
           department: The employee's department. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
+              Maximum length: 31 characters.
+
           description: A description of this employee. Found in the "employment job details" section of
               the employee's record in QuickBooks.
 
+              Maximum length: 64 characters.
+
           disability_description: A description of this employee's disability.
+
+              Maximum length: 25 characters.
 
           disability_status: Indicates whether this employee is disabled.
 
           email: The employee's email address.
+
+              Maximum length: 1023 characters.
 
           emergency_contact: The employee's emergency contacts.
 
@@ -1272,6 +1361,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           job_title: The employee's job title.
 
+              Maximum length: 41 characters.
+
           key_employee_status: Indicates whether this employee is a key employee.
 
           last_name: The employee's last name.
@@ -1290,6 +1381,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           note: A note or comment about this employee.
 
+              Maximum length: 4095 characters.
+
           original_hire_date: The original hire date for this employee, in ISO 8601 format (YYYY-MM-DD).
 
           overtime_exempt_status: Indicates whether this employee is exempt from overtime pay. This classification
@@ -1301,6 +1394,8 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           pager_pin: The employee's pager PIN.
 
+              Maximum length: 10 characters.
+
           phone: The employee's primary telephone number.
 
               Maximum length: 21 characters.
@@ -1308,14 +1403,21 @@ class AsyncEmployeesResource(AsyncAPIResource):
           print_as: The name to use when printing this employee from QuickBooks. By default, this is
               the same as the `name` field.
 
+              Maximum length: 41 characters.
+
           salutation: The employee's formal salutation title that precedes their name, such as "Mr.",
               "Ms.", or "Dr.".
+
+              Maximum length: 15 characters.
 
           supervisor_id: The employee's supervisor. Found in the "employment job details" section of the
               employee's record in QuickBooks.
 
           target_bonus: The target bonus for this employee, represented as a decimal string. Found in
               the "employment job details" section of the employee's record in QuickBooks.
+
+              Decimal string format: exactly 2 decimal places when cents are included and up
+              to 13 digits before the decimal point (for example, "123.45").
 
           termination_date: The date this employee's employment ended with the company, in ISO 8601 format
               (YYYY-MM-DD). This is also known as the released date or separation date.
@@ -1458,6 +1560,9 @@ class AsyncEmployeesResource(AsyncAPIResource):
           name_from: Filter for employees whose `name` is alphabetically greater than or equal to
               this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific employees by their name(s), case-insensitive. Like `id`,
               `name` is a unique identifier for an employee.
 
@@ -1474,6 +1579,9 @@ class AsyncEmployeesResource(AsyncAPIResource):
 
           name_to: Filter for employees whose `name` is alphabetically less than or equal to this
               value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for employees that are active, inactive, or both.
 

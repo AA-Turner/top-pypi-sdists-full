@@ -18,6 +18,7 @@ from trilogy.core.enums import (
 )
 from trilogy.core.ergonomics import generate_cte_names
 from trilogy.core.exceptions import (
+    DisconnectedConceptsException,
     InvalidSyntaxException,
     UnresolvableQueryException,
 )
@@ -85,7 +86,9 @@ from trilogy.core.processing.discovery_utility import (
     raise_if_where_outside_partitions,
     raise_if_where_population_split,
 )
-from trilogy.core.processing.node_generators.presence_probe import is_presence_probe
+from trilogy.core.processing.node_generators.presence_probe import (
+    having_presence_probes,
+)
 from trilogy.core.processing.node_generators.select_helpers.datasource_injection import (
     describe_incomplete_partitions,
 )
@@ -804,27 +807,6 @@ def _raise_if_disconnected(
         raise_if_filter_disconnected(group, build_environment, graph, comp_of=comp_of)
 
 
-def _having_presence_probes(
-    build_statement: BuildSelectLineage | BuildMultiSelectLineage,
-    build_environment: BuildEnvironment,
-) -> list[BuildConcept]:
-    """Presence probes the HAVING clause tests that the SELECT does not already
-    project."""
-    if not build_statement.having_clause:
-        return []
-    projected = {c.address for c in build_statement.output_components}
-    out: list[BuildConcept] = []
-    seen: set[str] = set()
-    for arg in build_statement.having_clause.concept_arguments:
-        if not is_presence_probe(arg.address):
-            continue
-        if arg.address in projected or arg.address in seen:
-            continue
-        seen.add(arg.address)
-        out.append(build_environment.concepts.get(arg.address, arg) or arg)
-    return out
-
-
 def _plan_query_node(
     build_statement: BuildSelectLineage | BuildMultiSelectLineage,
     build_environment: BuildEnvironment,
@@ -847,6 +829,27 @@ def _plan_query_node(
     _raise_if_disconnected(
         build_statement, build_environment, graph, conditions, carried
     )
+    # Single-row outputs are skipped as crossjoinable by the connectivity
+    # checks, so an output no join relates to the WHERE would otherwise plan as
+    # an unfiltered cross join under an EXISTS gate.
+    try:
+        raise_if_where_population_split(
+            list(build_statement.output_components),
+            conditions,
+            build_environment,
+            graph,
+            line_number=(
+                build_statement.meta.line_number
+                if isinstance(build_statement, BuildSelectLineage)
+                else None
+            ),
+        )
+    except DisconnectedConceptsException:
+        # a WHERE outside every partial's scope strands the outputs too
+        raise_if_where_outside_partitions(
+            list(build_statement.output_components), conditions, build_environment
+        )
+        raise
     # Inherit the outer resolution's build caches, chiefly `scoped_joins` (the
     # query-scoped JOIN merges). Sub-selects (rowsets, multiselect arms)
     # materialize their own build env via these caches; a fresh BuildCaches
@@ -862,7 +865,7 @@ def _plan_query_node(
     # to the member's own boundary and carries it through the join un-fused.
     # The WHERE path needs no such step: its condition args already enter the
     # concept graph.
-    having_probes = _having_presence_probes(build_statement, build_environment)
+    having_probes = having_presence_probes(build_statement, build_environment)
     info = search_concepts_v4(
         mandatory_list=list(build_statement.output_components) + having_probes,
         history=v4_history,
@@ -885,20 +888,6 @@ def _plan_query_node(
             build_environment,
             graph,
             extra_required=list(conditions.row_arguments) if conditions else None,
-        )
-        # Single-row outputs are skipped as crossjoinable by the checks above, so
-        # a WHERE that can reach only one of several scalar-aggregate islands
-        # slips past both. Name that split rather than dumping the output list.
-        raise_if_where_population_split(
-            list(build_statement.output_components),
-            conditions,
-            build_environment,
-            graph,
-            line_number=(
-                build_statement.meta.line_number
-                if isinstance(build_statement, BuildSelectLineage)
-                else None
-            ),
         )
         error_strings = [
             f"{c.address}<{c.purpose}>{c.derivation}>"

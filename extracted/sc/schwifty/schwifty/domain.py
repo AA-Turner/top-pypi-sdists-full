@@ -42,7 +42,7 @@ class DictCompatMixin:
         return getattr(self, key, default)
 
 
-class Component(str, enum.Enum):
+class Component(enum.StrEnum):
     ACCOUNT_ID = "account_id"
     ACCOUNT_TYPE = "account_type"
     ACCOUNT_CODE = "account_code"
@@ -82,6 +82,11 @@ class IBANSpec(DictCompatMixin):
     positions: dict[Component, Range] = field(default_factory=dict)
     bic_lookup_components: list[Component] = field(default_factory=list)
     defaults: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def has_positions(self) -> bool:
+        """Whether the position of at least one BBAN component is known."""
+        return any(not position.is_empty for position in self.positions.values())
 
 
 @dataclass

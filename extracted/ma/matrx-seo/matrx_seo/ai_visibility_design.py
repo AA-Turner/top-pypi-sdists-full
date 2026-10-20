@@ -4384,7 +4384,7 @@ def keep_observed_wording(
 
     A candidate whose words overlap a sample at ``threshold`` or more (the similarity knob) takes
     that sample's grade and source, as observed language. A gated slot with none gets the best
-    sample itself as a verbatim candidate, labelled as code's fallback. ``slots_without_wording``
+    sample itself as a verbatim candidate, labeled as code's fallback. ``slots_without_wording``
     lists gated slots that had no grade-A/B sample to keep.
     """
     result = ObservedWordingResult()

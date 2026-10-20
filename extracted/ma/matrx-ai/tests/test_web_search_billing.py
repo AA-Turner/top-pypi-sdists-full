@@ -86,7 +86,7 @@ def test_recorded_usage_carries_the_web_search_component():
 
 
 def test_unpriced_web_search_component_records_null_not_zero():
-    """The bug as it happened: no component price → cost NULL, loudly labelled."""
+    """The bug as it happened: no component price → cost NULL, loudly labeled."""
     usage = _usage()
     assert usage.calculate_cost(_pricing({})) is None
     assert usage.metadata["cost_reconciliation"] == "unknown_component_price"

@@ -1,7 +1,7 @@
 """An agent run that ends early must still settle the money it really spent.
 
 Live incident (news engine run 70601b15, 2026-10-05): a per-call time limit
-(``asyncio.wait_for``) cancelled ``run_agent`` mid-loop, after the model had
+(``asyncio.wait_for``) canceled ``run_agent`` mid-loop, after the model had
 already made billed calls. The cancel branch settled the run's spine execution
 as ``cancelled`` with NO meters — $0 — so the run total, the cost tree and the
 monthly spend ceiling all under-counted about $0.70. The crash branch had the
@@ -100,7 +100,7 @@ def _billed_call() -> TokenUsage:
 
 def _loop_that_bills_then(after_billing: str):
     """The provider loop body: one billed call lands, then the run either waits
-    for its next call (and gets cancelled) or crashes out of the loop."""
+    for its next call (and gets canceled) or crashes out of the loop."""
 
     async def fake_inner(*, state: ExecutionState, **_kw: Any) -> Any:
         req = _request()
@@ -152,7 +152,7 @@ async def test_a_run_cancelled_by_a_time_limit_settles_what_it_spent(
     assert tracker[0]["status"] == "cancelled"
     meters = tracker[0]["meters"] or {}
     assert meters.get("usd") == pytest.approx(PER_CALL_USD), (
-        f"a cancelled run that made a billed call settled {meters!r} — the spend "
+        f"a canceled run that made a billed call settled {meters!r} — the spend "
         "vanished from the run total, the cost tree and the monthly ceiling"
     )
     assert meters.get("input_tokens") == 1000
@@ -270,9 +270,9 @@ async def test_a_cancelled_agent_tool_child_settles_what_it_spent(
             timeout=0.2,
         )
 
-    assert len(child_spawner) == 1, "a cancelled agent-tool child was never settled"
+    assert len(child_spawner) == 1, "a canceled agent-tool child was never settled"
     assert child_spawner[0]["success"] is False
-    assert child_spawner[0]["cancelled"] is True, "a cut-off child must settle CANCELLED"
+    assert child_spawner[0]["cancelled"] is True, "a cut-off child must settle CANCELED"
     assert len(child_spawner[0]["usage_history"]) == 1, (
         "the child's billed call never reached its spine settle — recorded $0"
     )
@@ -411,7 +411,7 @@ async def test_a_stopped_agent_tool_child_settles_cancelled(
     monkeypatch: pytest.MonkeyPatch, priced, app_ctx, child_spawner
 ) -> None:
     """A child the loop stopped (budget / deadline) returns normally with status
-    "cancelled" — its spine record must say cancelled, not completed."""
+    "cancelled" — its spine record must say canceled, not completed."""
     import matrx_ai.agents.executor as agents_executor
     from matrx_ai.agents.executor import AgentRunResult
     from matrx_ai.tools.agent_tool import execute_agent_tool

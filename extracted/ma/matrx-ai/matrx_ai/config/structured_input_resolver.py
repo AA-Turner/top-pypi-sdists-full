@@ -169,6 +169,7 @@ def inject_editable_tools(messages: MessageList, config: UnifiedConfig) -> None:
         config,
         ctx,
         specs,
+        source="structured_input",
         active_executors=active_tool_executors(ctx),
     )
     if new_ctx is not ctx:

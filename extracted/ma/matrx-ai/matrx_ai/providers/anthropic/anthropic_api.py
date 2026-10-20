@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 import anthropic as anthropic_sdk
 from anthropic import AsyncAnthropic
 from matrx_connect.chat_timing import chat_timing_mark
-from matrx_connect.context.events import CitationPayload, InfoPayload, WarningPayload
+from matrx_connect.context.events import CitationPayload, WarningPayload
 from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 
@@ -159,35 +159,9 @@ class AnthropicChat:
                 f"   Auto-enabling streaming to prevent the error.",
                 color="yellow",
             )
-            await emitter.send_warning(
-                WarningPayload(
-                    code="auto_streaming_override",
-                    system_message=(
-                        f"Anthropic non-streaming ceiling exceeded: max_tokens={max_tokens_for_check} "
-                        f"but the provider limit is {_ANTHROPIC_NONSTREAMING_MAX_TOKENS} tokens without streaming. "
-                        f"Streaming was auto-enabled. The frontend should either enable streaming by default "
-                        f"or cap max_tokens to {_ANTHROPIC_NONSTREAMING_MAX_TOKENS} when streaming is disabled."
-                    ),
-                    user_message=(
-                        f"Your token limit ({max_tokens_for_check:,}) exceeds the maximum allowed "
-                        f"without streaming ({_ANTHROPIC_NONSTREAMING_MAX_TOKENS:,} tokens). "
-                        f"Streaming was enabled automatically to complete your request."
-                    ),
-                    level="high",
-                    recoverable=True,
-                    metadata={
-                        "model": model_name,
-                        "max_tokens_requested": max_tokens_for_check,
-                        "non_streaming_ceiling": _ANTHROPIC_NONSTREAMING_MAX_TOKENS,
-                        "action_taken": "auto_enabled_streaming",
-                        "fix_suggestion": (
-                            f"Either set stream=true in request, or ensure max_tokens <= "
-                            f"{_ANTHROPIC_NONSTREAMING_MAX_TOKENS} when stream=false for Anthropic models."
-                        ),
-                    },
-                )
-            )
-
+            # NOT said to the person: streaming a long answer is the provider doing its job, not something they did
+            # or can act on (live 2026-10-19: a woken turn printed this warning on every model call). The console
+            # line above and the captured issue below keep it visible to operators.
             from matrx_ai.ops.issue_capture import capture_issue
 
             await capture_issue(
@@ -512,7 +486,7 @@ class AnthropicChat:
             chat_timing_mark("provider_sdk_call", "anthropic messages.create")
             response = await self.client.messages.create(
                 **route_undeclared_params(
-                    self.client.messages.create, config_data_copy, provider="anthropic"
+                    self.client.messages.create, config_data_copy, provider="anthropic", snapshot=True
                 )
             )
             chat_timing_mark("provider_sdk_complete", "anthropic messages.create complete")
@@ -571,7 +545,7 @@ class AnthropicChat:
             stream_manager = await asyncio.to_thread(
                 self.client.messages.stream,
                 **route_undeclared_params(
-                    self.client.messages.stream, attempt_config, provider="anthropic"
+                    self.client.messages.stream, attempt_config, provider="anthropic", snapshot=True
                 ),
             )
             async with stream_manager as stream:
@@ -791,15 +765,7 @@ class AnthropicChat:
                 block_type = getattr(content_block, "type", None)
 
                 if block_type == "tool_use":
-                    name = getattr(content_block, "name", "")
-                    await emitter.send_info(
-                        InfoPayload(
-                            code="tool_processing",
-                            system_message=f"Executing {name}",
-                            user_message=f"Using tool {name}",
-                            metadata={"tool_call": name},
-                        )
-                    )
+                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
 
                 elif block_type == "thinking":
                     # Thinking block started. Do NOT open the <reasoning>
@@ -961,15 +927,7 @@ class AnthropicChat:
 
         elif block_type == "tool_use":
             # Tool/function call
-            name = getattr(block, "name", "")
-            await emitter.send_info(
-                InfoPayload(
-                    code="tool_processing",
-                    system_message=f"Executing {name}",
-                    user_message=f"Using tool {name}",
-                    metadata={"tool_call": name},
-                )
-            )
+            pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
 
         elif block_type == "thinking":
             # Thinking block. Anthropic thinking blocks carry the text on

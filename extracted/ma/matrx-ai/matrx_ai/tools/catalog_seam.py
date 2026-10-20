@@ -143,7 +143,7 @@ async def resolve_lazy_tools(
         if key in pinned or key in wanted:
             continue
         known = registry.get(key)
-        if known is not None and known.source_kind != CATALOG_SOURCE_KIND:
+        if known is not None and getattr(known, "source_kind", None) != CATALOG_SOURCE_KIND:
             continue
         wanted.append(key)
     if not wanted:

@@ -1,6 +1,6 @@
 """Severity shaped by Arman's check tiers (fact-before-opinion R-04).
 
-Real catalogue bands (web.analysis_item, 2026-10-05). The 2026-10-05 incident:
+Real catalog bands (web.analysis_item, 2026-10-05). The 2026-10-05 incident:
 a homepage with no canonical scored in canonical_presence's `low` band, so the
 one fact that mattered sat at `low` among 15,536 findings.
 """
@@ -45,7 +45,7 @@ def test_an_opinion_never_escalates() -> None:
 
 
 def test_planted_breaks_passing_unknown_and_unruled() -> None:
-    # Passing and scoreless results carry no judgement, whatever the tier.
+    # Passing and scoreless results carry no judgment, whatever the tier.
     assert severity_for(item("A"), 95, on_homepage=True) == "info"
     assert severity_for(item("A"), None, on_homepage=True) == "info"
     # A check nobody has ruled on keeps its band exactly.

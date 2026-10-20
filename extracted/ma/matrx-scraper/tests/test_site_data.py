@@ -244,9 +244,9 @@ async def test_202_that_never_finishes_times_out_with_the_snapshot_id():
     # delivery is unknown: the cap is booked conservatively, announced as estimated
     assert len(rec.calls) == 1 and rec.calls[0].records_billed == 5 and rec.calls[0].estimated
     assert "estimated" in rec.calls[0].detail and rec.calls[0].snapshot_id == "sd_slow"
-    # the abandoned job is cancelled so it cannot bill records nobody records
+    # the abandoned job is canceled so it cannot bill records nobody records
     assert seen[-1].method == "POST" and seen[-1].url.path.endswith("/snapshot/sd_slow/cancel")
-    assert "cancelled" in str(exc.value)
+    assert "canceled" in str(exc.value)
 
 
 async def test_total_record_bound_is_enforced_in_the_client_before_anything_is_sent():
@@ -321,87 +321,28 @@ async def test_door_caps_max_records_at_100_and_names_missing_inputs():
     assert q["limit_per_input"] == "100" and q["type"] == "discover_new" and q["discover_by"] == "keyword"
 
 
-# ── read_page route-first ────────────────────────────────────────────────
+# ── read_page: our scraper ALWAYS reads first (the route-first lane is retired) ──────────
 
 
-async def _no_http(url: str):
-    raise AssertionError("the HTTP fetch ran for a routed URL")
-
-
-async def test_read_page_routes_a_catalog_url_before_the_http_fetch(monkeypatch):
-    Recorder().install()
-    client, _ = _client(lambda r: httpx.Response(200, json=_fix("googlemaps_full.json")))
+async def test_read_page_reads_a_catalog_url_with_our_scraper_and_never_calls_the_dataset(monkeypatch):
+    """A covered URL is read by our scraper; no structured-data call runs (2026-10-16 design)."""
+    client, seen = _client(lambda r: httpx.Response(200, json=_fix("googlemaps_full.json")))
     _ext.configure_ext(brightdata_client=client)
-    monkeypatch.setattr(rp, "fetch_normally_with_proxy", _no_http)
-    out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert out["status"] == "success" and out["engine"] == "site_data"
-    assert out["provenance"]["announcement"] == "live data, Google Maps place"
-    assert out["text"].startswith("Live data")
-    assert out["page"]["text_data"] == out["text"]
-
-
-async def test_read_page_does_not_route_when_the_knob_is_off(monkeypatch):
-    client, seen = _client(lambda r: httpx.Response(200, json=[]))
-
-    async def off() -> bool:
-        return False
-
-    _ext.configure_ext(brightdata_client=client, site_data_route_enabled=off)
     called: list[str] = []
 
-    async def fake_http(url: str) -> dict[str, Any]:
+    async def fake_http(url: str):
         called.append(url)
-        return {"status": "success", "text": "plain page", "result": "plain page"}
+        return {"status": "success", "text": "plain page " * 50, "result": "plain page"}, None
 
-    monkeypatch.setattr(rp, "_read_page_http", fake_http)
+    monkeypatch.setattr(rp, "_read_page_http_judged", fake_http)
     out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert called == [GMAPS_URL] and seen == [] and out["text"] == "plain page"
+    assert called == [GMAPS_URL] and seen == []
+    assert out["status"] == "success" and "coverage" not in out
 
 
-async def test_read_page_without_a_client_never_routes(monkeypatch):
-    _ext._registry.pop(site_data.EXT_CLIENT, None)
-
-    async def fake_http(url: str) -> dict[str, Any]:
-        return {"status": "success", "text": "plain page"}
-
-    monkeypatch.setattr(rp, "_read_page_http", fake_http)
-    out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert out["text"] == "plain page" and "site_data_notice" not in out
-
-
-async def test_read_page_falls_through_and_says_so_when_site_data_fails(monkeypatch):
-    Recorder().install()
-    client, _ = _client(lambda r: httpx.Response(200, json=_fix("googlemaps_full_error_not_business.json")))
-    _ext.configure_ext(brightdata_client=client)
-
-    async def fake_http(url: str) -> dict[str, Any]:
-        return {"status": "success", "text": "plain page"}
-
-    monkeypatch.setattr(rp, "_read_page_http", fake_http)
-    out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert "did not answer" in out["site_data_notice"]
-    assert out["text"].startswith("[Live data (Google Maps place)")
-    assert out["text"].endswith("plain page")
-
-
-async def test_read_page_falls_through_on_a_spend_refusal(monkeypatch):
-    class Refused(Exception):
-        is_caller_refusal = True
-
-    async def refuse(_ds: str) -> None:
-        raise Refused("out of points")
-
-    bd.register_brightdata_call_observer(lambda c: None)
-    bd.register_brightdata_call_guard(refuse)
-    client, seen = _client(lambda r: httpx.Response(200, json=[]))
-    _ext.configure_ext(brightdata_client=client)
-
-    async def fake_http(url: str) -> dict[str, Any]:
-        return {"status": "success", "text": "plain page"}
-
-    monkeypatch.setattr(rp, "_read_page_http", fake_http)
-    out = await rp.read_page_mcp_quick(url=GMAPS_URL)
-    assert seen == [] and "was not used (" in out["site_data_notice"]
+def test_the_route_first_lane_is_gone():
+    assert not hasattr(rp, "_route_site_data")
+    assert not hasattr(site_data, "EXT_ROUTE_ENABLED")
 
 
 def test_the_package_never_reads_the_bright_data_key_from_the_environment():
@@ -415,3 +356,27 @@ def test_the_package_never_reads_the_bright_data_key_from_the_environment():
         if re.search(r"""os\.(?:environ\s*(?:\[|\.get\s*\()|getenv\s*\()\s*["']BRIGHT_DATA""", p.read_text())
     ]
     assert readers == []
+
+
+def test_google_maps_place_takes_a_name_or_a_place_id_and_leaves_links_alone():
+    """TREG 2: the place source was link-only. A name (+ city) or a place id now reaches the vendor's own
+    discover options; a link row is byte-for-byte what it was."""
+    from matrx_scraper.features.site_data import build_inputs
+    from matrx_scraper.vendors.site_catalog import get_entry
+
+    entry = get_entry("google_maps_place")
+    link = {"url": GMAPS_URL}
+    assert build_inputs(entry, url=None, query=None, location=None, inputs=[dict(link)], cap=3) == [link]
+    assert entry.missing(link) == [] and entry.discover_for(link) is None
+    by_name = build_inputs(entry, url=None, query=None, location=None,
+                           inputs=[{"name": "Pop-A-Lock", "city": "Ithaca NY"}], cap=3)
+    assert by_name == [{"keyword": "Pop-A-Lock Ithaca NY", "country": "US"}]
+    assert entry.missing(by_name[0]) == [] and entry.discover_for(by_name[0]) == "location"
+    by_id = build_inputs(entry, url=None, query=None, location=None, inputs=[{"place_id": "ChIJbf_1dKkr9ocRNLqDZCKLuqA"}], cap=3)
+    assert entry.missing(by_id[0]) == [] and entry.discover_for(by_id[0]) == "place_id"
+    # a name alone (no city) still searches; an empty row still needs its link
+    assert build_inputs(entry, url=None, query=None, location=None, inputs=[{"name": "Pop-A-Lock"}], cap=3)[0]["keyword"] == "Pop-A-Lock"
+    assert entry.missing({}) == ["url"]
+    # a source that does not take a name keeps refusing one
+    other = get_entry("yelp_business")
+    assert build_inputs(other, url=None, query=None, location=None, inputs=[{"name": "x"}], cap=3) == [{"name": "x"}]

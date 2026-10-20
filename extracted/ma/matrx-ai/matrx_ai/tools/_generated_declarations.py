@@ -67,6 +67,7 @@ from matrx_ai.tools.arg_models import (
     ShellJobArgs,
     ShellPythonArgs,
     AdvancedReadArgs,
+    CompareArgs,
     SiteDataArgs,
     SkillArgs,
     SqlArgs,
@@ -772,9 +773,6 @@ IMPORT_FAILURES: list[str] = []
 # startup_wiring_failed and the drift gate reports as a declaration import
 # failure — loud, never silent, but not per-tool.
 _MODULE_LOADERS = {
-    "matrx_ai.tools.implementations.agent_call": lambda: importlib.import_module(
-        "matrx_ai.tools.implementations.agent_call"
-    ),
     "matrx_ai.tools.implementations.browser_discovery": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.browser_discovery"
     ),
@@ -880,6 +878,9 @@ _MODULE_LOADERS = {
     "matrx_ai.tools.implementations.advanced_read": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.advanced_read"
     ),
+    "matrx_ai.tools.implementations.compare": lambda: importlib.import_module(
+        "matrx_ai.tools.implementations.compare"
+    ),
     "matrx_ai.tools.implementations.widgets": lambda: importlib.import_module(
         "matrx_ai.tools.implementations.widgets"
     ),
@@ -913,14 +914,10 @@ def _reg(name, source_kind, executor, args, module, func, *, validate=True, alia
     )(fn)
 
 
-_reg(
-    "agent_call",
-    "native",
-    "matrx-ai-core",
-    AgentCallArgs,
-    "matrx_ai.tools.implementations.agent_call",
-    "agent_call",
-)
+# `agent_call` is no longer a model-facing tool (retired 2026-10-18; `agent` in
+# aidream/tools/agent_harness_tool.py replaced it). Its function stays as the one
+# agent-runs-an-agent funnel every host caller uses, and AgentCallArgs above is
+# that funnel's argument contract.
 # Bundle listers (``bundle:list_<name>``) are a GENERIC FAMILY — one handler,
 # N data-driven ``tool_def`` rows. Importing the handler registers the family via
 # ``@tool_family``; there is intentionally NO per-bundle ``_reg`` line here. New
@@ -1832,6 +1829,14 @@ _reg(
     AdvancedReadArgs,
     "matrx_ai.tools.implementations.advanced_read",
     "advanced_read",
+)
+_reg(
+    "compare",
+    "native",
+    None,
+    CompareArgs,
+    "matrx_ai.tools.implementations.compare",
+    "compare",
 )
 _reg(
     "widget_attach_media",

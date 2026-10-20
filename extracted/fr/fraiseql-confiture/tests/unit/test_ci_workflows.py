@@ -120,7 +120,7 @@ class TestPythonMatrix:
 
 class TestQualityGate:
     def test_one_pglast_major_needs_no_matrix(self) -> None:
-        """``pglast>=8.5`` is one major; the lock pins it and the suite runs it."""
+        """``pglast>=8.7`` is one major; the lock pins it and the suite runs it."""
         data = yaml.safe_load((WORKFLOWS / "quality-gate.yml").read_text())
         assert "pglast-matrix" not in data["jobs"]
 
@@ -418,6 +418,20 @@ class TestReleaseWheels:
     def test_no_build_leans_on_forward_compatibility(self) -> None:
         """The wheels are version-specific; the flag only hid a missing one."""
         assert "PYO3_USE_ABI3_FORWARD_COMPATIBILITY" not in (WORKFLOWS / "publish.yml").read_text()
+
+    def test_a_dependency_without_a_wheel_is_named_before_each_fresh_install(self) -> None:
+        """A pull request warns (upstream uploads its sdist first); Publish refuses."""
+        for workflow, job, mode in (
+            ("quality-gate.yml", "wheel-python-314", "--warn"),
+            ("publish.yml", "validate", "--strict"),
+        ):
+            runs = [step.get("run", "") for step in _steps(workflow, job)]
+            check = next(
+                i for i, run in enumerate(runs) if "scripts/check_dependency_wheels.py" in run
+            )
+            install = next(i for i, run in enumerate(runs) if "uv venv --python 3.14" in run)
+            assert mode in runs[check], workflow
+            assert check < install, workflow
 
     def test_the_newest_is_installed_from_its_wheel_on_every_pull_request(self) -> None:
         script = _run_scripts(_steps("quality-gate.yml", "wheel-python-314"))

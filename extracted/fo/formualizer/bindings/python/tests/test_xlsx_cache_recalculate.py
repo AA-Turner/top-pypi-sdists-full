@@ -326,3 +326,112 @@ def test_calc_chain_formulas_keep_legacy_intersection(tmp_path):
     fz.recalculate_xlsx_file(str(path))
     cached = openpyxl.load_workbook(path, data_only=True).active
     assert [cached[f"B{row}"].value for row in (2, 3, 4)] == [10, 20, 30]
+
+
+def external_link_fixture(formula: str = "[1]Prices!B2*2") -> bytes:
+    """`C1 = [1]Prices!B2*2`, with Excel's cached value 21 for the linked cell."""
+    main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    rels = "http://schemas.openxmlformats.org/package/2006/relationships"
+    source = BytesIO(fixture_xlsx(formula=False))
+    with ZipFile(source) as archive:
+        members = {n: archive.read(n).decode() for n in archive.namelist()}
+    members["xl/worksheets/sheet1.xml"] = members["xl/worksheets/sheet1.xml"].replace(
+        '<c r="C1"><v>3</v></c>', f'<c r="C1"><f>{formula}</f><v>0</v></c>'
+    )
+    members["xl/workbook.xml"] = members["xl/workbook.xml"].replace(
+        "</sheets>",
+        '</sheets><externalReferences><externalReference r:id="rIdLink1"/></externalReferences>',
+    )
+    members["xl/_rels/workbook.xml.rels"] = members[
+        "xl/_rels/workbook.xml.rels"
+    ].replace(
+        "</Relationships>",
+        f'<Relationship Id="rIdLink1" Type="{office}/externalLink" Target="externalLinks/externalLink1.xml"/></Relationships>',
+    )
+    members["[Content_Types].xml"] = members["[Content_Types].xml"].replace(
+        "</Types>",
+        '<Override PartName="/xl/externalLinks/externalLink1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml"/></Types>',
+    )
+    members["xl/externalLinks/externalLink1.xml"] = (
+        f'<externalLink xmlns="{main}"><externalBook xmlns:r="{office}" r:id="rId1">'
+        '<sheetNames><sheetName val="Prices"/></sheetNames><sheetDataSet>'
+        '<sheetData sheetId="0"><row r="2"><cell r="B2"><v>21</v></cell></row></sheetData>'
+        "</sheetDataSet></externalBook></externalLink>"
+    )
+    members["xl/externalLinks/_rels/externalLink1.xml.rels"] = (
+        f'<Relationships xmlns="{rels}"><Relationship Id="rId1" '
+        f'Type="{office}/externalLinkPath" Target="file:///C:/Data/Source.xlsx" TargetMode="External"/></Relationships>'
+    )
+    out = BytesIO()
+    with ZipFile(out, "w", ZIP_DEFLATED) as archive:
+        for name, body in members.items():
+            archive.writestr(name, body)
+    return out.getvalue()
+
+
+def test_ordinary_loader_reads_cached_external_links(tmp_path):
+    source = external_link_fixture()
+    path = tmp_path / "links.xlsx"
+    path.write_bytes(source)
+    for wb in (fz.load_workbook_bytes(source), fz.load_workbook(str(path))):
+        wb.evaluate_all()
+        assert wb.evaluate_cell("Sheet1", 1, 3) == 42.0
+        assert wb.cached_external_link_indices == [1]
+        with pytest.raises(AttributeError):
+            wb.cached_external_link_indices = []
+        with pytest.raises(Exception, match="read-only"):
+            wb.set_value("[1]Prices", 2, 2, 99)
+        assert "[1]Prices" not in wb.sheet_names
+
+
+def test_ordinary_loader_external_shape_error_keeps_formula():
+    wb = fz.load_workbook_bytes(external_link_fixture("ROW([1]Prices!B2)"))
+    wb.evaluate_all()
+    assert wb.evaluate_cell("Sheet1", 1, 3) == {"type": "Error", "kind": "Ref"}
+    assert wb.get_formula("Sheet1", 1, 3) == "=ROW([1]Prices!B2)"
+
+
+def test_recalculate_xlsx_bytes_reads_cached_external_link_values():
+    source = external_link_fixture()
+    result = fz.recalculate_xlsx_bytes(source)
+    assert result["external_links"] == {
+        "links_used": 1,
+        "refreshed": False,
+        "policy": "cached",
+    }
+    assert '<c r="C1"><f>[1]Prices!B2*2</f><v>42</v></c>' in worksheet_xml(
+        result["bytes"]
+    )
+    with ZipFile(BytesIO(source)) as before, ZipFile(BytesIO(result["bytes"])) as after:
+        for name in before.namelist():
+            if name.startswith("xl/externalLinks/"):
+                assert after.read(name) == before.read(name)
+    assert "external_links" not in fz.recalculate_xlsx_bytes(fixture_xlsx())
+
+
+def test_external_links_policy_cached_or_refuse(tmp_path):
+    source = external_link_fixture()
+    cached = fz.recalculate_xlsx_bytes(source, external_links="cached")
+    assert cached["external_links"]["policy"] == "cached"
+    assert cached["bytes"] == fz.recalculate_xlsx_bytes(source)["bytes"]
+    with pytest.raises(OSError, match="external link values"):
+        fz.recalculate_xlsx_bytes(source, external_links="refuse")
+    path = tmp_path / "linked.xlsx"
+    path.write_bytes(source)
+    with pytest.raises(OSError, match="external link values"):
+        fz.recalculate_xlsx_file(str(path), external_links="refuse")
+    assert path.read_bytes() == source
+    # Links that nothing reads do not refuse.
+    unused = fz.recalculate_xlsx_bytes(
+        external_link_fixture(formula="1+2"), external_links="refuse"
+    )
+    assert "external_links" not in unused
+    assert '<c r="C1"><f>1+2</f><v>3</v></c>' in worksheet_xml(unused["bytes"])
+    for call in (
+        lambda: fz.recalculate_xlsx_bytes(source, external_links="refresh"),
+        lambda: fz.recalculate_xlsx_file(str(path), external_links="Cached"),
+    ):
+        with pytest.raises(ValueError, match="'cached' or 'refuse'"):
+            call()
+    assert path.read_bytes() == source

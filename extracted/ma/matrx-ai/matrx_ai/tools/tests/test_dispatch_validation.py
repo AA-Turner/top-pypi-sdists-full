@@ -44,13 +44,13 @@ async def test_web_inner_constraints_reject_before_dispatch(
         body_called = True
         raise AssertionError("invalid web arguments reached the tool body")
 
-    async def capture_spy(**kwargs):
+    def capture_spy(**kwargs):
         captures.append(kwargs)
 
     definition._callable = must_not_run
     isolated_registry._tools["web"] = definition
     monkeypatch.setattr(
-        "matrx_ai.tools.executor._capture_tool_argument_validation_failed",
+        "matrx_ai.tools.executor._note_tool_argument_refusal",
         capture_spy,
     )
 
@@ -361,43 +361,18 @@ class TestMustCompleteExecution:
         assert finished.is_set()
 
 
-async def test_validation_capture_keeps_codes_without_model_content(monkeypatch, app_ctx_set):
-    from pydantic import BaseModel, Field, ValidationError
+def test_the_refusal_note_keeps_codes_without_model_content(app_ctx_set, caplog):
+    import logging
 
-    from matrx_ai.tools.executor import _capture_tool_argument_validation_failed
+    from pydantic import BaseModel, Field, ValidationError, field_validator
+    from pydantic_core import PydanticCustomError
+
+    from matrx_ai.tools.executor import _note_tool_argument_refusal
 
     class Arguments(BaseModel):
         queries: list[str] = Field(max_length=5)
 
-    with pytest.raises(ValidationError) as failure:
-        Arguments(queries=['private-query-sentinel'] * 10)
-    captured = []
-
-    async def capture_spy(*args, **kwargs):
-        captured.append(kwargs)
-
-    monkeypatch.setattr('matrx_connect.streaming.error_capture.capture_error', capture_spy)
-    await _capture_tool_argument_validation_failed(
-        ctx=_make_ctx(), tool_name='web', validation_error=failure.value,
-    )
-    assert captured[0]['kind'] == 'tool_argument_validation_failed'
-    assert captured[0]['route'] == 'tool_executor.argument_validation'
-    assert captured[0]['error_type'] == 'ToolArgumentValidationError'
-    context = captured[0]['context']
-    assert context['validation_error_count'] == 1
-    assert context['validation_error_codes'] == ['too_long']
-    assert context['validation_error_codes_truncated'] is False
-    assert 'private-query-sentinel' not in str(captured)
-    assert 'queries' not in str(captured)
-
-
-async def test_validation_capture_hides_custom_code_and_message(monkeypatch, app_ctx_set):
-    from pydantic import BaseModel, ValidationError, field_validator
-    from pydantic_core import PydanticCustomError
-
-    from matrx_ai.tools.executor import _capture_tool_argument_validation_failed
-
-    class Arguments(BaseModel):
+    class Custom(BaseModel):
         value: str
 
         @field_validator('value')
@@ -405,16 +380,14 @@ async def test_validation_capture_hides_custom_code_and_message(monkeypatch, app
         def refuse(cls, value):
             raise PydanticCustomError('private-code-sentinel', 'private-message-sentinel')
 
+    caplog.set_level(logging.DEBUG)
     with pytest.raises(ValidationError) as failure:
-        Arguments(value='private-input-sentinel')
-    captured = []
+        Arguments(queries=['private-query-sentinel'] * 10)
+    _note_tool_argument_refusal(ctx=_make_ctx(), tool_name='web', validation_error=failure.value)
+    with pytest.raises(ValidationError) as custom:
+        Custom(value='private-input-sentinel')
+    _note_tool_argument_refusal(ctx=_make_ctx(), tool_name='web', validation_error=custom.value)
 
-    async def capture_spy(*args, **kwargs):
-        captured.append(kwargs)
-
-    monkeypatch.setattr('matrx_connect.streaming.error_capture.capture_error', capture_spy)
-    await _capture_tool_argument_validation_failed(
-        ctx=_make_ctx(), tool_name='web', validation_error=failure.value,
-    )
-    assert captured[0]['context']['validation_error_codes'] == ['custom_validation']
-    assert 'sentinel' not in str(captured)
+    text = ' '.join(r.getMessage() for r in caplog.records if 'refused' in r.getMessage())
+    assert "'too_long'" in text and "'custom_validation'" in text
+    assert 'sentinel' not in text and 'queries' not in text

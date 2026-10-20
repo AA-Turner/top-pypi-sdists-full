@@ -1,43 +1,54 @@
 from fivetran_connector_sdk.protos import common_pb2
+from fivetran_connector_sdk_common import constants
 from fivetran_connector_sdk_common.constants import TABLES
-from fivetran_connector_sdk_common.helpers import _validate_table_name
+from fivetran_connector_sdk_common.helpers import _validate_table_name, _validate_schema
 
 
 def process_tables(response, table_list):
-    for entry in response:
-        if 'table' not in entry:
-            raise ValueError("Entry missing table name: " + entry)
+    # `client.schema()` is called independently from both standardConfig() and update(), so the qualification
+    # state is recomputed on every call rather than inherited from an earlier one.
+    # schema() and operations may freely mix entries with and without 'schema': entries without it belong to the
+    # connection's own schema. Whether any entry is schema-qualified decides the shape of the schema response.
+    table_definitions = list(response)
+    raw_schemas = [table_definition.get('schema') for table_definition in table_definitions]
+    constants.SCHEMA_QUALIFIED = any(raw_schema is not None for raw_schema in raw_schemas)
 
-        table_name = entry['table']
+    for table_definition, raw_schema in zip(table_definitions, raw_schemas):
+        if 'table' not in table_definition:
+            raise ValueError(f"Entry missing table name: {table_definition}")
+
+        table_name = table_definition['table']
 
         _validate_table_name(table_name)
+        _validate_schema(raw_schema)
+        schema_table_key = (raw_schema, table_name)
 
-        if table_name in table_list:
-            raise ValueError("Table already defined: " + table_name)
+        if schema_table_key in table_list:
+            raise ValueError(f"Table {table_name} already exists in {raw_schema}" if raw_schema else f"Table already defined: {table_name}")
 
         table = common_pb2.Table(name=table_name)
         columns = {}
 
-        if "primary_key" in entry:
-            process_primary_keys(columns, entry)
+        if "primary_key" in table_definition:
+            process_primary_keys(columns, table_definition)
 
-        if "columns" in entry:
-            process_columns(columns, entry)
+        if "columns" in table_definition:
+            process_columns(columns, table_definition)
 
         table.columns.extend(columns.values())
-        TABLES[table_name] = table
-        table_list[table_name] = table
+        TABLES[schema_table_key] = table
+        table_list[schema_table_key] = table
 
 
-def process_primary_keys(columns, entry):
-    for column_name in entry["primary_key"]:
+def process_primary_keys(columns, table_definition):
+    for column_name in table_definition["primary_key"]:
         column = columns[column_name] if column_name in columns else common_pb2.Column(name=column_name)
         column.primary_key = True
         columns[column_name] = column
 
 
-def process_columns(columns, entry):
-    for column_name, type in entry["columns"].items():
+def process_columns(columns, table_definition):
+    for column_name, type in table_definition["columns"].items():
         column = columns[column_name] if column_name in columns else common_pb2.Column(name=column_name)
 
         if isinstance(type, str):
@@ -46,7 +57,7 @@ def process_columns(columns, entry):
         elif isinstance(type, dict):
             if type['type'].upper() != "DECIMAL":
                 error_message = (
-                    f"Expecting DECIMAL data type for dictionary column entry, but got: {type['type']} in entry: {entry} "
+                    f"Expecting DECIMAL data type for dictionary column entry, but got: {type['type']} in entry: {table_definition} "
                     f"for column: {column_name}. "
                     "Dictionary type is only allowed for DECIMAL columns with 'precision' and 'scale' fields, "
                     "as in: {'type': 'DECIMAL', 'precision': <int>, 'scale': <int>}. "
@@ -59,10 +70,10 @@ def process_columns(columns, entry):
 
         else:
             raise ValueError(
-                f"Unrecognized column type for column: {column_name} in entry: {entry}. Got: {str(type)}"
+                f"Unrecognized column type for column: {column_name} in entry: {table_definition}. Got: {str(type)}"
             )
 
-        if "primary_key" in entry and column_name in entry["primary_key"]:
+        if "primary_key" in table_definition and column_name in table_definition["primary_key"]:
             column.primary_key = True
 
         columns[column_name] = column

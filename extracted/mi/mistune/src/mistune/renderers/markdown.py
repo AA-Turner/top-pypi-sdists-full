@@ -6,8 +6,9 @@ from ..core import BaseRenderer, BlockState
 from ..util import strip_end
 from ._list import render_list, render_list_item
 
-fenced_re = re.compile(r"^[`~]+", re.M)
+fenced_re = re.compile(r"^ {0,3}([`~]+)", re.M)
 _backtick_run_re = re.compile(r"`+")
+_literal_inline_markers_re = re.compile(r"&(?:#[0-9]+|#[xX][0-9a-fA-F]+|[a-zA-Z][a-zA-Z0-9]+);|([\\`<!&])")
 
 #: leading markers that would be parsed as a new block (list, heading, block
 #: quote) if they appear unescaped at the start of a line.
@@ -20,16 +21,24 @@ class MarkdownRenderer(BaseRenderer):
     NAME = "markdown"
 
     def __call__(self, tokens: Iterable[Dict[str, Any]], state: BlockState) -> str:
-        out = self.render_tokens(tokens, state)
+        tokens = list(tokens)
+        leading = ""
+        i = 0
+        while i < len(tokens) and tokens[i]["type"] == "blank_line" and "newlines" in tokens[i]:
+            leading += "\n" * tokens[i]["newlines"]
+            i += 1
+        out = self.render_tokens(tokens[i:], state)
         # special handle for line breaks
         out += "\n\n".join(self.render_referrences(state)) + "\n"
-        return strip_end(out)
+        return strip_end(leading + out)
 
     def render_referrences(self, state: BlockState) -> Iterable[str]:
         ref_links = state.env["ref_links"]
         for key in ref_links:
             attrs = ref_links[key]
-            text = "[" + attrs["label"] + "]: " + attrs["url"]
+            # An empty destination must be explicit in a reference definition.
+            url = attrs["url"] or "<>"
+            text = "[" + attrs["label"] + "]: " + url
             title = attrs.get("title")
             if title:
                 text += ' "' + _escape_title(title) + '"'
@@ -49,15 +58,27 @@ class MarkdownRenderer(BaseRenderer):
         # other characters and is left untouched.
         if raw and all(c in "*_" for c in raw):
             return "".join("\\" + c for c in raw)
-        # a backtick always opens a code span, so it must stay escaped to
-        # survive a re-parse as literal text.
-        return raw.replace("`", "\\`")
+        # Keep literal escapes, code delimiters, image introducers, HTML
+        # delimiters and entity prefixes from becoming markup on re-parse.
+        # Complete entity references already in this token keep their meaning;
+        # escaped ampersands arrive in a separate text token.
+        return _literal_inline_markers_re.sub(lambda m: "\\" + m[1] if m[1] else m[0], raw)
 
     def emphasis(self, token: Dict[str, Any], state: BlockState) -> str:
         return "*" + self.render_children(token, state) + "*"
 
     def strong(self, token: Dict[str, Any], state: BlockState) -> str:
         return "**" + self.render_children(token, state) + "**"
+
+    # Inline formatting plugins (strikethrough, mark, insert)
+    def strikethrough(self, token: Dict[str, Any], state: BlockState) -> str:
+        return "~~" + self.render_children(token, state) + "~~"
+
+    def mark(self, token: Dict[str, Any], state: BlockState) -> str:
+        return "==" + self.render_children(token, state) + "=="
+
+    def insert(self, token: Dict[str, Any], state: BlockState) -> str:
+        return "^^" + self.render_children(token, state) + "^^"
 
     def link(self, token: Dict[str, Any], state: BlockState) -> str:
         label = cast(str, token.get("label"))
@@ -69,9 +90,9 @@ class MarkdownRenderer(BaseRenderer):
         attrs = token["attrs"]
         url: str = attrs["url"]
         title = attrs.get("title")
-        if text == url and not title:
+        if token["type"] == "link" and text == url and not title:
             return "<" + text + ">"
-        elif "mailto:" + text == url and not title:
+        elif token["type"] == "link" and "mailto:" + text == url and not title:
             return "<" + text + ">"
 
         out += "("
@@ -92,9 +113,14 @@ class MarkdownRenderer(BaseRenderer):
         # inside the content, otherwise the content would close the span early.
         longest = max((len(run) for run in _backtick_run_re.findall(code)), default=0)
         fence = "`" * (longest + 1)
-        # A space on each side keeps the delimiter from merging with a leading or
-        # trailing backtick; the parser strips this padding back off.
-        if code.startswith("`") or code.endswith("`"):
+        # Padding separates edge backticks from the delimiter and protects
+        # meaningful spaces at both ends from the parser's space normalization.
+        # All-space content is exempt from that normalization.
+        if (
+            code.startswith("`")
+            or code.endswith("`")
+            or (code.startswith(" ") and code.endswith(" ") and code.strip(" "))
+        ):
             return fence + " " + code + " " + fence
         return fence + code + fence
 
@@ -127,6 +153,7 @@ class MarkdownRenderer(BaseRenderer):
             underline = "=" if level == 1 else "-"
             return text + "\n" + underline * 3 + "\n\n"
         marker = "#" * level
+        text = re.sub(r"(^|[ \t])(#+)$", r"\1\\\2", text)
         return marker + " " + text + "\n\n"
 
     def thematic_break(self, token: Dict[str, Any], state: BlockState) -> str:
@@ -274,7 +301,9 @@ def _render_table_cell(renderer: MarkdownRenderer, token: Dict[str, Any], state:
         text = renderer.render_children(token, state)
     else:
         text = cast(str, token.get("raw", ""))
-    return text.replace("\n", " ").replace("|", "\\|").strip()
+    # Code spans can already contain escaped pipes; keep an odd escape count.
+    text = re.sub(r"\\.|[|]", lambda m: r"\|" if m[0] == "|" else m[0], text)
+    return text.replace("\n", " ").strip()
 
 
 def _table_cell_align(token: Dict[str, Any]) -> Any:

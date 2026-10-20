@@ -1,10 +1,10 @@
-"""Hardcoded auto-injection tool catalogue — discover + validate against tool_def.
+"""Hardcoded auto-injection tool catalog — discover + validate against tool_def.
 
 Some tool names are wired into the platform in Python (structured-input
 ``_editable_tools``, capability bundles, context manifest context/context_patch
 tools, web-search substitution, …) rather than coming from an agent definition or a DB surface
 manifest. This module AST-scans the known source files, unions every hardcoded
-name, and validates each resolves in the live ``tool_def`` catalogue.
+name, and validates each resolves in the live ``tool_def`` catalog.
 
 Used by ``scripts/validate_tools.py`` (release), ``aidream/startup/tools_check.py``
 (boot), and ``scripts/list_hardcoded_injection_tools.py`` (operator listing).
@@ -374,7 +374,7 @@ def validate_injection_tool_catalog(
     repo_root: Path | None = None,
     emit: bool = False,
 ) -> InjectionValidationResult:
-    """Verify hardcoded auto-injection tool names resolve in the live tool_def catalogue."""
+    """Verify hardcoded auto-injection tool names resolve in the live tool_def catalog."""
     root = repo_root or find_repo_root()
     by_source = collect_hardcoded_injection_tool_names(repo_root=root)
     missing_source_files = tuple(
@@ -435,7 +435,7 @@ def format_injection_validation_banner(result: InjectionValidationResult) -> str
         "🚨  HARDCODED AUTO-INJECTION TOOLS — names not in tool_def  🚨",
         (
             f"   {len(result.missing)} tool name(s) hardcoded in Python for auto-injection "
-            f"do not resolve in the live tool_def catalogue."
+            f"do not resolve in the live tool_def catalog."
         ),
         f"   checked={result.checked_count}   live tool_def rows={result.live_count}",
         bar,

@@ -699,9 +699,9 @@ _UPDATE_HOT_PATH_COMMANDS = frozenset({"log", "span", "artifact", "run", "exec",
 #: for the same document in the same second.
 _WIZARD_COMMANDS = frozenset({"wizard", "install"})
 
-#: Commands that start no process and send nothing (`probe.cli.status`), so the
-#: root callback's every-command notices, each of which can, skip them.
-_READ_ONLY_COMMANDS = frozenset({"status"})
+#: Machine interfaces own their side effects. Generic every-command notices
+#: must not start updates or emit output around their bounded JSON replies.
+_READ_ONLY_COMMANDS = frozenset({"status", "desktop"})
 
 #: How old the wizard's held server answer may be when Diagnose reports it.
 _DIAGNOSE_MAX_AGE_S = 30.0
@@ -1021,12 +1021,60 @@ def _spawn_update(flag: str, *, trigger: str | None = None) -> None:
     """
     from . import autoupdate
 
+    if _service_owns_updates():
+        # The service's words: a harness's session start is `session`.
+        _ask_service_to_update("session" if trigger == autoupdate.Trigger.SESSION_START.value else "cli")
+        return
     env = dict(os.environ)
     env[autoupdate.WAIT_FOR_PID_ENV] = str(os.getpid())
     # What asked, for the server's update report: a harness's session start
     # when named; else the CLI's own trigger.
     env[autoupdate.TRIGGER_ENV] = trigger or autoupdate.Trigger.CLI.value
     _spawn_detached([sys.executable, "-m", "probe.cli.version_refresh", flag], env)
+
+
+def _service_owns_updates() -> bool:
+    """Is the Probe service this machine's updater (`PROBE_SERVICE=on`, or
+    `"service": "on"` in the config)? Then nothing else spawns one (plan Q4):
+    the service applies updates only on a quiet machine, and its own child
+    outlives no CLI command. POSIX only, like the service."""
+    if not hasattr(os, "fork"):
+        return False
+    try:
+        from probe.service import client as service_client
+
+        return service_client.enabled()
+    except Exception:  # noqa: BLE001 -- the old path is never worse than none
+        return False
+
+
+def _ask_service_to_update(trigger: str) -> None:
+    """`ensure` the service and send it `update.check_now`, from a detached
+    process (`python -m probe.service.client check-now`): starting the service
+    can take a moment, and this command must not wait for it. That process
+    first waits for THIS one to exit (`--wait-for-pid`, as `WAIT_FOR_PID_ENV`
+    does for the old spawn): the service's quiet check and barrier cannot see
+    a plain command, which is still importing from the env an update replaces.
+    `-I`: the researcher's working folder (a `probe/` package, a `json.py`)
+    never shadows ours."""
+    subprocess.Popen(  # noqa: S603 -- our own interpreter, our own module
+        [
+            sys.executable,
+            "-I",
+            "-m",
+            "probe.service.client",
+            "check-now",
+            "--trigger",
+            trigger,
+            "--wait-for-pid",
+            str(os.getpid()),
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+        close_fds=True,
+    )
 
 
 def _spawn_session_start_update() -> None:
@@ -1434,6 +1482,29 @@ app = typer.Typer(
 )
 
 
+def begin_command(
+    *, base_url: str | None = None, spool_dir: str | None = None, write_mode: bool | None = None
+) -> None:
+    """The per-command connection state, set before a command runs: by the root
+    callback from its options, and by `probe.core` (which calls a command's
+    function directly) with none of them."""
+    # Credentials come from named contexts (`probe login`) or the PROBE_TOKEN /
+    # PROBE_INGEST_TOKEN / PROBE_BASE_URL env vars. The old --token/--ingest-token/
+    # --hmac-secret overrides were removed (v0.23.0): a secret in argv leaks into
+    # shell history and `ps`, and a detached outbox drain could never resolve it.
+    _conn.base_url = base_url
+    _conn.spool_dir = spool_dir
+    # One command's undelivered writes, never a previous one's (in-process
+    # callers and tests run several commands in one interpreter).
+    _UNDELIVERED.reset()
+    # Store the flag VERBATIM, including None for "neither was passed". PROBE_ASYNC
+    # is deliberately not read here: `Client.__init__` already parses it as a
+    # tri-state (on / off / unrecognised-warns-and-defers) and a second parser
+    # here would be a second answer to the same question. See the precedence
+    # table above `_resolve_write_mode`.
+    _conn.write_mode = write_mode
+
+
 @app.callback()
 def _root(
     ctx: typer.Context,
@@ -1455,21 +1526,7 @@ def _root(
         False, "--version", callback=_version_cb, is_eager=True, help="show version"
     ),
 ) -> None:
-    # Credentials come from named contexts (`probe login`) or the PROBE_TOKEN /
-    # PROBE_INGEST_TOKEN / PROBE_BASE_URL env vars. The old --token/--ingest-token/
-    # --hmac-secret overrides were removed (v0.23.0): a secret in argv leaks into
-    # shell history and `ps`, and a detached outbox drain could never resolve it.
-    _conn.base_url = base_url
-    _conn.spool_dir = spool_dir
-    # One command's undelivered writes, never a previous one's (in-process
-    # callers and tests run several commands in one interpreter).
-    _UNDELIVERED.reset()
-    # Store the flag VERBATIM, including None for "neither was passed". PROBE_ASYNC
-    # is deliberately not read here: `Client.__init__` already parses it as a
-    # tri-state (on / off / unrecognised-warns-and-defers) and a second parser
-    # here would be a second answer to the same question. See the precedence
-    # table above `_resolve_write_mode`.
-    _conn.write_mode = write_mode
+    begin_command(base_url=base_url, spool_dir=spool_dir, write_mode=write_mode)
     if ctx.invoked_subcommand in _READ_ONLY_COMMANDS:
         # No banner, no background refresher, no auto-update, no capture heal:
         # each of those can start a process or a request, and `probe status`
@@ -1966,25 +2023,16 @@ def status_command(
     Exits 0 whatever the state; 2 for a usage error. The `--json` schema is
     `probe.cli.status`'s docstring.
     """
-    import json
-
-    from probe.cli import json_events
     from probe.cli import status as status_impl
+    from probe.core import reads
 
     limit = status_impl.DEFAULT_TIMEOUT_S if timeout is None else timeout
     if not as_json:
-        for line in status_impl.human_lines(status_impl.snapshot(refresh=refresh, timeout=limit)):
+        for line in status_impl.human_lines(reads.status(refresh=refresh, timeout=limit)):
             print(line)
         return
-    # Whatever the readers print goes to stderr: stdout is the one object.
-    with json_events.redirect_stdout() as out:
-        state = status_impl.snapshot(refresh=refresh, timeout=limit)
-        pretty = False
-        try:
-            pretty = out.isatty()
-        except (AttributeError, ValueError):
-            pass
-        out.write(json.dumps(state, indent=2 if pretty else None) + "\n")
+    # The one object on stdout, as `python -m probe.core.run status` writes it.
+    reads.print_status(refresh=refresh, timeout=limit)
 
 
 def _default_agents(available_sources: tuple[str, ...], *, unattended: bool) -> tuple[str, ...]:
@@ -2300,6 +2348,7 @@ def wizard(
     who_records: str = typer.Option(
         None, "--who-records", help="recorder: agent | daemon, for every coding agent on this device"
     ),
+    reinstall: bool = typer.Option(False, "--reinstall", help="configure: repair selected integrations, preserving settings"),
     json_output: bool = typer.Option(False, "--json", help=_JSON_HELP),
     auth_code: str = typer.Argument(
         None, help="one-time 10-character sign-in code from the website"
@@ -2322,6 +2371,21 @@ def wizard(
         # `--experimental` gated the Who records rows until 0.204.1; still
         # accepted so a script or a habit that passes it keeps working.
         del experimental
+
+        if reinstall is True:
+            sources = _explicit_agent_sources(agent)
+            if (action != "configure" or not sources or auth_code is not None
+                    or any(value is not None for value in (tracking, capture, auto_update, agent_rules,
+                                                          token, base_url, context, ingest_token, hmac_secret,
+                                                          who_records, folder))
+                    or uninstall or endpoint_only or no_browser or capy_project):
+                raise typer.BadParameter("--reinstall needs --action configure and explicit --agent; leave sign-in and settings flags out")
+            from probe.cli.integration_reinstall import run as reinstall_integrations
+
+            with _wizard_run_lock():
+                if not reinstall_integrations(sources):
+                    raise typer.Exit(1)
+            return
 
         # First, so `--who-records` with a sign-in flag is refused below like any
         # other action rather than signing in and never switching.
@@ -5963,6 +6027,15 @@ app.add_typer(companion_app, name="companion")
 from .daemon_cli import approvals_cmd, ask_cmd, daemon_app, deny_cmd  # noqa: E402 -- registration, not use
 
 app.add_typer(daemon_app, name="daemon")
+
+# -- the machine-wide Probe service (plan T3) -----------------------------------
+from .service_cli import service_app  # noqa: E402 -- registration, not use
+
+app.add_typer(service_app, name="service")
+
+from .desktop import app as desktop_app  # noqa: E402 -- registration, not use
+
+app.add_typer(desktop_app, name="desktop")
 
 # -- feedback about Probe, sent with the person's yes ----------------------------
 from .feedback_cli import feedback_app  # noqa: E402 -- registration, not use
@@ -17009,8 +17082,11 @@ def _key_refused(exc: errors.RosError) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI, returning a process exit code (never calls sys.exit itself)."""
-    from . import write_gate
+    from . import service_cli, write_gate
 
+    # The CLI's interpreter, for whatever has to start the Probe service (a tap,
+    # pi, the app): one small read when it is already recorded.
+    service_cli.record_runtime()
     args, directed = write_gate.split_directed(sys.argv[1:] if argv is None else argv)
     command = session_marker.command_words(args)[:1]
     if command and command[0] in _READ_ONLY_COMMANDS:

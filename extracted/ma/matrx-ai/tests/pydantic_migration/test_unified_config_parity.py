@@ -31,7 +31,7 @@ def test_same_fields_in_the_same_order():
 
 
 def test_field_count_matches_dataclass():
-    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 109
+    assert len(UnifiedConfigModel.model_fields) == len(dataclasses.fields(UnifiedConfig)) == 114
 
 
 def test_annotations_are_identical_except_the_staged_two():
@@ -45,7 +45,7 @@ def test_annotations_are_identical_except_the_staged_two():
         assert new[name] == old[name], f"{name}: {new[name]} != {old[name]}"
 
 
-# Fields that `__post_init__` NORMALISES away from their declared default. The
+# Fields that `__post_init__` NORMALIZES away from their declared default. The
 # twin has the fields and NOT the constructor, so these five diverge by design —
 # see test_post_init_is_not_replicated_and_that_blocks_the_flip.
 POST_INIT_NORMALISED = {
@@ -149,7 +149,7 @@ def test_post_init_is_not_replicated_and_that_blocks_the_flip():
     """🚨 THE REAL STATE OF THIS TWIN, asserted rather than described.
 
     `UnifiedConfig.__post_init__` is ~60 lines of business logic, not
-    normalisation trivia: it defaults `authored_tools` from `tools`, derives
+    normalization trivia: it defaults `authored_tools` from `tools`, derives
     `dynamic_tools` with filter-aware rules, and REHYDRATES `custom_tools` and
     `mcp_servers` from their authored counterparts on an unfiltered reload —
     changing what the config CONTAINS. It also calls `MessageList.sanitize()`,
@@ -171,5 +171,5 @@ def test_post_init_is_not_replicated_and_that_blocks_the_flip():
     assert new.messages == []          # the twin keeps the raw list
 
     for name in ("authored_tools", "dynamic_tools", "authored_custom_tools", "authored_mcp_servers"):
-        assert getattr(old, name) == [], f"{name}: __post_init__ stopped normalising"
+        assert getattr(old, name) == [], f"{name}: __post_init__ stopped normalizing"
         assert getattr(new, name) is None, f"{name}: the twin gained constructor logic"

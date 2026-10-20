@@ -26,6 +26,7 @@ from marimo._server.api.middleware import (
 )
 from marimo._server.api.router import build_routes
 from marimo._server.errors import handle_error
+from marimo._server.host.middleware import HostApiMiddleware
 from marimo._server.lsp import LspServer
 from marimo._server.registry import MIDDLEWARE_REGISTRY
 from marimo._utils.http import (
@@ -60,6 +61,11 @@ def create_starlette_app(
     timeout: float | None = None,
 ) -> Starlette:
     final_middlewares: list[Middleware] = []
+    if GLOBAL_SETTINGS.ENABLE_HOST:
+        # Handle host API requests first to bypass the editor's middleware.
+        final_middlewares.append(
+            Middleware(HostApiMiddleware, base_url=base_url)
+        )
 
     if allow_origins is None:
         allow_origins = ("localhost", "127.0.0.1") + (

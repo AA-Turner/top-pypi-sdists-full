@@ -19,7 +19,7 @@ build-backend = "just_buildit"
 
 [project]
 name = "doppler-dsp"
-version = "0.72.0"
+version = "0.73.0"
 description = "Practical, portable, performant digital signal processing."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -160,7 +160,7 @@ dev = [
     # reuses whatever version happens to be installed as a uv TOOL, which is
     # not "latest" and drifts per machine. Keep in sync with jm_version in
     # just-makeit.toml.
-    "just-makeit==0.106.0",
+    "just-makeit==0.108.0",
     # The lint/format toolchain. It lives HERE, not in
     # .pre-commit-config.yaml's `additional_dependencies`, because that is what
     # makes local and CI resolve identically: the hooks dispatch to
@@ -199,6 +199,10 @@ dev = [
     "clang-tidy==22.1.8",
     "ruff==0.15.21",
     "mdformat==1.0.0; python_version >= '3.10'",
+    # coverage-gate's patch-coverage verdict (#2371). It ran as an unpinned
+    # `uvx diff-cover`, outside this lock: the verdict could change on the
+    # day diff-cover released, with no commit here. 10.6.0 needs 3.10+.
+    "diff-cover==10.6.0; python_version >= '3.10'",
     "mdformat-gfm==1.0.0; python_version >= '3.10'",
     "mdformat-gfm-alerts==2.1.0; python_version >= '3.10'",
     "mdformat-mkdocs==5.2.1; python_version >= '3.10'",

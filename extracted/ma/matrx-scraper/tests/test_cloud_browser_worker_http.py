@@ -69,6 +69,9 @@ def test_http_app_exposes_health_and_all_worker_operations() -> None:
         "status": "starting",
         "worker_id": "worker-a",
         "stream_rtc_config": False,
+        "stream_view": False,
+        # Chrome older than the profile's last Chrome (ruling 16); none here.
+        "chrome_downgrade": None,
     }
     paths = {route.path for route in client.app.routes}
     assert {
@@ -295,7 +298,7 @@ def test_http_wrapper_does_not_start_replayed_human_media_after_ack() -> None:
 
 @pytest.mark.asyncio
 async def test_cancelled_rtc_preparation_keeps_observe_behind_the_control_gate() -> None:
-    """A cancelled request cannot unlock while its thread can still start media."""
+    """A canceled request cannot unlock while its thread can still start media."""
     import asyncio
     import threading
     from datetime import UTC, datetime, timedelta

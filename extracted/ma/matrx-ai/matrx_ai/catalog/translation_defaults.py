@@ -6,7 +6,7 @@ Settings-translation item C5 (CONTRACTS.md K6): translation tables are DATA a
 processor reads from its rule — ``rule.from_number`` (number -> scale),
 ``rule.to_number`` (scale -> number), ``rule.processor_config[...]`` (maps) —
 and the values below are what applies when the rule is silent. They are
-today's live behaviour, verbatim from the processors / canonicalizer they were
+today's live behavior, verbatim from the processors / canonicalizer they were
 lifted out of (the chat param golden and the wire snapshot freeze them), so a
 rule that carries nothing translates exactly as before.
 

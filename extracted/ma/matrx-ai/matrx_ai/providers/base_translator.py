@@ -21,19 +21,24 @@ from typing import TYPE_CHECKING, Any
 
 from matrx_utils import detached_task, vcprint
 
+from matrx_ai.config.typed_text_last import person_turn_index, place_before_typed_text
+
 if TYPE_CHECKING:
     from matrx_ai.config.unified_config import UnifiedConfig
 
 
 class BaseTranslator(ABC):
-    """Minimal shared behaviour for all provider translators."""
+    """Minimal shared behavior for all provider translators."""
 
     debug: bool
 
     #: THE CACHE LINE LAW: True = this translator places the per-turn context
     #: block AFTER the cached prefix (``get_trailing_context_text``) instead of
-    #: in the system channel. Providers still False concatenate it into the
-    #: system text (no explicit cache line; see cache-line-law.md for the list).
+    #: in the system channel. Every chat translator sets it (2026-10-16:
+    #: Anthropic, OpenAI, then Google, xAI, Groq, Cerebras, Together, generic
+    #: OpenAI-compatible); a provider left False concatenates it into the system
+    #: text, which changes the cached prefix every turn. Guard:
+    #: ``tests/test_turn_context_rides_after_the_cache_line_on_every_provider.py``.
     TURN_CONTEXT_AFTER_CACHE_LINE: bool = False
 
     def __init__(self, debug: bool = False):
@@ -166,7 +171,12 @@ class BaseTranslator(ABC):
             return None
         return render()
 
-    def get_trailing_context_text(self, config: UnifiedConfig) -> str | None:
+    @staticmethod
+    def _strict_alternation(profile: Any) -> bool:
+        capabilities = getattr(profile, "capabilities", None)
+        return bool(getattr(capabilities, "requires_strict_role_alternation", False))
+
+    def get_trailing_context_text(self, config: UnifiedConfig, profile: Any = None) -> str | None:
         """Everything this send places AFTER the last prompt-cache line, or None.
 
         🚨 THE CACHE LINE LAW (Arman, 2026-10-16): "NOTHING, other than the
@@ -186,7 +196,23 @@ class BaseTranslator(ABC):
         ``tests/test_nothing_behind_the_cache_line_changes_between_turns.py``.
         """
         parts: list[str] = []
-        if self.TURN_CONTEXT_AFTER_CACHE_LINE:
+        # ONCE PER PERSON TURN (owner ruling 2026-10-18, PB-05 conversation 5aaca9fb): the
+        # block rides on the send whose newest message is the person's own, never again after
+        # a tool result — re-appended there it read as part of that result and the model told
+        # the person about "the platform block in that last turn". Guard:
+        # ``tests/test_turn_context_rides_after_the_cache_line_on_every_provider.py``.
+        # 🚨 THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): when the send has a
+        # person turn, the block rides BEFORE their typed text (``messages_for_wire``), never here.
+        # Only a send with no person turn at all (the newest message is the model's own) keeps
+        # this trailing host turn.
+        if (
+            self.TURN_CONTEXT_AFTER_CACHE_LINE
+            and not self._newest_is_tool_result(config)
+            and (
+                person_turn_index(list(getattr(config, "messages", None) or [])) is None
+                or self._strict_alternation(profile)
+            )
+        ):
             turn_context = self.get_turn_context_text(config)
             if turn_context:
                 parts.append(turn_context)
@@ -194,6 +220,40 @@ class BaseTranslator(ABC):
         if tail:
             parts.append(tail)
         return "\n\n".join(parts) or None
+
+    def messages_for_wire(self, config: UnifiedConfig, profile: Any = None) -> list[Any]:
+        """The message list a CHAT send renders: the newest person turn ENDS with their typed text.
+
+        🚨 THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): this turn's platform
+        block (``render_turn_context``) rides inside the person's turn as its own block BEFORE
+        their attachments and typed text; nothing the harness adds ever follows the typed text.
+        A send with no typed text keeps its own instruction last. Built on a shallow copy for
+        this send only — the ledger keeps the person's message as stored. Every chat translator
+        iterates THIS, never ``config.messages`` (a TTS / image prompt fold keeps the raw list).
+        Law + order: ``matrx_ai/config/typed_text_last.py``. Guard:
+        ``tests/test_request_ends_with_what_the_person_typed.py``.
+        """
+        source = list(getattr(config, "messages", None) or [])
+        block = self.get_turn_context_text(config) if self.TURN_CONTEXT_AFTER_CACHE_LINE else None
+        if block and (self._newest_is_tool_result(config) or self._strict_alternation(profile)):
+            # Once per person turn: mid-loop the block is not re-sent. A model the catalog
+            # declares strict_role_alternation cannot take a second user turn: its block keeps
+            # the documented fallback (``place_trailing_on_chat_messages``: system message end).
+            block = None
+        out, placed = place_before_typed_text(source, block)
+        if placed and block:
+            record_platform_text_placement(self._provider_label(), "before_typed_text", block)
+        return out
+
+    @staticmethod
+    def _newest_is_tool_result(config: UnifiedConfig) -> bool:
+        messages = getattr(config, "messages", None)
+        try:
+            last = messages[-1]
+        except (IndexError, TypeError):
+            return False
+        role = getattr(last, "role", None)
+        return str(getattr(role, "value", role) or "").lower() == "tool"
 
     def get_tail_context_text(self, config: UnifiedConfig) -> str | None:
         """This send's TAIL-CHANNEL block, or None.
@@ -219,6 +279,62 @@ class BaseTranslator(ABC):
         if str(getattr(role, "value", role) or "").lower() != "tool":
             return None
         return text
+
+    def place_trailing_on_chat_messages(
+        self,
+        messages: list[dict[str, Any]],
+        trailing_text: str | None,
+        profile: Any = None,
+    ) -> None:
+        """Where host text rides on Chat-Completions-shaped payloads (Groq,
+        Cerebras, Together, generic OpenAI-compatible incl. Moonshot).
+
+        🚨 HOST TEXT NEVER TRAVELS INSIDE THE PERSON'S MESSAGE (owner decision,
+        defects 23 + 35, 2026-10-18), and 🚨 NOTHING BEHIND THE CACHE LINE CHANGES
+        BETWEEN TURNS (2026-10-16). Owner ruling L29 (2026-10-18): the block rides
+        its OWN ``user`` turn immediately after the newest message, exactly as on
+        Anthropic / OpenAI / Google / xAI. All four providers cache the EXACT
+        prefix including the system message (Groq 50% off on gpt-oss, Moonshot
+        90% off, Together per model), so a per-turn system message defeated it.
+        Every active chat offering was probed live with user, user and accepted it.
+
+        Fallback, only for a model the CATALOG declares ``strict_role_alternation``
+        (``profile.capabilities.requires_strict_role_alternation`` — set only after a
+        probe proved the model rejects user, user): the END of the leading system
+        message. With an assistant prefill last, the host turn goes just before it so
+        the prefill stays last. The placement is recorded with the request snapshot and
+        the Model view (``record_platform_text_placement``).
+
+        Never persisted. Guards: ``tests/test_the_persons_message_is_exactly_what_they_sent.py``,
+        ``tests/test_turn_context_rides_after_the_cache_line_on_every_provider.py``.
+        """
+        if not trailing_text:
+            return
+        capabilities = getattr(profile, "capabilities", None)
+        strict = bool(getattr(capabilities, "requires_strict_role_alternation", False))
+        if messages and not strict and not all(
+            isinstance(m, dict) and m.get("role") == "system" for m in messages
+        ):
+            host_turn = {"role": "user", "content": trailing_text}
+            last = messages[-1]
+            if isinstance(last, dict) and last.get("role") == "assistant" and not last.get("tool_calls"):
+                # An assistant prefill: a user turn after it would end it.
+                messages.insert(len(messages) - 1, host_turn)
+            else:
+                messages.append(host_turn)
+            record_platform_text_placement(self._provider_label(), "own_host_turn", trailing_text)
+            return
+        first = messages[0] if messages else None
+        if isinstance(first, dict) and first.get("role") == "system" and isinstance(first.get("content"), str):
+            first["content"] = f"{first['content']}\n\n{trailing_text}" if first["content"] else trailing_text
+        elif isinstance(first, dict) and first.get("role") == "system" and isinstance(first.get("content"), list):
+            first["content"].append({"type": "text", "text": trailing_text})
+        else:
+            messages.insert(0, {"role": "system", "content": trailing_text})
+        record_platform_text_placement(self._provider_label(), "system_message_end", trailing_text)
+
+    def _provider_label(self) -> str:
+        return type(self).__name__.removesuffix("Translator").lower() or "unknown"
 
     def _render_dictionary(self, config: UnifiedConfig) -> str:
         """Render config.dictionary into the shape this model class needs."""
@@ -409,7 +525,20 @@ class BaseTranslator(ABC):
                 color="yellow",
                 verbose=True,
             )
-        return deduped
+        # THE TOOL LIST IS STABLE FOR THE LIFE OF A CONVERSATION: a declaration
+        # once sent stays (first bytes, first position); new ones are appended.
+        # Every upstream path that withdraws or re-merges tools mid-conversation
+        # is absorbed here, because tools head the provider cache prefix
+        # (matrx_ai/tools/declaration_ledger.py).
+        from matrx_ai.providers.tool_count_limits import provider_tool_ceiling
+        from matrx_ai.tools.declaration_ledger import stabilize_declarations
+
+        return stabilize_declarations(
+            provider,
+            deduped,
+            name_of=self._declaration_name,
+            max_tools=provider_tool_ceiling(provider),
+        ).declarations
 
     @staticmethod
     def sanitize_structured_output_schema(schema: dict[str, Any], provider: str) -> dict[str, Any]:
@@ -691,7 +820,7 @@ class BaseTranslator(ABC):
         # reject non-object roots up front, but we downgrade defensively to
         # json_object here so a slip-through still produces valid JSON instead of
         # a 400. This is a runtime ADJUSTMENT (schema is NOT enforced) — log it
-        # loudly so it's never mistaken for the configured behaviour.
+        # loudly so it's never mistaken for the configured behavior.
         downgrade_reason: str | None = None
         if not isinstance(schema, dict):
             downgrade_reason = "no JSON Schema was supplied with the json_schema request"
@@ -766,3 +895,33 @@ class BaseTranslator(ABC):
             json_schema_block["strict"] = bool(strict)
 
         return {"type": "json_schema", "json_schema": json_schema_block}
+
+
+def record_platform_text_placement(provider: str, where: str, text: str) -> None:
+    """Say where this send put the platform's per-turn text, in the stored snapshot and the
+    Model view (owner decision 23 + 35: the placement is recorded, never left to be spotted).
+
+    ``where``: ``before_typed_text`` (its own block in the person's turn, before their
+    attachments and typed text — every chat provider, the law since 2026-10-19),
+    ``own_host_turn`` (a separate turn after the newest message — only a send with no person
+    turn, or the mid-loop tail) or ``system_message_end`` (a Chat-Completions model the catalog
+    declares ``strict_role_alternation``, or a request with no conversation message). Never raises.
+    """
+    entry = {"provider": provider, "where": where, "chars": len(text or "")}
+    try:
+        from matrx_ai.providers.request_capture import note_capture
+
+        note_capture(
+            f"Platform per-turn text placed at {where.replace('_', ' ')} for {provider} "
+            "(never after the person's typed text)."
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from matrx_ai.orchestrator.execution_state import try_get_execution_state
+
+        state = try_get_execution_state()
+        if state is not None:
+            state.platform_text_placements = [entry]
+    except Exception:  # noqa: BLE001
+        pass

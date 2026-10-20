@@ -35,7 +35,7 @@ class TestNormalize:
         assert normalize(inp) == expected
 
     def test_relative_paths(self) -> None:
-        # Relative inputs are normalised but kept relative.
+        # Relative inputs are normalized but kept relative.
         assert normalize("a/b") == "a/b"
         assert normalize("a/./b") == "a/b"
         assert normalize("a/../b") == "b"

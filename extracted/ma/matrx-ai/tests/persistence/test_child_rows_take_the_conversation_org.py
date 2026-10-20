@@ -266,7 +266,7 @@ async def test_a_matching_organization_is_never_announced(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_an_unknown_conversation_still_takes_the_ambient_organization(monkeypatch):
-    """A conversation this process has never read keeps the previous behaviour —
+    """A conversation this process has never read keeps the previous behavior —
     the fallback degrades to ambient + the DB backstop, never to a guess."""
     from matrx_ai.persistence import queue_helpers
     from matrx_ai.persistence.coordinator import Coordinator

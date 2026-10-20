@@ -264,6 +264,9 @@ class SoCTarget(TargetGraphNode):
     def find_breakpoint(self, addr: int) -> Optional[Breakpoint]:
         return self.selected_core_or_raise.find_breakpoint(addr)
 
+    def skip_breakpoint_instruction(self, exclude_semihosting: bool = False) -> bool:
+        return self.selected_core_or_raise.skip_breakpoint_instruction(exclude_semihosting)
+
     def set_breakpoint(self, addr: int, type: Target.BreakpointType = Target.BreakpointType.AUTO) -> bool:
         return self.selected_core_or_raise.set_breakpoint(addr, type)
 
@@ -314,16 +317,22 @@ class SoCTarget(TargetGraphNode):
             core_obj = self.selected_core_or_raise
         return core_obj.get_target_context()
 
+    @property
+    def trace_enabled(self) -> bool:
+        """@brief Whether trace capture and flush handling is enabled."""
+        delegate = self.debug_sequence_delegate
+        return delegate is not None and delegate.trace_enabled
+
     def trace_start(self):
         self.call_delegate('trace_start', target=self, mode=0)
 
     def trace_stop(self):
         self.call_delegate('trace_stop', target=self, mode=0)
 
-    def trace_capture(self):
+    def trace_capture(self, core: Optional[CoreTarget] = None):
         self.call_delegate('trace_capture', target=self, mode=0)
 
-    def trace_flush(self):
+    def trace_flush(self, core: Optional[CoreTarget] = None):
         self.call_delegate('trace_flush', target=self, mode=0)
 
     def add_target_command_groups(self, command_set: CommandSet):

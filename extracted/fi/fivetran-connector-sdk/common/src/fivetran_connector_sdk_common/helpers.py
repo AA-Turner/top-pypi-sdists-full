@@ -9,6 +9,7 @@ import importlib.util
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 from prompt_toolkit import prompt
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
@@ -26,7 +27,7 @@ from fivetran_connector_sdk_common.constants import (
     VALID_COMMANDS,
     OUTPUT_FILES_DIR,
     UTF_8,
-    FIFO_READ_TIMEOUT_SECONDS
+    FIFO_READ_TIMEOUT_SECONDS,
 )
 
 
@@ -58,6 +59,18 @@ def _validate_table_name(table: str) -> None:
         raise TypeError(f"Table name must be a string, got {type(table).__name__}")
     if not table.strip():
         raise ValueError("Table name must be a non-empty string")
+
+
+def _validate_schema(schema: Optional[str]) -> None:
+    """Validates the raw, optional `schema` a connector author passed in (the 'schema' key on a schema()
+    entry, or the `schema` keyword argument on an op.* call). `None` means omitted and is always valid.
+    """
+    if schema is None:
+        return
+    if not isinstance(schema, str):
+        raise TypeError(f"'schema' must be a string, got {type(schema).__name__}")
+    if not schema.strip():
+        raise ValueError("'schema' must be a non-empty string")
 
 
 def _validate_message(message: str) -> None:

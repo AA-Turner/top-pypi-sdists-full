@@ -137,7 +137,7 @@ def judge_input(summary: dict, typed: str) -> list[str]:
     if (summary.get("press_hold_ms") or 0) < 20:
         failures.append(f"mouse button held {summary.get('press_hold_ms')} ms (instant click)")
     if summary.get("click_off_centre_px") is not None and summary["click_off_centre_px"] < 0.5:
-        failures.append("click landed on the exact element centre")
+        failures.append("click landed on the exact element center")
     if summary.get("button_clicks") != 1:
         failures.append(f"button received {summary.get('button_clicks')} clicks, expected 1")
     return failures

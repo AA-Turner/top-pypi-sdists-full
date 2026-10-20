@@ -77,9 +77,20 @@ def note_dirs() -> list[Path]:
 
 
 def protected_paths() -> list[Path]:
-    """Never read by the daemon's shell, whatever the classifier's general rules say."""
+    """Never read by the daemon's shell, whatever the classifier's general rules say.
+
+    The Probe service's folder too (its socket, and the short socket's folder
+    under /tmp when it has one): a client of that socket runs the researcher's
+    own setup actions (logout, uninstall, an update) with their config, which
+    a command of the daemon's must reach only through `probe`, under its
+    precheck."""
+    from probe.service import paths as service_paths
+
     cfg = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
-    out = [Path(cfg) / "probe", _state_base() / "daemon", _state_base() / "approvals"]
+    out = [Path(cfg) / "probe", _state_base() / "daemon", _state_base() / "approvals", service_paths.service_dir()]
+    socket_dir = service_paths.socket_path().parent
+    if socket_dir != service_paths.service_dir():
+        out.append(socket_dir)
     if os.environ.get("PROBE_CONFIG_PATH"):
         out.append(Path(os.environ["PROBE_CONFIG_PATH"]))
     return out

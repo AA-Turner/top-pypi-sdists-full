@@ -396,19 +396,32 @@ async def _resolve_bundle_members(bundle_name: str) -> list[tuple[str, str]]:
     from matrx_ai.tools.registry import ToolRegistry
 
     registry = ToolRegistry.get_instance()
-    out: list[tuple[str, str]] = []
-    for m in sorted(
+    ordered = sorted(
         member_rows,
         key=lambda r: (
             getattr(r, "position", 0) or 0,
             (getattr(r, "metadata", None) or {}).get("local_alias", ""),
         ),
-    ):
+    )
+    # Catalog Tools (third-party services, CONTRACT §4) are never preloaded into the
+    # registry: resolve the members it does not hold through the host's lazy resolver,
+    # which pins each definition to this request (a library's bundle may hold them).
+    catalog_names: dict[str, str] = {}
+    unknown = [str(m.source_id) for m in ordered if registry._tools_by_id.get(str(m.source_id)) is None]
+    if unknown:
+        from matrx_ai.tools.catalog_seam import resolve_lazy_tools
+
+        for tool_def in await resolve_lazy_tools(unknown):
+            if tool_def.tool_id:
+                catalog_names[str(tool_def.tool_id)] = tool_def.name
+    out: list[tuple[str, str]] = []
+    for m in ordered:
         tool_id = str(m.source_id)
-        canonical = registry._tools_by_id.get(tool_id)
+        canonical = registry._tools_by_id.get(tool_id) or catalog_names.get(tool_id)
         if canonical is None:
             # The registry hasn't loaded yet, or this row is for an inactive
-            # tool. Skip — the lister logs the unresolved tool to the caller.
+            # tool (or a catalog Tool that is draft or retired). Skip — the
+            # lister logs the unresolved tool to the caller.
             continue
         local_alias = (getattr(m, "metadata", None) or {}).get("local_alias") or canonical
         out.append((canonical, local_alias))
@@ -426,5 +439,27 @@ def _build_spec_for(canonical_name: str):
 
     tool = ToolRegistry.get_instance().get(canonical_name)
     if tool is None:
+        # A catalog Tool member was resolved and pinned to this request by
+        # ``_resolve_bundle_members``; the drain resolves it again by id.
+        tool = _pinned_definition(canonical_name)
+    if tool is None:
         return None
     return RegisteredToolSpec(name=canonical_name, tool_id=tool.tool_id)
+
+
+def _pinned_definition(name: str):
+    """A definition pinned to the active request (catalog Tools), or None."""
+    from matrx_connect.context.app_context import try_get_app_context
+
+    from matrx_ai.tools.agent_projection import PROJECTED_AGENT_TOOLS_KEY
+    from matrx_ai.tools.models import ToolDefinition
+
+    app_ctx = try_get_app_context()
+    pinned = ((app_ctx.metadata or {}) if app_ctx is not None else {}).get(PROJECTED_AGENT_TOOLS_KEY) or {}
+    raw = pinned.get(name) if isinstance(pinned, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return ToolDefinition.model_validate(raw)
+    except Exception:  # noqa: BLE001 — an unreadable pin is an unresolved member, reported by the lister
+        return None

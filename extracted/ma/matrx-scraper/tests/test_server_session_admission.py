@@ -139,7 +139,7 @@ def test_authority_fault_is_retryable_without_service_regression(boundary, statu
     assert post(client, SERVICE).status_code == 200
     assert client.get("/health/version").status_code == 200
     assert post(client, "bad-token").status_code == 401
-    assert calls == [value]
+    assert calls == [value] * 3  # an outage is retried 3 times (matrx_connect authority_retry)
 
 
 @pytest.mark.parametrize(
@@ -243,4 +243,4 @@ def test_websocket_authority_outage_closes_retryably(boundary):
         ):
             pytest.fail("Unavailable authority must refuse before handler")
     assert result.value.code == 1013
-    assert calls == [value]
+    assert calls == [value] * 3  # an outage is retried 3 times (matrx_connect authority_retry)

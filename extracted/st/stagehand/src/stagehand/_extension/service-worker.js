@@ -7363,7 +7363,7 @@ function isRecord$1(value) {
 }
 var package_default$1 = {
 	name: "@browserbasehq/stagehand-protocol",
-	version: "2.1.1",
+	version: "3.0.0",
 	"private": true,
 	type: "module",
 	exports: {
@@ -8039,7 +8039,7 @@ var CacheMetadataSchema = strictObject({
 	status: CacheStatusSchema.meta({ description: "Whether server-side caching served this result, computed it, or was not consulted" }),
 	count: number$1().int().nonnegative().optional().meta({ description: "Times this cache key has been seen, including this request; compare with threshold to see how close the key is to being served" }),
 	threshold: number$1().int().positive().optional().meta({ description: "Hit-count threshold in effect for this key" }),
-	missReason: string().optional().meta({ description: "Why the cache did not serve this request; misses only. Reported by the server: \"not_found\", \"threshold\", \"empty_array\", \"timeout\", \"error\", \"bypass\", \"screenshot\", \"not_enabled\", \"no_cache_key\". Reported locally: \"read_failed\" (the cache request itself failed) and \"replay_failed\" (a cached value was found but could not be applied)" }),
+	missReason: string().optional().meta({ description: "Why the cache did not serve this request; misses only. Reported by the server: \"not_found\", \"threshold\", \"empty_array\", \"timeout\", \"error\", \"bypass\", \"screenshot\", \"not_enabled\", \"no_cache_key\". Reported locally: \"timeout\" (the cache read exceeded its budget), \"read_failed\" (another cache read failure), \"payload_too_large\" (the serialized cache request exceeds 25,000,000 UTF-8 bytes), and \"replay_failed\" (a cached value was found but could not be applied)" }),
 	tokensSaved: CacheTokenSavingsSchema.optional().meta({ description: "LLM tokens avoided by serving this request from cache; hits only" })
 }).meta({ id: "CacheMetadata" });
 var StagehandResultMetadataSchema = strictObject({
@@ -8295,6 +8295,47 @@ var LocatorDescriptorSchema = strictObject({
 	pageId: string(),
 	...LocatorSchema.shape
 }).meta({ id: "LocatorDescriptor" });
+/** One HTTP attempt; the caller owns retries and response interpretation. */
+var BrowserbaseRequestParamsSchema = strictObject({
+	operation: _enum([
+		"gateway.responses",
+		"cache.get",
+		"cache.set"
+	]),
+	headers: record(string(), string()).meta({ description: "Application headers. SDKs validate names and values, omit caller-supplied Host, Content-Length, hop-by-hop and forwarding headers, and supply x-bb-api-key and, for gateway.responses, x-bb-session-id." }),
+	body: string().meta({ description: "JSON request body sent as UTF-8 text" }),
+	remainingTimeoutMs: number$1().nonnegative().optional().meta({ description: "Remaining caller budget in milliseconds, including response-body buffering; omission adds no transport deadline" })
+}).meta({ id: "BrowserbaseRequestParams" });
+var BrowserbaseRequestResultSchema = discriminatedUnion("type", [strictObject({
+	type: literal("response"),
+	status: int().min(200).max(599),
+	statusText: string(),
+	headers: record(string(), string()).meta({ description: "Lowercase names with one value per name after SDK HTTP normalization; repeated fields are collapsed. Header bytes use Latin-1 code points. content-encoding and content-length are omitted." }),
+	body: string().meta({ description: "Fully buffered response body decoded as UTF-8 text, with a leading BOM removed and invalid byte sequences replaced" })
+}).meta({
+	id: "BrowserbaseHttpResponse",
+	description: "Buffered HTTP response with SDK-normalized headers and text. Redirect responses are returned without following them."
+}), strictObject({
+	type: literal("error"),
+	reason: _enum([
+		"network",
+		"cancelled",
+		"timeout",
+		"unavailable",
+		"disconnected"
+	]),
+	message: string()
+}).meta({
+	id: "BrowserbaseTransportError",
+	description: "Transport failure without an HTTP response; disconnected is synthesized locally when RPC closes"
+})]).meta({ id: "BrowserbaseRequestResult" });
+var BrowserbaseCancelParamsSchema = strictObject({
+	requestId: JSONRPCRequestIdSchema,
+	reason: _enum(["cancelled", "timeout"])
+}).meta({
+	id: "BrowserbaseCancelParams",
+	description: "Cancel a browserbase.request by its JSON-RPC ID on the same connection; ignore completed or unknown IDs"
+});
 var ImplementationInfoSchema = strictObject({
 	name: string().min(1),
 	version: string().min(1)
@@ -8311,8 +8352,7 @@ var StagehandInitParamsSchema = strictObject({
 	protocolVersion: StagehandProtocolVersionSchema,
 	clientInfo: ImplementationInfoSchema,
 	browserCdpUrl: string().min(1).optional(),
-	apiKey: string().min(1).optional(),
-	apiUrl: url().refine((value) => !value.includes("?") && !value.includes("#"), "Stagehand apiUrl must not include a query string or fragment").refine((value) => !new URL(value).pathname.replace(/\/+$/, "").endsWith("/v1"), { message: "Stagehand apiUrl must be a service origin without /v1" }).optional().meta({ description: "Stagehand API base URL override for managed services such as Model Gateway and server-side caching" }),
+	browserbase: literal("client").optional(),
 	browser: BrowserSessionMetadataSchema.optional(),
 	model: union([ModelConfigSchema, ClientModelReferenceSchema]).optional().meta({ description: "Default model configuration; when omitted and a Browserbase Model Gateway session is available, Browserbase selects a model automatically for inference calls" }),
 	telemetry: TelemetryConfigSchema.optional(),
@@ -8326,8 +8366,14 @@ var StagehandInitParamsSchema = strictObject({
 	systemPrompt: string().optional(),
 	selfHeal: boolean().optional(),
 	domSettleTimeoutMs: number$1().int().positive().optional(),
-	cache: CachingSchema.optional().meta({ description: "Server-side caching of act/observe/extract results for this instance: a boolean toggle, or an object with an optional hit-count threshold. Requires a Browserbase apiKey and browser sessionId. Can be overridden per request via options.cache." })
-}).meta({ id: "StagehandInitParams" });
+	cache: CachingSchema.optional().meta({ description: "Server-side caching of act/observe/extract results for this instance: a boolean toggle, or an object with an optional hit-count threshold. Requires client Browserbase transport and a browser sessionId. Can be overridden per request via options.cache." })
+}).refine((params) => params.browserbase === void 0 || params.browser !== void 0, {
+	message: "Client Browserbase transport requires browser metadata",
+	path: ["browserbase"]
+}).meta({
+	id: "StagehandInitParams",
+	dependentRequired: { browserbase: ["browser"] }
+});
 var StagehandActParamsSchema = strictObject({
 	pageId: string().min(1),
 	instruction: union([string().min(1), ActionSchema]),
@@ -8507,6 +8553,13 @@ var PageWaitForLoadStateParamsSchema = PageIdParamsSchema.extend({
 	timeout: number$1().int().nonnegative().optional()
 }).meta({ id: "PageWaitForLoadStateParams" });
 var PageWaitForTimeoutParamsSchema = PageIdParamsSchema.extend({ ms: number$1().int().nonnegative() }).meta({ id: "PageWaitForTimeoutParams" });
+var PageWaitForFunctionParamsSchema = PageIdParamsSchema.extend({
+	expression: string(),
+	options: strictObject({
+		polling: union([literal("raf"), number$1().positive().max(2147483647)]).optional(),
+		timeout: number$1().int().nonnegative().optional()
+	}).meta({ id: "PageWaitForFunctionOptions" }).optional()
+}).meta({ id: "PageWaitForFunctionParams" });
 var PageWaitForSelectorParamsSchema = PageIdParamsSchema.extend({
 	selector: string().min(1),
 	options: strictObject({
@@ -8580,6 +8633,7 @@ var PageEvaluateResultSchema = strictObject({ value: json$1() }).meta({ id: "Pag
 var PageScreenshotResultSchema = strictObject({ data: base64().meta({ format: "byte" }) }).meta({ id: "PageScreenshotResult" });
 var PagePDFResultSchema = strictObject({ data: base64().meta({ format: "byte" }) }).meta({ id: "PagePDFResult" });
 var PageWaitForSelectorResultSchema = strictObject({ matched: boolean() }).meta({ id: "PageWaitForSelectorResult" });
+var PageWaitForFunctionResultSchema = strictObject({ value: json$1() }).meta({ id: "PageWaitForFunctionResult" });
 var LocatorClickResultSchema = strictObject({ clicked: literal(true) }).meta({ id: "LocatorClickResult" });
 var LocatorFillResultSchema = strictObject({ filled: literal(true) }).meta({ id: "LocatorFillResult" });
 var LocatorHoverResultSchema = strictObject({ hovered: literal(true) }).meta({ id: "LocatorHoverResult" });
@@ -8657,6 +8711,11 @@ var StagehandMethods = {
 		result: CallbackBatchResultSchema,
 		paramsWire: { opaqueKeys: ["input"] },
 		resultWire: { opaqueKeys: ["value"] }
+	},
+	browserbaseRequest: {
+		name: "browserbase.request",
+		params: BrowserbaseRequestParamsSchema,
+		result: BrowserbaseRequestResultSchema
 	},
 	llmGenerate: {
 		name: "llm.generate",
@@ -8889,6 +8948,12 @@ var StagehandMethods = {
 		params: PageWaitForSelectorParamsSchema,
 		result: PageWaitForSelectorResultSchema
 	},
+	pageWaitForFunction: {
+		name: "page.wait_for_function",
+		params: PageWaitForFunctionParamsSchema,
+		result: PageWaitForFunctionResultSchema,
+		resultWire: { opaqueKeys: ["value"] }
+	},
 	pageWebMCPTools: {
 		name: "page.webmcp_tools",
 		params: PageWebMCPToolsParamsSchema,
@@ -9036,6 +9101,11 @@ var StagehandRpcRequestSchema = union(Object.values(StagehandMethods).map((metho
 	params: wireSchema(method.params, "paramsWire" in method ? method.paramsWire : void 0)
 }))).meta({ id: "StagehandRpcRuntimeRequest" });
 var StagehandNotifications = {
+	browserbaseCancel: {
+		name: "browserbase.cancel",
+		params: BrowserbaseCancelParamsSchema,
+		paramsWire: void 0
+	},
 	log: {
 		name: "stagehand.log",
 		params: StagehandLogSchema,
@@ -9059,6 +9129,45 @@ union(Object.values(StagehandNotifications).map((notification) => JSONRPCNotific
 var stagehandMethodsByName = new Map(Object.values(StagehandMethods).map((method) => [method.name, method]));
 function getStagehandMethod(name) {
 	return stagehandMethodsByName.get(name);
+}
+//#endregion
+//#region clients/browserbaseClient.ts
+/** Requests one buffered Browserbase HTTP attempt over the connected SDK. */
+async function requestBrowserbase(client, params, signal) {
+	let result;
+	try {
+		result = await client.send(StagehandMethods.browserbaseRequest, params, {
+			signal,
+			onAbort: (requestId, reason) => client.notify(StagehandNotifications.browserbaseCancel, {
+				requestId,
+				reason: isTimeout(reason) ? "timeout" : "cancelled"
+			})
+		});
+	} catch (error) {
+		if (signal?.aborted) throw new DOMException(isTimeout(signal.reason) ? "Browserbase request timed out" : "Browserbase request cancelled", isTimeout(signal.reason) ? "TimeoutError" : "AbortError");
+		throw new Error(client.closed ? "Browserbase connection is disconnected" : "Browserbase RPC request failed", { cause: { error } });
+	}
+	if (result.type === "error") switch (result.reason) {
+		case "network": throw new TypeError("fetch failed", { cause: result });
+		case "cancelled": throw new DOMException(result.message, "AbortError");
+		case "timeout": throw new DOMException(result.message, "TimeoutError");
+		case "unavailable":
+		case "disconnected": throw new Error(result.message, { cause: result });
+	}
+	const response = new Response([
+		204,
+		205,
+		304
+	].includes(result.status) ? null : result.body, {
+		status: result.status,
+		statusText: result.statusText,
+		headers: result.headers
+	});
+	if (!new Headers(result.headers).has("content-type")) response.headers.delete("content-type");
+	return response;
+}
+function isTimeout(reason) {
+	return reason instanceof Error && reason.name === "TimeoutError";
 }
 //#endregion
 //#region clients/chromeRuntimeClient.ts
@@ -11265,7 +11374,8 @@ var RPCClient = class {
 		this.runtime.onclose = (reason) => this.close(reason);
 		this.runtime.onerror = (error) => this.close(error);
 	}
-	async send(method, params) {
+	async send(method, params, options = {}) {
+		options.signal?.throwIfAborted();
 		if (this.closed) throw new Error("RPC client is closed");
 		const parentContext = context.active();
 		const span = this.router.runtime.tracing.tracer.startSpan(method.name, {
@@ -11288,10 +11398,32 @@ var RPCClient = class {
 					...getTraceContextFields(requestContext)
 				});
 				span.setAttribute("jsonrpc.request.id", String(request.id));
-				const response = this.waitForResponse(id, method);
-				const [, result] = await Promise.all([this.runtime.send(request).catch((error) => {
-					this.rejectPending(id, asError(error));
-				}), response]);
+				const { signal } = options;
+				let dispatched = false;
+				let aborted = false;
+				const notifyAbort = () => {
+					if (this.closed) return;
+					try {
+						Promise.resolve(options.onAbort?.(id, signal?.reason)).catch(() => {});
+					} catch {}
+				};
+				const abort = () => {
+					if (!this.pending.has(id)) return;
+					aborted = true;
+					this.rejectPending(id, asError(signal?.reason));
+					if (dispatched) notifyAbort();
+				};
+				const response = this.waitForResponse(id, method, () => signal?.removeEventListener("abort", abort));
+				signal?.addEventListener("abort", abort, { once: true });
+				if (signal?.aborted) {
+					abort();
+					return await response;
+				}
+				const dispatch = this.runtime.send(request).then(() => {
+					dispatched = true;
+					if (aborted) notifyAbort();
+				}, (error) => this.rejectPending(id, asError(error)));
+				const [, result] = await Promise.all([dispatch, response]);
 				return result;
 			});
 		} catch (error) {
@@ -11318,12 +11450,18 @@ var RPCClient = class {
 		this.runtime.onerror = void 0;
 		this.runtime.close();
 	}
-	waitForResponse(id, method) {
+	waitForResponse(id, method, cleanup = () => {}) {
 		return new Promise((resolve, reject) => {
 			this.pending.set(id, {
 				method,
-				resolve,
-				reject
+				resolve(value) {
+					cleanup();
+					resolve(value);
+				},
+				reject(error) {
+					cleanup();
+					reject(error);
+				}
 			});
 		});
 	}
@@ -11716,7 +11854,7 @@ async function normalizeFile(file) {
 	if (!file.name) throw new TypeError("setInputFiles(): file payload name cannot be empty");
 	if (typeof file.buffer === "string") {
 		const nodeBuffer = globalThis.Buffer;
-		if (nodeBuffer ? nodeBuffer.byteLength(file.buffer, "utf8") > MAX_INPUT_FILE_BYTES : utf8ByteLengthExceeds(file.buffer, MAX_INPUT_FILE_BYTES)) throw new RangeError(`setInputFiles(): file is larger than the 50 MiB upload limit`);
+		if (nodeBuffer ? nodeBuffer.byteLength(file.buffer, "utf8") > MAX_INPUT_FILE_BYTES : utf8ByteLengthExceeds$1(file.buffer, MAX_INPUT_FILE_BYTES)) throw new RangeError(`setInputFiles(): file is larger than the 50 MiB upload limit`);
 	}
 	const bytes = typeof file.buffer === "string" ? new TextEncoder().encode(file.buffer) : file.buffer instanceof ArrayBuffer ? new Uint8Array(file.buffer) : file.buffer;
 	if (bytes.byteLength > MAX_INPUT_FILE_BYTES) throw new RangeError(`setInputFiles(): file is larger than the 50 MiB upload limit`);
@@ -11728,7 +11866,7 @@ async function normalizeFile(file) {
 		...file.lastModified === void 0 ? {} : { lastModified: file.lastModified }
 	};
 }
-function utf8ByteLengthExceeds(value, limit) {
+function utf8ByteLengthExceeds$1(value, limit) {
 	let byteLength = 0;
 	for (let index = 0; index < value.length; index++) {
 		const codeUnit = value.charCodeAt(index);
@@ -11877,9 +12015,18 @@ var Locator$1 = class Locator$1 {
 };
 //#endregion
 //#region ../sdk-ts/src/pageScripts.ts
-function normalizeEvaluationExpression(expression, arg) {
+function normalizeEvaluationExpression(expression, arg, caller = "page.evaluate") {
 	if (typeof expression === "string") return expression;
-	return `(${expression.toString()})(${serializeArgument(arg, "page.evaluate")})`;
+	return `(${expression.toString()})(${serializeArgument(arg, caller)})`;
+}
+function normalizeFunctionWaitExpression(expression, arg, caller = "page.waitForFunction") {
+	if (typeof expression === "function") return `() => (${expression.toString()})(${parsedArgument(arg, caller)})`;
+	if (arg === void 0) return expression;
+	return `((value) => typeof value === "function" ? () => value(${parsedArgument(arg, caller)}) : value)((${expression}))`;
+}
+function parsedArgument(arg, caller) {
+	if (arg === void 0) return "undefined";
+	return `JSON.parse(${JSON.stringify(serializeArgument(arg, caller))})`;
 }
 async function normalizeInitScriptSource$1(script, arg, caller = "page.addInitScript") {
 	if (typeof script === "function") return `(${script.toString()})(${serializeArgument(arg, caller)})`;
@@ -11902,9 +12049,8 @@ async function normalizeInitScriptSource$1(script, arg, caller = "page.addInitSc
 }
 function serializeArgument(arg, caller) {
 	if (arg === void 0) return "undefined";
-	const parsed = json$1().safeParse(arg);
-	if (!parsed.success) throw new TypeError(`${caller}: 'arg' must be JSON-serializable.`);
-	const serialized = JSON.stringify(parsed.data);
+	if (!json$1().safeParse(arg).success) throw new TypeError(`${caller}: 'arg' must be JSON-serializable.`);
+	const serialized = JSON.stringify(arg);
 	if (serialized === void 0) throw new TypeError(`${caller}: 'arg' must be JSON-serializable.`);
 	return serialized;
 }
@@ -12238,6 +12384,14 @@ var Page$1 = class {
 			...options ? { options } : {}
 		})).matched;
 	}
+	/** Poll in the page's main world until the expression returns a truthy JSON value. */
+	async waitForFunction(expression, arg, options) {
+		return (await this.rpcClient.send(StagehandMethods.pageWaitForFunction, {
+			pageId: this.pageId,
+			expression: normalizeFunctionWaitExpression(expression, arg),
+			...options ? { options } : {}
+		})).value;
+	}
 	async screenshot(options) {
 		const { path, mask, ...screenshotOptions } = options ?? {};
 		return await decodeCaptureResult((await this.rpcClient.send(StagehandMethods.pageScreenshot, {
@@ -12403,9 +12557,36 @@ strictObject({
 	acceptDownloads: boolean().optional(),
 	keepAlive: boolean().optional()
 }).meta({ id: "LocalBrowserLaunchOptions" });
+var CDPHeadersSchema = preprocess((value) => {
+	try {
+		if (typeof value !== "object" || value === null || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return null;
+		const entries = Object.entries(value);
+		if (!entries.every(([name, content]) => name.length > 0 && !/[^!#$%&'*+\-.^_`|~0-9A-Za-z]/.test(name) && typeof content === "string" && !/[^\t\x20-\x7e]/.test(content) && content === content.replace(/^[ \t]+|[ \t]+$/g, ""))) return null;
+		return Object.fromEntries(entries);
+	} catch {
+		return null;
+	}
+}, record(string(), string(), { error: "headers must map valid HTTP header names to ASCII string values without leading or trailing spaces or tabs" }));
 strictObject({
 	cdpUrl: string().min(1),
-	extensionId: string().optional()
+	/** Headers for client-side CDP discovery and WebSocket connections. */
+	headers: CDPHeadersSchema.optional(),
+	extensionId: string().optional(),
+	/**
+	* Browser-level CDP WebSocket URL dialed by the extension inside Chrome.
+	* Defaults to the client's URL. Set this when the client connects through
+	* a gateway the extension cannot or should not use.
+	*/
+	extensionCdpUrl: url({
+		protocol: /^wss?$/,
+		hostname: /.+/
+	}).refine((value) => {
+		try {
+			return new URL(value).port !== "0";
+		} catch {
+			return false;
+		}
+	}, { message: "Port must be between 1 and 65535" }).optional()
 }).meta({ id: "LocalBrowserConnectOptions" });
 var DEFAULT_BROWSERBASE_URL = "https://api.browserbase.com";
 var BrowserbaseClientOptionsSchema = strictObject({
@@ -12522,13 +12703,16 @@ var StagehandClientExtractOptionsSchema = ExtractOptionsSchema.extend({
 	ignoreLocators: array$1(_instanceof(Locator$1)).optional(),
 	page: _instanceof(Page$1).optional()
 }).meta({ id: "StagehandClientExtractOptions" });
-var StagehandClientCreateConfigSchema = StagehandInitParamsSchema.omit({
+var StagehandClientCreateConfigSchema = strictObject(StagehandInitParamsSchema.shape).omit({
+	browserbase: true,
 	protocolVersion: true,
 	clientInfo: true,
 	browserCdpUrl: true,
 	logLevel: true,
 	browser: true
 }).extend({
+	apiKey: string().min(1).optional().meta({ description: "Browserbase API key. A Browserbase browser uses the key supplied to its launch/connect factory; this option does not override that key." }),
+	apiUrl: url({ protocol: /^https?$/ }).refine((value) => !value.includes("?") && !value.includes("#"), "Stagehand apiUrl must not include a query string or fragment").refine((value) => !new URL(value).pathname.replace(/\/+$/, "").endsWith("/v1"), { message: "Stagehand apiUrl must be a service origin without /v1" }).optional().meta({ description: "Stagehand API base URL override for managed services such as Model Gateway and server-side caching" }),
 	model: union([ModelConfigSchema, ClientLLMSchema]).optional(),
 	logging: StagehandClientLoggingConfigSchema.default({
 		level: "info",
@@ -12863,6 +13047,10 @@ function createPageController(runtime) {
 		logger.debug("page.wait_for_selector", {});
 		return runtime.pageWaitForSelector(params);
 	}
+	async function waitForFunction(params, { logger }) {
+		logger.debug("page.wait_for_function", {});
+		return runtime.pageWaitForFunction(params);
+	}
 	async function screenshot(params, { logger }) {
 		logger.debug("page.screenshot", {});
 		return runtime.pageScreenshot(params);
@@ -12929,6 +13117,7 @@ function createPageController(runtime) {
 		waitForLoadState,
 		waitForTimeout,
 		waitForSelector,
+		waitForFunction,
 		screenshot,
 		pdf,
 		snapshot,
@@ -16801,6 +16990,38 @@ async function act$1(params) {
 	};
 }
 //#endregion
+//#region understudy/browserWait.ts
+/** Browser exceptions are not transient CDP context-loss errors. */
+var BrowserWaitError = class extends Error {};
+/** Own a browser-side promise and dispose its resources, even after late installation. */
+async function browserWait(session, progress, install, phase) {
+	const dispose = (objectId) => Promise.all([progress.cleanup(() => session.send("Runtime.callFunctionOn", {
+		objectId,
+		functionDeclaration: "function() { this.dispose(); }",
+		returnByValue: true
+	})), progress.cleanup(() => session.send("Runtime.releaseObject", { objectId }))]);
+	const response = await install(async (late) => {
+		if (late.result.objectId) await dispose(late.result.objectId);
+	});
+	const objectId = response.result.objectId;
+	let completed = false;
+	try {
+		if (response.exceptionDetails || !objectId) throw new BrowserWaitError(response.exceptionDetails?.exception?.description ?? response.exceptionDetails?.text ?? "Browser wait handle was not returned");
+		const result = await progress.run(phase, () => session.send("Runtime.callFunctionOn", {
+			objectId,
+			functionDeclaration: "function() { return this.promise; }",
+			awaitPromise: true,
+			returnByValue: true
+		}));
+		if (result.exceptionDetails) throw new BrowserWaitError(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Browser wait failed");
+		completed = true;
+		return result.result.value;
+	} finally {
+		if (objectId) if (completed) progress.cleanup(() => session.send("Runtime.releaseObject", { objectId }));
+		else await dispose(objectId);
+	}
+}
+//#endregion
 //#region understudy/frame.ts
 function base64ToBytes$1(base64) {
 	const binary = globalThis.atob(base64);
@@ -16926,46 +17147,25 @@ var Frame = class {
 	}
 	/** Own a disposable browser wait, including a handle delivered after expiry. */
 	async waitInLocatorWorld(buildExpression, progress) {
-		const dispose = (objectId) => Promise.all([progress.cleanup(() => this.session.send("Runtime.callFunctionOn", {
-			objectId,
-			functionDeclaration: "function() { this.dispose(); }",
-			returnByValue: true
-		})), progress.cleanup(() => this.session.send("Runtime.releaseObject", { objectId }))]);
 		for (let attempt = 0;; attempt++) {
 			progress.throwIfStopped();
-			const response = await this.evaluateLocatorExpression(buildExpression, {
-				progress,
-				returnByValue: false,
-				awaitPromise: false,
-				onLateResult: async (late) => {
-					if (late.result.objectId) await dispose(late.result.objectId);
-				}
-			});
-			const objectId = response.result.objectId;
-			let completed = false;
+			let contextId;
 			try {
-				if (response.exceptionDetails || !objectId) throw new Error(response.exceptionDetails?.exception?.description ?? response.exceptionDetails?.text ?? "Selector wait handle was not returned");
-				let result;
-				try {
-					result = await progress.run("waiting for selector", () => this.session.send("Runtime.callFunctionOn", {
-						objectId,
-						functionDeclaration: "function() { return this.promise; }",
-						awaitPromise: true,
-						returnByValue: true
-					}));
-				} catch (error) {
-					progress.throwIfStopped();
-					const message = error instanceof Error ? error.message : String(error);
-					if (attempt !== 0 || !message.includes("Cannot find context with specified id")) throw error;
-					executionContexts.unregisterLocatorContext(this.session, response.contextId);
-					continue;
-				}
-				if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text ?? "Selector wait failed");
-				completed = true;
-				return result.result.value;
-			} finally {
-				if (objectId) if (completed) progress.cleanup(() => this.session.send("Runtime.releaseObject", { objectId }));
-				else await dispose(objectId);
+				return await browserWait(this.session, progress, async (onLateResult) => {
+					const response = await this.evaluateLocatorExpression(buildExpression, {
+						progress,
+						returnByValue: false,
+						awaitPromise: false,
+						onLateResult
+					});
+					contextId = response.contextId;
+					return response;
+				}, "waiting for selector");
+			} catch (error) {
+				progress.throwIfStopped();
+				const message = error instanceof Error ? error.message : String(error);
+				if (attempt !== 0 || contextId === void 0 || error instanceof BrowserWaitError || !message.includes("Cannot find context with specified id")) throw error;
+				executionContexts.unregisterLocatorContext(this.session, contextId);
 			}
 		}
 	}
@@ -18248,10 +18448,10 @@ function mergeFramesIntoSnapshot(context, perFrameMaps, perFrameOutlines, absPre
 //#endregion
 //#region clients/cacheClient.ts
 /**
-* HTTP client for the Stagehand API's stateless cache routes (POST /cache/get
-* and POST /cache/set). Owns transport concerns only: endpoint resolution,
-* auth headers, timeouts, and schema validation of requests going out and
-* responses coming back. All caching decisions (when to read, what to write,
+* Client for the Stagehand API's stateless cache routes (POST /cache/get
+* and POST /cache/set). Sends requests through the connected SDK and owns
+* request size limits, timeouts, and response validation.
+* All caching decisions (when to read, what to write,
 * fallback behavior) live in services/cacheService.ts, this client's only
 * consumer. See stagehand-api-v3's lib/cache/statelessCache.ts for the
 * server-side contract.
@@ -18259,6 +18459,8 @@ function mergeFramesIntoSnapshot(context, perFrameMaps, perFrameOutlines, absPre
 /** Ceiling for a single cache HTTP round-trip so a slow cache can only ever
 * add a bounded delay to the action it fronts. */
 var CACHE_REQUEST_TIMEOUT_MS = 5e3;
+/** Maximum UTF-8 JSON body size for a cache read or write. */
+var CACHE_REQUEST_MAX_BYTES = 25e6;
 var AXNodeSchema = custom((value) => typeof value === "object" && value !== null);
 var CdpTreeSchema = object$1({
 	rootFrameId: string(),
@@ -18295,7 +18497,7 @@ object$1({
 	llmUsage: CacheLlmUsageSchema.optional()
 });
 var CacheGetResponseSchema = object$1({
-	/** Null only when the server could not build a key (empty tree / bad URL). */
+	/** Null when no cache key is available, including a locally skipped request. */
 	cacheKey: string().nullable(),
 	hit: boolean(),
 	/** Present only on a hit. */
@@ -18317,7 +18519,7 @@ var CacheGetResponseSchema = object$1({
 	}).optional()
 });
 var CacheSetResponseSchema = object$1({
-	/** Null only when the server could not build a key. */
+	/** Null when no cache key is available, including a locally skipped request. */
 	cacheKey: string().nullable(),
 	/** True when the write was issued to Redis. */
 	written: boolean(),
@@ -18332,9 +18534,8 @@ var ApiResponseEnvelopeSchema = discriminatedUnion("success", [object$1({
 	message: string().optional()
 })]);
 var CacheClient = class {
-	constructor(apiUrl, apiKey) {
-		this.apiUrl = apiUrl;
-		this.apiKey = apiKey;
+	constructor(transport) {
+		this.transport = transport;
 	}
 	async get(request) {
 		return await this.post("/cache/get", request, CacheGetResponseSchema);
@@ -18343,51 +18544,67 @@ var CacheClient = class {
 		return await this.post("/cache/set", request, CacheSetResponseSchema);
 	}
 	async post(path, request, responseSchema) {
-		const response = await fetch(`${this.apiUrl}${path}`, {
-			method: "POST",
-			headers: {
-				"content-type": "application/json",
-				"x-bb-api-key": this.apiKey
-			},
-			body: JSON.stringify(request),
-			signal: AbortSignal.timeout(CACHE_REQUEST_TIMEOUT_MS)
-		});
-		if (!response.ok) throw new Error(`Cache request ${path} failed with status ${response.status}`);
-		const envelope = ApiResponseEnvelopeSchema.safeParse(await response.json());
-		if (!envelope.success) throw new Error(`Cache request ${path} returned an unrecognized envelope`);
-		if (!envelope.data.success) throw new Error(`Cache request ${path} rejected: ${envelope.data.message ?? "unknown error"}`);
-		const parsed = responseSchema.safeParse(envelope.data.data);
-		if (!parsed.success) throw new Error(`Cache request ${path} returned an unexpected payload: ${parsed.error.message}`);
-		return parsed.data;
+		const deadline = performance.now() + CACHE_REQUEST_TIMEOUT_MS;
+		const controller = new AbortController();
+		const timeout = () => controller.abort(new DOMException("Cache request timed out", "TimeoutError"));
+		const timer = setTimeout(timeout, CACHE_REQUEST_TIMEOUT_MS);
+		try {
+			const body = JSON.stringify(request);
+			if (utf8ByteLengthExceeds(body, CACHE_REQUEST_MAX_BYTES)) return responseSchema.parse(path === "/cache/get" ? {
+				cacheKey: null,
+				hit: false,
+				missReason: "payload_too_large"
+			} : {
+				cacheKey: null,
+				written: false,
+				skippedReason: "payload_too_large"
+			});
+			const remainingTimeoutMs = Math.max(0, deadline - performance.now());
+			if (remainingTimeoutMs === 0) timeout();
+			controller.signal.throwIfAborted();
+			if (!this.transport.request) throw new Error("Client Browserbase transport is unavailable");
+			const response = await this.transport.request({
+				operation: path === "/cache/get" ? "cache.get" : "cache.set",
+				headers: { "content-type": "application/json" },
+				body,
+				remainingTimeoutMs
+			}, controller.signal);
+			if (!response.ok) throw new Error(`Cache request ${path} failed with status ${response.status}`);
+			const envelope = ApiResponseEnvelopeSchema.safeParse(await response.json());
+			if (!envelope.success) throw new Error(`Cache request ${path} returned an unrecognized envelope`);
+			if (!envelope.data.success) throw new Error(`Cache request ${path} rejected: ${envelope.data.message ?? "unknown error"}`);
+			const parsed = responseSchema.safeParse(envelope.data.data);
+			if (!parsed.success) throw new Error(`Cache request ${path} returned an unexpected payload: ${parsed.error.message}`);
+			return parsed.data;
+		} finally {
+			clearTimeout(timer);
+		}
 	}
 };
-//#endregion
-//#region clients/stagehandApi.ts
-var REGION_API_URLS = {
-	"us-west-2": "https://api.stagehand.browserbase.com",
-	"us-east-1": "https://api.use1.stagehand.browserbase.com",
-	"eu-central-1": "https://api.euc1.stagehand.browserbase.com",
-	"ap-southeast-1": "https://api.apse1.stagehand.browserbase.com"
-};
-var DEFAULT_REGION = "us-west-2";
-/** Resolves the regional Stagehand API endpoint for a Browserbase session. */
-function apiUrlForRegion(region, apiUrl) {
-	return `${(apiUrl ?? REGION_API_URLS[region ?? DEFAULT_REGION]).replace(/\/+$/, "")}/v1`;
+function utf8ByteLengthExceeds(value, limit) {
+	if (value.length > limit) return true;
+	let byteLength = 0;
+	for (let index = 0; index < value.length; index++) {
+		const codeUnit = value.charCodeAt(index);
+		if (codeUnit <= 127) byteLength += 1;
+		else if (codeUnit <= 2047) byteLength += 2;
+		else if (codeUnit >= 55296 && codeUnit <= 56319 && index + 1 < value.length && value.charCodeAt(index + 1) >= 56320 && value.charCodeAt(index + 1) <= 57343) {
+			byteLength += 4;
+			index += 1;
+		} else byteLength += 3;
+		if (byteLength > limit) return true;
+	}
+	return false;
 }
 //#endregion
 //#region services/cacheService.ts
-/**
-* Builds the per-instance cache context from init params. Returns undefined
-* when caching is impossible: the stateless routes authenticate with the
-* Browserbase API key and resolve the project from the session id, so both
-* are required.
-*/
-function buildCacheContext(initParams) {
+/** Builds a cache context when client Browserbase transport is configured. */
+function buildCacheContext(initParams, request) {
 	const sessionId = initParams.browser?.sessionId;
-	if (!initParams.apiKey || !sessionId) return void 0;
+	if (!sessionId || initParams.browserbase !== "client") return void 0;
 	return {
 		sessionId,
-		client: new CacheClient(apiUrlForRegion(initParams.browser?.region, initParams.apiUrl), initParams.apiKey),
+		client: new CacheClient({ request }),
 		defaultCaching: initParams.cache ?? true
 	};
 }
@@ -18508,10 +18725,12 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 		data: withCacheThreshold(data, resolvedCaching)
 	};
 	let getResponse = null;
+	let readFailureReason = "read_failed";
 	try {
 		getResponse = await runLocatorStep(progress, "reading cache", () => context.client.get(baseRequest));
 	} catch (error) {
 		progress?.throwIfStopped();
+		readFailureReason = error instanceof Error && error.name === "TimeoutError" ? "timeout" : "read_failed";
 		logger.warn("Cache read failed; executing without cache", {
 			category: "cache",
 			method,
@@ -18548,12 +18767,12 @@ async function withCache({ method, page, data, caching, bypass, context, logger,
 			cacheKey: getResponse.cacheKey ?? "",
 			missReason: cacheMetadata.missReason ?? "unknown"
 		});
-	} else cacheMetadata = missMetadata(null, "read_failed");
+	} else cacheMetadata = missMetadata(null, readFailureReason);
 	progress?.throwIfStopped();
 	const outcome = await execute();
 	progress?.throwIfStopped();
 	outcome.result.metadata.cache = cacheMetadata;
-	if (outcome.cacheValue !== void 0 && outcome.cacheValue !== null) try {
+	if (getResponse?.missReason !== "payload_too_large" && outcome.cacheValue !== void 0 && outcome.cacheValue !== null) try {
 		const setResponse = await runLocatorStep(progress, "writing cache", () => context.client.set({
 			...baseRequest,
 			value: outcome.cacheValue,
@@ -51076,43 +51295,53 @@ async function generateWithClientLlm(request, input) {
 }
 //#endregion
 //#region llm/gatewayClient.ts
-/** Builds the credentials needed for Browserbase Model Gateway inference. */
-function buildGatewayContext(initParams) {
-	const sessionId = initParams.browser?.sessionId;
-	if (!initParams.apiKey || !sessionId) return void 0;
-	return {
-		apiUrl: apiUrlForRegion(initParams.browser?.region, initParams.apiUrl),
-		apiKey: initParams.apiKey,
-		sessionId
+var CLIENT_GATEWAY_BASE_URL = "https://stagehand.invalid/llm";
+var CLIENT_GATEWAY_API_KEY = "stagehand-client-gateway";
+/** Selects the configured transport for Browserbase Model Gateway inference. */
+function buildGatewayContext(initParams, request) {
+	if (!initParams.browser?.sessionId || initParams.browserbase !== "client") return void 0;
+	return { request };
+}
+function withoutModel(fetch) {
+	return async (input, init) => {
+		if (typeof init?.body !== "string") return await fetch(input, init);
+		let body;
+		try {
+			body = JSON.parse(init.body);
+		} catch {
+			return await fetch(input, init);
+		}
+		if (!body || typeof body !== "object" || Array.isArray(body)) return await fetch(input, init);
+		const routedBody = { ...body };
+		delete routedBody.model;
+		return await fetch(input, {
+			...init,
+			body: JSON.stringify(routedBody)
+		});
 	};
 }
-var fetchWithoutModel = async (input, init) => {
-	if (typeof init?.body !== "string") return await boundFetch(input, init);
-	let body;
-	try {
-		body = JSON.parse(init.body);
-	} catch {
-		return await boundFetch(input, init);
-	}
-	if (!body || typeof body !== "object" || Array.isArray(body)) return await boundFetch(input, init);
-	const routedBody = { ...body };
-	delete routedBody.model;
-	return await boundFetch(input, {
-		...init,
-		body: JSON.stringify(routedBody)
-	});
-};
+function clientGatewayFetch(gateway, config) {
+	const hasAuthorization = Object.keys(config?.headers ?? {}).some((name) => name.toLowerCase() === "authorization");
+	return async (input, init) => {
+		if (input !== `${CLIENT_GATEWAY_BASE_URL}/responses` || init?.method !== "POST" || typeof init.body !== "string") throw new TypeError("Unexpected Model Gateway request");
+		if (!gateway.request) throw new Error("Client Browserbase transport is unavailable");
+		const headers = new Headers(init.headers);
+		if (!hasAuthorization) headers.delete("authorization");
+		return await gateway.request({
+			operation: "gateway.responses",
+			headers: Object.fromEntries(headers),
+			body: init.body
+		}, init.signal ?? void 0);
+	};
+}
 /** Creates an OpenAI Responses model backed by Browserbase Model Gateway. */
 function createGatewayLanguageModel(config, gateway) {
+	const fetch = clientGatewayFetch(gateway, config);
 	return createOpenAI({
-		apiKey: gateway.apiKey,
-		baseURL: `${gateway.apiUrl}/llm`,
-		headers: {
-			...config?.headers,
-			"x-bb-api-key": gateway.apiKey,
-			"x-bb-session-id": gateway.sessionId
-		},
-		fetch: config ? boundFetch : fetchWithoutModel
+		apiKey: CLIENT_GATEWAY_API_KEY,
+		baseURL: CLIENT_GATEWAY_BASE_URL,
+		headers: config?.headers,
+		fetch: config ? fetch : withoutModel(fetch)
 	}).responses(config?.modelName ?? "auto");
 }
 //#endregion
@@ -51726,7 +51955,7 @@ function createStagehandController(runtime, options = {}) {
 			const state = runtime.state.getState();
 			if (state.status !== "initialized") throw new Error("Stagehand must be initialized before acting");
 			const model = params.options?.model ?? state.initParams.model;
-			const gateway = buildGatewayContext(state.initParams);
+			const gateway = buildGatewayContext(state.initParams, runtime.adapters.clientBrowserbaseRequest);
 			if (!model && !gateway) throw new Error("An LLM was not configured during Stagehand initialization");
 			const result = await act({
 				params,
@@ -51737,7 +51966,7 @@ function createStagehandController(runtime, options = {}) {
 				systemPrompt: state.initParams.systemPrompt,
 				selfHeal: state.initParams.selfHeal,
 				domSettleTimeoutMs: state.initParams.domSettleTimeoutMs,
-				cache: buildCacheContext(state.initParams),
+				cache: buildCacheContext(state.initParams, runtime.adapters.clientBrowserbaseRequest),
 				gateway
 			});
 			runtime.metrics.record("act", result.metadata.usage);
@@ -51750,7 +51979,7 @@ function createStagehandController(runtime, options = {}) {
 			const state = runtime.state.getState();
 			if (state.status !== "initialized") throw new Error("Stagehand must be initialized before observing");
 			const model = params.options?.model ?? state.initParams.model;
-			const gateway = buildGatewayContext(state.initParams);
+			const gateway = buildGatewayContext(state.initParams, runtime.adapters.clientBrowserbaseRequest);
 			if (!model && !gateway) throw new Error("An LLM was not configured during Stagehand initialization");
 			const result = await observe({
 				params,
@@ -51759,7 +51988,7 @@ function createStagehandController(runtime, options = {}) {
 				clientLLMGenerate: runtime.adapters.clientLLMGenerate,
 				logger,
 				systemPrompt: state.initParams.systemPrompt,
-				cache: buildCacheContext(state.initParams),
+				cache: buildCacheContext(state.initParams, runtime.adapters.clientBrowserbaseRequest),
 				gateway
 			});
 			runtime.metrics.record("observe", result.metadata.usage);
@@ -51772,7 +52001,7 @@ function createStagehandController(runtime, options = {}) {
 			const state = runtime.state.getState();
 			if (state.status !== "initialized") throw new Error("Stagehand must be initialized before extracting");
 			const model = params.options?.model ?? state.initParams.model;
-			const gateway = buildGatewayContext(state.initParams);
+			const gateway = buildGatewayContext(state.initParams, runtime.adapters.clientBrowserbaseRequest);
 			if (!model && !gateway) throw new Error("An LLM was not configured during Stagehand initialization");
 			const result = await extract({
 				params,
@@ -51781,7 +52010,7 @@ function createStagehandController(runtime, options = {}) {
 				clientLLMGenerate: runtime.adapters.clientLLMGenerate,
 				logger,
 				systemPrompt: state.initParams.systemPrompt,
-				cache: buildCacheContext(state.initParams),
+				cache: buildCacheContext(state.initParams, runtime.adapters.clientBrowserbaseRequest),
 				gateway
 			});
 			runtime.metrics.record("extract", result.metadata.usage);
@@ -51905,6 +52134,7 @@ var RPCRouter = class {
 			case "page.wait_for_load_state": return this.pageController.waitForLoadState(parseParams(StagehandMethods.pageWaitForLoadState, request.params), context);
 			case "page.wait_for_timeout": return this.pageController.waitForTimeout(parseParams(StagehandMethods.pageWaitForTimeout, request.params), context);
 			case "page.wait_for_selector": return this.pageController.waitForSelector(parseParams(StagehandMethods.pageWaitForSelector, request.params), context);
+			case "page.wait_for_function": return this.pageController.waitForFunction(parseParams(StagehandMethods.pageWaitForFunction, request.params), context);
 			case "page.screenshot": return this.pageController.screenshot(parseParams(StagehandMethods.pageScreenshot, request.params), context);
 			case "page.pdf": return this.pageController.pdf(parseParams(StagehandMethods.pagePDF, request.params), context);
 			case "page.snapshot": return this.pageController.snapshot(parseParams(StagehandMethods.pageSnapshot, request.params), context);
@@ -54300,7 +54530,7 @@ var WebTracerProvider = class extends BasicTracerProvider {
 };
 var package_default = {
 	name: "@browserbasehq/stagehand-extension",
-	version: "1.1.1",
+	version: "1.2.0",
 	"private": true,
 	type: "module",
 	scripts: {
@@ -55693,6 +55923,83 @@ async function normalizeInitScriptSource(script, arg, caller = DEFAULT_CALLER) {
 	if (!script || typeof script !== "object") throw new TypeError(`${caller}: provide a string, function, or an object with content.`);
 	if (typeof script.content === "string") return script.content;
 	throw new TypeError(`${caller}: provide a string, function, or an object with content.`);
+}
+//#endregion
+//#region understudy/functionWait.ts
+/** Runs in the page's main world; keep this function self-contained. */
+function createFunctionWait(predicate, polling) {
+	let stopped = false;
+	let timer;
+	let animationFrame;
+	let resolve;
+	let reject;
+	const promise = new Promise((done, fail) => {
+		resolve = done;
+		reject = fail;
+	});
+	promise.catch(() => {});
+	const stop = () => {
+		stopped = true;
+		clearTimeout(timer);
+		if (animationFrame !== void 0) cancelAnimationFrame(animationFrame);
+	};
+	const poll = async () => {
+		if (stopped) return;
+		try {
+			const evaluated = predicate();
+			const value = await (typeof evaluated === "function" ? evaluated() : evaluated);
+			if (stopped) return;
+			if (value) {
+				const serialized = JSON.stringify(value);
+				if (serialized === void 0) throw new TypeError("waitForFunction result must be JSON-serializable");
+				const result = JSON.parse(serialized);
+				stop();
+				resolve(result);
+			} else if (polling === "raf") animationFrame = requestAnimationFrame(() => void poll());
+			else timer = setTimeout(() => void poll(), polling);
+		} catch (error) {
+			stop();
+			reject(error);
+		}
+	};
+	poll();
+	return {
+		promise,
+		dispose() {
+			if (stopped) return;
+			stop();
+			reject(/* @__PURE__ */ new Error("Function wait disposed"));
+		}
+	};
+}
+async function waitForFunction(getFrame, expression, options = {}) {
+	const polling = options.polling ?? "raf";
+	if (polling !== "raf" && (!Number.isFinite(polling) || polling <= 0 || polling > 2147483647)) throw new RangeError("Polling must be 'raf' or a positive interval up to 2147483647ms");
+	return runWithProgress({
+		name: "waitForFunction",
+		timeout: options.timeout ?? 0
+	}, async (progress) => {
+		for (;;) {
+			progress.throwIfStopped();
+			const frame = getFrame();
+			try {
+				const contextId = await frame.getMainWorldExecutionContextId(progress);
+				if (getFrame() !== frame) continue;
+				return await browserWait(frame.session, progress, (onLateResult) => progress.run("installing function wait", () => frame.session.send("Runtime.evaluate", {
+					expression: `(${createFunctionWait.toString()})(() => (${expression}), ${JSON.stringify(polling)})`,
+					contextId,
+					awaitPromise: false,
+					returnByValue: false
+				}), onLateResult), "waiting for function");
+			} catch (error) {
+				progress.throwIfStopped();
+				if (error instanceof BrowserWaitError) throw error;
+				const message = error instanceof Error ? error.message : String(error);
+				if (!message.includes("Cannot find context with specified id") && !message.includes("Execution context was destroyed") && !message.includes("Cannot find object with given id") && !message.includes("Inspected target navigated or closed") && !message.startsWith("main world not ready for frame ")) throw error;
+				await progress.delay(25);
+			}
+		}
+	});
 }
 //#endregion
 //#region dom/screenshotScripts/resolveMaskRect.ts
@@ -57253,6 +57560,14 @@ var Page = class Page {
 	async waitForTimeout(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
+	/** Poll an expression in the page's main world until its value is truthy. */
+	async waitForFunction(expression, options) {
+		return waitForFunction(() => {
+			if (this.disposed) throw new Error("Page is disposed");
+			if (!this.conn.connected) throw new Error("CDP connection closed: function wait stopped");
+			return this.mainFrameWrapper;
+		}, expression, options);
+	}
 	/**
 	* Wait for an element matching the selector to appear in the DOM.
 	* Uses MutationObserver for efficiency
@@ -58185,6 +58500,9 @@ var defaultBrowserSessionFactory = async () => {
 };
 var discardLog = () => {};
 var discardPageCDPEvent = () => {};
+var unavailableClientBrowserbase = async () => {
+	throw new Error("The connected SDK did not register a Browserbase transport");
+};
 var unavailableClientLLM = async () => {
 	throw new Error("The connected SDK did not register a client-side LLM");
 };
@@ -58193,6 +58511,7 @@ function createStagehandRuntime(adapters = {}, tracing = createStagehandTracing(
 		browserSessionFactory: adapters.browserSessionFactory ?? defaultBrowserSessionFactory,
 		emitLog: adapters.emitLog ?? discardLog,
 		clientLLMGenerate: adapters.clientLLMGenerate ?? unavailableClientLLM,
+		clientBrowserbaseRequest: adapters.clientBrowserbaseRequest ?? unavailableClientBrowserbase,
 		emitPageCDPEvent: adapters.emitPageCDPEvent ?? discardPageCDPEvent,
 		emitPageEvent: adapters.emitPageEvent ?? discardPageCDPEvent
 	}, tracing);
@@ -58216,12 +58535,14 @@ var StagehandRuntime = class {
 		const { cdpUrl } = params;
 		const previousSession = this.browserSession;
 		this.browserSession = void 0;
+		this.browserSessionCdpUrl = void 0;
 		this.disposeAllPageEventSubscriptions();
 		this.pagesById.clear();
 		this.responseHandles.clear();
 		await previousSession?.close();
 		try {
 			this.browserSession = await this.adapters.browserSessionFactory(cdpUrl, this.logger, bootstrapLogger);
+			this.browserSessionCdpUrl = cdpUrl;
 		} catch (error) {
 			await this.browserSession?.close();
 			this.browserSession = void 0;
@@ -58236,7 +58557,7 @@ var StagehandRuntime = class {
 				const state = this.state.getState();
 				if (state.status !== "idle") throw new Error("A Stagehand instance is already initialized");
 				this.logger.setLevel(params.logLevel);
-				if (!this.browserSession?.connected) {
+				if (!this.browserSession?.connected || params.browserCdpUrl !== void 0 && params.browserCdpUrl !== this.browserSessionCdpUrl) {
 					if (!params.browserCdpUrl) throw new Error("stagehand.init requires browserCdpUrl until resident mode is active");
 					await this.replaceBrowserConnection({ cdpUrl: params.browserCdpUrl }, logger);
 				}
@@ -58266,7 +58587,7 @@ var StagehandRuntime = class {
 	async generateLlm(input) {
 		const state = this.state.getState();
 		const model = state.status === "initialized" ? state.initParams.model : void 0;
-		const gateway = state.status === "initialized" ? buildGatewayContext(state.initParams) : void 0;
+		const gateway = state.status === "initialized" ? buildGatewayContext(state.initParams, this.adapters.clientBrowserbaseRequest) : void 0;
 		if (!model && !gateway) throw new Error("An LLM was not configured during Stagehand initialization");
 		return await generate(model, input, this.adapters.clientLLMGenerate, gateway);
 	}
@@ -58456,6 +58777,9 @@ var StagehandRuntime = class {
 	async pageWaitForSelector(params) {
 		return { matched: await this.resolvePage(params.pageId).waitForSelector(params.selector, params.options) };
 	}
+	async pageWaitForFunction(params) {
+		return { value: await this.resolvePage(params.pageId).waitForFunction(params.expression, params.options) };
+	}
 	async pageScreenshot(params) {
 		const page = this.resolvePage(params.pageId);
 		let options;
@@ -58638,6 +58962,7 @@ var StagehandRuntime = class {
 		await this.enqueueLifecycle(async () => {
 			const session = this.browserSession;
 			this.browserSession = void 0;
+			this.browserSessionCdpUrl = void 0;
 			this.clearStagehandInstance();
 			await session?.close();
 		});
@@ -60058,6 +60383,10 @@ function startStagehandServiceWorker(scope = globalThis, runtime) {
 			rpcClient?.notify(StagehandNotifications.pageEvent, notification).catch((error) => {
 				console.error("[stagehand] Failed to emit page event notification", error);
 			});
+		},
+		clientBrowserbaseRequest: async (params, signal) => {
+			if (!rpcClient) throw new Error("Stagehand RPC client is not connected");
+			return await requestBrowserbase(rpcClient, params, signal);
 		},
 		clientLLMGenerate: async (params) => {
 			if (!rpcClient) throw new Error("Stagehand RPC client is not connected");

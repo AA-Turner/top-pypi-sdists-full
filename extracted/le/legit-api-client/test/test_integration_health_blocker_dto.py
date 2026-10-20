@@ -36,6 +36,7 @@ class TestIntegrationHealthBlockerDto(unittest.TestCase):
         if include_optional:
             return IntegrationHealthBlockerDto(
                 code = 'Paused',
+                severity = 'Blocking',
                 message = '',
                 next_action = ''
             )

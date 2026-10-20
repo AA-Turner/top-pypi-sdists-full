@@ -28,7 +28,7 @@ from numpy.testing import (
 )
 from packaging.version import Version
 
-from unyt import K, R, Unit, degC, degF, delta_degC, delta_degF, dimensions
+from unyt import K, Msun, R, Unit, degC, degF, delta_degC, delta_degF, dimensions
 from unyt._on_demand_imports import _astropy, _h5py, _pint
 from unyt._physical_ratios import metallicity_sun, speed_of_light_cm_per_s
 from unyt.array import (
@@ -393,6 +393,26 @@ def test_multiplication():
     a = unyt_array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], "cm")
     answer = unyt_array([6.0, 120.0], "cm**3")
     assert_equal(np.multiply.reduce(a, axis=1), answer)
+
+
+def test_multiplication_by_msun_preserves_precision():
+    values_to_test = (
+        np.float32(1),
+        np.array([1, 2], dtype=np.float32),
+        unyt_array([1, 2], "m", dtype=np.float32),
+    )
+    value = unyt_quantity(np.float32(1), "m")
+    for mass in (Msun, Msun.in_base("galactic")):
+        for values in values_to_test:
+            assert (values * mass).dtype == values.dtype
+            assert (mass * values).dtype == values.dtype
+
+        left = value * mass
+        right = mass * value
+        assert_equal(left, right)
+        # With two quantities, neither operand is unit metadata, so normal NumPy
+        # promotion applies.
+        assert left.dtype == right.dtype == np.result_type(value.dtype, mass.dtype)
 
 
 def test_division():
@@ -1519,11 +1539,11 @@ def test_subclass():
 
 def test_string_operations_raise_errors():
     a = unyt_array([1, 2, 3], "g")
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         a + "hello"
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         a * "hello"
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         a ** "hello"
 
 
@@ -1539,11 +1559,11 @@ def test_string_ne():
 
 def test_string_operations_raise_errors_quantity():
     q = 2 * g
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         q + "hello"
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         q * "hello"
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         q ** "hello"
     assert q != "hello"
 
@@ -2103,6 +2123,15 @@ def test_unyt_array_coercion():
     assert_isinstance(q * np.array(3), unyt_quantity)
 
 
+def test_unyt_array_dtype_coercion():
+    a = unyt_array([1, 2, 3], "cm", dtype=np.float32)
+    b = unyt_array(a, dtype=np.float64)
+
+    assert b.dtype == np.float64
+    assert_array_equal(b, a)
+    assert b.units == a.units
+
+
 def test_numpy_wrappers():
     a1 = unyt_array([1, 2, 3], "cm")
     a2 = unyt_array([2, 3, 4, 5, 6], "cm")
@@ -2303,9 +2332,9 @@ def test_coerce_iterable():
 
     assert_equal(a + b, unyt_array([2, 202, 6], "cm"))
     assert_equal(b + a, unyt_array([2, 202, 6], "cm"))
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         a + c
-    with pytest.raises(IterableUnitCoercionError):
+    with pytest.raises(TypeError):
         c + a
     assert_equal(unyt_array(b), unyt_array([1, 200, 3], "cm"))
     with pytest.raises(IterableUnitCoercionError):
@@ -3025,3 +3054,93 @@ def test_custom_unit_multiplication_with_out_kwarg():
     # previously crashed with:
     # UnitParseError: Could not find unit symbol 'code_length' in the provided symbols.
     np.multiply(data, data, out=data)
+
+
+def test_squeeze_method_array():
+    """Check that squeeze returns the correct type for the shape of the result."""
+    arr = np.ones((3, 1)) * cm
+    arr_squeezed = arr.squeeze()
+    assert arr_squeezed.ndim > 0
+    assert type(arr_squeezed) is unyt_array
+
+
+def test_squeeze_method_scalar():
+    """Check that squeeze returns the correct type for the shape of the result."""
+    arr = np.ones(1) * cm
+    arr_squeezed = arr.squeeze()
+    assert arr_squeezed.ndim == 0
+    assert type(arr_squeezed) is unyt_quantity
+
+
+def test_squeeze_method_with_axis():
+    """Check that squeeze obeys axis kwarg."""
+    arr = np.ones((1, 1)) * cm
+    squeeze_axis = (1,)
+    arr_squeezed = arr.squeeze(axis=1)
+    assert arr_squeezed.ndim == arr.ndim - len(squeeze_axis)
+
+
+def test_other_argument_can_handle_binary_ufunc():
+    class MyClass:
+        __array_ufunc__ = None
+
+        def __init__(self, x: int):
+            self.x = x
+
+        def __mul__(self, b):
+            return self.x * b
+
+        def __rmul__(self, b):
+            return self.x * b
+
+        def __truediv__(self, b):
+            return self.x / b
+
+        def __rtruediv__(self, b):
+            return b / self.x
+
+    x = 5
+    mc = MyClass(x=x)
+    uq = unyt_quantity(2, "m")
+    ua = unyt_array([2], "m")
+
+    for u in ua, uq:
+        assert_almost_equal(x * u, mc * u)
+        assert_almost_equal(x * u, u * mc)
+        assert_almost_equal(x / u, mc / u)
+        assert_almost_equal(u / x, u / mc)
+
+
+def test_other_argument_cannot_handle_binary_ufunc():
+    class MyClass:
+        def __init__(self, x: int):
+            self.x = x
+
+    x = 5
+    mc = MyClass(x=x)
+    uq = unyt_quantity(2, "m")
+    ua = unyt_array([2], "m")
+
+    for u in ua, uq:
+        with pytest.raises(TypeError):
+            mc * u
+        with pytest.raises(TypeError):
+            u * mc
+        with pytest.raises(TypeError):
+            mc / u
+        with pytest.raises(TypeError):
+            u / mc
+
+
+@pytest.mark.parametrize("n_inputs", [1, 2])
+def test_unsupported_ufunc_returns_notimplemented(n_inputs):
+    # a user-defined ufunc is guaranteed not to be in unyt_array._ufunc_registry
+    ufunc = np.frompyfunc(lambda *args: args[0], n_inputs, 1)
+    ua = unyt_array([1, 2, 3], "cm")
+    uq = unyt_quantity(1, "cm")
+
+    for u in ua, uq:
+        inputs = (u,) * n_inputs
+        assert u.__array_ufunc__(ufunc, "__call__", *inputs) is NotImplemented
+        with pytest.raises(TypeError, match="all returned NotImplemented"):
+            ufunc(*inputs)

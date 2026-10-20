@@ -81,7 +81,11 @@ class InventorySitesResource(SyncAPIResource):
 
           description: A description of this inventory site.
 
+              Maximum length: 100 characters.
+
           email: The inventory site's email address.
+
+              Maximum length: 1023 characters.
 
           is_active: Indicates whether this inventory site is active. Inactive objects are typically
               hidden from views and reports in QuickBooks. Defaults to `true`.
@@ -198,9 +202,15 @@ class InventorySitesResource(SyncAPIResource):
 
           contact: The name of the primary contact person for this inventory site.
 
+              Maximum length: 41 characters.
+
           description: A description of this inventory site.
 
+              Maximum length: 100 characters.
+
           email: The inventory site's email address.
+
+              Maximum length: 1023 characters.
 
           fax: The inventory site's fax number.
 
@@ -312,6 +322,9 @@ class InventorySitesResource(SyncAPIResource):
           name_from: Filter for inventory sites whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific inventory sites by their name(s), case-insensitive. Like
               `id`, `name` is a unique identifier for an inventory site.
 
@@ -329,6 +342,9 @@ class InventorySitesResource(SyncAPIResource):
 
           name_to: Filter for inventory sites whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for inventory sites that are active, inactive, or both.
 
@@ -447,7 +463,11 @@ class AsyncInventorySitesResource(AsyncAPIResource):
 
           description: A description of this inventory site.
 
+              Maximum length: 100 characters.
+
           email: The inventory site's email address.
+
+              Maximum length: 1023 characters.
 
           is_active: Indicates whether this inventory site is active. Inactive objects are typically
               hidden from views and reports in QuickBooks. Defaults to `true`.
@@ -564,9 +584,15 @@ class AsyncInventorySitesResource(AsyncAPIResource):
 
           contact: The name of the primary contact person for this inventory site.
 
+              Maximum length: 41 characters.
+
           description: A description of this inventory site.
 
+              Maximum length: 100 characters.
+
           email: The inventory site's email address.
+
+              Maximum length: 1023 characters.
 
           fax: The inventory site's fax number.
 
@@ -678,6 +704,9 @@ class AsyncInventorySitesResource(AsyncAPIResource):
           name_from: Filter for inventory sites whose `name` is alphabetically greater than or equal
               to this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific inventory sites by their name(s), case-insensitive. Like
               `id`, `name` is a unique identifier for an inventory site.
 
@@ -695,6 +724,9 @@ class AsyncInventorySitesResource(AsyncAPIResource):
 
           name_to: Filter for inventory sites whose `name` is alphabetically less than or equal to
               this value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for inventory sites that are active, inactive, or both.
 

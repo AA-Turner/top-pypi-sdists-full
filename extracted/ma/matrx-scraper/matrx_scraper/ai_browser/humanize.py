@@ -1,7 +1,7 @@
 """Human-shaped input for a real, persistent Chrome (CB-013).
 
 A site watching pointer and key events can tell a Playwright ``page.click`` from a
-person instantly: the pointer teleports to the exact centre of the element, the
+person instantly: the pointer teleports to the exact center of the element, the
 button goes down and up in the same millisecond, and ``page.fill`` writes a whole
 string without a single keystroke. This module is the ONE place that turns the
 agent's intent ("click this", "type that", "scroll down") into the event stream a
@@ -9,7 +9,7 @@ person produces:
 
 * the pointer travels from where it last was along a curved path with a natural
   speed profile (slow-fast-slow), lands at a random point inside the target —
-  never the exact centre — pauses, presses, pauses, releases;
+  never the exact center — pauses, presses, pauses, releases;
 * text arrives one keystroke at a time with a per-key delay drawn from a
   log-normal distribution, longer after spaces and punctuation, and with the odd
   short "thinking" pause;
@@ -26,7 +26,7 @@ visible in the worker log rather than silently regressing.
 Timings are deliberately conservative (a fast, confident user), because the agent
 issues many actions per task and a slow typist would make every task slow. The
 knobs below are module constants; the control plane's ``LaunchPolicy.humanize_input``
-turns the whole behaviour on or off per run.
+turns the whole behavior on or off per run.
 """
 
 from __future__ import annotations
@@ -143,7 +143,7 @@ def move_duration(dist: float) -> float:
 
 
 def aim_point(box: dict[str, float]) -> tuple[float, float]:
-    """A landing point inside ``box``, biased to the middle, never the exact centre
+    """A landing point inside ``box``, biased to the middle, never the exact center
     and never within the outer 12% (where a real click risks the edge)."""
     w, h = max(box["width"], 1.0), max(box["height"], 1.0)
     mx, my = w * 0.12, h * 0.12

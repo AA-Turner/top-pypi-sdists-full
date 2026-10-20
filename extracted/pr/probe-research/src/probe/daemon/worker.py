@@ -289,6 +289,9 @@ INLINE_STOP = "the researcher set Probe inline"
 #: 0. Without it (taps 0.9.9-0.9.11, whose `wanted()` is True there) it exits
 #: EXIT_DO_NOT_RESPAWN, or that tap would start a worker again at once.
 SUPERVISOR_FOLLOWS_INLINE_ENV = "PROBE_TAP_FOLLOWS_INLINE"
+#: A newer tap recognizes read-only inline markers too. Without this capability,
+#: a read-only quota handoff must latch the older supervisor until a switch move.
+SUPERVISOR_READ_ONLY_INLINE_ENV = "PROBE_TAP_READ_ONLY_INLINE"
 #: The worker crashed: the supervisor waits before it starts another.
 EXIT_CRASHED = 4
 #: The worker left because of the SWITCH (unreadable, or not `daemon`): the
@@ -485,6 +488,29 @@ class Worker:
         lease.release(self.session.session_id, reason)
         self.released_reason = reason
 
+    def _quota_inline(self, exc: BaseException, expected_state: str) -> bool:
+        """A confirmed monthly allowance refusal hands this session to the agent.
+
+        Generic rate limits, outages, local token limits and strings mentioning
+        a budget never change the user's mode. Replays do not touch live state.
+        """
+        from pydantic_ai.exceptions import ModelHTTPError
+
+        if (self.replay is not None or not isinstance(exc, ModelHTTPError)
+                or int(exc.status_code) != 429 or _refusal_code(exc) != "budget_exhausted"):
+            return False
+        from probe.sdk import session_marker
+
+        if not session_marker.inline_on_budget(self.session.session_id, expected_state):
+            return False
+        self._release(lease.REASON_BUDGET)
+        self.fail_requests(requests_mod.REASON_INLINE)
+        if self.reader is not None:
+            self.reader.take_asks()
+            self.reader.fail_open_asks("the free daemon allowance is exhausted; Probe is inline")
+        log.info("the free daemon allowance is exhausted: Probe is inline for this session")
+        return True
+
     def _model_answered(self) -> None:
         """A model round answered (`agent.answered`): progress. A release made for
         the key, the budget, the gateway or answers the token limit ate ends here,
@@ -556,7 +582,7 @@ class Worker:
         return EXIT_RESPAWN_LATER
 
     def _went_inline(self) -> bool:
-        """The researcher set Probe inline while a bite runs: it stops at the next
+        """Manual or confirmed-quota inline while a bite runs: stop at the next
         poll of its model call or between two rounds, not at the call's end."""
         return self.replay is None and lease.inline(self.session.session_id)
 
@@ -1770,6 +1796,8 @@ class Worker:
             return self._cut_short(bite_id, built, text, spent, cause=CutShort.TOO_LARGE, exc=exc)
         status = getattr(exc, "status_code", None) if isinstance(exc, ModelHTTPError) else None
         self.store.close_bite(bite_id, outcome="failed", error=text, **spent)
+        if self._quota_inline(exc, STATE_DAEMON):
+            return False
         if resumed is not None and _history_rejected(exc):
             log.warning("conversation %s: the model refused its saved history (%s): the next bite starts fresh "
                         "from disk", resumed, text[:200])
@@ -2206,18 +2234,19 @@ class Worker:
         state = lease.session_state(self.session.session_id)
         if self.replay is None:
             if lease.inline(self.session.session_id, state):
-                # `/probe inline` stops the daemon as `off` does: at once, with no
+                # Manual or confirmed-quota inline stops the daemon as `off` does,
+                # at once, with no
                 # finishing pass (the agent records from the switch on, and an
                 # approval settled now would race it). What came before the switch
                 # stays pending for the next worker. The folders are looked at
                 # first: an edit made before the switch is stamped before it, and
                 # the agent's edits after it become events of their own.
-                log.info("the researcher set Probe inline: stopping")
+                log.info("Probe is inline: stopping the daemon")
                 await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home),
                                           force=True)
                 self.fail_requests(requests_mod.REASON_INLINE)
                 self._release(lease.REASON_STOPPED)
-                return inline_exit_code()
+                return inline_exit_code(self.session.session_id)
             if lease.reads_only(self.session.session_id, state):
                 return await self._read_only_tick()
             if state is not None and not lease.records(self.session.session_id, state):
@@ -2937,10 +2966,15 @@ def _libs_missing_log_due(session_id: str) -> bool:
     return telemetry.report_due(str(directory), "libs-missing", interval_s=LIBS_MISSING_LOG_EVERY_S)
 
 
-def inline_exit_code() -> int:
-    """How a worker leaves for `/probe inline`: 0 to a supervisor that follows the
-    switch itself (SUPERVISOR_FOLLOWS_INLINE_ENV), else EXIT_DO_NOT_RESPAWN, which
-    an older tap holds until the switch moves."""
+def inline_exit_code(session_id: str = "") -> int:
+    """Leave manual or confirmed-quota inline without an older tap respawning us.
+    A tap that follows full inline may still mistake read-only inline for a reader
+    daemon, so only its separate capability permits an ordinary exit there."""
+    from probe.sdk.session_marker import STATE_READ_ONLY
+    if (session_id and lease.session_state(session_id) == STATE_READ_ONLY
+            and lease.inline(session_id)
+            and os.environ.get(SUPERVISOR_READ_ONLY_INLINE_ENV) != "1"):
+        return EXIT_DO_NOT_RESPAWN
     return 0 if os.environ.get(SUPERVISOR_FOLLOWS_INLINE_ENV) == "1" else EXIT_DO_NOT_RESPAWN
 
 
@@ -2973,7 +3007,7 @@ def session_lock(session_id: str, *, should_stop: Callable[[], bool] = lambda: F
             _mark(handover)  # every poll: the holder trusts only a fresh one
             if not lease.worker_wanted(session_id):
                 handle.close()
-                return inline_exit_code() if lease.inline(session_id) else EXIT_RESPAWN_LATER
+                return inline_exit_code(session_id) if lease.inline(session_id) else EXIT_RESPAWN_LATER
             if should_stop():
                 handle.close()
                 return 0
@@ -3055,10 +3089,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--cwd", required=True)
     parser.add_argument("--source", default="claude_code")
     args = parser.parse_args(argv)
+    from probe.service import barrier
+
+    if not barrier.wait():
+        # The Probe service is replacing the CLI's env (plan X1): `probe`'s own
+        # entry waited already; this covers a worker started another way.
+        print(f"probe daemon worker: {barrier.MESSAGE}", file=sys.stderr)
+        return EXIT_RESPAWN_LATER
     if lease.inline(args.session_id):
-        # Started while the researcher has Probe inline (an older tap still wants a
+        # Started while manual or confirmed-quota inline is active (an older tap wants a
         # worker there): leave before loading anything.
-        return inline_exit_code()
+        return inline_exit_code(args.session_id)
     # Into the session's folder beside its trace (`trace.py`); warnings on stderr too.
     logging.basicConfig(level=os.environ.get("PROBE_DAEMON_LOG", "INFO"),
                         format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -3099,6 +3140,13 @@ def main(argv: list[str] | None = None) -> int:
     held = session_lock(sid, should_stop=lambda: stop["asked"] or os.getppid() != parent)
     if isinstance(held, int):
         return held
+    if not barrier.wait():
+        # Raised while this worker loaded its libraries, after the check above:
+        # the service's second look (plan X1) may have found no lock of ours
+        # then. Holding it now, wait for the update to finish, else come back.
+        print(f"probe daemon worker: {barrier.MESSAGE}", file=sys.stderr)
+        held.close()
+        return EXIT_RESPAWN_LATER
     # We hold the lock, so no other worker of this session runs: a `.finishing`
     # left by one that crashed is stale.
     mailbox.finishing_path(sid).unlink(missing_ok=True)

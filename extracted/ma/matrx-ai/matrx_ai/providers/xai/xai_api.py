@@ -4,7 +4,6 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 import xai_sdk
-from matrx_connect.context.events import InfoPayload
 from matrx_connect.request_latency import mark_provider_stream_open
 from matrx_utils import vcprint
 
@@ -37,6 +36,79 @@ if TYPE_CHECKING:  # circular-by-design: catalog.models imports providers.resolv
     from matrx_ai.catalog.models import ResolvedCallProfile
 
 DEBUG_OVERRIDE = False
+
+
+
+#: The header xAI's prompt cache routes on (docs: "maximizing cache hits").
+XAI_CONVERSATION_HEADER = "x-grok-conv-id"
+#: The completion RPCs that carry a prompt (and so a cacheable prefix).
+_ROUTED_RPCS = frozenset({"GetCompletion", "GetCompletionChunk", "StartDeferredCompletion"})
+
+
+def xai_conversation_routing_id(conversation_id: str | None) -> str | None:
+    """A stable, opaque per-conversation routing id (never the raw id)."""
+    if not conversation_id:
+        return None
+    import hashlib
+
+    return "matrx-" + hashlib.sha256(f"xai-conv:{conversation_id}".encode()).hexdigest()[:32]
+
+
+class _ConversationRoutedStub:
+    """THE PER-REQUEST gRPC METADATA SEAM. Wraps one SDK chat's stub so every
+    completion RPC carries the conversation routing header.
+
+    xai_sdk 1.19.0 has no public per-request seam: ``chat.create(conversation_id=)``
+    only sets a telemetry attribute (``gen_ai.conversation.id``), client
+    ``metadata`` is fixed per client (one cached client serves every
+    conversation), and ``GetCompletionsRequest`` has no cache-key field. But each
+    chat calls ``self._stub.GetCompletion(request)`` / ``GetCompletionChunk``, and
+    a grpc.aio multicallable accepts ``metadata=`` per call — so the header rides
+    there, per request, as HTTP/2 metadata."""
+
+    def __init__(self, stub: Any, routing_id: str) -> None:
+        self._stub = stub
+        self._metadata = ((XAI_CONVERSATION_HEADER, routing_id),)
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._stub, name)
+        if name not in _ROUTED_RPCS or not callable(attr):
+            return attr
+        metadata = self._metadata
+
+        def routed(request: Any, *args: Any, **kwargs: Any) -> Any:
+            kwargs["metadata"] = tuple(kwargs.get("metadata") or ()) + metadata
+            return attr(request, *args, **kwargs)
+
+        return routed
+
+
+def route_chat_to_conversation(chat: Any, conversation_id: str | None) -> bool:
+    """Attach the conversation routing header to one SDK chat. True when attached.
+
+    Loud when the SDK shape changed (no ``_stub``): the cache would then miss on
+    every turn, silently — exactly what this exists to stop."""
+    routing_id = xai_conversation_routing_id(conversation_id)
+    if routing_id is None:
+        vcprint(
+            "[xAI Chat] no conversation id on this call: no x-grok-conv-id, so xAI's "
+            "prompt cache routing is left to chance.",
+            color="yellow",
+        )
+        return False
+    stub = getattr(chat, "_stub", None)
+    if stub is None:
+        vcprint(
+            "[xAI Chat] xai_sdk chat has no _stub: the x-grok-conv-id routing header "
+            "could NOT be attached, so xAI's prompt cache will miss on every turn of "
+            "this conversation. Update providers/xai/xai_api.route_chat_to_conversation.",
+            color="red",
+        )
+        return False
+    if not isinstance(stub, _ConversationRoutedStub):
+        chat._stub = _ConversationRoutedStub(stub, routing_id)
+    vcprint(f"[xAI Chat] cache routing: {XAI_CONVERSATION_HEADER}={routing_id}", color="blue")
+    return True
 
 
 class XAIChat:
@@ -115,8 +187,13 @@ class XAIChat:
             vcprint(debug_summary, "xAI API Config Data", color="blue", verbose=debug)
 
             chat = self.client.chat.create(
-                **route_undeclared_params(self.client.chat.create, create_kwargs, provider="xai")
+                **route_undeclared_params(self.client.chat.create, create_kwargs, provider="xai", snapshot=True)
             )
+            # THE CACHE LINE LAW, routing half: xAI's prompt cache only hits when
+            # every turn of a conversation lands on the same server, which it
+            # decides from the ``x-grok-conv-id`` header. Without it a two-turn
+            # Grok conversation read 128 of ~11.5k prompt tokens on both turns.
+            route_chat_to_conversation(chat, get_app_context().conversation_id)
             from matrx_ai.providers.request_capture import capture_grpc_request, is_capturing
 
             if is_capturing():
@@ -228,6 +305,14 @@ class XAIChat:
             matrx_model_name=matrx_model_name,
             provider_model_name=profile.provider_model_id,
             api="xai",
+        )
+        from matrx_ai.speech.take_check import raise_if_truncated_take
+
+        raise_if_truncated_take(
+            provider="xai",
+            audio_size_bytes=len(audio_bytes),
+            characters=len(input_text),
+            usage=usage,
         )
         try:
             codec_to_mime = {
@@ -341,12 +426,7 @@ class XAIChat:
                 elif isinstance(content, TextContent):
                     await emitter.send_chunk(content.text)
                 elif isinstance(content, ToolCallContent):
-                    await emitter.send_info(InfoPayload(
-                        code="tool_processing",
-                        system_message=f"Executing {content.name}",
-                        user_message=f"Using tool {content.name}",
-                        metadata={"tool_call": content.name},
-                    ))
+                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
 
         vcprint("[xAI] Non-streaming execution completed successfully", color="green")
         return converted_response
@@ -367,11 +447,13 @@ class XAIChat:
         model_name = getattr(proto, "model", None)
         from matrx_ai.config import serialize_provider_usage
         from matrx_ai.providers.xai.translator import (
+            _xai_cached_prompt_tokens,
             billed_output_tokens_from_xai_usage,
             provider_charge_from_xai_usage,
         )
         return TokenUsage(
-            input_tokens=getattr(usage, "prompt_tokens", 0),
+            input_tokens=max(0, int(getattr(usage, "prompt_tokens", 0) or 0) - _xai_cached_prompt_tokens(usage)),
+            cached_input_tokens=_xai_cached_prompt_tokens(usage),
             output_tokens=billed_output_tokens_from_xai_usage(usage),
             matrx_model_name=model_name,
             provider_model_name=model_name,
@@ -481,12 +563,7 @@ class XAIChat:
         for message in converted.messages:
             for content in message.content:
                 if isinstance(content, ToolCallContent):
-                    await emitter.send_info(InfoPayload(
-                        code="tool_processing",
-                        system_message=f"Executing {content.name}",
-                        user_message=f"Using tool {content.name}",
-                        metadata={"tool_call": content.name},
-                    ))
+                    pass  # tool_processing is sent once by the shared tool loop (orchestrator/tool_notices.py)
 
         vcprint("[xAI] Streaming execution completed successfully", color="green")
         return converted

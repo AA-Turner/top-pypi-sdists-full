@@ -12,7 +12,7 @@ from matrx_seo.providers.serpapi_locations import (
 )
 
 # Rows shaped exactly like live https://serpapi.com/locations.json responses
-# (captured 2026-08-15). The catalogue text-matches `name`, NOT the canonical
+# (captured 2026-08-15). The catalog text-matches `name`, NOT the canonical
 # form — which is why "Newport Beach, CA" returns nothing at all.
 _CATALOG: dict[str, list[dict[str, Any]]] = {
     "newport beach,ca": [],
@@ -188,7 +188,7 @@ async def test_results_are_cached_so_repeat_creations_do_not_re_query() -> None:
     )
     assert len(transport.calls) == calls_after_first
 
-    # Refusals are cached too — a bad name must not hammer the catalogue.
+    # Refusals are cached too — a bad name must not hammer the catalog.
     with pytest.raises(SerpApiLocationUnresolved):
         await instance.resolve("London")
     calls_after_refusal = len(transport.calls)
@@ -199,7 +199,7 @@ async def test_results_are_cached_so_repeat_creations_do_not_re_query() -> None:
 
 @pytest.mark.asyncio
 async def test_live_catalog_matches_the_fixtures(request: pytest.FixtureRequest) -> None:
-    """Truth-vs-code check against the REAL catalogue — the fixtures above are
+    """Truth-vs-code check against the REAL catalog — the fixtures above are
     only as good as their agreement with SerpAPI. Free endpoint (no API key, no
     search credit); opt in with --run-live-serpapi-locations."""
     if not request.config.getoption("--run-live-serpapi-locations"):

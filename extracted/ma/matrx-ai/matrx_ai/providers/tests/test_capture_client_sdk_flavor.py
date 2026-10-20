@@ -70,7 +70,7 @@ def test_every_sdk_accepts_the_capture_client(sdk_name: str, client_attr: str) -
 
 @pytest.mark.parametrize("sdk_name,_client_attr", SDK_CLIENTS)
 def test_capture_hook_survives_the_flavor_swap(sdk_name: str, _client_attr: str) -> None:
-    """Whatever flavor is chosen, the capture behaviour is identical."""
+    """Whatever flavor is chosen, the capture behavior is identical."""
     sdk = importlib.import_module(sdk_name)
     client = make_capture_http_client(sdk=sdk, timeout=123.0)
 

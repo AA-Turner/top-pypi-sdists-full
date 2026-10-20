@@ -10,19 +10,18 @@ readme = "README.rst"
 license = "MIT"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
-  "License :: OSI Approved :: MIT License",
   "Intended Audience :: Developers",
   "Topic :: Office/Business :: Financial",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Martin Domke", email = "mail@martindomke.net" },
 ]
@@ -69,7 +68,7 @@ doctest_optionflags = ["ALLOW_UNICODE", "IGNORE_EXCEPTION_DETAIL"]
 
 [tool.ruff]
 extend = ".ruff_defaults.toml"
-target-version = "py310"
+target-version = "py311"
 line-length = 100
 extend-exclude = ["docs"]
 
@@ -100,9 +99,6 @@ extend-ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/get_*_registry*.py" = [
-    "S113",   # Allow requests call without timeout
-]
 "scripts/**/*.py" = [
     "T201",    # Allow print statements in utility scripts
     "EXE001",  # Shebang not executable
@@ -147,12 +143,13 @@ project-excludes = ["docs", "private", "scripts"]
 default-groups = ["dev", "doc"]
 
 [tool.poe.tasks]
-test = "uv run --extra pydantic coverage run -m pytest"
+test = "uv run --extra pydantic pytest --cov --cov-report=term-missing"
 check-code = "ruff check"
 check-fmt = "ruff format --check"
 check-types = "uv run --extra pydantic pyrefly check"
 check-docs = "doc8 docs/source"
 fmt = "ruff format"
+fix = "ruff check --fix"
 build = "uv build"
 cov-combine = "coverage combine"
 cov-xml = "coverage xml"
@@ -180,6 +177,7 @@ dev = [
     "poethepoet==0.38.*",
     "prek==0.4.*",
     "pyrefly==1.1.*",
+    "pytest-cov==7.1.*",
 ]
 doc = [
     "doc8==2.0.*",
@@ -189,7 +187,7 @@ scripts = [
     "beautifulsoup4",
     "boltons",
     "camelot-py",
-    "requests",
+    "httpx2",
     "xlrd>=2.0.1",
     "pandas",
     "openpyxl",

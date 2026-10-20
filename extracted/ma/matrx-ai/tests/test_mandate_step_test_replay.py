@@ -50,7 +50,7 @@ def step(monkeypatch: pytest.MonkeyPatch):
     async def limit(_ctx: Any, _authored: Any) -> Any:
         return SimpleNamespace(value=10, name_on=lambda r: r)
 
-    async def run(_ctx: Any, agent_id: str, request: Any, mandate_key: str) -> AiExecutionResult:
+    async def run(_ctx: Any, agent_id: str, request: Any, mandate_key: str, **_kw: Any) -> AiExecutionResult:
         runs.append(agent_id)
         return _result("real answer")
 

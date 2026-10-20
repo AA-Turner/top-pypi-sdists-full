@@ -648,6 +648,10 @@ class StepAgent:
     materialize: Any = None
     #: The winning binding's consumption map (``None`` = no map: the default pin, by name).
     consumption_map: dict[str, Any] | None = None
+    #: The host's record of WHICH level, Holder and version this resolution chose
+    #: (``MandateResolution.run_stamp``). A Run Mandate step hands it to the host so the
+    #: run's record names them exactly like every other mandate door (PB-02 defect 42).
+    run_stamp: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -752,6 +756,11 @@ async def resolve_step_agent_full(
             declared_output_kind=resolution.output_kind,
             materialize=resolution.materialize,
             consumption_map=resolution.consumption_map,
+            run_stamp=(
+                dict(resolution.run_stamp)
+                if isinstance(getattr(resolution, "run_stamp", None), dict)
+                else None
+            ),
         )
     if agent_id:
         return StepAgent(
@@ -777,7 +786,7 @@ async def resolve_step_agent_full(
 # part of an agent_result that IS an answer is ``structured_output``.
 _AGENT_RESULT_BOOKKEEPING: frozenset[str] = frozenset(AiExecutionResult.model_fields)
 
-# A broadcast agent_result is recognised by QUORUM, never by a single key: a
+# A broadcast agent_result is recognized by QUORUM, never by a single key: a
 # workflow author may legitimately name a variable ``content`` or ``metadata``
 # and map it explicitly, and that single mapped key must keep working. Four or
 # more bookkeeping keys at once, including at least one that only an agent run
@@ -804,7 +813,7 @@ def _fold_broadcast_agent_result(
     ``messages``, ``usage``, ``final_text``, ``request_id`` … as VARIABLES —
     none of which the agent declares — alongside the upstream
     ``conversation_id`` (withheld by the engine now, see
-    ``matrx_graph.types.identity_inputs``). The variable binding must honour
+    ``matrx_graph.types.identity_inputs``). The variable binding must honor
     the DECLARATION, not whatever the wire happened to carry.
 
     So: when a whole agent_result arrives as extras, its bookkeeping is
@@ -812,7 +821,7 @@ def _fold_broadcast_agent_result(
     ``structured_output`` — is projected onto the step's DECLARED variable
     names (``AgentStartConfig.exposed_variables``, what the author exposed as
     connection points). That is the explicit mapping the author meant; a
-    broadcast is not a licence to invent variables.
+    broadcast is not a license to invent variables.
 
     Explicitly MAPPED keys are untouched: they never reach quorum.
     """
@@ -847,6 +856,15 @@ def _fold_broadcast_agent_result(
         color="yellow",
     )
     return {**projected, **kept}
+
+
+#: Step-input fields the step CONSUMES (which agent runs, the per-run config layer, the provision
+#: values bound before the build) — never forwarded onto the host ``AgentStartRequest``, which
+#: refuses a key it does not declare. Every other step-input field is a declared host field
+#: (guard: ``aidream/api/tests/test_start_bodies_declare_every_key_clients_send.py``).
+HOST_REQUEST_EXCLUDED_INPUTS: frozenset[str] = frozenset(
+    {"agent_id", "mandate_key", "runtime_config_overrides", "provision_values"}
+)
 
 
 def build_agent_request(
@@ -910,9 +928,7 @@ def build_agent_request(
     request_payload = inputs.model_dump(
         exclude_none=True,
         exclude={
-            "agent_id",
-            "mandate_key",
-            "runtime_config_overrides",
+            *HOST_REQUEST_EXCLUDED_INPUTS,
             *received_extra_names,
             *extra_vars,
         },
@@ -1014,6 +1030,7 @@ async def run_step_agent(
     request: Any,
     *,
     mandate_key: str | None = None,
+    run_stamp: dict[str, Any] | None = None,
 ) -> Any:
     """Run the resolved agent inside the workflow step's forked AppContext.
 
@@ -1041,6 +1058,15 @@ async def run_step_agent(
         # stalls the step: any error is said in red and the step runs unattributed.
         try:
             ctx.app.metadata["mandate_key"] = mandate_key
+            # THE RUN RECORD'S INPUTS (PB-02 defect 42): the resolution and the workflow
+            # run, so the host records ``metadata.mandate_run`` on the step's own
+            # conversation exactly as the client door does — and the run is findable from
+            # the workflow run it belongs to. The host's resolver hands the ONE canonical
+            # resolution shape (defect 74); the step names its own door on it, and it rides
+            # the request as ``mandate_resolution`` like every other door's.
+            if run_stamp:
+                ctx.app.metadata["mandate_resolution"] = {**dict(run_stamp), "door": "workflow_step"}
+            ctx.app.metadata["workflow_run_id"] = str(getattr(ctx, "run_id", "") or "") or None
         except Exception as exc:  # noqa: BLE001
             vcprint(
                 f"[agent_action] could not stamp mandate {mandate_key!r} on the step "

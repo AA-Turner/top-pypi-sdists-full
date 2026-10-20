@@ -300,6 +300,10 @@ AdjustmentAction = Literal[
     # distinct from `mapped` / `dropped` / `unsupported_value` on purpose — it
     # must never look like an accident.
     "to_default",
+    # TWO INPUTS NAMED THE SAME DEPTH: the more specific one won, the other did
+    # not ride (an explicit numeric thinking_budget beats reasoning_effort).
+    # Recorded on the losing key — never silent. See CompiledControlsMap.bridge_numbers.
+    "overridden",
 ]
 
 

@@ -65,7 +65,7 @@ def test_messages_is_required_on_both():
         UnifiedResponseModel()
 
 
-# ── to_dict: the None-drop is the encoding, not an optimisation ───────────────
+# ── to_dict: the None-drop is the encoding, not an optimization ───────────────
 
 
 @pytest.mark.parametrize(
@@ -102,7 +102,7 @@ def test_none_is_dropped_but_an_empty_dict_is_kept():
 def test_the_list_branch_quirk_is_reproduced_not_quietly_fixed():
     # to_dict tests only value[0]. A list whose first element has no to_dict
     # passes through RAW even though later elements have one. That is the
-    # dataclass's behaviour; the twin must not silently improve on it, because
+    # dataclass's behavior; the twin must not silently improve on it, because
     # a shadow-compare would then report a divergence that is really a fix.
     mixed = ["plain", _Msg("b")]
     old, new = _both(messages=mixed)
@@ -187,7 +187,7 @@ def test_token_usage_still_has_no_to_dict():
     assert not hasattr(TokenUsage, "to_dict")
 
 
-# ── construction-time behaviour ───────────────────────────────────────────────
+# ── construction-time behavior ───────────────────────────────────────────────
 
 
 def test_missing_usage_warns_on_both(caplog):

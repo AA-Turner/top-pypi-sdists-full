@@ -83,6 +83,7 @@
 #include "doppler/dp_complex.h"
 #include "doppler/gold/gold_core.h"
 #include "doppler/wfm_synth/wfm_synth_core.h"
+#include "dp_dsss_test.h"
 #include "dp_test.h"
 #include <math.h>
 #include <stdio.h>
@@ -150,22 +151,12 @@ typedef struct
 } trial_t;
 
 /* The emitter: the shipped continuous-DSSS synth, clean (no AWGN child),
-   PRBS data from its own PN register, seeded per trial. */
+   PRBS data from its own PN register, seeded per trial (dp_dsss_test.h). */
 static dp_wfm_synth_state_t *
 make_emitter (const uint8_t *code, uint32_t seed)
 {
-  dp_wfm_synth_state_t *syn
-      = dp_wfm_synth_create (WFM_SYNTH_DSSS, FS, 0.0, WFM_SYNTH_SNR_CLEAN, 1,
-                             seed, (int)SPC, 15, 0, 0, 0.0);
-  if (syn
-      && dp_wfm_synth_set_dsss_cont (syn, code, SF, CHIP_RATE / SYM_RATE,
-                                     WFM_DSSS_DATA_PRBS, NULL, 0)
-             != 0)
-    {
-      dp_wfm_synth_destroy (syn);
-      syn = NULL;
-    }
-  return syn;
+  return dp_dsss_cont_emitter (code, SF, SPC, FS, 0.0, CHIP_RATE / SYM_RATE,
+                               seed, WFM_DSSS_DATA_PRBS, NULL, 0);
 }
 
 static dp_async_dsss_receiver_state_t *
@@ -173,7 +164,7 @@ make_rx (const uint8_t *code, double cn0_dbhz)
 {
   return dp_async_dsss_receiver_create (
       code, SF, CHIP_RATE, SYM_RATE, SPC, 2, cn0_dbhz, 1e-2, 0.9, 500.0, 4, 8,
-      0, 100.0, 4, 14.0, 32, 8, false, 100000, 0.0, 0.0);
+      0, 100.0, 4, 14.0, 32, 8, false, 100000, 0.0, 0.0, false);
 }
 
 static int
@@ -396,14 +387,6 @@ run_trial (const uint8_t *code, int ev, double cn0_dbhz, uint32_t seed,
 }
 
 static void
-gold_1023 (uint8_t *code)
-{
-  dp_gold_state_t *gd = dp_gold_create (934, 350, 567, 73, 10);
-  dp_gold_generate (gd, SF, code, SF);
-  dp_gold_destroy (gd);
-}
-
-static void
 fmt_t (double t, char *s, size_t n)
 {
   if (t < 0.0)
@@ -417,7 +400,7 @@ main (int argc, char **argv)
 {
   int     check = (argc > 1 && strcmp (argv[1], "--check") == 0);
   uint8_t code[SF];
-  gold_1023 (code);
+  dp_dsss_gold_1023 (code);
 
   if (check)
     {
@@ -465,11 +448,11 @@ main (int argc, char **argv)
                 "%+.2f chips/s (the neighbour's is %+.2f)\n",
                 t.t_code_s * 1e3, t.watch_s, CROSS_AFTER_S, t.code_returns,
                 t.sym_returns, t.rate_after, CROSS_PPM * 1e-6 * CHIP_RATE);
-        /* Measured (design section 12.19): coasting, the rate is 0.00 on
-           every seed and the code flag blips 8-10 times as the neighbour
-           passes through the held phase; without the coast the receiver
-           follows at the neighbour's 4.00 chips per second and the flag
-           flickers 230-250 times. */
+        /* Measured (docs/design/async-dsss-receiver-measurements.md §12.19):
+           coasting, the rate is 0.00 on every seed and the code flag blips
+           8-10 times as the neighbour passes through the held phase; without
+           the coast the receiver follows at the neighbour's 4.00 chips per
+           second and the flag flickers 230-250 times. */
         DP_CHECK_MSG (fabs (t.rate_after) < 1.0,
                       "a departed receiver does not follow a neighbour "
                       "crossing its code phase");
@@ -477,11 +460,11 @@ main (int argc, char **argv)
                       "its code flag blips as the neighbour passes and no "
                       "more -- not the flicker of a receiver that follows");
       }
-      /* The live crossing (design section 12.19): the emitter stays on
-         and a neighbour 475 Hz off crosses its phase at 0.95 chips per
-         second. The loops run on one flag down, so the receiver rides it
-         out; held on the symbol flag alone (the rejected rule) both flags
-         stayed down for the rest of the watch. */
+      /* The live crossing (docs/design/async-dsss-receiver-measurements.md
+         §12.19): the emitter stays on and a neighbour 475 Hz off crosses its
+         phase at 0.95 chips per second. The loops run on one flag down, so the
+         receiver rides it out; held on the symbol flag alone (the rejected
+         rule) both flags stayed down for the rest of the watch. */
       {
         trial_t t;
         DP_REQUIRE (run_trial (code, EV_CROSS_ON, 45.0, 3u, &t) == 0);

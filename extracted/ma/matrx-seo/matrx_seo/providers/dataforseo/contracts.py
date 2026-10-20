@@ -140,7 +140,7 @@ class DataForSeoCollectionSettings(BaseModel):
     #: provider request returns at most 1000 items, so anything larger than that
     #: is a paged collection — the client loops on ``search_after_token`` (or
     #: ``offset``) and merges every page into one result. ``None`` keeps the
-    #: historical single-request behaviour.
+    #: historical single-request behavior.
     max_items: int | None = Field(default=None, ge=1, le=100_000)
 
     @field_validator("tasks")

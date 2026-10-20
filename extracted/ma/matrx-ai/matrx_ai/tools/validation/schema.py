@@ -36,7 +36,7 @@ from pydantic import BaseModel, RootModel
 # Sentinel distinct from ``None`` (a legitimate default value).
 _MISSING = object()
 
-# JSON-Schema / matrx type names normalised to a single vocabulary.
+# JSON-Schema / matrx type names normalized to a single vocabulary.
 _TYPE_ALIASES = {
     "str": "string",
     "int": "integer",
@@ -274,7 +274,7 @@ def discriminated_union_members(
     ann = root.annotation
     # The discriminator can surface either on the FieldInfo (Pydantic lifts
     # ``Field(discriminator=...)`` onto it) or inside the ``Annotated`` metadata,
-    # depending on how the annotation was normalised. Check both.
+    # depending on how the annotation was normalized. Check both.
     disc: str | None = getattr(root, "discriminator", None)
     base: Any = ann
     metadata = getattr(ann, "__metadata__", None)

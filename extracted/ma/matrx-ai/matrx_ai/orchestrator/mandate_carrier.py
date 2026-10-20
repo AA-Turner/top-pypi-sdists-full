@@ -346,7 +346,7 @@ def note_mandate_carrier(
     call is held.
 
     NEVER raises and NEVER refuses — D20 (the inventory is a fix list, not a
-    licence) and D23 (scream and report, never block) together.
+    license) and D23 (scream and report, never block) together.
     """
     try:
         ctx = _context()

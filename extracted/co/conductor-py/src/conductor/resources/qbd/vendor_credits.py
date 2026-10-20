@@ -102,6 +102,8 @@ class VendorCreditsResource(SyncAPIResource):
 
           memo: A memo or note for this vendor credit.
 
+              Maximum length: 4095 characters.
+
           payables_account_id: The Accounts-Payable (A/P) account to which this vendor credit is assigned, used
               for accounts-payable tracking. If omitted, QuickBooks Desktop uses the default
               A/P account configured in the company file.
@@ -307,6 +309,8 @@ class VendorCreditsResource(SyncAPIResource):
 
           memo: A memo or note for this vendor credit.
 
+              Maximum length: 4095 characters.
+
           payables_account_id: The Accounts-Payable (A/P) account to which this vendor credit is assigned, used
               for accounts-payable tracking. If omitted, QuickBooks Desktop uses the default
               A/P account configured in the company file.
@@ -453,6 +457,9 @@ class VendorCreditsResource(SyncAPIResource):
               a numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific vendor credits by their ref-number(s), case-sensitive. In
               QuickBooks, ref-numbers are not required to be unique and can be arbitrarily
               changed by the QuickBooks user.
@@ -472,6 +479,9 @@ class VendorCreditsResource(SyncAPIResource):
               If omitted, the range will end with the last number of the list. Uses a
               numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for vendor credits whose `date` field is on or after this date, in ISO
               8601 format (YYYY-MM-DD).
@@ -714,6 +724,8 @@ class AsyncVendorCreditsResource(AsyncAPIResource):
 
           memo: A memo or note for this vendor credit.
 
+              Maximum length: 4095 characters.
+
           payables_account_id: The Accounts-Payable (A/P) account to which this vendor credit is assigned, used
               for accounts-payable tracking. If omitted, QuickBooks Desktop uses the default
               A/P account configured in the company file.
@@ -919,6 +931,8 @@ class AsyncVendorCreditsResource(AsyncAPIResource):
 
           memo: A memo or note for this vendor credit.
 
+              Maximum length: 4095 characters.
+
           payables_account_id: The Accounts-Payable (A/P) account to which this vendor credit is assigned, used
               for accounts-payable tracking. If omitted, QuickBooks Desktop uses the default
               A/P account configured in the company file.
@@ -1065,6 +1079,9 @@ class AsyncVendorCreditsResource(AsyncAPIResource):
               a numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
 
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
+
           ref_numbers: Filter for specific vendor credits by their ref-number(s), case-sensitive. In
               QuickBooks, ref-numbers are not required to be unique and can be arbitrarily
               changed by the QuickBooks user.
@@ -1084,6 +1101,9 @@ class AsyncVendorCreditsResource(AsyncAPIResource):
               If omitted, the range will end with the last number of the list. Uses a
               numerical comparison for values that contain only digits; otherwise, uses a
               lexicographical comparison.
+
+              **NOTE**: If you use this parameter, you cannot also use `refNumberContains`,
+              `refNumberStartsWith`, or `refNumberEndsWith`.
 
           transaction_date_from: Filter for vendor credits whose `date` field is on or after this date, in ISO
               8601 format (YYYY-MM-DD).

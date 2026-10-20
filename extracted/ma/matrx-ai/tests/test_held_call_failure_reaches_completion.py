@@ -45,3 +45,19 @@ def test_a_succeeded_held_call_carries_no_error_kind() -> None:
     seen: list = []
     asyncio.run(_held(seen).finish('{"ok": true}', parsed={"ok": True}))
     assert seen[0].success is True and seen[0].error_kind is None
+
+
+def test_a_parsed_dict_reaches_the_post_run_check_as_a_dict_not_a_bare_model() -> None:
+    """``AgentRunResult.parsed`` is typed as a pydantic model: a dict was coerced into a bare ``BaseModel()`` that cannot
+    be dumped or printed, so every held site that parses its own JSON failed its post-run check ("BaseModel cannot be
+    instantiated directly", seen on the AI-column fill 2026-10-19)."""
+    seen: list = []
+    asyncio.run(_held(seen).finish('{"value": "x"}', parsed={"value": "x"}))
+    assert seen[0].parsed == {"value": "x"}
+    repr(seen[0])  # a bare BaseModel raised here
+
+
+def test_a_parsed_list_is_kept_too() -> None:
+    seen: list = []
+    asyncio.run(_held(seen).finish("[1]", parsed=[1]))
+    assert seen[0].parsed == [1]

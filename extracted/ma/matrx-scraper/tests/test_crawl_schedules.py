@@ -257,7 +257,7 @@ async def test_claim_renders_one_skip_locked_statement(monkeypatch: pytest.Monke
 class _SharedScheduleTable:
     """One `web.crawl_schedule` row behind an atomic claim.
 
-    `claim_batch` is modelled the way Postgres executes it: the read of
+    `claim_batch` is modeled the way Postgres executes it: the read of
     `claim_token IS NULL` and the write of the new token happen in ONE
     indivisible step. Everything else (the `await` before it, the two
     dispatchers interleaving) is free to race.
@@ -495,9 +495,24 @@ class _FakeService:
         self.calls: list[dict[str, Any]] = []
 
     async def prepare_rescrape(
-        self, ctx: Any, site_id: str, *, preset_id: str | None = None, trigger: str = "manual"
+        self,
+        ctx: Any,
+        site_id: str,
+        *,
+        preset_id: str | None = None,
+        trigger: str = "manual",
+        time_budget_seconds: int | None = None,
+        continue_time_budget_partial: bool = False,
     ) -> Any:
-        self.calls.append({"site_id": site_id, "preset_id": preset_id, "trigger": trigger})
+        self.calls.append(
+            {
+                "site_id": site_id,
+                "preset_id": preset_id,
+                "trigger": trigger,
+                "time_budget_seconds": time_budget_seconds,
+                "continue": continue_time_budget_partial,
+            }
+        )
         if isinstance(self.outcome, Exception):
             raise self.outcome
         return SimpleNamespace(session_id=self.outcome, site_id=site_id)
@@ -540,8 +555,16 @@ async def test_drain_starts_a_scheduled_crawl_through_the_canonical_path(
 
     # It runs the SAME derivation a human clicking Rescrape runs, with the
     # schedule's preset — never a second config resolution.
+    # ...bounded by the scheduled-crawl time budget knob (its mirror, 120 minutes, when no host is bound), and
+    # continuing a crawl that an earlier occurrence stopped at its budget rather than restarting it.
     assert service.calls == [
-        {"site_id": str(SITE_ID), "preset_id": str(PRESET_ID), "trigger": "scheduled"}
+        {
+            "site_id": str(SITE_ID),
+            "preset_id": str(PRESET_ID),
+            "trigger": "scheduled",
+            "time_budget_seconds": 120 * 60,
+            "continue": True,
+        }
     ]
     assert result.started == 1 and result.skipped == 0 and result.failed == 0
     assert settled == [{"outcome": "started", "session_id": "sess-9"}]

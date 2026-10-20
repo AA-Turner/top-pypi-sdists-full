@@ -10,7 +10,7 @@ rides only with the ``model`` the same step names:
 * a ``model`` the catalog says the offering does not belong to → DROPPED, loudly
   (a stale pin left behind when the model changed — the model then runs its
   preferred class instead of refusing the run);
-* otherwise → it runs (``resolve_call_profile`` honours it, falling back only
+* otherwise → it runs (``resolve_call_profile`` honors it, falling back only
   inside the same class).
 
 Every node that declares a model field declares :func:`offering_id_field` next

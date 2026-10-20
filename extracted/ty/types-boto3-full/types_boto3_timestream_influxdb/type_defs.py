@@ -558,6 +558,10 @@ class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
     distinctValueCacheDisableFromHistory: NotRequired[bool]
     replicationInterval: NotRequired[DurationTypeDef]
     catalogSyncInterval: NotRequired[DurationTypeDef]
+    upgradePachaTree: NotRequired[bool]
+    walBufferSize: NotRequired[int]
+    snapshotSize: NotRequired[PercentOrAbsoluteLongTypeDef]
+    snapshotDuration: NotRequired[DurationTypeDef]
 
 
 class ListDbBackupsInputPaginateTypeDef(TypedDict):

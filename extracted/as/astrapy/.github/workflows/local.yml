@@ -44,22 +44,24 @@ jobs:
       HEADER_EMBEDDING_API_KEY_VOYAGEAI: ${{ secrets.HEADER_EMBEDDING_API_KEY_VOYAGEAI }}
       DOCKER_COMPOSE_LOCAL_DATA_API: ${{ secrets.DOCKER_COMPOSE_LOCAL_DATA_API }}
       HEADER_RERANKING_API_KEY_NVIDIA: ${{ secrets.HEADER_RERANKING_API_KEY_NVIDIA }}
+      # Contrary to Astra DB, these are hardcoded for HCD since we pin the Data API version in the compose file:
+      FIND_PAGE_SIZE: 50
+      TABLE_FIND_PAGE_SIZE: 50
     runs-on: ubuntu-latest
+
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
+    - name: Set up Python + uv
+      uses: "./.github/actions/uv_setup"
       with:
-        python-version: 3.12
+        python-version: "3.12"
 
     - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pipx install uv
-        make venv
+      run: uv sync --dev
+      shell: bash
 
     - name: Configure AWS credentials from OIDC
       uses: aws-actions/configure-aws-credentials@v4

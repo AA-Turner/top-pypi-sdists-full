@@ -153,6 +153,16 @@ class AgentToolSpec(BaseModel):
             "can be stubbed from history once consumed."
         ),
     )
+    host_data: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Opaque data the HOST attaches to this projected agent (an Orchestra connection: "
+            "Conductor id, the connection's context setting). matrx-ai never interprets it: "
+            "it rides to the child agent run (``Agent.host_data``) and to the host's "
+            "hand-over resolver, and its presence adds the optional ``hand_over`` argument "
+            "(values the caller passes by name)."
+        ),
+    )
     handoff: bool = Field(
         default=False,
         description=(

@@ -40,12 +40,14 @@ from jax._src import source_info_util
 from jax._src import traceback_util
 from jax._src import tree_util as jtu
 from jax._src.ad_util import SymbolicZero
-from jax._src.hijax import call_hi_primitive_p
+from jax._src.hijax import (
+    call_hi_primitive_p, CustomJVPTraced, CustomVJPTraced)
 from jax._src.interpreters import ad
 from jax._src.interpreters import batching
 from jax._src.interpreters import mlir
 from jax._src.interpreters import partial_eval as pe
 from jax._src.partition_spec import PartitionSpec as P
+from jax._src.state.types import AbstractRef
 from jax._src.tree_util import tree_flatten
 from jax._src import flattree as ft
 from jax._src.tree_util import tree_map
@@ -62,7 +64,7 @@ map, unsafe_map = safe_map, map
 zip, unsafe_zip = safe_zip, zip
 
 Bool = bool | Array
-Int = int | Array
+Int = int | np.int32 | Array
 ErrorCategory = type['JaxException']
 Payload = list[np.ndarray | Array]
 PyTreeDef = jtu.PyTreeDef
@@ -189,7 +191,7 @@ class BatchedError(JaxException):
 
 # Error Value
 
-_INACTIVE_CODE = -2
+_INACTIVE_CODE = np.int32(-2)
 
 @jtu.register_pytree_node_class
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -320,7 +322,7 @@ def assert_func(ctx: CheckifyContext, error: Error, pred: Bool,
   code = ctx.next_code()
   effect_type = new_error.get_effect_type()
   new_payload, new_metadata = tree_flatten(new_error)
-  return update_error(error, pred, code, {code: new_metadata}, new_payload, effect_type)
+  return update_error(error, pred, np.int32(code), {code: new_metadata}, new_payload, effect_type)
 
 def update_error(error, pred, code, metadata, payload, effect_type):
   err_of_type = error._pred.get(effect_type, False)
@@ -1003,6 +1005,13 @@ error_checks[ad_checkpoint.remat_p] = remat_error_check
 
 def call_hi_primitive_error_check(ctx: CheckifyContext, error, enabled_errors,
                                   *vals_in, _prim):
+  if (isinstance(_prim, (CustomJVPTraced, CustomVJPTraced))
+      and not _prim.traced.jaxpr.effects
+      and not any(isinstance(core.typeof(x), AbstractRef) for x in vals_in)):
+    out_vals = call_hi_primitive_p.bind(*vals_in, _prim=_prim)
+    error, _ = checkify_jaxpr(ctx, _prim.traced.jaxpr, enabled_errors, error,
+                              *map(lax.stop_gradient, vals_in))
+    return error, out_vals
   if not isinstance(_prim, ad_checkpoint.RematTraced):
     return default_checkify_rule(call_hi_primitive_p, ctx, error, enabled_errors,
                                  *vals_in, _prim=_prim)
@@ -1365,7 +1374,7 @@ def _check(pred, msg, debug, *fmt_args, **fmt_kwargs):
   new_payload, new_metadata = tree_flatten(new_error)
   effect_type = new_error.get_effect_type()
   error = Error({effect_type: jnp.logical_not(pred)},
-                {effect_type: 0},
+                {effect_type: np.int32(0)},
                 {0: new_metadata},
                 {effect_type: new_payload})
   _check_error(error, debug=debug)

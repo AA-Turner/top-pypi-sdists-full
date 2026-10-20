@@ -2,16 +2,16 @@
 
 The person (or a tree budget / deadline) stops a run WHILE the model is generating.
 ``_execute_stoppable`` cancels the call and raises ``ProviderCallStopped`` carrying the
-usage the adapter stamped on the cancelled call. The loop's stop handler must record it
+usage the adapter stamped on the canceled call. The loop's stop handler must record it
 on the request it finalizes — otherwise the stopped run's cost record says $0.
 
 SUT: ``_execute_until_complete_inner`` (send_once → _execute_stoppable → the stop
 handler → finalize). Doubles replace only what the loop CALLS: the provider client
-(generates until cancelled, stamping billed usage as a real adapter does), the DB gates,
+(generates until canceled, stamping billed usage as a real adapter does), the DB gates,
 the mid-loop message queue seam, the turn-boundary inbox, and the durable persistence
 sink (``_finalize_and_persist`` — we read the request it is handed). Breaks named:
 removing ``_record_billed_usage_on_failure(current_request, _stopped, ...)`` from the
-stop handler, or ``_execute_stoppable`` dropping the cancelled call's usage.
+stop handler, or ``_execute_stoppable`` dropping the canceled call's usage.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ class _StubTracker:
 
 
 class _GeneratingClient:
-    """Streams until cancelled; on cancel stamps the tokens already billed, as the
+    """Streams until canceled; on cancel stamps the tokens already billed, as the
     provider adapters do (``stream_with_billed_usage``)."""
 
     def __init__(self, billed: TokenUsage) -> None:

@@ -311,8 +311,14 @@ def test_default_comparative_vocabulary_is_an_enumeration_not_a_scale() -> None:
 async def test_funnel_lane_runs_on_its_mandate_holder(monkeypatch):
     """A contract with no mandate of its own used to run a code-chosen model
     (a retired Opus snapshot) and a code-typed system prompt. RED on that code;
-    GREEN when the comparative lane is held by ``evaluators.comparative_judge``."""
+    GREEN when the comparative lane is held by ``evaluators.comparative_judge``.
+
+    Since 2026-10-07 the Holder AUTHORS the user turn (``held.authored_user()``)
+    and the site only offers values, so the fake Holder carries one; since
+    2026-10-16 the lane runs MEASURED (its cost rides the invocation), so the
+    fake funnel is the measured door."""
     from matrx_ai.evaluators.judge import JudgeAssessment
+    from matrx_ai.graph_nodes._strict_json import MeasuredStrictJson, StrictJsonUsage
     from matrx_ai.mandates import HeldCall
 
     seen: dict = {}
@@ -326,19 +332,24 @@ async def test_funnel_lane_runs_on_its_mandate_holder(monkeypatch):
             system="HOLDER RULES",
             temperature=None,
             max_output_tokens=None,
-            turns=[],
+            turns=[{"role": "user", "content": "HOLDER TURN"}],
             config=None,
             metadata={"mandate_key": key, "mandate_holder": {"agent_id": "a"}},
         )
 
     async def fake_structured(**kwargs):
         seen["call"] = kwargs
-        return kwargs["output_cls"](
-            verdict="better", confidence=0.8, reasoning="Subject is complete.", evidence=["x"]
+        return MeasuredStrictJson(
+            value=kwargs["output_cls"](
+                verdict="better", confidence=0.8, reasoning="Subject is complete.", evidence=["x"]
+            ),
+            usage=StrictJsonUsage(input_tokens=10, output_tokens=5, cost_usd=0.01),
+            duration_ms=7,
+            calls=1,
         )
 
     monkeypatch.setattr("matrx_ai.evaluators.judge.hold_code_call", fake_hold)
-    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", fake_structured)
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic_measured", fake_structured)
 
     judge = Judge(_comparative())
     verdict, invocation = await judge._run_funnel(  # noqa: SLF001
@@ -351,5 +362,7 @@ async def test_funnel_lane_runs_on_its_mandate_holder(monkeypatch):
     assert "'better'" in seen["variables"]["allowed_verdicts"]
     assert seen["call"]["model"] == "holder-model"
     assert seen["call"]["system"] == "HOLDER RULES"
+    assert seen["call"]["user"] == "HOLDER TURN"
     assert seen["call"]["metadata"]["mandate_key"] == "evaluators.comparative_judge"
     assert invocation["mandate"] == "evaluators.comparative_judge"
+    assert invocation["cost_usd"] == 0.01 and invocation["calls"] == 1

@@ -33,6 +33,7 @@ class DiscoverySourceVendor(str, Enum):
     JAMF_PRO = 'jamf_pro'
     GCP_VERTEX = 'gcp_vertex'
     GCP_COMPUTE_ENGINE = 'gcp_compute_engine'
+    AWS_EC2 = 'aws_ec2'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

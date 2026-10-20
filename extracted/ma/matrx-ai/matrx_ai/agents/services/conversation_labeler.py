@@ -34,8 +34,14 @@ from matrx_connect.context.data_types import ConversationLabeledData
 from matrx_utils import vcprint
 
 from matrx_ai.agent_runners.conversation_labeler import (
+    AGENT_DESCRIPTION_MAX_CHARS,
+    AGENT_NAME_MAX_CHARS,
+    LABEL_PROCESS_KEY,
+    USER_PROMPT_MAX_CHARS,
     ConversationLabelResult,
+    _bounded_user_variables,
     _format_messages_for_labeling,
+    _trim_content,
     label_agent_conversation,
     label_chat_conversation,
 )
@@ -236,6 +242,114 @@ async def _update_conversation_labels(
         )
 
 
+#: How long after the inline attempt the durable retry may run. The inline call lands in
+#: seconds; the retry exists for the process that died, not for a slow model.
+LABEL_RETRY_DELAY_SECONDS = 180.0
+
+
+async def _label_row(conversation_id: str) -> Any | None:
+    rows = await cxm.conversation.model.filter(id=conversation_id).limit(1).all()
+    return rows[0] if rows else None
+
+
+def _already_labeled(row: Any) -> bool:
+    """The labeler writes description and keywords with the title; either one present means
+    a label landed (a person renaming the chat changes only the title)."""
+    return bool(str(getattr(row, "description", "") or "").strip()) or bool(
+        list(getattr(row, "keywords", None) or [])
+    )
+
+
+async def _seed_label_retry(conversation_id: str, payload: dict[str, Any]) -> None:
+    """Seed the durable retry BEFORE the inline attempt (host seam; none on a standalone host).
+
+    A process that dies mid-call leaves this row; the host's drain runs it after
+    ``LABEL_RETRY_DELAY_SECONDS`` and skips it when the inline label landed. A failure to seed
+    is said, never fatal — the inline attempt still runs.
+    """
+    from matrx_ai._ext import get_system_process_seed
+
+    seed = get_system_process_seed()
+    if seed is None:
+        return
+    try:
+        await seed(
+            process_key=LABEL_PROCESS_KEY,
+            subject_id=conversation_id,
+            payload=payload,
+            delay_seconds=LABEL_RETRY_DELAY_SECONDS,
+        )
+    except Exception as exc:  # noqa: BLE001 — announced; the inline attempt is unaffected
+        vcprint(
+            f"[ConversationLabeler] Could not seed the durable retry for {conversation_id}: "
+            f"{type(exc).__name__}: {exc}",
+            color="red",
+        )
+
+
+async def _label_and_apply(
+    *,
+    conversation_id: str,
+    user_id: str,
+    conversation_content: str,
+    agent_name: str | None,
+    agent_description: str | None,
+    user_variables: dict[str, Any] | None,
+    user_prompt: str | None,
+    keep_title_unless: str | None = None,
+) -> tuple[str, ConversationLabelResult | None]:
+    """Run the labeler as the platform and write the label. Returns ``(outcome, label)``.
+
+    ``keep_title_unless``: write the title only while the row's title still equals this value
+    (the retry passes the title it saw before the inline attempt, so a person's rename made in
+    between is never overwritten). None = always write it.
+    """
+    recent_titles_str = _format_recent_titles(await _fetch_recent_titles(user_id))
+    if agent_name:
+        result = await label_agent_conversation(
+            conversation_content=conversation_content,
+            recent_titles=recent_titles_str,
+            agent_name=agent_name or "",
+            agent_description=agent_description or "",
+            # Raw name → value: the Holder's turn frames them, the prompt
+            # door renders them; never "- **name**: value" lines in code.
+            user_variables=dict(user_variables or {}),
+            user_prompt=user_prompt or "",
+            conversation_id=conversation_id,
+        )
+    else:
+        result = await label_chat_conversation(
+            conversation_content=conversation_content,
+            recent_titles=recent_titles_str,
+            conversation_id=conversation_id,
+        )
+
+    if not result.success:
+        return f"failed:{result.error or 'labeler returned failure'}", None
+
+    parsed = extract_model(result.output, ConversationLabelResult)
+    if parsed is None:
+        return f"failed:unparseable output {result.output[:120]!r}", None
+
+    update_kwargs: dict[str, Any] = {}
+    if parsed.label:
+        update_kwargs["title"] = parsed.label
+    if parsed.description:
+        update_kwargs["description"] = parsed.description
+    if parsed.keywords:
+        update_kwargs["keywords"] = parsed.keywords
+    if keep_title_unless is not None and "title" in update_kwargs:
+        row = await _label_row(conversation_id)
+        if row is None or str(getattr(row, "title", "") or "") != keep_title_unless:
+            update_kwargs.pop("title")
+    if not update_kwargs:
+        return "skipped:empty_label", None
+
+    await _update_conversation_labels(conversation_id, user_id, update_kwargs)
+    _title_cache.invalidate(user_id)
+    return "succeeded", parsed
+
+
 async def _run_labeling(
     conversation_id: str,
     user_id: str,
@@ -245,7 +359,7 @@ async def _run_labeling(
     user_variables: dict[str, Any] | None = None,
     user_prompt: str | None = None,
 ) -> None:
-    """Execute the labeling pipeline and update the database.
+    """Seed the durable retry, label inline as the platform, and stream the title.
 
     Invoked by the Rendezvous once the conversation row is CONFIRMED committed
     (via the ORM commit signal, or the DB-fallback verify) — so it never races
@@ -260,65 +374,51 @@ async def _run_labeling(
             )
             return
 
-        recent_titles = await _fetch_recent_titles(user_id)
-        recent_titles_str = _format_recent_titles(recent_titles)
-
         conversation_content = _format_messages_for_labeling(messages)
+        row = await _label_row(conversation_id)
+        # The retry's inputs, bounded exactly as the labeler bounds them (an agent definition can
+        # be hundreds of thousands of characters) and JSON-safe for the queue row. The queue keeps
+        # them only until the item settles.
+        import asyncio
+        import json
 
-        is_agent = bool(agent_name)
-
-        if is_agent:
-            result = await label_agent_conversation(
+        retry_payload = json.loads(
+            json.dumps(
+                {
+                    "conversation_id": conversation_id,
+                    "user_id": user_id,
+                    # The subject's own organization (tenancy for the retry's reads and writes).
+                    "organization_id": str(getattr(row, "organization_id", "") or "") if row else "",
+                    "conversation_content": conversation_content,
+                    "agent_name": _trim_content(agent_name or "", AGENT_NAME_MAX_CHARS),
+                    "agent_description": _trim_content(agent_description or "", AGENT_DESCRIPTION_MAX_CHARS),
+                    "user_variables": _bounded_user_variables(dict(user_variables or {})),
+                    "user_prompt": _trim_content(user_prompt or "", USER_PROMPT_MAX_CHARS),
+                    "title_before": str(getattr(row, "title", "") or "") if row else "",
+                },
+                default=str,
+            )
+        )
+        # The retry is seeded beside the inline attempt, never in front of it: the title must not
+        # wait on the queue's round trips (it is due LABEL_RETRY_DELAY_SECONDS later anyway).
+        _seeded, (outcome, parsed) = await asyncio.gather(
+            _seed_label_retry(conversation_id, retry_payload),
+            _label_and_apply(
+                conversation_id=conversation_id,
+                user_id=user_id,
                 conversation_content=conversation_content,
-                recent_titles=recent_titles_str,
-                agent_name=agent_name or "",
-                agent_description=agent_description or "",
-                # Raw name → value: the Holder's turn frames them, the prompt
-                # door renders them; never "- **name**: value" lines in code.
-                user_variables=dict(user_variables or {}),
-                user_prompt=user_prompt or "",
-            )
-        else:
-            result = await label_chat_conversation(
-                conversation_content=conversation_content,
-                recent_titles=recent_titles_str,
-            )
-
-        if not result.success:
-            vcprint(
-                f"[ConversationLabeler] Labeling agent returned failure for {conversation_id}: {result.error}",
-                color="yellow",
-            )
-            return
-
-        parsed = extract_model(result.output, ConversationLabelResult)
+                agent_name=agent_name,
+                agent_description=agent_description,
+                user_variables=user_variables,
+                user_prompt=user_prompt,
+            ),
+        )
         if parsed is None:
             vcprint(
-                f"[ConversationLabeler] Failed to parse labeling response for {conversation_id}. "
-                f"Raw output: {result.output[:200]}",
+                f"[ConversationLabeler] {conversation_id}: {outcome} (the durable retry will try again)",
                 color="yellow",
             )
             return
-
-        update_kwargs: dict[str, Any] = {}
-
-        if parsed.label:
-            update_kwargs["title"] = parsed.label
-        if parsed.description:
-            update_kwargs["description"] = parsed.description
-        if parsed.keywords:
-            update_kwargs["keywords"] = parsed.keywords
-
-        if not update_kwargs:
-            vcprint(
-                f"[ConversationLabeler] No label data to update for {conversation_id}",
-                color="yellow",
-            )
-            return
-
-        await _update_conversation_labels(conversation_id, user_id, update_kwargs)
-
-        _title_cache.invalidate(user_id)
 
         ctx = try_get_app_context()
         if ctx is not None and ctx.emitter is not None:
@@ -344,6 +444,38 @@ async def _run_labeling(
         import traceback
 
         traceback.print_exc()
+
+
+async def run_label_retry(payload: dict[str, Any]) -> str:
+    """The durable retry (``conversation.name`` system process): label the conversation now
+    unless the inline attempt already did. Returns the settlement; raises only when the label
+    call itself failed, so the host retries with backoff."""
+    conversation_id = str(payload.get("conversation_id") or "")
+    user_id = str(payload.get("user_id") or "")
+    if not conversation_id or not user_id:
+        return "skipped:incomplete_payload"
+    row = await _label_row(conversation_id)
+    if row is None or getattr(row, "deleted_at", None) is not None:
+        return "skipped:conversation_gone"
+    title_before = str(payload.get("title_before") or "")
+    if _already_labeled(row) or str(getattr(row, "title", "") or "") != title_before:
+        # Labeled, or retitled since the inline attempt began (by it or by the person).
+        return "skipped:already_labeled"
+    if isinstance(getattr(row, "metadata", None), dict) and row.metadata.get("channel") == "staff":
+        return "skipped:staff_thread"
+    outcome, _parsed = await _label_and_apply(
+        conversation_id=conversation_id,
+        user_id=user_id,
+        conversation_content=str(payload.get("conversation_content") or ""),
+        agent_name=payload.get("agent_name") or None,
+        agent_description=payload.get("agent_description") or None,
+        user_variables=payload.get("user_variables") or None,
+        user_prompt=payload.get("user_prompt") or None,
+        keep_title_unless=title_before,
+    )
+    if outcome.startswith("failed:"):
+        raise RuntimeError(f"conversation labeler retry {outcome}")
+    return outcome
 
 
 # ---------------------------------------------------------------------------

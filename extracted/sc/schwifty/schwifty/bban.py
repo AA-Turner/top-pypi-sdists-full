@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import warnings
 from random import Random
 from typing import Any
+from typing import Self
 
 from rstr import Rstr
 
@@ -9,7 +11,6 @@ from schwifty import common
 from schwifty import exceptions
 from schwifty import registry
 from schwifty._compat import override
-from schwifty._compat import Self
 from schwifty.bic import BIC
 from schwifty.checksum import Algorithm
 from schwifty.checksum import algorithms
@@ -104,7 +105,7 @@ class BBAN(common.Base):
             InvalidAccountCode: If the account code does not meet the national requirements.
         """
         spec = _get_bban_spec(country_code)
-        if not spec.positions:  # pragma: no cover
+        if not spec.has_positions:
             raise exceptions.SchwiftyException(f"BBAN generation for {country_code} not supported")
 
         ranges = spec.positions
@@ -192,7 +193,7 @@ class BBAN(common.Base):
         if banks and use_registry:
             bank = random.choice(banks)
 
-        if not spec.positions:
+        if not spec.has_positions:
             return cls(country_code, rstr.xeger(spec.regex).upper())
 
         ranges = spec.positions
@@ -245,7 +246,11 @@ class BBAN(common.Base):
                 bban = cls.from_components(
                     country_code, **{key.value: value for key, value in components.items()}
                 )
-                bban.validate_national_checksum()
+                # Generating a value is not a validation request: where the national
+                # checksum cannot be verified there is nothing to retry for and nothing to
+                # report, so the check (and the warning it would emit) is left out.
+                if _get_national_checksum_algorithm(bban.country_code, bban.bank) is not None:
+                    bban.validate_national_checksum()
             except exceptions.SchwiftyException:
                 continue
             return bban
@@ -256,9 +261,25 @@ class BBAN(common.Base):
 
         Raises:
             InvalidBBANChecksum: If the country specific BBAN checksum is invalid.
+
+        Note:
+            Where the country's BBAN specification declares national check digits but no
+            algorithm is registered to verify them, the digits are accepted unchecked and a
+            :class:`.NationalChecksumNotVerified` warning is emitted, since a missing
+            algorithm must not reject an otherwise valid BBAN. Turn the warning into an error
+            with ``warnings.simplefilter("error", NationalChecksumNotVerified)`` to fail
+            instead of passing.
         """
         algo = _get_national_checksum_algorithm(self.country_code, self.bank)
         if algo is None:
+            position = self.spec.positions.get(Component.NATIONAL_CHECKSUM_DIGITS) or Range(0, 0)
+            if not position.is_empty:
+                warnings.warn(
+                    f"No national checksum algorithm is registered for {self.country_code}: "
+                    "the national check digits were not verified",
+                    exceptions.NationalChecksumNotVerified,
+                    stacklevel=2,
+                )
             return True
         components = [self._get_component(component) for component in algo.accepts]
         if not algo.validate(components, self.national_checksum_digits):
@@ -275,15 +296,18 @@ class BBAN(common.Base):
         return _get_bban_spec(self.country_code)
 
     @property
+    def _bank_lookup_key(self) -> str:
+        lookup_by = self.spec.bic_lookup_components or [Component.BANK_CODE]
+        return "".join(self._get_component(component) for component in lookup_by)
+
+    @property
     def bic(self) -> BIC | None:
         """BIC or None: The BIC associated to the BBAN's bank-code.
 
         If the bank code is not available in schwifty's registry ``None`` is returned.
         """
-        lookup_by = self.spec.bic_lookup_components or [Component.BANK_CODE]
-        key = "".join(self._get_component(component) for component in lookup_by)
         try:
-            return BIC.from_bank_code(self.country_code, key)
+            return BIC.from_bank_code(self.country_code, self._bank_lookup_key)
         except exceptions.SchwiftyException:
             return None
 
@@ -342,12 +366,14 @@ class BBAN(common.Base):
     @property
     def bank(self) -> Bank | None:
         """Bank | None: The information of bank related to this BBANs bank code."""
-        lookup_by = self.spec.bic_lookup_components or [Component.BANK_CODE]
-        key = "".join(self._get_component(component) for component in lookup_by)
-        bank_entry = registry.get_banks_by_code(self.country_code, key)
-        if not bank_entry:
+        banks = registry.get_banks_by_code(self.country_code, self._bank_lookup_key)
+        if not banks:
             return None
-        return bank_entry[0]
+        # A national registry lists one record per branch, so a bank code can map to
+        # several entries. The registry flags the institution's own record with
+        # ``primary``; prefer it so that ``bank`` and ``bic`` describe the same
+        # institution, the way ``BIC.candidates_from_bank_code`` already does.
+        return max(banks, key=lambda bank: bank.primary)
 
     @property
     def bank_name(self) -> str | None:

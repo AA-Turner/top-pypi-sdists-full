@@ -1,6 +1,6 @@
 """Site-level evidence capture — robots.txt, sitemap locations, host variants.
 
-The SITE-level catalogue checks (`robots_txt_health`, `sitemap_health`,
+The SITE-level catalog checks (`robots_txt_health`, `sitemap_health`,
 `sitemap_coverage`, `host_protocol_consistency`) score facts that belong to the
 site as a whole, not to any page. Three of those facts were **captured nowhere**
 before 2026-08-09:
@@ -30,7 +30,7 @@ facts and are stored differently: ``http_status`` set means we got an answer,
 ``fetch_error`` set means we never did. A check may only score the first kind.
 
 **Per-PAGE probes (2026-08-13).** The four root variants answer for the site;
-they cannot answer for a path. Two catalogue rows needed exactly that and were
+they cannot answer for a path. Two catalog rows needed exactly that and were
 silently under-measuring:
 
 - ``https_enforcement`` (weight 3.0) scored its redirect bands off the ORIGIN
@@ -163,7 +163,7 @@ class SlashPairProbe:
             return False
         # Landing on the SAME url is consolidation working, whatever the hops.
         # The comparison is exact: `/a` and `/a/` are different addresses, and
-        # normalising the slash away here would erase the very fact measured.
+        # normalizing the slash away here would erase the very fact measured.
         bare_final = self.bare.final_url or self.bare.url
         slashed_final = self.slashed.final_url or self.slashed.url
         return bare_final != slashed_final
@@ -626,7 +626,7 @@ def http_origin_probe(probe: SiteProbe | None, root_url: str) -> dict[str, Any] 
 
     The probe already fetches all four host variants for
     `host_protocol_consistency`; the http:// one is exactly the evidence the
-    per-page HTTPS check was missing (its catalogue row's declared capture gap).
+    per-page HTTPS check was missing (its catalog row's declared capture gap).
     It is an ORIGIN fact, not a per-URL one — a server that answers a deep path
     over HTTP while redirecting its root is possible — so the returned dict says
     so (`scope: "origin"`), and the check's wording never claims more.
@@ -663,7 +663,7 @@ def page_http_variant_probe(probe: SiteProbe | None, page_url: str) -> dict[str,
     the origin probe, and every page of such a site used to score `pass`.
 
     Returns None when this page was not in the probe's sample, which sends the
-    caller to `http_origin_probe` — weaker evidence, honestly labelled by its
+    caller to `http_origin_probe` — weaker evidence, honestly labeled by its
     own `scope`, and still better than nothing.
     """
 

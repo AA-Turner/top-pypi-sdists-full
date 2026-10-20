@@ -105,34 +105,40 @@ def test_anthropic_system_channel_is_byte_identical_between_turns() -> None:
         assert "live_date" not in block["text"]
 
 
-def test_anthropic_turn_one_cached_prefix_is_a_prefix_of_turn_two() -> None:
-    """What turn one wrote to the cache is exactly what turn two sends first."""
+def test_anthropic_turn_two_cached_prefix_is_a_prefix_of_turn_three() -> None:
+    """What a turn wrote to the cache is exactly what the next turn sends first.
+
+    THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): the per-turn block rides
+    BEFORE her words, so the rolling breakpoint sits on the block before it (the previous
+    answer) — the cached prefix never contains a per-turn byte."""
     model = "claude-sonnet-4-5"
-    turn_one = _anthropic(_turn([_msg("user", "first question")], "09:00", model))
     history = [_msg("user", "first question"), _msg("assistant", "first answer")]
-    turn_two = _anthropic(_turn([*history, _msg("user", "second question")], "09:05", model))
+    turn_two = _anthropic(_turn([*history, _msg("user", "second question")], "09:00", model))
+    history3 = [*history, _msg("user", "second question"), _msg("assistant", "second answer")]
+    turn_three = _anthropic(_turn([*history3, _msg("user", "third question")], "09:05", model))
 
-    cached = _cached_prefix(turn_one)
-    assert cached, "turn one carries no message breakpoint at all"
-    assert _all_blocks(turn_two)[: len(cached)] == cached
+    cached = _cached_prefix(turn_two)
+    assert cached, "turn two carries no message breakpoint at all"
+    assert "<turn_context" not in str(cached)
+    assert _all_blocks(turn_three)[: len(cached)] == cached
 
 
-def test_anthropic_turn_context_is_after_the_breakpoint_and_never_inside_her_words() -> None:
+def test_anthropic_turn_context_is_before_her_words_and_never_inside_them() -> None:
     model = "claude-sonnet-4-5"
-    request = _anthropic(_turn([_msg("user", "HER WORDS")], "09:00", model))
+    history = [_msg("user", "q1"), _msg("assistant", "a1")]
+    request = _anthropic(_turn([*history, _msg("user", "HER WORDS")], "09:00", model))
     last = request["messages"][-1]
     assert last["role"] == "user"
-    blocks = last["content"]
-    # Her own block is exactly what she typed, and carries the breakpoint.
-    assert blocks[0]["text"] == "HER WORDS"
-    assert "cache_control" in blocks[0]
-    # The platform block is SEPARATE, after the breakpoint, uncached.
-    assert blocks[-1]["text"].startswith("<turn_context")
-    assert "live_date" in blocks[-1]["text"]
-    assert "cache_control" not in blocks[-1]
+    texts = [b["text"] for b in last["content"]]
+    # Her words: their own block, exactly what she typed, LAST.
+    assert texts[-1] == "HER WORDS"
+    # The platform block is its own block before hers, uncached; the breakpoint is on a1.
+    assert len(texts) == 2 and texts[0].startswith("<turn_context") and "live_date" in texts[0]
+    assert all("cache_control" not in b for b in last["content"])
+    assert "cache_control" in request["messages"][-2]["content"][-1]
 
 
-def test_openai_turn_context_is_a_trailing_developer_item() -> None:
+def test_openai_turn_context_is_a_user_item_before_her_words() -> None:
     model = "gpt-5"
     config = _turn([_msg("user", "HER WORDS")], "09:00", model)
     profile = make_profile(model_name=model, wire_format="openai")
@@ -140,8 +146,42 @@ def test_openai_turn_context_is_a_trailing_developer_item() -> None:
     items = request["input"]
     assert items[0]["role"] == "developer"
     assert "<turn_context" not in items[0]["content"][0]["text"]
-    assert items[-1]["role"] == "developer"
-    assert items[-1]["content"][0]["text"].startswith("<turn_context")
+    assert items[-1]["content"][-1]["text"] == "HER WORDS"
+    assert items[-2]["content"][0]["text"].startswith("<turn_context")
+
+
+CHAT_COMPLETIONS = [
+    ("matrx_ai.providers.groq.translator", "GroqTranslator", "groq_chat"),
+    ("matrx_ai.providers.cerebras.translator", "CerebrasTranslator", "cerebras_chat"),
+    ("matrx_ai.providers.together.translator", "TogetherTranslator", "together_chat"),
+    ("matrx_ai.providers.generic_openai.translator", "GenericOpenAITranslator", "openai_chat"),
+]
+
+
+@pytest.mark.parametrize(("module", "cls", "wire_format"), CHAT_COMPLETIONS)
+def test_chat_completions_turn_one_is_an_exact_prefix_of_turn_two(module: str, cls: str, wire_format: str) -> None:
+    """Groq, Cerebras, Together and Moonshot cache the EXACT prefix of the request,
+    system message included (owner ruling L29, 2026-10-18). Everything turn one sent
+    before its own per-turn host turn is sent unchanged, first, by turn two — so the
+    system message never carries the clock."""
+    import importlib
+
+    translator = getattr(importlib.import_module(module), cls)()
+    profile = make_profile(model_name="m", wire_format=wire_format)
+    turn_one = translator.build_request(_turn([_msg("user", "first question")], "09:00", "m"), profile)
+    history = [_msg("user", "first question"), _msg("assistant", "first answer")]
+    turn_two = translator.build_request(_turn([*history, _msg("user", "second question")], "09:05", "m"), profile)
+
+    one, two = turn_one["messages"], turn_two["messages"]
+    assert one[0]["role"] == "system" and "<turn_context" not in str(one[0])
+    # THE REQUEST ENDS WITH WHAT THE PERSON TYPED (2026-10-19): the block is its own turn
+    # just BEFORE her words; everything before it is resent unchanged, first, next turn.
+    assert one[-2]["role"] == "user" and "It is now 09:00." in str(one[-2]), "the block precedes her words"
+    assert one[-1] == {"role": "user", "content": "first question"} or one[-1]["content"] == [
+        {"type": "text", "text": "first question"}
+    ], one[-1]
+    assert two[: len(one) - 2] == one[:-2], f"{cls}: turn two does not resend turn one's prefix unchanged"
+    assert "It is now 09:05." in str(two[-2]) and "second question" in str(two[-1])
 
 
 # ── 2. The org catalog never flips off a frozen prompt ─────────────────────

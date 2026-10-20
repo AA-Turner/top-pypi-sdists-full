@@ -17,6 +17,7 @@ typedef struct
 {
   PyObject_HEAD dp_despreader_state_t *handle;
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
+  PyObject     *_jm_retain_set_telemetry_tlm; /* keeps tlm's owner alive */
 } DespreaderObject;
 
 static void
@@ -25,6 +26,7 @@ DespreaderObj_dealloc (DespreaderObject *self)
   if (self->handle)
     dp_despreader_destroy (self->handle);
   jm_inflight_free (&self->_jm_inflight);
+  Py_XDECREF (self->_jm_retain_set_telemetry_tlm);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -510,6 +512,12 @@ DespreaderObj_set_telemetry (DespreaderObject *self, PyObject *args,
                     (long long)_rc);
       return NULL;
     }
+  /* retain: the kernel keeps `tlm`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (tlm_obj != Py_None)
+    Py_INCREF (tlm_obj);
+  Py_XSETREF (self->_jm_retain_set_telemetry_tlm,
+              tlm_obj != Py_None ? tlm_obj : NULL);
   Py_RETURN_NONE;
 }
 
@@ -785,7 +793,16 @@ Despreader_setprop_bn_carrier (DespreaderObject *self, PyObject *value,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_despreader_set_bn_carrier (self->handle, v);
+  int _rc = dp_despreader_set_bn_carrier (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Despreader: bn_carrier is outside the loop filter's "
+                    "domain (need bn_carrier >= 0, finite, whose loop gains "
+                    "come out finite)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -810,7 +827,16 @@ Despreader_setprop_bn_code (DespreaderObject *self, PyObject *value,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_despreader_set_bn_code (self->handle, v);
+  int _rc = dp_despreader_set_bn_code (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Despreader: bn_code is outside the loop filter's domain "
+                    "(need bn_code >= 0, finite, whose loop gains come out "
+                    "finite)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 
@@ -841,9 +867,31 @@ static PyGetSetDef Despreader_getset[] = {
   { "bit_phase", (getter)Despreader_getprop_bit_phase, NULL,
     "detected bit boundary (argmax flip_hist).\n", NULL },
   { "bn_carrier", (getter)Despreader_getprop_bn_carrier,
-    (setter)Despreader_setprop_bn_carrier, "Bn carrier.\n", NULL },
+    (setter)Despreader_setprop_bn_carrier,
+    "Bn carrier.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_despreader_set_bn_carrier`` refuses the\n"
+    "    value by returning non-zero. The exception message is ``Despreader:\n"
+    "    bn_carrier is outside the loop filter's domain (need bn_carrier >=\n"
+    "    0, finite, whose loop gains come out finite)``, with the return\n"
+    "    code appended.\n",
+    NULL },
   { "bn_code", (getter)Despreader_getprop_bn_code,
-    (setter)Despreader_setprop_bn_code, "Bn code.\n", NULL },
+    (setter)Despreader_setprop_bn_code,
+    "Bn code.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_despreader_set_bn_code`` refuses the value\n"
+    "    by returning non-zero. The exception message is ``Despreader:\n"
+    "    bn_code is outside the loop filter's domain (need bn_code >= 0,\n"
+    "    finite, whose loop gains come out finite)``, with the return code\n"
+    "    appended.\n",
+    NULL },
   { NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -1024,15 +1072,17 @@ static PyMethodDef DespreaderObj_methods[] = {
     "Attach (or detach) a telemetry context across the despreader. Pure\n"
     "forwarder — the despreader registers no probes of its own: the carrier\n"
     "loop registers \"<prefix>.car.lock\" / \".e\" / \".freq\" / \".locked\" "
-    "and the\n"
-    "code loop registers \"<prefix>.code.e\" / \".rate\" / \".lock\" / "
-    "\".locked\"\n"
-    "(the \".locked\" pair are the loops' verify-counted lockdet decisions,\n"
-    "0/1) — eight probes, all thinned by decim and emitted once per code\n"
-    "period (the despreader flushes both loops at its per-period update).\n"
-    "Passing NULL detaches both loops. Setup path, never hot; the context is\n"
-    "borrowed and must outlive the attachment (SPSC rules in\n"
-    "dp_tlm/dp_tlm_core.h).\n"
+    "/\n"
+    "\".nco\" and the code loop registers \"<prefix>.code.e\" / \".rate\" /\n"
+    "\".lock\" / \".locked\" / \".nco\" (the \".locked\" pair are the loops'\n"
+    "verify-counted lockdet decisions, 0/1; \".freq\" / \".rate\" the "
+    "filters'\n"
+    "integrators and \".nco\" their complete commands, see\n"
+    "dp_costas_set_telemetry() and dp_dll_set_telemetry()) — ten probes, all\n"
+    "thinned by decim and emitted once per code period (the despreader\n"
+    "flushes both loops at its per-period update). Passing NULL detaches\n"
+    "both loops. Setup path, never hot; the context is borrowed and must\n"
+    "outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -1059,15 +1109,17 @@ static PyMethodDef DespreaderObj_methods[] = {
     ">>> ch = Despreader(code=code, sps=4)\n"
     ">>> ch.set_telemetry(tlm, \"ch0\")\n"
     ">>> names = sorted(tlm.probe_names)\n"
-    ">>> names[:4]\n"
-    "['ch0.car.e', 'ch0.car.freq', 'ch0.car.lock', 'ch0.car.locked']\n"
-    ">>> names[4:]\n"
-    "['ch0.code.e', 'ch0.code.lock', 'ch0.code.locked', 'ch0.code.rate']\n"
+    ">>> names[:5]\n"
+    "['ch0.car.e', 'ch0.car.freq', 'ch0.car.lock', 'ch0.car.locked', "
+    "'ch0.car.nco']\n"
+    ">>> names[5:]\n"
+    "['ch0.code.e', 'ch0.code.lock', 'ch0.code.locked', 'ch0.code.nco', "
+    "'ch0.code.rate']\n"
     ">>> chips = 1.0 - 2.0 * (np.arange(31) % 2)\n"
     ">>> x = np.tile(np.repeat(chips, 4), 40).astype(np.complex64)\n"
     ">>> _ = ch.steps(x)\n"
-    ">>> recs = tlm.read()   # eight records per code period\n"
-    ">>> len(recs) > 0 and len(recs) % 8 == 0\n"
+    ">>> recs = tlm.read()   # ten records per code period\n"
+    ">>> len(recs) > 0 and len(recs) % 10 == 0\n"
     "True\n" },
   { "configure_carrier_lock",
     (PyCFunction)(void *)DespreaderObj_configure_carrier_lock,

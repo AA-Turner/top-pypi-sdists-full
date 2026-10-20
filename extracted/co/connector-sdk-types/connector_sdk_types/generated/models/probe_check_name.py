@@ -29,6 +29,7 @@ class ProbeCheckName(str, Enum):
     ACCOUNTS = 'accounts'
     ENTITLEMENTS = 'entitlements'
     ENTITLEMENT_ASSOCIATIONS = 'entitlement_associations'
+    CAPABILITY_CONFIG = 'capability_config'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

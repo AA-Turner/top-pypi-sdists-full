@@ -18,6 +18,11 @@ from typing import Any
 import httpx
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
+#: The OpenAI organization API root -- admin usage and COST REPORTS
+#: (``/v1/organization/costs``), never a model call. Same reason as the Anthropic
+#: sibling (``ADMIN_API_BASE_URL``): the host is spelled once, here, in the sanctioned
+#: provider layer, and a bare origin spends nothing.
+ADMIN_API_BASE_URL = "https://api.openai.com"
 
 
 async def open_broker_stream(

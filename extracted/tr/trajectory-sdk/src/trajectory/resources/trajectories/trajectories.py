@@ -46,7 +46,7 @@ class Trajectories(APIResource):
   def create(
     self,
     *,
-    idempotency_key: str | None | Omit = omit,
+    idempotency_key: str | Omit = omit,
     body: TrajectoriesCreateParams | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
@@ -56,11 +56,9 @@ class Trajectories(APIResource):
     """Create a trajectory, or return the existing trajectory for a managed run.
 
     Args:
-      idempotency_key: Required with `Trajectory-API-Version: tmp-contract`, which rejects a missing,
-        blank or over-long key, including an SDK call that passes `idempotency_key=None`.
-        Optional for legacy callers, whose key the API generates. Reuse this key when
-        retrying a submission; the SDK generates one per call and reuses it across
-        automatic retries.
+      idempotency_key: Required. A missing, blank or over-long key is rejected, including an SDK call
+        that passes `idempotency_key=None`. Reuse this key when retrying a submission; the
+        SDK generates one per call and reuses it across automatic retries.
 
       extra_headers: Send extra headers
 
@@ -152,8 +150,8 @@ class Trajectories(APIResource):
     self,
     trajectory_id: str,
     *,
-    include_steps: bool | None | Omit = omit,
-    include_reward_components: bool | None | Omit = omit,
+    include_steps: bool | Omit = omit,
+    include_reward_components: bool | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -162,11 +160,9 @@ class Trajectories(APIResource):
     """Detail
 
     Args:
-      include_steps: Include every step; listTrajectorySteps pages them. Defaults to false with
-        Trajectory-API-Version: tmp-contract and to true otherwise.
+      include_steps: Include every step; listTrajectorySteps pages them.
 
-      include_reward_components: Include the reward components logged with log_reward. Defaults to false with
-        Trajectory-API-Version: tmp-contract and to true otherwise.
+      include_reward_components: Include the reward components logged with log_reward.
 
       extra_headers: Send extra headers
 
@@ -479,16 +475,19 @@ class Trajectories(APIResource):
           no longer fit the model's context.
         - MISSING_SUBMIT: the task requires a submission and the agent stopped without
           one.
-        - LIMIT_REACHED, MAX_STEPS, STALE: set by the platform. A LIMIT_REACHED or
-          MAX_STEPS it
-          already set is kept.
+        - MAX_STEPS: the harness or platform stopped the agent at its turn or step limit.
+        - LIMIT_REACHED, STALE: set by the platform. It preserves a previously recorded
+          LIMIT_REACHED or MAX_STEPS.
         - GOLDEN_PATCH: reserved; do not send.
 
-        Training uses ENV_DONE, LIMIT_REACHED and MAX_STEPS, plus TRUNCATION when the run
-        sets
-        train_on_truncation. LIMIT_REACHED, MAX_STEPS and TRUNCATION count positive
-        rewards as 0.
-        ERROR counts toward the run's failure limit and as failed in evaluation.
+        Training admits ENV_DONE, LIMIT_REACHED and MAX_STEPS; TRUNCATION requires
+        train_on_truncation. In training and evaluation, LIMIT_REACHED, MAX_STEPS and
+        TRUNCATION
+        use 0 if ungraded and cap positive rewards at 0.
+        train_on_error admits ERROR; train_on_timeout admits TIMEOUT and SANDBOX_TIMEOUT.
+        These enabled failures use the recorded reward, or 0 when none is recorded.
+        An ungraded ENV_DONE is excluded. Admitted samples can still be
+        rejected by other training filters. ERROR is a failed evaluation attempt.
 
       extra_headers: Send extra headers
 

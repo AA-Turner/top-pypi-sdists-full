@@ -2,14 +2,14 @@
 the canonical SerpAPI location string.
 
 SerpAPI's ``location`` parameter is not fuzzy: it accepts only names from its
-own catalogue, in the exact canonical form (comma separated, **no space after
+own catalog, in the exact canonical form (comma separated, **no space after
 the commas**) — ``Newport Beach,California,United States``. Anything else is a
 hard HTTP 400 on EVERY search, forever, so an unvalidated free-text location
 stored on a rank target is a permanently dead target that silently records zero
 observations.
 
 This module resolves the name ONCE, at target-creation time, against the free
-``locations.json`` catalogue endpoint (no API key, no search credit), and
+``locations.json`` catalog endpoint (no API key, no search credit), and
 caches the answer. It must never be called from a scheduled check's hot path.
 
 Resolution is deliberately generous — over-tightening is a defect. A name that
@@ -31,7 +31,7 @@ from pydantic import BaseModel, ConfigDict
 
 LOCATIONS_ENDPOINT = "https://serpapi.com/locations.json"
 
-# CAPS — catalogue lookup behaviour. Not env vars: these are product choices.
+# CAPS — catalog lookup behavior. Not env vars: these are product choices.
 CANDIDATE_LIMIT = 25
 SUGGESTION_LIMIT = 5
 POSITIVE_CACHE_TTL_SECONDS = 24 * 60 * 60
@@ -126,7 +126,7 @@ class SerpApiLocation(BaseModel):
 
 
 class SerpApiLocationUnresolved(ValueError):
-    """The catalogue answered and the name is not usable as-is.
+    """The catalog answered and the name is not usable as-is.
 
     A ``ValueError`` on purpose: every caller already surfaces those as a 422
     with the message, and the message carries the canonical suggestions.
@@ -145,7 +145,7 @@ class SerpApiLocationUnresolved(ValueError):
             )
         else:
             message = (
-                f'location "{query}" is not a SerpAPI location and the catalogue '
+                f'location "{query}" is not a SerpAPI location and the catalog '
                 "offered no close match — search https://serpapi.com/locations-api "
                 "for the canonical name"
             )
@@ -153,7 +153,7 @@ class SerpApiLocationUnresolved(ValueError):
 
 
 class SerpApiLocationCatalogUnavailable(RuntimeError):
-    """The catalogue could not be reached. NEVER a refusal on its own — a
+    """The catalog could not be reached. NEVER a refusal on its own — a
     creation must not fail because a validation endpoint is down."""
 
 
@@ -171,21 +171,21 @@ class HttpxSerpApiLocationTransport:
                 response = await client.get(LOCATIONS_ENDPOINT, params={"q": query, "limit": limit})
         except httpx.HTTPError as exc:
             raise SerpApiLocationCatalogUnavailable(
-                f"SerpAPI location catalogue unreachable: {type(exc).__name__}"
+                f"SerpAPI location catalog unreachable: {type(exc).__name__}"
             ) from exc
         if response.status_code >= 400:
             raise SerpApiLocationCatalogUnavailable(
-                f"SerpAPI location catalogue returned HTTP {response.status_code}"
+                f"SerpAPI location catalog returned HTTP {response.status_code}"
             )
         try:
             payload = response.json()
         except ValueError as exc:
             raise SerpApiLocationCatalogUnavailable(
-                "SerpAPI location catalogue returned non-JSON"
+                "SerpAPI location catalog returned non-JSON"
             ) from exc
         if not isinstance(payload, list):
             raise SerpApiLocationCatalogUnavailable(
-                "SerpAPI location catalogue must return a JSON array"
+                "SerpAPI location catalog must return a JSON array"
             )
         return [item for item in payload if isinstance(item, dict)]
 
@@ -235,9 +235,9 @@ class SerpApiLocationResolver:
     async def resolve(self, location: str) -> str:
         """Return the canonical SerpAPI location name for ``location``.
 
-        Raises ``SerpApiLocationUnresolved`` when the catalogue answered and
+        Raises ``SerpApiLocationUnresolved`` when the catalog answered and
         the name is unknown or ambiguous, and
-        ``SerpApiLocationCatalogUnavailable`` when the catalogue itself could
+        ``SerpApiLocationCatalogUnavailable`` when the catalog itself could
         not be consulted.
         """
         query = normalize_location_query(location)

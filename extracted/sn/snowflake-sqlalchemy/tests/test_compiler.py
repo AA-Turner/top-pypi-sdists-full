@@ -5,12 +5,33 @@
 from datetime import datetime
 
 import pytest
-from sqlalchemy import DateTime, Integer, String, and_, func, insert, select
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    Sequence,
+    String,
+    Table,
+    and_,
+    func,
+    insert,
+    select,
+)
 from sqlalchemy.schema import DropColumnComment, DropTableComment
 from sqlalchemy.sql import column, quoted_name, table
 from sqlalchemy.testing.assertions import AssertsCompiledSQL
 
-from snowflake.sqlalchemy import MergeInto, snowdialect
+from snowflake.sqlalchemy import (
+    ARRAY,
+    MAP,
+    OBJECT,
+    VARIANT,
+    InsertMulti,
+    MergeInto,
+    snowdialect,
+)
 from src.snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 
 table1 = table(
@@ -42,6 +63,34 @@ class TestSnowflakeCompiler(AssertsCompiledSQL):
         self.assert_compile(
             statement,
             "SELECT CURRENT_TIMESTAMP AS now_1",
+            dialect="snowflake",
+        )
+
+    def test_collate_order_by(self):
+        # Snowflake requires the collation spec as a single-quoted string
+        # literal, not a double-quoted identifier (SNOW-629086).
+        t = table("some_table", column("id", Integer), column("data", String))
+        statement = select(t.c.data).order_by(t.c.data.collate("en-ci").asc())
+        self.assert_compile(
+            statement,
+            "SELECT some_table.data FROM some_table "
+            "ORDER BY some_table.data COLLATE 'en-ci' ASC",
+            dialect="snowflake",
+        )
+
+    def test_collation_in_column_type(self):
+        # Column-level collation renders as COLLATE '<spec>' in DDL.
+        from sqlalchemy.schema import CreateTable
+
+        metadata = MetaData()
+        t = Table(
+            "collated_table",
+            metadata,
+            Column("data", String(100, collation="en-ci")),
+        )
+        self.assert_compile(
+            CreateTable(t),
+            "CREATE TABLE collated_table (data VARCHAR(100) COLLATE 'en-ci')",
             dialect="snowflake",
         )
 
@@ -169,6 +218,13 @@ class TestSnowflakeCompiler(AssertsCompiledSQL):
             "ALTER TABLE test.table2 ALTER COLUMN id UNSET COMMENT",
         )
 
+    def test_offset_without_limit(self):
+        self.assert_compile(
+            select(table1.c.id).offset(10),
+            "SELECT table1.id FROM table1 LIMIT NULL OFFSET %(param_1)s",
+            dialect="snowflake",
+        )
+
 
 def test_quoted_name_label(engine_testaccount):
     test_cases = [
@@ -207,87 +263,49 @@ def test_outer_lateral_join():
     )
 
 
-@pytest.mark.feature_v20
-def test_division_operator_with_force_div_is_floordiv_false():
-    col1 = column("col1", Integer)
-    col2 = column("col2", Integer)
-    stmt = col1 / col2
-    assert (
-        str(stmt.compile(dialect=SnowflakeDialect(force_div_is_floordiv=False)))
-        == "col1 / col2"
-    )
-
-
-@pytest.mark.feature_v20
-def test_division_operator_with_denominator_expr_force_div_is_floordiv_false():
-    col1 = column("col1", Integer)
-    col2 = column("col2", Integer)
-    stmt = col1 / func.sqrt(col2)
-    assert (
-        str(stmt.compile(dialect=SnowflakeDialect(force_div_is_floordiv=False)))
-        == "col1 / sqrt(col2)"
-    )
-
-
-@pytest.mark.feature_v20
-def test_division_operator_with_force_div_is_floordiv_default_true():
-    # force_div_is_floordiv=True is the 1.x default. / always performs true
-    # division regardless of the flag; the flag has no SQL effect and only
-    # gates a deprecation warning (GH #756).
+def test_division_operator_true_division():
+    # / always performs true division (Snowflake's native behaviour).
     col1 = column("col1", Integer)
     col2 = column("col2", Integer)
     stmt = col1 / col2
     assert str(stmt.compile(dialect=SnowflakeDialect())) == "col1 / col2"
 
 
-@pytest.mark.feature_v20
-def test_division_operator_with_denominator_expr_force_div_is_floordiv_default_true():
+def test_division_operator_with_denominator_expr():
     col1 = column("col1", Integer)
     col2 = column("col2", Integer)
     stmt = col1 / func.sqrt(col2)
     assert str(stmt.compile(dialect=SnowflakeDialect())) == "col1 / sqrt(col2)"
 
 
-@pytest.mark.feature_v20
-def test_floor_division_operator_force_div_is_floordiv_false():
-    col1 = column("col1", Integer)
-    col2 = column("col2", Integer)
-    stmt = col1 // col2
-    assert (
-        str(stmt.compile(dialect=SnowflakeDialect(force_div_is_floordiv=False)))
-        == "FLOOR(col1 / col2)"
-    )
-
-
-@pytest.mark.feature_v20
-def test_floor_division_operator_with_denominator_expr_force_div_is_floordiv_false():
-    col1 = column("col1", Integer)
-    col2 = column("col2", Integer)
-    stmt = col1 // func.sqrt(col2)
-    assert (
-        str(stmt.compile(dialect=SnowflakeDialect(force_div_is_floordiv=False)))
-        == "FLOOR(col1 / sqrt(col2))"
-    )
-
-
-@pytest.mark.feature_v20
-def test_floor_division_operator_force_div_is_floordiv_default_true():
-    # // must always emit FLOOR(left / right) regardless of force_div_is_floordiv.
-    # With the default True, the SA base previously skipped FLOOR for
-    # Integer/Integer pairs, producing plain division instead (GH #756).
+def test_floor_division_operator_integer():
+    # // always emits FLOOR(left / right), even for Integer/Integer pairs
+    # where SQLAlchemy's base would skip FLOOR if div_is_floordiv=True.
+    # Snowflake's div_is_floordiv is always False, so this is correct.
     col1 = column("col1", Integer)
     col2 = column("col2", Integer)
     stmt = col1 // col2
     assert str(stmt.compile(dialect=SnowflakeDialect())) == "FLOOR(col1 / col2)"
 
 
-@pytest.mark.feature_v20
-def test_floor_division_operator_with_denominator_expr_force_div_is_floordiv_default_true():
+def test_floor_division_operator_with_denominator_expr():
     col1 = column("col1", Integer)
     col2 = column("col2", Integer)
     stmt = col1 // func.sqrt(col2)
     res = stmt.compile(dialect=SnowflakeDialect())
     assert str(res) == "FLOOR(col1 / sqrt(col2))"
+
+
+def test_force_div_is_floordiv_raises_argument_error():
+    # force_div_is_floordiv was removed; passing it must raise ArgumentError.
+    import pytest
+    from sqlalchemy.exc import ArgumentError
+
+    with pytest.raises(ArgumentError, match="(?i)force_div_is_floordiv"):
+        SnowflakeDialect(force_div_is_floordiv=True)
+
+    with pytest.raises(ArgumentError, match="(?i)force_div_is_floordiv"):
+        SnowflakeDialect(force_div_is_floordiv=False)
 
 
 class TestMergeIntoBindParameters:
@@ -363,3 +381,407 @@ class TestMergeIntoBindParameters:
         compiled = self._compile(merge)
         assert "ts_1" in compiled.params
         assert compiled.params["ts_1"] == datetime(2024, 6, 15)
+
+
+class TestInsertMulti(AssertsCompiledSQL):
+    """Test InsertMulti custom command for multi-table INSERT ALL / INSERT FIRST."""
+
+    __dialect__ = "snowflake"
+
+    target1 = table(
+        "target1",
+        column("id", Integer),
+        column("name", String),
+        column("value", Integer),
+    )
+    target2 = table(
+        "target2",
+        column("id", Integer),
+        column("name", String),
+        column("value", Integer),
+        schema="test",
+    )
+
+    def test_insert_all_unconditional_single_table(self):
+        source = select(table1)
+        insert_all = InsertMulti(source).into(
+            self.target1, columns=["id", "name", "value"]
+        )
+
+        dialect = snowdialect.dialect()
+        compiled = insert_all.compile(dialect=dialect)
+        assert "INSERT ALL" in compiled.string
+        assert "INTO target1 (id, name, value)" in compiled.string
+
+    def test_insert_all_unconditional_two_tables(self):
+        source = select(table1)
+        insert_all = (
+            InsertMulti(source)
+            .into(self.target1, columns=["id", "name", "value"])
+            .into(self.target2, columns=["id", "name", "value"])
+        )
+
+        dialect = snowdialect.dialect()
+        compiled = insert_all.compile(dialect=dialect)
+        assert "INSERT ALL" in compiled.string
+        assert "INTO target1 (id, name, value)" in compiled.string
+        assert "INTO test.target2 (id, name, value)" in compiled.string
+
+
+def test_unconditional_insert_all(sql_compiler):
+    meta = MetaData()
+    users1 = Table(
+        "users1",
+        meta,
+        Column("id", Integer, Sequence("user_id_seq"), primary_key=True),
+        Column("name", String),
+        Column("fullname", String),
+        Column("created_at", DateTime),
+    )
+    users2 = Table(
+        "users2",
+        meta,
+        Column("id", Integer, Sequence("user_id_seq2"), primary_key=True),
+        Column("name", String),
+        Column("full/name", String),
+    )
+    onboarding_users = Table(
+        "onboarding_users",
+        meta,
+        Column("id", Integer, Sequence("new_user_id_seq"), primary_key=True),
+        Column("name", String),
+        Column("fullname", String),
+        Column("delete", Boolean),
+    )
+    insert_all = (
+        InsertMulti(
+            select(
+                onboarding_users.c.id,
+                onboarding_users.c.name,
+                onboarding_users.c.fullname,
+            )
+        )
+        .into(users1)
+        .into(users2)
+    )
+    assert (
+        sql_compiler(insert_all) == "INSERT ALL INTO users1 INTO users2 "
+        "SELECT onboarding_users.id AS id, onboarding_users.name AS name, "
+        "onboarding_users.fullname AS fullname "
+        "FROM onboarding_users"
+    )
+
+    stmt = select(
+        onboarding_users.c.id,
+        onboarding_users.c.name.label("name_label"),
+        onboarding_users.c.fullname,
+        onboarding_users.c.delete,
+    )
+    insert_all = (
+        InsertMulti(stmt)
+        .into(
+            users1,
+            ["id", "name", users1.c.fullname, users1.c.created_at],
+            [
+                "id",
+                "name_label",
+                stmt.selected_columns.fullname,
+                func.now(),
+            ],
+        )
+        .into(
+            users2,
+            [users2.c.name, users2.c["full/name"]],
+            [stmt.selected_columns.fullname, stmt.selected_columns.name_label],
+        )
+    )
+    assert (
+        sql_compiler(insert_all) == "INSERT ALL "
+        "INTO users1 (id, name, fullname, created_at) VALUES (id, name_label, fullname, CURRENT_TIMESTAMP) "
+        'INTO users2 (name, "full/name") VALUES (fullname, name_label) '
+        "SELECT onboarding_users.id AS id, onboarding_users.name AS name_label, onboarding_users.fullname AS fullname, "
+        'onboarding_users."delete" AS "delete" FROM onboarding_users'
+    )
+
+
+def test_conditional_insert_multi(sql_compiler):
+    meta = MetaData()
+    users1 = Table(
+        "users1",
+        meta,
+        Column("id", Integer, Sequence("user_id_seq"), primary_key=True),
+        Column("name", String),
+        Column("fullname", String),
+    )
+    users2 = Table(
+        "users2",
+        meta,
+        Column("id", Integer, Sequence("user_id_seq2"), primary_key=True),
+        Column("name", String),
+        Column("full/name", String),
+    )
+    onboarding_users = Table(
+        "onboarding_users",
+        meta,
+        Column("id", Integer, Sequence("new_user_id_seq"), primary_key=True),
+        Column("name", String),
+        Column("fullname", String),
+        Column("delete", Boolean),
+    )
+    stmt = select(
+        onboarding_users.c.id,
+        onboarding_users.c.name,
+        onboarding_users.c.fullname,
+        onboarding_users.c.delete,
+    )
+    insert_all = (
+        InsertMulti(stmt)
+        .when(
+            stmt.selected_columns.delete,
+            users1,
+            values=[
+                stmt.selected_columns.id,
+                stmt.selected_columns.name,
+                stmt.selected_columns.fullname,
+            ],
+        )
+        .when(
+            ~stmt.selected_columns.delete,
+            users2,
+            [users2.c.id, users2.c.name, users2.c["full/name"]],
+            [
+                stmt.selected_columns.id,
+                stmt.selected_columns.name,
+                stmt.selected_columns.fullname,
+            ],
+        )
+        .else_(users1)
+    )
+    assert (
+        sql_compiler(insert_all) == "INSERT ALL "
+        'WHEN "delete" THEN INTO users1 VALUES (id, name, fullname) '
+        'WHEN NOT "delete" THEN INTO users2 (id, name, "full/name") VALUES (id, name, fullname) '
+        "ELSE INTO users1 "
+        "SELECT onboarding_users.id AS id, onboarding_users.name AS name, onboarding_users.fullname AS fullname, "
+        'onboarding_users."delete" AS "delete" FROM onboarding_users'
+    )
+
+
+def test_insert_multi_else_requires_when():
+    meta = MetaData()
+    src = Table("src", meta, Column("id", Integer))
+    target = Table("t", meta, Column("id", Integer))
+    im = InsertMulti(select(src.c.id))
+    with pytest.raises(ValueError):
+        im.else_(target)
+
+
+def test_insert_multi_when_requires_condition():
+    meta = MetaData()
+    src = Table("src", meta, Column("id", Integer))
+    t1 = Table("t1", meta, Column("id", Integer))
+    t2 = Table("t2", meta, Column("id", Integer))
+    im = InsertMulti(select(src.c.id)).when(src.c.id == 1, t1)
+    with pytest.raises(ValueError):
+        im.when(None, t2)
+
+
+def test_insert_multi_not_safe_to_cache():
+    # InsertMulti's SQL depends on builder state (clauses/else__/overwrite/first/
+    # source) that is not part of any cache-key traversal, so it must opt out of
+    # SQLAlchemy statement caching to avoid reusing another statement's SQL.
+    assert InsertMulti.inherit_cache is False
+
+
+def test_insert_multi_repr_has_no_comma_between_targets():
+    meta = MetaData()
+    src = Table("src", meta, Column("id", Integer))
+    t1 = Table("t1", meta, Column("id", Integer))
+    t2 = Table("t2", meta, Column("id", Integer))
+    im = InsertMulti(select(src.c.id)).into(t1).into(t2)
+    text = repr(im)
+    # Snowflake separates INTO clauses with whitespace, not commas (matching the
+    # compiled SQL); the comma-join artifact ", INTO" must not appear.
+    assert ", INTO" not in text
+    assert text.count("INTO ") == 2
+
+
+class TestStructuredTypeGetItem(AssertsCompiledSQL):
+    """Subscript access (``col["key"]`` / ``col[index]``) on semi-structured
+    columns must compile to Snowflake's native bracket syntax."""
+
+    __dialect__ = "snowflake"
+
+    @staticmethod
+    def _table():
+        meta = MetaData()
+        return Table(
+            "semi",
+            meta,
+            Column("id", Integer),
+            Column("va", VARIANT),
+            Column("ob", OBJECT),
+            Column("ar", ARRAY),
+            Column("mp", MAP(String(), String())),
+            Column("mp_int", MAP(Integer(), String())),
+        )
+
+    def test_object_key_access_literal(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ob["name"]),
+            "SELECT semi.ob['name'] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_variant_key_access_literal(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.va["a"]),
+            "SELECT semi.va['a'] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_array_index_access_literal(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ar[0]),
+            "SELECT semi.ar[0] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_nested_object_access_literal(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ob["a"]["b"]),
+            "SELECT semi.ob['a']['b'] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_object_key_access_bound_param(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ob["name"]),
+            "SELECT semi.ob[%(ob_1)s] AS anon_1 FROM semi",
+            dialect="snowflake",
+        )
+
+    def test_getitem_in_where_clause(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.id).where(t.c.ob["status"] == "active"),
+            "SELECT semi.id FROM semi WHERE semi.ob['status'] = 'active'",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_object_key_with_single_quote_is_escaped_literal(self):
+        # Keys are rendered by SQLAlchemy's JSON index bind; with literal_binds
+        # single quotes are doubled (ANSI/Snowflake string-literal escaping), so
+        # a quote-containing key cannot break out of the literal.
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ob["a'b"]),
+            "SELECT semi.ob['a''b'] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_object_key_is_bound_not_interpolated(self):
+        # Without literal_binds the key is a bound parameter (carried in params,
+        # never interpolated into the SQL text) — no injection surface.
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ob["a'; DROP TABLE t;--"]),
+            "SELECT semi.ob[%(ob_1)s] AS anon_1 FROM semi",
+            dialect="snowflake",
+            checkparams={"ob_1": "a'; DROP TABLE t;--"},
+        )
+
+    def test_map_key_access_literal(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.mp["k"]),
+            "SELECT semi.mp['k'] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_array_index_access_bound_param(self):
+        # Integer index also renders as a bound parameter by default.
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ar[0]),
+            "SELECT semi.ar[%(ar_1)s] AS anon_1 FROM semi",
+            dialect="snowflake",
+            checkparams={"ar_1": 0},
+        )
+
+    def test_getitem_statement_is_cacheable(self):
+        # Making the types Indexable must not disable statement caching.
+        t = self._table()
+        key = select(t.c.id).where(t.c.ob["status"] == "active")._generate_cache_key()
+        assert key is not None
+
+    def test_negative_index_compiles_verbatim(self):
+        # Snowflake rejects negative array indices at runtime, but the dialect
+        # renders whatever index is given; -1 must pass through unchanged (the
+        # limitation is the user's responsibility, documented in the README).
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ar[-1]),
+            "SELECT semi.ar[-1] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_getitem_in_order_by(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.id).order_by(t.c.ob["status"]),
+            "SELECT semi.id FROM semi ORDER BY semi.ob['status']",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_getitem_in_group_by(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.ob["status"]).group_by(t.c.ob["status"]),
+            "SELECT semi.ob['status'] AS anon_1 FROM semi GROUP BY semi.ob['status']",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_map_string_key_access_bound_param(self):
+        # MAP with string keys: default (bound) rendering.
+        t = self._table()
+        self.assert_compile(
+            select(t.c.mp["k"]),
+            "SELECT semi.mp[%(mp_1)s] AS anon_1 FROM semi",
+            dialect="snowflake",
+            checkparams={"mp_1": "k"},
+        )
+
+    def test_map_integer_key_access_literal(self):
+        # MAP with a non-string (integer) key type: numeric keys render verbatim.
+        t = self._table()
+        self.assert_compile(
+            select(t.c.mp_int[1]),
+            "SELECT semi.mp_int[1] AS anon_1 FROM semi",
+            dialect="snowflake",
+            literal_binds=True,
+        )
+
+    def test_map_integer_key_access_bound_param(self):
+        t = self._table()
+        self.assert_compile(
+            select(t.c.mp_int[1]),
+            "SELECT semi.mp_int[%(mp_int_1)s] AS anon_1 FROM semi",
+            dialect="snowflake",
+            checkparams={"mp_int_1": 1},
+        )

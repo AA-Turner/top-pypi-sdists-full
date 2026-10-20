@@ -114,7 +114,7 @@ DOORS_AUTHORED = "a=[{{a}}] b=[{{b}}] c=[{{c}}] d=[{{d}}] e=[{{e}}]"
     [
         ({}, 'a=[DEF-A] b=[] c=[["x", "y"]] d=[DEF-D] e=[{{e}}]'),
         ({"a": None, "b": None, "c": None, "d": None}, 'a=[DEF-A] b=[] c=[["x", "y"]] d=[DEF-D] e=[{{e}}]'),
-        # A person-cleared field ("" or an emptied multi-select []) is honoured as empty (2026-10-16);
+        # A person-cleared field ("" or an emptied multi-select []) is honored as empty (2026-10-16);
         # None / absent stay "untouched" — the form sends the default for an untouched field.
         ({"c": []}, 'a=[DEF-A] b=[] c=[] d=[DEF-D] e=[{{e}}]'),
         ({"a": "", "d": ""}, 'a=[] b=[] c=[["x", "y"]] d=[] e=[{{e}}]'),

@@ -42,10 +42,14 @@ from pydantic import ConfigDict, Field
 
 from matrx_ai._ext import has_ext
 from matrx_ai.graph_nodes.agent_action import (
+    _AGENT_RESULT_BOOKKEEPING,
+    _AGENT_RESULT_QUORUM,
+    _AGENT_RESULT_WITNESSES,
     AgentRunCommonInput,
     AgentStartConfig,
     StepWorkflowMandate,
     _run_workflow_held_mandate,
+    _strip_inert_burned_tool_fields,
     build_agent_request,
     mandate_key_field,
     require_agent_host,
@@ -92,6 +96,42 @@ class MandateStartInput(MandateStartStrictInput):
     """
 
     model_config = ConfigDict(extra="allow")
+
+
+def agent_variables_outside_provision(inputs: MandateStartInput) -> list[str]:
+    """The doer's variable names this step was fed OUTSIDE ``provision_values``.
+
+    A Run Mandate step hands the mandate its STATE by the provision's offered names, and the
+    mandate's BINDING decides what the doer receives (Arman, 2026-10-19). A value fed under
+    the doer's own variable names (a top-level port, or the ``variables`` dict) skips the
+    binding — the step is either a faked mandate (really Run Agent) or a real one bypassing
+    its binding. An upstream agent result broadcast down an unmapped edge is bookkeeping,
+    not variables, and is ignored here exactly as the request builder drops it.
+    """
+    extras = dict(inputs.model_extra or {})
+    _strip_inert_burned_tool_fields(extras)
+    present = [k for k in extras if k in _AGENT_RESULT_BOOKKEEPING]
+    if len(present) >= _AGENT_RESULT_QUORUM and (_AGENT_RESULT_WITNESSES & set(present)):
+        extras = {k: v for k, v in extras.items() if k not in _AGENT_RESULT_BOOKKEEPING}
+    names = sorted(extras)
+    names += sorted(f"variables.{k}" for k in (inputs.variables or {}))
+    return names
+
+
+def refuse_agent_variables_outside_provision(inputs: MandateStartInput, node_id: str) -> None:
+    """Refuse, before anything resolves or spends, a step that feeds the doer by name."""
+    names = agent_variables_outside_provision(inputs)
+    if not names:
+        return
+    raise ValueError(
+        f"{_NODE_TYPE}:{node_id} (mandate {inputs.mandate_key!r}) was fed {names} outside "
+        "provision_values. A Run Mandate step hands the mandate its state — every value it has, "
+        "under the provision's offered names — as provision_values, and the mandate's binding "
+        "picks what the doer gets. Fix: wire those values into provision_values (in code, "
+        "aidream/workflows/step_state.hand_state_to_mandate). If they are simply the agent's own "
+        "inputs, one-to-one, this is not a mandate step: make it a Run Agent step "
+        "(ai.agent.start) naming that agent."
+    )
 
 
 def _state_as_extras(inputs: MandateStartInput) -> MandateStartInput:
@@ -183,6 +223,7 @@ async def _mandate_start_body(
     config: AgentStartConfig | None,
 ) -> NodeResult[AiExecutionResult]:
     node_id = getattr(ctx, "node_id", None) or "?"
+    refuse_agent_variables_outside_provision(inputs, node_id)
     resolved = await resolve_step_agent_full(
         inputs,
         consumer=f"{_NODE_TYPE}:{node_id}",
@@ -224,7 +265,11 @@ async def _mandate_start_body(
         return success(AiExecutionResult.model_validate(replayed))
 
     completed = await run_step_agent(
-        ctx, resolved.agent_id, request, mandate_key=inputs.mandate_key
+        ctx,
+        resolved.agent_id,
+        request,
+        mandate_key=inputs.mandate_key,
+        run_stamp=resolved.run_stamp,
     )
 
     # A host agent_runner may return an ALREADY-normalized AiExecutionResult

@@ -5001,10 +5001,11 @@ def test_the_hook_no_longer_passes_a_channel(isolate):
     # file. The hook gained a second spawn (the detached session maintenance that
     # refreshes the instruction block and reconciles the team-note file), and
     # "the first Popen" silently became the wrong one.
-    spawn = hook.split("def _spawn_autoupdate(")[1]
-    argv = spawn.split("subprocess.Popen(")[1].split("stdin=")[0]
+    spawn = hook.split("def _spawn_autoupdate(")[1].split("\ndef ")[0]
+    argv = spawn.split("argv = [")[1].split("]")[0]
     assert '"--action", "update"' in argv, "wrong call site"
     assert "--channel" not in argv
+    assert "--channel" not in hook.split("_SERVICE_CHECK_OR_UPDATE = ")[1].splitlines()[0]
 
     from typer.testing import CliRunner
 

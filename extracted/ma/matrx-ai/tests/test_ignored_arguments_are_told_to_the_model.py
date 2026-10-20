@@ -77,7 +77,7 @@ def _ctx() -> ToolContext:
 
 async def test_a_stray_argument_with_a_value_is_refused_by_name_and_nothing_runs(web_dispatch) -> None:
     """The $640 / $1,440 class (2026-10-02): an argument with a value that the chosen action
-    cannot honour used to be stripped and the call answered a DIFFERENT question as success
+    cannot honor used to be stripped and the call answered a DIFFERENT question as success
     (`match` dropped from records.record_aggregate -> the unfiltered total). It is refused now."""
     executor, persisted = web_dispatch
     content, result = await executor.execute(

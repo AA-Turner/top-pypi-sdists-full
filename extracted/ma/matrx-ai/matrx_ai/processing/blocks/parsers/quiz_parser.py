@@ -31,7 +31,7 @@ and an integer index, so it returned None; the block was stamped
 was a wall of raw JSON where a quiz component should have been — measured on
 run 41ee2991 and on Arman's own run a268ba41.
 
-Both are NORMALISED, never loosened: the output is still exactly
+Both are NORMALIZED, never loosened: the output is still exactly
 ``QuizBlockData`` with an int id and an int answer index, so every consumer
 downstream is untouched.
 
@@ -52,7 +52,7 @@ from matrx_ai.processing.blocks.parsers._llm_json import loads_block_json
 
 
 # ---------------------------------------------------------------------------
-# Key normalisation helpers
+# Key normalization helpers
 # ---------------------------------------------------------------------------
 
 def _get(d: dict, *keys: str, default=None):

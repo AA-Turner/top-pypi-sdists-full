@@ -180,14 +180,15 @@ class RemoteBrowserClient:
             raise BrowserClientError(str(exc)) from exc
         except MatrxApiError as exc:
             url = f"{self._base_url}{exc.path}"
-            if exc.status == 0:
+            status = exc.status
+            if status == 0:
                 raise BrowserClientError(
                     f"transport error calling {redact_url_secrets(url)}: {redact_url_secrets(exc.message)}"
                 ) from exc
             detail = exc.server_detail
             if isinstance(detail, str):
                 detail = detail[:500]
-            raise BrowserClientError(f"{redact_url_secrets(url)} returned {exc.status}: {detail}") from exc
+            raise BrowserClientError(f"{redact_url_secrets(url)} returned {status}: {redact_url_secrets(detail)}") from exc
         if not isinstance(payload, dict):
             raise BrowserClientError(f"non-JSON response from {redact_url_secrets(self._base_url)}")
         return payload

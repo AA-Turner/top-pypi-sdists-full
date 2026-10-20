@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 #
+from __future__ import annotations
 
 import itertools
 import operator
@@ -8,32 +9,60 @@ import re
 import string
 import warnings
 from functools import reduce
-from typing import Any, List
+from typing import Any
 
 from sqlalchemy import exc as sa_exc
 from sqlalchemy import inspect, sql
 from sqlalchemy import util as sa_util
 from sqlalchemy.engine import default
+from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.orm import context
 from sqlalchemy.orm.context import _MapperEntity
-from sqlalchemy.schema import Sequence, Table
-from sqlalchemy.sql import compiler, expression, functions, sqltypes
+from sqlalchemy.schema import (
+    ForeignKeyConstraint,
+    PrimaryKeyConstraint,
+    Sequence,
+    Table,
+    UniqueConstraint,
+)
+from sqlalchemy.sql import compiler, crud, expression, functions, sqltypes
 from sqlalchemy.sql.base import CompileState
-from sqlalchemy.sql.elements import BindParameter, quoted_name
+from sqlalchemy.sql.ddl import DropColumnComment, DropTableComment
+from sqlalchemy.sql.elements import BinaryExpression, BindParameter, Label, quoted_name
 from sqlalchemy.sql.expression import Executable
-from sqlalchemy.sql.selectable import Lateral, SelectState
+from sqlalchemy.sql.operators import OperatorType
+from sqlalchemy.sql.schema import Column, Identity, IdentityOptions
+from sqlalchemy.sql.selectable import Join, Lateral, Select, SelectState
+from sqlalchemy.sql.type_api import TypeEngine
 
-from snowflake.sqlalchemy._constants import DIALECT_NAME
-from snowflake.sqlalchemy.compat import IS_VERSION_20, args_reducer, string_types
-from snowflake.sqlalchemy.custom_commands import (
+from ._constants import DIALECT_NAME, NOT_NULL
+from .custom_commands import (
     AWSBucket,
     AzureContainer,
     CloudStorageLocation,
+    CopyFormatter,
+    CopyInto,
+    CreateFileFormat,
+    CreateStage,
     ExternalStage,
     GCSBucket,
+    InsertMulti,
+    MergeInto,
 )
-
-from ._constants import NOT_NULL
+from .custom_types import (
+    ARRAY,
+    DECFLOAT,
+    GEOGRAPHY,
+    GEOMETRY,
+    MAP,
+    OBJECT,
+    TIMESTAMP_LTZ,
+    TIMESTAMP_NTZ,
+    TIMESTAMP_TZ,
+    VARIANT,
+    VECTOR,
+    _SemiStructuredJSONMixin,
+)
 from .exc import (
     CustomOptionsAreOnlySupportedOnSnowflakeTables,
     SnowflakeWarning,
@@ -131,8 +160,6 @@ ILLEGAL_INITIAL_CHARACTERS = frozenset({d for d in string.digits}.union({"$"}))
 # used for quoting identifiers ie. table names, column names, etc.
 ILLEGAL_IDENTIFIERS = frozenset({d for d in string.digits}.union({"_"}))
 
-_DIV_README_URL = "https://github.com/snowflakedb/snowflake-sqlalchemy/blob/main/README.md#division-operators-and-force_div_is_floordiv"
-
 """
 Overwrite methods to handle Snowflake BCR change:
 https://docs.snowflake.com/en/release-notes/bcr-bundles/2023_04/bcr-1057
@@ -144,13 +171,13 @@ https://docs.snowflake.com/en/release-notes/bcr-bundles/2023_04/bcr-1057
 # handle Snowflake BCR bcr-1057
 @CompileState.plugin_for("default", "select")
 class SnowflakeSelectState(SelectState):
-    def __init__(self, statement, compiler, **kw):
+    def __init__(self, statement: Any, compiler: Any, **kw: Any) -> None:
         self._is_snowflake = (
             compiler is not None and compiler.dialect.name == DIALECT_NAME
         )
         super().__init__(statement, compiler, **kw)
 
-    def _setup_joins(self, args, raw_columns):
+    def _setup_joins(self, args: Any, raw_columns: Any) -> None:
         if not self._is_snowflake:
             return super()._setup_joins(args, raw_columns)
         for right, onclause, left, flags in args:
@@ -194,7 +221,9 @@ class SnowflakeSelectState(SelectState):
                 )
 
     @sa_util.preload_module("sqlalchemy.sql.util")
-    def _join_determine_implicit_left_side(self, raw_columns, left, right, onclause):
+    def _join_determine_implicit_left_side(
+        self, raw_columns: Any, left: Any, right: Any, onclause: Any
+    ) -> Any:
         if not self._is_snowflake:
             return super()._join_determine_implicit_left_side(
                 raw_columns, left, right, onclause
@@ -255,24 +284,27 @@ class SnowflakeSelectState(SelectState):
 # handle Snowflake BCR bcr-1057
 @sql.base.CompileState.plugin_for("orm", "select")
 class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
-    # Default must be True on SA 1.4 (no _init_global_attributes hook there)
-    # so that the BCR-1057 code paths remain active as they were pre-PR.
-    # On SA 2.0 this default is overwritten by _init_global_attributes.
-    _is_snowflake = not IS_VERSION_20
+    # Set by _init_global_attributes (always called on SA 2.x).
+    _is_snowflake = False
 
-    def _init_global_attributes(self, statement, compiler, **kw):
-        # SA 2.0 entrypoint for setting _is_snowflake. SA 1.4 does not call
-        # this hook; on SA 1.4 _is_snowflake defaults to True below so the
-        # pre-PR BCR-1057 code paths remain active (the with_loader_criteria
-        # regression fixed by this PR is an SA 2.0-only scenario).
+    def _init_global_attributes(self, statement: Any, compiler: Any, **kw: Any) -> None:
+        """SA 2.x per-compilation setup hook for ORMSelectCompileState.
+
+        Sets ``_is_snowflake`` to True only when the active compiler is using
+        the Snowflake dialect.  This flag gates the BCR-1057 lateral-join
+        workarounds in ``_join_determine_implicit_left_side`` and
+        ``_join_left_to_right`` so they are applied exclusively to Snowflake
+        queries and leave other dialects (PostgreSQL, SQLite, etc.) completely
+        unaffected.
+        """
         self._is_snowflake = (
             compiler is not None and compiler.dialect.name == DIALECT_NAME
         )
         super()._init_global_attributes(statement, compiler, **kw)
 
     def _join_determine_implicit_left_side(
-        self, entities_collection, left, right, onclause
-    ):
+        self, entities_collection: Any, left: Any, right: Any, onclause: Any
+    ) -> Any:
         if not self._is_snowflake:
             return super()._join_determine_implicit_left_side(
                 entities_collection, left, right, onclause
@@ -331,7 +363,7 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
                 if isinstance(ent, context._MapperEntity):
                     potential[ent.selectable] = (entity_index, entity)
                 else:
-                    potential[ent_info.selectable] = (None, entity)
+                    potential[ent_info.selectable] = (None, entity)  # type: ignore[assignment]
 
             all_clauses = list(potential.keys())
             # handle Snowflake BCR bcr-1057
@@ -367,10 +399,16 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
 
         return left, replace_from_obj_index, use_entity_index
 
-    @args_reducer(positions_to_drop=(6, 7))
     def _join_left_to_right(
-        self, entities_collection, left, right, onclause, prop, outerjoin, full
-    ):
+        self,
+        entities_collection: Any,
+        left: Any,
+        right: Any,
+        onclause: Any,
+        prop: Any,
+        outerjoin: Any,
+        full: Any,
+    ) -> Any:
         if not self._is_snowflake:
             return super()._join_left_to_right(
                 entities_collection, left, right, onclause, prop, outerjoin, full
@@ -408,14 +446,9 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
         # a lot of things can be wrong with it.  handle all that and
         # get back the new effective "right" side
 
-        if IS_VERSION_20:
-            r_info, right, onclause = self._join_check_and_adapt_right_side(
-                left, right, onclause, prop
-            )
-        else:
-            r_info, right, onclause = self._join_check_and_adapt_right_side(
-                left, right, onclause, prop, False, False
-            )
+        r_info, right, onclause = self._join_check_and_adapt_right_side(
+            left, right, onclause, prop
+        )
 
         if not r_info.is_selectable:
             extra_criteria = self._get_extra_criteria(r_info)
@@ -428,7 +461,7 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
             left_clause = self.from_clauses[replace_from_obj_index]
 
             self.from_clauses = (
-                self.from_clauses[:replace_from_obj_index]
+                self.from_clauses[:replace_from_obj_index]  # type: ignore[operator]
                 + [
                     _Snowflake_ORMJoin(  # handle Snowflake BCR bcr-1057
                         left_clause,
@@ -452,7 +485,7 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
             else:
                 left_clause = left
 
-            self.from_clauses = self.from_clauses + [
+            self.from_clauses = self.from_clauses + [  # type: ignore[operator]
                 _Snowflake_ORMJoin(  # handle Snowflake BCR bcr-1057
                     left_clause,
                     r_info,
@@ -466,10 +499,10 @@ class SnowflakeORMSelectCompileState(context.ORMSelectCompileState):
 
 class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = {x.lower() for x in RESERVED_WORDS}
-    illegal_initial_characters = ILLEGAL_INITIAL_CHARACTERS
+    illegal_initial_characters = ILLEGAL_INITIAL_CHARACTERS  # type: ignore[assignment]
     illegal_identifiers = ILLEGAL_IDENTIFIERS
 
-    def __init__(self, dialect, **kw):
+    def __init__(self, dialect: Dialect, **kw: Any) -> None:
         quote = '"'
 
         super().__init__(dialect, initial_quote=quote, escape_quote=quote)
@@ -532,7 +565,7 @@ class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
             if p is not None
         )
 
-    def _quote_free_identifiers(self, *ids):
+    def _quote_free_identifiers(self, *ids: str) -> tuple[str, ...]:
         """
         Identifier-quote any number of strings, quoting whenever the value
         requires it.  Unlike a bare ``quote()`` this refuses to emit an unsafe
@@ -540,7 +573,7 @@ class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
         """
         return tuple(self._safe_quote(i) for i in ids if i is not None)
 
-    def quote_schema(self, schema, force=None):
+    def quote_schema(self, schema: str, force: bool | None = None) -> str:
         """
         Split schema by a dot and merge with required quotes
         """
@@ -558,7 +591,7 @@ class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
         idents = self._split_schema_by_dot(schema)
         return ".".join(self._quote_free_identifiers(*idents))
 
-    def format_label(self, label, name=None):
+    def format_label(self, label: Label[Any], name: str | None = None) -> str:
         n = name or label.name
         s = n.replace(self.escape_quote, "")
 
@@ -581,7 +614,7 @@ class SnowflakeIdentifierPreparer(compiler.IdentifierPreparer):
         """
         return requires_quotes(value, **self._identifier_cfg)
 
-    def _split_schema_by_dot(self, schema):
+    def _split_schema_by_dot(self, schema: str) -> list[str]:
         # Scan the raw string into ``(value, was_quoted)`` parts; the pure
         # scanner lives in util.split_identifier_parts so it can be unit-tested
         # without a preparer.
@@ -639,7 +672,7 @@ def _render_storage_encryption(encryption_used, deterministic: bool = False) -> 
         " ".join(
             (
                 f"{n}='{escape_string_literal_interior(str(v))}'"
-                if isinstance(v, string_types)
+                if isinstance(v, str)
                 else f"{n}={v}"
             )
             for n, v in items
@@ -647,21 +680,34 @@ def _render_storage_encryption(encryption_used, deterministic: bool = False) -> 
     )
 
 
-def _render_storage_uri(container) -> str:
+def _render_storage_uri(container, *, strict: bool = False) -> str:
     """Return the escaped, single-quoted storage location literal for a container.
 
     The bucket/path/account components originate from caller-supplied URIs
     (``*.from_uri``), so the assembled body is escaped before being wrapped in
     quotes — a single-quote in any component would otherwise escape the
     location literal (SNOW-3649816 / SNOW-3649858).
+
+    When *strict* is ``True``, an ``AzureContainer`` without an explicit
+    ``endpoint`` is rejected so the commercial ``.blob.core.windows.net``
+    default is never emitted (SNOW-4248737).
     """
     if isinstance(container, AWSBucket):
         body = "s3://{}{}".format(
             container.bucket, f"/{container.path}" if container.path else ""
         )
     elif isinstance(container, AzureContainer):
-        body = "azure://{}.blob.core.windows.net/{}{}".format(
+        if strict and not container.endpoint:
+            raise sa_exc.CompileError(
+                "Strict host-name mode is enabled but no explicit Azure Blob "
+                "endpoint was provided for AzureContainer.  Supply "
+                "endpoint='blob.example.com' (or the appropriate "
+                "endpoint) to avoid the .blob.core.windows.net commercial default."
+            )
+        blob_endpoint = container.endpoint or "blob.core.windows.net"
+        body = "azure://{}.{}/{}{}".format(
             container.account,
+            blob_endpoint,
             container.container,
             f"/{container.path}" if container.path else "",
         )
@@ -676,17 +722,209 @@ def _render_storage_uri(container) -> str:
     return f"'{escape_string_literal_interior(body)}'"
 
 
+# A stage path is safe to emit bare (unquoted) only when every character is
+# part of a normal path prefix.  Anything else — most importantly whitespace,
+# quotes, parentheses, semicolons and ``=`` — could terminate the bare stage
+# reference, so such paths are single-quoted.
+_SAFE_STAGE_PATH = re.compile(r"^[A-Za-z0-9_./\-]*$")
+
+
+def _render_stage_reference(prefix: str, path: str) -> str:
+    """Render ``@<prefix><path>`` so the path cannot break out.
+
+    A path made up solely of ordinary path characters (and free of the ``--``
+    comment sequence) keeps its historical bare rendering.  Otherwise the
+    whole stage reference is emitted as a single-quoted, escaped string
+    literal, which Snowflake accepts anywhere a bare stage reference is
+    accepted (COPY INTO source/target and staged-data SELECT), so the path
+    cannot alter the surrounding statement (CWE-89, SNOW-4134196).
+    """
+    reference = f"@{prefix}{path}"
+    if _SAFE_STAGE_PATH.match(path) and "--" not in path:
+        return reference
+    return f"'{escape_string_literal_interior(reference)}'"
+
+
 class SnowflakeCompiler(compiler.SQLCompiler):
-    def visit_sequence(self, sequence, **kw):
+    # Narrow the SA-inherited attribute to our subclass (Snowflake-specific
+    # preparer helpers used in the COPY/stage visitors below).
+    preparer: SnowflakeIdentifierPreparer
+
+    def visit_sequence(self, sequence: Sequence, **kw: Any) -> str:
         return self.dialect.identifier_preparer.format_sequence(sequence) + ".nextval"
 
-    def visit_now_func(self, now, **kw):
+    def visit_now_func(self, now: functions.GenericFunction, **kw: Any) -> str:
         return "CURRENT_TIMESTAMP"
 
-    def visit_sysdate_func(self, sysdate, **kw):
+    def visit_collation(self, element: Any, **kw: Any) -> str:
+        """Render a collation as a single-quoted Snowflake string literal.
+
+        Snowflake expects the collation specification as a single-quoted
+        string literal (e.g. ``COLLATE 'en-ci'``), not the double-quoted
+        identifier produced by SQLAlchemy's default preparer.
+        """
+        collation = element.collation.replace("'", "''")
+        return f"'{collation}'"
+
+    def visit_sysdate_func(self, sysdate: functions.GenericFunction, **kw: Any) -> str:
         return "SYSDATE()"
 
-    def visit_merge_into(self, merge_into, **kw):
+    def visit_json_getitem_op_binary(
+        self, binary: BinaryExpression, operator: Any, **kw: Any
+    ) -> str:
+        """Render subscript access on semi-structured columns.
+
+        Enables ``col["key"]`` / ``col[index]`` on ``VARIANT`` / ``OBJECT`` /
+        ``ARRAY`` / ``MAP`` columns, compiling to Snowflake's native bracket
+        accessor (e.g. ``col['key']``, ``col[0]``). Nested access chains
+        (``col["a"]["b"]``) compose because the result is itself indexable.
+        """
+        return (
+            self.process(binary.left, **kw)
+            + "["
+            + self.process(binary.right, **kw)
+            + "]"
+        )
+
+    def _insert_targets_semi_structured(self, insert_stmt: Any) -> bool:
+        """Whether the INSERT writes to a semi-structured column.
+
+        Such columns (including typed MAP / ARRAY / OBJECT) have a
+        ``PARSE_JSON``-wrapped value (see
+        ``_SemiStructuredJSONMixin.bind_expression``); Snowflake rejects
+        functions in a ``VALUES`` clause, so those inserts must be rendered as
+        ``INSERT ... SELECT`` instead.
+        """
+
+        def _is_semi(name_or_col: Any) -> bool:
+            if isinstance(name_or_col, str):
+                if name_or_col not in table.c:
+                    return False
+                col = table.c[name_or_col]
+            else:
+                col = name_or_col
+            return isinstance(getattr(col, "type", None), _SemiStructuredJSONMixin)
+
+        table = insert_stmt.table
+        values = getattr(insert_stmt, "_values", None)
+        if values:
+            if any(_is_semi(key) for key in values.keys()):
+                return True
+        multi_values = getattr(insert_stmt, "_multi_values", None)
+        if multi_values:
+            # Every row in a multi-values insert shares the same column keys, so
+            # inspecting the first non-empty row is enough (avoids O(rows x cols)).
+            for param_list in multi_values:
+                if param_list and any(_is_semi(key) for key in param_list[0].keys()):
+                    return True
+        if self.column_keys:
+            if any(_is_semi(key) for key in self.column_keys):
+                return True
+        return False
+
+    def visit_insert(
+        self,
+        insert_stmt: Any,
+        visited_bindparam: Any = None,
+        visiting_cte: Any = None,
+        **kw: Any,
+    ) -> str:
+        # Only intervene when structured-type JSON is enabled AND the statement
+        # writes a semi-structured column via a VALUES clause. ``INSERT FROM
+        # SELECT`` already renders as a SELECT (PARSE_JSON is valid there), and
+        # everything else is left to the base compiler unchanged.
+        if (
+            not getattr(self.dialect, "_enable_structured_type_json", False)
+            or insert_stmt.select is not None
+            or not self._insert_targets_semi_structured(insert_stmt)
+        ):
+            return super().visit_insert(
+                insert_stmt,
+                visited_bindparam=visited_bindparam,
+                visiting_cte=visiting_cte,
+                **kw,
+            )
+        return self._render_insert_from_values_select(
+            insert_stmt, visiting_cte=visiting_cte, **kw
+        )
+
+    def _render_insert_from_values_select(
+        self, insert_stmt: Any, visiting_cte: Any = None, **kw: Any
+    ) -> str:
+        """Render ``INSERT INTO t (cols) SELECT ...`` for semi-structured writes.
+
+        Multi-row ``values([...])`` becomes ``SELECT ... UNION ALL SELECT ...``.
+        Mirrors the crud-param setup of the base ``visit_insert`` but emits a
+        SELECT source so the ``PARSE_JSON(...)`` value expressions are valid.
+        """
+        compile_state = insert_stmt._compile_state_factory(insert_stmt, self, **kw)
+        insert_stmt = compile_state.statement
+
+        if insert_stmt._returning or self.implicit_returning:
+            raise NotImplementedError(
+                "RETURNING is not supported for INSERT into semi-structured "
+                "columns (VARIANT/OBJECT/ARRAY) with enable_structured_type_json."
+            )
+
+        toplevel = not self.stack
+        if toplevel:
+            self.isinsert = True
+            if not self.dml_compile_state:
+                self.dml_compile_state = compile_state
+            if not self.compile_state:
+                self.compile_state = compile_state
+
+        self.stack.append(
+            {
+                "correlate_froms": set(),
+                "asfrom_froms": set(),
+                "selectable": insert_stmt,
+            }
+        )
+
+        # positional dialects (e.g. qmark) count VALUES binds; mirror base.
+        if self.positional and visiting_cte is None:
+            visited_bindparam: Any = []
+        else:
+            visited_bindparam = None
+
+        crud_params_struct = crud._get_crud_params(
+            self,
+            insert_stmt,
+            compile_state,
+            toplevel,
+            visited_bindparam=visited_bindparam,
+            **kw,
+        )
+        crud_params_single = crud_params_struct.single_params
+
+        preparer = self.preparer
+        text = "INSERT "
+        if insert_stmt._prefixes:
+            text += self._generate_prefixes(insert_stmt, insert_stmt._prefixes, **kw)
+        text += "INTO "
+        table_text = preparer.format_table(insert_stmt.table)
+        if insert_stmt._hints:
+            _, table_text = self._setup_crud_hints(insert_stmt, table_text)
+        text += table_text
+
+        text += " (%s)" % ", ".join([expr for _, expr, _, _ in crud_params_single])
+
+        if compile_state._has_multi_parameters:
+            selects = [
+                "SELECT %s" % ", ".join(value for _, _, value, _ in crud_param_set)
+                for crud_param_set in crud_params_struct.all_multi_params
+            ]
+            text += " " + " UNION ALL ".join(selects)
+        else:
+            text += " SELECT %s" % ", ".join(
+                value for _, _, value, _ in crud_params_single
+            )
+
+        self.stack.pop(-1)
+        return text
+
+    def visit_merge_into(self, merge_into: MergeInto, **kw: Any) -> str:
         clauses = " ".join(
             clause._compiler_dispatch(self, **kw) for clause in merge_into.clauses
         )
@@ -697,18 +935,22 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             " " + clauses if clauses else ""
         )
 
-    def visit_merge_into_clause(self, merge_into_clause, **kw):
+    def visit_merge_into_clause(
+        self, merge_into_clause: MergeInto.clause, **kw: Any
+    ) -> str:
         case_predicate = (
             f" AND {str(merge_into_clause.predicate._compiler_dispatch(self, **kw))}"
             if merge_into_clause.predicate is not None
             else ""
         )
+        sets: Any  # declared Any to accommodate zip-tuple and str assignments
         if merge_into_clause.command == "INSERT":
-            sets, sets_tos = zip(*merge_into_clause.set.items())
-            sets, sets_tos = list(sets), list(sets_tos)
+            sets, sets_tos = zip(*merge_into_clause.set.items(), strict=True)
+            sets, sets_tos = list(sets), list(sets_tos)  # type: ignore[assignment]
             if kw.get("deterministic", False):
                 sets, sets_tos = zip(
-                    *sorted(merge_into_clause.set.items(), key=operator.itemgetter(0))
+                    *sorted(merge_into_clause.set.items(), key=operator.itemgetter(0)),
+                    strict=True,
                 )
             return "WHEN NOT MATCHED{} THEN {} ({}) VALUES ({})".format(
                 case_predicate,
@@ -743,7 +985,50 @@ class SnowflakeCompiler(compiler.SQLCompiler):
                 " SET %s" % sets if merge_into_clause.set else "",
             )
 
-    def visit_copy_into(self, copy_into, **kw):
+    def visit_insert_multi(self, insert_all: InsertMulti, **kw: Any) -> str:
+        clauses = []
+        for condition, table, columns, values in insert_all.clauses:
+            clauses.append(
+                (
+                    f"WHEN {condition._compiler_dispatch(self, include_table=False, **kw)} THEN "
+                    if condition is not None
+                    else ""
+                )
+                + f"INTO {table._compiler_dispatch(self, asfrom=True, **kw)}"
+                + (
+                    f" ({', '.join(c._compiler_dispatch(self, include_table=False, **kw) for c in columns)})"
+                    if columns
+                    else ""
+                )
+                + (
+                    f" VALUES ({', '.join(v._compiler_dispatch(self, include_table=False, render_label_as_label=v, **kw) for v in values)})"
+                    if values
+                    else ""
+                )
+            )
+
+        if insert_all.else__:
+            else_ = (
+                f" ELSE INTO {insert_all.else__[0]._compiler_dispatch(self, asfrom=True, **kw)}"
+                + (
+                    f" ({', '.join(c._compiler_dispatch(self, include_table=False, **kw) for c in insert_all.else__[1])})"
+                    if insert_all.else__[1]
+                    else ""
+                )
+                + (
+                    f" VALUES ({', '.join(v._compiler_dispatch(self, include_table=False, render_label_as_label=v, **kw) for v in insert_all.else__[2])})"
+                    if insert_all.else__[2]
+                    else ""
+                )
+            )
+        else:
+            else_ = ""
+        overwrite = " OVERWRITE" if insert_all.overwrite else ""
+        condition = "FIRST" if insert_all.is_conditional and insert_all.first else "ALL"
+        source = insert_all.source._compiler_dispatch(self, asfrom=True, **kw)
+        return f"INSERT{overwrite} {condition} {' '.join(clauses)}{else_} {source}"
+
+    def visit_copy_into(self, copy_into: CopyInto, **kw: Any) -> str:
         if hasattr(copy_into, "formatter") and copy_into.formatter is not None:
             formatter = copy_into.formatter._compiler_dispatch(self, **kw)
         else:
@@ -760,7 +1045,7 @@ class SnowflakeCompiler(compiler.SQLCompiler):
 
         partition_by_value = None
         if isinstance(copy_into.partition_by, (BindParameter, Executable)):
-            partition_by_value = copy_into.partition_by.compile(
+            partition_by_value = copy_into.partition_by.compile(  # type: ignore[union-attr]
                 compile_kwargs={"literal_binds": True}
             )
         elif copy_into.partition_by is not None:
@@ -805,7 +1090,7 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             options += f" {encryption}"
         return f"COPY INTO {into} FROM {' '.join([from_, partition_by, formatter, options])}"
 
-    def visit_copy_formatter(self, formatter, **kw):
+    def visit_copy_formatter(self, formatter: CopyFormatter, **kw: Any) -> str:
         options_list = list(formatter.options.items())
         if kw.get("deterministic", False):
             options_list.sort(key=operator.itemgetter(0))
@@ -839,7 +1124,9 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             ),
         )
 
-    def visit_aws_bucket(self, aws_bucket, **kw):
+    def visit_aws_bucket(
+        self, aws_bucket: AWSBucket, **kw: Any
+    ) -> tuple[str, str, str]:
         deterministic = kw.get("deterministic", False)
         return (
             _render_storage_uri(aws_bucket),
@@ -855,10 +1142,19 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             ),
         )
 
-    def visit_azure_container(self, azure_container, **kw):
+    def visit_azure_container(
+        self, azure_container: AzureContainer, **kw: Any
+    ) -> tuple[str, str, str]:
+        """Compile an :class:`AzureContainer` into a ``(uri, credentials, encryption)`` triple.
+
+        In strict host-name mode, an ``AzureContainer`` without an explicit
+        ``endpoint`` is rejected at compile time so the commercial
+        ``.blob.core.windows.net`` default is never emitted (SNOW-4248737).
+        """
+        strict = getattr(self.dialect, "strict_host_names", False)
         deterministic = kw.get("deterministic", False)
         return (
-            _render_storage_uri(azure_container),
+            _render_storage_uri(azure_container, strict=strict),
             (
                 _render_storage_credentials(
                     azure_container.credentials_used, deterministic
@@ -875,7 +1171,9 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             ),
         )
 
-    def visit_gcs_bucket(self, gcs_bucket, **kw):
+    def visit_gcs_bucket(
+        self, gcs_bucket: GCSBucket, **kw: Any
+    ) -> tuple[str, str, str]:
         deterministic = kw.get("deterministic", False)
         return (
             _render_storage_uri(gcs_bucket),
@@ -887,40 +1185,70 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             ),
         )
 
-    def visit_external_stage(self, external_stage, **kw):
-        # Quote the stage's <namespace>.<name> prefix when required, consistently
-        # with CREATE STAGE, so the stage reference is always a well-formed
-        # identifier; the trailing path is a stage path, not an identifier.
+    def visit_external_stage(self, external_stage: ExternalStage, **kw: Any) -> str:
+        """Render a stage reference as ``@<namespace>.<name>[/<path>]``.
+
+        The ``<namespace>.<name>`` prefix and the optional ``file_format``
+        object name are identifier-quoted when required, consistently with
+        CREATE STAGE, so the reference is always well-formed.  The trailing
+        path is a stage path rather than an identifier, so it is rendered by
+        :func:`_render_stage_reference`: ordinary bare-path values keep their
+        historical rendering, while a path containing anything outside the safe
+        bare-path character set turns the whole ``@<stage>[/<path>]`` reference
+        into an escaped, single-quoted stage location, which Snowflake accepts
+        wherever a bare reference is accepted (CWE-89, SNOW-4134196).
+        """
         prefix = self.preparer.quote_identifier_if_unsafe(
             f"{external_stage.namespace}{external_stage.name}"
         )
+        stage_reference = _render_stage_reference(prefix, external_stage.path)
         if external_stage.file_format is None:
-            return f"@{prefix}{external_stage.path}"
-        # file_format names a (possibly schema-qualified) file format object;
-        # quote any part that requires it so the stage reference stays
-        # well-formed.
+            return stage_reference
         file_format = self.preparer.quote_identifier_if_unsafe(
             external_stage.file_format
         )
-        return f"@{prefix}{external_stage.path} (file_format => {file_format})"
+        return f"{stage_reference} (file_format => {file_format})"
+
+    def limit_clause(self, select: Select, **kw: Any) -> str:
+        # Replica of base SQLCompiler, but with `LIMIT NULL` instead of `LIMIT -1`
+        text = ""
+        if select._limit_clause is not None:
+            text += "\n LIMIT " + self.process(select._limit_clause, **kw)
+        if select._offset_clause is not None:
+            if select._limit_clause is None:
+                text += "\n LIMIT NULL"
+            text += " OFFSET " + self.process(select._offset_clause, **kw)
+        return text
 
     def delete_extra_from_clause(
-        self, delete_stmt, from_table, extra_froms, from_hints, **kw
-    ):
+        self,
+        delete_stmt: Any,
+        from_table: Any,
+        extra_froms: Any,
+        from_hints: Any,
+        **kw: Any,
+    ) -> str:
         return "USING " + ", ".join(
             t._compiler_dispatch(self, asfrom=True, fromhints=from_hints, **kw)
             for t in extra_froms
         )
 
     def update_from_clause(
-        self, update_stmt, from_table, extra_froms, from_hints, **kw
+        self,
+        update_stmt: Any,
+        from_table: Any,
+        extra_froms: Any,
+        from_hints: Any,
+        **kw: Any,
     ):
         return "FROM " + ", ".join(
             t._compiler_dispatch(self, asfrom=True, fromhints=from_hints, **kw)
             for t in extra_froms
         )
 
-    def _get_regexp_args(self, binary, kw):
+    def _get_regexp_args(
+        self, binary: BinaryExpression[Any], kw: dict[str, Any]
+    ) -> tuple[str, str, str | None]:
         string = self.process(binary.left, **kw)
         pattern = self.process(binary.right, **kw)
         flags = binary.modifiers["flags"]
@@ -928,14 +1256,18 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             flags = self.render_literal_value(flags, sqltypes.STRINGTYPE)
         return string, pattern, flags
 
-    def visit_regexp_match_op_binary(self, binary, operator, **kw):
+    def visit_regexp_match_op_binary(
+        self, binary: BinaryExpression[Any], operator: OperatorType, **kw: Any
+    ) -> str:
         string, pattern, flags = self._get_regexp_args(binary, kw)
         if flags is None:
             return f"REGEXP_LIKE({string}, {pattern})"
         else:
             return f"REGEXP_LIKE({string}, {pattern}, {flags})"
 
-    def visit_regexp_replace_op_binary(self, binary, operator, **kw):
+    def visit_regexp_replace_op_binary(
+        self, binary: BinaryExpression[Any], operator: OperatorType, **kw: Any
+    ) -> str:
         string, pattern, flags = self._get_regexp_args(binary, kw)
         try:
             replacement = self.process(binary.modifiers["replacement"], **kw)
@@ -950,16 +1282,24 @@ class SnowflakeCompiler(compiler.SQLCompiler):
         else:
             return f"REGEXP_REPLACE({string}, {pattern}, {replacement}, {flags})"
 
-    def visit_not_regexp_match_op_binary(self, binary, operator, **kw):
+    def visit_not_regexp_match_op_binary(
+        self, binary: BinaryExpression[Any], operator: OperatorType, **kw: Any
+    ) -> str:
         return f"NOT {self.visit_regexp_match_op_binary(binary, operator, **kw)}"
 
-    def visit_ilike_op_binary(self, binary, operator, **kw):
+    def visit_ilike_op_binary(
+        self, binary: BinaryExpression[Any], operator: OperatorType, **kw: Any
+    ) -> str:
         return self._render_ilike(binary, negate=False, **kw)
 
-    def visit_not_ilike_op_binary(self, binary, operator, **kw):
+    def visit_not_ilike_op_binary(
+        self, binary: BinaryExpression[Any], operator: OperatorType, **kw: Any
+    ) -> str:
         return self._render_ilike(binary, negate=True, **kw)
 
-    def _render_ilike(self, binary, negate=False, **kw):
+    def _render_ilike(
+        self, binary: BinaryExpression[Any], negate: bool = False, **kw: Any
+    ) -> str:
         left = binary.left._compiler_dispatch(self, **kw)
         right = binary.right._compiler_dispatch(self, **kw)
         escape = binary.modifiers.get("escape")
@@ -971,7 +1311,9 @@ class SnowflakeCompiler(compiler.SQLCompiler):
         operator = "NOT ILIKE" if negate else "ILIKE"
         return f"{left} {operator} {right}{escape_clause}"
 
-    def visit_join(self, join, asfrom=False, from_linter=None, **kwargs):
+    def visit_join(
+        self, join: Join, asfrom: bool = False, from_linter: Any = None, **kwargs: Any
+    ) -> str:
         if from_linter:
             from_linter.edges.update(
                 itertools.product(join.left._from_objects, join.right._from_objects)
@@ -1007,58 +1349,10 @@ class SnowflakeCompiler(compiler.SQLCompiler):
             join_statement
             + " ON "
             # TODO: likely need asfrom=True here?
-            + join.onclause._compiler_dispatch(self, from_linter=from_linter, **kwargs)
+            + join.onclause._compiler_dispatch(self, from_linter=from_linter, **kwargs)  # type: ignore[union-attr]
         )
 
-    def visit_truediv_binary(self, binary, operator, **kw):
-        """Compile the true-division operator (``/``) for Snowflake.
-
-        ``/`` always emits ``left / right`` — Snowflake's native ``/`` already
-        performs true division, so no ``CAST`` or ``FLOOR`` is needed regardless
-        of the deprecated ``force_div_is_floordiv`` flag (GH #756).
-
-        On SA 1.4, ``/`` also always emits ``left / right``.
-        """
-        if self.dialect.div_is_floordiv and IS_VERSION_20:
-            warnings.warn(
-                "force_div_is_floordiv=True is deprecated and has no effect on the "
-                "'/' operator, which always performs true division. Remove "
-                "force_div_is_floordiv=True from your create_engine() call. "
-                f"See: {_DIV_README_URL}",
-                PendingDeprecationWarning,
-                stacklevel=2,
-            )
-        return (
-            self.process(binary.left, **kw) + " / " + self.process(binary.right, **kw)
-        )
-
-    def visit_floordiv_binary(self, binary, operator, **kw):
-        """Compile the floor-division operator (``//``) for Snowflake.
-
-        On SA 2.x, always emits ``FLOOR(left / right)``.  Do not delegate to
-        ``super()``: when ``div_is_floordiv=True`` the SA base omits ``FLOOR``
-        for integer/integer pairs (assuming the DB naturally floors), which is
-        wrong for Snowflake (GH #756).
-
-        On SA 1.4 the SA base implementation is used unchanged.
-        """
-        if self.dialect.div_is_floordiv and IS_VERSION_20:
-            warnings.warn(
-                "force_div_is_floordiv=True is deprecated. The '//' operator "
-                "always emits FLOOR(a / b) and is unaffected by this flag. "
-                f"See: {_DIV_README_URL}",
-                PendingDeprecationWarning,
-                stacklevel=2,
-            )
-        if IS_VERSION_20:
-            return "FLOOR(%s)" % (
-                self.process(binary.left, **kw)
-                + " / "
-                + self.process(binary.right, **kw)
-            )
-        return super().visit_floordiv_binary(binary, operator, **kw)
-
-    def render_literal_value(self, value, type_):
+    def render_literal_value(self, value: Any, type_: TypeEngine[Any]) -> str:
         # escape backslash
         return escape_backslashes(super().render_literal_value(value, type_))
 
@@ -1066,31 +1360,31 @@ class SnowflakeCompiler(compiler.SQLCompiler):
 class SnowflakeExecutionContext(default.DefaultExecutionContext):
     INSERT_SQL_RE = re.compile(r"^insert\s+into", flags=re.IGNORECASE)
 
-    def fire_sequence(self, seq, type_):
+    def fire_sequence(self, seq: Sequence, type_: TypeEngine[Any]) -> int:
         return self._execute_scalar(
             f"SELECT {self.identifier_preparer.format_sequence(seq)}.nextval",
             type_,
         )
 
-    def should_autocommit_text(self, statement):
+    def should_autocommit_text(self, statement: str) -> re.Match[str] | None:
         return AUTOCOMMIT_REGEXP.match(statement)
 
     @sa_util.memoized_property
-    def should_autocommit(self):
+    def should_autocommit(self) -> bool:
         autocommit = self.execution_options.get(
             "autocommit",
             not self.compiled
             and self.statement
-            and expression.PARSE_AUTOCOMMIT
+            and expression.PARSE_AUTOCOMMIT  # type: ignore[attr-defined]
             or False,
         )
 
-        if autocommit is expression.PARSE_AUTOCOMMIT:
-            return self.should_autocommit_text(self.unicode_statement)
+        if autocommit is expression.PARSE_AUTOCOMMIT:  # type: ignore[attr-defined]
+            return bool(self.should_autocommit_text(self.unicode_statement))
         else:
             return autocommit and not self.isddl
 
-    def pre_exec(self):
+    def pre_exec(self) -> None:
         if self.compiled and self.identifier_preparer._double_percents:
             # for compiled statements, percent is doubled for escape, we turn on _interpolate_empty_sequences
             _set_connection_interpolate_empty_sequences(self._dbapi_connection, True)
@@ -1105,25 +1399,29 @@ class SnowflakeExecutionContext(default.DefaultExecutionContext):
             # for other cases, do no interpolate empty sequences as "%" is not double escaped
             _set_connection_interpolate_empty_sequences(self._dbapi_connection, False)
 
-    def post_exec(self):
+    def post_exec(self) -> None:
         if self.compiled and self.identifier_preparer._double_percents:
             # for compiled statements, percent is doubled for escapeafter execution
             # we reset _interpolate_empty_sequences to false which is turned on in pre_exec
             _set_connection_interpolate_empty_sequences(self._dbapi_connection, False)
 
     @property
-    def rowcount(self):
+    def rowcount(self) -> int:
         return self.cursor.rowcount
 
 
 # Tracks (table_name, column_name) pairs for which the Identity-on-PK warning
 # has already been emitted this session, preventing duplicate output when the
 # same table schema is compiled repeatedly (e.g. inside ORM session loops).
-_identity_pk_warned: set = set()
+_identity_pk_warned: set[tuple[str, str]] = set()
 
 
 class SnowflakeDDLCompiler(compiler.DDLCompiler):
-    def denormalize_column_name(self, name):
+    # Narrow the SA-inherited attribute to our subclass so its
+    # Snowflake-specific helpers (quote_identifier_if_unsafe, …) type-check.
+    preparer: SnowflakeIdentifierPreparer
+
+    def denormalize_column_name(self, name: str | None) -> str | None:
         if name is None:
             return None
         if isinstance(name, quoted_name) and name.quote is True:
@@ -1134,7 +1432,7 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             return name
         return self.preparer.quote(name)
 
-    def get_column_specification(self, column, **kwargs):
+    def get_column_specification(self, column: Column[Any], **kwargs: Any) -> str:
         """
         Gets Column specifications
         """
@@ -1184,11 +1482,11 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
                         SnowflakeWarning,
                         stacklevel=2,
                     )
-            colspec.append(self.process(column.identity))
+            colspec.append(self.process(column.identity))  # type: ignore[arg-type]
 
         return " ".join(colspec)
 
-    def handle_cluster_by(self, table):
+    def handle_cluster_by(self, table: Table) -> str:
         """
         Handles snowflake-specific ``CREATE TABLE ... CLUSTER BY`` syntax.
 
@@ -1224,7 +1522,7 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             text += " CLUSTER BY ({})".format(
                 ", ".join(
                     (
-                        self.denormalize_column_name(key)
+                        (self.denormalize_column_name(key) or key)
                         if isinstance(key, str)
                         else str(key)
                     )
@@ -1233,10 +1531,10 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             )
         return text
 
-    def post_create_table(self, table):
+    def post_create_table(self, table: Table) -> str:
         text = self.handle_cluster_by(table)
         options = []
-        invalid_options: List[str] = []
+        invalid_options: list[str] = []
 
         for key, option in table.dialect_options[DIALECT_NAME].items():
             if isinstance(option, TableOption):
@@ -1256,6 +1554,35 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
 
         return text
 
+    def _append_rely(self, constraint: Any, text: str) -> str:
+        """Append the Snowflake ``RELY`` constraint property when opted in.
+
+        Snowflake does not enforce PRIMARY KEY / UNIQUE / FOREIGN KEY
+        constraints; ``RELY`` tells the optimizer it may trust them for query
+        rewrites such as join elimination. It is opt-in per constraint via the
+        ``snowflake_rely=True`` dialect keyword (SNOW-1023317) and defaults off
+        so existing DDL is unchanged.
+        """
+        if text and constraint.dialect_options[DIALECT_NAME].get("rely"):
+            text += " RELY"
+        return text
+
+    def visit_primary_key_constraint(
+        self, constraint: PrimaryKeyConstraint, **kw: Any
+    ) -> str:
+        text = super().visit_primary_key_constraint(constraint, **kw)
+        return self._append_rely(constraint, text)
+
+    def visit_foreign_key_constraint(
+        self, constraint: ForeignKeyConstraint, **kw: Any
+    ) -> str:
+        text = super().visit_foreign_key_constraint(constraint, **kw)
+        return self._append_rely(constraint, text)
+
+    def visit_unique_constraint(self, constraint: UniqueConstraint, **kw: Any) -> str:
+        text = super().visit_unique_constraint(constraint, **kw)
+        return self._append_rely(constraint, text)
+
     def _format_stage_prefix(self, stage) -> str:
         """Identifier-quote a stage's ``<namespace>.<name>`` prefix.
 
@@ -1270,7 +1597,7 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             f"{stage.namespace}{stage.name}"
         )
 
-    def visit_create_stage(self, create_stage, **kw):
+    def visit_create_stage(self, create_stage: CreateStage, **kw: Any) -> str:
         """
         This visitor will create the SQL representation for a CREATE STAGE command.
         """
@@ -1281,15 +1608,21 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
         # (SNOW-3649858).
         container = create_stage.container
         deterministic = kw.get("deterministic", False)
-        uri = _render_storage_uri(container)
+        strict = getattr(self.dialect, "strict_host_names", False)
+        uri = _render_storage_uri(container, strict=strict)
+        # credentials_used / encryption_used exist on CloudStorageLocation
+        # subclasses (buckets) but not on ExternalStage; read defensively so the
+        # union type checks and an ExternalStage container renders no creds.
+        credentials_used = getattr(container, "credentials_used", None)
         credentials = (
-            _render_storage_credentials(container.credentials_used, deterministic)
-            if getattr(container, "credentials_used", None)
+            _render_storage_credentials(credentials_used, deterministic)
+            if credentials_used
             else ""
         )
+        encryption_used = getattr(container, "encryption_used", None)
         encryption = (
-            _render_storage_encryption(container.encryption_used, deterministic)
-            if getattr(container, "encryption_used", None)
+            _render_storage_encryption(encryption_used, deterministic)
+            if encryption_used
             else ""
         )
         storage = "URL={}{}{}".format(
@@ -1304,26 +1637,33 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             storage=storage,
         )
 
-    def visit_create_file_format(self, file_format, **kw):
+    def visit_create_file_format(self, file_format: CreateFileFormat, **kw: Any) -> str:
         """
         This visitor will create the SQL representation for a CREATE FILE FORMAT
         command.
         """
-        return "CREATE {}FILE FORMAT {} TYPE='{}' {}".format(
+        options = " ".join(
+            [
+                f"{name} = {file_format.formatter.value_repr(name, value)}"
+                for name, value in file_format.formatter.options.items()
+            ]
+        )
+        text = "CREATE {}FILE FORMAT {}{} TYPE='{}' {}".format(
             "OR REPLACE " if file_format.replace_if_exists else "",
+            "IF NOT EXISTS " if file_format.if_not_exists else "",
             # format_name is a (possibly schema-qualified) identifier; quote any
             # unsafe part to prevent unintended DDL (SNOW-3649881).
             self.preparer.quote_identifier_if_unsafe(file_format.format_name),
             file_format.formatter.file_format,
-            " ".join(
-                [
-                    f"{name} = {file_format.formatter.value_repr(name, value)}"
-                    for name, value in file_format.formatter.options.items()
-                ]
-            ),
+            options,
         )
+        if file_format.comment is not None:
+            text += " COMMENT = '{}'".format(
+                escape_string_literal_interior(file_format.comment)
+            )
+        return text
 
-    def visit_drop_table_comment(self, drop, **kw):
+    def visit_drop_table_comment(self, drop: DropTableComment, **kw: Any) -> str:
         """Snowflake does not support setting table comments as NULL.
 
         Reflection has to account for this and convert any empty comments to NULL.
@@ -1331,7 +1671,7 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
         table_name = self.preparer.format_table(drop.element)
         return f"COMMENT ON TABLE {table_name} IS ''"
 
-    def visit_drop_column_comment(self, drop, **kw):
+    def visit_drop_column_comment(self, drop: DropColumnComment, **kw: Any) -> str:
         """Snowflake does not support directly setting column comments as NULL.
 
         Instead we are forced to use the ALTER COLUMN ... UNSET COMMENT instead.
@@ -1341,7 +1681,7 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             self.preparer.format_column(drop.element),
         )
 
-    def visit_identity_column(self, identity, **kw):
+    def visit_identity_column(self, identity: Identity, **kw: Any) -> str:
         text = "IDENTITY"
         if identity.start is not None or identity.increment is not None:
             start = 1 if identity.start is None else identity.start
@@ -1352,7 +1692,7 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
             text += f" {order}"
         return text
 
-    def get_identity_options(self, identity_options):
+    def get_identity_options(self, identity_options: IdentityOptions) -> str:
         text = []
         if identity_options.increment is not None:
             text.append("INCREMENT BY %d" % identity_options.increment)
@@ -1376,52 +1716,84 @@ class SnowflakeDDLCompiler(compiler.DDLCompiler):
 
 
 class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
-    def visit_BYTEINT(self, type_, **kw):
+    def _render_string_type(
+        self, name: str, length: int | None, collation: str | None
+    ) -> str:
+        """Render a string type, emitting collation as a Snowflake literal.
+
+        Snowflake renders column collation as a single-quoted string literal
+        (e.g. ``VARCHAR(100) COLLATE 'en-ci'``); SQLAlchemy's default emits a
+        double-quoted identifier, which is invalid Snowflake syntax.
+        """
+        text = name
+        if length:
+            text += f"({length})"
+        if collation:
+            escaped = collation.replace("'", "''")
+            text += f" COLLATE '{escaped}'"
+        return text
+
+    def visit_BYTEINT(self, type_: sqltypes.SmallInteger, **kw: Any) -> str:
         return "BYTEINT"
 
-    def visit_CHARACTER(self, type_, **kw):
+    def visit_CHARACTER(self, type_: sqltypes.String, **kw: Any) -> str:
         return "CHARACTER"
 
-    def visit_DEC(self, type_, **kw):
+    def visit_DEC(self, type_: sqltypes.Numeric, **kw: Any) -> str:
         return "DEC"
 
-    def visit_DOUBLE(self, type_, **kw):
+    def visit_DOUBLE(self, type_: sqltypes.Float, **kw: Any) -> str:
         return "DOUBLE"
 
-    def visit_FIXED(self, type_, **kw):
+    def visit_FIXED(self, type_: sqltypes.Numeric, **kw: Any) -> str:
         return "FIXED"
 
-    def visit_INT(self, type_, **kw):
+    def visit_INT(self, type_: sqltypes.Integer, **kw: Any) -> str:
         return "INT"
 
-    def visit_NUMBER(self, type_, **kw):
+    def visit_NUMBER(self, type_: sqltypes.Numeric, **kw: Any) -> str:
         return "NUMBER"
 
-    def visit_STRING(self, type_, **kw):
+    def visit_STRING(self, type_: sqltypes.String, **kw: Any) -> str:
         return "STRING"
 
-    def visit_TINYINT(self, type_, **kw):
+    def visit_TINYINT(self, type_: sqltypes.Integer, **kw: Any) -> str:
         return "TINYINT"
 
-    def visit_VARIANT(self, type_, **kw):
+    def visit_VARIANT(self, type_: VARIANT, **kw: Any) -> str:
         return "VARIANT"
 
-    def visit_MAP(self, type_, **kw):
-        not_null = f" {NOT_NULL}" if type_.not_null else ""
-        return (
-            f"MAP({type_.key_type.compile()}, {type_.value_type.compile()}{not_null})"
-        )
+    def _compile_inner_type(self, type_: sqltypes.TypeEngine) -> str:
+        """Compile a structured type's inner type against *this* dialect.
 
-    def visit_ARRAY(self, type_, **kw):
+        ``TypeEngine.compile()`` with no argument falls back to the type's
+        ``_default_dialect()``.  For SQLAlchemy's own types that is a generic
+        dialect, which renders Snowflake-relevant types incorrectly — notably
+        ``Uuid`` becomes ``CHAR(32)`` because the generic dialect reports
+        ``supports_native_uuid = False``, so ``ARRAY(Uuid())`` would silently
+        produce ``ARRAY(CHAR(32))`` regardless of the Snowflake dialect's own
+        setting.  Passing the real dialect keeps inner types consistent with
+        how they render as standalone columns.
+        """
+        return type_.compile(dialect=self.dialect)
+
+    def visit_MAP(self, type_: MAP, **kw: Any) -> str:
+        not_null = f" {NOT_NULL}" if type_.not_null else ""
+        key = self._compile_inner_type(type_.key_type)
+        value = self._compile_inner_type(type_.value_type)
+        return f"MAP({key}, {value}{not_null})"
+
+    def visit_ARRAY(self, type_: ARRAY, **kw: Any) -> str:
         return "ARRAY"
 
-    def visit_SNOWFLAKE_ARRAY(self, type_, **kw):
+    def visit_SNOWFLAKE_ARRAY(self, type_: ARRAY, **kw: Any) -> str:
         if type_.is_semi_structured:
             return "ARRAY"
         not_null = f" {NOT_NULL}" if type_.not_null else ""
-        return f"ARRAY({type_.value_type.compile()}{not_null})"
+        value = self._compile_inner_type(type_.value_type)  # type: ignore[arg-type]
+        return f"ARRAY({value}{not_null})"
 
-    def visit_OBJECT(self, type_, **kw):
+    def visit_OBJECT(self, type_: OBJECT, **kw: Any) -> str:
         if type_.is_semi_structured:
             return "OBJECT"
         else:
@@ -1433,14 +1805,15 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
                 else:
                     inner = key
                 quoted_key = ip.quote(inner)
-                row_text = f"{quoted_key} {type_.items_types[key][0].compile()}"
+                field_type = self._compile_inner_type(type_.items_types[key][0])
+                row_text = f"{quoted_key} {field_type}"
                 # Type and not null is specified
                 if len(type_.items_types[key]) > 1:
                     row_text += f"{' NOT NULL' if type_.items_types[key][1] else ''}"
                 contents.append(row_text)
             return "OBJECT" if contents == [] else f"OBJECT({', '.join(contents)})"
 
-    def visit_BLOB(self, type_, **kw):
+    def visit_BLOB(self, type_: sqltypes.LargeBinary, **kw: Any) -> str:
         return "BINARY"
 
     def visit_datetime(self, type_: sqltypes.DateTime, **kw: Any) -> str:
@@ -1453,13 +1826,13 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
             return "TIMESTAMP_TZ"
         return "DATETIME"
 
-    def visit_TIMESTAMP_NTZ(self, type_, **kw):
+    def visit_TIMESTAMP_NTZ(self, type_: TIMESTAMP_NTZ, **kw: Any) -> str:
         return "TIMESTAMP_NTZ"
 
-    def visit_TIMESTAMP_TZ(self, type_, **kw):
+    def visit_TIMESTAMP_TZ(self, type_: TIMESTAMP_TZ, **kw: Any) -> str:
         return "TIMESTAMP_TZ"
 
-    def visit_TIMESTAMP_LTZ(self, type_, **kw):
+    def visit_TIMESTAMP_LTZ(self, type_: TIMESTAMP_LTZ, **kw: Any) -> str:
         return "TIMESTAMP_LTZ"
 
     def visit_TIMESTAMP(self, type_: sqltypes.TIMESTAMP, **kw: Any) -> str:
@@ -1467,16 +1840,16 @@ class SnowflakeTypeCompiler(compiler.GenericTypeCompiler):
             return "TIMESTAMP_TZ"
         return "TIMESTAMP"
 
-    def visit_GEOGRAPHY(self, type_, **kw):
+    def visit_GEOGRAPHY(self, type_: GEOGRAPHY, **kw: Any) -> str:
         return "GEOGRAPHY"
 
-    def visit_GEOMETRY(self, type_, **kw):
+    def visit_GEOMETRY(self, type_: GEOMETRY, **kw: Any) -> str:
         return "GEOMETRY"
 
-    def visit_DECFLOAT(self, type_, **kw):
+    def visit_DECFLOAT(self, type_: DECFLOAT, **kw: Any) -> str:
         return "DECFLOAT"
 
-    def visit_VECTOR(self, type_, **kw):
+    def visit_VECTOR(self, type_: VECTOR, **kw: Any) -> str:
         return f"VECTOR({type_.element_type}, {type_.dimension})"
 
 

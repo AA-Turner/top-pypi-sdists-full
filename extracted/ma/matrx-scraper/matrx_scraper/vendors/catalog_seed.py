@@ -252,10 +252,13 @@ def _curated_spec(e: CatalogEntry, twin: dict[str, Any] | None) -> dict[str, Any
             extra.insert(0, e.query_field)
     fields += [_field(f, None, True, None) for f in extra]
     twin_in = (twin or {}).get("inputs", {})
-    return {"mode": e.input_kind, "fields": fields, "required_fields": list(e.required_fields),
+    spec = {"mode": e.input_kind, "fields": fields, "required_fields": list(e.required_fields),
             "defaults": dict(e.defaults), "query_field": e.query_field, "location_field": e.location_field,
             "limit_field": e.limit_field, "discover_by": [e.discover_by] if e.discover_by else [],
             "discover_requires": twin_in.get("discover_requires") or {}}
+    if e.name_search:
+        spec["name_search"] = dict(e.name_search)  # a link-less business name (+ city) row becomes a keyword row
+    return spec
 
 
 def _census_spec(item: dict[str, Any]) -> dict[str, Any]:

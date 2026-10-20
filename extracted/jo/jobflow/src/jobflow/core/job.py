@@ -13,6 +13,7 @@ from typing_extensions import Self
 
 from jobflow.core.flow import _current_flow_context
 from jobflow.core.reference import OnMissing, OutputReference
+from jobflow.utils.find import replace_job_or_flow_with_output
 from jobflow.utils.uid import suid
 
 if typing.TYPE_CHECKING:
@@ -36,9 +37,14 @@ class JobConfig(MSONable):
     Parameters
     ----------
     resolve_references
-        Whether to resolve any references before the job function is executed.
-        If ``False`` the unresolved reference objects will be passed into the function
-        call.
+        Controls how :obj:`.OutputReference` inputs are handled before the job
+        function is executed. Accepted values:
+
+        - ``True`` (default): resolve references and pass the resolved values.
+        - ``False``: pass the unresolved :obj:`.OutputReference` objects to the
+          function.
+        - ``"both"``: pass a :obj:`.ResolvedReference` wrapper containing both
+          the original reference and its resolved value.
     on_missing_references
         What to do if the references cannot be resolved. The default is to throw an
         error.
@@ -61,12 +67,22 @@ class JobConfig(MSONable):
         A :obj:`JobConfig` object.
     """
 
-    resolve_references: bool = True
+    resolve_references: bool | str = True
     on_missing_references: OnMissing = OnMissing.ERROR
     manager_config: dict = field(default_factory=dict)
     expose_store: bool = False
     pass_manager_config: bool = True
     response_manager_config: dict = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Verify that resolve_references contains an acceptable value."""
+        if not isinstance(self.resolve_references, bool) and (
+            self.resolve_references != "both"
+        ):
+            raise ValueError(
+                "resolve_references must be a bool or the string 'both', got "
+                f"{self.resolve_references!r}"
+            )
 
 
 @overload
@@ -186,6 +202,7 @@ def job(
     """
 
     def decorator(func):
+        from copy import deepcopy
         from functools import wraps
 
         # unwrap staticmethod or classmethod decorators
@@ -213,8 +230,15 @@ def job(
                         f = met
                         args = args[1:]
 
+            if _current_flow_context.get() is not None:
+                args = replace_job_or_flow_with_output(args)
+                kwargs = replace_job_or_flow_with_output(kwargs)
+
             return Job(
-                function=f, function_args=args, function_kwargs=kwargs, **job_kwargs
+                function=f,
+                function_args=args,
+                function_kwargs=kwargs,
+                **deepcopy(job_kwargs),
             )
 
         get_job.original = func
@@ -615,7 +639,10 @@ class Job(MSONable):
             CURRENT_JOB.store = store
 
         if self.config.resolve_references:
-            self.resolve_args(store=store)
+            self.resolve_args(
+                store=store,
+                wrap_resolved=self.config.resolve_references == "both",
+            )
 
         # if Job was created using the job decorator, then access the original function
         function = getattr(self.function, "original", self.function)
@@ -702,6 +729,7 @@ class Job(MSONable):
         self,
         store: jobflow.JobStore,
         inplace: bool = True,
+        wrap_resolved: bool = False,
     ) -> Job:
         """
         Resolve any :obj:`.OutputReference` objects in the input arguments.
@@ -714,6 +742,9 @@ class Job(MSONable):
             A maggma store to use for resolving references.
         inplace
             Update the arguments of the current job or return a new job object.
+        wrap_resolved
+            If True, wrap each resolved reference in a :obj:`.ResolvedReference`
+            exposing both the original reference and its resolved value.
 
         Returns
         -------
@@ -730,12 +761,14 @@ class Job(MSONable):
             store,
             cache=cache,
             on_missing=self.config.on_missing_references,
+            wrap_resolved=wrap_resolved,
         )
         resolved_kwargs = find_and_resolve_references(
             self.function_kwargs,
             store,
             cache=cache,
             on_missing=self.config.on_missing_references,
+            wrap_resolved=wrap_resolved,
         )
         resolved_args = tuple(resolved_args)
 
@@ -1265,7 +1298,13 @@ class Response(typing.Generic[T]):
     output: T = None
     detour: jobflow.Flow | Job | list[Job] | list[jobflow.Flow] = None
     addition: jobflow.Flow | Job | list[Job] | list[jobflow.Flow] = None
-    replace: jobflow.Flow | Job | list[Job] | list[jobflow.Flow] = None
+    replace: (
+        jobflow.Flow
+        | Job
+        | tuple[jobflow.Job | jobflow.Flow]
+        | list[jobflow.Job | jobflow.Flow]
+        | dict[Any, jobflow.Job | jobflow.Flow]
+    ) = None
     stored_data: dict[Hashable, Any] = None
     stop_children: bool = False
     stop_jobflow: bool = False
@@ -1312,8 +1351,13 @@ class Response(typing.Generic[T]):
             return isinstance(x, Job | Flow)
 
         should_replace = is_job_or_flow(job_returns)
-        if job_returns and isinstance(job_returns, (list, tuple)):
-            should_replace = all(is_job_or_flow(resp) for resp in job_returns)
+        if job_returns is not None:
+            if isinstance(job_returns, (list, tuple)) and len(job_returns) > 0:
+                should_replace = all(is_job_or_flow(resp) for resp in job_returns)
+            elif isinstance(job_returns, dict) and len(job_returns) > 0:
+                should_replace = all(
+                    is_job_or_flow(resp) for resp in job_returns.values()
+                )
 
         if should_replace:
             job_returns = Response(replace=job_returns)
@@ -1330,6 +1374,13 @@ class Response(typing.Generic[T]):
         if isinstance(job_returns, (list, tuple)):
             # check that a Response object is not given as one of many outputs
             for resp in job_returns:
+                if isinstance(resp, Response):
+                    raise ValueError(
+                        "Response cannot be returned in combination with other outputs."
+                    )
+        elif isinstance(job_returns, dict):
+            # check that a Response object is not given as one of many outputs
+            for resp in job_returns.values():
                 if isinstance(resp, Response):
                     raise ValueError(
                         "Response cannot be returned in combination with other outputs."
@@ -1393,7 +1444,11 @@ def store_inputs(inputs: Any) -> Any:
 
 
 def prepare_replace(
-    replace: jobflow.Flow | Job | list[Job],
+    replace: jobflow.Flow
+    | Job
+    | tuple[jobflow.Job | jobflow.Flow]
+    | list[jobflow.Job | jobflow.Flow]
+    | dict[Any, jobflow.Job | jobflow.Flow],
     current_job: Job,
 ) -> jobflow.Flow:
     """
@@ -1419,8 +1474,16 @@ def prepare_replace(
     """
     from jobflow.core.flow import Flow
 
+    if isinstance(replace, dict):
+        output = {k: j.output for k, j in replace.items()}
+        replace = Flow(jobs=list(replace.values()), output=output)
+
     if isinstance(replace, (list, tuple)):
-        replace = Flow(jobs=replace)
+        if isinstance(replace, tuple):
+            seq_output: tuple | list = tuple(j.output for j in replace)
+        else:
+            seq_output = [j.output for j in replace]
+        replace = Flow(jobs=list(replace), output=seq_output)
 
     if isinstance(replace, Flow) and replace.output is not None:
         # add a job with same UUID as the current job to store the outputs of the

@@ -67,6 +67,7 @@ __all__ = (
     "ImageAssociatedResourceTypeType",
     "ImageComputeTypeType",
     "ImageTypeType",
+    "ImageValidationModeType",
     "InternetFallbackProtocolType",
     "ListAccountLinksPaginatorName",
     "ListAvailableManagementCidrRangesPaginatorName",
@@ -239,6 +240,7 @@ EndpointEncryptionModeType = Literal["FIPS_VALIDATED", "STANDARD_TLS"]
 ImageAssociatedResourceTypeType = Literal["APPLICATION"]
 ImageComputeTypeType = Literal["BASE", "GRAPHICS_G4DN", "GRAPHICS_G6", "GRAPHICS_G7"]
 ImageTypeType = Literal["OWNED", "SHARED"]
+ImageValidationModeType = Literal["CUSTOMER_MANAGED", "SERVICE_MANAGED"]
 InternetFallbackProtocolType = Literal["PCOIP"]
 ListAccountLinksPaginatorName = Literal["list_account_links"]
 ListAvailableManagementCidrRangesPaginatorName = Literal["list_available_management_cidr_ranges"]

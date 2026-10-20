@@ -1,4 +1,4 @@
-"""Cancelling a crawl session: orphans terminate, live runs stop cooperatively.
+"""Canceling a crawl session: orphans terminate, live runs stop cooperatively.
 
 A metadata-only cancel stamp on an orphaned queued session was a trap: no
 worker polls a queued session, and the stamp's UPDATE bumps `updated_at` —
@@ -268,7 +268,7 @@ async def test_a_cancelled_orphan_no_longer_blocks_a_new_crawl(
     await WebCrawlRepository({}).request_cancel(str(session_table.row.id), USER_ID)
 
     assert not _session_blocks_new_crawl(session_table.row), (
-        "the cancelled session still blocks a new crawl of its site — the Cancel "
+        "the canceled session still blocks a new crawl of its site — the Cancel "
         "click refreshed the very freshness signal the gate reads"
     )
 
@@ -286,7 +286,7 @@ async def test_a_worker_never_starts_a_cancelled_orphan(
     await WebCrawlRepository({}).request_cancel(str(session_table.row.id), USER_ID)
     outcome = await _attempt_resume(worker, str(session_table.row.id))
 
-    assert worker.claimed == [], "a worker claimed the run of a session the user cancelled"
+    assert worker.claimed == [], "a worker claimed the run of a session the user canceled"
     assert isinstance(outcome, ValueError), f"expected a not-resumable refusal, got {outcome!r}"
 
 
@@ -329,18 +329,18 @@ async def test_a_cooperatively_cancelled_session_is_never_resumed_after_its_work
     resume_worker: Callable[[_SessionTable], SimpleNamespace],
 ) -> None:
     """Break: the reaper fails the dead worker's session with the STALE marker, the
-    crash-resume sweep picks it up, and the crawl the user cancelled runs anyway."""
+    crash-resume sweep picks it up, and the crawl the user canceled runs anyway."""
     session_table = table(_session_row(status="queued", lease_age=FRESH_LEASE_AGE))
     worker = resume_worker(session_table)
     await WebCrawlRepository({}).request_cancel(str(session_table.row.id), USER_ID)
-    # The worker dies before honouring the stamp; the stale reaper fails the row.
+    # The worker dies before honoring the stamp; the stale reaper fails the row.
     session_table.row.status = "failed"
     session_table.row.error = STALE_SESSION_ERROR
     session_table.row.finished_at = utcnow()
 
     outcome = await _attempt_resume(worker, str(session_table.row.id))
 
-    assert worker.claimed == [], "the crash-resume worker restarted a session the user cancelled"
+    assert worker.claimed == [], "the crash-resume worker restarted a session the user canceled"
     assert isinstance(outcome, ValueError), f"expected a not-resumable refusal, got {outcome!r}"
 
 

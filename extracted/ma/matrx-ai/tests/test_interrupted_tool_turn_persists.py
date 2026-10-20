@@ -7,7 +7,7 @@ placeholder and no tool-result message. Every chat.tool_call row of that turn
 kept ``message_id`` NULL, ``get_cx_conversation_bundle`` (which loads tool calls
 by message_id) returned none of them, and a reload showed nothing where the live
 turn had shown the calls and their errors (live: conversation f0e79c3b…,
-2026-09-22, three git_ingest calls on a cancelled request).
+2026-09-22, three git_ingest calls on a canceled request).
 
 The fix keeps the in-flight response on ``ExecutionState.tool_dispatch_response``
 and attaches it on interrupt with ONE honest result per call, read from the
@@ -16,7 +16,7 @@ a call still running is never reported as a success. The normal finalize then
 writes the assistant + tool messages and links every row by call_id.
 
 Two layers:
-  1. behavioural — the cancel path persists the tool_use turn and an honest
+  1. behavioral — the cancel path persists the tool_use turn and an honest
      tool-result message for every call;
   2. structural — every handler that finalizes a failed tool-dispatch try
      (and the cancel handler) attaches the in-flight turn first.

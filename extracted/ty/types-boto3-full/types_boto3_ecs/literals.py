@@ -125,6 +125,7 @@ __all__ = (
     "SchedulingStrategyType",
     "ScopeType",
     "ServiceConnectAccessLoggingFormatType",
+    "ServiceConnectContainerLogLevelType",
     "ServiceConnectIncludeQueryParametersType",
     "ServiceDeploymentLifecycleStageType",
     "ServiceDeploymentRollbackMonitorsStatusType",
@@ -324,6 +325,7 @@ ScaleUnitType = Literal["PERCENT"]
 SchedulingStrategyType = Literal["DAEMON", "REPLICA"]
 ScopeType = Literal["shared", "task"]
 ServiceConnectAccessLoggingFormatType = Literal["JSON", "TEXT"]
+ServiceConnectContainerLogLevelType = Literal["debug", "info"]
 ServiceConnectIncludeQueryParametersType = Literal["DISABLED", "ENABLED"]
 ServiceDeploymentLifecycleStageType = Literal[
     "BAKE_TIME",

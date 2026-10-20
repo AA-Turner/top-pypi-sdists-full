@@ -107,6 +107,12 @@ cmake_dependent_option(ENABLE_EMSCRIPTEN_ENVIRONMENT_NODE
     OFF)
 
 option(ENABLE_HLSL "Enables HLSL input support" ON)
+if(ENABLE_HLSL)
+    message(DEPRECATION
+        "ENABLE_HLSL is deprecated. The HLSL front-end will be removed in "
+        "a future major release of glslang. "
+        "See https://github.com/KhronosGroup/glslang/issues/4210 for details.")
+endif()
 option(ENABLE_RTTI "Enables RTTI")
 option(ENABLE_EXCEPTIONS "Enables Exceptions")
 cmake_dependent_option(ENABLE_OPT "Enables spirv-opt capability if present" ON "ENABLE_SPIRV" OFF)
@@ -173,6 +179,14 @@ elseif(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang" AND NOT MSVC)
         endif()
     endif()
 elseif(MSVC)
+    # A unary minus operator was applied to an unsigned type, resulting in an unsigned result.
+    add_compile_options(/w14146)
+    # A negative integral constant converted to unsigned type, resulting in a possibly meaningless result.
+    add_compile_options(/w14308)
+    # Use of an uninitialized local variable.
+    add_compile_options(/w14700)
+    # Use of a potentially uninitialized local pointer variable.
+    add_compile_options(/w14703)
     if(NOT ENABLE_RTTI)
         add_compile_options(/GR-) # Disable RTTI
     endif()
@@ -321,6 +335,18 @@ if(ENABLE_GLSLANG_BINARIES)
     add_subdirectory(StandAlone)
 endif()
 
+option(ALLOW_EXTERNAL_GTEST "Allows to build against installed googletest. This is unsupported if the commit isn't the one in known_good.json")
+set(GMOCK_TARGET gmock)
+if(NOT TARGET ${GMOCK_TARGET})
+    if(ALLOW_EXTERNAL_GTEST)
+        message(STATUS "Trying to find local googletest")
+        find_package(GTest)
+        if(TARGET GTest::gmock)
+            set(GMOCK_TARGET GTest::gmock)
+        endif()
+    endif()
+endif()
+
 if(GLSLANG_TESTS)
     enable_testing()
     add_subdirectory(gtests)
@@ -344,8 +370,13 @@ if(GLSLANG_TESTS)
     if(WIN32 AND BUILD_SHARED_LIBS AND CMAKE_VERSION VERSION_LESS "3.27")
         message(WARNING "The Windows shared library test configuration requires CMake 3.27 or greater")
     else()
+	if (ENABLE_HLSL)
+	  set(HLSL_ARG 1)
+	else()
+	  set(HLSL_ARG 0)
+	endif()
         add_test(NAME glslang-testsuite
-            COMMAND bash ${IGNORE_CR_FLAG} runtests ${RESULTS_PATH} ${VALIDATOR_PATH}
+	    COMMAND bash ${IGNORE_CR_FLAG} runtests ${RESULTS_PATH} ${VALIDATOR_PATH} ${HLSL_ARG}
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/Test/)
 
         # Prepend paths to shared libraries.

@@ -37,19 +37,15 @@ class RecordedRunOptions(BaseModel):
 
   min_lr_ratio: float | None = None
 
-  reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"] | None = (
-    None
-  )
-
-  disable_thinking: bool | None = None
+  reasoning_effort: (
+    Literal["off", "on", "minimal", "low", "medium", "high", "xhigh", "max"] | None
+  ) = None
 
   num_steps: int | None = None
 
   train_batch_size: int | None = None
 
   samples_per_instance: int | None = None
-
-  n_parallel_agents: int | None = None
 
   max_active_rollouts: int | None = None
 

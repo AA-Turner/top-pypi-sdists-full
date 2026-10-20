@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonpatch
-Version: 1.35
+Version: 1.36
 Summary:  Apply JSON-Patches (RFC 6902) 
 Home-page: https://github.com/stefankoegl/python-json-patch
 Author: Stefan Kögl

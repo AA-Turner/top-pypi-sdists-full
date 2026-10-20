@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import (
     Any,
     Dict,
@@ -15,10 +14,11 @@ from typing import (
     Union,
     overload,
 )
+from typing_extensions import Unpack
 
 from pydantic import BaseModel, TypeAdapter
 
-from .base import ResearchBaseClient
+from .base import ResearchBaseClient, raise_research_retired
 from .models import (
     ResearchDto,
     ResearchEvent,
@@ -30,6 +30,7 @@ from .utils import (
     pydantic_to_json_schema,
     stream_sse_events,
 )
+from ..request_options import ExtraRequestOptions, given_request_options
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -57,7 +58,11 @@ class ResearchTyped(Generic[T]):
 
 
 class ResearchClient(ResearchBaseClient):
-    """Synchronous client for the Research API."""
+    """Client for the Research API, which has been retired.
+
+    Every method raises ValueError without sending a request. Use the Agent API
+    (``exa.agent.runs.create``) for asynchronous, multi-step research.
+    """
 
     @overload
     def create(
@@ -65,6 +70,7 @@ class ResearchClient(ResearchBaseClient):
         *,
         instructions: str,
         model: ResearchModel = "exa-research-fast",
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto: ...
 
     @overload
@@ -74,6 +80,7 @@ class ResearchClient(ResearchBaseClient):
         instructions: str,
         model: ResearchModel = "exa-research-fast",
         output_schema: Dict[str, Any],
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto: ...
 
     @overload
@@ -83,6 +90,7 @@ class ResearchClient(ResearchBaseClient):
         instructions: str,
         model: ResearchModel = "exa-research-fast",
         output_schema: Type[T],
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto: ...
 
     def create(
@@ -91,6 +99,7 @@ class ResearchClient(ResearchBaseClient):
         instructions: str,
         model: ResearchModel = "exa-research-fast",
         output_schema: Optional[Union[Dict[str, Any], Type[BaseModel]]] = None,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto:
         """Create a new research request.
 
@@ -98,6 +107,7 @@ class ResearchClient(ResearchBaseClient):
             instructions (str): The research instructions describing what to research.
             model (str): The model to use ('exa-research-fast', 'exa-research', or 'exa-research-pro').
             output_schema (dict): Optional JSON schema for structured output format.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
 
         Returns:
             The created research object with a unique research_id.
@@ -137,7 +147,7 @@ class ResearchClient(ResearchBaseClient):
             else:
                 payload["outputSchema"] = output_schema
 
-        response = self.request("", method="POST", data=payload)
+        response = self.request("", method="POST", data=payload, **extra)
         adapter = TypeAdapter(ResearchDto)
         return adapter.validate_python(response)
 
@@ -145,6 +155,7 @@ class ResearchClient(ResearchBaseClient):
     def get(
         self,
         research_id: str,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto: ...
 
     @overload
@@ -154,6 +165,7 @@ class ResearchClient(ResearchBaseClient):
         *,
         stream: Literal[False] = False,
         events: bool = False,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto: ...
 
     @overload
@@ -163,6 +175,7 @@ class ResearchClient(ResearchBaseClient):
         *,
         stream: Literal[True],
         events: Optional[bool] = None,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> Generator[ResearchEvent, None, None]: ...
 
     @overload
@@ -173,6 +186,7 @@ class ResearchClient(ResearchBaseClient):
         stream: Literal[False] = False,
         events: bool = False,
         output_schema: Type[T],
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchTyped[T]: ...
 
     def get(
@@ -182,6 +196,7 @@ class ResearchClient(ResearchBaseClient):
         stream: bool = False,
         events: bool = False,
         output_schema: Optional[Type[BaseModel]] = None,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> Union[ResearchDto, ResearchTyped, Generator[ResearchEvent, None, None]]:
         """Get a research request by ID.
 
@@ -190,6 +205,7 @@ class ResearchClient(ResearchBaseClient):
             stream (bool): Whether to stream events as they occur.
             events (bool): Whether to include events in the response.
             output_schema (Type[BaseModel]): Optional Pydantic model for typed output validation.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
 
         Returns:
             Research object with status and results.
@@ -215,11 +231,12 @@ class ResearchClient(ResearchBaseClient):
 
         if stream:
             response = self.request(
-                f"/{research_id}", method="GET", params=params, stream=True
+                f"/{research_id}", method="GET", params=params, stream=True,
+                **extra,
             )
             return stream_sse_events(response)
         else:
-            response = self.request(f"/{research_id}", method="GET", params=params)
+            response = self.request(f"/{research_id}", method="GET", params=params, **extra)
             adapter = TypeAdapter(ResearchDto)
             research = adapter.validate_python(response)
 
@@ -244,12 +261,14 @@ class ResearchClient(ResearchBaseClient):
         *,
         cursor: Optional[str] = None,
         limit: Optional[int] = None,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ListResearchResponseDto:
         """List research requests.
 
         Args:
             cursor (str): Pagination cursor from a previous response.
             limit (int): Maximum number of results to return.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
 
         Returns:
             List of research objects with pagination info.
@@ -265,7 +284,7 @@ class ResearchClient(ResearchBaseClient):
                 next_page = exa.research.list(cursor=response.next_cursor)
         """
         params = self.build_pagination_params(cursor, limit)
-        response = self.request("", method="GET", params=params)
+        response = self.request("", method="GET", params=params, **extra)
         return ListResearchResponseDto.model_validate(response)
 
     @overload
@@ -276,6 +295,7 @@ class ResearchClient(ResearchBaseClient):
         poll_interval: int = 1000,
         timeout_ms: int = 600000,
         events: bool = False,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchDto: ...
 
     @overload
@@ -287,6 +307,7 @@ class ResearchClient(ResearchBaseClient):
         timeout_ms: int = 600000,
         events: bool = False,
         output_schema: Type[T],
+        **extra: Unpack[ExtraRequestOptions],
     ) -> ResearchTyped[T]: ...
 
     def poll_until_finished(
@@ -297,6 +318,7 @@ class ResearchClient(ResearchBaseClient):
         timeout_ms: int = 600000,
         events: bool = False,
         output_schema: Optional[Type[BaseModel]] = None,
+        **extra: Unpack[ExtraRequestOptions],
     ) -> Union[ResearchDto, ResearchTyped]:
         """Poll until research is finished.
 
@@ -306,13 +328,13 @@ class ResearchClient(ResearchBaseClient):
             timeout_ms (int): Maximum time to wait in milliseconds before timing out.
             events (bool): Whether to include events in the response.
             output_schema (Type[BaseModel]): Optional Pydantic model for typed output validation.
+            **extra: Per-call request options (``extra_headers``, ``extra_query``, ``extra_body``).
 
         Returns:
             Completed research object with results.
 
         Raises:
-            TimeoutError: If research doesn't complete within timeout.
-            RuntimeError: If polling fails too many times.
+            ValueError: Always. The Research API has been retired.
 
         Examples:
             # Create and poll a task until completion
@@ -332,39 +354,5 @@ class ResearchClient(ResearchBaseClient):
             result = exa.research.poll_until_finished(task.research_id)
             print(f"Research complete: {result.output}")
         """
-        poll_interval_sec = poll_interval / 1000
-        timeout_sec = timeout_ms / 1000
-        max_consecutive_failures = 5
-        start_time = time.time()
-        consecutive_failures = 0
-
-        while True:
-            try:
-                if output_schema:
-                    result = self.get(
-                        research_id, events=events, output_schema=output_schema
-                    )
-                else:
-                    result = self.get(research_id, events=events)
-
-                consecutive_failures = 0
-
-                # Check if research is finished
-                status = result.status if hasattr(result, "status") else None
-                if status in ["completed", "failed", "canceled"]:
-                    return result
-
-            except Exception as e:
-                consecutive_failures += 1
-                if consecutive_failures >= max_consecutive_failures:
-                    raise RuntimeError(
-                        f"Polling failed {max_consecutive_failures} times in a row "
-                        f"for research {research_id}: {e}"
-                    )
-
-            if time.time() - start_time > timeout_sec:
-                raise TimeoutError(
-                    f"Research {research_id} did not complete within {timeout_ms}ms"
-                )
-
-            time.sleep(poll_interval_sec)
+        given_request_options(extra)
+        raise_research_retired()

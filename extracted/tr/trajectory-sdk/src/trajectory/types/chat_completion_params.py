@@ -17,4 +17,7 @@ class ChatCompletionParams(TypedDict, total=False):
   stream: bool | None
   temperature: float | None
   max_tokens: int | None
+  """
+  Maximum generated tokens, including reasoning tokens when emitted.
+  """
   top_p: float | None

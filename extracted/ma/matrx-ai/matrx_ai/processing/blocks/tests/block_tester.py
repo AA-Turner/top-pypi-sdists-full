@@ -67,7 +67,7 @@ RESULTS_DIR = os.path.join(_THIS_DIR, "test_results")
 TS_BRIDGE_SCRIPT = os.path.join(_THIS_DIR, "ts_bridge", "parse_blocks.ts")
 
 # ---------------------------------------------------------------------------
-# ANSI colours (no external dependency)
+# ANSI colors (no external dependency)
 # ---------------------------------------------------------------------------
 
 class C:

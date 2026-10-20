@@ -212,7 +212,7 @@ def test_genuinely_absent_business_markup_still_warns():
 def test_a_site_level_check_is_not_run_per_page():
     """809 identical findings on 9 sites came from running this once PER PAGE."""
     assert SITE_SCOPED_CROSS_PAGE_CHECKS == {"local_business_markup"}
-    assert "local_business_markup" in PAGE_CHECKS  # still catalogued + callable
+    assert "local_business_markup" in PAGE_CHECKS  # still cataloged + callable
     assert "local_business_markup" not in PER_PAGE_RUN_CHECKS
 
 

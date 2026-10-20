@@ -14,10 +14,6 @@ from matrx_scraper.features.extensions import get_condenser_1
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 LOCAL_DEBUG = False
-#: Built-in stand-in for records a routed page read asks for (review datasets return one record per
-#: review). The host's knob (``EXT_ROUTE_RECORDS``) decides; this holds only when it cannot be read.
-ROUTE_MAX_RECORDS = 10
-EXT_ROUTE_RECORDS = "site_data_route_records"
 
 
 class ReadPageFetchError(RuntimeError):
@@ -67,101 +63,94 @@ async def _emit_progress(
         await stream_handler.send_tool_event(event)
 
 
-async def _route_site_data(url: str) -> tuple[dict[str, Any] | None, str | None]:
-    """Route-first lane: a URL a VERIFIED site-data dataset covers is answered with
-    structured records BEFORE the HTTP fetch. Fires only when the host injected a
-    Bright Data client (only a metering host does). Returns ``(result, None)`` on
-    success, ``(None, notice)`` when it tried and failed (the caller falls through
-    and says so), ``(None, None)`` when it did not apply."""
+async def judge_and_cover(url: str, result: dict[str, Any], verdict: Any) -> dict[str, Any]:
+    """Our scraper ALWAYS reads first; this decides what a failed read carries.
+
+    A read judged failed (``read_judge.judge_read``: strong signals only) becomes ``status="error"``
+    and carries ``verdict`` + ``coverage`` (which readers could get it, speed, points). The
+    organization's ``knowledge.scraper.advanced_fallback`` (host-injected, default ``off``) decides
+    whether anything paid runs: ``off`` nothing; ``fast`` the fast readers; ``all`` also structured data.
+    """
+    from matrx_scraper import coverage as cov
     from matrx_scraper._ext import get_ext, has_ext
-    from matrx_scraper.features import site_data
 
-    if not url or not site_data.is_configured():
-        return None, None
-    from matrx_scraper.vendors.site_catalog import ensure_catalog
-
-    await ensure_catalog()
-    entry = site_data.match(url)
-    if entry is None:
-        return None, None
-    if has_ext(site_data.EXT_ROUTE_ENABLED):
-        try:
-            if not await get_ext(site_data.EXT_ROUTE_ENABLED)():
-                return None, None
-        except Exception as exc:  # noqa: BLE001 - knob read failed: lean open, announce
-            vcprint(f"[read_page] site-data route knob unreadable ({exc!r}); routing", color="yellow")
-    route_records, records_notice = ROUTE_MAX_RECORDS, None
-    if has_ext(EXT_ROUTE_RECORDS):
-        try:
-            route_records = max(1, int(await get_ext(EXT_ROUTE_RECORDS)()))
-        except Exception as exc:  # noqa: BLE001 - knob read failed: built-in number holds, said loudly
-            vcprint(f"[read_page] site-data route records knob unreadable ({exc!r}); using {ROUTE_MAX_RECORDS}",
-                    color="red", log_level=logging.ERROR)
-            route_records = ROUTE_MAX_RECORDS
-            records_notice = (f"Using the built-in limit of {ROUTE_MAX_RECORDS} records because your "
-                              "organization's setting could not be read.")
+    if verdict is None or not verdict.failed:
+        return result
+    out = {**result, "status": "error", "text": "",
+           "result": f"Sorry could not access this page: {verdict.detail}.", "verdict": verdict.to_dict()}
+    out.pop("page", None)  # a wall is never landed as a Source
     try:
-        res = await site_data.fetch(url=url, max_records=route_records, timeout_s=120.0)
-    except Exception as exc:  # noqa: BLE001 - a refusal (spend gate) or a defect: read directly, say so
-        if not getattr(exc, "is_caller_refusal", False):
-            await capture_error(exc, kind="scraper_site_data_route_failed", context={"url": url})
-        return None, (
-            f"Live data ({entry.label}) was not used ({getattr(exc, 'message', None) or exc}). "
-            "This is the page read directly instead."
-        )
-    if not res.ok:
-        return None, (
-            f"Live data ({entry.label}) did not answer: {res.message} "
-            "This is the page read directly instead."
-        )
-    prov = res.provenance
+        covered = await cov.coverage_for(url) if getattr(verdict, "coverable", True) else []
+    except Exception as exc:  # noqa: BLE001 - coverage is advice; the honest failure still stands
+        vcprint(f"[read_page] coverage unavailable for {redact_url_secrets(url)} "
+                f"({redact_url_secrets(repr(exc))})", color="yellow")
+        covered = []
+    out["coverage"] = [c.to_dict() for c in covered]
+    mode = await cov.fallback_mode()
+    if mode == "off" or not any(cov.allowed(c, mode) for c in covered) or not has_ext(cov.EXT_READER):
+        return out
+    if not await cov.take_run_slot():
+        return out  # this run's automatic retries are spent: the page keeps its coverage note instead
+    try:
+        items = await get_ext(cov.EXT_READER)([url], mode)
+    except Exception as exc:  # noqa: BLE001 - a refusal (points) or defect: the failed read stands, said
+        out["advanced_read"] = {"url": url, "ok": False, "message": getattr(exc, "user_message", None) or str(exc)}
+        return out
+    item = items[0] if items else {"url": url, "ok": False, "message": "The advanced reader gave no answer."}
+    if not item.get("ok"):
+        out["advanced_read"] = {k: v for k, v in item.items() if k not in ("text", "markdown", "records")}
+        return out
+    text = item.get("text") or ""
     return {
         "status": "success",
-        "result": res.rendering,
-        "text": res.rendering,
+        "result": text,
+        "text": text,
         "url": url,
-        "engine": "site_data",
-        "provenance": prov,
-        "records": res.records,
-        **({"notice": records_notice} if records_notice else {}),
+        "engine": "advanced_read",
+        "advanced_read": {k: v for k, v in item.items() if k not in ("text", "markdown", "records")},
+        "notice": item.get("message"),
         "page": {
             "success": True,
             "url": url,
             "response_url": url,
-            "content_type": "application/json",
-            "text_data": res.rendering,
-            "ai_research_with_images": res.rendering,
-            "engine": "site_data",
-            "provenance": prov,
+            "content_type": "text/markdown",
+            "text_data": text,
+            "markdown_renderable": item.get("markdown") or text,
+            "ai_research_with_images": text,
+            "engine": "advanced_read",
             "raw_html": None,
         },
-    }, None
+    }
 
 
 async def read_page_mcp_quick(url: str = None, stream_handler=None, call_id=None):
     if stream_handler:
         await _emit_progress(stream_handler, f"Browsing {url}", call_id=call_id)
-
-    routed, site_data_notice = await _route_site_data(url)
-    if routed is not None:
-        return routed
-    result = await _read_page_http(url)
-    if site_data_notice:
-        result["site_data_notice"] = site_data_notice
-        if result.get("status") == "success":
-            result["text"] = f"[{site_data_notice}]\n\n{result.get('text', '')}"
-        else:
-            result["result"] = f"{result.get('result', '')} ({site_data_notice})"
-    return result
+    result, verdict = await _read_page_http_judged(url)
+    return await judge_and_cover(url, result, verdict)
 
 
 async def _read_page_http(url: str) -> dict[str, Any]:
+    """The plain read (no judgment) — kept for callers that only want our scraper's answer."""
+    result, _ = await _read_page_http_judged(url)
+    return result
+
+
+async def _read_page_http_judged(url: str) -> tuple[dict[str, Any], Any]:
+    """Our scraper's read plus ``judge_read``'s verdict on it (``None`` = not judgeable, e.g. a video)."""
+    from matrx_scraper.read_judge import judge_read
+
     response = await fetch_normally_with_proxy(url)
+    status = int(getattr(response, "status_code", 0) or 0) or None
+    title = getattr(response, "title", None)
 
     has_content = response.content or response.content_bytes
     if response.failed or not has_content:
         await _report_fetch_failure(response, url=url, operation="read_page_mcp_quick")
-        return {"status": "error", "result": "Sorry could not access this page.", "text": ""}
+        reason = getattr(getattr(response, "failed_primary_reason", None), "value", None) or "empty_content"
+        verdict = judge_read(status=status, text="", html=response.content or None, title=title,
+                             fetch_failure=reason)
+        return {"status": "error", "result": "Sorry could not access this page.", "text": ""}, verdict
 
     extracted_text = ""
     parsed: dict[str, Any] = {}
@@ -184,14 +173,15 @@ async def _read_page_http(url: str) -> dict[str, Any]:
             "status": "error",
             "result": f"Unsupported content type: {response.content_type_raw}",
             "text": "",
-        }
+        }, None
 
+    html = response.content if response.content_type == ContentType.HTML else None
     if not extracted_text.strip():
         return {
             "status": "error",
             "result": "Sorry could not extract content from this page.",
             "text": "",
-        }
+        }, judge_read(status=status, text="", html=html, title=title)
 
     # Legacy wrapped string for older callers; prefer ``text`` (raw extract).
     full_content = (
@@ -244,9 +234,9 @@ async def _read_page_http(url: str) -> dict[str, Any]:
             "content_type": response.content_type_raw or "",
             "text_data": extracted_text,
             "engine": "http",
-            "raw_html": response.content if response.content_type == ContentType.HTML else None,
+            "raw_html": html,
         },
-    }
+    }, judge_read(status=status, text=extracted_text, html=html, title=title)
 
 
 async def read_page_mcp_summarized(
@@ -313,7 +303,7 @@ async def read_page_mcp_summarized(
     if condenser is None:
         vcprint(
             "read_page_mcp_summarized: no AI condenser registered — returning raw content. "
-            "Call matrx_scraper.features.extensions.configure_extensions() at startup to enable summarisation.",
+            "Call matrx_scraper.features.extensions.configure_extensions() at startup to enable summarization.",
             color="yellow",
             title="[matrx-scraper] condenser unavailable",
         )

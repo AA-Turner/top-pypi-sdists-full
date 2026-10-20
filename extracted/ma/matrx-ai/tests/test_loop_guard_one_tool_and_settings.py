@@ -14,7 +14,7 @@ Measured 2026-09-20 on ``chat.tool_call`` (2026-03-19 → 2026-09-20):
 These drive the REAL functions the orchestrator calls — the real threshold
 loader through the real injected seam, the real tool chooser, the real
 config mutation, the real verdict reader, the real branch — not a re-statement
-of them. Each one fails if the corresponding behaviour is reverted.
+of them. Each one fails if the corresponding behavior is reverted.
 
 Run with:
   uv run pytest packages/matrx-ai/tests/test_loop_guard_one_tool_and_settings.py -v
@@ -162,7 +162,10 @@ def test_the_assistant_is_told_which_tool_left_and_why():
     outcome = disable_failing_tool(_config(["table", "search"]), "table")
     note = disabled_tool_notice(outcome, reason="it failed 8 time(s) in this run")
     assert "table" in note
-    assert "search" in note
+    # The remaining belt is NOT re-listed (the model holds every declaration;
+    # listing 70+ names bloated history) — it is told the rest still work.
+    assert "search" not in note
+    assert "other tools still work" in note
     assert "failed 8" in note
 
 

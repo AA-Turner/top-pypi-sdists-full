@@ -16,8 +16,13 @@ BUILTIN_ADAPTER_IMPORTS: dict[str, tuple[str, str]] = {
         "DatabricksAdapter",
     ),
     "postgres": ("sqlbuild.adapters.postgres.classes.postgres_adapter", "PostgresAdapter"),
+    "sqlite": ("sqlbuild.adapters.sqlite.classes.sqlite_adapter", "SqliteAdapter"),
     "sqlserver": (
         "sqlbuild.adapters.sqlserver.classes.sqlserver_adapter",
         "SqlServerAdapter",
+    ),
+    "clickhouse": (
+        "sqlbuild.adapters.clickhouse.classes.clickhouse_adapter",
+        "ClickHouseAdapter",
     ),
 }

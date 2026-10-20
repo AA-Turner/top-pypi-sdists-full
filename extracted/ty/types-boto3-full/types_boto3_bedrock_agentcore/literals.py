@@ -43,6 +43,7 @@ __all__ = (
     "EventFilterConditionType",
     "ExtractionJobStatusType",
     "ExtractionModeType",
+    "FindingTargetTypeType",
     "HarnessBedrockApiFormatType",
     "HarnessConversationRoleType",
     "HarnessHookDecisionType",
@@ -52,6 +53,7 @@ __all__ = (
     "HarnessToolTypeType",
     "HarnessToolUseStatusType",
     "HarnessToolUseTypeType",
+    "InsightTypeType",
     "InsightsFailureCategoryType",
     "InstrumentBalanceTokenType",
     "LanguageRuntimeType",
@@ -145,6 +147,7 @@ DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
 ExtractionModeType = Literal["SKIP"]
+FindingTargetTypeType = Literal["SPAN_ID", "SPAN_NAME", "TRACE_ID"]
 HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
 HarnessConversationRoleType = Literal["assistant", "user"]
 HarnessHookDecisionType = Literal["allow", "deny"]
@@ -178,6 +181,7 @@ HarnessToolTypeType = Literal[
 ]
 HarnessToolUseStatusType = Literal["error", "success"]
 HarnessToolUseTypeType = Literal["mcp_tool_use", "server_tool_use", "tool_use"]
+InsightTypeType = Literal["FAILURE"]
 InsightsFailureCategoryType = Literal[
     "coding-use-case-specific-failure-types-category-dependency-issues",
     "coding-use-case-specific-failure-types-category-edge-case-oversights",

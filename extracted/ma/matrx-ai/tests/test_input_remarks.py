@@ -290,3 +290,16 @@ def test_an_empty_or_malformed_remark_is_refused(bad: dict) -> None:
 def test_every_literal_spelling_of_the_part_type_is_the_one_constant() -> None:
     for cls in (RemarksInputPart, RemarksInputContent, RemarksInputContentModel):
         assert typing.get_args(typing.get_type_hints(cls)["type"]) == (REMARKS_PART_TYPE,), cls
+
+
+def test_a_block_edit_names_its_change_in_the_marker() -> None:
+    """A change inside a block arrives with its words as the title ("Chart: type Pie → Bar"):
+    the model reads them beside the diff, the way it reads an answers / interaction title."""
+    from matrx_ai.config.remarks import marker_text
+
+    item = RemarkItem.model_validate(
+        {"kind": "edit", "handle": "c1", "diff": '- {"type": "pie"}\n+ {"type": "bar"}', "title": "Chart: type Pie → Bar"}
+    )
+    assert marker_text(item, "your previous reply") == 'edit c1 "Chart: type Pie → Bar" to your previous reply'
+    plain = RemarkItem.model_validate({"kind": "edit", "handle": "c2", "diff": "- 48h\n+ 72h"})
+    assert marker_text(plain, "your previous reply") == "edit c2 to your previous reply"

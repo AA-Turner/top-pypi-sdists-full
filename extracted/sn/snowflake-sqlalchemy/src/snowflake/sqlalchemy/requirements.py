@@ -16,17 +16,17 @@ class Requirements(SuiteRequirements):
     - isolation_level: snowflake only supports read committed
       - ref docs: https://docs.snowflake.com/en/sql-reference/transactions.html#label-txn-autocommit
                   https://docs.sqlalchemy.org/en/14/core/connections.html#setting-transaction-isolation-levels-including-dbapi-autocommit
-    - index_ddl_if_exists: index not supported in snowflake
+    - index_ddl_if_exists: indexes are only supported on hybrid tables in snowflake
     - non_updating_cascade: updating cascade supported
     - empty_inserts: not supported in snowflake
     - full_returning: not supported in snowflake
     - insert_executemany_returning: not supported in snowflake
     - returning: not supported in snowflake
-    - indexes_with_expressions: index not supported in snowflake
+    - indexes_with_expressions: indexes are only supported on hybrid tables in snowflake
     - check_constraint_reflection: not supported in snowflake
     - reflect_tables_no_columns: not supported in snowflake
     - server_side_cursors: no supported in snowflake
-    - index_reflects_included_columns: index not supported in snowflake
+    - index_reflects_included_columns: indexes are only supported on hybrid tables in snowflake
     - savepoints: not supported in snowflake
     - two_phase_transactions: not supported in snowflake
     - async_dialect: no await used
@@ -57,7 +57,6 @@ class Requirements(SuiteRequirements):
     4. sqlalchemy potentially missing feature
     note: not sure whether these to be supported
 
-    - collate: TODO: order_by_collation
     - datetime_timezone: supported via TIMESTAMP_TZ (DateTime(timezone=True) and TIMESTAMP(timezone=True)
                           compile to TIMESTAMP_TZ; Snowflake-specific TIMESTAMP_TZ/TIMESTAMP_LTZ/TIMESTAMP_NTZ
                           types are also available directly)
@@ -227,6 +226,14 @@ class Requirements(SuiteRequirements):
     @property
     def order_by_label_with_expression(self):
         return exclusions.open()
+
+    def get_order_by_collation(self, config):
+        """Return a Snowflake collation spec for the suite's CollateTest.
+
+        Providing this (used as ``ORDER BY <col> COLLATE '<spec>'``) also
+        opens the inherited ``order_by_collation`` requirement.
+        """
+        return "en-ci"
 
     @property
     def regexp_match(self):

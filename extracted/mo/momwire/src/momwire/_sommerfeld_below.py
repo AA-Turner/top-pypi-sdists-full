@@ -86,7 +86,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import _cancel, _somm_disk_cache
+from . import _cancel, _somm_disk_cache, _times
 from ._quadrature import leggauss
 from ._accel import acc as _acc
 from ._sommerfeld import (
@@ -2057,6 +2057,7 @@ class SommerfeldGridBelow(SommerfeldGrid):
     def _band_floor_filled(self):
         return all(self._regions[i]["filled"] for i in self._band_floor_idx)
 
+    @_times.staged("ground")
     def _ensure_for(self, mx_r1, mn_th, mx_th, lazy=False):
         """Fill every region a batch bounded by these extremes could touch.
 
@@ -2112,6 +2113,7 @@ class SommerfeldGridBelow(SommerfeldGrid):
             self._activate(region_index(idx // _N_BANDS, _BAND_LO))
         reg["active"] = True
 
+    @_times.staged("ground")
     def fill_nodes(self, need):
         """The nodes of `need` (a bool (n_r, n_th) mask per region, None for
         none) in the table's regions and not yet in, filled through one
@@ -2445,23 +2447,22 @@ SWEEP_STATS = {
 
 
 def anchor_mode():
-    """`MOMWIRE_BELOW_ANCHORS`: "off" (the default since momwire#1535: every
-    grid is the exact fill), "auto" (the rent-or-buy rule, see
-    `_SOMM_BELOW_ANCHOR_TRIGGER`) or "on" (every lossy grid is blended from
-    anchors). Unset, empty or unrecognised reads as "off".
+    """`MOMWIRE_BELOW_ANCHORS`: "auto" (default; see
+    `_SOMM_BELOW_ANCHOR_TRIGGER`), "off" (every grid is the exact fill, as
+    before momwire#1471) or "on" (every lossy grid is blended from anchors).
 
-    Off by default because a blended grid makes a deck's printout depend on
-    what ran before it (the seen list, shared through the disk cache, decides
-    exact vs blended), and since lazy grids (momwire#1512) an exact table per
-    frequency no longer costs enough for the anchors to win it back. "auto"
-    and "on" stay as an opt-in for one release; phase 2 of #1535 removes
-    them."""
-    v = os.environ.get(ENV_ANCHORS, "off").strip().lower()
-    if v in ("auto",):
-        return "auto"
+    momwire#1535 turned the default off for a release and planned removing
+    the anchors; that was reversed (2026-10-19): on a dense buried sweep
+    (1000 points) the anchors still win time back, so "auto" is the default
+    again and the removal is cancelled. "off" is the opt-out, and what a
+    byte-identity gate across two processes pins (the seen list, shared
+    through the disk cache, decides exact vs blended)."""
+    v = os.environ.get(ENV_ANCHORS, "auto").strip().lower()
+    if v in ("0", "off", "false", "no", "exact"):
+        return "off"
     if v in ("1", "on", "true", "yes", "always"):
         return "on"
-    return "off"
+    return "auto"
 
 
 def reset_sweep_state():
@@ -2636,6 +2637,7 @@ def _ensure_anchors(plan, r1_wl, idx=None):
             changed = False
             if not _anchor_serves(grid, r1_wl):
                 SWEEP_STATS["anchor_fills"] += 1
+                _times.count("built")
                 eps_a = plan.rungs[j]
                 grid = SommerfeldGridBelow(
                     eps_a,
@@ -2759,6 +2761,7 @@ class SommerfeldGridBelowBlended(SommerfeldGridBelow):
         SWEEP_STATS["blended_regions"] += 1
 
 
+@_times.staged("ground")
 def get_grid_below(
     eps_t,
     k2,
@@ -2788,14 +2791,13 @@ def get_grid_below(
     to get the FIFO bound wrong.
 
     A lone frequency gets the physical grid, filled at the caller's exact
-    eps_t, and that grid is what gets cached. With anchors opted in, a SWEEP
-    is served from them (momwire#1471, the section above): once the same soil and table size
+    eps_t, and that grid is what gets cached. A SWEEP is served from anchors
+    (momwire#1471, the section above): once the same soil and table size
     have been asked for at `_SOMM_BELOW_ANCHOR_TRIGGER` nearby frequencies,
     the grid is a `SommerfeldGridBelowBlended`, the same lattice with values
     interpolated at high order across exact grids on a ladder in Im(eps_t).
-    Anchors are opt-in since momwire#1535 (`MOMWIRE_BELOW_ANCHORS=auto` or
-    `on`); by default every grid is exact. A caller passing `health` always
-    watches an exact fill.
+    `MOMWIRE_BELOW_ANCHORS=off` keeps every grid exact; a caller passing
+    `health` always watches an exact fill.
 
     **The ε̃ ladder does NOT apply below, and this is the third appearance
     of one inversion.** `_somm_eps_bucket` quantizes Im(ε̃) onto a 1 %
@@ -2861,6 +2863,7 @@ def get_grid_below(
 
         def fill():
             SWEEP_STATS["exact_grids"] += 1
+            _times.count("built")
             return SommerfeldGridBelow(
                 eps_t,
                 k2,
@@ -2897,9 +2900,13 @@ def get_grid_below(
                         eps_t, k2, r1b_wl * lam_m, float(omega), float(mu), plan
                     )
                     SWEEP_STATS["blended_grids"] += 1
+                    _times.count("blended")
                     key = base_key + _BLENDED_KEY
                 elif grid is None:
+                    filled = SWEEP_STATS["exact_grids"]
                     grid = _somm_disk_cache.fetch_or_fill(key, fill, track=True)
+                    if SWEEP_STATS["exact_grids"] == filled:
+                        _times.count("disk")
         _GRID_CACHE[key] = grid
     return grid
 

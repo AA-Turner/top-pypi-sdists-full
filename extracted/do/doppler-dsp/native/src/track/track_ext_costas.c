@@ -17,6 +17,7 @@ typedef struct
 {
   PyObject_HEAD dp_costas_state_t *handle;
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
+  PyObject     *_jm_retain_set_telemetry_tlm; /* keeps tlm's owner alive */
 } CostasObject;
 
 static void
@@ -25,6 +26,7 @@ CostasObj_dealloc (CostasObject *self)
   if (self->handle)
     dp_costas_destroy (self->handle);
   jm_inflight_free (&self->_jm_inflight);
+  Py_XDECREF (self->_jm_retain_set_telemetry_tlm);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -297,6 +299,12 @@ CostasObj_set_telemetry (CostasObject *self, PyObject *args, PyObject *kwds)
                     (long long)_rc);
       return NULL;
     }
+  /* retain: the kernel keeps `tlm`, so this object keeps its owner
+     until the next call replaces it or None detaches it. */
+  if (tlm_obj != Py_None)
+    Py_INCREF (tlm_obj);
+  Py_XSETREF (self->_jm_retain_set_telemetry_tlm,
+              tlm_obj != Py_None ? tlm_obj : NULL);
   Py_RETURN_NONE;
 }
 
@@ -448,7 +456,15 @@ Costas_setprop_bn (CostasObject *self, PyObject *value,
   double v = 0.0;
   if (!PyArg_Parse (value, "d", &v))
     return -1;
-  dp_costas_set_bn (self->handle, v);
+  int _rc = dp_costas_set_bn (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "Costas: bn is outside the loop filter's domain (need bn "
+                    ">= 0, finite, whose loop gains come out finite)",
+                    (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 static PyObject *
@@ -532,24 +548,33 @@ Costas_setprop_bn_fll (CostasObject *self, PyObject *value,
   return 0;
 }
 
-static PyGetSetDef Costas_getset[]
-    = { { "bn", (getter)Costas_getprop_bn, (setter)Costas_setprop_bn,
-          "PLL loop noise bandwidth (retained).\n", NULL },
-        { "norm_freq", (getter)Costas_getprop_norm_freq,
-          (setter)Costas_setprop_norm_freq, "Norm freq.\n", NULL },
-        { "lock_metric", (getter)Costas_getprop_lock_metric, NULL,
-          "EMA of |Re P|/|P| (1 = locked).\n", NULL },
-        { "locked", (getter)Costas_getprop_locked, NULL,
-          "Current carrier lock decision: True after the verify count of "
-          "consecutive above-threshold symbols, False again after the drop "
-          "count of consecutive below-threshold ones (see configure_lock).\n",
-          NULL },
-        { "last_error", (getter)Costas_getprop_last_error, NULL,
-          "last PLL discriminator (loop stress).\n", NULL },
-        { "bn_fll", (getter)Costas_getprop_bn_fll,
-          (setter)Costas_setprop_bn_fll,
-          "FLL-assist bandwidth (0 = pure PLL).\n", NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef Costas_getset[] = {
+  { "bn", (getter)Costas_getprop_bn, (setter)Costas_setprop_bn,
+    "PLL loop noise bandwidth (retained).\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_costas_set_bn`` refuses the value by\n"
+    "    returning non-zero. The exception message is ``Costas: bn is\n"
+    "    outside the loop filter's domain (need bn >= 0, finite, whose loop\n"
+    "    gains come out finite)``, with the return code appended.\n",
+    NULL },
+  { "norm_freq", (getter)Costas_getprop_norm_freq,
+    (setter)Costas_setprop_norm_freq, "Norm freq.\n", NULL },
+  { "lock_metric", (getter)Costas_getprop_lock_metric, NULL,
+    "EMA of |Re P|/|P| (1 = locked).\n", NULL },
+  { "locked", (getter)Costas_getprop_locked, NULL,
+    "Current carrier lock decision: True after the verify count of "
+    "consecutive above-threshold symbols, False again after the drop count of "
+    "consecutive below-threshold ones (see configure_lock).\n",
+    NULL },
+  { "last_error", (getter)Costas_getprop_last_error, NULL,
+    "last PLL discriminator (loop stress).\n", NULL },
+  { "bn_fll", (getter)Costas_getprop_bn_fll, (setter)Costas_setprop_bn_fll,
+    "FLL-assist bandwidth (0 = pure PLL).\n", NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 CostasObj_destroy (CostasObject *self, PyObject *Py_UNUSED (ignored))
@@ -667,18 +692,21 @@ static PyMethodDef CostasObj_methods[] = {
     "set_telemetry(tlm, prefix, decim) -> None\n"
     "\n"
     "Attach (or detach) a telemetry context and register the carrier\n"
-    "loop's probes on it. Registers four probes, emitted once per dumped\n"
+    "loop's probes on it. Registers five probes, emitted once per dumped\n"
     "symbol and further thinned by decim: \"<prefix>.lock\" (the |Re P|/|P|\n"
     "lock-metric EMA, 1 = phase-locked), \"<prefix>.e\" (the PLL "
     "discriminator\n"
-    "output — the loop stress), \"<prefix>.freq\" (the tracked NCO "
-    "frequency,\n"
-    "cycles/sample) and \"<prefix>.locked\" (the verify-counted lock "
-    "decision,\n"
-    "0/1 — see dp_costas_configure_lock). Passing NULL detaches. Setup path,\n"
-    "never hot: call before the producer thread starts stepping; the context\n"
-    "is borrowed and must outlive the attachment (SPSC rules in\n"
-    "dp_tlm/dp_tlm_core.h).\n"
+    "output — the loop stress), \"<prefix>.freq\" (the NCO's frequency\n"
+    "register, which holds the loop filter's integrator: the loop's\n"
+    "frequency memory, cycles/sample), \"<prefix>.locked\" (the "
+    "verify-counted\n"
+    "lock decision, 0/1 — see dp_costas_configure_lock) and \"<prefix>.nco\"\n"
+    "(the complete loop-filter output, the integrator plus the proportional\n"
+    "term, cycles/sample — dp_costas_get_nco_freq(); its mean rides a\n"
+    "frequency ramp with no lag, where \".freq\" lags by the loop's ramp\n"
+    "error). Passing NULL detaches. Setup path, never hot: call before the\n"
+    "producer thread starts stepping; the context is borrowed and must\n"
+    "outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).\n"
     "\n"
     "Parameters\n"
     "----------\n"
@@ -704,11 +732,11 @@ static PyMethodDef CostasObj_methods[] = {
     ">>> c = Costas(bn=0.05, zeta=0.707, tsamps=64)\n"
     ">>> c.set_telemetry(tlm, \"car\")\n"
     ">>> sorted(tlm.probe_names)\n"
-    "['car.e', 'car.freq', 'car.lock', 'car.locked']\n"
+    "['car.e', 'car.freq', 'car.lock', 'car.locked', 'car.nco']\n"
     ">>> x = np.ones(64 * 100, dtype=np.complex64)\n"
     ">>> _ = c.steps(x)\n"
-    ">>> recs = tlm.read()   # four records per dumped symbol\n"
-    ">>> len(recs) == 4 * 100\n"
+    ">>> recs = tlm.read()   # five records per dumped symbol\n"
+    ">>> len(recs) == 5 * 100\n"
     "True\n" },
   { "configure", (PyCFunction)(void *)CostasObj_configure,
     METH_VARARGS | METH_KEYWORDS,

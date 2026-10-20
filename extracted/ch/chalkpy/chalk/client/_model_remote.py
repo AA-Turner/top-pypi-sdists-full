@@ -284,7 +284,7 @@ def call_model_url(
 
 
 def new_queue_client(client: "ChalkGRPCClient") -> "RemoteCallClient":
-    """Client for the function-queue server fronted by the environment's grpc-engine ingress.
+    """Client for the function-queue server hosted by the dataplane API server.
 
     The caller owns the returned client and must ``close()`` it — wrap in
     ``contextlib.closing`` when its lifetime is scoped.
@@ -293,7 +293,7 @@ def new_queue_client(client: "ChalkGRPCClient") -> "RemoteCallClient":
     long poll loop should rebuild rather than outlive the token.
     """
     try:
-        target, use_tls = client._get_engine_grpc_target()  # pyright: ignore[reportPrivateUsage]
+        target, use_tls = client._get_dataplane_api_server_target()  # pyright: ignore[reportPrivateUsage]
     except ValueError as e:
         raise ModelRemoteError(str(e)) from e
     metadata = client._get_queue_call_metadata()  # pyright: ignore[reportPrivateUsage]

@@ -30,6 +30,7 @@ class IntegrationDataAvailability(str, Enum):
     NOTMEASURED = 'NotMeasured'
     NOTAPPLICABLE = 'NotApplicable'
     NOTSUPPORTED = 'NotSupported'
+    PARTIALLYMEASURED = 'PartiallyMeasured'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

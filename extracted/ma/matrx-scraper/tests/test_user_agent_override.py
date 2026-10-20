@@ -11,7 +11,7 @@ Three properties, each pinned end to end:
 1. Set the override → every transport sends exactly it (httpx, curl_cffi, and
    a real headless Chromium context).
 2. Omit the override → every transport sends exactly what it sent before this
-   field existed. The override is opt-in, not a silent behaviour change.
+   field existed. The override is opt-in, not a silent behavior change.
 3. An empty / whitespace override is "no override", NEVER an empty
    `User-Agent:` header — an empty UA is its own blocked signal.
 """

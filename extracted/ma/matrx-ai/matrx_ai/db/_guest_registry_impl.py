@@ -43,7 +43,7 @@ background, never read on the mint path) and raises ``GuestMintRateLimitedError`
 (429) at the ceiling. Only rows carrying the mint stamp (``metadata.minted_at``,
 written since 2026-10-01 together with the real-client-IP fix) are counted, so
 historic rows holding a Cloudflare edge address never bucket strangers
-together. Bots are counted like everyone else; they are labelled, not refused.
+together. Bots are counted like everyone else; they are labeled, not refused.
 Returning guests never reach the check.
 
 Error resilience: all other DB and auth errors are caught and re-raised as
@@ -105,6 +105,18 @@ class GuestMintRateLimitedError(RuntimeError):
         self.ceiling = ceiling
         self.window_minutes = window_minutes
         self.retry_after_seconds = window_minutes * 60
+
+
+class GuestMintChallengeError(RuntimeError):
+    """The request minting a NEW guest identity failed the host's human challenge (403).
+
+    A final refusal for this request, never a subclass of ``GuestIdentityUnavailableError``.
+    Raised by the host's ``guest_mint_challenge``; a returning guest never reaches it.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"New guest identity refused: human check {reason}.")
+        self.reason = reason
 
 
 async def _gotrue_anonymous_signup() -> dict[str, Any]:
@@ -438,7 +450,7 @@ async def resolve_guest_uuid(
         )
         return auth_user_id
 
-    except (GuestBlockedError, GuestMintRateLimitedError):
+    except (GuestBlockedError, GuestMintRateLimitedError, GuestMintChallengeError):
         # A refusal, not an outage — never re-wrap it as "unavailable".
         raise
     except Exception as exc:
@@ -461,7 +473,7 @@ async def _after_agent_mint(
         return
     try:
         await hook(user_id, agent_traffic)
-    except Exception as exc:  # labelling never fails the guest's request
+    except Exception as exc:  # labeling never fails the guest's request
         vcprint(
             f"[GuestRegistry] agent-minted guest {user_id} was NOT tagged for expiry "
             f"(tool={agent_traffic}): {exc!r}",
@@ -610,6 +622,16 @@ def _schedule_seed(ip_address: str, window_minutes: int, now: float) -> None:
     task.add_done_callback(lambda _t, ip=ip_address: _seed_tasks.pop(ip, None))
 
 
+async def _admit_mint_challenge(ip_address: str | None) -> None:
+    """The host's human challenge for a NEW identity (``guest_mint_challenge``); raises
+    ``GuestMintChallengeError`` to refuse. Unset = no challenge in this process."""
+    from matrx_ai._ext import get_guest_mint_challenge
+
+    challenge = get_guest_mint_challenge()
+    if challenge is not None:
+        await challenge(ip_address)
+
+
 async def _enforce_mint_ceiling(ip_address: str | None) -> None:
     """Refuse a NEW guest identity once this client IP has minted its share.
 
@@ -639,6 +661,7 @@ async def _enforce_mint_ceiling(ip_address: str | None) -> None:
             color="yellow",
             log_level="WARNING",
         )
+        await _admit_mint_challenge(ip_address)
         return
     ceiling, window_minutes = int(limits[0]), int(limits[1])
     now = time.time()
@@ -656,6 +679,7 @@ async def _enforce_mint_ceiling(ip_address: str | None) -> None:
         raise GuestMintRateLimitedError(
             ip_address, ceiling=ceiling, window_minutes=window_minutes
         )
+    await _admit_mint_challenge(ip_address)
     log.append(now)
 
 

@@ -114,6 +114,10 @@ class FinishReason(StrEnum):
             "IMAGE_RECITATION": cls.IMAGE_RECITATION,
             "OTHER": cls.OTHER,
             "FINISH_REASON_UNSPECIFIED": cls.STOP,
+            # Gemini long decode: the per-call output limit was reached and the answer can be
+            # continued. Reaching the caller means it was NOT continued (not a long-decode
+            # model, or the hop limit), so the answer is cut at the output limit.
+            "CONTINUATION": cls.MAX_TOKENS,
         }
         return mapping.get(reason_str, cls.OTHER)
 
@@ -176,7 +180,7 @@ TRUNCATION_METADATA_KEY = "truncation"
 #: Request-metadata key a caller sets to ``False`` when there is NOWHERE to
 #: continue — a workflow step, a batch job, any call with no conversation a
 #: person can prompt again. Absent means ``True`` (a conversation), which is
-#: every historical caller, so the default behaviour is unchanged.
+#: every historical caller, so the default behavior is unchanged.
 #:
 #: THE DEFECT THIS CLOSES (live 2026-09-12, workflow run
 #: 2cf711eb-1a15-49ed-baf7-ddb166dba129, step "Montessori asks"): a prose step

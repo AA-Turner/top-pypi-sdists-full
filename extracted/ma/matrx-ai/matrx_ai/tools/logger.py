@@ -12,7 +12,13 @@ from matrx_utils import vcprint
 
 from matrx_ai.db.ownership_fields import stamp_row_owner
 from matrx_ai.tools.models import ToolContext, ToolDefinition, ToolResult, tool_output_text
-from matrx_ai.tools.turn_ledger import record_tool_outcome, record_tool_started
+from matrx_ai.tools.turn_ledger import (
+    record_row_opened,
+    record_row_settled,
+    record_tool_outcome,
+    record_tool_started,
+    take_open_rows,
+)
 from matrx_ai.utils.cache import TTLCache
 
 # (conversation_id:call_id) -> cx_tool_call.id, populated the instant a tool call
@@ -421,6 +427,7 @@ class ToolExecutionLogger:
         if store is not None:
             try:
                 await store.log_tool_call_start(row_id, data)
+                record_row_opened(row_id=row_id, tool_name=tool_def.name)
                 return row_id
             except Exception as exc:
                 vcprint(
@@ -498,6 +505,7 @@ class ToolExecutionLogger:
                     row_id=row_id,
                 )
 
+            record_row_opened(row_id=row_id, tool_name=tool_def.name)
             return row_id
         except Exception as exc:
             vcprint(
@@ -1115,7 +1123,7 @@ class ToolExecutionLogger:
 
     # ------------------------------------------------------------------
     # Phase 2c: log_abandoned (UPDATE) — row was left in 'running' because the
-    # caller (SSE task, client-delegated wait) was cancelled or the server
+    # caller (SSE task, client-delegated wait) was canceled or the server
     # process died before the normal completion path ran.
     # ------------------------------------------------------------------
 
@@ -1140,6 +1148,81 @@ class ToolExecutionLogger:
             "execution_events": execution_events or [],
         }
         await self._update_row(row_id, update_data, coordinator=coordinator)
+
+    async def settle_open_rows_at_run_end(
+        self,
+        *,
+        outcome: str,
+        conversation_id: str | None = None,
+        request_id: str | None = None,
+        coordinator: Any = None,
+    ) -> int:
+        """THE RUN-END SWEEP: settle every ``chat.tool_call`` row this run opened
+        and never settled, so no row of a finished run is left non-terminal.
+
+        Called from the run's own exit (``_finalize_and_persist``) BEFORE its
+        final commit, so the settle lands in the same commit as the run's final
+        state; and again as a backstop where the run's ledger closes, for an exit
+        that skipped the finalize. ``outcome`` is the run's own end — completed,
+        failed, cancelled — and goes into the reason. A real result that arrives
+        later still wins: its UPDATE is queued after this one.
+
+        Loud whenever it settles anything: a row still open at run end means a
+        tool's own terminal write never came, which is a defect to find.
+        Returns the number of rows settled. Never raises.
+        """
+        rows = take_open_rows()
+        if not rows:
+            return 0
+        error_message = (
+            f"The run ended ({outcome}) before this tool call recorded a result; "
+            "settled by the run-end sweep."
+        )
+        settled: list[str] = []
+        for row_id in rows:
+            try:
+                await self.log_abandoned(
+                    row_id,
+                    reason="abandoned_at_run_end",
+                    error_message=error_message,
+                    coordinator=coordinator,
+                )
+                settled.append(row_id)
+            except Exception as exc:  # noqa: BLE001 — the stale sweep is the backstop
+                await _capture_tool_ledger_failure(
+                    exc, "settle_at_run_end", row_id=row_id, outcome=outcome
+                )
+        tool_names = sorted(set(rows.values()))
+        vcprint(
+            f"[ToolLogger] RUN-END SWEEP settled {len(settled)} open tool-call row(s) "
+            f"({', '.join(tool_names)}) — run ended '{outcome}' "
+            f"(conversation={conversation_id}, request={request_id}). A tool's own "
+            "terminal write never came; see system_error tool_call_settled_at_run_end.",
+            color="red",
+        )
+        try:
+            from matrx_connect.streaming.error_capture import capture_error
+
+            await capture_error(
+                RuntimeError(
+                    f"{len(rows)} tool-call row(s) were still open when the run "
+                    f"ended ({outcome}); the run-end sweep settled them"
+                ),
+                kind="tool_call_settled_at_run_end",
+                route="tool_execution_logger",
+                error_type="ToolRowOpenAtRunEnd",
+                request_id=request_id,
+                conversation_id=conversation_id,
+                context={
+                    "outcome": outcome,
+                    "row_ids": sorted(rows),
+                    "tool_names": tool_names,
+                    "settled": len(settled),
+                },
+            )
+        except Exception:  # noqa: BLE001 — the console line above stays
+            pass
+        return len(settled)
 
     async def abandon_stale_running_rows(
         self,
@@ -1167,8 +1250,11 @@ class ToolExecutionLogger:
 
         cutoff = datetime.now(UTC) - timedelta(seconds=older_than_seconds)
         try:
+            # 'pending' too: a row no writer settled reads 'pending' (the column
+            # default — PB-08's Tidewell row, reset by a grouped flush), and a
+            # sweep that looked only at 'running' left it non-terminal forever.
             stale = await _cxm().tool_call.filter_items(
-                status="running",
+                status__in=["running", "pending"],
                 is_client_delegated=False,
                 started_at__lt=cutoff,
             )
@@ -1206,7 +1292,7 @@ class ToolExecutionLogger:
                     row_id,
                     reason="abandoned",
                     error_message=(
-                        "Tool call left in 'running' state longer than "
+                        f"Tool call left in '{item.status}' state longer than "
                         f"{older_than_seconds:.0f}s with no completion — "
                         "marked abandoned by sweep."
                     ),
@@ -1484,6 +1570,11 @@ class ToolExecutionLogger:
     ) -> None:
         if not row_id:
             return
+
+        # A terminal (or parked) status leaves the run-end sweep's open set the
+        # moment it is QUEUED — the write itself is the Coordinator's job.
+        if data.get("status") not in (None, "running", "pending"):
+            record_row_settled(row_id)
 
         # Client host: delegate the UPDATE to the ConversationStore.
         from matrx_ai.client_host import get_conversation_store

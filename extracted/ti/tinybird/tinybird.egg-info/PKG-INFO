@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 5.0.1
+Version: 5.0.2
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+5.0.2
+*******
+
+- `Fixed` ``tb fmt`` keeps ClickHouse numeric literals such as ``1e9``, ``0x1F``, ``0b101``, ``0x1p4`` and ``1_000_000`` intact instead of splitting them into separate tokens.
 
 5.0.1
 *******

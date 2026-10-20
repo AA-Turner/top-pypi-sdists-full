@@ -63,8 +63,6 @@ from ..._response import (
 from ...types.file import File
 from ..._base_client import make_request_options
 from ...lib.serialization_utils import serialize_upload_options
-from ...types.file_copy_response import FileCopyResponse
-from ...types.file_move_response import FileMoveResponse
 from ...types.file_rename_response import FileRenameResponse
 from ...types.file_update_response import FileUpdateResponse
 from ...types.file_upload_response import FileUploadResponse
@@ -136,6 +134,11 @@ class FilesResource(SyncAPIResource):
           custom_metadata: A key-value data to be associated with the asset. To unset a key, send `null`
               value for that key. Before setting any custom metadata on an asset you have to
               create the field using custom metadata fields API.
+
+              To preserve the original creation date of an asset migrated from another system,
+              set the reserved `_internal_original_created_datetime` key to an ISO 8601 date
+              string. This key is available once the original creation date setting is enabled
+              in the media library settings.
 
           description: Optional text to describe the contents of the file.
 
@@ -292,7 +295,7 @@ class FilesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> FileCopyResponse:
+    ) -> None:
         """
         This will copy a file from one folder to another.
 
@@ -317,6 +320,7 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
             "/v1/files/copy",
             body=maybe_transform(
@@ -330,7 +334,7 @@ class FilesResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=FileCopyResponse,
+            cast_to=NoneType,
         )
 
     def get(
@@ -378,7 +382,7 @@ class FilesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> FileMoveResponse:
+    ) -> None:
         """
         This will move a file and all its versions from one folder to another.
 
@@ -398,6 +402,7 @@ class FilesResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
             "/v1/files/move",
             body=maybe_transform(
@@ -410,7 +415,7 @@ class FilesResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=FileMoveResponse,
+            cast_to=NoneType,
         )
 
     def rename(
@@ -603,7 +608,11 @@ class FilesResource(SyncAPIResource):
                 customCoordinates will be removed.
 
           custom_metadata: JSON key-value pairs to associate with the asset. Create the custom metadata
-              fields before setting these values.
+              fields before setting these values. To preserve the original creation date of an
+              asset migrated from another system, set the reserved
+              `_internal_original_created_datetime` key to an ISO 8601 date string. This key
+              is available once the original creation date setting is enabled in the media
+              library settings.
 
           description: Optional text to describe the contents of the file.
 
@@ -812,6 +821,11 @@ class AsyncFilesResource(AsyncAPIResource):
               value for that key. Before setting any custom metadata on an asset you have to
               create the field using custom metadata fields API.
 
+              To preserve the original creation date of an asset migrated from another system,
+              set the reserved `_internal_original_created_datetime` key to an ISO 8601 date
+              string. This key is available once the original creation date setting is enabled
+              in the media library settings.
+
           description: Optional text to describe the contents of the file.
 
           extensions: Array of extensions to be applied to the asset. Each extension can be configured
@@ -967,7 +981,7 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> FileCopyResponse:
+    ) -> None:
         """
         This will copy a file from one folder to another.
 
@@ -992,6 +1006,7 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
             "/v1/files/copy",
             body=await async_maybe_transform(
@@ -1005,7 +1020,7 @@ class AsyncFilesResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=FileCopyResponse,
+            cast_to=NoneType,
         )
 
     async def get(
@@ -1053,7 +1068,7 @@ class AsyncFilesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> FileMoveResponse:
+    ) -> None:
         """
         This will move a file and all its versions from one folder to another.
 
@@ -1073,6 +1088,7 @@ class AsyncFilesResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
             "/v1/files/move",
             body=await async_maybe_transform(
@@ -1085,7 +1101,7 @@ class AsyncFilesResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=FileMoveResponse,
+            cast_to=NoneType,
         )
 
     async def rename(
@@ -1278,7 +1294,11 @@ class AsyncFilesResource(AsyncAPIResource):
                 customCoordinates will be removed.
 
           custom_metadata: JSON key-value pairs to associate with the asset. Create the custom metadata
-              fields before setting these values.
+              fields before setting these values. To preserve the original creation date of an
+              asset migrated from another system, set the reserved
+              `_internal_original_created_datetime` key to an ISO 8601 date string. This key
+              is available once the original creation date setting is enabled in the media
+              library settings.
 
           description: Optional text to describe the contents of the file.
 

@@ -18,7 +18,10 @@ from pydantic import ValidationError
 
 def test_agent_loop_input_defaults():
     inp = AgentLoopInput(model="m", user_input="u")
-    assert inp.max_iterations == 100
+    # Empty on purpose: the limit is the organization's knob, resolved at run
+    # time by resolve_step_iteration_limit (100 unless changed) — never a
+    # constant on the input model (limits-are-knobs).
+    assert inp.max_iterations is None
     assert inp.tools == []
 
 

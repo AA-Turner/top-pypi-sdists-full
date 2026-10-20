@@ -68,7 +68,7 @@ class TestGenerateImageNodeIdentity:
         image = images[0]
         # THE fix: the durable handle survives into the persisted node output.
         assert image.file_id == FILE_ID
-        # And the expiring URL is DROPPED, not labelled. Labelling it was the
+        # And the expiring URL is DROPPED, not labeled. Labeling it was the
         # 2026-08 half-fix: honest field names, but the URL still rode into
         # workflow.node_outcome (51 rows) and a downstream data.map_template
         # carried it onward. A node output is a record, not a handoff.

@@ -85,6 +85,8 @@ __all__ = (
     "ListKnowledgeBaseDocumentsPaginatorName",
     "ListKnowledgeBasesPaginatorName",
     "ListPromptsPaginatorName",
+    "ListRetrievalInstructionVersionsPaginatorName",
+    "ListRetrievalInstructionsPaginatorName",
     "ListVpcConfigurationsPaginatorName",
     "MemoryTypeType",
     "MetadataSourceTypeType",
@@ -106,6 +108,10 @@ __all__ = (
     "RequireConfirmationType",
     "RerankingMetadataSelectionModeType",
     "ResourceServiceName",
+    "RetrievalInstructionFailureReasonCodeType",
+    "RetrievalInstructionFieldNameType",
+    "RetrievalInstructionLastTransitionStatusType",
+    "RetrievalInstructionStatusType",
     "SalesforceAuthTypeType",
     "ServiceName",
     "SharePointAuthTypeType",
@@ -297,6 +303,8 @@ ListIngestionJobsPaginatorName = Literal["list_ingestion_jobs"]
 ListKnowledgeBaseDocumentsPaginatorName = Literal["list_knowledge_base_documents"]
 ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
 ListPromptsPaginatorName = Literal["list_prompts"]
+ListRetrievalInstructionVersionsPaginatorName = Literal["list_retrieval_instruction_versions"]
+ListRetrievalInstructionsPaginatorName = Literal["list_retrieval_instructions"]
 ListVpcConfigurationsPaginatorName = Literal["list_vpc_configurations"]
 MemoryTypeType = Literal["SESSION_SUMMARY"]
 MetadataSourceTypeType = Literal["IN_LINE_ATTRIBUTE", "S3_LOCATION"]
@@ -324,6 +332,21 @@ RedshiftServerlessAuthTypeType = Literal["IAM", "USERNAME_PASSWORD"]
 RelayConversationHistoryType = Literal["DISABLED", "TO_COLLABORATOR"]
 RequireConfirmationType = Literal["DISABLED", "ENABLED"]
 RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
+RetrievalInstructionFailureReasonCodeType = Literal[
+    "CLIENT_ERROR", "CONTENT_REJECTED", "INTERNAL_ERROR"
+]
+RetrievalInstructionFieldNameType = Literal[
+    "ANSWER_FORMAT", "ANSWER_POLICY", "PERSONA", "RETRIEVAL_GUIDANCE"
+]
+RetrievalInstructionLastTransitionStatusType = Literal[
+    "CREATE_FAILED",
+    "CREATE_SUCCESSFUL",
+    "CREATING",
+    "UPDATE_FAILED",
+    "UPDATE_SUCCESSFUL",
+    "UPDATING",
+]
+RetrievalInstructionStatusType = Literal["ACTIVE", "INACTIVE"]
 SalesforceAuthTypeType = Literal["OAUTH2_CLIENT_CREDENTIALS"]
 SharePointAuthTypeType = Literal[
     "OAUTH2_CLIENT_CREDENTIALS", "OAUTH2_SHAREPOINT_APP_ONLY_CLIENT_CREDENTIALS"
@@ -798,5 +821,7 @@ PaginatorName = Literal[
     "list_knowledge_base_documents",
     "list_knowledge_bases",
     "list_prompts",
+    "list_retrieval_instruction_versions",
+    "list_retrieval_instructions",
     "list_vpc_configurations",
 ]

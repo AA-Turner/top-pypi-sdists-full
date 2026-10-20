@@ -40,9 +40,10 @@ pub(crate) const ADDITIONAL_HELP_SEPARATOR: &str = "\n  = help: ";
 pub(crate) const UNIT_TEST_MAX_REAL_MODELS_KEY: &str = "unit_test_max_real_models";
 pub(crate) const DEFAULT_UNIT_TEST_MAX_REAL_MODELS: i64 = 10;
 pub(crate) const TEST_TIMEOUT_KEY: &str = "test_timeout";
+pub(crate) const DELTA_COMPILE_KEY: &str = "delta_compile";
 pub(crate) const SCENARIO_TIMEOUT_KEY: &str = "scenario_timeout";
 pub(crate) const DEFAULT_TEST_TIMEOUT: &str = "30s";
-pub(crate) const SETTINGS_KEYS: [&str; 14] = [
+pub(crate) const SETTINGS_KEYS: [&str; 15] = [
     "sql_analysis",
     "require_sql_analysis",
     "query_change_tracking",
@@ -57,6 +58,7 @@ pub(crate) const SETTINGS_KEYS: [&str; 14] = [
     "unit_test_max_real_models",
     "test_timeout",
     "scenario_timeout",
+    "delta_compile",
 ];
 pub(crate) const DEFAULTS_KEYS: [&str; 33] = [
     "append_cursor_inclusive",
@@ -94,7 +96,7 @@ pub(crate) const DEFAULTS_KEYS: [&str; 33] = [
     "unaccounted_partition_policy",
 ];
 /// The MODEL header keys, which `[path_defaults]` entries may set.
-pub(crate) const MODEL_HEADER_KEYS: [&str; 68] = [
+pub(crate) const MODEL_HEADER_KEYS: [&str; 73] = [
     "alias",
     "append_cursor_inclusive",
     "audit_factories",
@@ -121,6 +123,7 @@ pub(crate) const MODEL_HEADER_KEYS: [&str; 68] = [
     "description",
     "dynamic_columns",
     "enabled",
+    "engine",
     "enums",
     "full_refresh",
     "historical_input",
@@ -141,9 +144,12 @@ pub(crate) const MODEL_HEADER_KEYS: [&str; 68] = [
     "observed_at",
     "old_name_view",
     "on_schema_change",
+    "order_by",
+    "partition_by",
     "placeholders",
     "post_hooks",
     "pre_hooks",
+    "primary_key",
     "replay_on_change",
     "row_diff_exclude_columns",
     "row_diff_sample_rows",
@@ -155,6 +161,7 @@ pub(crate) const MODEL_HEADER_KEYS: [&str; 68] = [
     "snapshot_strategy",
     "sql_analysis",
     "sql_validation",
+    "table_settings",
     "table_type",
     "tags",
     "time_travel_retention",
@@ -164,7 +171,7 @@ pub(crate) const MODEL_HEADER_KEYS: [&str; 68] = [
     "valid_from_column",
     "valid_to_column",
 ];
-pub(crate) const TARGET_KEYS: [&str; 18] = [
+pub(crate) const TARGET_KEYS: [&str; 19] = [
     "connection",
     "vars",
     "database",
@@ -183,6 +190,7 @@ pub(crate) const TARGET_KEYS: [&str; 18] = [
     "execution_limits",
     "diff",
     "warehouses",
+    "recall",
 ];
 pub(crate) const CLONE_KEYS: [&str; 2] = ["allow_as_clone_origin", "allow_as_clone_destination"];
 pub(crate) const EXECUTION_LIMIT_KEYS: [&str; 5] = [

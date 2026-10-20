@@ -4,7 +4,8 @@
  *        pure-code window -- and does the release rule ever fire on it?
  *
  * The continuous async-DSSS design (docs/design/async-dsss-receiver.md
- * §5.4, §12 step 12) gives every emitter's frame a code-only window: of
+ * §5; measured in docs/design/async-dsss-receiver-measurements.md §12.9)
+ * gives every emitter's frame a code-only window: of
  * every F_SYM symbols the first W_SYM carry the spreading code and no data,
  * on the data clock, with a frame edge at no particular chip phase. The
  * searcher's coherent depth is what the window makes possible (§2.3); this
@@ -95,6 +96,7 @@
 #include "doppler/dp_complex.h"
 #include "doppler/gold/gold_core.h"
 #include "doppler/wfm_synth/wfm_synth_core.h"
+#include "dp_dsss_test.h"
 #include "dp_test.h"
 #include <math.h>
 #include <stdio.h>
@@ -109,7 +111,8 @@
 #define SYM_RATE 2700.0
 #define CPS (CHIP_RATE / SYM_RATE) /* chips per symbol, 1851.85       */
 #define W_SYM 450u                 /* code-only symbols per frame     */
-#define F_SYM 4950u                /* frame, symbols (§5.4)           */
+/* The frame: docs/design/async-dsss-receiver.md §5. */
+#define F_SYM 4950u /* frame, symbols                  */
 
 #define SETTLE_BLOCKS 200  /* tracking + symbol lock for this many first */
 #define MAX_LOCK_S 6.0     /* give up on a trial that never settles      */
@@ -162,13 +165,11 @@ typedef struct
 static dp_wfm_synth_state_t *
 make_emitter (const uint8_t *code, uint32_t seed)
 {
-  dp_wfm_synth_state_t *syn
-      = dp_wfm_synth_create (WFM_SYNTH_DSSS, FS, 0.0, WFM_SYNTH_SNR_CLEAN, 1,
-                             seed, (int)SPC, 15, 0, 0, 0.0);
+  dp_wfm_synth_state_t *syn = dp_dsss_cont_emitter (
+      code, SF, SPC, FS, 0.0, CPS, seed, WFM_DSSS_DATA_PRBS, NULL, 0);
   /* Valid constants: the synth takes them (the caller requires `syn`). */
-  (void)dp_wfm_synth_set_dsss_cont (syn, code, SF, CPS, WFM_DSSS_DATA_PRBS,
-                                    NULL, 0);
-  (void)dp_wfm_synth_set_dsss_window (syn, W_SYM, F_SYM);
+  if (syn)
+    (void)dp_wfm_synth_set_dsss_window (syn, W_SYM, F_SYM);
   return syn;
 }
 
@@ -183,12 +184,13 @@ static dp_async_dsss_receiver_state_t *
 make_rx (const uint8_t *code, double cn0_dbhz, int cond)
 {
   /* The searching flavour, seeded from outside (the hand-off flavour that
-     carried this validator was retired, design section 12.28; seed() is a
-     method of both, and the refine chain under test is the same). */
+     carried this validator was retired,
+     docs/design/async-dsss-receiver-measurements.md §12.28; seed() is a method
+     of both, and the refine chain under test is the same). */
   return dp_async_dsss_receiver_create (
       code, SF, CHIP_RATE, SYM_RATE, SPC, 2, cn0_dbhz, 1e-2, 0.9, 100.0, 4, 8,
       0, 0.5, 4, 14.0, 64, 8, false, 100000,
-      cond != COND_STATIC ? CARRIER_HZ : 0.0, LOST_CONFIRM_S);
+      cond != COND_STATIC ? CARRIER_HZ : 0.0, LOST_CONFIRM_S, false);
 }
 
 /* Is global sample `n` inside the code-only window, by the synth's clock? */
@@ -417,14 +419,6 @@ run_trial (const uint8_t *code, int cond, double cn0_dbhz, uint32_t seed,
   return 0;
 }
 
-static void
-gold_1023 (uint8_t *code)
-{
-  dp_gold_state_t *gd = dp_gold_create (934, 350, 567, 73, 10);
-  dp_gold_generate (gd, SF, code, SF);
-  dp_gold_destroy (gd);
-}
-
 static double
 ms (size_t blocks)
 {
@@ -478,7 +472,7 @@ main (int argc, char **argv)
 {
   int     check = (argc > 1 && strcmp (argv[1], "--check") == 0);
   uint8_t code[SF];
-  gold_1023 (code);
+  dp_dsss_gold_1023 (code);
   if (argc > 1 && strcmp (argv[1], "--trace") == 0)
     {
       g_trace_every = 1000;
@@ -565,8 +559,8 @@ main (int argc, char **argv)
                         "the windows are seen");
           DP_CHECK_MSG (!tot.lost, "the release rule never fires on a "
                                    "pure-code window");
-          /* The design's expectations (§12 step 12), pinned where the
-             measurement put them -- see §12.9. */
+          /* The expectations, pinned where the measurement put them
+             (docs/design/async-dsss-receiver-measurements.md §12.9). */
           DP_CHECK_MSG (tot.code_off * 100 <= tot.blocks,
                         "code lock holds through the window (off in at "
                         "most 1% of its blocks)");

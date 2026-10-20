@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aeventkit
-Version: 3.0.0
+Version: 3.0.1
 Summary: Event-driven data pipelines
 Keywords: python,asyncio,event,driven,data,pipelines
 Author: Ewald R. de Wit
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Dist: numpy>=2.4.4,<3.0.0 ; extra == 'numpy'
+Requires-Dist: numpy>=2.4.4,<3.0.0 ; implementation_name != 'pypy' and extra == 'numpy'
 Requires-Python: >=3.11
 Project-URL: Homepage, https://github.com/ib-api-reloaded/eventkit
 Project-URL: Repository, https://github.com/ib-api-reloaded/eventkit

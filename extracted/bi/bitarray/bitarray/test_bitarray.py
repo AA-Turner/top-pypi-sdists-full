@@ -33,6 +33,7 @@ import weakref
 
 is_emscripten = platform.machine() in ('wasm32', 'wasm64')
 is_pypy = platform.python_implementation() == 'PyPy'
+is_sparc = platform.machine().lower().startswith("sparc")
 
 
 from bitarray import (bitarray, frozenbitarray, bits2bytes, decodetree,
@@ -72,6 +73,26 @@ class Util:
     def randomlists(self):
         for a in self.randombitarrays():
             yield a.tolist()
+
+    def unaligned_buffers(self, size=32, endian=None):
+        for remainder in range(8):
+            owner = bytearray(size + 8)
+            base = bitarray(buffer=owner).buffer_info().address
+            offset = (remainder - base) % 8
+            buffer = memoryview(owner)[offset:offset + size]
+            a = bitarray(buffer=buffer, endian=endian)
+
+            self.assertEqual(len(a), 8 * size)
+            self.assertEqual(a.buffer_info().address % 8, remainder)
+            yield a
+
+            self.assertEqual(owner[:offset], bytearray(offset))
+            self.assertEqual(owner[offset + size:], bytearray(8 - offset))
+
+    @staticmethod
+    def is_unaligned(a):
+        info = a.buffer_info()
+        return info.address % 8 != 0
 
     @staticmethod
     def opposite_endian(endian):
@@ -1735,6 +1756,20 @@ class MiscTests(unittest.TestCase, Util):
             for i in range(len(a)):
                 self.assertEqual(a[i], b[i + 1234])
 
+    def test_subclass_inplace(self) -> None:
+        class SubBitarray(bitarray):
+            pass
+
+        a: SubBitarray = SubBitarray('101')
+        a += bitarray()
+        a *= 1
+        a &= bitarray('110')
+        a |= bitarray('001')
+        a ^= bitarray('010')
+        a <<= 1
+        a >>= 1
+        self.assertIs(type(a), SubBitarray)
+
     @unittest.skipIf(is_pypy, "skip test on PyPy")
     def test_overflow(self):
         a = bitarray(1)
@@ -1773,8 +1808,7 @@ class MiscTests(unittest.TestCase, Util):
         self.assertIsInstance(a, abc.MutableSequence)
         if sys.version_info[:2] >= (3, 12):
             self.assertIsInstance(a, abc.Buffer)
-        if sys.platform != "win32":
-            self.assertFalse(isinstance(a, abc.Hashable))
+        self.assertFalse(isinstance(a, abc.Hashable))
 
 # ---------------------------------------------------------------------------
 
@@ -2080,14 +2114,16 @@ class SpecialMethodTests(unittest.TestCase, Util):
 
 # -------------------------- Sequence methods tests -------------------------
 
-class SequenceTests(unittest.TestCase, Util):
+class SequenceTests(unittest.TestCase):
 
     def test_len(self):
         for n in range(100):
             a = bitarray(n)
             self.assertEqual(len(a), n)
 
-    def test_concat(self):
+class ConcatTests(unittest.TestCase, Util):
+
+    def test_simple(self):
         a = bitarray('001')
         b = a + bitarray('110')
         self.assertEQUAL(b, bitarray('001110'))
@@ -2103,7 +2139,7 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertRaises(TypeError, a.__add__, 42)
         self.assertRaises(ValueError, a.__add__, b'1101')
 
-    def test_concat_random(self):
+    def test_random(self):
         for a in self.randombitarrays():
             aa = a.copy()
             for b in self.randombitarrays():
@@ -2116,7 +2152,7 @@ class SequenceTests(unittest.TestCase, Util):
                 self.assertEQUAL(a, aa)
                 self.assertEQUAL(b, bb)
 
-    def test_concat_frozenbitarray(self):
+    def test_frozenbitarray(self):
         a = frozenbitarray('001')
         b = a + bitarray('011')
         self.assertIs(type(b), frozenbitarray)
@@ -2124,7 +2160,7 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertTrue(b.readonly)
         self.check_obj(b)
 
-    def test_inplace_concat(self):
+    def test_inplace(self):
         a = bitarray('001')
         a += bitarray('110')
         self.assertEqual(a, bitarray('001110'))
@@ -2151,7 +2187,9 @@ class SequenceTests(unittest.TestCase, Util):
                 self.assertIs(c, d)
                 self.check_obj(d)
 
-    def test_repeat_explicit(self):
+class RepeatTests(unittest.TestCase, Util):
+
+    def test_explicit(self):
         for m, s, r in [
                 ( 0,        '',      ''),
                 ( 0, '1001111',      ''),
@@ -2168,14 +2206,14 @@ class SequenceTests(unittest.TestCase, Util):
             c *= m
             self.assertEqual(c, bitarray(r))
 
-    def test_repeat_wrong_args(self):
+    def test_wrong_args(self):
         a = bitarray()
         self.assertRaises(TypeError, a.__mul__, None)
         self.assertRaises(TypeError, a.__mul__, 2.0)
         self.assertRaises(TypeError, a.__imul__, None)
         self.assertRaises(TypeError, a.__imul__, 3.0)
 
-    def test_repeat_frozenbitarray(self):
+    def test_frozenbitarray(self):
         a = frozenbitarray('001')
         b = 3 * a
         self.assertIs(type(b), frozenbitarray)
@@ -2183,7 +2221,7 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertTrue(b.readonly)
         self.check_obj(b)
 
-    def test_repeat_random(self):
+    def test_random(self):
         for a in self.randombitarrays():
             b = a.copy()
             for m in list(range(-3, 5)) + [randint(5, 200)]:
@@ -2200,7 +2238,9 @@ class SequenceTests(unittest.TestCase, Util):
 
             self.assertEQUAL(a, b)
 
-    def test_contains_simple(self):
+class ContainsTests(unittest.TestCase):
+
+    def test_simple(self):
         a = bitarray()
         self.assertFalse(0 in a)
         self.assertFalse(1 in a)
@@ -2215,7 +2255,7 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertTrue(0 in a)
         self.assertTrue(1 in a)
 
-    def test_contains_errors(self):
+    def test_errors(self):
         a = bitarray()
         self.assertFalse(a.__contains__(1))
         a.append(1)
@@ -2227,7 +2267,7 @@ class SequenceTests(unittest.TestCase, Util):
         self.assertRaises(ValueError, a.__contains__, 2)
         self.assertRaises(ValueError, a.__contains__, -1)
 
-    def test_contains_range(self):
+    def test_range(self):
         for n in range(2, 50):
             a = zeros(n)
             self.assertTrue(0 in a)
@@ -2242,7 +2282,7 @@ class SequenceTests(unittest.TestCase, Util):
             self.assertTrue(True in a)
             self.assertTrue(False in a)
 
-    def test_contains_explicit(self):
+    def test_explicit(self):
         a = bitarray('011010000001')
         for s, r in [('', True), # every bitarray contains an empty one
                      ('1', True), ('11', True), ('111', False),
@@ -2431,6 +2471,18 @@ class NumberTests(unittest.TestCase, Util):
         b[16:] &= bitarray("1111 0000 1111 0000", 'big')
         self.assertEqual(a, bytearray([0xfc, 0x88, 0x10, 0xe0]))
 
+    def test_unaligned_buffers(self):
+        for a in self.unaligned_buffers():
+            for b in self.unaligned_buffers():
+                a.setall(0)
+                a[187] = a[193] = b[193] = b[194] = 1
+                a &= b
+                self.assertEqual(list(a.search(1)), [193])
+                a ^= b
+                self.assertEqual(list(a.search(1)), [194])
+                a |= b
+                self.assertEqual(list(a.search(1)), [193, 194])
+
 
 class ShiftTests(unittest.TestCase, Util):
 
@@ -2592,6 +2644,18 @@ class ShiftTests(unittest.TestCase, Util):
         self.assertEqual(a, bytearray([0xfc, 0x88, 0x10, 0xe0]))
         b >>= 8
         self.assertEqual(a, bytearray([0x00, 0xfc, 0x88, 0x10]))
+
+    def test_unaligned_buffers(self):
+        for endian in ENDIANS:
+            for a in self.unaligned_buffers(endian=endian):
+                a[0] = a[193] = a[-1] = 1
+                expected = self.shift(a, 3, 'left')
+                a <<= 3
+                self.assertEQUAL(a, expected)
+
+                expected = self.shift(a, 5, 'right')
+                a >>= 5
+                self.assertEQUAL(a, expected)
 
 # --------------------------------   .extend()   ----------------------------
 
@@ -3114,6 +3178,22 @@ class InvertTests(unittest.TestCase, Util):
         self.assertFalse(b.readonly)
         b.invert()
         self.assertEqual(a, bytearray([255, 254, 253, 252, 223, 0]))
+
+    def test_unaligned_buffers(self):
+        for n in range(20):
+            for endian in ENDIANS:
+                for a in self.unaligned_buffers(size=n, endian=endian):
+                    a.invert()
+                    self.assertEqual(a, ones(len(a)))
+                    if n == 0:
+                        continue
+                    i = randrange(len(a))
+                    a.invert(i)
+                    self.assertEqual(a.find(0), i)
+                    self.assertEqual(a.endian, endian)
+                    a.invert(slice(0, i))
+                    a.invert(slice(i + 1, None))
+                    self.assertEqual(a, zeros(8 * n))
 
 class SortTests(unittest.TestCase, Util):
 
@@ -3813,13 +3893,15 @@ class CountTests(unittest.TestCase, Util):
             self.assertEqual(a.count(v, s.start, s.stop, s.step),
                              a[s].count(v))
 
-    def test_offset_buffer(self):
-        # this tests if words are aligned in popcnt_words()
-        N = 1 << 16
-        for i in range(20):
-            a = urandom_2(N, 'little')
-            b = bitarray(buffer=memoryview(a)[i:], endian='little')
-            self.assertEqual(b.count(), a.count(1, 8 * i))
+    def test_unaligned_buffers(self):
+        for n in range(20):
+            for endian in ENDIANS:
+                for a in self.unaligned_buffers(size=n, endian=endian):
+                    b = urandom_2(8 * n)
+                    expected = b.count()
+                    a[:] = b
+                    self.assertEqual(a.count(), expected)
+                    self.assertEqual(a.endian, endian)
 
 # -------------------------- .find() and .index() ---------------------------
 
@@ -3992,6 +4074,23 @@ class IndexTests(unittest.TestCase, Util):
                 self.assertIn(v, range(2))
                 self.assertEqual(a.find(v, i, j, 0), ref_l)
                 self.assertEqual(a.find(v, i, j, 1), ref_r)
+
+    def test_unaligned_buffers(self):
+        for n in range(20):
+            for endian in ENDIANS:
+                for a in self.unaligned_buffers(size=n, endian=endian):
+                    self.assertEqual(a.find(1), -1)
+                    if n == 0:
+                        continue
+                    i = randrange(len(a))
+                    a[i] = 1
+                    self.assertEqual(a.find(1), i)
+                    self.assertEqual(a.find(1, right=1), i)
+                    a.setall(1)
+                    self.assertEqual(a.find(0), -1)
+                    a[i] = 0
+                    self.assertEqual(a.find(0), i)
+                    self.assertEqual(a.find(0, right=1), i)
 
 # ----------------------------- .search() -----------------------------------
 
@@ -5623,12 +5722,17 @@ class FrozenbitarrayTests(unittest.TestCase, Util):
 
         self.check_obj(a)
 
-    def test_copy(self):
+    def test_copy(self) -> None:
         a = frozenbitarray('101')
-        # not only .copy() creates new frozenbitarray which are read-only
-        for b in [a, a.copy(), 3 * a, 5 * a, a & bitarray('110'),
-                  a >> 2, ~a, a + bitarray(8*'1'),
-                  a[:], a[::2], a[[0, 1]], a[bitarray('011')]]:
+        # Check the stub return types as well as the runtime types.
+        copies: list[frozenbitarray] = [
+            a.copy(), 3 * a, a * 5, a & bitarray('110'),
+            a | bitarray('110'), a ^ bitarray('110'),
+            a & frozenbitarray('110'), a | frozenbitarray('110'),
+            a ^ frozenbitarray('110'), a >> 2, a << 1, ~a,
+            a + bitarray(8*'1'), a[:], a[::2], a[[0, 1]], a[bitarray('011')],
+        ]
+        for b in copies:
             self.assertIs(type(b), frozenbitarray)
             self.assertTrue(b.readonly)
             self.check_obj(b)
@@ -5748,14 +5852,15 @@ def show_info(verbosity=1):
 
     if verbosity >= 2:
         print('bitarray version: %s' % __version__)
+        print('platform.machine(): %s' % platform.machine())
+        print('platform.platform(): %s' % platform.platform())
+        print('sys.platform: %s' % sys.platform)
         print('sys.version: %s' % sys.version)
         if os.name == "posix":
             print('sys.abiflags: %r' % sys.abiflags)
         if sys.version_info[:2] >= (3, 14):
             print('sys._is_gil_enabled(): %s' % sys._is_gil_enabled())
         print('pointer size: %d bit' % (8 * PTRSIZE))
-        print('sizeof(size_t): %d' % sysinfo("size_t"))
-        print('sizeof(bitarrayobject): %d' % sysinfo("bitarrayobject"))
         print('HAVE_BUILTIN_BSWAP64: %d' % sysinfo("HAVE_BUILTIN_BSWAP64"))
         print('default bit-endianness: %s' % get_default_endian())
         print('machine byte-order: %s' % sys.byteorder)

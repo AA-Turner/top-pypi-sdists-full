@@ -155,7 +155,7 @@ class TestResultKindSelection:
         self, executor, kindful_tool, app_ctx_set
     ) -> None:
         """The untouched path: 208 tools still return anonymous dicts, and
-        their behaviour must be exactly what it was."""
+        their behavior must be exactly what it was."""
         result = await _run(executor, {"bundle": "supabase"})
 
         assert result.output_kind is not None

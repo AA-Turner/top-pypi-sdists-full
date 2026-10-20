@@ -1,11 +1,11 @@
-"""The SITE-level checks of the analysis catalogue.
+"""The SITE-level checks of the analysis catalog.
 
 ``web.analysis_result`` has always supported three subject types — ``site``,
 ``page``, ``snapshot`` (``analysis_result_subject_type_valid``) — but until
 2026-08-09 the sweep wrote page subjects only, so the catalogue's site-scoped
 rows had nowhere to land. The four heaviest crawlability items were among them,
 including ``robots_txt_health`` at weight 3.0, the joint-highest weight in the
-whole catalogue.
+whole catalog.
 
 **Why this is a sibling of ``analysis.py`` and not part of it.** The split is
 per-page (``seo_audit``) vs whole-site (``web_crawl``), and both halves of the
@@ -15,7 +15,7 @@ owns SITE-SUBJECT checks, which emit exactly one verdict for the site and read
 evidence no page has (robots.txt, the sitemap graph, the host variants).
 ``analysis.py`` merges ``CRAWLABILITY_SITE_CHECKS`` into its ONE site-subject
 registry (``analysis.SITE_CHECKS``, which also holds the TLS/HSTS/header
-checks) and writes the rows; there is one sweep, one catalogue resolution, and
+checks) and writes the rows; there is one sweep, one catalog resolution, and
 one finding reconciliation.
 
 **Site subject shape (DB-enforced, ``web.validate_cross_pointers``):**
@@ -63,7 +63,7 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Thresholds. Each is declared exactly ONCE, here, and is a band from the
-# matching catalogue row's `score_contract`.
+# matching catalog row's `score_contract`.
 
 # Deterministic-rule checks score first-match-top-down and then map the score
 # to a status. These two bounds are that mapping, and nothing else uses them.
@@ -223,6 +223,8 @@ class SiteEvidence:
     entries_missing_lastmod: int = 0
     #: Canonical page ids reachable from a sitemap membership.
     sitemap_page_ids: set[str] = field(default_factory=set)
+    #: Every URL the sitemap advertises (captured or not); robots_txt_health judges them against robots.txt.
+    sitemap_member_urls: list[str] = field(default_factory=list)
     #: Sitemap URLs the crawler has never successfully captured.
     undiscovered_urls: list[str] = field(default_factory=list)
     undiscovered_count: int = 0
@@ -405,7 +407,7 @@ def _robots_blocked_urls(site: SiteEvidence, document: RobotsDocument) -> list[s
 
     wanted: list[str] = []
     seen: set[str] = set()
-    for url in site.undiscovered_urls + site.indexable_missing_from_sitemap:
+    for url in site.undiscovered_urls + site.indexable_missing_from_sitemap + site.sitemap_member_urls:
         if url not in seen:
             seen.add(url)
             wanted.append(url)
@@ -563,7 +565,7 @@ def _check_sitemap_health(site: SiteEvidence) -> CheckOutcome:
 
 
 def _check_sitemap_coverage(site: SiteEvidence) -> CheckOutcome:
-    """`sitemap_coverage` — weight 1.5. The catalogue row's formula, verbatim."""
+    """`sitemap_coverage` — weight 1.5. The catalog row's formula, verbatim."""
 
     if not site.sitemap_sync_ran:
         if site.probe is not None and not site.probe.reachable_sitemap_locations:
@@ -695,7 +697,7 @@ def _check_host_protocol_consistency(site: SiteEvidence) -> CheckOutcome:
 
     # Rule 2 — they do redirect, but with a temporary status (302/307) or through
     # a chain longer than HOST_MAX_REDIRECT_HOPS. One extra hop (http://www ->
-    # https://www -> https://apex) is the default behaviour of nearly every
+    # https://www -> https://apex) is the default behavior of nearly every
     # host and CDN, and a clean 301 is consolidation working: neither fires.
     soft = [
         p
@@ -785,7 +787,7 @@ def _check_host_protocol_consistency(site: SiteEvidence) -> CheckOutcome:
     )
 
 
-#: Catalogue item key -> the check that answers it. Merged into
+#: Catalog item key -> the check that answers it. Merged into
 #: ``analysis.SITE_CHECKS`` — the ONE site-subject registry — by an adapter that
 #: hands each of these the ``SiteEvidence`` hanging off ``SiteFacts``.
 CRAWLABILITY_SITE_CHECKS: dict[str, Callable[[SiteEvidence], CheckOutcome]] = {
@@ -985,6 +987,7 @@ def fold_sitemap_members(
         url = str(page.url)
         canonical_id = str(page.canonical_page_id or page.id)
         evidence.sitemap_page_ids.add(canonical_id)
+        evidence.sitemap_member_urls.append(url)
         facts = facts_by_page.get(canonical_id) or facts_by_page.get(page_id)
         status = page.http_status_last
         if status is None and facts is not None:

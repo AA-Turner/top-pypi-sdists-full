@@ -29,8 +29,12 @@ from ..models.assistant import (
     AssistantEvaluationRequest,
     ReactionRequest,
     ToolCallResumeRequest,
+    AssistantProjectFeature,
+    AssistantProjectMappingListResponse,
+    AssistantProjectMappingRequest,
 )
 from ..models.common import PaginationParams
+from ..models.conversation import BaseResponse
 from ..utils import ApiRequestHandler, TokenSource
 
 
@@ -644,3 +648,182 @@ class AssistantService:
             Response from the API
         """
         return self._api.delete(f"/v1/assistants/{assistant_id}/reactions", dict)
+
+    def list_project_mapping(
+        self,
+        project_name: str,
+        feature: AssistantProjectFeature = AssistantProjectFeature.TEAMS,
+        page: int = 0,
+        per_page: int = 12,
+    ) -> AssistantProjectMappingListResponse:
+        """List assistants enabled for a project feature (e.g. Teams bot).
+
+        Accessible to any member of ``project_name``, not just project admins.
+
+        Args:
+            project_name: Project (application) name to list mappings for
+            feature: Feature discriminator, currently only "teams"
+            page: Page number, 0-indexed
+            per_page: Items per page (default 12, max 10000)
+
+        Returns:
+            Paginated list of assistants enabled for the project feature
+        """
+        feature_value = (
+            feature.value if isinstance(feature, AssistantProjectFeature) else feature
+        )
+        params = PaginationParams(page=page, per_page=per_page).to_dict()
+        params["feature"] = feature_value
+        params["project"] = project_name
+        return self._api.get(
+            "/v1/assistants/projects/mapping",
+            AssistantProjectMappingListResponse,
+            params=params,
+            wrap_response=False,
+        )
+
+    def enable_for_project(
+        self,
+        assistant_id: str,
+        project_name: str,
+        feature: AssistantProjectFeature = AssistantProjectFeature.TEAMS,
+    ) -> BaseResponse:
+        """Enable an assistant for a project feature (e.g. Teams bot).
+
+        Idempotent — calling this when the mapping already exists returns 200
+        with no error. Requires the caller to be a project admin/maintainer
+        (or application admin) for ``project_name``.
+
+        Args:
+            assistant_id: ID of the assistant to enable
+            project_name: Project (application) name to enable the mapping for
+            feature: Feature discriminator, currently only "teams"
+
+        Returns:
+            Response confirming the assistant was enabled
+        """
+        request = AssistantProjectMappingRequest(
+            project_name=project_name, feature=feature
+        )
+        return self._api.post(
+            f"/v1/assistants/{assistant_id}/projects/mapping",
+            BaseResponse,
+            json_data=request.model_dump(exclude_none=True),
+        )
+
+    def disable_for_project(
+        self,
+        assistant_id: str,
+        project_name: str,
+        feature: AssistantProjectFeature = AssistantProjectFeature.TEAMS,
+    ) -> BaseResponse:
+        """Disable an assistant for a project feature (e.g. Teams bot).
+
+        Raises an HTTP error (404) if the mapping does not exist. Requires the
+        caller to be a project admin/maintainer (or application admin) for
+        ``project_name``.
+
+        Args:
+            assistant_id: ID of the assistant to disable
+            project_name: Project (application) name to disable the mapping for
+            feature: Feature discriminator, currently only "teams"
+
+        Returns:
+            Response confirming the assistant was disabled
+        """
+        feature_value = (
+            feature.value if isinstance(feature, AssistantProjectFeature) else feature
+        )
+        params = {"project": project_name, "feature": feature_value}
+        return self._api.delete(
+            f"/v1/assistants/{assistant_id}/projects/mapping",
+            BaseResponse,
+            params=params,
+        )
+
+    def get_user_mapping(
+        self,
+        assistant_id: str,
+        workflow_id: Optional[str] = None,
+    ) -> dict:
+        """Get the effective personal integration mapping for an assistant.
+
+        Returns the merged per-slot view following the resolution order:
+        workflow-scoped → assistant-scoped → auto-lookup → none.
+
+        Args:
+            assistant_id: ID of the assistant
+            workflow_id: Optional workflow scope. When provided, returns the effective
+                selection for that workflow; when omitted, returns assistant-scoped only.
+
+        Returns:
+            Mapping response dict with ``tools_config`` list and
+            ``has_assistant_scope_selection`` boolean.
+        """
+        params: dict = {}
+        if workflow_id is not None:
+            params["workflow_id"] = workflow_id
+        return self._api.get(
+            f"/v1/assistants/{assistant_id}/users/mapping",
+            dict,
+            params=params or None,
+        )
+
+    def save_user_mapping(
+        self,
+        assistant_id: str,
+        tools_config: list,
+        workflow_id: Optional[str] = None,
+        apply_to_assistant_scope: bool = False,
+    ) -> dict:
+        """Save personal integration mapping for an assistant.
+
+        When ``workflow_id`` is supplied and ``apply_to_assistant_scope`` is False,
+        a workflow-scoped record is created/updated (the new default on workflow screens).
+        When ``apply_to_assistant_scope`` is True, the mapping is promoted to assistant
+        scope and any existing workflow-scoped override is removed atomically.
+
+        Args:
+            assistant_id: ID of the assistant
+            tools_config: List of slot configuration dicts (each with ``slot_id``
+                and optionally ``integration_id``)
+            workflow_id: Optional workflow scope reference
+            apply_to_assistant_scope: When True, saves at assistant scope
+
+        Returns:
+            Saved mapping response dict
+        """
+        payload: dict = {"tools_config": tools_config}
+        if workflow_id is not None:
+            payload["workflow_id"] = workflow_id
+        if apply_to_assistant_scope:
+            payload["apply_to_assistant_scope"] = True
+        return self._api.post(
+            f"/v1/assistants/{assistant_id}/users/mapping",
+            dict,
+            json_data=payload,
+        )
+
+    def delete_user_mapping(
+        self,
+        assistant_id: str,
+        workflow_id: Optional[str] = None,
+    ) -> dict:
+        """Delete personal integration mapping for an assistant.
+
+        Args:
+            assistant_id: ID of the assistant
+            workflow_id: When provided, deletes the workflow-scoped record only.
+                When omitted, deletes the assistant-scoped record.
+
+        Returns:
+            Response from the API
+        """
+        params: dict = {}
+        if workflow_id is not None:
+            params["workflow_id"] = workflow_id
+        return self._api.delete(
+            f"/v1/assistants/{assistant_id}/users/mapping",
+            dict,
+            params=params or None,
+        )

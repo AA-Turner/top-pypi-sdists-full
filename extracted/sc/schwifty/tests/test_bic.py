@@ -7,6 +7,8 @@ from pycountry import countries  # type: ignore
 
 from schwifty import BIC
 from schwifty import exceptions
+from schwifty import registry
+from schwifty.domain import Bank
 
 
 def test_bic() -> None:
@@ -72,6 +74,69 @@ def test_unknown_bic_properties() -> None:
     assert bic.bank_short_names == []
     assert not bic.exists
     assert bic.type == "default"
+
+
+def test_bic_with_branch_code_falls_back_to_institution() -> None:
+    # Some registries only list the 8-character institution BIC. An extended
+    # 11-character BIC denotes a branch of that same institution, so it should
+    # still resolve to the institution's data rather than returning nothing.
+    institution = BIC("BSABESBB")
+    assert institution.domestic_bank_codes
+    for extended in ("BSABESBBXXX", "BSABESBB001"):
+        bic = BIC(extended)
+        assert bic.branch_code
+        assert bic.domestic_bank_codes == institution.domestic_bank_codes
+        assert bic.bank_names == institution.bank_names
+        assert bic.bank_short_names == institution.bank_short_names
+
+
+def test_bic_oro_pay_cyprus() -> None:
+    bic = BIC("OROACY2LXXX")
+    assert bic.bank_names == ["ORO PAY LTD"]
+    assert bic.bank_short_names == ["ORO PAY"]
+    assert bic.country_code == "CY"
+
+
+def test_bic_prefers_branch_specific_registry_entry() -> None:
+    # Where the registry does hold branch-specific entries, those must still
+    # win over the institution-level fallback.
+    assert BIC("MARKDEF1100").domestic_bank_codes == ["10000000"]
+    assert BIC("GENODEM1GLS").domestic_bank_codes == ["43060967", "43060988"]
+
+
+@pytest.mark.parametrize("code", ["COBADEFF", "DEUTDEFF"])
+def test_bic_without_branch_code_falls_back_to_xxx_entry(code: str) -> None:
+    bic = BIC(code)
+    xxx_entry = BIC(f"{code}XXX")
+    assert xxx_entry.domestic_bank_codes
+    assert xxx_entry.bank_names
+    assert xxx_entry.bank_short_names
+    assert bic.domestic_bank_codes == xxx_entry.domestic_bank_codes
+    assert bic.bank_names == xxx_entry.bank_names
+    assert bic.bank_short_names == xxx_entry.bank_short_names
+    assert not bic.exists
+    assert xxx_entry.exists
+
+
+def test_bic_prefers_exact_institution_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    entries = {
+        "TESTDEFF": [Bank("DE", "TESTDEFF", "10000000", "Exact institution")],
+        "TESTDEFFXXX": [Bank("DE", "TESTDEFFXXX", "20000000", "XXX entry", "XXX")],
+    }
+    monkeypatch.setattr(registry, "get_banks_by_bic", lambda code: entries.get(code, []))
+    bic = BIC("TESTDEFF")
+    assert bic.domestic_bank_codes == ["10000000"]
+    assert bic.bank_names == ["Exact institution"]
+    assert bic.bank_short_names == []
+
+
+@pytest.mark.parametrize("code", ["MARKDEF1", "ABNAJPJT", "COBADEF"])
+def test_bic_without_institution_or_xxx_record(code: str) -> None:
+    bic = BIC(code, allow_invalid=True)
+    assert bic.domestic_bank_codes == []
+    assert bic.bank_names == []
+    assert bic.bank_short_names == []
+    assert not bic.exists
 
 
 @pytest.mark.parametrize(
@@ -150,13 +215,14 @@ def test_bic_structure_is_validated_over_full_string() -> None:
         ("CH", "08390", "ABSOCH22XXX"),
         ("CZ", "0600", "AGBACZPP"),
         ("DE", "43060967", "GENODEM1GLS"),
+        ("DE", "48020151", "HAUKDEFFXXX"),  # primary record, not the secondary LAMPDEDDXXX
         ("ES", "0209", "BSABESBB"),
         ("FI", "101", "NDEAFIHH"),
         ("FR", "30004", "BNPAFRPP"),
         ("FR", "30066", "CMCIFRPPXXX"),
         ("FR", "17469", "SOCBPFTXXXX"),
         ("FR", "10096", "CMCIFRPP"),
-        ("FR", "18719", "BFCOYTYTXXX"),
+        ("FR", "18719", "BFCORERXXXX"),  # head office, not the Mayotte branch
         ("FR", "30077", "SMCTFR2A"),
         ("FR", "13489", "NORDFRPP"),
         ("HU", "107", "CIBHHUHB"),
@@ -232,6 +298,8 @@ def test_bic_from_unknown_bank_code() -> None:
         ("RO", "BPOS", ["BPOSROBU"]),
         ("SE", "500", ["ESSESESS"]),
         ("SI", "01050", ["BSLJSI2XFNB"]),
+        ("SI", "02188", ["LJBASI2XXXX"]),
+        ("SI", "03100", ["KBMASI2XXXX"]),  # retired SKB code, alias of OTP banka
         ("SK", "0900", ["GIBASKBX"]),
     ],
 )
@@ -248,6 +316,16 @@ def test_bic_candidates_from_unknown_bank_code() -> None:
 def test_bic_is_from_primary_bank_code() -> None:
     bic = BIC.from_bank_code("DE", "20070024")
     assert bic.compact == "DEUTDEDBHAM"
+
+
+def test_bic_from_bank_code_prefers_registry_primary_among_generic_codes() -> None:
+    # Bank code 18719 has two 'XXX' BICs; the registry marks the head office primary and the
+    # Mayotte branch not. The primary must win over the alphabetical tie-break.
+    assert BIC.from_bank_code("FR", "18719").compact == "BFCORERXXXX"
+    assert [b.compact for b in BIC.candidates_from_bank_code("FR", "18719")] == [
+        "BFCORERXXXX",
+        "BFCOYTYTXXX",
+    ]
 
 
 def test_magic_methods() -> None:
@@ -289,6 +367,24 @@ def test_pydantic_protocol() -> None:
     assert loaded == model
 
 
+@pytest.mark.parametrize("value", [None, 123, 12.5, True, ["GENODEM1GLS"]])
+def test_pydantic_protocol_non_string(value: object) -> None:
+    # ``BIC.__init__`` raises TypeError for anything that is not a string, and the IBAN
+    # validator turns that into a field error. The BIC one let it escape, so validating a
+    # model blew up instead of reporting the offending field.
+    from pydantic import BaseModel
+    from pydantic import ValidationError
+
+    class Model(BaseModel):
+        bic: BIC
+
+    with pytest.raises(ValidationError) as err:
+        Model(bic=value)  # type: ignore[arg-type]
+    error = err.value.errors()[0]
+    assert error["type"] == "bic_format"
+    assert error["input"] == value
+
+
 def test_deepcopy() -> None:
     bic = BIC("GENODEM1GLS")
 
@@ -299,3 +395,15 @@ def test_deepcopy() -> None:
     bic_copy = copy.copy(bic)
     assert id(bic) != id(bic_copy)
     assert bic == bic_copy
+
+
+@pytest.mark.parametrize("value", ["GENODXM1GLS", "FOOBARBAZ"])
+def test_deepcopy_allow_invalid(value: str) -> None:
+    original = BIC(value, allow_invalid=True)
+
+    copied = copy.deepcopy(original)
+
+    assert copied is not original
+    assert isinstance(copied, BIC)
+    assert copied == original
+    assert not copied.is_valid

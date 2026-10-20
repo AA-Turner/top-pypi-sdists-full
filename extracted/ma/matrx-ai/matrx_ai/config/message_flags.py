@@ -18,9 +18,9 @@ Storage: an authored agent-definition message carries ``flags`` at top level;
 ``UnifiedMessage.from_dict`` validates it and keeps it at ``metadata["flags"]``
 so it round-trips through ``cx_message.metadata`` with no new column.
 
-THE COMPATIBILITY LAW: a flag a model cannot honour is never silently dropped.
+THE COMPATIBILITY LAW: a flag a model cannot honor is never silently dropped.
 The org knob ``agents.messages / flag_compatibility_mode`` (``refuse`` | ``convert``
-| ``drop``, default ``refuse``) decides; the host resolves it and stamps
+| ``drop``, default ``convert`` since 2026-10-17) decides; the host resolves it and stamps
 ``config.metadata["flag_compatibility_mode"]``. ``convert`` turns a prefill into a
 system-channel instruction ("begin your reply with exactly: …") and the reply is
 marked "asked for, not forced" with whether it actually starts with the text.
@@ -42,13 +42,17 @@ FLAGS_METADATA_KEY = "flags"
 #: Where the host stamps the org's compatibility mode on ``config.metadata``.
 COMPAT_MODE_METADATA_KEY = "flag_compatibility_mode"
 
-#: Where the answer records how its prefill was honoured (runner reads it).
+#: Where the answer records how its prefill was honored (runner reads it).
 PREFILL_RESULT_METADATA_KEY = "prefill"
 
 CompatMode = Literal["refuse", "convert", "drop"]
 COMPAT_MODES: tuple[str, ...] = ("refuse", "convert", "drop")
 #: Mirrors the seeded knob default (aidream ai_091) for hosts with no knob register.
-DEFAULT_COMPAT_MODE: CompatMode = "refuse"
+#: ``convert`` since 2026-10-17: an authored prefill on a model that cannot take one
+#: used to fail EVERY run (``prefill_unsupported``); now the reply is asked to begin
+#: with the text, the run says so, and the answer records whether it complied. An
+#: organization that prefers the hard stop sets the knob to ``refuse``.
+DEFAULT_COMPAT_MODE: CompatMode = "convert"
 
 #: The knob the host resolves (feature, key).
 COMPAT_MODE_KNOB = ("agents.messages", "flag_compatibility_mode")
@@ -73,10 +77,10 @@ class InvalidMessageFlags(ValueError):
 
 
 class MessageFlagRefusal(ValueError):
-    """A flag the model cannot honour under the org's ``refuse`` mode.
+    """A flag the model cannot honor under the org's ``refuse`` mode.
 
     Raised BEFORE the provider call — nothing is spent. ``user_message`` is the
-    sentence the builder also shows beside the greyed toggle.
+    sentence the builder also shows beside the grayed toggle.
     """
 
     def __init__(self, user_message: str, *, code: str = "message_flag_refused") -> None:
@@ -180,6 +184,8 @@ class FlagPlan:
     #: The trailing prefill message itself (the live object), so the answer
     #: can retire it once the reply carries its text.
     prefill_message: Any = None
+    #: The model's name, for notices raised after the reply arrives.
+    prefill_model_label: str | None = None
 
 
 def resolve_compat_mode(raw: Any) -> CompatMode:
@@ -192,9 +198,9 @@ def resolve_compat_mode(raw: Any) -> CompatMode:
 def prefill_refusal_sentence(model_label: str) -> str:
     return (
         f"{model_label} cannot continue a reply from a prefill — the provider rejects a "
-        "conversation that ends on an assistant message. Remove the Prefill flag, pick a "
-        "model that supports prefill, or ask an admin to set message-flag compatibility to "
-        "convert."
+        "conversation that ends on an assistant message, and this organization's message-flag "
+        "compatibility is set to refuse. Remove the Prefill flag, pick a model that supports "
+        "prefill, or set message-flag compatibility to convert."
     )
 
 
@@ -225,6 +231,7 @@ def plan_message_flags(
             if not text:
                 continue
             plan.prefill_message = message
+            plan.prefill_model_label = model_label
             if supports_prefill:
                 plan.prefill_text = text
                 plan.prefill_mode = "native"

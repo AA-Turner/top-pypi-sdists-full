@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1245
+Version: 1.4.1263
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -304,6 +304,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `analytics.get_instagram_follower_history()` | Get Instagram follower history |
 | `analytics.get_instagram_online_followers()` | Get Instagram online followers |
 | `analytics.get_linked_in_aggregate_analytics()` | Get LinkedIn aggregate stats |
+| `analytics.get_linked_in_demographics()` | Get LinkedIn organization follower demographics |
 | `analytics.get_linked_in_org_aggregate_analytics()` | Get LinkedIn org analytics |
 | `analytics.get_linked_in_post_analytics()` | Get LinkedIn post stats |
 | `analytics.get_linked_in_post_reactions()` | Get LinkedIn post reactions |
@@ -415,6 +416,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.get_subreddit_rules()` | Get subreddit rules |
 | `connect.get_telegram_connect_status()` | Generate Telegram code |
 | `connect.get_whats_app_sdk_config()` | Get Embedded Signup SDK config |
+| `connect.get_wix_connect_url()` | Get Wix site install URL |
 | `connect.get_word_press_auth_url()` | Get WordPress.com OAuth connect URL |
 | `connect.get_youtube_captions()` | Get a YouTube video transcript |
 | `connect.get_youtube_playlists()` | List YouTube playlists |
@@ -841,6 +843,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `commerce.list_commerce_menus()` | List navigation menus |
 | `commerce.list_commerce_metaobject_definitions()` | List metaobject definitions |
 | `commerce.list_commerce_metaobjects()` | List metaobjects of a type |
+| `commerce.list_commerce_orders()` | List orders |
 | `commerce.list_commerce_pages()` | List pages |
 | `commerce.list_commerce_price_lists()` | List price lists |
 | `commerce.list_commerce_product_metafields()` | List product metafields |
@@ -861,6 +864,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `commerce.get_commerce_discount()` | Get a discount |
 | `commerce.get_commerce_menu()` | Get a navigation menu |
 | `commerce.get_commerce_metaobject()` | Get a metaobject |
+| `commerce.get_commerce_order()` | Get an order |
 | `commerce.get_commerce_page()` | Get a page |
 | `commerce.get_commerce_product()` | Get a product |
 | `commerce.get_commerce_store()` | Get a store |

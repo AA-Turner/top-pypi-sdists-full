@@ -2,8 +2,10 @@
 """
 Test PDF field (widget) insertion.
 """
+import gc
 import pymupdf
 import os
+from pymupdf import mupdf, PDF_NAME
 
 scriptdir = os.path.abspath(os.path.dirname(__file__))
 filename = os.path.join(scriptdir, "resources", "widgettest.pdf")
@@ -57,14 +59,13 @@ def test_checkbox():
     widget.text_color = blue
     widget.text_font = "ZaDb"
     widget.field_value = True
+    # Check #2350 - setting checkbox to readonly.
+    #
+    widget.field_flags |= pymupdf.PDF_FIELD_IS_READ_ONLY
     page.add_widget(widget)  # create the field
     field = page.first_widget
     assert field.field_type_string == "CheckBox"
 
-    # Check #2350 - setting checkbox to readonly.
-    #
-    widget.field_flags |= pymupdf.PDF_FIELD_IS_READ_ONLY
-    widget.update()
     path = f"{scriptdir}/test_checkbox.pdf"
     doc.save(path)
 
@@ -178,10 +179,10 @@ def test_2333():
         w = page.load_widget(xref)
         w.field_value = True
         w.update()
-        assert values() == set(("/Off", f"{i}", f"/{i}"))
+        assert values() == set(("/Off", f"/{i}"))
     w.field_value = False
     w.update()
-    assert values() == set(("Off", "/Off"))
+    assert values() == {"/Off"}
 
 
 def test_2411():
@@ -310,14 +311,15 @@ def test_interfield_calculation():
                 pymupdf.PDF_NAME("AcroForm"),
                 CO_name,
             )
-        # we confirm CO is an array of foreseeable length
-        assert pymupdf.mupdf.pdf_array_len(CO) == i + 1
 
-        # the xref of the i-th item must equal that of the last widget
-        assert (
-            pymupdf.mupdf.pdf_to_num(pymupdf.mupdf.pdf_array_get(CO, i))
-            == list(page.widgets())[-1].xref
-        )
+        # we confirm CO is an array of foreseeable length
+        assert CO.pdf_array_len() == i + 1
+
+        # last item in the /CO array is that of the last widget's parent
+        last_xref = CO.pdf_array_get(i).pdf_to_num()
+        obj = pymupdf.mupdf.pdf_load_object(pdf, w.xref)
+        parent_xref = obj.pdf_dict_get(pymupdf.PDF_NAME("Parent")).pdf_to_num()
+        assert last_xref == parent_xref
 
 
 def test_3950():
@@ -486,3 +488,284 @@ def test_4950():
 
         page.remove_rotation()
         assert page.rotation == 0
+
+
+def test_hierarchy():
+    # Create a new PDF document
+    doc = pymupdf.open()
+    pdfdoc = pymupdf._as_pdf_document(doc)
+
+    def chain_upwards(w):
+        """Check the names climbing up the hierarchy."""
+        xref = w.xref
+        parts = w.field_name.split(".")
+        obj = mupdf.pdf_load_object(pdfdoc, xref)  # the widget object
+        assert obj.pdf_dict_get(pymupdf.PDF_NAME("T")).pdf_is_null()
+        items = list()
+        while 1:
+            obj = obj.pdf_dict_get(pymupdf.PDF_NAME("Parent"))
+            if not obj or obj.pdf_is_null():
+                break
+            pdf_name = obj.pdf_dict_get(pymupdf.PDF_NAME("T")).pdf_to_string()
+            items.insert(0, pdf_name[0])
+        assert items == parts, f'\n{items=}\n{parts=}'
+                
+    # Add a page to the document
+    page = doc.new_page()
+    r = pymupdf.Rect(100, 100, 200, 120)
+    w = pymupdf.Widget()
+    w.field_name = "Person.Name.First"
+    w.field_type = pymupdf.PDF_WIDGET_TYPE_TEXT
+    w.rect = r
+    w.field_value = "John"
+    w.border_width = 1
+    page.add_widget(w)
+    r += (0, 30, 0, 30)
+
+    w = pymupdf.Widget()
+    w.field_name = "Person.Name.Last"
+    w.field_type = pymupdf.PDF_WIDGET_TYPE_TEXT
+    w.rect = r
+    w.field_value = "Doe"
+    w.border_width = 1
+    page.add_widget(w)
+
+    field_names = ["Person.Name.First", "Person.Name.Last"]
+    root = mupdf.pdf_dict_get(mupdf.pdf_trailer(pdfdoc), pymupdf.PDF_NAME("Root"))
+    acro = root.pdf_dict_get(pymupdf.PDF_NAME("AcroForm"))
+    fields = acro.pdf_dict_get(pymupdf.PDF_NAME("Fields"))
+    assert fields.pdf_array_len() == 1, "must have exactly 1 root field"
+    for i, w in enumerate(page.widgets()):
+        field_name = w.field_name  # the field name is a concatenation
+        assert field_name == field_names[i]
+        chain_upwards(w)  # confirm the hierarchy is correct
+
+
+def test_5101():
+    print()
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_5101.pdf')
+    with pymupdf.open(path) as document:
+        print(f'{len(document)=}')
+        if pymupdf.mupdf_version_tuple >= (1, 28, 5):
+            page = document[0]
+            wt = pymupdf.TOOLS.mupdf_warnings()
+            print(f'{wt=}')
+            assert wt == 'cycle in parent chain\nfixed bad Parent in AcroForm tree\n... repeated 2 times...'
+            document2 = pymupdf.open()
+            document2.insert_pdf(document, annots=False, widgets=False, links=True)
+        else:
+            try:
+                page = document[0]
+            except pymupdf.mupdf.FzErrorFormat as e:
+                print(f'Received expected exception: {e}')
+                assert 'cycle in resources' in str(e)
+            else:
+                assert 0, 'test_5101(): Expected exception from document[0].'
+            
+            document2 = pymupdf.open()
+            try:
+                document2.insert_pdf(document, annots=False, widgets=False, links=True)
+            except pymupdf.mupdf.FzErrorFormat as e:
+                print(f'Received expected exception: {e}')
+                assert 'cycle in resources' in str(e)
+            else:
+                assert 0, 'test_5101(): Expected exception from document2.insert_pdf.'
+            
+
+def test_delete_all():
+    """Confirm: Deleting all widgets converts to a Non-Form-PDF."""
+    path = os.path.normpath(f"{__file__}/../../tests/resources/test_hierarchy.pdf")
+    doc = pymupdf.open(path)
+    assert doc.is_form_pdf
+    widgets = 0
+    for page in doc:
+        w = page.first_widget
+        while w:
+            widgets += 1
+            w = page.delete_widget(w)
+    print(f"Deleted {widgets} widgets")
+    assert not doc.is_form_pdf
+    
+
+def test_3478():
+    print()
+    print(f'test_3478(): {pymupdf.version=}')
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_3478.pdf')
+    path_out = os.path.normpath(f'{__file__}/../../tests/test_3478_out.pdf')
+    path_out2 = os.path.normpath(f'{__file__}/../../tests/test_3478_out2.pdf')
+    
+    def get_acro_names(document):
+        ret = list()
+        obj = mupdf.pdf_dict_getl(
+                mupdf.pdf_trailer(pymupdf._as_pdf_document(document)),
+                pymupdf.PDF_NAME('Root'),
+                pymupdf.PDF_NAME('AcroForm'),
+                pymupdf.PDF_NAME('Fields'),
+                )
+        assert pymupdf.mupdf.pdf_is_array(obj)
+        l = pymupdf.mupdf.pdf_array_len(obj)
+        for i in range(l):
+            field = pymupdf.mupdf.pdf_array_get(obj, i)
+            assert pymupdf.mupdf.pdf_is_dict(field)
+            T = mupdf.pdf_dict_getp(field, 'T').pdf_to_text_string()
+            ret.append(T)
+        return ret
+    
+    with pymupdf.open(path) as document:
+        
+        print(f'test_3478(): Root/AcroForm/Fields/[]/T:')
+        acro_names = get_acro_names(document)
+        for acro_name in acro_names:
+            if acro_name.startswith('sig') or acro_name.startswith('init'):
+                print(f'test_3478():     {acro_name}')
+        
+        print(f'test_3478(): Page widgets:')
+        for page in document:
+            # iterate the fields on this page.
+            widget = page.first_widget
+            while widget:
+                name = widget.field_name
+                # If it's a signature, remove it.
+                if name.startswith('sig') or name.startswith('init'):
+                    xref = widget.xref
+                    print(f'test_3478():     Calling page.delete_widget() for {name=}.')
+                    widget = page.delete_widget(widget)
+                else:
+                    widget = widget.next
+        
+        document.save(path_out2)
+        document.ez_save(path_out)
+    
+    # 2026-09-10: page.delete_widget() introduces a cyclic dependency which
+    # results in us leaving a fd open and a warning from conftest.py, so do a
+    # collection here to keep output clean.
+    gc.collect()
+    
+    
+    # In the ez_save()'d document:
+    #
+    # * Check that deleted widget fields are not in page widgets.
+    #   (This has always been ok.)
+    # * Check that deleted widget fields are not in Root/AcroForm/Fields[]/T.
+    #   (This appears to have been fixed in pymupdf-1.25.3.)
+    #
+    print(f'test_3478(): looking at ez_save document.')
+    num_still_present = 0
+    num_still_present_acro = 0
+    
+    with pymupdf.open(path_out) as document:
+        
+        print(f'test_3478(): Page widgets:')
+        for page_i, page in enumerate(document):
+            for (widget_i, widget) in enumerate(page.widgets()):
+                name = widget.field_name
+                if name.startswith('sig') or name.startswith('init'):
+                    print(f'test_3478():     {page_i=} {widget_i=}: {name}')
+                    num_still_present += 1
+        print(f'test_3478(): {num_still_present=}')
+        
+        acro_names = get_acro_names(document)
+        for acro_name in acro_names:
+            if acro_name.startswith('sig') or acro_name.startswith('init'):
+                print(f'test_3478():     {i}: {acro_name}')
+                num_still_present_acro += 1
+        print(f'test_3478(): {num_still_present_acro=}')
+    
+    assert num_still_present == 0, f'{num_still_present=}'
+    assert num_still_present_acro == 0, f'{num_still_present_acro=}'
+
+def test_5154():
+    """Let 'insert_pdf' survive broken parent /Kids array."""
+    doc = pymupdf.open()
+    pdoc = pymupdf._as_pdf_document(doc)
+    page = doc.new_page()
+    w = pymupdf.Widget()
+    w.field_type = pymupdf.PDF_WIDGET_TYPE_TEXT
+    w.field_name = "child"
+    w.field_value = "child"
+    w.rect = pymupdf.Rect(50, 50, 200, 80)
+    page.add_widget(w)
+    wx = page.first_widget.xref
+
+    # empty / invalidate the parent's /Kids array
+    widget_obj = mupdf.pdf_load_object(pdoc, wx)
+    parent = widget_obj.pdf_dict_get(PDF_NAME("Parent"))
+    kids = parent.pdf_dict_get(PDF_NAME("Kids"))
+    kids.pdf_array_delete(0)  # delete pointer to 'child'
+    src = pymupdf.open("pdf", doc.tobytes())
+    out = pymupdf.open()
+    out.insert_pdf(src, widgets=True)  # ValueError: 9 is not in list
+    
+def test_5055():
+    path = os.path.normpath(f'{__file__}/../../tests/resources/test_5055.pdf')
+    src = pymupdf.open(path)
+    tar = pymupdf.open()
+    ptar=pymupdf._as_pdf_document(tar)
+    tar.insert_pdf(src)
+    ptar = pymupdf._as_pdf_document(tar)
+    fields = mupdf.pdf_dict_getl(
+        mupdf.pdf_trailer(ptar),
+        PDF_NAME("Root"),
+        PDF_NAME("AcroForm"),
+        PDF_NAME("Fields"),
+    )
+    assert fields.pdf_array_len()==1
+    field = fields.pdf_array_get(0)
+    kids=field.pdf_dict_get(PDF_NAME("Kids"))
+    kid_xrefs=set([kids.pdf_array_get(i).pdf_to_num() for i in range(kids.pdf_array_len())])
+    field_xref=field.pdf_to_num()
+    page=tar[0]
+    annot_xrefs = set([x[0] for x in page.annot_xrefs()])
+    assert kid_xrefs == annot_xrefs, f"kid_xrefs: {kid_xrefs}, annot_xrefs: {annot_xrefs}"
+    for w in page.widgets():
+        widget=mupdf.pdf_load_object(ptar, w.xref)
+        parent = widget.pdf_dict_get(PDF_NAME("Parent"))
+        assert parent.pdf_to_num() == field_xref
+
+def test_5165():
+    doc = pymupdf.open()
+    pdoc = pymupdf._as_pdf_document(doc)
+    page = doc.new_page()
+
+    xrefs = []
+    field_values = []
+    rb_parent = set()
+
+    for i in range(3):
+        w = pymupdf.Widget()
+        w.field_type = pymupdf.PDF_WIDGET_TYPE_RADIOBUTTON
+        w.field_name = "group"  # same full name for both buttons
+        w.rect = pymupdf.Rect(50, 50 + 30 * i, 70, 70 + 30 * i)
+        w.field_value = "Male" if i == 0 else "Female"
+        page.add_widget(w)
+        xrefs.append(w.xref)
+
+    for xref in xrefs:
+        w = page.load_widget(xref)
+        rb_parent.add(w.rb_parent)
+
+    # Assert all widgets have the same parent
+    assert len(rb_parent) == 1
+
+    # assert parent has value of first inserted widget
+    parent = mupdf.pdf_load_object(pdoc, list(rb_parent)[0])
+    assert parent.pdf_dict_get(PDF_NAME("V")).pdf_to_name() == "Male"
+
+    # assert correct widget value setting
+    for w in page.widgets():
+        field_values.append(w.field_value)
+    assert field_values == ["Male", "Off", "Off"]
+
+    # Set one of the widgets with duplicate values ("Female") to true
+    w3 = page.load_widget(xrefs[-1])
+    w3.field_value = "Female"
+    w3.update()
+
+    # Assert that the parent shows that value
+    assert parent.pdf_dict_get(PDF_NAME("V")).pdf_to_name() == "Female"
+
+    # Assert that all widgets with that value are updated accordingly
+    field_values = []
+    for w in page.widgets():
+        field_values.append(w.field_value)
+    assert field_values == ["Off", "Female", "Female"]

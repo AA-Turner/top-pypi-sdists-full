@@ -1,5 +1,6 @@
 //! The `sqb` entry: invocation scopes, parsing, observed dispatch and the error projection.
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use pyo3::exceptions::PySystemExit;
@@ -16,7 +17,9 @@ use crate::bindings::_helpers::build_progress::transient_lines::shared_transient
 use crate::bindings::_helpers::cli::argv::parse_cli_invocation;
 use crate::bindings::_helpers::cli::dispatch::{command_facts, dispatch_command};
 use crate::bindings::_helpers::cli::launch_state::offer_launch_record;
-use crate::bindings::_helpers::cli::observability::cli_observability_scope;
+use crate::bindings::_helpers::cli::observability::{
+    CliObservabilityScope, cli_observability_scope,
+};
 use crate::bindings::_helpers::compile_command::report::format_compile_error_json;
 use crate::bindings::_helpers::compile_driver::python_calls::{
     call_with, imported, keywords, within,
@@ -27,6 +30,10 @@ use crate::bindings::_helpers::native_host::facade::FacadeHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::output_capture::records::invocation_context;
 use crate::bindings::_helpers::presentation_text::terminal::stdout_supports_color;
+use crate::bindings::_helpers::recall::session::{
+    InvocationRecall, finish_invocation_recall, start_invocation_recall,
+};
+use crate::bindings::_helpers::recall::sinks::RecallLifecycleSink;
 use crate::bindings::_helpers::records::construct::error_class;
 use crate::bindings::_helpers::records::construct::record_class;
 use crate::bindings::_helpers::records::fields::field as native_field;
@@ -43,9 +50,11 @@ const DIFF_PUBLICATION_CODE: &str = "C257";
 const DIFF_EXECUTION_STATUS: &str = "execution_failed";
 const DIFF_OUTCOME_PREFIX: &str = "Query diff outcome  ";
 /// Expected staying-Python command failures, loaded only once a command raised.
-const EXPECTED_COMMAND_FAILURES: [ExecutorHost; 2] = [
+const EXPECTED_COMMAND_FAILURES: [ExecutorHost; 4] = [
     ExecutorHost::AuditExecutionError,
     ExecutorHost::ExecutionDurationLimitError,
+    ExecutorHost::WarehouseConnectionError,
+    ExecutorHost::TemporaryTestFunctionError,
 ];
 /// Expected native command failures.
 const EXPECTED_NATIVE_FAILURES: [ErrorId; 2] = [ErrorId::Discovery, ErrorId::SpecConfig];
@@ -56,6 +65,7 @@ struct Invocation<'py> {
     handlers: Option<Bound<'py, PyAny>>,
     use_color: bool,
     facts: CommandFacts,
+    recall: InvocationRecall,
 }
 
 impl<'py> Invocation<'py> {
@@ -390,6 +400,49 @@ fn lifecycle_event<'py>(
     )
 }
 
+/// Install the discovered Recall replacement sinks, release the context row, and subscribe the session to every lifecycle fact and SQL artifact.
+fn subscribe_recall(
+    (scope, dispatcher): (&Bound<'_, CliObservabilityScope>, &Bound<'_, PyAny>),
+    recall: &InvocationRecall,
+) -> PyResult<()> {
+    let Some(session) = recall.session.clone() else {
+        return Ok(());
+    };
+    let py: Python<'_> = dispatcher.py();
+    let (lifecycle, output) = scope.get().recall_sinks(py)?;
+    let filter_active: bool = recall
+        .replacements
+        .configure(&session, (&lifecycle, &output))?;
+    session.publish_context(filter_active);
+    let sink = Bound::new(
+        py,
+        RecallLifecycleSink {
+            session,
+            replacements: Arc::clone(&recall.replacements),
+        },
+    )?;
+    dispatcher.call_method1("subscribe_history", (sink,))?;
+    Ok(())
+}
+
+/// `target`, `adapter` and `selection_count` of the started invocation, when known.
+fn add_invocation_context(
+    invocation: &Invocation<'_>,
+    payload: &Bound<'_, PyDict>,
+) -> PyResult<()> {
+    if let Some(target) = &invocation.recall.target {
+        payload.set_item("target", target)?;
+    }
+    if let Some(adapter) = &invocation.recall.adapter {
+        payload.set_item("adapter", adapter)?;
+    }
+    let select: Bound<'_, PyAny> = invocation.args.getattr("select")?;
+    if !select.is_none() {
+        payload.set_item("selection_count", select.len()?)?;
+    }
+    Ok(())
+}
+
 /// Dispatch once while publishing canonical invocation lifecycle facts.
 fn observed_dispatch<'py>(
     invocation: &Invocation<'py>,
@@ -397,6 +450,9 @@ fn observed_dispatch<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let py: Python<'py> = invocation.py();
     if !policy.observed {
+        if let Some(session) = &invocation.recall.session {
+            session.publish_context(false);
+        }
         return dispatch_command(&invocation.args, invocation.handlers.clone());
     }
     let command: String = invocation.command_name();
@@ -406,21 +462,23 @@ fn observed_dispatch<'py>(
             .unwrap_or(u64::MAX)
             .into_bound_py_any(py)
     };
-    let scope: Bound<'py, PyAny> = Bound::new(
+    let observability: Bound<'py, CliObservabilityScope> = Bound::new(
         py,
         cli_observability_scope(
             invocation.args.clone().unbind(),
             invocation.project_dir()?.unbind(),
         ),
-    )?
-    .into_any();
+    )?;
+    let scope: Bound<'py, PyAny> = observability.clone().into_any();
     within(&scope, |dispatcher| {
         let publish = |event: Bound<'py, PyAny>| -> PyResult<()> {
             dispatcher.call_method1("publish_lifecycle", (event,))?;
             Ok(())
         };
+        subscribe_recall((&observability, dispatcher), &invocation.recall)?;
         let payload: Bound<'py, PyDict> = PyDict::new(py);
         payload.set_item("command", &command)?;
+        add_invocation_context(invocation, &payload)?;
         publish(lifecycle_event(py, "invocation_started", payload)?)?;
         match dispatch_command(&invocation.args, invocation.handlers.clone()) {
             Ok(exit_code) => {
@@ -508,6 +566,23 @@ fn parsed_invocation<'py>(
     }
     let facts: CommandFacts = command_facts(&args)?;
     let policy: InvocationPolicy = invocation_policy(&facts);
+    let recall: InvocationRecall = if policy.recalled {
+        start_invocation_recall(py, &args, identity, &facts)?
+    } else {
+        InvocationRecall::default()
+    };
+    let recall_sink: Bound<'py, PyAny> = match recall.session.clone() {
+        Some(session) => Bound::new(
+            py,
+            RecallLifecycleSink {
+                session,
+                replacements: Arc::clone(&recall.replacements),
+            },
+        )?
+        .into_any(),
+        None => py.None().into_bound(py),
+    };
+    let closure_recall: InvocationRecall = recall.clone();
     let retained: (Py<PyAny>, Option<Py<PyAny>>) =
         (args.clone().unbind(), handlers.map(Bound::unbind));
     let operation: Bound<'py, PyCFunction> = PyCFunction::new_closure(
@@ -526,11 +601,12 @@ fn parsed_invocation<'py>(
                     .map(|handlers| handlers.bind(py).clone()),
                 use_color,
                 facts: facts.clone(),
+                recall: closure_recall.clone(),
             };
             Ok(handled_dispatch(&invocation)?.unbind())
         },
     )?;
-    call_with(
+    let dispatched: PyResult<Bound<'py, PyAny>> = call_with(
         &host::entry(py, FacadeHost::DispatchWithComputeLogs)?,
         &[
             ("args", args),
@@ -542,8 +618,17 @@ fn parsed_invocation<'py>(
                     .to_owned()
                     .into_any(),
             ),
+            ("recall", recall_sink),
         ],
-    )
+    );
+    let exit_status: Option<i64> = match &dispatched {
+        Ok(code) if code.is_instance_of::<PyInt>() => Some(code.extract().unwrap_or(1)),
+        Ok(_) | Err(_) => None,
+    };
+    let finished: PyResult<()> = finish_invocation_recall(py, &recall, exit_status);
+    let exit_code: Bound<'py, PyAny> = dispatched?;
+    finished?;
+    Ok(exit_code)
 }
 
 /// `argv` without a leading launch record option, after offering the record it names.

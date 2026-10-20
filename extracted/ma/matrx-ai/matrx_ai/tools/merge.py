@@ -30,7 +30,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -479,6 +479,16 @@ def enforce_hard_tool_exclusions(
             f"tool(s) under a policy naming {len(hard)}: {sorted(hard)}",
             color="cyan",
         )
+        # A tool already sent earlier in this conversation stays declared to the
+        # provider (declaration_ledger.py); a call to it is refused with this.
+        from matrx_ai.tools.declaration_ledger import note_unavailable
+
+        notice = (getattr(ctx, "metadata", None) or {}).get("filesystem_authority_notice")
+        note_unavailable(
+            sorted(hard),
+            str(notice) if notice else "this conversation's host withholds it right now",
+            conversation_id=getattr(ctx, "conversation_id", None),
+        )
     return ctx
 
 
@@ -652,7 +662,7 @@ def _surface_check_failed(spec_name: str, ctx: AppContext) -> str | None:
 
 
 def _canonical_registered_id(name_or_id: str) -> str:
-    """Normalise a ``config.tools`` entry to its registry UUID when known.
+    """Normalize a ``config.tools`` entry to its registry UUID when known.
 
     Accepts either a canonical name or a DB UUID. Returns the UUID when
     ``ToolRegistry`` resolves the input to a registered tool with a
@@ -806,6 +816,36 @@ def drop_retired_tool_ids(tools: list) -> tuple[list, list[str]]:
     return kept, retired
 
 
+async def resolve_stored_tools(tools: list, *, ctx: Any = None) -> tuple[list, list[str]]:
+    """Stored tool ids → canonical names, catalog Tools included; retired ids split out.
+
+    Catalog Tools (``source_kind='catalog'``) are never preloaded into the
+    registry, so a stored catalog id only resolves after the request has asked
+    the lazy resolver for it. Calling ``drop_retired_tool_ids`` first called
+    every catalog id "retired" and removed it from the run: a helper agent run
+    through ``agent`` / ``agent_call`` lost its own declared tool and wrote the
+    call as plain text (PB-08, Ledgerline's ``current_time_in_zone``,
+    conversation 95c1083f…, 2026-10-19). Every edge that turns a stored tool
+    list into names goes through here: resolve lazily (pinned on ``ctx``),
+    map each resolved id to its name by the definition itself (never only the
+    process cache, which may hold nothing), then drop what still names no tool.
+    """
+    from matrx_ai.tools.catalog_seam import resolve_lazy_tools
+
+    by_id: dict[str, str] = {}
+    try:
+        for tool_def in await resolve_lazy_tools(tools, ctx=ctx):
+            if getattr(tool_def, "tool_id", None):
+                by_id[str(tool_def.tool_id)] = tool_def.name
+    except Exception as exc:  # noqa: BLE001 — announced; the drop below still reports
+        vcprint(
+            f"[tools] catalog resolution failed before the retired-id drop: {exc!r}",
+            color="red",
+        )
+    named = [by_id.get(t, t) if isinstance(t, str) else t for t in tools]
+    return drop_retired_tool_ids(canonical_tool_names(named))
+
+
 def canonical_tool_names(tools: list) -> list[str]:
     """Resolve every ``config.tools`` entry (name OR DB UUID) to its canonical
     NAME — order-preserving + deduped. ``config.tools`` must hold names, never
@@ -837,7 +877,101 @@ def canonical_tool_names(tools: list) -> list[str]:
     return out
 
 
+#: ``ctx.metadata`` key: ``{tool_name: source}`` — where each tool this request merged came from
+#: (TOOL-SOURCES rule W; PB-07 defects 33 + 40). Read by :func:`tool_sources` for the Builder's
+#: Model view, which lists every tool on the wire with its source.
+TOOL_SOURCES_KEY = "tool_sources"
+#: The agent's own declared tools / skills (P1) and a tool no source recorded.
+TOOL_SOURCE_AGENT = "agent"
+TOOL_SOURCE_AGENT_SKILL = "agent_skill"
+TOOL_SOURCE_UNRECORDED = "unrecorded"
+
+
+def _spec_name(spec: Any) -> str | None:
+    name = getattr(spec, "name", None)
+    return name if isinstance(name, str) and name else None
+
+
 def merge_request_tools(
+    config: UnifiedConfig,
+    ctx: AppContext,
+    specs: Sequence[ToolSpec],
+    *,
+    source: str | None = None,
+    sources: Mapping[str, str] | None = None,
+    excluded: Iterable[str] = (),
+    active_executors: frozenset[str] | None = None,
+) -> AppContext:
+    """Merge ``specs`` (see :func:`_merge_request_tools`) and record ``source`` for every
+    spec that is on the final set — a tool never reaches a run without saying where it
+    came from (TOOL-SOURCES rule W). Every non-test caller names its ``source`` (guard:
+    aidream ``test_every_tool_on_the_wire_carries_its_source.py``): a caller that cannot name
+    one has no lawful source (rule X).
+
+    ``source`` is the label for the whole call; ``sources`` (``{canonical name: source}``)
+    overrides it per tool, for a call that carries tools from several sources at once (the
+    funnel merges the agent's own, the surface's and the request's in one pass). A tool two
+    sources both put there is labeled with the caller's primary — the first claim wins and an
+    already-recorded label is never overwritten."""
+    ctx = _merge_request_tools(
+        config, ctx, specs, excluded=excluded, active_executors=active_executors
+    )
+    names = [n for n in (_spec_name(sp) for sp in specs) if n]
+    per_tool = {canonical_tool_names([k])[0]: v for k, v in (sources or {}).items() if k and v}
+    if not names or not (source or per_tool):
+        return ctx
+    final = set(canonical_tool_names(list(getattr(config, "tools", None) or [])))
+    final |= {getattr(ct, "name", None) for ct in (getattr(config, "custom_tools", None) or [])}
+    metadata = dict(getattr(ctx, "metadata", None) or {})
+    recorded = dict(metadata.get(TOOL_SOURCES_KEY) or {})
+    changed = False
+    for name in canonical_tool_names(names):
+        label = per_tool.get(name) or source
+        if label and name in final and name not in recorded:
+            recorded[name] = label
+            changed = True
+    if not changed:
+        return ctx
+    metadata[TOOL_SOURCES_KEY] = recorded
+    return ctx.with_overrides(metadata=metadata)
+
+
+def tool_sources(config: UnifiedConfig, ctx: AppContext | None = None) -> dict[str, str]:
+    """Every tool on ``config`` now, with the source that put it there.
+
+    The agent's own (``authored_tools`` / ``authored_custom_tools``) → ``agent``; its skills'
+    → ``agent_skill``; a source this request recorded (``ctx.metadata[TOOL_SOURCES_KEY]``);
+    the conversation's sticky source (``dynamic_tool_sources``); else ``unrecorded`` — a tool
+    with no lawful source, which the Model view shows as such and the guard refuses."""
+    _ensure_authored_tool_declaration(config)
+    authored = set(canonical_tool_names(list(getattr(config, "authored_tools", None) or [])))
+    skills = set(canonical_tool_names(list(getattr(config, "skill_injected_tool_ids", None) or [])))
+    sticky = dict(getattr(config, "dynamic_tool_sources", None) or {})
+    # The sticky tag (surface, user, compute target, context…) is the most specific; a
+    # per-request record covers what is not sticky (self-healing readers, members).
+    recorded = dict(((getattr(ctx, "metadata", None) or {}) if ctx is not None else {}).get(TOOL_SOURCES_KEY) or {})
+    authored_custom = {
+        getattr(ct, "name", None) for ct in (getattr(config, "authored_custom_tools", None) or [])
+    }
+    out: dict[str, str] = {}
+    for name in canonical_tool_names(list(getattr(config, "tools", None) or [])):
+        if name in authored:
+            out[name] = TOOL_SOURCE_AGENT
+        elif name in skills:
+            out[name] = TOOL_SOURCE_AGENT_SKILL
+        else:
+            out[name] = str(sticky.get(name) or recorded.get(name) or TOOL_SOURCE_UNRECORDED)
+    for ct in getattr(config, "custom_tools", None) or []:
+        name = getattr(ct, "name", None)
+        if not name or name in out:
+            continue
+        out[name] = TOOL_SOURCE_AGENT if name in authored_custom else str(
+            recorded.get(name) or "client"
+        )
+    return out
+
+
+def _merge_request_tools(
     config: UnifiedConfig,
     ctx: AppContext,
     specs: Sequence[ToolSpec],
@@ -1366,7 +1500,7 @@ def merge_request_tools(
             _td = registry.get(_name)
             if _td is None and isinstance(_name, str) and _name in requested_registered_names:
                 # Named by THIS request but not a known tool: it can never be
-                # called. Keep the prior pass-through behaviour, but tell the caller.
+                # called. Keep the prior pass-through behavior, but tell the caller.
                 unknown_named.append(_name)
             if (
                 _td is not None

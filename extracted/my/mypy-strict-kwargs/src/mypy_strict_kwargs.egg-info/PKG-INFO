@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy-strict-kwargs
-Version: 2026.10.9
+Version: 2026.10.19
 Summary: Enforce using keyword arguments where possible.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License: MIT License
@@ -38,6 +38,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE

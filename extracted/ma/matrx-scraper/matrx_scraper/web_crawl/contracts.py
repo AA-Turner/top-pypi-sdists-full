@@ -306,6 +306,11 @@ class CrawlStartRequest(BaseModel):
 
     max_pages: int = Field(default=500, ge=1, le=50_000)
     max_depth: int | None = Field(default=None, ge=0, le=100)
+    # Wall-clock budget of the crawl, in seconds. None = no budget (the crawl runs to max_pages or an empty
+    # frontier). When it is reached the crawl stops cleanly: no new pages are taken, pages in flight settle,
+    # the session ends `partial` with `stats.stop_reason = "time_budget"` and the pages left unfetched stay on
+    # the frontier. Callers that wait on a crawl for a person (Smart Add) set it.
+    time_budget_seconds: int | None = Field(default=None, ge=1, le=86_400)
     concurrency: int = Field(default=8, ge=1, le=32)
     follow_subdomains: bool = False
     # These crawls are authorized first-party crawls. The switch remains
@@ -319,7 +324,7 @@ class CrawlStartRequest(BaseModel):
     capture_screenshots: bool = True
     screenshot_kinds: list[ScreenshotKind] = Field(default_factory=list, max_length=8)
     # WHICH pages get screenshots when `capture_screenshots` is on. "all" (the
-    # crawler's historical behaviour) renders every page in a browser twice
+    # crawler's historical behavior) renders every page in a browser twice
     # over; "homepage" captures only the site root plus `screenshot_urls`, and
     # every other page gets the fast HTTP-first scrape (the browser only when a
     # page needs JS or a WAF demands it). A brand crawl runs "homepage": a
@@ -346,7 +351,7 @@ class CrawlStartRequest(BaseModel):
     #
     # `None` — the default — means "no override": every transport sends exactly
     # what it sends today, so an omitted field is byte-identical to the
-    # pre-override behaviour. An empty or whitespace-only string normalizes to
+    # pre-override behavior. An empty or whitespace-only string normalizes to
     # `None` as well; it NEVER becomes an empty `User-Agent:` header.
     #
     # These are authorized first-party crawls of sites we control (which is why
@@ -532,6 +537,13 @@ class RecrawlRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     preset_id: str | None = None
+    # Wall-clock budget of THIS rescrape, in seconds (see CrawlStartRequest.time_budget_seconds). It is applied on
+    # top of whatever the derivation resolved (a pinned default preset included): the tighter of the preset's own
+    # budget and this one wins, so a caller that waits on the crawl can bound a site whose preset sets none.
+    time_budget_seconds: int | None = Field(default=None, ge=1, le=86_400)
+    # True: when the site's latest full crawl stopped at its time budget with pages left (recent, not canceled), CONTINUE
+    # that crawl - same session, same frontier - instead of starting over. How a big site is finished over several runs.
+    continue_time_budget_partial: bool = False
 
 
 class RecrawlConfigResponse(BaseModel):

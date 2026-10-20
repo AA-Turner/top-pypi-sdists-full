@@ -22,6 +22,10 @@ AI_JUDGE_MANDATE = "proof_runs.judge"
 RUBRIC_JUDGE_MANDATE = "evaluators.rubric_judge"
 COMPARATIVE_JUDGE_MANDATE = "evaluators.comparative_judge"
 
+#: ``ai.judge.resolve`` — picks the best of N gathered arms of one job, or merges
+#: them. Declared seedless: no agent is bound until one is built and agreed.
+ARM_RESOLVER_MANDATE = "evaluators.arm_resolver"
+
 #: The conversation labeler — title, description and keywords for a chat, and for
 #: a conversation an agent started (its prompt weighs the user's variables).
 CONVERSATION_LABEL_CHAT_MANDATE = "conversation.label_chat"

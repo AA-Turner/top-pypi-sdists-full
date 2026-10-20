@@ -87,6 +87,8 @@ class ItemGroupsResource(SyncAPIResource):
           description: The item group's description that will appear on sales forms that include this
               item.
 
+              Maximum length: 4095 characters.
+
           external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
               this object in your external system. This field is immutable and can only be set
               during object creation.
@@ -222,6 +224,8 @@ class ItemGroupsResource(SyncAPIResource):
           description: The item group's description that will appear on sales forms that include this
               item.
 
+              Maximum length: 4095 characters.
+
           force_unit_of_measure_change: Indicates whether to allow changing the item group's unit-of-measure set (using
               the `unitOfMeasureSetId` field) when the base unit of the new unit-of-measure
               set does not match that of the currently assigned set. Without setting this
@@ -356,6 +360,9 @@ class ItemGroupsResource(SyncAPIResource):
           name_from: Filter for item groups whose `name` is alphabetically greater than or equal to
               this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific item groups by their name(s), case-insensitive. Like `id`,
               `name` is a unique identifier for an item group.
 
@@ -373,6 +380,9 @@ class ItemGroupsResource(SyncAPIResource):
 
           name_to: Filter for item groups whose `name` is alphabetically less than or equal to this
               value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for item groups that are active, inactive, or both.
 
@@ -498,6 +508,8 @@ class AsyncItemGroupsResource(AsyncAPIResource):
 
           description: The item group's description that will appear on sales forms that include this
               item.
+
+              Maximum length: 4095 characters.
 
           external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
               this object in your external system. This field is immutable and can only be set
@@ -634,6 +646,8 @@ class AsyncItemGroupsResource(AsyncAPIResource):
           description: The item group's description that will appear on sales forms that include this
               item.
 
+              Maximum length: 4095 characters.
+
           force_unit_of_measure_change: Indicates whether to allow changing the item group's unit-of-measure set (using
               the `unitOfMeasureSetId` field) when the base unit of the new unit-of-measure
               set does not match that of the currently assigned set. Without setting this
@@ -768,6 +782,9 @@ class AsyncItemGroupsResource(AsyncAPIResource):
           name_from: Filter for item groups whose `name` is alphabetically greater than or equal to
               this value.
 
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
+
           names: Filter for specific item groups by their name(s), case-insensitive. Like `id`,
               `name` is a unique identifier for an item group.
 
@@ -785,6 +802,9 @@ class AsyncItemGroupsResource(AsyncAPIResource):
 
           name_to: Filter for item groups whose `name` is alphabetically less than or equal to this
               value.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains`,
+              `nameStartsWith`, or `nameEndsWith`.
 
           status: Filter for item groups that are active, inactive, or both.
 

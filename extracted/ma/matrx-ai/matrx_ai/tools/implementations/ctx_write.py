@@ -139,7 +139,17 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if command in _TEXT_COMMANDS:
             old_content = obj.content_as_str()
             new_content, pass_info = _apply_text_command(command, old_content, args)
+            # SIMULTANEOUS EDITS: a record-backed value lands on its RECORD first (merged
+            # onto the fresh version when another writer got there first), BEFORE the local
+            # copy or the client hears of it. None → not guarded: the usual path.
+            guarded = await _land_guarded(obj, base=old_content, edited=new_content, command=command)
+            if guarded is not None and guarded.get("status") == "conflict":
+                return _edit_conflict(tool_name, ctx.call_id, started_at, app_ctx, manifest, key, guarded)
+            if guarded is not None:
+                new_content = guarded.get("content", new_content)
             updated = _write_back(app_ctx, manifest, key, new_content)
+            if guarded is not None:
+                updated = _stamp_landed_version(app_ctx, manifest, updated, guarded)
             # Delta FIRST so a client that applied it can skip the re-read the
             # follow-up context_changed would otherwise trigger.
             await _emit_context_delta(
@@ -150,7 +160,11 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 new_content=new_content,
             )
             await _emit_context_changed(ctx, obj=updated, command=command)
-            delivery = await _schedule_writeback(ctx, updated, command=command)
+            delivery = (
+                WritebackDelivery(durable=True)
+                if guarded is not None
+                else await _schedule_writeback(ctx, updated, command=command)
+            )
             from matrx_ai.tools.kinds.context_tools import ContextWriteResult
 
             receipt = ContextWriteResult(
@@ -195,7 +209,14 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 working = obj.content
 
             new_content = _apply_json_command(command, working, args)
+            guarded = await _land_guarded(obj, base=working, edited=new_content, command=command)
+            if guarded is not None and guarded.get("status") == "conflict":
+                return _edit_conflict(tool_name, ctx.call_id, started_at, app_ctx, manifest, key, guarded)
+            if guarded is not None:
+                new_content = guarded.get("content", new_content)
             updated = _write_back(app_ctx, manifest, key, new_content)
+            if guarded is not None:
+                updated = _stamp_landed_version(app_ctx, manifest, updated, guarded)
             await _emit_context_delta(
                 ctx,
                 obj=updated,
@@ -204,7 +225,11 @@ async def context_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 new_content=new_content,
             )
             await _emit_context_changed(ctx, obj=updated, command=command)
-            delivery = await _schedule_writeback(ctx, updated, command=command)
+            delivery = (
+                WritebackDelivery(durable=True)
+                if guarded is not None
+                else await _schedule_writeback(ctx, updated, command=command)
+            )
             from matrx_ai.tools.kinds.context_tools import ContextWriteResult
 
             receipt = ContextWriteResult(
@@ -806,6 +831,77 @@ def _load_manifest_or_none(app_ctx: Any | None = None) -> tuple[Any | None, Any]
     load_manifest_from_ctx = get_ext("load_manifest_from_ctx")
     manifest = load_manifest_from_ctx(app_ctx)
     return manifest, app_ctx
+
+
+async def _land_guarded(obj: Any, *, base: Any, edited: Any, command: Any) -> dict[str, Any] | None:
+    """The host's guarded landing for a record-backed value, or None (not guarded → the
+    fire-and-forget writeback). A host failure is not a conflict: it propagates as the
+    tool's failure, never as a silent local-only edit."""
+    from matrx_ai._ext import get_guarded_context_edit
+
+    hook = get_guarded_context_edit()
+    if hook is None or _persist_value(obj) in _NON_DURABLE_PERSIST:
+        return None
+    return await hook(obj=obj, base=base, edited=edited, command=str(command))
+
+
+def _stamp_landed_version(app_ctx: Any, manifest: Any, obj: Any, landed: dict[str, Any]) -> Any:
+    """The copy now matches the record at the version just written — the next edit's base."""
+    version = landed.get("version")
+    source = getattr(obj, "source", None)
+    if source is None or version is None:
+        return obj
+    stamped = obj.model_copy(update={"source": source.model_copy(update={"base_version": int(version)})})
+    manifest.set(stamped)
+    manifest.store_on_ctx(app_ctx)
+    return stamped
+
+
+def _edit_conflict(
+    tool_name: str,
+    call_id: str,
+    started_at: float,
+    app_ctx: Any,
+    manifest: Any,
+    key: str,
+    outcome: dict[str, Any],
+) -> ToolResult:
+    """Another writer changed the same part of this record. The copy is refreshed to the record
+    as it is NOW (so a retry edits the fresh version); the result says what changed. A second
+    collision, or a wait past the limit, is not retryable: it goes back to whoever called."""
+    fresh = outcome.get("content")
+    if fresh is not None:
+        try:
+            refreshed = _write_back(app_ctx, manifest, key, fresh)
+            _stamp_landed_version(app_ctx, manifest, refreshed, outcome)
+        except _PatchApplyError:
+            pass
+    retryable = bool(outcome.get("retryable"))
+    changed = str(outcome.get("changed") or "").strip()
+    reason = str(outcome.get("reason") or "overlap")
+    if reason == "wait_limit":
+        what = f"Another writer is still editing '{key}' and did not finish in time."
+    else:
+        what = f"Another writer changed the same part of '{key}' since your copy was read."
+    message = what + (f" What changed:\n{changed}" if changed else "")
+    return ToolResult(
+        success=False,
+        error=ToolError(
+            error_type="edit_conflict",
+            message=message,
+            is_retryable=retryable,
+            suggested_action=(
+                "Your copy now holds the record as it is now. Re-read it and make your edit again."
+                if retryable
+                else "Do not retry. Say in your answer that this record changed under you and "
+                "what changed, so whoever asked you can decide."
+            ),
+        ),
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name=tool_name,
+        call_id=call_id,
+    )
 
 
 def _write_back(app_ctx: Any, manifest: Any, key: str, new_content: Any) -> Any:

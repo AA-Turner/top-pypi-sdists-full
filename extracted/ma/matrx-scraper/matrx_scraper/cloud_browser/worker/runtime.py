@@ -30,18 +30,22 @@ only as ``controller_ref``.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import base64
 import hashlib
 import json
 import logging
 import os
+import signal
+import time
 import shutil
+import socket
 import tarfile
 import tempfile
 import uuid
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -58,8 +62,16 @@ from matrx_scraper.cloud_browser.profile_archive_policy import (
 from matrx_scraper.cloud_browser.worker import commands as C
 from matrx_scraper.cloud_browser.worker import models as M
 from matrx_scraper.cloud_browser.worker.auth import TokenVerifier
+from matrx_scraper.cloud_browser.worker.chrome_version import is_downgrade, read_profile_last_version
 from matrx_scraper.cloud_browser.worker.errors import WorkerProtocolError
+from matrx_scraper.cloud_browser.worker.lease_watchdog import (
+    LeaseCheck,
+    WatchdogState,
+    lease_check_url,
+    probe_control_plane,
+)
 from matrx_scraper.cloud_browser.worker.identity import (
+    DESKTOP_IGNORED_DEFAULT_ARGS,
     IGNORED_DEFAULT_ARGS,
     STEALTH_ARGS,
     BrowserIdentity,
@@ -89,9 +101,10 @@ _PROFILE_LIVE_MARKER = ".matrx-profile-live"
 #: next launch believe the profile is in use.
 _CHROMIUM_SINGLETON_FILES = ("SingletonLock", "SingletonSocket", "SingletonCookie")
 #: How long past the acknowledged lease's expiry the worker waits for ANY
-#: renewal before deciding the control plane is gone, closing Chromium cleanly
-#: (so the profile on disk is consistent) and ending the task. A lease is
-#: renewed every 20 s and lasts 60 s; 90 s past expiry is 150 s of silence.
+#: renewal before it ASKS the server whether its run is still live
+#: (``lease_watchdog``). A lease is renewed every 20 s and lasts 60 s; 90 s past
+#: expiry is 150 s of silence. Only a definite "ended" stops the run; a server
+#: that cannot answer is not a stop order (2026-10-17).
 LEASE_WATCHDOG_GRACE_SECONDS = float(
     os.environ.get("BROWSER_WORKER_LEASE_WATCHDOG_GRACE_SECONDS", "90")
 )
@@ -110,6 +123,183 @@ REPLAY_STATE_FILENAME = ".matrx-browser-replay.json"
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+#: The X window class of the agent's Chrome on a Cloud Computer desktop. The
+#: window manager maximizes it inside the work area (above the taskbar) and the
+#: desktop's Chrome launcher focuses it instead of starting a second Chrome on
+#: the same profile.
+AGENT_CHROME_WINDOW_CLASS = "matrx-agent-chrome"
+#: The page a person sees in a fresh agent window instead of a white about:blank.
+DESKTOP_START_PAGE = "chrome://newtab/"
+
+
+def _profile_lock_holder(user_data_dir: str | None) -> int | None:
+    """The PID Chromium wrote into the profile's ``SingletonLock`` (``<host>-<pid>``),
+    when that process lives on THIS host; ``None`` when there is no live claim to wait on."""
+    if not user_data_dir:
+        return None
+    try:
+        target = os.readlink(os.path.join(user_data_dir, "SingletonLock"))
+    except OSError:
+        return None
+    host, _, pid = target.rpartition("-")
+    if host != socket.gethostname() or not pid.isdigit():
+        return None
+    return int(pid)
+
+
+#: How long a Chrome left running on the agent's profile after its window
+#: closed gets to exit on SIGTERM before it is killed (seconds).
+LEFTOVER_CHROME_GRACE_SECONDS = float(os.environ.get("BROWSER_WORKER_LEFTOVER_CHROME_GRACE_SECONDS", "3"))
+
+
+def _profile_chrome_pids(user_data_dir: str | None, proc_root: str = "/proc") -> list[int]:
+    """Every live browser process (not a renderer or helper) started on this
+    profile, read from /proc (empty where /proc does not exist)."""
+    if not user_data_dir:
+        return []
+    flag = f"--user-data-dir={user_data_dir}".encode()
+    found: list[int] = []
+    try:
+        entries = os.listdir(proc_root)
+    except OSError:
+        return []
+    for entry in entries:
+        if not entry.isdigit() or int(entry) == os.getpid():
+            continue
+        try:
+            with open(os.path.join(proc_root, entry, "cmdline"), "rb") as handle:
+                args = handle.read().split(b"\0")
+        except OSError:
+            continue
+        if flag in args and not any(a.startswith(b"--type=") for a in args):
+            found.append(int(entry))
+    return sorted(found)
+
+
+async def end_leftover_chrome(user_data_dir: str | None) -> list[int]:
+    """End a Chrome still running on the profile after its window closed.
+
+    Live 2026-10-17: the person closed the agent's window, but the browser
+    process kept the profile, so the agent's reopen failed with "Opening in
+    existing browser session"; the worker reported browser_crashed and the
+    navigate only succeeded after the control plane relaunched it 35 s later.
+    There is ONE Chrome on this profile and it is ours: SIGTERM, a short grace,
+    then SIGKILL. Returns the pids that had to be ended."""
+    pids = _profile_chrome_pids(user_data_dir)
+    holder = _profile_lock_holder(user_data_dir)
+    if holder is not None and holder not in pids and holder != os.getpid():
+        pids.append(holder)
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        alive = []
+        for pid in pids:
+            try:
+                os.kill(pid, sig)
+                alive.append(pid)
+            except (ProcessLookupError, PermissionError):
+                continue
+        if not alive:
+            break
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*(_wait_for_process_exit(pid) for pid in alive)),
+                LEFTOVER_CHROME_GRACE_SECONDS,
+            )
+            break
+        except TimeoutError:
+            continue
+    if pids:
+        logger.warning("ended a Chrome left running on the agent's profile: pids %s", pids)
+    return pids
+
+
+async def _wait_for_process_exit(pid: int) -> None:
+    """Resolve when ``pid`` exits, on the kernel's pidfd readiness (no polling, no
+    guessed delay). Where pidfds do not exist the wait is skipped: Chromium itself
+    takes over a lock whose holder is dead, and a live holder fails the launch loudly."""
+    try:
+        fd = os.pidfd_open(pid)  # type: ignore[attr-defined]  # Linux only
+    except (AttributeError, OSError):
+        return
+    loop = asyncio.get_running_loop()
+    exited: asyncio.Future[None] = loop.create_future()
+    loop.add_reader(fd, lambda: exited.done() or exited.set_result(None))
+    try:
+        await exited
+    finally:
+        loop.remove_reader(fd)
+        os.close(fd)
+
+
+def _desktop_session() -> bool:
+    """A Cloud Computer image runs a real desktop session on the display
+    (``BROWSER_WORKER_DESKTOP_SESSION`` names its start script); the browser
+    fleet image does not, and keeps the full-screen kiosk window."""
+    return bool(os.environ.get("BROWSER_WORKER_DESKTOP_SESSION", "").strip())
+
+
+def mark_profile_exited_cleanly(user_data_dir: str | None) -> None:
+    """Write Chrome's own clean-exit marks into the profile (``exit_type`` Normal,
+    ``exited_cleanly``), so a Chrome a person closed never reopens with "Chrome
+    didn't shut down correctly". Best effort: a missing profile is a first run."""
+    if not user_data_dir:
+        return
+    path = os.path.join(user_data_dir, "Default", "Preferences")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            prefs = json.load(handle)
+    except (OSError, ValueError):
+        return
+    profile = prefs.setdefault("profile", {})
+    if profile.get("exit_type") == "Normal" and profile.get("exited_cleanly") is True:
+        return
+    profile["exit_type"] = "Normal"
+    profile["exited_cleanly"] = True
+    tmp = f"{path}.matrx-tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(prefs, handle, separators=(",", ":"))
+        os.replace(tmp, path)
+    except OSError:
+        logger.warning("could not mark the Chrome profile as cleanly exited", exc_info=True)
+
+
+def _blank_url(url: str | None) -> bool:
+    """A tab with nothing of the agent's in it (Chrome's start pages)."""
+    value = (url or "").strip()
+    return value in {"", "about:blank"} or value.startswith(
+        ("chrome://newtab", "chrome-search://", "chrome://new-tab-page")
+    )
+
+
+def turn_off_chrome_session_restore(user_data_dir: str | None) -> None:
+    """The worker restores the agent's tabs itself on a desktop launch.
+
+    Chrome's own "continue where you left off" restored every earlier blank tab
+    on each reopen and put Playwright's about:blank in front of the agent's page
+    (four tabs, three blank, 2026-10-17). Startup is set to the new-tab page
+    (``session.restore_on_startup`` 5); the agent's tabs come back from
+    ``_settle_desktop_tabs``. Best effort: a missing profile is a first run."""
+    if not user_data_dir:
+        return
+    path = os.path.join(user_data_dir, "Default", "Preferences")
+    try:
+        with open(path, encoding="utf-8") as handle:
+            prefs = json.load(handle)
+    except (OSError, ValueError):
+        return
+    session = prefs.setdefault("session", {})
+    if session.get("restore_on_startup") == 5:
+        return
+    session["restore_on_startup"] = 5
+    tmp = f"{path}.matrx-tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(prefs, handle, separators=(",", ":"))
+        os.replace(tmp, path)
+    except OSError:
+        logger.warning("could not turn off Chrome's own session restore", exc_info=True)
 
 
 def _s3_error_code(response: httpx.Response) -> str:
@@ -168,7 +358,7 @@ async def _upload_checkpoint_file(target: M.PresignedUpload, path: str, size: in
 
     Same secret-hygiene contract as ``_upload_presigned_bytes``. The body is
     an iterator with an explicit ``Content-Length`` — S3 rejects a chunked
-    presigned PUT, and httpx honours a caller-supplied length instead of
+    presigned PUT, and httpx honors a caller-supplied length instead of
     adding ``Transfer-Encoding``.
 
     🚨 The body MUST be an ASYNC iterator. httpx decides sync-vs-async from the
@@ -372,6 +562,9 @@ class BrowserWorker:
         self._event_sink = event_sink
         self._prepare_human_control: Callable[[M.RtcConfig], None] | None = None
         self._clear_human_control: Callable[[], None] | None = None
+        # Until when a WATCHER holds the stream (heartbeat ``stream_view_seconds``).
+        # While live, leaving human control never stops the picture.
+        self._view_stream_until: datetime | None = None
         self._control_gate = asyncio.Lock()
         # Display for handoff_capable mode. In production the orchestrator provides
         # the private Xvfb; here it is injected so a test can point at its own.
@@ -392,6 +585,8 @@ class BrowserWorker:
         self._activation_key: str | None = None
         self._bootstrap_response: M.BootstrapResponse | None = None
         self.health: str = "starting"
+        #: Set when this build's Chrome is older than the profile's (see chrome_version).
+        self.chrome_downgrade: dict[str, str | None] | None = None
 
         # Identity / policy
         self.run_id: str = ""
@@ -437,6 +632,16 @@ class BrowserWorker:
         #: shutdown, termination). A context "close" event outside that window
         #: is a crash, and the worker says so instead of staying "healthy".
         self._closing_intentionally = False
+        #: The last launch inputs and the desktop reopen task (Cloud Computer):
+        #: a person closing the agent's window gets it back on the same profile.
+        self._last_launch: tuple[M.LaunchPolicy, M.DisplayConfig | None] | None = None
+        self._reopen_task: asyncio.Task | None = None
+        #: A person closed the agent's Chrome on the desktop: it stays closed
+        #: until the agent's next command (or the desktop Chrome icon) opens it.
+        self._person_closed = False
+        #: The agent's tabs (URLs in order, active index) after its last command.
+        #: A reopened desktop Chrome shows exactly these, the active one in front.
+        self._agent_tabs: tuple[list[str], int] | None = None
         #: Set once by SIGTERM or the lease watchdog; never unset.
         self._terminating = False
         self._lease_watchdog: asyncio.Task | None = None
@@ -446,6 +651,12 @@ class BrowserWorker:
         self._lease_watchdog_enabled = False
         #: How the watchdog ends the process; a test injects a recorder.
         self._end_process: Callable[[], None] = _send_self_sigterm
+        #: How the watchdog asks the server about a lapsed lease; a test injects one.
+        self._lease_probe: Callable[[], Awaitable[LeaseCheck]] = self._probe_control_plane
+        self._watchdog_state = WatchdogState()
+        #: A Cloud Computer keeps its machine when the server says the browser run
+        #: ended: only the run stops, the person's desktop stays.
+        self._keep_process_on_ended_run = False
         self._command_lock = asyncio.Lock()
         #: What the command plane is doing RIGHT NOW. Read by the command
         #: ceiling so a ``command_deadline_exceeded`` names the stage it
@@ -530,6 +741,12 @@ class BrowserWorker:
     ) -> None:
         self._prepare_human_control = callback
         self._clear_human_control = clear_callback
+
+    @property
+    def view_stream_live(self) -> bool:
+        """A person is watching: the stream must stay up whoever drives."""
+        until = self._view_stream_until
+        return until is not None and until > _now()
 
     async def _prepare_rtc(self, rtc_config: M.RtcConfig) -> None:
         task = asyncio.create_task(asyncio.to_thread(self._prepare_human_control, rtc_config))
@@ -1066,7 +1283,7 @@ class BrowserWorker:
         self._controller.fencing_revision = self.fencing_revision
 
         # Launch is owned by the activation task, not by the HTTP request that
-        # happened to start it. A cancelled caller therefore cannot free the
+        # happened to start it. A canceled caller therefore cannot free the
         # profile lock while Playwright is still touching this profile.
         try:
             egress_ok = await asyncio.wait_for(
@@ -1235,8 +1452,12 @@ class BrowserWorker:
         self.identity = identity
         # D-5 cookie scheme: launch Chromium keyring-free so cookies use the basic
         # (obfuscated-file) store rather than a system keyring the worker can't reach.
+        # ``--test-type`` keeps Chrome's "unsupported command-line flag:
+        # --no-sandbox" warning bar off the window a person sees on Take control
+        # (ChromeDriver passes it for the same reason); pages cannot observe it.
         args = [
             "--no-sandbox",
+            "--test-type",
             "--disable-dev-shm-usage",
             "--password-store=basic",
             "--use-mock-keychain",
@@ -1244,7 +1465,26 @@ class BrowserWorker:
             f"--lang={identity.locale}",
             *STEALTH_ARGS,
         ]
-        if not headless:
+        self._last_launch = (policy, display)
+        desktop = not headless and _desktop_session()
+        # Read BEFORE launch: Chrome overwrites it with its own version.
+        profile_chrome_version = read_profile_last_version(self._user_data_dir)
+        if desktop:
+            # Every desktop launch starts from a profile marked as cleanly
+            # exited, so Chrome never offers a crash restore.
+            mark_profile_exited_cleanly(self._user_data_dir)
+            turn_off_chrome_session_restore(self._user_data_dir)
+            # A normal window on a real desktop: the window manager maximizes
+            # it inside the work area, so the taskbar stays visible.
+            # A person closing the window ends Chrome without a clean
+            # shutdown; the reopened window must not greet them with a
+            # "Restore pages? Chrome didn't shut down correctly" bubble.
+            args += [
+                "--start-maximized",
+                f"--class={AGENT_CHROME_WINDOW_CLASS}",
+                "--hide-crash-restore-bubble",
+            ]
+        elif not headless:
             args += [
                 "--window-position=0,0",
                 f"--window-size={(display.width if display else 1280)},{(display.height if display else 900)}",
@@ -1263,7 +1503,11 @@ class BrowserWorker:
             "user_data_dir": self._user_data_dir,
             "headless": headless,
             "args": args,
-            "ignore_default_args": list(IGNORED_DEFAULT_ARGS),
+            # A person's Cloud Computer Chrome installs extensions from the Web
+            # Store; the fleet browser keeps Playwright's extension lockout.
+            "ignore_default_args": list(
+                IGNORED_DEFAULT_ARGS + (DESKTOP_IGNORED_DEFAULT_ARGS if desktop else ())
+            ),
             "accept_downloads": policy.allow_downloads,
             "locale": identity.locale,
             "timezone_id": identity.timezone_id,
@@ -1326,6 +1570,19 @@ class BrowserWorker:
             )
         except Exception:
             self.chromium_version = "unknown"
+        # Chrome only moves forward on a person's profile (ruling 16). Flagged
+        # loudly here; the release carry-over check refuses such a build.
+        self.chrome_downgrade = (
+            {"profile_version": profile_chrome_version, "binary_version": self.chromium_version}
+            if is_downgrade(profile_chrome_version, self.chromium_version)
+            else None
+        )
+        if self.chrome_downgrade is not None:
+            logger.error(
+                "Chrome DOWNGRADE on this profile: profile last opened by Chrome %s, this build ships %s",
+                profile_chrome_version,
+                self.chromium_version,
+            )
 
         # Egress guard on the CONTEXT before the first tracked page — reused verbatim.
         egress_ok = True
@@ -1335,17 +1592,22 @@ class BrowserWorker:
             logger.exception("egress guard install failed")
             raise _EgressGuardFailed()
 
-        # Wire context-level page tracking.
-        self._context.on("page", self._on_new_page)
-
-        # Reconcile pages that already exist post-launch.
+        # Reconcile pages that already exist post-launch. On a desktop the
+        # agent's tabs are restored first, BEFORE page tracking is wired, so the
+        # tabs this opens are the agent's own pages and never "popups".
         existing = list(self._context.pages)
         if not existing:
             page = await self._context.new_page()
             existing = [page]
+        active_index = 0
+        if desktop:
+            existing, active_index = await self._settle_desktop_tabs(existing)
+
+        # Wire context-level page tracking.
+        self._context.on("page", self._on_new_page)
         for i, page in enumerate(existing):
             tp = self._register_page(page, opener_page_id=None, kind="page", opened_by="agent")
-            if i == 0:
+            if i == active_index:
                 self._active_page_id = tp.page_id
                 tp.last_focused_at = _now()
 
@@ -1554,9 +1816,10 @@ class BrowserWorker:
         except WorkerProtocolError as err:
             return self._error_reply(M.HeartbeatResponse, err)
 
+        watching = bool(request.stream_view_seconds)
         if (
             request.rtc_config is not None
-            and self._controller.state == "human_control"
+            and (self._controller.state == "human_control" or watching)
             and request.access_still_valid
         ):
             try:
@@ -1568,10 +1831,16 @@ class BrowserWorker:
                     M.HeartbeatResponse,
                     WorkerProtocolError("reopen_required", message="RTC stream refresh failed"),
                 )
+            if watching:
+                # Watching only: no controller change, no input gate change.
+                self._view_stream_until = _now() + timedelta(
+                    seconds=int(request.stream_view_seconds or 0)
+                )
         self._lease_expires_at = request.lease_expires_at
         if not request.access_still_valid:
             # Immediately end human input injection and refuse subsequent commands.
             self._access_valid = False
+            self._view_stream_until = None
             self.queue_state = "closed"
             self._closed_reason = "access_revoked"
             self._controller = self._controller.model_copy(update={"human_input_enabled": False})
@@ -1625,9 +1894,11 @@ class BrowserWorker:
             # ``type_text`` held the lock for 149 s (the client gives up at 65).
             async with asyncio.timeout(M.COMMAND_TOTAL_TIMEOUT_SECONDS):
                 async with self._command_lock:
+                    await self.ensure_desktop_browser()
                     result, active_id, result_class, human_required = await self._execute_command(
                         request
                     )
+                    self._remember_agent_tabs()
         except TimeoutError:
             stage = self._command_stage
             self._command_stage = "idle"
@@ -2657,11 +2928,93 @@ class BrowserWorker:
             logger.exception("error closing context for checkpoint")
             return False
 
+    async def _open_start_page(self, page: Any) -> None:
+        """A person on the desktop sees a real new-tab page, never a white one."""
+        try:
+            if (getattr(page, "url", "") or "about:blank") == "about:blank":
+                await page.goto(DESKTOP_START_PAGE)
+        except Exception:
+            logger.warning("desktop start page did not open; leaving about:blank", exc_info=True)
+
+    async def _settle_desktop_tabs(self, pages: list[Any]) -> tuple[list[Any], int]:
+        """Exactly the agent's tabs, its active one in front; never an extra blank tab.
+
+        With a remembered tab list (``_agent_tabs``, kept after every command)
+        the first open page becomes the first tab, the rest open in order and
+        every other page Chrome opened is closed. Without one (a first launch),
+        blank pages beside a real page are closed, and a lone blank page shows
+        the new-tab page. Returns the pages in order and the active index."""
+        wanted, active = self._agent_tabs or ([], 0)
+        wanted = [url for url in wanted if not _blank_url(url)]
+        if not wanted:
+            real = [p for p in pages if not _blank_url(getattr(p, "url", ""))]
+            keep = real or pages[:1]
+            for page in pages:
+                if page not in keep:
+                    with contextlib.suppress(Exception):
+                        await page.close()
+            if not real:
+                await self._open_start_page(keep[0])
+            return keep, 0
+        settled: list[Any] = []
+        spare = list(pages)
+        for url in wanted:
+            page = next((p for p in spare if getattr(p, "url", "") == url), None)
+            if page is None:
+                page = next((p for p in spare if _blank_url(getattr(p, "url", ""))), None)
+            if page is None:
+                page = await self._context.new_page()
+            else:
+                spare.remove(page)
+            if getattr(page, "url", "") != url:
+                try:
+                    await page.goto(url, wait_until="commit")
+                except Exception:
+                    logger.warning("a restored agent tab did not load", exc_info=True)
+            settled.append(page)
+        for page in spare:
+            with contextlib.suppress(Exception):
+                await page.close()
+        active = min(max(active, 0), len(settled) - 1)
+        with contextlib.suppress(Exception):
+            await settled[active].bring_to_front()
+        return settled, active
+
+    def _remember_agent_tabs(self) -> None:
+        """The agent's open tabs and its active one, for a desktop reopen."""
+        if not _desktop_session():
+            return
+        urls: list[str] = []
+        active = 0
+        for tp in self._pages.values():
+            if tp.closed_at is not None:
+                continue
+            url = getattr(tp.page, "url", "") or ""
+            if _blank_url(url):
+                continue
+            if tp.page_id == self._active_page_id:
+                active = len(urls)
+            urls.append(url)
+        if urls:
+            self._agent_tabs = (urls, active)
+
     def _on_context_closed(self) -> None:
         """Playwright's context "close" event, on OUR loop, for any reason."""
         if self._closing_intentionally or self._terminating:
             return
         if self.health in {"stopped", "stopping"}:
+            return
+        if _desktop_session() and getattr(self, "_last_launch", None) is not None:
+            # On a Cloud Computer a person closing the agent's Chrome is a
+            # choice: it stays closed (the desktop shows) and the run stays
+            # live. The agent's next command, or the desktop Chrome icon,
+            # opens it again on the same profile (``ensure_desktop_browser``).
+            self._person_closed = True
+            if self._reopen_task is None or self._reopen_task.done():
+                logger.warning("the agent's Chrome was closed on the desktop; it stays closed until needed")
+                self._reopen_task = asyncio.get_event_loop().create_task(
+                    self._release_after_person_close(), name="cloud-computer-chrome-closed"
+                )
             return
         logger.error(
             "Chromium closed on its own (crash or OOM kill); this worker now reports "
@@ -2670,6 +3023,62 @@ class BrowserWorker:
         self.health = "browser_crashed"
         self.queue_state = "closed"
         self._closed_reason = "browser_crashed"
+
+    async def _release_after_person_close(self) -> None:
+        """Let go of the Chrome a person closed: stop Playwright, wait for the
+        old process to release the profile, and mark the profile as cleanly
+        exited so the next open never offers a crash restore."""
+        if self._pw is not None:
+            with contextlib.suppress(Exception):
+                await self._pw.stop()
+        self._context = None
+        self._pw = None
+        holder = _profile_lock_holder(getattr(self, "_user_data_dir", None))
+        if holder is not None:
+            try:
+                await asyncio.wait_for(_wait_for_process_exit(holder), BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS)
+            except TimeoutError:
+                logger.error(
+                    "the closed Chrome (pid %s) still holds the profile after %ss",
+                    holder, BOOTSTRAP_LAUNCH_TIMEOUT_SECONDS,
+                )
+        await end_leftover_chrome(getattr(self, "_user_data_dir", None))
+        mark_profile_exited_cleanly(getattr(self, "_user_data_dir", None))
+
+    @property
+    def desktop_browser_closed(self) -> bool:
+        return self._person_closed
+
+    async def ensure_desktop_browser(self) -> bool:
+        """Open the agent's Chrome again if a person closed it. ``True`` when it
+        was reopened. A failure is the ordinary crash state, never silent."""
+        if not self._person_closed or self._closing_intentionally or self._terminating:
+            return False
+        task = self._reopen_task
+        if task is not None and not task.done():
+            with contextlib.suppress(Exception):
+                await task
+        if not self._person_closed:
+            return False
+        # The closed window's tabs are gone: never count them as open again.
+        for tp in self._pages.values():
+            if tp.closed_at is None:
+                tp.closed_at = _now()
+        try:
+            policy, display = self._last_launch  # type: ignore[misc]
+            started = time.monotonic()
+            await end_leftover_chrome(self._user_data_dir)
+            await self._launch_context(policy, display)
+            logger.info("the agent's Chrome reopened in %.1fs", time.monotonic() - started)
+        except Exception:
+            logger.exception("could not reopen the agent's Chrome")
+            self.health = "browser_crashed"
+            self.queue_state = "closed"
+            self._closed_reason = "browser_crashed"
+            raise
+        self._person_closed = False
+        logger.info("the agent's Chrome is open again on the desktop")
+        return True
 
     # ── self-protection: termination and the lease watchdog ─────────────────
 
@@ -2705,9 +3114,10 @@ class BrowserWorker:
                 logger.warning("profile lock release failed during termination", exc_info=True)
         self.health = "stopped"
 
-    def enable_lease_watchdog(self) -> None:
+    def enable_lease_watchdog(self, *, keep_process_on_ended_run: bool = False) -> None:
         """Arm the lease watchdog for this process (see ``_lease_watchdog_loop``)."""
         self._lease_watchdog_enabled = True
+        self._keep_process_on_ended_run = keep_process_on_ended_run
 
     def _start_lease_watchdog(self) -> None:
         if not self._lease_watchdog_enabled:
@@ -2719,19 +3129,99 @@ class BrowserWorker:
         )
 
     async def _lease_watchdog_loop(self) -> None:
-        """Stop a browser nobody is renewing: a control-plane outage must not
-        leave fifty Chromes running with nobody to stop them."""
+        """Stop a browser the control plane has let go — and ONLY then.
+
+        Silence past the grace is a question, not a verdict: the worker asks the
+        server (``lease_watchdog``) and stops only on a definite "ended". A
+        failing renewer or an unreachable server keeps it running (the server's
+        ``unreachable_max_seconds`` bounds the second; 0 is for ever).
+        """
         while not self._terminating:
             await asyncio.sleep(LEASE_WATCHDOG_TICK_SECONDS)
-            if self._lease_watchdog_should_fire(datetime.now(UTC)):
-                logger.error(
-                    "no lease renewal for %.0f s past expiry: the control plane is gone; "
-                    "closing Chromium to keep the profile consistent and ending this task",
-                    LEASE_WATCHDOG_GRACE_SECONDS,
-                )
-                await self.terminate_gracefully(reason="lease_watchdog")
-                self._end_process()
+            if await self._lease_watchdog_tick(datetime.now(UTC)):
                 return
+
+    async def _lease_watchdog_tick(self, now: datetime) -> bool:
+        """One watchdog look. True when the process is ending."""
+        if not self._lease_watchdog_should_fire(now):
+            self._watchdog_state.reset()
+            return False
+        state = self._watchdog_state
+        if not state.probe_due(now):
+            return False
+        check = await self._lease_probe()
+        if state.decide(check, now) == "stay":
+            if check.verdict == "live":
+                logger.error(
+                    "no lease renewal for %.0f s past expiry, but the server says run %s is "
+                    "live: the renewer is failing; staying up",
+                    LEASE_WATCHDOG_GRACE_SECONDS,
+                    self.run_id,
+                )
+            else:
+                logger.error(
+                    "no lease renewal for %.0f s past expiry and the server cannot answer "
+                    "(%s): staying up (unreachable since %s, limit %s s, 0 = none)",
+                    LEASE_WATCHDOG_GRACE_SECONDS,
+                    check.detail,
+                    state.unreachable_since,
+                    state.unreachable_max_seconds,
+                )
+            return False
+        if check.verdict == "ended":
+            logger.error("the server says run %s has ended: stopping it", self.run_id)
+        else:
+            logger.error(
+                "the server has not answered for %s s (limit): stopping run %s",
+                state.unreachable_max_seconds,
+                self.run_id,
+            )
+        if self._keep_process_on_ended_run:
+            await self._stop_released_run()
+            state.reset()
+            return False
+        await self.terminate_gracefully(reason="lease_watchdog")
+        self._end_process()
+        return True
+
+    async def _probe_control_plane(self) -> LeaseCheck:
+        return await probe_control_plane(
+            lease_check_url(self._callback_url),
+            run_id=self.run_id,
+            activation_key=self._activation_key or "",
+            worker_id=self.worker_id,
+            # A probe never outlasts one watchdog tick.
+            timeout_seconds=LEASE_WATCHDOG_TICK_SECONDS,
+        )
+
+    async def _stop_released_run(self) -> None:
+        """Close a run the server let go, keep the process for the next one.
+
+        A Cloud Computer's machine outlives its browser runs: Chromium closes
+        cleanly, the profile lock is released, and the worker is left exactly
+        as a ``shutdown`` leaves it, so the next bootstrap reuses this process.
+        """
+        async with self._control_gate:
+            self._controller = self._controller.model_copy(
+                update={"state": "stopped", "human_input_enabled": False}
+            )
+            self.queue_state = "closed"
+            self._closed_reason = "worker_shutting_down"
+            try:
+                await self._close_context_cleanly()
+            except Exception:
+                logger.exception("Chromium did not close cleanly for a released run")
+            if self._lock is not None:
+                try:
+                    self._lock.release()
+                except Exception:
+                    logger.warning("profile lock release failed for a released run", exc_info=True)
+            self.health = "stopped"
+            self._lease_expires_at = None
+            try:
+                await self._close_egress_adapter()
+            except Exception:
+                logger.exception("egress adapter did not close for a released run")
 
     def _lease_watchdog_should_fire(self, now: datetime) -> bool:
         if self._terminating or self.health in {"stopped", "stopping"}:
@@ -3117,7 +3607,7 @@ def _encrypt_checkpoint(
 
     ``asyncio.to_thread`` cancellation does not stop already-submitted work.  The
     thread therefore owns the mutable DEK and zeroizes it in ``finally``; a
-    cancelled request cannot race the event-loop coroutine into clearing a key
+    canceled request cannot race the event-loop coroutine into clearing a key
     before encryption reads it, nor leave the worker-owned buffer uncleared.
     """
     dek = bytearray(base64.b64decode(dek_plaintext_b64))

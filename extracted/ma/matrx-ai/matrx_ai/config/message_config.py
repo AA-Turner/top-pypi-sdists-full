@@ -138,6 +138,66 @@ def _raise_sanitized_empty(
     )
 
 
+def _media_identity_label(content: Any, role: Any) -> str | None:
+    """The file identity that rides as its OWN text part right before a media part.
+
+    No provider has a title on an image / audio / video part (and only Anthropic titles
+    documents), so a model shown five attachments cited "whiteboard image (no file name)"
+    (real test PB-05 defect 54). Every media part of a person's message is preceded by
+    ``<attachment kind name id/>`` — a separate part, never folded into the person's text.
+    """
+    if str(getattr(role, "value", role)) != "user":
+        return None
+    from matrx_ai.providers.provider_io_capabilities import container_for_content
+
+    container = container_for_content(content)
+    if container is None:
+        return None
+    from html import escape
+
+    metadata = getattr(content, "metadata", None) or {}
+    name = metadata.get("file_name") if isinstance(metadata, dict) else None
+    ident = getattr(content, "file_id", None) or getattr(content, "url", None) or ""
+    attrs = {"kind": container.value}
+    if isinstance(name, str) and name.strip():
+        attrs["name"] = name.strip()
+    else:
+        attrs["name_unavailable"] = "no file name was found for this attachment"
+    attrs["id"] = str(ident)
+    rendered = " ".join(f'{k}="{escape(v, quote=True)}"' for k, v in attrs.items())
+    return f"<attachment {rendered}/>"
+
+
+def _record_serializer_drop(content: Any, style: str) -> None:
+    """Second layer behind the media-fallback seam: a media item a serializer could not
+    represent is STORED as a notice on the request snapshot (``media_notices``), never
+    only a console line. The seam converts or stops first, so reaching this is itself a
+    defect to fix (PB-05, 2026-10-18)."""
+    from matrx_ai.providers.provider_io_capabilities import container_for_content
+
+    container = container_for_content(content)
+    if container is None:
+        return
+    from matrx_ai.processing.media_fallback.handler import stage_media_notice
+
+    metadata = getattr(content, "metadata", None) or {}
+    name = metadata.get("file_name") if isinstance(metadata, dict) else None
+    stage_media_notice(
+        {
+            "media_kind": container.value,
+            "action": "dropped",
+            "user_message": (
+                f"{container.value.capitalize()}{f' {name!r}' if name else ''} could not be "
+                f"sent to the model ({style} has no representation for "
+                f"{getattr(content, 'mime_type', None) or 'this item'})."
+            ),
+            "system_message": f"{type(content).__name__}.to_{style}() returned None at serialization",
+            "provider": style,
+            "file_id": getattr(content, "file_id", None),
+        }
+    )
+
+
 @dataclass
 class UnifiedMessage:
     """Pure message - no AI Matrix specifics"""
@@ -180,6 +240,10 @@ class UnifiedMessage:
     # conversation holds replies from more than one). Never written back from
     # here — the persist funnel stamps the column. None = unknown / user row.
     agent_id: str | None = None
+    # True ONLY for a message the server read back from storage (``from_cx_message``).
+    # ``id`` + ``position`` are fields a client can send in JSON (``from_dict``), so they
+    # cannot prove a message is stored; this flag is never read from client data.
+    from_store: bool = False
 
     @staticmethod
     def _filter_kwargs(cls_obj: Any, item: dict[str, Any]) -> dict[str, Any]:
@@ -428,6 +492,7 @@ class UnifiedMessage:
             metadata=dict(message.metadata or {}),
             user_content=user_content,
             position=getattr(message, "position", None),
+            from_store=True,
             agent_id=(
                 str(message.agent_id) if getattr(message, "agent_id", None) else None  # orm-getattr-ok: CxMessage
             ),
@@ -538,7 +603,7 @@ class UnifiedMessage:
                 # executor would try to dispatch a provider-owned call — so the
                 # executor's tool loop re-sends this assistant message exactly
                 # as Anthropic produced it. Dropping these blocks (the
-                # behaviour until 2026-09-14) changed the block sequence around
+                # behavior until 2026-09-14) changed the block sequence around
                 # the thinking blocks, and Anthropic refuses a modified latest
                 # assistant message the moment a local tool result follows it.
                 content_blocks.append(HostedToolContent.from_anthropic(block))
@@ -566,7 +631,12 @@ class UnifiedMessage:
             else:
                 part = content.to_google()
                 if part:  # Only add if conversion succeeded
+                    label = _media_identity_label(content, self.role)
+                    if label:
+                        parts.append({"text": label})
                     parts.append(part)
+                else:
+                    _record_serializer_drop(content, "google")
 
         if not parts:
             return None
@@ -616,6 +686,12 @@ class UnifiedMessage:
                 text_content_id = content.id
             else:
                 result = content.to_openai()
+                if result is None:
+                    _record_serializer_drop(content, "openai")
+                else:
+                    label = _media_identity_label(content, self.role)
+                    if label:
+                        converted.append({"type": "input_text", "text": label})
 
             if result is not None:
                 converted.append(result)
@@ -747,6 +823,7 @@ class UnifiedMessage:
             else:
                 result = content.to_openai()
                 if result is None:
+                    _record_serializer_drop(content, "openai")
                     continue
                 # Media blocks (ImageContent → input_image, DocumentContent →
                 # input_file) are CONTENT-level parts: they belong inside a
@@ -760,6 +837,9 @@ class UnifiedMessage:
                     "input_file",
                     "input_text",
                 ):
+                    label = _media_identity_label(content, self.role)
+                    if label:
+                        text_parts.append({"type": "input_text", "text": label})
                     text_parts.append(result)
                 else:
                     items.append(result)
@@ -820,7 +900,12 @@ class UnifiedMessage:
         for content in self.content:
             converted = content.to_anthropic()
             if converted:
+                label = _media_identity_label(content, self.role)
+                if label:
+                    content_blocks.append({"type": "text", "text": label})
                 content_blocks.append(converted)
+            else:
+                _record_serializer_drop(content, "anthropic")
 
         return content_blocks
 

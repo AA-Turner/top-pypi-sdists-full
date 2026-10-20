@@ -10,7 +10,6 @@ from sqlalchemy.sql.elements import quoted_name
 
 from snowflake.sqlalchemy import base
 from snowflake.sqlalchemy import snowdialect as sd_module
-from snowflake.sqlalchemy.compat import IS_VERSION_20
 from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 
 
@@ -41,6 +40,7 @@ def test_create_connect_args():
                 "host": "testaccount.snowflakecomputing.com",
                 "password": "testpassword",
                 "user": "testuser",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -59,6 +59,7 @@ def test_create_connect_args():
                 "user": "testuser",
                 "port": "443",
                 "account": "testaccount",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -77,6 +78,7 @@ def test_create_connect_args():
                 "user": "testuser",
                 "port": "443",
                 "account": "testaccount",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -93,6 +95,7 @@ def test_create_connect_args():
                 "host": "testaccount.eu-central-1.snowflakecomputing.com",
                 "password": "testpassword",
                 "user": "testuser",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -110,6 +113,7 @@ def test_create_connect_args():
                 "password": "testpassword",
                 "user": "testuser",
                 "account": "testaccount",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -127,6 +131,7 @@ def test_create_connect_args():
                 "password": "testpassword",
                 "user": "testuser",
                 "account": "testaccount.eu-central-1",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -146,6 +151,7 @@ def test_create_connect_args():
                 "user": "testuser",
                 "port": 8082,
                 "account": "testaccount",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
         (
@@ -163,6 +169,7 @@ def test_create_connect_args():
                 "user": "testuser",
                 "port": "443",
                 "account": "testaccount",
+                "enable_server_session_keep_alive_auto_detection": True,
             },
         ),
     ]
@@ -233,65 +240,13 @@ def test_get_server_version_info_parsing(raw_value, expected):
 
 
 # ---------------------------------------------------------------------------
-# _is_single_table_reflection (SNOW-689531)
-# ---------------------------------------------------------------------------
-
-
-class TestIsSingleTableReflection:
-    """Unit tests for the _is_single_table_reflection heuristic."""
-
-    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
-    def test_sa2_returns_true_without_opt_in(self):
-        """SA 2.x: singular calls are always single-table; no flag required."""
-        assert _make_dialect()._is_single_table_reflection("PUBLIC") is True
-
-    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
-    def test_sa2_returns_true_with_info_cache_present(self):
-        """SA 2.x: info_cache presence is irrelevant — get_multi_* handles bulk."""
-        assert (
-            _make_dialect()._is_single_table_reflection("PUBLIC", info_cache={}) is True
-        )
-
-    @mock.patch("snowflake.sqlalchemy.snowdialect.IS_VERSION_20", False)
-    def test_sa14_returns_false_without_opt_in(self):
-        """SA 1.4: defaults to schema-wide queries for backward compatibility."""
-        assert _make_dialect()._is_single_table_reflection("PUBLIC") is False
-
-    @mock.patch("snowflake.sqlalchemy.snowdialect.IS_VERSION_20", False)
-    def test_sa14_returns_true_with_opt_in_no_info_cache(self):
-        """SA 1.4 + cache_column_metadata=True + no info_cache → single-table path."""
-        dialect = _make_dialect(_cache_column_metadata=True)
-        assert dialect._is_single_table_reflection("PUBLIC", info_cache=None) is True
-
-    @mock.patch("snowflake.sqlalchemy.snowdialect.IS_VERSION_20", False)
-    def test_sa14_returns_false_when_metadata_reflect_in_progress(self):
-        """SA 1.4 + MetaData.reflect() in progress → fall back to schema-wide query."""
-        dialect = _make_dialect(_cache_column_metadata=True)
-        tables_info_key = (dialect._get_schema_tables_info.__name__, ("PUBLIC",), ())
-        assert (
-            dialect._is_single_table_reflection(
-                "PUBLIC", info_cache={tables_info_key: {}}
-            )
-            is False
-        )
-
-    @mock.patch("snowflake.sqlalchemy.snowdialect.IS_VERSION_20", False)
-    def test_sa14_returns_true_when_schema_tables_not_yet_cached(self):
-        """SA 1.4 + cache_column_metadata=True + empty cache → single-table path."""
-        dialect = _make_dialect(_cache_column_metadata=True)
-        assert dialect._is_single_table_reflection("PUBLIC", info_cache={}) is True
-
-
-# ---------------------------------------------------------------------------
 # Single-table dispatch on SA 2.x (SNOW-689531)
 # ---------------------------------------------------------------------------
 
 
 class TestSingleTableDispatchSA2:
-    """SA 2.x: singular reflection methods must route to table-specific queries
-    without requiring cache_column_metadata=True."""
+    """SA 2.x: singular reflection methods must route to table-specific queries."""
 
-    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
     @pytest.mark.parametrize(
         "public_method,table_method,schema_method,expected",
         [
@@ -327,19 +282,19 @@ class TestSingleTableDispatchSA2:
         dialect = _make_dialect()
         connection = mock.Mock()
 
-        with mock.patch.object(
-            dialect, table_method, return_value=expected
-        ) as tbl_mock, mock.patch.object(
-            dialect,
-            schema_method,
-            side_effect=AssertionError(f"{schema_method} must not be called"),
+        with (
+            mock.patch.object(dialect, table_method, return_value=expected) as tbl_mock,
+            mock.patch.object(
+                dialect,
+                schema_method,
+                side_effect=AssertionError(f"{schema_method} must not be called"),
+            ),
         ):
             result = getattr(dialect, public_method)(connection, "foo", schema="PUBLIC")
 
         tbl_mock.assert_called_once()
         assert result == expected
 
-    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
     def test_get_indexes_passes_raw_tablename_not_normalized(self):
         """get_indexes must pass the raw tablename string to _get_table_indexes.
 
@@ -365,7 +320,6 @@ class TestSingleTableDispatchSA2:
         assert received["table_name"] == "my_table"
         assert type(received["table_name"]) is str
 
-    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
     def test_get_columns_quoted_name_with_embedded_dot_is_atomic(self):
         """quoted_name with embedded dot must not be re-split into extra schema parts."""
         dialect = _make_dialect()
@@ -393,14 +347,13 @@ class TestSingleTableDispatchSA2:
                 in_quote = not in_quote
             elif ch == "." and not in_quote:
                 parts += 1
-        assert (
-            parts == 1
-        ), f"Expected 2-part reference (schema.table), got {parts + 1} parts: {full!r}"
-        assert (
-            '"weird.name"' in full
-        ), f"Expected quoted atomic identifier '\"weird.name\"' in {full!r}"
+        assert parts == 1, (
+            f"Expected 2-part reference (schema.table), got {parts + 1} parts: {full!r}"
+        )
+        assert '"weird.name"' in full, (
+            f"Expected quoted atomic identifier '\"weird.name\"' in {full!r}"
+        )
 
-    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
     def test_get_columns_dotted_plain_string_uses_last_component(self):
         """A plain 'schema.table' string takes the last component as the table name."""
         dialect = _make_dialect()
@@ -419,9 +372,9 @@ class TestSingleTableDispatchSA2:
 
         full = received["full"]
         assert '"MYTABLE"' in full, f"Expected last component 'MYTABLE' in {full!r}"
-        assert (
-            '"MYSCHEMA"' not in full
-        ), f"Schema component from table_name must be dropped; got {full!r}"
+        assert '"MYSCHEMA"' not in full, (
+            f"Schema component from table_name must be dropped; got {full!r}"
+        )
 
 
 def _capture_view_sql(dialect, view_name, schema="PUBLIC"):
@@ -460,13 +413,13 @@ class TestGetViewDefinitionLikeEscaping:
     def test_special_chars_are_escaped(self, view_name, expected, not_expected):
         sql = _capture_view_sql(_make_dialect(), view_name)
         for fragment in expected:
-            assert (
-                fragment in sql
-            ), f"Expected {fragment!r} in SQL for {view_name!r}, got: {sql!r}"
+            assert fragment in sql, (
+                f"Expected {fragment!r} in SQL for {view_name!r}, got: {sql!r}"
+            )
         for fragment in not_expected:
-            assert (
-                fragment not in sql
-            ), f"Unexpected {fragment!r} in SQL for {view_name!r}, got: {sql!r}"
+            assert fragment not in sql, (
+                f"Unexpected {fragment!r} in SQL for {view_name!r}, got: {sql!r}"
+            )
 
 
 def _capture_comment_sql(dialect, method_name, table_name, schema="PUBLIC"):
@@ -513,10 +466,10 @@ class TestReflectionCommentLikeEscaping:
     ):
         sql = _capture_comment_sql(_make_dialect(), method_name, table_name)
         for fragment in expected:
-            assert (
-                fragment in sql
-            ), f"Expected {fragment!r} in SQL for {table_name!r}, got: {sql!r}"
+            assert fragment in sql, (
+                f"Expected {fragment!r} in SQL for {table_name!r}, got: {sql!r}"
+            )
         for fragment in not_expected:
-            assert (
-                fragment not in sql
-            ), f"Unexpected {fragment!r} in SQL for {table_name!r}, got: {sql!r}"
+            assert fragment not in sql, (
+                f"Unexpected {fragment!r} in SQL for {table_name!r}, got: {sql!r}"
+            )

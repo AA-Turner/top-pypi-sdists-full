@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fatfs-ng
-Version: 0.1.15
+Version: 0.1.16
 Summary: Enhanced Python wrapper around ChaN's FatFS library - Fork of fatfs-python with extended features.
 Home-page: https://github.com/Jason2866/pyfatfs
 Author: Johann Obermeier
@@ -12,13 +12,13 @@ Keywords: fatfs fat filesystem embedded esp32 platformio
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Cython
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -26,7 +26,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Filesystems
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Dynamic: author

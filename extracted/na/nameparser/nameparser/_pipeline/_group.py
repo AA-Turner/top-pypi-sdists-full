@@ -6,16 +6,19 @@ the only stage after tokenize that reads it); and, through
 `_comma.decide`, comma_offsets (the own-words span of the name's case
 contrast) and dropped, which decide extends.
 Produces: structure -- its head decides a comma form once the words
-are tagged (rules.md#C1, #613, `_comma.decide`), binding the SUFFIX and
+are tagged (rules/C1, #613, `_comma.decide`), binding the SUFFIX and
 TITLE roles of a postnominal part after the comma, emptying its
 segment and dropping its delimiter cores before any join, plus the SUFFIX_OR_NAME
-ambiguities that decision reports and the caps shape's acronym tags on
+ambiguities that decision reports, those the particle chain and a
+maiden clause report on a trailing member they take into the name
+(an ambiguous acronym, or since #718 a declined numeral), and the
+caps shape's acronym tags on
 a bound all-caps word (#564); pieces + piece_tags per segment
 (runs of token indices -- tokens are NEVER joined into strings: the
 anti-#100 invariant); maiden tail tokens get role=MAIDEN, and the
 trailing run a maiden take gives up gets its SUFFIX and TITLE roles
 here (#601), so no join can reach it; marker tokens land in dropped;
-and tail_reads, rules.md#S2's trailing run of each main segment read
+and tail_reads, rules/S2's trailing run of each main segment read
 ONCE, after P3's connective joins and before the particle chain and
 the bound-given join, and split off so neither reaches it (#614),
 which assign places and reports rather than peeling again.
@@ -37,7 +40,7 @@ group half of M1 (#329: the marker dropped inside EXTRACTED maiden
 content, which M2's pieces walk cannot reach because extract's
 content never enters pieces); each is cited at its code below. Also
 implements rule P5 (cited below at the bound-given join) and ports
-the "Ph. D."-split merge (v1 fix_phd; decisions.md#phd-merge).
+the "Ph. D."-split merge (v1 fix_phd; decisions/phd-merge).
 
 The piece-level predicates moved to _pieces in #439 -- the S2
 trailing peel, the leading-title and title-piece tests, the
@@ -50,7 +53,7 @@ could not be imported back), which is the accumulation
 mechanisms.md#ONE-PREDICATE-PER-QUESTION describes; group imports them
 back like any other caller, and still does the work H3 and S2 describe
 with them. is_prefix_piece and is_conj_piece followed in #617, with
-the merge and rules.md#P3's connective joins (join_connectives), when
+the merge and rules/P3's connective joins (join_connectives), when
 the comma decision's own copy of those joins was folded into them.
 What remains defined here is group's own: _is_rootname and
 _is_maiden_marker_piece.
@@ -78,7 +81,7 @@ from nameparser._pipeline._state import (
 import nameparser._pipeline._comma as _comma
 from nameparser._pipeline._vocab import D, PH
 from nameparser._pipeline._vocab import (
-    comma_follows_marker, delimiter_cores,
+    comma_follows_marker, delimiter_cores, reads_as_a_reported_numeral,
 )
 from nameparser._types import AmbiguityKind, Role
 
@@ -106,7 +109,7 @@ MaidenIndices = tuple[list[int], list[tuple[int, Role]]]
 class ClauseSite(IntEnum):
     """Where a maiden clause stands, which decides whether a marker
     counts there at all and which rule reads the end of the part
-    (rules.md#M2, #601).
+    (rules/M2, #601).
 
     A marker counts only in the part holding the family name, so
     GIVEN_SLOT and TAIL are statements, not defaults: a marker there is
@@ -144,9 +147,9 @@ class BoundJoin(IntEnum):
     STRICT = 2     # main segments (reserve_last=True: keep a family piece)
 
 
-# rules.md#M2: "A marker that counts takes the words after it as the
+# rules/M2: "A marker that counts takes the words after it as the
 # maiden name, and is itself dropped" -- where a marker counts, and up
-# to what, are `_maiden_take`'s (history: decisions.md#M2)
+# to what, are `_maiden_take`'s (history: decisions/M2)
 #
 # A marker piece is a LONE marker -- M2's own "standing as a word of
 # its own". The consumer runs before every join but the Ph. D. merge
@@ -243,7 +246,7 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
     an ordinary word. Piece indices into `pieces`, not the TOKEN
     indices `_group_segment` builds out of them.
 
-    Three questions, in order (rules.md#M2, #601):
+    Three questions, in order (rules/M2, #601):
 
     * WHERE A MARKER COUNTS. Only in the part holding the family name
       -- never in the given part after a family comma, never in a tail
@@ -257,7 +260,7 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
       name reads as if the clause were not written, and always the
       first word after it. The run is read over the VIEW -- the head
       plus the vocabulary-shaped tail, and anything from the first
-      credential that starts a run (S2, #602) -- by `tail_reading`, so
+      credential that starts a run (S8, #602) -- by `tail_reading`, so
       the count of words to spare is the clause-free name's. Before a
       family comma no trailing rule reads the part, and the family
       part takes a suffix word from anywhere in it: the clause stops
@@ -303,6 +306,8 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
     c = trailing_candidates(lo, pieces, ptags, tokens)
     end = len(pieces)
     released: list[tuple[int, Role]] = []
+    # the view's picks, for the kept member below (#718)
+    picked: tuple[tuple[int, ...], ...] = ()
     # nothing behind the clause that a trailing rule could take: the
     # view would be the head alone, and the whole rest is the clause
     if c < len(pieces):
@@ -312,6 +317,7 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
         vrest, vchained, vpeel = tail_reading(
             peel_walk(leading_titles(view, vtags, tokens), vtags),
             view, vtags, tokens, one_case)
+        picked = vpeel.picks
         titles = set(vchained) | set(vpeel.run_titles)
         in_run = titles | set(vrest[vpeel.names:]) | {
             q for q in range(m, len(view)) if "suffix" in vtags[q]}
@@ -345,6 +351,28 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
             f"{word.text!r} ending the maiden name is also a "
             f"post-nominal; the maiden marker's clause keeps it rather "
             f"than reading it as one", tuple(last)))
+    elif tuple(last) in picked:
+        # rules/S10: "either reading is reported" -- a numeral the read
+        # declined for want of words to spare, which the clause keeps
+        ambiguities.append(PendingAmbiguity(
+            AmbiguityKind.SUFFIX_OR_NAME,
+            f"{word.text!r} ending the maiden name is a roman numeral, "
+            f"but the name has no other word to spare for it; the "
+            f"maiden marker's clause keeps it rather than reading it as "
+            f"a generational suffix", tuple(last)))
+    elif (released and len(last) == 1 and end - 2 >= lo
+          and reads_as_a_reported_numeral(
+              word.text, tokens[pieces[end - 2][0]].text, one_case)):
+        # rules/S10: "a one-letter numeral before a credential is the
+        # family name, and the reading is reported" -- the clause's
+        # twin of assign's report (#721's review): the clause keeps the
+        # numeral its released post-nominal stands behind
+        ambiguities.append(PendingAmbiguity(
+            AmbiguityKind.SUFFIX_OR_NAME,
+            f"{word.text!r} ending the maiden name is a roman numeral, "
+            f"but a post-nominal follows it; the maiden marker's clause "
+            f"keeps it rather than reading it as a generational suffix",
+            tuple(last)))
     return (list(range(m, lo)),
             [(j, Role.MAIDEN) for j in range(lo, end)] + released)
 
@@ -354,7 +382,7 @@ def _maiden_take(pieces: Sequence[Sequence[int]],
 #: its left and on its right that is NOT a connective -- `-1` and
 #: `len(pieces)` where the run reaches the end. Built by
 #: `_run_neighbours`, and an ALIAS rather than a NamedTuple because a
-#: NamedTuple's __new__ is a frame of its own (decisions.md#parse-cost).
+#: NamedTuple's __new__ is a frame of its own (decisions/parse-cost).
 _Beside = tuple[list[int], list[int]]
 
 
@@ -436,7 +464,7 @@ def _is_rootname(piece: Sequence[int], ptags: Set[str],
                  tokens: Sequence[WorkToken]) -> bool:
     if len(piece) == 1 and "initial" in tokens[piece[0]].tags:
         return False
-    # rules.md#P3: "A connective counts as a name word wherever this
+    # rules/P3: "A connective counts as a name word wherever this
     # rule counts them, whatever else the vocabulary says the word is"
     # (#397). The order against the `initial` refusal above decides
     # nothing, and what makes that safe lives in classify rather than
@@ -455,7 +483,7 @@ def _is_rootname(piece: Sequence[int], ptags: Set[str],
                 or is_suffix_piece(piece, ptags, tokens))
 
 
-# rules.md#P3: "a word the rest of the parse reads as a name word
+# rules/P3: "a word the rest of the parse reads as a name word
 # rather than as a generation, a credential or an honorific, looked
 # for past any run of connectives standing between. A connective with
 # nothing to its right is connecting nothing, and a word of that
@@ -568,7 +596,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     # the TRAILING site, which group() never suppresses.
 
     # ph-d merge first: "Ph." "D." adjacent -> one suffix piece
-    # (decisions.md#phd-merge; v1 fix_phd did this by regex on the
+    # (decisions/phd-merge; v1 fix_phd did this by regex on the
     # raw string)
     # A suffix never BEGINS a name: position outranks the vocabulary
     # match (#371). This merge is what makes a leading "Ph." "D." a
@@ -595,7 +623,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     #   `a[0] == 0`  the first TOKEN, which is v1's boundary.
     #   seg_idx 0    and not after a family comma: a credential run
     #                legitimately opens segment 1 ("Smith, Ph. D.
-    #                Jr.", C1's listing form), and segment 0 before a
+    #                Jr.", C8's credential run in the listing form), and segment 0 before a
     #                comma is the family the comma named, where v1
     #                merges too ("Ph. D., John" reads last 'Ph. D.').
     #
@@ -604,7 +632,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     # where the NAME begins, this asks where the STRING does. `Sir
     # Ph. D. Van Johnson` keeps suffix 'Ph. D.' with an empty family,
     # which is #371's symptom surviving one word to the left -- 1.4.0
-    # parity, stated as a boundary in rules.md#S2 rather than fixed
+    # parity, stated as a boundary in rules/S2 rather than fixed
     # here, because "the first piece of the name" cannot be computed
     # before this merge: `is_leading_title` is true of `Ph.` itself,
     # so the scan would step over the very piece being judged.
@@ -619,9 +647,9 @@ def _group_segment(seg: tuple[int, ...], additional: int,
         else:
             k += 1
 
-    # rules.md#M2: "A marker that counts takes the words after it as
+    # rules/M2: "A marker that counts takes the words after it as
     # the maiden name, and is itself dropped" (history:
-    # decisions.md#M2) -- the marker pass (#274), and it runs
+    # decisions/M2) -- the marker pass (#274), and it runs
     # BEFORE every join below. Each join rule asks a question about the
     # name -- how many words it has (P3's carve-out, P5's reserve),
     # what the word after a particle or a bound word is -- and the
@@ -654,7 +682,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
     tail_pieces: list[Piece] = []
     tail_ptags: list[set[str]] = []
     if len(pieces) + additional >= 3:
-        # rules.md#P3: "A connective that is also generational
+        # rules/P3: "A connective that is also generational
         # vocabulary joins only where a name word stands on each side
         # of it" (#397). `frozen` holds the TOKEN index of every such
         # connective missing that name word on one side or the other.
@@ -772,7 +800,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
             # the `y` join).
             join_connectives(pieces, ptags, tokens, letter_stays=total < 4,
                              titles_only=False, frozen=frozen)
-        # rules.md#S2's trailing run is read ONCE, here -- after P3's
+        # rules/S2's trailing run is read ONCE, here -- after P3's
         # connective joins, which do not depend on it and make the
         # units it counts, and before the particle chain and the
         # bound-given join, which do -- and bound (#614): the run is
@@ -805,7 +833,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 tail_pieces, tail_ptags = pieces[start:], ptags[start:]
                 del pieces[start:]
                 del ptags[start:]
-        # rules.md#S2: "a trailing word of the suffix vocabulary reads as a
+        # rules/S2: "a trailing word of the suffix vocabulary reads as a
         # suffix" -- on a main segment the run read above decides that
         # and is split off already; elsewhere group does not decide
         # it, and stops before whatever
@@ -815,13 +843,13 @@ def _group_segment(seg: tuple[int, ...], additional: int,
         # (#424). The maiden take reads the title-aware
         # `tail_reading` over the clause-free view instead (#601), so the
         # clause ends where assign's peel and title chain together begin.
-        # rules.md#P2: "a particle joins the words after it into one name
+        # rules/P2: "a particle joins the words after it into one name
         # part, the join running until the next particle starts a group of
         # its own, a trailing suffix begins" -- and on to the maiden marker
         # (M2) or the name's end; the final group reads as the family name,
-        # earlier groups by position. (history: decisions.md#P2)
-        # rules.md#P4: "a particle in the name's leading position chains
-        # nothing: the words stay separate" (history: decisions.md#P2)
+        # earlier groups by position. (history: decisions/P2)
+        # rules/P4: "a particle in the name's leading position chains
+        # nothing: the words stay separate" (history: decisions/P2)
         #
         # prefix chains: a non-leading prefix run absorbs everything to
         # the next prefix or suffix (v1's leading_first_name rule keeps
@@ -893,7 +921,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
         # assign read both words as titles.
         name_start = leading_titles(pieces, ptags, tokens)
         leading = chain_lead(pieces, ptags, tokens, name_start)
-        # rules.md#P2: "a trailing suffix begins" -- where it begins
+        # rules/P2: "a trailing suffix begins" -- where it begins
         # is read by assign's peel over the pieces as they stand
         # (#424), once per segment and kept as a length from the end,
         # which the chain's merges ahead of it do not move -- except
@@ -910,7 +938,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
         # the pieces the fork counted (below).
         # the run read above is already split off (#614), so the chain
         # stops at the end of what is left.
-        # rules.md#H5: "the title is TRANSPARENT to the suffix reading"
+        # rules/H5: "the title is TRANSPARENT to the suffix reading"
         # -- in the given part after a family comma too, where assign's
         # walk reads the trailing title run, so the chain stops before
         # the run of suffixes and titles `tail_reading` takes there
@@ -920,7 +948,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
         # #623). The bound matters only where a particle stands past the
         # chain's lead, so it is not asked otherwise: the chain then
         # merges nothing (the test is `is_prefix_piece`'s, inline).
-        # rules.md#C2: "a part past the second comma holds no name word"
+        # rules/C2: "a part past the second comma holds no name word"
         # -- assign reads such a part wholly as suffixes and its title
         # words as titles, so the chain builds no name unit there and is
         # not run, and a title word behind a particle run stays a word
@@ -1029,7 +1057,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                             f"following name piece; it is also a given "
                             f"name in other names",
                             (i,)))
-                # rules.md#S2: "A BARE ambiguous acronym is consumed
+                # rules/S4: "A BARE ambiguous acronym is consumed
                 # only when the name has words to spare — as the second
                 # of two words it stays the family name — and at the
                 # slots that report, either reading carries the
@@ -1098,6 +1126,11 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 # the given role the fold then moves ('Freiherr von
                 # Berg Ma' was told 'given name').
                 last = pieces[j - 1]
+                # A numeral S2's read declined (rules/S10, #718) is not
+                # reported here: it stays one of the read's picks, and
+                # assign words it from the role it ends in ('Freiherr
+                # von Richthofen V', 'a family name'), the chain taking
+                # nothing the read had not already given up
                 if (j > k + 1 and len(last) == 1
                         and not tokens[last[0]].tags.isdisjoint(
                             _AMBIGUOUS_CREDENTIAL_TAGS)
@@ -1162,8 +1195,8 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                     peel.names, peel.numeral,
                     tuple([p for p in peel.picks if p not in took]),
                     peel.anchors, peel.run_titles, peel.absorbed))
-        # rules.md#P5: "a recognized bound given-name word joins the
-        # word after it into one given name" (history: decisions.md#P5)
+        # rules/P5: "a recognized bound given-name word joins the
+        # word after it into one given name" (history: decisions/P5)
         # -- bound given names: the first non-title piece joins the next
         # ONCE (pairwise, v1 parity: 'Salem, Abdul Rahman Ahmed' keeps
         # Ahmed a middle name). BoundJoin encodes v1's reserve_last.
@@ -1185,18 +1218,18 @@ def _group_segment(seg: tuple[int, ...], additional: int,
             # nee' clears the LENIENT reserve the same way. Measured
             # rather than assumed -- dropping this undid #411 on
             # exactly that row. Nor is a suffix piece (#421) --
-            # rules.md#P5: "nor a word of the unambiguous suffix
+            # rules/P5: "nor a word of the unambiguous suffix
             # vocabulary (S2), wherever position will then place it"
             # -- and declining it is also what keeps merge_pieces' tag
             # union from making the joined piece a suffix piece.
-            # rules.md#P5: "nor a title word a trailing rule reads as a
+            # rules/P5: "nor a title word a trailing rule reads as a
             # title" -- after a family comma one H5's trailing run takes
             # from the given part, read as the comma-less name reads it,
             # which the LENIENT join reads no peel for and so asks here,
             # only where a title word follows ('Berg, abdul Prof.',
             # #637; where the given part's own walk then reads the words
             # behind it otherwise, the title stays a name word, which
-            # rules.md#P5 accepts); in a part past the second
+            # rules/P5 accepts); in a part past the second
             # comma any title word, which C2 reads as a title ('John
             # Smith, Jr., abdul Dr. Smith', #640). A title word standing
             # in the name is a name word and joins ('abdul Sir Smith
@@ -1215,19 +1248,19 @@ def _group_segment(seg: tuple[int, ...], additional: int,
             elif bound_join is BoundJoin.LENIENT:
                 # post-comma the family is fixed and the pair is the
                 # given whatever follows, so no peel is read
-                # (decisions.md#P5, #423), save the title test above
+                # (decisions/P5, #423), save the title test above
                 merge_pieces(pieces, ptags, fk, fk + 2, drop={"title"})
             else:
-                # rules.md#P5: "the trailing suffix run (S2) and the
+                # rules/P5: "the trailing suffix run (S2) and the
                 # trailing title run (H5), each read over what the other
                 # leaves until neither takes anything more, are read
                 # once, before the join is tried, and the name words they
-                # leave are the words to spare" (history: decisions.md#P5).
+                # leave are the words to spare" (history: decisions/P5).
                 # That reading is the one above, after P3's joins and
                 # before the chain (#614): the run is
                 # split off, every piece left is a name piece, and the
                 # join leaves one fewer. Nor can the join move a suffix
-                # -- rules.md#P5: "a word the run left as a name word
+                # -- rules/P5: "a word the run left as a name word
                 # stays one, whatever the join makes of the word in
                 # front of it" -- since nothing in group reads the run
                 # again after it.
@@ -1238,9 +1271,10 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 # before #614: the join tried on the pieces as it would
                 # leave them, the reading assign runs over each (the
                 # ONE function, _pieces.tail_reading), the suffixes
-                # compared as the peeled pieces themselves -- 'abdul V'
-                # peels the V unjoined and nothing joined, 'abdul Smith
-                # Ma' peels the acronym unjoined and keeps it joined.
+                # compared as the peeled pieces themselves -- 'abdul
+                # Smith V' peels the V unjoined and nothing joined (no
+                # word to spare there, rules/S10), 'abdul Smith Ma'
+                # peels the acronym unjoined and keeps it joined.
                 if read is not None:
                     same_suffixes = True
                     chained = False
@@ -1261,9 +1295,9 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                         == [tuple(pieces[j]) for j in rest[before.names:]])
                     chained = fk + 1 in chain_took
                     names_after = after.names
-                # rules.md#P5: "a trailing roman numeral, or a bare
-                # acronym the run takes, or a trailing title word the
-                # run takes, is no word to spare" -- and the join joins
+                # rules/P5: "a trailing roman numeral the run takes
+                # (S10), or a bare acronym it takes, or a trailing title
+                # word the run takes, is no word to spare" -- and the join joins
                 # two NAME words, so a piece the chain takes is no more
                 # joinable than a marker or a suffix piece is: 'Sir
                 # abdul Prof.' reads title 'Sir Prof.', given 'abdul'.
@@ -1310,7 +1344,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 if (not chained and same_suffixes
                         and names_after >= reserve):
                     # the pair is a given name whatever tag the word
-                    # carried (rules.md#P5); joined_tags says why the
+                    # carried (rules/P5); joined_tags says why the
                     # title tag is dropped. Pinned in test_group.py.
                     merge_pieces(pieces, ptags, fk, fk + 2, drop={"title"})
     if reads is not None:
@@ -1321,7 +1355,7 @@ def _group_segment(seg: tuple[int, ...], additional: int,
 
 
 def group(state: ParseState) -> ParseState:
-    # rules.md#C1's decision, read once now that classify has tagged
+    # rules/C1's decision, read once now that classify has tagged
     # the words and before any join below can reach the part after the
     # comma (#613); a postnominal part comes back bound, its segment
     # emptied (a name with no comma asks nothing)
@@ -1353,8 +1387,8 @@ def group(state: ParseState) -> ParseState:
         # suppresses it there: the family name is already fixed, so
         # there is no fork left to report. A tail segment needs no
         # suppression: group makes no particle chain there (#636) and
-        # takes no maiden clause (rules.md#M2, #601), so nothing in group
-        # reports in one. rules.md#C2: "a part the parse consumes wholly
+        # takes no maiden clause (rules/M2, #601), so nothing in group
+        # reports in one. rules/C2: "a part the parse consumes wholly
         # as suffixes raises no report that a word of it was read as a
         # name"
         tail = tail_start is not None and seg_idx >= tail_start
@@ -1368,7 +1402,7 @@ def group(state: ParseState) -> ParseState:
                     else ClauseSite.FAMILY_PART)
         else:
             site = ClauseSite.TRAILING
-        # rules.md#C1: "a delimiter the policy declares parts a
+        # rules/C10: "a delimiter the policy declares parts a
         # trailing suffix part as a comma would" (#549): the segment is
         # grouped as the parts between its cores, each read exactly as
         # the comma twin's own segment would be, and the cores are
@@ -1433,7 +1467,7 @@ def group(state: ParseState) -> ParseState:
         # index, ORed since #429 with segment_suffix_reading's
         # per-piece content verdict, gated per piece and sticky across
         # an interleaved title. post_rules derives that from the
-        # commas the writer typed instead (#436/#437, rules.md#R1),
+        # commas the writer typed instead (#436/#437, rules/R1),
         # which is what the input answers directly. The stickiness
         # survives by construction rather than by code:
         # 'Smith, MD Dr. PhD' has no comma between MD and PhD and a
@@ -1451,7 +1485,7 @@ def group(state: ParseState) -> ParseState:
         all_pieces.append(tuple(tuple(p) for p in pieces))
         all_ptags.append(tuple(frozenset(t) for t in ptags))
         all_reads.append(seg_reads[0] if len(seg_reads) == 1 else None)
-    # rules.md#M1: "a leading recognized marker being dropped where
+    # rules/M1: "a leading recognized marker being dropped where
     # the clause holds a word past it; a clause of nothing but its
     # marker keeps its words" — a marker inside EXTRACTED maiden
     # content (#329).
@@ -1523,7 +1557,7 @@ def group(state: ParseState) -> ParseState:
             # test, since the tokens inside a clause are contiguous in
             # index order -- a clause holding nothing but its marker
             # keeps its words, exactly as a one-token "(Nee)" does.
-            # rules.md#M3: "a marker followed by a comma is no marker"
+            # rules/M3: "a marker followed by a comma is no marker"
             # -- asked of the same word extract's M3 test asks it of
             if (first + run < len(tokens)
                     and tokens[first + run].span.end <= clause.end

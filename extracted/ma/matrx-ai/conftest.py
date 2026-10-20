@@ -34,7 +34,7 @@ _configure_stubs()
 # (`configure_packages()` -> `matrx_ai.configure(...)`) as an import-time side
 # effect, and that rewrites matrx-ai's process globals — the `_ext` seam
 # registry, the durable VFS backend, the mandate resolver. matrx-ai's own tests
-# assert on the PACKAGE's behaviour, so they must not read the host's wiring.
+# assert on the PACKAGE's behavior, so they must not read the host's wiring.
 _PRISTINE_HOST_SEAMS = capture_baseline()
 
 
@@ -47,11 +47,20 @@ def _pristine_matrx_ai_host_seams():
     after, so a matrx-ai test that installs a seam cannot leak into the next
     test either. Ordering-independent by construction.
     """
+    from matrx_ai.providers.cache_guard import reset_tool_declarations_for_tests
+    from matrx_ai.tools.declaration_ledger import reset_for_tests as _reset_tool_ledger
+
     restore_baseline(_PRISTINE_HOST_SEAMS)
+    # The conversation tool-declaration ledger is process memory keyed by
+    # conversation id; tests reuse ids, so each test starts with none.
+    _reset_tool_ledger()
+    reset_tool_declarations_for_tests()
     try:
         yield
     finally:
         restore_baseline(_PRISTINE_HOST_SEAMS)
+        _reset_tool_ledger()
+        reset_tool_declarations_for_tests()
 
 
 # Manual dev/demo scripts that live in the tests tree but are NOT automated

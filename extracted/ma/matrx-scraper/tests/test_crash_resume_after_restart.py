@@ -57,7 +57,7 @@ def _matches(row: SimpleNamespace, filters: dict[str, Any]) -> bool:
             ok = have is not None and have < want
         elif op == "json_contains":
             ok = _contains(have, want)
-        else:  # pragma: no cover — a new filter must be modelled here
+        else:  # pragma: no cover — a new filter must be modeled here
             raise AssertionError(f"unmodelled filter {key}")
         if not ok:
             return False

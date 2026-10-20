@@ -609,7 +609,7 @@ async def test_a_successor_says_what_its_action_lacks_and_sends_nothing(
 
 
 class _Rows:
-    """A faithful-enough ORM model: filter by equality (``__isnull`` honoured), create, update."""
+    """A faithful-enough ORM model: filter by equality (``__isnull`` honored), create, update."""
 
     def __init__(self, rows: list[dict[str, Any]] | None = None) -> None:
         self.rows = rows or []

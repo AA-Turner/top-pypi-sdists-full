@@ -29,10 +29,14 @@ class BenchmarkSpecTask(BaseModel):
   run_command: str | None = None
   """
     For SDK evaluation and training, the command to run your agent in the sandbox, e.g.
-    `python /app/agent.py`. Your script must call the model, run any tools, log a reward,
-    and finalize the trajectory before exiting.
+    `python /app/agent.py`; include the executable, not only its arguments. Your script must
+    call the model, run any tools, log a reward, and finalize the trajectory before exiting.
     """
 
   build_status: str | None = None
 
   env_vars: dict[str, str | SecretRef] | None = None
+  """
+    Keys must match [A-Za-z_][A-Za-z0-9_]* and cannot start with TRAJECTORY_ or use
+    MODEL_ENDPOINT_ID, MODEL_ENDPOINT_ACCESS_TOKEN, or MODEL_ENDPOINT_URL.
+    """

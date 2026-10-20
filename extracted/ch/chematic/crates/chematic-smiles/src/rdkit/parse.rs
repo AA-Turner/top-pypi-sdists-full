@@ -1,0 +1,283 @@
+//! The molecule RDKit's SMILES parser builds (`toMol`: `CloseMolRings`,
+//! `SetUnspecifiedBondTypes`, `AdjustAtomChiralityFlags`), reconstructed
+//! from a chematic [`Molecule`] read from SMILES.
+//!
+//! chematic keeps the parse in its own model; this module converts at the
+//! boundary: RDKit's bond numbering ([`Molecule::rdkit_bond_order`]), ring
+//! closure begin atoms, `/` `\` directions relative to each bond's begin
+//! atom and chiral tags relative to RDKit's bond order.
+
+use chematic_core::{
+    AtomIdx, BondIdx, BondOrder, Chirality, Molecule, STEREO_H_SENTINEL, STEREO_VACANT_SENTINEL,
+};
+
+use super::RdkitSmilesError;
+use super::mol::{
+    Atom, Bond, BondDir, BondType, ChiralTag, Mol, count_swaps, insert_implicit_nbors,
+};
+
+fn unsupported(what: impl Into<String>) -> RdkitSmilesError {
+    RdkitSmilesError::Unsupported(what.into())
+}
+
+/// Direction on a chematic bond, normalized to its stored atom1 -> atom2
+/// orientation. MOL/SDF readers keep a geometric E/Z marker in the side
+/// table while leaving the chemical bond order as `Single`; SMILES input may
+/// instead use the literal `Up`/`Down` orders. The RDKit compatibility model
+/// must accept both representations before sanitization and stereo
+/// perception.
+fn input_bond_direction(mol: &Molecule, bidx: BondIdx, literal: BondOrder) -> BondDir {
+    let bond = mol.bond(bidx);
+    let (direction, anchor) = match mol.bond_direction(bidx) {
+        Some(direction) => (
+            direction,
+            mol.bond_direction_anchor(bidx).unwrap_or(bond.atom1),
+        ),
+        None if matches!(literal, BondOrder::Up | BondOrder::Down) => (literal, bond.atom1),
+        None => return BondDir::None,
+    };
+    let value = if direction == BondOrder::Up {
+        BondDir::EndUpRight
+    } else {
+        BondDir::EndDownRight
+    };
+    if anchor == bond.atom2 {
+        value.flipped()
+    } else {
+        value
+    }
+}
+
+/// The parser-state molecule (before `removeHs`/sanitization).
+pub(crate) fn from_chematic(mol: &Molecule) -> Result<Mol, RdkitSmilesError> {
+    from_chematic_ordered(mol, &mol.rdkit_bond_order())
+}
+
+/// [`from_chematic`] with an explicit RDKit bond order (`order[k]` is the
+/// chematic bond that becomes RDKit bond `k`).
+pub(crate) fn from_chematic_ordered(
+    mol: &Molecule,
+    order: &[chematic_core::BondIdx],
+) -> Result<Mol, RdkitSmilesError> {
+    let mut out = Mol::default();
+    // Stereo stored as CIP labels comes from other formats (MOL files,
+    // perception); the SMILES model carries it as tags and directions.
+    if mol.atoms().any(|(_, a)| a.cip_code.is_some()) {
+        return Err(unsupported(
+            "stereo stored as CIP labels (molecule not read from SMILES)",
+        ));
+    }
+    out.atoms.reserve(mol.atom_count());
+    out.atom_bonds.reserve(mol.atom_count());
+    out.bonds.reserve(mol.bond_count());
+    for (aidx, atom) in mol.atoms() {
+        let anum = if atom.wildcard {
+            0
+        } else {
+            u32::from(atom.element.atomic_number())
+        };
+        let mut a = Atom::new(anum);
+        a.isotope = u32::from(atom.isotope.unwrap_or(0));
+        a.charge = i32::from(atom.charge);
+        a.aromatic = atom.aromatic;
+        a.map = atom.atom_map.map(u32::from);
+        if !atom.wildcard {
+            // Bracket atoms carry their H count and take no implicit Hs.
+            if let Some(h) = atom.hydrogen_count {
+                a.num_explicit_hs = u32::from(h);
+                a.no_implicit = true;
+            }
+        } else {
+            a.num_explicit_hs = u32::from(atom.hydrogen_count.unwrap_or(0));
+            a.no_implicit = true;
+        }
+        let idx = out.add_atom(a);
+        out.atom_bonds[idx].reserve_exact(mol.neighbors(aidx).count());
+    }
+
+    // RDKit's bond numbering: chain bonds as written, then ring closures.
+    let mut is_closure = vec![false; mol.bond_count()];
+    let mut rd_index = vec![usize::MAX; mol.bond_count()];
+    for (k, &bidx) in order.iter().enumerate() {
+        rd_index[bidx.0 as usize] = k;
+        if mol.is_smiles_ring_closure(bidx) {
+            is_closure[bidx.0 as usize] = true;
+        }
+    }
+    for (k, &bidx) in order.iter().enumerate() {
+        let bond = mol.bond(bidx);
+        let (a1, a2) = (bond.atom1.0 as usize, bond.atom2.0 as usize);
+        let (bt, aromatic, dir12) = match bond.order {
+            BondOrder::Single | BondOrder::Up | BondOrder::Down => (
+                BondType::Single,
+                false,
+                input_bond_direction(mol, bidx, bond.order),
+            ),
+            BondOrder::Double => (BondType::Double, false, BondDir::None),
+            BondOrder::Triple => (BondType::Triple, false, BondDir::None),
+            BondOrder::Quadruple => (BondType::Quadruple, false, BondDir::None),
+            BondOrder::Dative => (BondType::Dative, false, BondDir::None),
+            BondOrder::Aromatic => (
+                BondType::Aromatic,
+                true,
+                input_bond_direction(mol, bidx, bond.order),
+            ),
+            other => return Err(unsupported(format!("bond order {other:?}"))),
+        };
+        // `CloseMolRings` keeps the opening partial bond (begin = opening
+        // atom) only when it carried an explicit bond order; for an implicit
+        // bond or a bare `/` `\` it keeps the closing one (begin = closing
+        // atom). chematic stores the opening atom first.
+        let swap = is_closure[bidx.0 as usize]
+            && match mol.smiles_ring_closure_begins_at_open(bidx) {
+                Some(at_open) => !at_open,
+                // Not recorded: assume single/aromatic/directional bonds
+                // were written bare at the opening digit and double/triple
+                // bonds explicitly there.
+                None => matches!(
+                    bond.order,
+                    BondOrder::Single | BondOrder::Up | BondOrder::Down | BondOrder::Aromatic
+                ),
+            };
+        let (begin, end, dir) = if swap {
+            (a2, a1, dir12.flipped())
+        } else {
+            (a1, a2, dir12)
+        };
+        let mut b = Bond::new(begin, end, bt);
+        b.aromatic = aromatic;
+        b.dir = dir;
+        let idx = out.add_bond(b);
+        debug_assert_eq!(idx, k);
+    }
+    // Chiral tags relative to RDKit's bond order (`AdjustAtomChiralityFlags`).
+    for (aidx, atom) in mol.atoms() {
+        let a = aidx.0 as usize;
+        let Some(written) = rdkit_chiral_tag(mol, aidx, atom.chirality) else {
+            continue;
+        };
+        let text = mol
+            .stereo_neighbor_order(aidx)
+            .ok_or_else(|| unsupported("chiral atom without SMILES neighbour order"))?;
+        if let Some((class, perm)) = atom.chirality.nontetrahedral() {
+            // `AdjustAtomChiralityFlags`: the permutation relative to the
+            // bond order, from the SMILES order (`GetBondOrdering`) padded
+            // with implicit ligands.
+            // `GetBondOrdering`: the non-ring-closure neighbours by atom
+            // index, with the atom's ring-closure bonds (in digit order) at
+            // the atom's own position.
+            let mut closures: Vec<usize> = Vec::new();
+            for &nb in text {
+                if matches!(nb, STEREO_H_SENTINEL | STEREO_VACANT_SENTINEL) {
+                    continue;
+                }
+                let (bidx, _) = mol
+                    .bond_between(aidx, AtomIdx(nb))
+                    .ok_or_else(|| unsupported("stereo neighbour order out of sync"))?;
+                if is_closure[bidx.0 as usize] {
+                    closures.push(rd_index[bidx.0 as usize]);
+                }
+            }
+            let mut chain: Vec<(usize, usize)> = mol
+                .neighbors(aidx)
+                .filter(|(_, b)| !is_closure[b.0 as usize])
+                .map(|(nb, b)| (nb.0 as usize, rd_index[b.0 as usize]))
+                .collect();
+            chain.sort_unstable();
+            let mut bonds: Vec<Option<usize>> = Vec::with_capacity(text.len());
+            bonds.extend(
+                chain
+                    .iter()
+                    .filter(|&&(nb, _)| nb < a)
+                    .map(|&(_, b)| Some(b)),
+            );
+            bonds.extend(closures.iter().map(|&b| Some(b)));
+            bonds.extend(
+                chain
+                    .iter()
+                    .filter(|&&(nb, _)| nb > a)
+                    .map(|&(_, b)| Some(b)),
+            );
+            if bonds.len() != out.degree(a) {
+                return Err(unsupported("stereo neighbour order out of sync"));
+            }
+            let is_start = if text.contains(&STEREO_VACANT_SENTINEL) {
+                text.first() == Some(&STEREO_VACANT_SENTINEL)
+            } else {
+                !mol.neighbors(aidx)
+                    .any(|(nb, b)| (nb.0 as usize) < a && !is_closure[b.0 as usize])
+            };
+            insert_implicit_nbors(&mut bonds, class, is_start);
+            out.atoms[a].chiral = written;
+            out.atoms[a].chiral_perm = perm;
+            let p = out.chiral_permutation(a, &bonds, true);
+            out.atoms[a].chiral_perm = p;
+            continue;
+        }
+        // SMILES bond order (`GetBondOrdering`): the written neighbours
+        // without the bracket H.
+        let mut smiles_bonds = Vec::with_capacity(text.len());
+        for &nb in text {
+            if matches!(nb, STEREO_H_SENTINEL | STEREO_VACANT_SENTINEL) {
+                continue;
+            }
+            let (bidx, _) = mol
+                .bond_between(aidx, AtomIdx(nb))
+                .ok_or_else(|| unsupported("stereo neighbour order out of sync"))?;
+            smiles_bonds.push(rd_index[bidx.0 as usize]);
+        }
+        let mut sorted_smiles = smiles_bonds.clone();
+        sorted_smiles.sort_unstable();
+        let mut sorted_ref = out.atom_bonds[a].clone();
+        sorted_ref.sort_unstable();
+        if sorted_smiles != sorted_ref {
+            return Err(unsupported("stereo neighbour order out of sync"));
+        }
+        let mut n_swaps = count_swaps(&smiles_bonds, &out.atom_bonds[a]);
+        // `chiralAtomNeedsTagInversion` with the parser's state (no property
+        // cache yet: only an explicit H is a fourth valence).
+        let degree = out.degree(a);
+        let is_start = !mol
+            .neighbors(aidx)
+            .any(|(nb, b)| (nb.0 as usize) < a && !is_closure[b.0 as usize]);
+        let n_hs = out.atoms[a].num_explicit_hs;
+        let n_closures = mol.smiles_ring_closure_count(aidx);
+        let unsaturated = out.atom_bonds[a]
+            .iter()
+            .any(|&b| out.bonds[b].bt.as_double() > 1.0);
+        if degree == 3 && text.contains(&STEREO_H_SENTINEL) {
+            // Readers and reaction products may record the H in any ligand
+            // slot. Move that recorded slot to RDKit's implicit-H-last order;
+            // atom indices alone only describe a molecule parsed from SMILES.
+            let h_slot = text.iter().position(|&n| n == STEREO_H_SENTINEL).unwrap();
+            n_swaps += text.len() - 1 - h_slot;
+        } else if degree == 3
+            && ((is_start && n_hs == 1) || (n_hs != 1 && n_closures == 1 && !unsaturated))
+        {
+            n_swaps += 1;
+        }
+        let mut tag = written;
+        if n_swaps % 2 == 1 {
+            tag = match tag {
+                ChiralTag::Cw => ChiralTag::Ccw,
+                _ => ChiralTag::Cw,
+            };
+        }
+        out.atoms[a].chiral = tag;
+    }
+    Ok(out)
+}
+
+fn rdkit_chiral_tag(mol: &Molecule, atom: AtomIdx, chirality: Chirality) -> Option<ChiralTag> {
+    if mol.is_allene_stereo(atom) {
+        return None; // RDKit 2026.03 #9678
+    }
+    match chirality {
+        Chirality::None => None,
+        Chirality::CounterClockwise => Some(ChiralTag::Ccw),
+        Chirality::Clockwise => Some(ChiralTag::Cw),
+        other => Some(ChiralTag::of_class(
+            other.nontetrahedral().expect("non-tetrahedral").0,
+        )),
+    }
+}

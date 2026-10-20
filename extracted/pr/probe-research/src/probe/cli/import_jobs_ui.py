@@ -33,10 +33,8 @@ STATE_LABELS = {
 def _state_label(job: dict) -> str:
     state = job["state"]
     progress = job.get("progress") or {}
-    if state == import_jobs.State.SUCCEEDED:
-        completed, total = import_progress.counts(job)
-        if completed is not None and total is not None and completed < total:
-            return "Partially complete"
+    if import_progress.is_partial(job):
+        return "Partially complete"
     if state == import_jobs.State.RUNNING:
         if progress.get("waiting_for_connection"):
             return "Waiting for connection"

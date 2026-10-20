@@ -16,10 +16,14 @@ from sqlalchemy import exc
 from sqlalchemy.engine.url import URL as SAUrl
 from sqlalchemy.engine.url import make_url
 
-from snowflake.connector.connection import DEFAULT_CONFIGURATION
 from snowflake.sqlalchemy import URL, base
-from snowflake.sqlalchemy._constants import SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS
-from snowflake.sqlalchemy.snowdialect import _URL_QUERY_BLOCKED_KWARGS
+from snowflake.sqlalchemy.snowdialect import (
+    _URL_QUERY_BLOCKED_KWARGS,
+    _cast_query_params,
+    _normalized_account_host,
+    _split_database_namespace,
+)
+from snowflake.sqlalchemy.util import connector_param_types
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,14 +60,33 @@ _ALL_BLOCKED_PARAMS = [
     ("crl_cache_dir", "/tmp/crl"),
     ("unsafe_file_write", "true"),
     ("unsafe_skip_file_permissions_check", "true"),
+    ("unsafe_skip_config_file_permissions_check", "true"),
+    ("crl_unsafe_skip_file_permissions_check", "true"),
 ]
 
 # Blocked kwargs that were introduced in connector 4.x and are legitimately
-# absent from DEFAULT_CONFIGURATION when running against connector 3.x.
+# absent from the connector's parameter table when running against connector 3.x.
 # The dialect still blocks them on 3.x (harmless) so they stay in
 # _URL_QUERY_BLOCKED_KWARGS; this set lets the integrity test below skip the
-# DEFAULT_CONFIGURATION presence check for version-specific entries.
+# presence check for version-specific entries.
 _BLOCKED_KWARGS_4X_ONLY: frozenset = frozenset({"crl_cache_dir"})
+
+# Blocked kwargs removed or renamed by connector 5.x, hence absent from its
+# parameter table.  ``ocsp_response_cache_filename`` has no 5.x counterpart
+# (OCSP handling moved into the native core); ``unsafe_skip_file_permissions_check``
+# was split into the two 5.x names below.  Both stay blocked so the denylist
+# remains effective on 4.x.
+_BLOCKED_KWARGS_ABSENT_IN_5X: frozenset = frozenset(
+    {"ocsp_response_cache_filename", "unsafe_skip_file_permissions_check"}
+)
+
+# The 5.x replacements for the split kwarg above; absent on 4.x.
+_BLOCKED_KWARGS_5X_ONLY: frozenset = frozenset(
+    {
+        "unsafe_skip_config_file_permissions_check",
+        "crl_unsafe_skip_file_permissions_check",
+    }
+)
 
 
 class TestURLFieldEncoding:
@@ -79,8 +102,12 @@ class TestURLFieldEncoding:
 
     @pytest.fixture(autouse=True)
     def _unset_legacy_flag(self, monkeypatch):
-        """Run every test in this class with the strict (non-legacy) code path."""
-        monkeypatch.delenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, raising=False)
+        """Run every test in this class with the strict code path.
+
+        The removed shim honoured SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS; clear it
+        so a stray value in the environment cannot influence these tests.
+        """
+        monkeypatch.delenv("SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS", raising=False)
 
     # --- account fields -----------------------------------------------------
 
@@ -123,9 +150,9 @@ class TestURLFieldEncoding:
 
         # Must not produce a netloc whose host part includes other.com
         netloc = _url_netloc(result)
-        assert (
-            "other.com" not in netloc.split("@")[-1]
-        ), f"@ in account changed the host to include other.com; netloc={netloc!r}"
+        assert "other.com" not in netloc.split("@")[-1], (
+            f"@ in account changed the host to include other.com; netloc={netloc!r}"
+        )
 
     def test_account_with_slash_raises_or_is_safe(self):
         """account containing '/' would change the path component."""
@@ -149,9 +176,9 @@ class TestURLFieldEncoding:
             return
 
         q = _url_query(result)
-        assert (
-            "warehouse" not in q or q.get("warehouse") != "OTHER"
-        ), f"& in account introduced warehouse query param; query={q}"
+        assert "warehouse" not in q or q.get("warehouse") != "OTHER", (
+            f"& in account introduced warehouse query param; query={q}"
+        )
 
     # --- user field ---------------------------------------------------------
 
@@ -162,9 +189,9 @@ class TestURLFieldEncoding:
         # The host derived from account must still be myaccount (+ .snowflakecomputing.com)
         netloc = _url_netloc(result)
         host_part = netloc.split("@")[-1]
-        assert (
-            "example.com" not in host_part
-        ), f"@ in user changed the host; netloc={netloc!r}"
+        assert "example.com" not in host_part, (
+            f"@ in user changed the host; netloc={netloc!r}"
+        )
 
     def test_user_with_question_mark_is_encoded(self):
         """user containing '?' must be encoded, not treated as start of query string."""
@@ -172,9 +199,9 @@ class TestURLFieldEncoding:
 
         # The extra parameter must not appear as a real query param
         q = _url_query(result)
-        assert (
-            "host" not in q
-        ), f"'?' in user introduced 'host' query param; URL was {result!r}, query={q}"
+        assert "host" not in q, (
+            f"'?' in user introduced 'host' query param; URL was {result!r}, query={q}"
+        )
 
     def test_user_with_hash_is_encoded(self):
         """user containing '#' must be encoded so it doesn't start a fragment."""
@@ -183,9 +210,9 @@ class TestURLFieldEncoding:
         from urllib.parse import urlsplit
 
         parsed_raw = urlsplit(result)
-        assert (
-            parsed_raw.fragment == ""
-        ), f"'#' in user leaked into URL fragment; URL was {result!r}"
+        assert parsed_raw.fragment == "", (
+            f"'#' in user leaked into URL fragment; URL was {result!r}"
+        )
 
     # --- region field -------------------------------------------------------
 
@@ -202,9 +229,9 @@ class TestURLFieldEncoding:
             return
 
         q = _url_query(result)
-        assert (
-            "host" not in q
-        ), f"'?' in region introduced 'host' query param; query={q}"
+        assert "host" not in q, (
+            f"'?' in region introduced 'host' query param; query={q}"
+        )
 
     # --- valid inputs still work --------------------------------------------
 
@@ -253,8 +280,12 @@ class TestSensitiveParamsRequireConnectArgs:
 
     @pytest.fixture(autouse=True)
     def _unset_legacy_flag(self, monkeypatch):
-        """Run every test in this class with the strict (non-legacy) code path."""
-        monkeypatch.delenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, raising=False)
+        """Run every test in this class with the strict code path.
+
+        The removed shim honoured SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS; clear it
+        so a stray value in the environment cannot influence these tests.
+        """
+        monkeypatch.delenv("SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS", raising=False)
 
     # --- sensitive params are rejected from the URL query -------------------
 
@@ -360,31 +391,42 @@ class TestBlockedKwargsIntegrity:
     """Guard the block-list and document why an allowlist can't replace it.
 
     Every restricted name is a *valid* connector kwarg (present in the connector's
-    DEFAULT_CONFIGURATION).  That is exactly why an allowlist built from
-    DEFAULT_CONFIGURATION would not help — it would admit all of these
+    parameter table).  That is exactly why an allowlist built from that table
+    would not help — it would admit all of these
     parameters.  The denylist must therefore be explicit, and these tests keep it
     anchored to real connector kwargs so it cannot silently drift.
     """
 
     def test_every_blocked_kwarg_is_a_real_connector_kwarg(self):
-        """Each blocked name must exist in the connector's DEFAULT_CONFIGURATION.
+        """Each blocked name must exist in the connector's parameter table.
 
         Doubles as drift protection: if a future connector release renames or
         removes one of these kwargs, this test fails and prompts a review of the
         block-list rather than letting it quietly point at a non-existent name.
 
+        The table is read via ``connector_param_types()`` so it resolves on both
+        4.x (``DEFAULT_CONFIGURATION``) and 5.x (generated ``ConnectionConfig``).
+
         Kwargs listed in ``_BLOCKED_KWARGS_4X_ONLY`` were added in connector 4.x
-        and are legitimately absent when running against 3.x; they are excluded
-        from the hard assertion so the suite passes on both versions.
+        and are legitimately absent when running against 3.x; those in
+        ``_BLOCKED_KWARGS_ABSENT_IN_5X`` were removed/renamed by 5.x, those in
+        ``_BLOCKED_KWARGS_5X_ONLY`` only exist on 5.x.  All three are excluded
+        from the hard assertion so the suite passes on 3.x, 4.x and 5.x while
+        still catching *unexpected* drift.
         """
-        connector_keys = set(DEFAULT_CONFIGURATION)
+        connector_keys = set(connector_param_types())
         missing = sorted(_URL_QUERY_BLOCKED_KWARGS - connector_keys)
-        # Exclude version-specific kwargs (absent in 3.x, present in 4.x+).
-        unexpected_missing = sorted(set(missing) - _BLOCKED_KWARGS_4X_ONLY)
+        # Exclude names that are legitimately version-specific.
+        unexpected_missing = sorted(
+            set(missing)
+            - _BLOCKED_KWARGS_4X_ONLY
+            - _BLOCKED_KWARGS_ABSENT_IN_5X
+            - _BLOCKED_KWARGS_5X_ONLY
+        )
         assert not unexpected_missing, (
-            "blocked kwargs missing from connector DEFAULT_CONFIGURATION "
+            "blocked kwargs missing from the connector parameter table "
             f"(renamed/removed upstream?): {unexpected_missing}. "
-            "This also confirms an allowlist of DEFAULT_CONFIGURATION would still "
+            "This also confirms an allowlist of the parameter table would still "
             "admit the remaining blocked params."
         )
 
@@ -412,8 +454,12 @@ class TestConnectArgsMigration:
 
     @pytest.fixture(autouse=True)
     def _unset_legacy_flag(self, monkeypatch):
-        """Run every test in this class with the secure (non-legacy) code path."""
-        monkeypatch.delenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, raising=False)
+        """Run every test in this class with the strict code path.
+
+        The removed shim honoured SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS; clear it
+        so a stray value in the environment cannot influence these tests.
+        """
+        monkeypatch.delenv("SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS", raising=False)
 
     def test_url_with_no_blocked_params_is_accepted(self):
         """A URL carrying only safe query params must be accepted without error."""
@@ -445,9 +491,9 @@ class TestConnectArgsMigration:
 
         netloc = urlsplit(result).netloc
         host_part = netloc.split("@")[-1]
-        assert (
-            "example.com" not in host_part
-        ), f"@ in user leaked into host; netloc={netloc!r}"
+        assert "example.com" not in host_part, (
+            f"@ in user leaked into host; netloc={netloc!r}"
+        )
         # The encoded form must be present so SQLAlchemy can decode it back
         assert "alice" in result
 
@@ -479,31 +525,34 @@ class TestConnectArgsMigration:
         assert opts["warehouse"] == "WH"
 
 
-class TestLegacyURLParamsMode:
-    """Verify the legacy compatibility shim, enabled via the ``legacy_url_params``
-    engine kwarg or the SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS env variable.
+class TestLegacyURLParamsRemoved:
+    """The ``legacy_url_params`` compatibility shim was removed in the major
+    release.
 
-    With the shim active, blocked params must emit a DeprecationWarning and
-    still be forwarded to the connector — preserving backwards compatibility for
-    applications that have not yet migrated to connect_args=.
+    Blocked connection params are now unconditionally rejected from the URL query
+    string, passing ``legacy_url_params`` raises a clear error pointing to the
+    migration path, and the ``SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS`` environment
+    variable no longer relaxes the handling.
     """
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
-        """Start each test with the env variable unset; tests opt in explicitly."""
-        monkeypatch.delenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, raising=False)
+        monkeypatch.delenv("SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS", raising=False)
 
-    @pytest.fixture(params=["kwarg", "env"])
-    def legacy_dialect(self, request, monkeypatch):
-        """A dialect with the shim enabled — once via kwarg, once via env var."""
-        if request.param == "env":
-            monkeypatch.setenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, "1")
-            return _dialect()
-        return base.dialect(legacy_url_params=True)
+    def test_kwarg_true_raises_actionable_error(self):
+        """Passing legacy_url_params=True must raise a clear ArgumentError."""
+        with pytest.raises(exc.ArgumentError, match="(?i)legacy_url_params"):
+            base.dialect(legacy_url_params=True)
+
+    def test_kwarg_false_raises_actionable_error(self):
+        """Even legacy_url_params=False is rejected; the flag no longer exists."""
+        with pytest.raises(exc.ArgumentError, match="(?i)legacy_url_params"):
+            base.dialect(legacy_url_params=False)
 
     @pytest.mark.parametrize("param,value", _ALL_BLOCKED_PARAMS)
-    def test_blocked_param_warns_and_is_forwarded(self, legacy_dialect, param, value):
-        """Each blocked param must warn and be forwarded — for both enable sources."""
+    def test_blocked_param_always_rejected(self, param, value):
+        """Blocked params raise regardless of environment; no legacy warning path."""
+        d = _dialect()
         url = SAUrl.create(
             "snowflake",
             username="u",
@@ -511,76 +560,13 @@ class TestLegacyURLParamsMode:
             host="legit-account",
             query={param: value},
         )
-        with pytest.warns(DeprecationWarning, match=re.escape(param)):
-            _, opts = legacy_dialect.create_connect_args(url)
-        assert (
-            opts.get(param) is not None
-        ), f"legacy mode: {param!r} was not forwarded to opts"
-
-    def test_kwarg_enables_shim_without_env(self):
-        """legacy_url_params=True must enable the shim with no env variable set."""
-        d = base.dialect(legacy_url_params=True)
-        url = SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="legit-account",
-            query={"protocol": "https"},
-        )
-        with pytest.warns(DeprecationWarning):
-            d.create_connect_args(url)
-
-    def test_explicit_kwarg_false_overrides_env_fallback(self, monkeypatch):
-        """An explicit legacy_url_params=False wins over the env variable fallback."""
-        monkeypatch.setenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, "1")
-        d = base.dialect(legacy_url_params=False)
-        url = SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="legit-account",
-            query={"protocol": "https"},
-        )
-        with pytest.raises(exc.ArgumentError, match="(?i)protocol"):
-            d.create_connect_args(url)
-
-    def test_legacy_url_params_is_not_honoured_as_url_query_param(self, monkeypatch):
-        """The shim must not be self-enabled via the URL query string.
-
-        ?legacy_url_params=true in the query string must NOT relax the handling —
-        otherwise it would be trivially avoidable by whoever controls the URL.
-        """
-        monkeypatch.delenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, raising=False)
-        d = _dialect()
-        url = SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="legit-account",
-            query={"legacy_url_params": "true", "protocol": "https"},
-        )
-        with pytest.raises(exc.ArgumentError, match="(?i)protocol"):
+        with pytest.raises(exc.ArgumentError, match="(?i)" + re.escape(param)):
             d.create_connect_args(url)
 
     @pytest.mark.parametrize("flag_value", ["1", "true", "True", "TRUE"])
-    def test_env_flag_is_accepted_case_insensitively(self, flag_value, monkeypatch):
-        """The env variable must be recognised for all parse_url_boolean truthy values."""
-        monkeypatch.setenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, flag_value)
-        d = _dialect()
-        url = SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="legit-account",
-            query={"protocol": "https"},
-        )
-        with pytest.warns(DeprecationWarning):
-            d.create_connect_args(url)  # must not raise
-
-    @pytest.mark.parametrize("flag_value", ["0", "false", "no", "", "garbage"])
-    def test_non_truthy_env_values_keep_blocking(self, flag_value, monkeypatch):
-        """Falsy / unrecognised env values must leave the secure block in place."""
-        monkeypatch.setenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, flag_value)
+    def test_env_variable_no_longer_relaxes_blocking(self, flag_value, monkeypatch):
+        """The removed env variable must not re-enable the shim."""
+        monkeypatch.setenv("SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS", flag_value)
         d = _dialect()
         url = SAUrl.create(
             "snowflake",
@@ -592,67 +578,98 @@ class TestLegacyURLParamsMode:
         with pytest.raises(exc.ArgumentError, match="(?i)protocol"):
             d.create_connect_args(url)
 
-    def test_neither_source_set_blocks_param(self):
-        """With neither kwarg nor env set, the param must be rejected."""
-        d = _dialect()
-        url = SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="legit-account",
-            query={"protocol": "https"},
-        )
-        with pytest.raises(exc.ArgumentError, match="(?i)protocol"):
-            d.create_connect_args(url)
-
-    def test_account_with_metachar_warns_in_legacy_mode(self, monkeypatch):
-        """_validate_url_field must warn (not raise) for an account containing URL
-        metacharacters when the env variable is set.  URL() is a standalone builder
-        with no engine, so only the env variable (not the kwarg) can relax it at
-        build time."""
-        monkeypatch.setenv(SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS, "1")
-        with pytest.warns(DeprecationWarning):
+    def test_account_with_metachar_always_raises(self, monkeypatch):
+        """URL() must reject metachar authority fields even with the old env set."""
+        monkeypatch.setenv("SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS", "1")
+        with pytest.raises(exc.ArgumentError):
             URL(account="x?extra=1", user="u", password="pw")
 
 
-class TestCacheColumnMetadataKwargPrecedence:
-    """create_connect_args must use the preserve-kwarg idiom for
-    cache_column_metadata, matching enable_decfloat / case_sensitive_identifiers."""
+# ---------------------------------------------------------------------------
+# Extracted create_connect_args helpers (pure, no live DB)
+# ---------------------------------------------------------------------------
 
-    def _url(self, **query):
-        return SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="testaccount",
-            query=query,
+
+class TestSplitDatabaseNamespace:
+    def test_single_part_returns_none_schema(self):
+        assert _split_database_namespace("mydb") == ("mydb", None)
+
+    def test_two_parts_split_db_schema(self):
+        assert _split_database_namespace("mydb/myschema") == ("mydb", "myschema")
+
+    def test_two_parts_are_url_decoded(self):
+        assert _split_database_namespace("my%20db/my%20schema") == (
+            "my db",
+            "my schema",
         )
 
-    def test_constructor_true_survives_url_without_param(self):
-        """cache_column_metadata=True in the constructor must NOT be reset to
-        False when the URL query string omits the param."""
-        d = base.dialect(cache_column_metadata=True)
-        d.create_connect_args(self._url())
-        assert d._cache_column_metadata is True
+    def test_more_than_two_parts_raises(self):
+        with pytest.raises(exc.ArgumentError) as ei:
+            _split_database_namespace("db/schema/extra")
+        assert "Invalid name space is specified: db/schema/extra" in str(ei.value)
 
-    def test_constructor_default_false_when_url_silent(self):
-        """Default stays False when neither constructor nor URL sets it."""
-        d = base.dialect()
-        d.create_connect_args(self._url())
-        assert d._cache_column_metadata is False
 
-    @pytest.mark.parametrize(
-        "url_value, expected",
-        [("True", True), ("False", False)],
-    )
-    def test_url_value_overrides_constructor(self, url_value, expected):
-        """An explicit URL value still wins over the constructor kwarg."""
-        d = base.dialect(cache_column_metadata=not expected)
-        d.create_connect_args(self._url(cache_column_metadata=url_value))
-        assert d._cache_column_metadata is expected
+class TestNormalizedAccountHost:
+    def test_bare_account_is_normalized(self):
+        assert _normalized_account_host("myaccount", None) == (
+            "myaccount",
+            "myaccount.snowflakecomputing.com",
+            "443",
+        )
 
-    def test_url_param_not_forwarded_to_connector(self):
-        """cache_column_metadata is consumed by the dialect, never forwarded."""
-        d = base.dialect()
-        _, opts = d.create_connect_args(self._url(cache_column_metadata="True"))
-        assert "cache_column_metadata" not in opts
+    def test_org_style_dashes_preserved(self):
+        account, host, port = _normalized_account_host("gnamsrm-vi65876", None)
+        assert account == "gnamsrm-vi65876"
+        assert host == "gnamsrm-vi65876.snowflakecomputing.com"
+        assert port == "443"
+
+    def test_already_fqdn_is_noop(self):
+        assert _normalized_account_host("acct.snowflakecomputing.com", None) is None
+
+    def test_explicit_port_is_noop(self):
+        assert _normalized_account_host("myaccount", "443") is None
+
+    def test_empty_port_still_normalizes(self):
+        # Matches the original `not opts.get("port")`: a falsy port normalizes.
+        assert _normalized_account_host("myaccount", "") is not None
+
+
+class TestCastQueryParams:
+    def test_empty_query_is_empty_dict(self):
+        assert _cast_query_params({}, lambda n, v: v) == {}
+
+    def test_values_are_cast_via_callback(self):
+        out = _cast_query_params(
+            {"a": "1", "b": "x"}, lambda n, v: int(v) if n == "a" else v
+        )
+        assert out == {"a": 1, "b": "x"}
+
+    def test_blocked_kwarg_raises_exact_message(self):
+        blocked = next(iter(_URL_QUERY_BLOCKED_KWARGS))
+        with pytest.raises(exc.ArgumentError) as ei:
+            _cast_query_params({blocked: "v"}, lambda n, v: v)
+        msg = str(ei.value)
+        assert f"Connection parameter {blocked!r} cannot be set via the URL" in msg
+        assert "connect_args=" in msg
+
+
+class TestCreateConnectArgsNamespace:
+    def test_single_part_database_is_not_re_unquoted(self):
+        # A bare database keeps its exact value (original code did `pass`,
+        # never re-applying unquote_plus).
+        d = _dialect()
+        url = SAUrl.create(
+            "snowflake", username="u", password="p", host="acct", database="foo+bar"
+        )
+        _, opts = d.create_connect_args(url)
+        assert opts["database"] == "foo+bar"
+        assert "schema" not in opts
+
+    def test_two_part_database_splits_into_db_and_schema(self):
+        d = _dialect()
+        url = SAUrl.create(
+            "snowflake", username="u", password="p", host="acct", database="db/sch"
+        )
+        _, opts = d.create_connect_args(url)
+        assert opts["database"] == "db"
+        assert opts["schema"] == "sch"

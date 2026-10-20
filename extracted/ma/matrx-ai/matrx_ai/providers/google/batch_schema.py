@@ -12,10 +12,10 @@ Fix it at the core and don't do a workaround").
 WHY the batch lane needs its own spelling at all — measured, not assumed:
 
 * The Batch API ACCEPTS ``responseJsonSchema`` and IGNORES it. 2026-08-15: 12/12
-  CRM party-kind judgements came back under invented keys. Re-measured
+  CRM party-kind judgments came back under invented keys. Re-measured
   2026-09-27 with those same twelve stored payloads, raw field only:
   ``gemini-3.6-flash`` 0/13 and ``gemini-3.8-flash`` 0/13 conforming (invented
-  keys, prose, a ``$ref`` object flattened). The live endpoint honours the same
+  keys, prose, a ``$ref`` object flattened). The live endpoint honors the same
   field; only the batch endpoint drops it.
 * The Batch API enforces ``responseSchema`` — the OpenAPI ``Schema`` message —
   and that message has NO ``additionalProperties`` and no ``$ref``/``$defs``
@@ -107,7 +107,7 @@ ANNOTATION_KEYWORDS = frozenset(
 )
 
 #: The SDK's snake_case spellings of Schema fields (``types.Schema`` validates by
-#: name too, so stored schemas written from it carry them). Normalised first.
+#: name too, so stored schemas written from it carry them). Normalized first.
 _SNAKE_FIELDS = {
     "any_of": "anyOf",
     "additional_properties": "additionalProperties",

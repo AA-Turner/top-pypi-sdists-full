@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pycryptodome
-Version: 4.0.1
+Version: 4.1.0
 Summary: Cryptographic library for Python
 Author-email: Helder Eijs <helderijs@gmail.com>
-License-Expression: BSD-2-Clause AND Unlicense
+License-Expression: BSD-2-Clause AND Unlicense AND MIT
 Project-URL: Homepage, https://www.pycryptodome.org
 Project-URL: Source, https://github.com/Legrandin/pycryptodome/
 Project-URL: Changelog, https://www.pycryptodome.org/src/changelog
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
+License-File: src/mldsa-native/LICENSE
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pycryptodome-test-vectors; extra == "test"

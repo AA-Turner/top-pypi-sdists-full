@@ -140,6 +140,7 @@ class TestAclOps(OvnNorthboundTest):
             fixtures.LogicalSwitchFixture(self.api)).obj
         self.port_group = self.useFixture(
             fixtures.PortGroupFixture(self.api)).obj
+        self.has_acl_tier = 'tier' in self.api.tables['ACL'].columns
 
     def _acl_add(self, entity, *args, **kwargs):
         self.assertIn(entity, ['lswitch', 'port_group'])
@@ -150,23 +151,88 @@ class TestAclOps(OvnNorthboundTest):
             cmd = self.api.pg_acl_add(self.port_group.uuid, *args, **kwargs)
             resource = self.port_group
 
+        if cmd.tier is not None and not self.has_acl_tier:
+            self.skipTest('ACL tier is not supported by this OVN schema')
         aclrow = cmd.execute(check_error=True)
         self.assertIn(aclrow._row, resource.acls)
         self.assertEqual(cmd.direction, aclrow.direction)
         self.assertEqual(cmd.priority, aclrow.priority)
         self.assertEqual(cmd.match, aclrow.match)
         self.assertEqual(cmd.action, aclrow.action)
+        if self.has_acl_tier:
+            self.assertEqual(cmd.tier if cmd.tier is not None else 0,
+                             aclrow.tier)
         return aclrow
+
+    def _test_acl_default_tier(self, entity):
+        args = ('from-lport', 10, 'ip', 'drop')
+        row = self._acl_add(entity, *args)
+        none_row = self._acl_add(entity, 'from-lport', 11, 'ip', 'drop',
+                                 tier=None)
+        self.assertNotEqual(row.uuid, none_row.uuid)
+        other_tier = None
+        if self.has_acl_tier:
+            other_tier = self._acl_add(entity, *args, tier=1)
+        existing = self._acl_add(entity, *args, tier=None, may_exist=True)
+        self.assertEqual(row, existing)
+        if self.has_acl_tier:
+            existing = self._acl_add(entity, *args, tier=0, may_exist=True)
+            self.assertEqual(row, existing)
+        if entity == 'lswitch':
+            self.api.acl_del(self.switch.uuid, tier=None).execute(
+                check_error=True)
+        else:
+            self.api.pg_acl_del(self.port_group.uuid, tier=None).execute(
+                check_error=True)
+        self.assertNotIn(row.uuid, self.api.tables['ACL'].rows)
+        self.assertNotIn(none_row.uuid, self.api.tables['ACL'].rows)
+        if other_tier is not None:
+            self.assertNotIn(other_tier.uuid, self.api.tables['ACL'].rows)
+
+    def test_acl_add_none(self):
+        self._test_acl_default_tier('lswitch')
+
+    def test_pg_acl_add_none(self):
+        self._test_acl_default_tier('port_group')
+
+    def _test_acl_tier_identity(self, entity):
+        args = ('from-lport', 10, 'ip', 'drop')
+        rows = [self._acl_add(entity, *args, tier=tier)
+                for tier in range(4)]
+        self.assertEqual(4, len({row.uuid for row in rows}))
+        for tier, row in enumerate(rows):
+            existing = self._acl_add(entity, *args, tier=tier, may_exist=True)
+            self.assertEqual(row, existing)
+            self.assertRaises(RuntimeError, self._acl_add,
+                              entity, *args, tier=tier)
+        self.assertEqual(rows[0], self._acl_add(entity, *args, may_exist=True))
+
+    def test_acl_add_tier_identity(self):
+        self._test_acl_tier_identity('lswitch')
+
+    def test_pg_acl_add_tier_identity(self):
+        self._test_acl_tier_identity('port_group')
 
     def test_acl_add(self):
         self._acl_add('lswitch', 'from-lport', 0,
                       'output == "fake_port" && ip', 'drop')
 
+    def test_acl_add_tier(self):
+        self._acl_add('lswitch', 'from-lport', 0,
+                      'output == "fake_port" && ip', 'drop', tier=3)
+
+    def test_acl_add_invalid_tier(self):
+        for tier in (-1, 4):
+            self.assertRaises(ValueError, self._acl_add, 'lswitch',
+                              'from-lport', 0, 'output == "fake_port"',
+                              'drop', tier=tier)
+
     def test_acl_add_exists(self):
         args = ('lswitch', 'from-lport', 0, 'output == "fake_port" && ip',
                 'drop')
         self._acl_add(*args)
-        self.assertRaises(RuntimeError, self._acl_add, *args)
+        self.assertRaisesRegex(RuntimeError, r', None\) already exists',
+                               self._acl_add, *args)
 
     def test_acl_add_may_exist(self):
         args = ('from-lport', 0, 'output == "fake_port" && ip', 'drop')
@@ -184,8 +250,11 @@ class TestAclOps(OvnNorthboundTest):
     def test_acl_del_all(self):
         r1 = self._acl_add('lswitch', 'from-lport', 0, 'output == "fake_port"',
                            'drop')
+        r2 = self._acl_add('lswitch', 'from-lport', 1, 'output == "fake_port"',
+                           'allow', tier=1 if self.has_acl_tier else None)
         self.api.acl_del(self.switch.uuid).execute(check_error=True)
         self.assertNotIn(r1.uuid, self.api.tables['ACL'].rows)
+        self.assertNotIn(r2.uuid, self.api.tables['ACL'].rows)
         self.assertEqual([], self.switch.acls)
 
     def test_acl_del_direction(self):
@@ -193,9 +262,13 @@ class TestAclOps(OvnNorthboundTest):
                            'output == "fake_port"', 'drop')
         r2 = self._acl_add('lswitch', 'to-lport', 0,
                            'output == "fake_port"', 'allow')
+        r3 = self._acl_add('lswitch', 'from-lport', 1,
+                           'output == "fake_port"', 'allow',
+                           tier=1 if self.has_acl_tier else None)
         self.api.acl_del(self.switch.uuid, 'from-lport').execute(
             check_error=True)
         self.assertNotIn(r1, self.switch.acls)
+        self.assertNotIn(r3, self.switch.acls)
         self.assertIn(r2, self.switch.acls)
 
     def test_acl_del_direction_priority_match(self):
@@ -203,9 +276,37 @@ class TestAclOps(OvnNorthboundTest):
                            'output == "fake_port"', 'drop')
         r2 = self._acl_add('lswitch', 'from-lport', 1,
                            'output == "fake_port"', 'allow')
+        r3 = None
+        if self.has_acl_tier:
+            r3 = self._acl_add('lswitch', 'from-lport', 0,
+                               'output == "fake_port"', 'allow', tier=1)
         cmd = self.api.acl_del(self.switch.uuid,
                                'from-lport', 0, 'output == "fake_port"')
         cmd.execute(check_error=True)
+        self.assertNotIn(r1, self.switch.acls)
+        if r3 is not None:
+            self.assertNotIn(r3, self.switch.acls)
+        self.assertIn(r2, self.switch.acls)
+
+    def test_acl_del_tier(self):
+        r1 = self._acl_add('lswitch', 'from-lport', 0,
+                           'output == "fake_port"', 'drop')
+        r2 = self._acl_add('lswitch', 'from-lport', 0,
+                           'output == "fake_port"', 'allow', tier=1)
+        self.api.acl_del(self.switch.uuid, 'from-lport', 0,
+                         'output == "fake_port"', tier=1).execute(
+                             check_error=True)
+        self.assertIn(r1, self.switch.acls)
+        self.assertNotIn(r2, self.switch.acls)
+
+    def test_acl_del_tier_zero(self):
+        r1 = self._acl_add('lswitch', 'from-lport', 0,
+                           'output == "fake_port"', 'drop')
+        r2 = self._acl_add('lswitch', 'from-lport', 0,
+                           'output == "fake_port"', 'allow', tier=1)
+        self.api.acl_del(self.switch.uuid, 'from-lport', 0,
+                         'output == "fake_port"', tier=0).execute(
+                             check_error=True)
         self.assertNotIn(r1, self.switch.acls)
         self.assertIn(r2, self.switch.acls)
 
@@ -251,6 +352,16 @@ class TestAclOps(OvnNorthboundTest):
         self._acl_add('port_group', 'from-lport', 0,
                       'output == "fake_port" && ip', 'drop')
 
+    def test_pg_acl_add_tier(self):
+        self._acl_add('port_group', 'from-lport', 0,
+                      'output == "fake_port" && ip', 'drop', tier=3)
+
+    def test_pg_acl_add_invalid_tier(self):
+        for tier in (-1, 4):
+            self.assertRaises(ValueError, self._acl_add, 'port_group',
+                              'from-lport', 0, 'output == "fake_port"',
+                              'drop', tier=tier)
+
     def test_pg_acl_add_logging(self):
         r1 = self._acl_add('port_group', 'from-lport', 0,
                            'output == "fake_port" && ip', 'drop',
@@ -272,9 +383,47 @@ class TestAclOps(OvnNorthboundTest):
     def test_pg_acl_del_all(self):
         r1 = self._acl_add('port_group', 'from-lport', 0,
                            'output == "fake_port"', 'drop')
+        r2 = self._acl_add('port_group', 'from-lport', 1,
+                           'output == "fake_port"', 'allow',
+                           tier=1 if self.has_acl_tier else None)
         self.api.pg_acl_del(self.port_group.uuid).execute(check_error=True)
         self.assertNotIn(r1.uuid, self.api.tables['ACL'].rows)
+        self.assertNotIn(r2.uuid, self.api.tables['ACL'].rows)
         self.assertEqual([], self.port_group.acls)
+
+    def test_pg_acl_del_tier(self):
+        r1 = self._acl_add('port_group', 'from-lport', 0,
+                           'output == "fake_port"', 'drop')
+        r2 = self._acl_add('port_group', 'from-lport', 0,
+                           'output == "fake_port"', 'allow', tier=1)
+        self.api.pg_acl_del(self.port_group.uuid, tier=1).execute(
+            check_error=True)
+        self.assertIn(r1, self.port_group.acls)
+        self.assertNotIn(r2, self.port_group.acls)
+
+    def test_pg_acl_del_direction_priority_match_none(self):
+        r1 = self._acl_add('port_group', 'from-lport', 0, 'ip', 'drop')
+        r2 = self._acl_add('port_group', 'from-lport', 1, 'ip', 'drop')
+        r3 = None
+        if self.has_acl_tier:
+            r3 = self._acl_add('port_group', 'from-lport', 0, 'ip',
+                               'drop', tier=1)
+        self.api.pg_acl_del(self.port_group.uuid, 'from-lport', 0, 'ip',
+                            tier=None).execute(check_error=True)
+        self.assertNotIn(r1, self.port_group.acls)
+        self.assertIn(r2, self.port_group.acls)
+        if r3 is not None:
+            self.assertNotIn(r3, self.port_group.acls)
+
+    def test_pg_acl_del_tier_zero(self):
+        r1 = self._acl_add('port_group', 'from-lport', 0,
+                           'output == "fake_port"', 'drop')
+        r2 = self._acl_add('port_group', 'from-lport', 0,
+                           'output == "fake_port"', 'allow', tier=1)
+        self.api.pg_acl_del(self.port_group.uuid, tier=0).execute(
+            check_error=True)
+        self.assertNotIn(r1, self.port_group.acls)
+        self.assertIn(r2, self.port_group.acls)
 
     def test_pg_acl_del_acl_not_present(self):
         r1 = self._acl_add('port_group', 'from-lport', 0,
@@ -3107,7 +3256,8 @@ class TestMirrorOps(OvnNorthboundTest):
         self.port_uuid = lsp_add_cmd.result.uuid
 
     def _mirror_add(self, name=None, direction_filter='to-lport',
-                    dest='10.11.1.1', mirror_type='gre', index=42, **kwargs):
+                    dest='10.11.1.1', mirror_type=const.MIRROR_TYPE_GRE,
+                    index=42, **kwargs):
         if not name:
             name = utils.get_rand_name()
         cmd = self.api.mirror_add(name, mirror_type, index, direction_filter,
@@ -3125,8 +3275,8 @@ class TestMirrorOps(OvnNorthboundTest):
 
     def test_mirror_add_duplicate(self):
         name = utils.get_rand_name()
-        cmd = self.api.mirror_add(name, 'gre', 100, 'from-lport',
-                                  '192.169.1.1')
+        cmd = self.api.mirror_add(name, const.MIRROR_TYPE_GRE, 100,
+                                  'from-lport', '192.169.1.1')
         cmd.execute(check_error=True)
         self.assertRaises(RuntimeError, cmd.execute, check_error=True)
 
@@ -3142,7 +3292,7 @@ class TestMirrorOps(OvnNorthboundTest):
         mirror1 = self._mirror_add(name=name, dest='10.12.1.0')
         mirror2 = self._mirror_add(
             name=name, direction_filter='from-lport', dest='10.12.1.0',
-            mirror_type='gre', index=100, may_exist=True,
+            mirror_type=const.MIRROR_TYPE_GRE, index=100, may_exist=True,
         )
         self.assertNotEqual(mirror1, mirror2)
         self.assertEqual(mirror1.uuid, mirror2.uuid)
@@ -3156,7 +3306,8 @@ class TestMirrorOps(OvnNorthboundTest):
 
     def test_mirror_get(self):
         name = utils.get_rand_name()
-        mirror1 = self.api.mirror_add(name, 'gre', 100, 'from-lport',
+        mirror1 = self.api.mirror_add(name, const.MIRROR_TYPE_GRE, 100,
+                                      'from-lport',
                                       '10.15.1.1').execute(check_error=True)
         mirror2 = self.api.mirror_get(mirror1.uuid).execute(check_error=True)
         self.assertEqual(mirror1, mirror2)
@@ -3225,3 +3376,151 @@ class TestMirrorOps(OvnNorthboundTest):
             if_exists=True).execute(check_error=True)
         self.assertEqual(1, len(port.mirror_rules))
         self.assertEqual(mirror1.uuid, port.mirror_rules[0].uuid)
+
+    def test_lsp_attach_mirror_no_mirror(self):
+        cmd = self.api.lsp_attach_mirror(self.port_uuid,
+                                         utils.get_rand_name())
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+
+    def test_lsp_detach_mirror_no_mirror(self):
+        cmd = self.api.lsp_detach_mirror(self.port_uuid,
+                                         utils.get_rand_name())
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+        self.api.lsp_detach_mirror(self.port_uuid, utils.get_rand_name(),
+                                   if_exists=True).execute(check_error=True)
+
+    def _skip_if_no_mirror_rules(self):
+        if not idlutils.table_has_column(self.api.idl, 'Mirror',
+                                         'mirror_rules'):
+            self.skipTest('lport mirrors and mirror rules are not supported '
+                          'by this OVN Northbound schema (requires >= 25.09)')
+
+    def _lport_mirror_add(self):
+        self._skip_if_no_mirror_rules()
+        return self.api.mirror_add(utils.get_rand_name(),
+                                   const.MIRROR_TYPE_LPORT, 0, 'both',
+                                   self.port_uuid).execute(check_error=True)
+
+    def _mirror_rule_add(self, mirror, priority=1, match='1',
+                         action=const.MIRROR_RULE_MIRROR, **kwargs):
+        rule = self.api.mirror_rule_add(
+            mirror.uuid, priority, match, action, **kwargs).execute(
+            check_error=True)
+        self.assertIn(rule, mirror.mirror_rules)
+        self.assertEqual(priority, rule.priority)
+        self.assertEqual(match, rule.match)
+        self.assertEqual(action, rule.action)
+        return rule
+
+    def test_mirror_rule_add(self):
+        mirror = self._lport_mirror_add()
+        rule = self._mirror_rule_add(mirror)
+        self.assertEqual(mirror.mirror_rules, [rule])
+
+    def test_mirror_rule_add_no_lport_type(self):
+        mirror = self.api.mirror_add(utils.get_rand_name(),
+                                     const.MIRROR_TYPE_LOCAL, 0, 'both',
+                                     self.port_uuid).execute(check_error=True)
+        cmd = self.api.mirror_rule_add(mirror.uuid, 1, '1',
+                                       const.MIRROR_RULE_MIRROR)
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+
+    def test_mirror_rule_add_no_mirror(self):
+        self._skip_if_no_mirror_rules()
+        cmd = self.api.mirror_rule_add(utils.get_rand_name(), 1, '1',
+                                       const.MIRROR_RULE_MIRROR)
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+
+    def test_mirror_rule_add_invalid_action(self):
+        self.assertRaises(TypeError, self.api.mirror_rule_add, 'testmirror',
+                          1, '1', 'invalid-action')
+
+    def test_mirror_rule_add_duplicate(self):
+        mirror = self._lport_mirror_add()
+        cmd = self.api.mirror_rule_add(mirror.uuid, 1, '1',
+                                       const.MIRROR_RULE_MIRROR)
+        rule = cmd.execute(check_error=True)
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+        self.assertEqual(mirror.mirror_rules, [rule])
+
+    def test_mirror_rule_add_may_exist_no_change(self):
+        mirror = self._lport_mirror_add()
+        rule1 = self._mirror_rule_add(mirror)
+        rule2 = self._mirror_rule_add(mirror, may_exist=True)
+        self.assertEqual(rule1, rule2)
+        self.assertEqual(mirror.mirror_rules, [rule1])
+
+    def test_mirror_rule_del_match_no_prio(self):
+        self.assertRaises(ValueError, self.api.mirror_rule_del,
+                          'testmirror', priority=None, match='1')
+
+    def test_mirror_rule_del_no_exist(self):
+        mirror = self._lport_mirror_add()
+        cmd = self.api.mirror_rule_del(mirror.uuid, priority=200)
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+
+    def test_mirror_rule_del_no_mirror(self):
+        self._skip_if_no_mirror_rules()
+        cmd = self.api.mirror_rule_del(utils.get_rand_name(), priority=1)
+        self.assertRaises(RuntimeError, cmd.execute, check_error=True)
+
+    def test_mirror_rule_del_no_mirror_if_exists(self):
+        self._skip_if_no_mirror_rules()
+        self.api.mirror_rule_del(utils.get_rand_name(), priority=1,
+                                 if_exists=True).execute(check_error=True)
+
+    def test_mirror_rule_del_if_exist(self):
+        mirror = self._lport_mirror_add()
+        self.api.mirror_rule_del(mirror.uuid, priority=200,
+                                 if_exists=True).execute(check_error=True)
+
+    def test_mirror_rule_del_all(self):
+        mirror = self._lport_mirror_add()
+        rules = []
+        for prio in range(1, 4):
+            rules.append(self._mirror_rule_add(mirror, priority=prio))
+        for rule in rules:
+            self.assertIn(rule, mirror.mirror_rules)
+        self.api.mirror_rule_del(mirror.uuid).execute(check_error=True)
+        self.assertEqual(mirror.mirror_rules, [])
+
+    def test_mirror_rule_del_by_prio(self):
+        mirror = self._lport_mirror_add()
+        rule1 = self._mirror_rule_add(mirror)
+        rule2 = self._mirror_rule_add(mirror, match='ip4')
+        rule3 = self._mirror_rule_add(mirror, priority=2)
+        for rule in [rule1, rule2, rule3]:
+            self.assertIn(rule, mirror.mirror_rules)
+        self.api.mirror_rule_del(mirror.uuid, rule1.priority).execute(
+            check_error=True)
+        self.assertEqual(mirror.mirror_rules, [rule3])
+
+    def test_mirror_rule_del_by_prio_match(self):
+        mirror = self._lport_mirror_add()
+        rule1 = self._mirror_rule_add(mirror)
+        rule2 = self._mirror_rule_add(mirror, match='ip4')
+        for rule in [rule1, rule2]:
+            self.assertIn(rule, mirror.mirror_rules)
+        self.api.mirror_rule_del(mirror.uuid, rule1.priority,
+                                 rule1.match).execute(check_error=True)
+        self.assertEqual(mirror.mirror_rules, [rule2])
+
+    def test_mirror_add_lport_may_exist_keeps_rules(self):
+        mirror = self._lport_mirror_add()
+        rule = self._mirror_rule_add(mirror)
+        self.api.mirror_add(mirror.name, const.MIRROR_TYPE_LPORT, 0,
+                            'to-lport', self.port_uuid,
+                            may_exist=True).execute(check_error=True)
+        self.assertEqual('to-lport', mirror.filter)
+        self.assertEqual([rule], mirror.mirror_rules)
+
+    def test_mirror_rule_priority_zero(self):
+        mirror = self._lport_mirror_add()
+        rule0 = self._mirror_rule_add(mirror, priority=0,
+                                      action=const.MIRROR_RULE_SKIP)
+        rule1 = self._mirror_rule_add(mirror, priority=1, match='icmp4')
+        self.assertEqual({rule0.uuid, rule1.uuid},
+                         {r.uuid for r in mirror.mirror_rules})
+        self.api.mirror_rule_del(mirror.uuid, priority=0).execute(
+            check_error=True)
+        self.assertEqual([rule1], mirror.mirror_rules)

@@ -31,9 +31,12 @@ The contract every task inherits
 * The continuation is an ordinary ``queued`` ``sch_run`` — the scanner's own
   queued-run pass claims it, exactly like "Run now". Its
   ``metadata.continuation`` marker names the run it continues, the fire's first
-  run, its index, the units carried, and the seconds of run ceiling left; the
-  runner sizes the continuation's lease deadline from that, so a fire never gets
-  a fresh full ceiling by being interrupted.
+  run, its index, the units carried, and the seconds the interrupted run had
+  left (informational). The continuation runs under the schedule's FULL Max
+  runtime (review 4, F6, 2026-10-19): a deploy is not the job's fault, so a
+  retry keeps the original budget. Before, a patrol interrupted after 483 s got
+  1316 s, was cut short, and asked the owner to raise a limit that was never
+  the problem. Runaway retries stay bounded by the continuation cap below.
 * A handler resumes IDEMPOTENTLY because its durable state is the truth, not the
   run: a queue claim with a stale reclaim, a cursor, a daily ceiling read from
   what landed. The continuation re-derives "what is left" exactly as a fresh fire
@@ -106,15 +109,12 @@ def _int(value: Any, default: int = 0) -> int:
 
 
 def run_ceiling_seconds(run_metadata: Any, max_runtime_seconds: int) -> int:
-    """The run ceiling a claimed run executes under: the schedule's Max runtime,
-    or — for a continuation — what is left of its fire's ceiling, whichever is
-    smaller. Being interrupted never buys a fire more time than it was given."""
-    ceiling = max(1, _int(max_runtime_seconds, 1))
-    marker = continuation_marker(run_metadata)
-    if marker is None:
-        return ceiling
-    remaining = _int(marker.get("remaining_runtime_seconds"))
-    return max(1, min(ceiling, remaining)) if remaining > 0 else ceiling
+    """The run ceiling a claimed run executes under: the schedule's Max runtime — for a
+    continuation too. An interruption (a deploy, a lost worker) is not the job's
+    fault, so its retry keeps the ORIGINAL budget (review 4, F6); the number of
+    retries per fire is what is bounded (``max_continuations_per_fire``)."""
+    del run_metadata  # a continuation's marker no longer shrinks the ceiling
+    return max(1, _int(max_runtime_seconds, 1))
 
 
 async def continuation_limit() -> int:
@@ -222,7 +222,7 @@ async def interrupt_run(
 
     meta[RUN_STOPPED_EARLY_KEY] = (
         f"interrupted: {reason} after committing {units} unit(s); continuation "
-        f"#{next_index} of {limit} queued with {remaining}s of the run ceiling left"
+        f"#{next_index} of {limit} queued with the full run ceiling ({ceiling}s)"
     )
     persisted = await queries.finalize_run(
         run_id,
@@ -296,7 +296,7 @@ async def _queue_continuation(
         return None
     log.warning(
         "[scheduler-continuation] run %s (task %s) interrupted: continuation #%s queued as "
-        "run %s with %ss of the fire's run ceiling and %s unit(s) carried",
+        "run %s (%ss were left when it stopped; it runs under the full ceiling) and %s unit(s) carried",
         run_id,
         task_id,
         marker["index"],

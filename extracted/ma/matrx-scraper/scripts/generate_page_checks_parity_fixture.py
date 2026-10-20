@@ -204,7 +204,7 @@ CASES: list[dict[str, Any]] = [
     },
     {
         "name": "url_design_multiple_deductions",
-        "why": "Every catalogue deduction accumulates exactly once, including "
+        "why": "Every catalog deduction accumulates exactly once, including "
         "a normalized session-identifier parameter name.",
         "evidence": healthy(
             url=("https://example.com/Über_Long_Path/" + "x" * 90 + "?a=1&b=2&c=3&PHPSESSID=abc")
@@ -356,7 +356,7 @@ CASES: list[dict[str, Any]] = [
     {
         "name": "http_404",
         "why": "broken_page_4xx fails; server_error_5xx still passes (they are "
-        "separate catalogue items with separate weights).",
+        "separate catalog items with separate weights).",
         "evidence": healthy(http_status=404),
     },
     {
@@ -504,7 +504,7 @@ CASES: list[dict[str, Any]] = [
     {
         "name": "content_depth_article_below_target",
         "why": "A PASS carrying an 80 AND an issue_count of 1 — the odd shape "
-        "the catalogue row asks for, and the easiest one to get wrong.",
+        "the catalog row asks for, and the easiest one to get wrong.",
         "evidence": healthy(word_count=700),
     },
     {

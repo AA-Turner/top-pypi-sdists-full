@@ -45,7 +45,7 @@ async def test_background_persist_enters_standalone_coordinator(monkeypatch) -> 
     monkeypatch.setattr(client_host, "get_conversation_store", lambda: None)
     monkeypatch.setattr(
         persistence,
-        "_get_coordinator",
+        "_get_live_coordinator",
         lambda: current["coordinator"],
     )
     monkeypatch.setattr(persistence_api, "standalone_coordinator", _standalone)
@@ -90,24 +90,22 @@ async def test_terminal_inherited_lane_enters_standalone_before_owner_probe(monk
 
     def _owner():
         owner_probes.append(current["coordinator"])
-        if current["coordinator"] is None:
-            pytest.fail("terminal inherited lane must be isolated before owner probe")
         return current["coordinator"]
 
     monkeypatch.setattr(client_host, "get_conversation_store", lambda: None)
-    monkeypatch.setattr(
-        persistence,
-        "get_current_lane",
-        lambda: SimpleNamespace(phase="closed"),
-    )
-    monkeypatch.setattr(persistence, "_get_coordinator", _owner)
+    # A terminal inherited lane with no owned Coordinator: get_live_coordinator
+    # answers None (it never mints against a drained lane), so the write is
+    # isolated in a standalone scope before any owner is used.
+    monkeypatch.setattr(persistence, "_get_live_coordinator", _owner)
     monkeypatch.setattr(persistence_api, "standalone_coordinator", _standalone)
 
     with pytest.raises(_PersistenceReached):
         await persistence.persist_completed_request(_Completed())
 
-    assert len(owner_probes) == 1
-    assert owner_probes[0] is not None
+    # Outside: no live owner (None). Inside the standalone scope: its owner.
+    assert len(owner_probes) == 2
+    assert owner_probes[0] is None
+    assert owner_probes[1] is not None
     assert scopes == [
         {
             "reason": "persist_completed_request",

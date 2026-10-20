@@ -202,10 +202,7 @@ class Benchmarks(APIResource):
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> DeleteBenchmarkResponse:
-    """Delete a benchmark, all of its tasks and cascading task metadata, its benchmark and
-    env-eval result rows, and runtimes not referenced by another benchmark's tasks. Shared
-    runtimes, other registry metadata, pipeline execution metadata, and GCS artifacts are
-    preserved.
+    """Delete this benchmark version.
 
     Args:
       extra_headers: Send extra headers

@@ -14,10 +14,12 @@ site_dir: site
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/benchmarks.css
 
 # MathJax for the LaTeX in the design guides (rendered via pymdownx.arithmatex).
 extra_javascript:
   - javascripts/mathjax.js
+  - javascripts/benchmarks.js
   - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 theme:
@@ -173,7 +175,8 @@ nav:
           - DsssReceiver (Composed Object): gallery/dsss-receiver.md
           - DsssBurstReceiver (Composed Burst Chain): gallery/dsss-burst-receiver.md
           - "A Message Over DSSS, Received and Deframed": gallery/data-source-link.md
-          - "AsyncDsssReceiver: the SPEC Waveform": gallery/async-dsss-receiver-spec.md
+          - "AsyncDsssReceiver: the SPEC link": gallery/async-dsss-receiver-spec.md
+          - "AsyncDsssReceiver: a signal's lifecycle": gallery/async-dsss-receiver-lifecycle.md
           - "AsyncDsssPool: the population's lifecycle": gallery/async-dsss-pool.md
           - "CarrierAcquisition: RRC Pulse Shaping": gallery/carrier-acq-rrc.md
       - Synchronization Loops:
@@ -293,6 +296,8 @@ nav:
       - Polynomial-Phase Estimator: design/ppe.md
       - AsyncDsssReceiver: design/async-dsss-receiver.md
       - "AsyncDsssReceiver: the measurement record": design/async-dsss-receiver-measurements.md
+      - "AsyncDsssPool: parallel receivers": design/async-dsss-parallel.md
+      - "AsyncDsssPool: the measurement record": design/async-dsss-parallel-measurements.md
       - DsssBurstReceiver: design/dsss-burst-receiver.md
       - BurstCapture: design/burst-capture.md
       - BurstBank: design/burst-bank.md

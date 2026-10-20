@@ -137,7 +137,7 @@ class FacetDimension:
         """A QUALITY flag, never a gate — deliberately not merged with
         ``is_ready``. Six platform dimensions have no "not clear" member, and
         gating on this would silently switch off classification that has worked
-        for months. Whether they SHOULD gain one is a vocabulary judgement that
+        for months. Whether they SHOULD gain one is a vocabulary judgment that
         belongs to the person who owns the vocabulary."""
         return any(value.abstain for value in self.values)
 

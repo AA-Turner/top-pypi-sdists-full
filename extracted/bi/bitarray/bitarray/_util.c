@@ -205,6 +205,21 @@ count_n_lock_held(bitarrayobject *a, Py_ssize_t n, int vi)
     return i;
 }
 
+static inline int
+check_aligned(bitarrayobject *a)
+{
+#ifdef __sparc__
+    if (((uintptr_t) a->ob_item) % 8) {
+        PyErr_SetString(PyExc_NotImplementedError, "unaligned buffers "
+                        "not supported on SPARC for this function");
+        return -1;
+    }
+#else
+    (void) a;  /* silence potential compiler warning about unused a */
+#endif
+    return 0;
+}
+
 static PyObject *
 count_n(PyObject *module, PyObject *args)
 {
@@ -220,6 +235,8 @@ count_n(PyObject *module, PyObject *args)
         PyErr_SetString(PyExc_ValueError, "non-negative integer expected");
         return NULL;
     }
+    if (check_aligned(a) < 0)
+        return NULL;
 
     Py_BEGIN_CRITICAL_SECTION(a);
     nbits = a->nbits;
@@ -250,19 +267,22 @@ static PyObject *
 parity(PyObject *module, PyObject *obj)
 {
     bitarrayobject *a;
-    uint64_t x, *wbuff;
-    Py_ssize_t i;
+    uint64_t x;
+    Py_ssize_t i, p1, p2;
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     a = (bitarrayobject *) obj;
     Py_BEGIN_CRITICAL_SECTION(a);
-    wbuff = WBUFF(a);
-    x = zlw(a);
-    i = a->nbits / 64;
-    while (i--)
-        x ^= *wbuff++;
+    x = (unsigned char) zlc(a);
+    aligned_words(a->ob_item, 0, a->nbits / 8, &p1, &p2);
+    for (i = 0; i < p1; i++)
+        x ^= (unsigned char) a->ob_item[i];
+    for (i = p1; i < p2; i += 8)
+        x ^= *((uint64_t *) (a->ob_item + i));
+    for (i = p2; i < a->nbits / 8; i++)
+        x ^= (unsigned char) a->ob_item[i];
     Py_END_CRITICAL_SECTION();
     return PyLong_FromLong(parity_64(x));
 }
@@ -460,6 +480,8 @@ binary_function(PyObject *args, const char *format, const char oper)
                           bitarray_type, (PyObject *) &a,
                           bitarray_type, (PyObject *) &b))
         return NULL;
+    if (check_aligned(a) < 0 || check_aligned(b) < 0)
+        return NULL;
 
     Py_BEGIN_CRITICAL_SECTION2(a, b);
     if (ensure_eq_size_endian(a, b) == 0)
@@ -562,6 +584,8 @@ correspond_all(PyObject *module, PyObject *args)
                           bitarray_type, (PyObject *) &a,
                           bitarray_type, (PyObject *) &b))
         return NULL;
+    if (check_aligned(a) < 0 || check_aligned(b) < 0)
+        return NULL;
 
     Py_BEGIN_CRITICAL_SECTION2(a, b);
     if (ensure_eq_size_endian(a, b) == 0)
@@ -582,21 +606,22 @@ byteswap_lock_held(Py_buffer view, Py_ssize_t n)
 {
     char *buff = view.buf;
     Py_ssize_t m = view.len / n, k;
+    int is_aligned = ((uintptr_t) buff) % 8 == 0;
 
     assert(n >= 1 && n * m == view.len);
 
-    if (n == 8 && HAVE_BUILTIN_BSWAP64) {
+    if (is_aligned && n == 8 && HAVE_BUILTIN_BSWAP64) {
         uint64_t *w = (uint64_t *) buff;
         for (k = 0; k < m; k++)
             w[k] = builtin_bswap64(w[k]);
     }
 #if (defined(__clang__) || (defined(__GNUC__) && (__GNUC__ >= 5)))
-    else if (n == 4) {
+    else if (is_aligned && n == 4) {
         uint32_t *w = (uint32_t *) buff;
         for (k = 0; k < m; k++)
             w[k] = __builtin_bswap32(w[k]);
     }
-    else if (n == 2) {
+    else if (is_aligned && n == 2) {
         uint16_t *w = (uint16_t *) buff;
         for (k = 0; k < m; k++)
             w[k] = __builtin_bswap16(w[k]);
@@ -1523,7 +1548,7 @@ sc_last_pop_seg(const Py_ssize_t *rts, Py_ssize_t nseg)
 /* expose sc_rts() to Python during debug mode for testing */
 #ifndef NDEBUG
 static PyObject *
-module_sc_rts(PyObject *module, PyObject *obj)
+mod_sc_rts(PyObject *module, PyObject *obj)
 {
     PyObject *list;
     bitarrayobject *a;
@@ -1856,6 +1881,8 @@ sc_encode(PyObject *module, PyObject *obj)
     Py_ssize_t len;  /* bytes written into output bytes buffer */
 
     if (ensure_bitarray(obj) < 0)
+        return NULL;
+    if (check_aligned((bitarrayobject *) obj) < 0)
         return NULL;
 
     out = PyBytes_FromStringAndSize(NULL, ALLOC_SIZE);
@@ -2627,7 +2654,7 @@ static PyTypeObject CHDI_Type = {
 
 #ifndef NDEBUG
 static PyObject *
-module_setup_table(PyObject *module, PyObject *obj)
+mod_setup_table(PyObject *module, PyObject *obj)
 {
     char table[256];
 
@@ -2641,7 +2668,7 @@ module_setup_table(PyObject *module, PyObject *obj)
    This makes testing easier, because the int result would depend
    on the machine byteorder. */
 static PyObject *
-module_zlw(PyObject *module, PyObject *obj)
+mod_zlw(PyObject *module, PyObject *obj)
 {
     bitarrayobject *a, *res;
     uint64_t w;
@@ -2663,7 +2690,22 @@ module_zlw(PyObject *module, PyObject *obj)
 }
 
 static PyObject *
-module_adjust_slice(PyObject *module, PyObject *args)
+mod_aligned_words(PyObject *module, PyObject *args)
+{
+    Py_ssize_t start, stop, p1, p2, n;
+    bitarrayobject *a;
+
+    if (!PyArg_ParseTuple(args, "O!nn", bitarray_type, (PyObject *) &a,
+                          &start, &stop))
+        return NULL;
+    Py_BEGIN_CRITICAL_SECTION(a);
+    n = aligned_words(a->ob_item, start, stop, &p1, &p2);
+    Py_END_CRITICAL_SECTION();
+    return Py_BuildValue("nnn", n, p1, p2);
+}
+
+static PyObject *
+mod_adjust_slice(PyObject *module, PyObject *args)
 {
     Py_ssize_t length, slicelength, start, stop, step;
 
@@ -2674,7 +2716,7 @@ module_adjust_slice(PyObject *module, PyObject *args)
 }
 
 static PyObject *
-module_cfw(PyObject *module, PyObject *args)  /* count_from_word() */
+mod_cfw(PyObject *module, PyObject *args)  /* count_from_word() */
 {
     bitarrayobject *a;
     Py_ssize_t res, i;
@@ -2690,7 +2732,7 @@ module_cfw(PyObject *module, PyObject *args)  /* count_from_word() */
 }
 
 static PyObject *
-module_d2i(PyObject *module, PyObject *args)
+mod_d2i(PyObject *module, PyObject *args)
 {
     int m;
     char c;
@@ -2701,7 +2743,7 @@ module_d2i(PyObject *module, PyObject *args)
 }
 
 static PyObject *
-module_read_n(PyObject *module, PyObject *args)
+mod_read_n(PyObject *module, PyObject *args)
 {
     PyObject *iter;
     Py_ssize_t i;
@@ -2715,7 +2757,7 @@ module_read_n(PyObject *module, PyObject *args)
 }
 
 static PyObject *
-module_write_n(PyObject *module, PyObject *args)
+mod_write_n(PyObject *module, PyObject *args)
 {
     PyObject *res;
     char *str;
@@ -2803,14 +2845,15 @@ static PyMethodDef module_functions[] = {
 
 #ifndef NDEBUG
     /* functions exposed in debug mode for testing */
-    {"_setup_table",  (PyCFunction) module_setup_table,  METH_O,       0},
-    {"_zlw",          (PyCFunction) module_zlw,          METH_O,       0},
-    {"_adjust_slice", (PyCFunction) module_adjust_slice, METH_VARARGS, 0},
-    {"_cfw",          (PyCFunction) module_cfw,          METH_VARARGS, 0},
-    {"_d2i",          (PyCFunction) module_d2i,          METH_VARARGS, 0},
-    {"_read_n",       (PyCFunction) module_read_n,       METH_VARARGS, 0},
-    {"_write_n",      (PyCFunction) module_write_n,      METH_VARARGS, 0},
-    {"_sc_rts",       (PyCFunction) module_sc_rts,       METH_O,       0},
+    {"_setup_table",   (PyCFunction) mod_setup_table,   METH_O,       0},
+    {"_zlw",           (PyCFunction) mod_zlw,           METH_O,       0},
+    {"_aligned_words", (PyCFunction) mod_aligned_words, METH_VARARGS, 0},
+    {"_adjust_slice",  (PyCFunction) mod_adjust_slice,  METH_VARARGS, 0},
+    {"_cfw",           (PyCFunction) mod_cfw,           METH_VARARGS, 0},
+    {"_d2i",           (PyCFunction) mod_d2i,           METH_VARARGS, 0},
+    {"_read_n",        (PyCFunction) mod_read_n,        METH_VARARGS, 0},
+    {"_write_n",       (PyCFunction) mod_write_n,       METH_VARARGS, 0},
+    {"_sc_rts",        (PyCFunction) mod_sc_rts,        METH_O,       0},
 #endif
 
     {NULL}  /* sentinel */

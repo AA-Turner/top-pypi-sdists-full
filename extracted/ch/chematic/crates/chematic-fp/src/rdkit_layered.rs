@@ -1,0 +1,380 @@
+//! RDKit-compatible "Layered fingerprint" port (`Chem.LayeredFingerprint`).
+//!
+//! Ported from RDKit's `Code/GraphMol/Fingerprints/Fingerprints.cpp`'s
+//! `LayeredFingerprintMol`, default parameters (`layerFlags=0xFFFFFFFF,
+//! minPath=1, maxPath=7, fpSize=2048`). Upstream itself documents this
+//! fingerprint as "experimental — the API or results may change from release
+//! to release"; this port targets its behavior as of the source read for this
+//! implementation.
+//!
+//! # Algorithm
+//!
+//! Reuses the same branched-subgraph enumeration as this crate's
+//! `rdkit_rdk_fp` port of `Chem.RDKFingerprint` (RDKit's own
+//! `findAllSubgraphsOfLengthsMtoN`/`recurseWalkRange` — a "root at minimum
+//! bond index" backtracking scheme) — duplicated here rather than shared
+//! across crates/PRs, so this fingerprint stays independently mergeable. For
+//! each subgraph (1..=7 bonds), up to 6 independent "layers" are computed,
+//! each packing a different feature into a small bitfield per bond, then
+//! folded separately:
+//!
+//! 1. **Topology**: `bondNbrs % 8` (bits 0-2) plus the two endpoint atoms'
+//!    *path-local* degrees (bits 3-5, 6-8; larger degree first).
+//! 2. **Bond order**: same as layer 1, but a bond hash (bits 0-2) is
+//!    prepended — aromatic bonds and `SINGLE` bonds share the *same* code
+//!    (`SINGLE`'s raw value), while `DOUBLE`/`TRIPLE`/`QUADRUPLE` etc. get
+//!    their own raw `Bond::BondType` values. This intentionally differs from
+//!    `rdkit_rdk_fp`'s own bond-type mapping (where aromatic gets a distinct
+//!    code, `12`, from single) — confirmed against RDKit's own source, not
+//!    assumed from the other fingerprint's convention.
+//! 3. **Atom types**: `(atomic_number % 128)` for each endpoint (larger first,
+//!    ties broken by larger path-local degree first) plus both degrees and
+//!    the bond-neighbor count.
+//! 4. **Ring membership**: emits a single `1` per ring bond (skipped
+//!    entirely, not even zero, for non-ring bonds).
+//! 5. **Ring size**: the *smallest* SSSR ring size containing the bond,
+//!    `% 8` (`0` if the bond is in no ring).
+//! 6. **Aromaticity**: each endpoint's atom-aromaticity flag (smaller-first
+//!    canonical order) plus the bond-neighbor count.
+//!
+//! Each layer's collected per-bond values are sorted, then a trailing
+//! distinct-atom count and the layer's own 1-indexed number are appended
+//! (matching `rdkit_rdk_fp`'s own `hash_range` fold, reused verbatim here),
+//! and the fold's `% fpSize` result sets one bit. Unlike `rdkit_rdk_fp`, there
+//! is no `numBitsPerFeature`/PRNG step here — `LayeredFingerprintMol` sets
+//! exactly one bit per (subgraph, non-empty layer) pair, and (unlike
+//! `getEnvironments`) there is no single-bond shortcut: even a 1-bond
+//! subgraph's single layer value goes through the full sort-then-fold.
+//!
+//! Ring membership/size use [`chematic_perception::find_sssr`] rather than
+//! RDKit's own ring perception; this is the same pre-existing
+//! `chematic-perception` dependency gap already documented for the other
+//! fingerprints in this series and can disagree with RDKit's choice for some
+//! fused/bridged ring systems.
+//!
+//! # Verified
+//!
+//! See this module's own test suite and the crate's fingerprint-parity
+//! corpora for current bit-exactness figures.
+
+use crate::bitvec::BitVec2048;
+use chematic_core::{AtomIdx, BondIdx, BondOrder, Molecule};
+use chematic_perception::aromaticity::{
+    AromaticityAlgorithm, AromaticityModel, assign_aromaticity_ex,
+};
+use chematic_perception::find_sssr;
+use rustc_hash::FxHashMap;
+use std::collections::BTreeMap;
+
+mod config;
+mod features;
+pub use config::{RdkitLayeredConfig, RdkitLayeredError, RdkitLayeredResult, rdkit_layered_config};
+
+const FP_SIZE: u32 = 2048;
+const MIN_PATH: usize = 1;
+const MAX_PATH: usize = 7;
+const NUM_LAYERS: usize = 6;
+
+fn hash_combine(seed: u32, value: u32) -> u32 {
+    seed ^ value
+        .wrapping_add(0x9e3779b9)
+        .wrapping_add(seed << 6)
+        .wrapping_add(seed >> 2)
+}
+
+/// Layer 2's own bond-type code: aromatic and `SINGLE` bonds share one code;
+/// other bond orders keep their own raw `Bond::BondType` value. Deliberately
+/// different from `rdkit_rdk_fp`'s own bond-type mapping (which gives
+/// aromatic its own distinct code) — confirmed from RDKit's own source for
+/// this specific fingerprint, not copied from the other one.
+fn layer2_bond_type_code(order: BondOrder) -> u32 {
+    match order {
+        BondOrder::Double => 2,
+        BondOrder::Triple => 3,
+        BondOrder::Quadruple => 4,
+        _ => 1,
+    }
+}
+
+fn is_atom_aromatic(mol: &Molecule, aromaticity: Option<&AromaticityModel>, idx: AtomIdx) -> bool {
+    if mol.atom(idx).aromatic {
+        return true;
+    }
+    match aromaticity {
+        Some(model) => model.is_atom_aromatic(idx),
+        None => false,
+    }
+}
+
+fn is_bond_aromatic(mol: &Molecule, aromaticity: Option<&AromaticityModel>, bidx: BondIdx) -> bool {
+    let bond = mol.bond(bidx);
+    bond.order == BondOrder::Aromatic
+        || matches!(aromaticity, Some(model) if model.is_bond_aromatic(bidx))
+}
+
+/// Unlike `rdkit_rdk_fp`'s own port of `Chem.RDKFingerprint` (`useHs=true`),
+/// RDKit's `LayeredFingerprintMol` enumerates with `useHs=false`: any bond
+/// touching an explicit hydrogen atom (e.g. an isotope-labeled `[2H]`/`[3H]`,
+/// which chematic — like RDKit — represents as a real graph atom, not folded
+/// into an implicit H count) never gets an adjacency entry at all, so it can
+/// never be a root or a candidate. Confirmed against a live oracle: a naive
+/// `useHs=true` port silently included such bonds and produced extra bits.
+fn build_bond_adjacency(mol: &Molecule) -> FxHashMap<u32, Vec<u32>> {
+    let is_h = |idx: AtomIdx| mol.atom(idx).element.atomic_number() == 1;
+    let keep = |bidx: BondIdx| {
+        let bond = mol.bond(bidx);
+        !is_h(bond.atom1) && !is_h(bond.atom2)
+    };
+    let mut nbrs: FxHashMap<u32, Vec<u32>> = FxHashMap::default();
+    for (bidx, _) in mol.bonds() {
+        if keep(bidx) {
+            nbrs.entry(bidx.0).or_default();
+        }
+    }
+    for (aidx, _) in mol.atoms() {
+        if is_h(aidx) {
+            continue;
+        }
+        let incident: Vec<u32> = mol
+            .neighbors(aidx)
+            .map(|(_, b)| b)
+            .filter(|&b| keep(b))
+            .map(|b| b.0)
+            .collect();
+        for &b1 in &incident {
+            for &b2 in &incident {
+                if b1 != b2 {
+                    nbrs.get_mut(&b1).unwrap().push(b2);
+                }
+            }
+        }
+    }
+    nbrs
+}
+
+fn find_all_subgraphs(
+    mol: &Molecule,
+    min_len: usize,
+    max_len: usize,
+) -> BTreeMap<usize, Vec<Vec<u32>>> {
+    let nbrs = build_bond_adjacency(mol);
+    let n_bonds = mol.bond_count();
+    let mut forbidden = vec![false; n_bonds];
+    let mut res: BTreeMap<usize, Vec<Vec<u32>>> =
+        (min_len..=max_len).map(|l| (l, Vec::new())).collect();
+
+    let mut roots: Vec<u32> = nbrs.keys().copied().collect();
+    roots.sort_unstable();
+    for root in roots {
+        if forbidden[root as usize] {
+            continue;
+        }
+        forbidden[root as usize] = true;
+        let cands = nbrs.get(&root).cloned().unwrap_or_default();
+        let spath = vec![root];
+        recurse_walk_range(
+            &nbrs,
+            spath,
+            cands,
+            min_len,
+            max_len,
+            forbidden.clone(),
+            &mut res,
+        );
+    }
+    res
+}
+
+fn recurse_walk_range(
+    nbrs: &FxHashMap<u32, Vec<u32>>,
+    spath: Vec<u32>,
+    mut cands: Vec<u32>,
+    min_len: usize,
+    max_len: usize,
+    mut forbidden: Vec<bool>,
+    res: &mut BTreeMap<usize, Vec<Vec<u32>>>,
+) {
+    let nsize = spath.len();
+    if nsize >= min_len && nsize <= max_len {
+        res.get_mut(&nsize).unwrap().push(spath.clone());
+    }
+    if nsize >= max_len {
+        return;
+    }
+    while let Some(next) = cands.pop() {
+        if !forbidden[next as usize] {
+            forbidden[next as usize] = true;
+            let mut tstack = cands.clone();
+            if let Some(next_nbrs) = nbrs.get(&next) {
+                for &b in next_nbrs {
+                    if !forbidden[b as usize] {
+                        tstack.push(b);
+                    }
+                }
+            }
+            let mut tpath = spath.clone();
+            tpath.push(next);
+            recurse_walk_range(
+                nbrs,
+                tpath,
+                tstack,
+                min_len,
+                max_len,
+                forbidden.clone(),
+                res,
+            );
+        }
+    }
+}
+
+struct RingInfo {
+    bond_in_ring: Vec<bool>,
+    bond_min_ring_size: Vec<u32>,
+}
+
+fn compute_ring_info(mol: &Molecule) -> RingInfo {
+    let n_bonds = mol.bond_count();
+    let mut bond_in_ring = vec![false; n_bonds];
+    let mut bond_min_ring_size = vec![u32::MAX; n_bonds];
+
+    let ring_set = find_sssr(mol);
+    for ring in ring_set.rings() {
+        let size = ring.len() as u32;
+        for i in 0..ring.len() {
+            let a1 = ring[i];
+            let a2 = ring[(i + 1) % ring.len()];
+            if let Some((_, bidx)) = mol.neighbors(a1).find(|&(nbr, _)| nbr == a2) {
+                bond_in_ring[bidx.0 as usize] = true;
+                let slot = &mut bond_min_ring_size[bidx.0 as usize];
+                if size < *slot {
+                    *slot = size;
+                }
+            }
+        }
+    }
+
+    for v in &mut bond_min_ring_size {
+        if *v == u32::MAX {
+            *v = 0;
+        }
+    }
+    RingInfo {
+        bond_in_ring,
+        bond_min_ring_size,
+    }
+}
+
+/// Compute the RDKit-compatible "Layered fingerprint" (`Chem.LayeredFingerprint`).
+///
+/// See the module doc comment for the full algorithm and its verification
+/// status.
+pub fn rdkit_layered_fp(mol: &Molecule) -> BitVec2048 {
+    chematic_smiles::with_rdkit_model_molecule(mol, rdkit_layered_fp_impl)
+}
+
+fn rdkit_layered_fp_impl(mol: &Molecule) -> BitVec2048 {
+    // Where chematic's own aromaticity may disagree with RDKit's, read the
+    // RDKit-corrected parity view (aromatic flags and bond orders as RDKit
+    // sanitizes them) instead of re-perceiving.
+    if chematic_perception::rdkit_model_may_disagree(mol)
+        && let Ok(view) = chematic_perception::apply_aromaticity_rdkit_parity_shared(mol).as_ref()
+    {
+        return rdkit_layered_fp_input(&crate::rdkit_fp_view(view), true);
+    }
+    // RDKit fingerprints its sanitized graph: perchlorate as
+    // `[Cl+3]([O-])3O`, organometallic dative bonds
+    // ([`chematic_perception::rdkit_sanitize_cleanup`]).
+    if let Some(cleaned) = chematic_perception::rdkit_sanitize_cleanup(mol) {
+        return rdkit_layered_fp_input(&cleaned, false);
+    }
+    rdkit_layered_fp_input(mol, false)
+}
+
+/// [`rdkit_layered_fp`] on the graph RDKit sees.
+fn rdkit_layered_fp_input(mol: &Molecule, trust_view: bool) -> BitVec2048 {
+    let mut fp = BitVec2048::new();
+    if mol.atom_count() == 0 {
+        return fp;
+    }
+
+    let prepared = features::Prepared::new(mol, trust_view);
+    let paths = find_all_subgraphs(mol, MIN_PATH, MAX_PATH);
+    for plist in paths.values() {
+        for path in plist {
+            for seed in prepared.hashes(path).seeds.into_iter().flatten() {
+                fp.set((seed % FP_SIZE) as usize);
+            }
+        }
+    }
+
+    fp
+}
+
+/// Tanimoto similarity between two RDKit-compatible Layered fingerprints.
+pub fn tanimoto_rdkit_layered(a: &BitVec2048, b: &BitVec2048) -> f64 {
+    a.tanimoto(b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chematic_smiles::parse;
+
+    fn mol(smiles: &str) -> Molecule {
+        parse(smiles).unwrap_or_else(|e| panic!("failed to parse {smiles:?}: {e}"))
+    }
+
+    #[test]
+    fn deterministic() {
+        let m = mol("CC(=O)Oc1ccccc1C(=O)O");
+        assert_eq!(rdkit_layered_fp(&m), rdkit_layered_fp(&m));
+    }
+
+    #[test]
+    fn different_molecules_differ() {
+        let a = rdkit_layered_fp(&mol("CCO"));
+        let b = rdkit_layered_fp(&mol("c1ccccc1"));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn single_atom_has_no_bits() {
+        let fp = rdkit_layered_fp(&mol("C"));
+        assert_eq!(fp.popcount(), 0);
+    }
+
+    #[test]
+    fn matches_rdkit_oracle_on_hand_picked_molecules() {
+        // (smiles, expected on-bit count from a live `Chem.LayeredFingerprint`
+        // oracle run at minPath=1, maxPath=7, fpSize=2048).
+        let cases: &[(&str, u32)] = &[
+            ("CC", 5),
+            ("C=C", 5),
+            ("C#C", 5),
+            ("CCC", 10),
+            ("CC(C)C", 15),
+            ("c1ccccc1", 36),
+            ("C1CC1", 18),
+            ("CCO", 11),
+            ("CC(=O)O", 19),
+            ("c1ccc2ccccc2c1", 104),
+            ("CC(=O)Oc1ccccc1C(=O)O", 335),
+        ];
+        for &(smiles, expected) in cases {
+            let fp = rdkit_layered_fp(&mol(smiles));
+            assert_eq!(fp.popcount(), expected, "popcount mismatch for {smiles:?}");
+        }
+    }
+
+    #[test]
+    fn explicit_isotope_labeled_hydrogen_is_excluded_from_enumeration() {
+        // Regression pin for a real bug this port had: LayeredFingerprintMol
+        // enumerates with useHs=false, unlike rdkit_rdk_fp's useHs=true, so a
+        // bond touching an explicit H atom (isotope-labeled deuterium/tritium
+        // here, since chematic -- like RDKit -- represents those as real
+        // graph atoms) must never appear in the enumeration. A naive
+        // useHs=true port produced 56 bits here instead of the correct 19.
+        let fp = rdkit_layered_fp(&mol("[2H]C([2H])([2H])NC=O"));
+        assert_eq!(fp.popcount(), 19);
+    }
+}

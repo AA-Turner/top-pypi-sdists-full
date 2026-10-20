@@ -430,6 +430,8 @@ class TemplateSummaryTypeDef(TypedDict):
     templateQualityScore: NotRequired[str]
     templateLanguage: NotRequired[str]
     templateCategory: NotRequired[str]
+    templateSource: NotRequired[str]
+    correctCategory: NotRequired[str]
 
 
 ListWhatsAppTemplateLibraryInputTypeDef = TypedDict(
@@ -720,6 +722,8 @@ LinkedWhatsAppBusinessAccountSummaryTypeDef = TypedDict(
         "wabaName": str,
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
         "marketingMessagesOnboardingStatus": NotRequired[str],
+        "directSendEnforcementStatus": NotRequired[str],
+        "directSendEnforcementStatusExpiresAt": NotRequired[datetime],
         "datasetId": NotRequired[str],
     },
 )
@@ -742,6 +746,8 @@ LinkedWhatsAppBusinessAccountTypeDef = TypedDict(
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
         "phoneNumbers": list[WhatsAppPhoneNumberSummaryTypeDef],
         "marketingMessagesOnboardingStatus": NotRequired[str],
+        "directSendEnforcementStatus": NotRequired[str],
+        "directSendEnforcementStatusExpiresAt": NotRequired[datetime],
         "datasetId": NotRequired[str],
     },
 )

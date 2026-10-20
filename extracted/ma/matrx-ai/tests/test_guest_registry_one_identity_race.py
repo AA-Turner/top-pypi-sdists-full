@@ -7,7 +7,7 @@ visitor's data split across two identities.
 
 GoTrue (``_create_anon_auth_user``) is the only external dependency doubled
 here; the registry double below behaves like the table: a unique fingerprint,
-and ``update_where`` honouring ``auth_user_id__isnull`` atomically.
+and ``update_where`` honoring ``auth_user_id__isnull`` atomically.
 """
 
 from __future__ import annotations

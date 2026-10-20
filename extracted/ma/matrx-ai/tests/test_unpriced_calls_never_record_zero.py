@@ -248,3 +248,42 @@ async def test_a_counters_only_usage_is_priced_by_the_dispatched_route(monkeypat
     accrued.clear()
     await guardrail_gate.note_paid_result(result)
     assert unpriced == ["unknown model"] and accrued and accrued[0] > 0
+
+
+def test_non_token_usage_is_never_priced_as_tokens(monkeypatch) -> None:
+    """veo-3.1-lite stored 21,000,000 video units in output_tokens; at the top token rate that read
+    $1,575 and refused every call (2026-10-18). Units price by their own unit or stay announced."""
+    dear = PricingTier(max_tokens=None, input_price=20.0, output_price=75.0, cached_input_price=2.0)
+    video = PricingTier(max_tokens=None, input_price=0.0, output_price=0.2, cached_input_price=0.0,
+                        usage_basis="video_second_output")
+    monkeypatch.setattr(
+        uc, "_pricing_lookup_cache",
+        {"a": ModelPricing("a", "x", [dear]), "veo": ModelPricing("veo", "x", [video])},
+    )
+    usage = TokenUsage(
+        input_tokens=0, output_tokens=21_000_000, matrx_model_name="veo-new",
+        metadata={"billing_kind": "synthetic:video_second_output"},
+    )
+    est = uc.estimate_unpriced_call(usage)
+    assert est.kind == "units" and est.unit == "second" and est.units == pytest.approx(21.0)
+    assert est.cost_usd == pytest.approx(4.2)
+    assert uc.conservative_unpriced_cost(usage) < 10  # was 1,575
+
+    # no unit price known anywhere: announced as unknown, never a token price
+    monkeypatch.setattr(uc, "_pricing_lookup_cache", {"a": ModelPricing("a", "x", [dear])})
+    est = uc.estimate_unpriced_call(usage)
+    assert est.kind == "unknown_units" and est.cost_usd == 0.0
+
+    # basis found from the model's own price tier when metadata is absent
+    monkeypatch.setattr(
+        uc, "_pricing_lookup_cache",
+        {"veo-new": ModelPricing("veo-new", "x", [video]), "a": ModelPricing("a", "x", [dear])},
+    )
+    monkeypatch.setattr(uc, "is_pricing_lookup_warm", lambda: True)
+    monkeypatch.setattr(uc, "_get_db_pricing_lookup", lambda: uc._pricing_lookup_cache)
+    bare = TokenUsage(input_tokens=0, output_tokens=2_000_000, matrx_model_name="veo-new")
+    assert uc.estimate_unpriced_call(bare).cost_usd == pytest.approx(0.4)
+
+    # real tokens still price high
+    real = TokenUsage(input_tokens=1_000_000, output_tokens=1_000_000, matrx_model_name="gpt-x")
+    assert uc.estimate_unpriced_call(real).cost_usd == pytest.approx(95.0)

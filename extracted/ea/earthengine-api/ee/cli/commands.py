@@ -32,10 +32,10 @@ TENSORFLOW_INSTALLED = False
 
 # pylint: disable=g-import-not-at-top
 try:
-  import tensorflow.compat.v1 as tf  # pyrefly: ignore[import]
-  from tensorflow.compat.v1.saved_model import utils as saved_model_utils  # pyrefly: ignore[import]
-  from tensorflow.compat.v1.saved_model import signature_constants  # pyrefly: ignore[import]
-  from tensorflow.compat.v1.saved_model import signature_def_utils  # pyrefly: ignore[import]
+  import tensorflow.compat.v1 as tf
+  from tensorflow.compat.v1.saved_model import utils as saved_model_utils
+  from tensorflow.compat.v1.saved_model import signature_constants
+  from tensorflow.compat.v1.saved_model import signature_def_utils
   # This triggers a warning about disable_resource_variables
   tf.disable_v2_behavior()
   # Prevent TensorFlow from logging anything at the python level.
@@ -188,7 +188,7 @@ def _cloud_timestamp_for_timestamp_ms(timestamp_ms: float) -> str:
   """Returns a Cloud-formatted date for the given millisecond timestamp."""
   # Desired format is like '2003-09-07T19:30:12.345Z'
   timestamp = datetime.datetime.fromtimestamp(
-      timestamp_ms / 1000.0, datetime.timezone.utc
+      timestamp_ms / 1000.0, datetime.UTC
   )
   return timestamp.replace(tzinfo=None).isoformat() + 'Z'
 
@@ -1687,7 +1687,7 @@ class UploadTableCommand:
     parser.add_argument(
         '--date_format',
         help='A format used to parse dates. The format pattern must follow '
-             'http://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html. '
+             'https://joda-time.sourceforge.net/apidocs/org/joda/time/format/DateTimeFormat.html. '
              'If unspecified, dates will be imported as strings. For '
              'CSV/TFRecord only.')
     # pylint: enable=line-too-long
@@ -1820,11 +1820,9 @@ class UploadImageManifestCommand(_UploadManifestBase):
 
   name = 'upload_manifest'
 
-  # pytype: disable=signature-mismatch
-  def run(
+  def run(  # pyrefly: ignore[bad-override]
       self, args: argparse.Namespace, config: utils.CommandLineConfig
   ) -> None:
-    # pytype: enable=signature-mismatch
     """Starts the upload task, and waits for completion if requested."""
     print(
         'This command is deprecated. '
@@ -1838,11 +1836,9 @@ class UploadTableManifestCommand(_UploadManifestBase):
 
   name = 'upload_table_manifest'
 
-  # pytype: disable=signature-mismatch
-  def run(
+  def run(  # pyrefly: ignore[bad-override]
       self, args: argparse.Namespace, config: utils.CommandLineConfig
   ) -> None:
-    # pytype: enable=signature-mismatch
     print(
         'This command is deprecated. '
         'Use "earthengine upload table --manifest".'

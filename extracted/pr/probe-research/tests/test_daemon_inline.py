@@ -123,6 +123,72 @@ def _context(out: str) -> str:
     return json.loads(out)["hookSpecificOutput"]["additionalContext"] if out else ""
 
 
+@pytest.mark.parametrize("start,target", [(session_marker.STATE_DAEMON, session_marker.STATE_FULL),
+                                          (session_marker.STATE_READ_ONLY, session_marker.STATE_READ_ONLY)])
+def test_quota_handoff_opens_agent_reads_and_preserves_write_choice(guard, daemon_session, monkeypatch, capsys, start, target):
+    from probe.cli import mcp_bridge
+    session_marker.set_session_state(SID, start)
+    assert session_marker.inline_on_budget(SID, start, now=100.0)
+    assert session_marker.session_state(SID) == target and session_marker.is_inline(SID)
+    assert mcp_bridge.refusal("probe mcp tools") is None
+    assert not _denied(_run(guard, monkeypatch, capsys, _pre("probe mcp call search '{}'")))
+    write = _run(guard, monkeypatch, capsys, _pre("probe project create research"))
+    assert _denied(write) == (target == session_marker.STATE_READ_ONLY)
+    text = _context(_run(guard, monkeypatch, capsys, _prompt("continue the work")))
+    assert "allowance is exhausted" in text and "automatically" in text
+    if target == session_marker.STATE_READ_ONLY:
+        assert "Record nothing new" in text and "track-work/SKILL.md" not in text
+    else:
+        assert "track-work/SKILL.md" in text
+    assert not _context(_run(guard, monkeypatch, capsys, _prompt("next")))
+    session_marker.forget_inline_shown(SID)
+    assert "allowance is exhausted" in _context(_run(guard, monkeypatch, capsys, _prompt("resume")))
+    assert session_marker.state_display(target, daemon=True, inline=True) == (
+        "read only (inline)" if target == session_marker.STATE_READ_ONLY else "on (inline)")
+
+
+@pytest.mark.parametrize("moved", [session_marker.STATE_READ_ONLY, session_marker.STATE_OFF])
+def test_quota_response_cannot_overwrite_a_concurrent_explicit_choice(daemon_session, moved):
+    session_marker.set_session_state(SID, moved)
+    assert not session_marker.inline_on_budget(SID, session_marker.STATE_DAEMON)
+    assert session_marker.session_state(SID) == moved
+    assert session_marker.inline_marker(SID) is None
+
+
+def test_quota_read_only_interval_is_kept_and_manual_inline_can_enable_writes(daemon_session):
+    session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
+    assert session_marker.inline_on_budget(SID, session_marker.STATE_READ_ONLY, now=100.0)
+    assert session_marker.inline_intervals(SID) == [(100.0, None)]
+    assert session_marker.switch_to_inline(SID, now=200.0)
+    assert session_marker.session_state(SID) == session_marker.STATE_FULL
+    assert session_marker.inline_intervals(SID) == [(200.0, None), (100.0, 200.0)]
+    assert session_marker.set_session_state(SID, session_marker.STATE_DAEMON, now=300.0)
+    assert session_marker.inline_intervals(SID) == [(100.0, 200.0), (200.0, 300.0)]
+
+
+def test_quota_handoff_preserves_machine_preferences_and_refuses_failed_publication(daemon_session, monkeypatch):
+    session_marker.write_recorder("claude_code", session_marker.RECORDER_DAEMON)
+    config = session_marker.config_path().read_bytes()
+    real = session_marker._publish_atomically
+    monkeypatch.setattr(session_marker, "_publish_atomically", lambda path, text:
+                        False if path == session_marker.inline_path(SID) else real(path, text))
+    assert not session_marker.inline_on_budget(SID, session_marker.STATE_DAEMON)
+    assert session_marker.session_state(SID) == session_marker.STATE_DAEMON
+    assert session_marker.config_path().read_bytes() == config
+    monkeypatch.setattr(session_marker, "_publish_atomically", real)
+    assert session_marker.inline_on_budget(SID, session_marker.STATE_DAEMON)
+    assert session_marker.config_path().read_bytes() == config
+
+
+def test_quota_read_only_cli_refuses_even_a_directed_write(daemon_session, capsys):
+    from probe.cli.write_gate import EXIT_REFUSED
+
+    session_marker.set_session_state(SID, session_marker.STATE_READ_ONLY)
+    assert session_marker.inline_on_budget(SID, session_marker.STATE_READ_ONLY)
+    assert cli.main(["project", "create", "quota-test", "--directed"]) == EXIT_REFUSED
+    assert "READ-ONLY" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------------------
 # The switch: from any state, back by any other move.
 # ---------------------------------------------------------------------------

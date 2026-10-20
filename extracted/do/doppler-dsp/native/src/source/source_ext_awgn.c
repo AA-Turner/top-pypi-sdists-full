@@ -331,18 +331,32 @@ AWGN_setprop_amplitude (AWGNObject *self, PyObject *value,
   float v = 0.0f;
   if (!PyArg_Parse (value, "f", &v))
     return -1;
-  dp_awgn_set_amplitude (self->handle, v);
+  int _rc = dp_awgn_set_amplitude (self->handle, v);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "AWGN: amplitude must be finite and >= 0", (long long)_rc);
+      return -1;
+    }
   return 0;
 }
 
-static PyGetSetDef AWGN_getset[]
-    = { { "amplitude", (getter)AWGN_getprop_amplitude,
-          (setter)AWGN_setprop_amplitude,
-          "Per-component standard deviation. Assigning an invalid value (NaN, "
-          "infinite or negative) is ignored: the amplitude keeps its old "
-          "value, and the property does not raise.\n",
-          NULL },
-        { NULL, NULL, NULL, NULL, NULL } };
+static PyGetSetDef AWGN_getset[] = {
+  { "amplitude", (getter)AWGN_getprop_amplitude,
+    (setter)AWGN_setprop_amplitude,
+    "Per-component standard deviation. Assigning an invalid value (NaN, "
+    "infinite or negative) raises ValueError, and the amplitude keeps its old "
+    "value.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    On assignment, if ``dp_awgn_set_amplitude`` refuses the value by\n"
+    "    returning non-zero. The exception message is ``AWGN: amplitude must\n"
+    "    be finite and >= 0``, with the return code appended.\n",
+    NULL },
+  { NULL, NULL, NULL, NULL, NULL }
+};
 
 static PyObject *
 AWGNObj_destroy (AWGNObject *self, PyObject *Py_UNUSED (ignored))
@@ -395,7 +409,7 @@ static PyMethodDef AWGNObj_methods[] = {
 
   { "generate", (PyCFunction)(void *)AWGNObj_generate,
     METH_VARARGS | METH_KEYWORDS,
-    "generate(count=1) -> ndarray\n"
+    "generate(count=1, out=None) -> ndarray\n"
     "\n"
     "Generate n complex CF32 AWGN samples. Uses Box-Muller with\n"
     "xoshiro256++ to fill `out` with independent complex Gaussians: Re and\n"

@@ -26,15 +26,17 @@ class Rewards(APIResource):
     self,
     run_id: str,
     *,
-    limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx2.Timeout | None | NotGiven = not_given,
   ) -> HeldOutRewardsByStepPage:
     """Held-out evaluation rewards and sample coverage for a training run, in ascending
-    training-step order.
+    training-step order. Only rounds with a published reward metric appear; use the step
+    trajectories route for attempts before reward publication. These rounds do not appear in
+    standalone evaluation-run lists.
 
     Args:
       extra_headers: Send extra headers
@@ -56,8 +58,8 @@ class Rewards(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "limit": limit,
             "cursor": cursor,
+            "limit": limit,
           }
         ),
         extra_headers=extra_headers,
@@ -71,8 +73,8 @@ class Rewards(APIResource):
     self,
     run_id: str,
     *,
-    limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -100,8 +102,8 @@ class Rewards(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "limit": limit,
             "cursor": cursor,
+            "limit": limit,
           }
         ),
         extra_headers=extra_headers,
@@ -116,8 +118,8 @@ class Rewards(APIResource):
     run_id: str,
     step: int,
     *,
-    limit: int | Omit = omit,
     cursor: str | None | Omit = omit,
+    limit: int | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -148,8 +150,8 @@ class Rewards(APIResource):
       options=make_request_options(
         params=maybe_transform(
           {
-            "limit": limit,
             "cursor": cursor,
+            "limit": limit,
           }
         ),
         extra_headers=extra_headers,

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 import os
 import re
+import threading
 from dataclasses import dataclass
 from functools import wraps
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
     Generic,
@@ -15,10 +18,12 @@ from typing import (
     Iterator,
     List,
     Literal,
+    Mapping,
     Optional,
     Sequence,
     TypeVar,
     Union,
+    cast,
     get_args,
     get_origin,
     overload,
@@ -30,7 +35,8 @@ import requests
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from openai.types.chat_model import ChatModel
-from typing_extensions import TypedDict, deprecated
+from types import TracebackType
+from typing_extensions import NotRequired, Self, TypedDict, deprecated
 
 from exa_py.utils import (
     ExaOpenAICompletion,
@@ -47,6 +53,9 @@ from .monitors import SearchMonitorsClient, AsyncSearchMonitorsClient
 from .research import ResearchClient, AsyncResearchClient
 from .agent import AgentNamespace, AsyncAgentNamespace, BetaClient, AsyncBetaClient
 from .agent.betas import headers_for_betas
+from .errors import ExaTimeoutError as ExaTimeoutError
+from .errors import reporting_failover_connect_timeouts, typed_timeouts
+from .request_options import merge_body, merge_headers, merge_query
 from .tools import (
     AsyncAnthropicNamespace,
     AsyncOpenAINamespace,
@@ -56,12 +65,75 @@ from .tools import (
     ToolNamespace,
     _ToolRegistry,
 )
+from .api_warnings import issue_body_warnings, warn_deprecated_fields
 
 
 is_beta = os.getenv("IS_BETA") == "True"
 
 # Default max characters for text contents
 DEFAULT_MAX_CHARACTERS = 10_000
+
+# Default HTTP request timeout in seconds
+DEFAULT_REQUEST_TIMEOUT = 600.0
+
+# Arguments of the search, contents and answer methods that configure the
+# request instead of describing the API payload.
+_NON_BODY_ARGUMENTS = frozenset(
+    {"self", "timeout", "extra_headers", "extra_query", "extra_body"}
+)
+
+
+def _validate_timeout(timeout: Optional[float]) -> Optional[float]:
+    """Use the same positive finite timeout range for Requests and HTTPX.
+
+    The upper bound is `threading.TIMEOUT_MAX`, the longest wait Python
+    supports on the platform: with a longer timeout, Requests would raise
+    OverflowError on every request.
+    """
+    if timeout is not None and (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not math.isfinite(timeout)
+        or timeout <= 0
+        or timeout > threading.TIMEOUT_MAX
+    ):
+        raise ValueError("timeout must be a positive, finite number of seconds or None")
+    return timeout
+
+
+# Longest snippet of a non-JSON response body to include in an error message.
+_NON_JSON_BODY_SNIPPET_LENGTH = 500
+
+
+def _decode_json_body(res: Union[requests.Response, httpx.Response]) -> Any:
+    """Return the decoded JSON body of a successful API response.
+
+    A proxy or gateway in front of the API can answer with an HTML or plain-text
+    page and a 2xx status. Decoding that body raises a JSONDecodeError that names
+    neither the status nor the body, so the error raised here carries both.
+
+    Raises:
+        ValueError: If the body is empty or not valid JSON. The message has the
+            status code and up to 500 characters of the body.
+    """
+    try:
+        return res.json()
+    except ValueError as error:
+        body = " ".join(res.text.split())
+        if not body:
+            message = (
+                "Expected a JSON response but received an empty body "
+                f"(status {res.status_code})."
+            )
+        else:
+            if len(body) > _NON_JSON_BODY_SNIPPET_LENGTH:
+                body = body[:_NON_JSON_BODY_SNIPPET_LENGTH] + "…"
+            message = (
+                "Expected a JSON response but received a non-JSON body "
+                f"(status {res.status_code}): {body}"
+            )
+        raise ValueError(message) from error
+
 
 # Exa-Beta token required for Dynamic Highlights (research preview).
 DYNAMIC_HIGHLIGHTS_BETA = "dynamic-highlights-2026-08-28"
@@ -78,7 +150,7 @@ def _convert_contents_summary_schema(options: Dict[str, Any]) -> None:
 
 
 def _merge_search_body(
-    body: Dict[str, Any], extra_body: Optional[Dict[str, Any]], *, streaming: bool = False
+    body: Dict[str, Any], extra_body: Optional[Mapping[str, Any]], *, streaming: bool = False
 ) -> Dict[str, Any]:
     body = {**body, **(extra_body or {})}
     if streaming:
@@ -184,6 +256,10 @@ def _parse_entities(entities_data: Optional[List[dict]]) -> Optional[List]:
         EntityDateRange,
         EntityPersonPropertiesCompanyRef,
         EntityPersonPropertiesWorkHistoryEntry,
+        EntityPersonPropertiesInstitutionRef,
+        EntityPersonPropertiesEducationHistoryEntry,
+        EntityPersonPropertiesNotableWork,
+        EntityPersonPropertiesResearch,
     )
 
     def parse_date_range(data: Optional[dict]) -> Optional[EntityDateRange]:
@@ -208,6 +284,46 @@ def _parse_entities(entities_data: Optional[List[dict]]) -> Optional[List]:
             location=data.get("location"),
             dates=parse_date_range(data.get("dates")),
             company=parse_company_ref(data.get("company")),
+        )
+
+    def parse_institution_ref(data: Optional[dict]) -> Optional[EntityPersonPropertiesInstitutionRef]:
+        if not data:
+            return None
+        return EntityPersonPropertiesInstitutionRef(
+            id=data.get("id"),
+            name=data.get("name"),
+        )
+
+    def parse_education_history_entry(data: dict) -> EntityPersonPropertiesEducationHistoryEntry:
+        return EntityPersonPropertiesEducationHistoryEntry(
+            degree=data.get("degree"),
+            dates=parse_date_range(data.get("dates")),
+            institution=parse_institution_ref(data.get("institution")),
+        )
+
+    def parse_notable_work(data: dict) -> EntityPersonPropertiesNotableWork:
+        return EntityPersonPropertiesNotableWork(
+            title=data.get("title"),
+            year=data.get("year"),
+            venue=data.get("venue"),
+            citation_count=data.get("citationCount"),
+            doi=data.get("doi"),
+            id=data.get("id"),
+            type=data.get("type"),
+        )
+
+    def parse_research(data: Optional[dict]) -> Optional[EntityPersonPropertiesResearch]:
+        if not data:
+            return None
+        notable_works = data.get("notableWorks")
+        return EntityPersonPropertiesResearch(
+            works_count=data.get("worksCount"),
+            citation_count=data.get("citationCount"),
+            h_index=data.get("hIndex"),
+            first_publication_year=data.get("firstPublicationYear"),
+            latest_publication_year=data.get("latestPublicationYear"),
+            areas=data.get("areas"),
+            notable_works=[parse_notable_work(nw) for nw in notable_works] if notable_works is not None else None,
         )
 
     def parse_funding_round(data: Optional[dict]) -> Optional[EntityCompanyPropertiesFundingRound]:
@@ -255,10 +371,15 @@ def _parse_entities(entities_data: Optional[List[dict]]) -> Optional[List]:
 
     def parse_person_properties(data: dict) -> EntityPersonProperties:
         work_history = data.get("workHistory")
+        education_history = data.get("educationHistory")
         return EntityPersonProperties(
             name=data.get("name"),
             location=data.get("location"),
-            work_history=[parse_work_history_entry(wh) for wh in work_history] if work_history else None,
+            work_history=[parse_work_history_entry(wh) for wh in work_history] if work_history is not None else None,
+            first_name=data.get("firstName"),
+            last_name=data.get("lastName"),
+            education_history=[parse_education_history_entry(eh) for eh in education_history] if education_history is not None else None,
+            research=parse_research(data.get("research")),
         )
 
     entities = []
@@ -301,13 +422,26 @@ SearchType = Literal[
     "deep-reasoning",
     "neural",
     "instant",
+    "lite",
 ]
 """Search type that determines the search algorithm.
+
+We recommend 'lite', 'auto' and 'deep'. 'fast', 'instant' and
+'deep-reasoning' are legacy search types. They are still accepted, and each
+has an alternative. Use 'lite' instead of 'instant'. Use 'lite' instead of
+'fast', or 'auto' when the request needs parameters 'lite' rejects. Instead
+of 'deep-reasoning', use 'deep', or Exa Agent for long-running research,
+list building and multi-hop enrichment. Start an Exa Agent run with
+``exa.agent.runs.create``.
 
 'auto' (default) automatically selects the best approach, 'fast' prioritizes
 speed, 'deep-lite', 'deep', and 'deep-reasoning' are deep-search variants,
 'neural' uses embedding-based semantic search, and 'instant' uses low-latency
-neural search.
+neural search. 'lite' (beta) is a low-cost search that supports a reduced set
+of parameters.
+
+Search methods also accept any other string as ``type`` and pass it through
+to the API as given.
 """
 
 
@@ -335,6 +469,90 @@ DeepOutputSchema = Union[DeepTextOutputSchema, DeepObjectOutputSchema]
 For object schemas, the API enforces max nesting depth 2 and max 10 total properties.
 """
 
+
+class UserLocationCountry(TypedDict):
+    """The user's country only. Equivalent to passing the country code as a string.
+
+    Attributes:
+        country (str): The two-letter ISO 3166-1 country code of the user, e.g. ``"US"``.
+    """
+
+    country: str
+
+
+class UserLocationCoordinates(TypedDict):
+    """The user's coordinates, with an optional country.
+
+    Attributes:
+        latitude (float): The user's latitude in decimal degrees, from -90 to 90.
+        longitude (float): The user's longitude in decimal degrees, from -180 to 180.
+        country (str, optional): The two-letter ISO 3166-1 country code of the user,
+            e.g. ``"US"``.
+    """
+
+    latitude: float
+    longitude: float
+    country: NotRequired[str]
+
+
+UserLocation = Union[UserLocationCountry, UserLocationCoordinates]
+"""The end user's location, as a dict with ``country``, a ``latitude`` and
+``longitude`` pair, or both.
+
+``user_location`` also takes a two-letter ISO 3166-1 country code string, e.g.
+``"US"``. The country localizes results. Coordinates are used only for queries
+that name no place but depend on where the user is, such as "coffee near me".
+They do not set a country, so send ``country`` with them to localize results.
+Send only the precision your use case needs.
+"""
+
+
+def _is_coordinate(value: object, bound: float) -> bool:
+    """Whether `value` is a number of decimal degrees from -`bound` to `bound`."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and -bound <= value <= bound
+    )
+
+
+def _is_user_location_dict(value: Dict[Any, Any]) -> bool:
+    """Whether `value` is a `UserLocationCountry` or a `UserLocationCoordinates`."""
+    if not value or not set(value) <= {"country", "latitude", "longitude"}:
+        return False
+    if "country" in value and not isinstance(value["country"], str):
+        return False
+    if ("latitude" in value) != ("longitude" in value):
+        return False
+    return "latitude" not in value or (
+        _is_coordinate(value["latitude"], 90) and _is_coordinate(value["longitude"], 180)
+    )
+
+
+def _validate_user_location(user_location: object) -> None:
+    """Check a ``user_location`` argument against the forms the API accepts.
+
+    Those are a country code string, ``{"country": str}``, and
+    ``{"latitude": number, "longitude": number}`` with an optional
+    ``"country": str``, with latitude from -90 to 90 and longitude from -180
+    to 180. None means the option is not set. The API checks the country code
+    itself.
+
+    Raises:
+        ValueError: If `user_location` has another type, another key, or a
+            value of another type or range.
+    """
+    if user_location is None or isinstance(user_location, str):
+        return
+    if isinstance(user_location, dict) and _is_user_location_dict(user_location):
+        return
+    raise ValueError(
+        f"Invalid value for option 'user_location': {user_location!r}. Expected a "
+        "two-letter country code string, a dict with 'country', or a dict with "
+        "'latitude' and 'longitude' in decimal degrees and an optional 'country'."
+    )
+
+
 SEARCH_OPTIONS_TYPES = {
     "query": [str],  # The query string.
     "num_results": [int],  # Number of results (Default: 10, Max for basic: 10).
@@ -354,7 +572,10 @@ SEARCH_OPTIONS_TYPES = {
     "end_published_date": [
         str
     ],  # Results before this publish date; excludes links with no date. ISO 8601 format.
-    "user_location": [str],  # Two-letter ISO country code of the user (e.g. US).
+    "user_location": [
+        str,
+        dict,
+    ],  # The end user's location, as a two-letter ISO 3166-1 country code or a UserLocation dict.
     "include_text": [
         list
     ],  # Must be present in webpage text. (One string, up to 5 words)
@@ -364,7 +585,7 @@ SEARCH_OPTIONS_TYPES = {
     "type": [
         SearchType,
         str,
-    ],  # Search type: 'auto', 'fast', 'deep-lite', 'deep', 'deep-reasoning', 'neural', or 'instant' (Default: auto)
+    ],  # Search type: 'auto', 'fast', 'deep-lite', 'deep', 'deep-reasoning', 'neural', 'instant', or 'lite' (Default: auto)
     "category": [str],  # A data category to focus on.
     "flags": [list],  # Experimental flags array for Exa usage.
     "moderation": [bool],  # If true, moderate search results for safety.
@@ -375,6 +596,7 @@ SEARCH_OPTIONS_TYPES = {
     "system_prompt": [str],  # Instructions for search planning and final synthesis across all search types.
     "output_schema": [dict],  # Search output schema: {"type":"text"} or {"type":"object", ...}
     "objective": [str],  # The broader goal the search serves, beyond the query itself (max 4096 chars).
+    "user_identifier": [str],  # Opaque, non-personal identifier of the end user the request is made for.
     "stream": [bool],  # If true, stream back OpenAI-style chat completion chunks.
 }
 
@@ -420,6 +642,29 @@ CONTENTS_ENDPOINT_OPTIONS_TYPES = {
     "flags": [list],  # We allow flags to be passed here too
 }
 
+# Content options that search_and_contents and find_similar_and_contents accept
+# as keyword arguments and send inside the request's ``contents`` object.
+NESTED_CONTENTS_FIELDS = [
+    "text",
+    "summary",
+    "highlights",
+    "context",  # DEPRECATED FIELD: accepted only for backward compatibility.
+    "subpages",
+    "subpage_target",
+    "livecrawl",
+    "livecrawl_timeout",
+    "max_age_hours",
+    "snapshot_as_of",
+    "filter_empty_results",
+    "extras",
+]
+
+# Fields of the /contents request itself rather than content options: they stay
+# at the top level of the body and are not accepted by find_similar.
+CONTENTS_REQUEST_OPTIONS_TYPES = {
+    "user_identifier": [str],  # Opaque, non-personal identifier of the end user the request is made for.
+}
+
 
 def validate_search_options(
     options: Dict[str, Optional[object]], expected: dict
@@ -437,6 +682,10 @@ def validate_search_options(
         if key not in expected:
             raise ValueError(f"Invalid option: '{key}'")
         if value is None:
+            continue
+        if key == "user_location":
+            # The same check as answer() and stream_answer() make.
+            _validate_user_location(value)
             continue
         expected_types = expected[key]
         if not any(is_valid_type(value, t) for t in expected_types):
@@ -564,10 +813,8 @@ class HighlightsContentsOptions(TypedDict, total=False):
             across all results instead of a per-document budget; the model sizes the output itself.
             Not compatible with max_characters. Beta: requires passing
             ``betas=[DYNAMIC_HIGHLIGHTS_BETA]`` to the request.
-        num_sentences (int): DEPRECATED FIELD - do not use in new code. Use max_characters instead.
-            Kept only for backward compatibility.
-        highlights_per_url (int): DEPRECATED FIELD - do not use in new code. Use max_characters instead.
-            Kept only for backward compatibility.
+        num_sentences (int): Deprecated. Use max_characters.
+        highlights_per_url (int): Deprecated. Use max_characters.
     """
 
     query: str
@@ -612,14 +859,15 @@ class ContentsOptions(TypedDict, total=False):
             each document's relevance to the query. Read ``result.highlights``.
             Set ``max_characters`` only for an explicit application character limit.
         summary (SummaryContentsOptions | True): Options for summary generation, or True for defaults.
-        context (ContextContentsOptions | True): DEPRECATED FIELD - do not use in new code.
-            Use ``highlights`` or ``text`` instead. Will be removed in a future version.
+        context (ContextContentsOptions | True): Deprecated. Use ``highlights`` or ``text``.
         max_age_hours (int): Maximum age of cached content in hours. If content is older, it will be
             fetched fresh. Special values: 0 = always fetch fresh content,
             -1 = never fetch fresh (use cached content only). Example: 168 = fetch fresh for pages older than 7 days.
         snapshot_as_of (str): ISO 8601 datetime. Return the newest stored version at or before this instant instead of live content.
-        subpages (int): Number of subpages to crawl.
-        subpage_target (str | List[str]): Target subpage path(s) to crawl.
+        subpages (int): DEPRECATED FIELD - do not use in new code. Subpage crawling on
+            search is deprecated. Call ``get_contents(urls, subpages=...)`` instead.
+        subpage_target (str | List[str]): DEPRECATED FIELD - do not use in new code.
+            Call ``get_contents(urls, subpage_target=...)`` instead.
         extras (ExtrasOptions): Additional extraction options (links, images).
     """
 
@@ -631,8 +879,8 @@ class ContentsOptions(TypedDict, total=False):
     livecrawl_timeout: int
     max_age_hours: int
     snapshot_as_of: str
-    subpages: int
-    subpage_target: Union[str, List[str]]
+    subpages: int  # DEPRECATED FIELD: use get_contents(urls, subpages=...) instead.
+    subpage_target: Union[str, List[str]]  # DEPRECATED FIELD: use get_contents(urls, subpage_target=...) instead.
     extras: ExtrasOptions
 
 
@@ -745,12 +993,100 @@ class EntityPersonPropertiesWorkHistoryEntry:
 
 
 @dataclass
+class EntityPersonPropertiesInstitutionRef:
+    """Reference to an institution in education history.
+
+    Attributes:
+        id (str, optional): Referenced institution identifier.
+        name (str, optional): Referenced institution name.
+    """
+
+    id: Optional[str] = None
+    name: Optional[str] = None
+
+
+@dataclass
+class EntityPersonPropertiesEducationHistoryEntry:
+    """A single education history entry for a person.
+
+    Attributes:
+        degree (str, optional): Degree or credential.
+        dates (EntityDateRange, optional): Education date range.
+        institution (EntityPersonPropertiesInstitutionRef, optional): Education institution.
+    """
+
+    degree: Optional[str] = None
+    dates: Optional[EntityDateRange] = None
+    institution: Optional[EntityPersonPropertiesInstitutionRef] = None
+
+
+@dataclass
+class EntityPersonPropertiesNotableWork:
+    """A notable publication by a person.
+
+    Attributes:
+        title (str, optional): Publication title.
+        year (int, optional): Publication year.
+        venue (str, optional): Publication venue.
+        citation_count (int, optional): Number of works citing this publication.
+        doi (str, optional): Digital Object Identifier.
+        id (str, optional): Resolved publication entity identifier, when available.
+        type (str, optional): Publication type.
+    """
+
+    title: Optional[str] = None
+    year: Optional[int] = None
+    venue: Optional[str] = None
+    citation_count: Optional[int] = None
+    doi: Optional[str] = None
+    id: Optional[str] = None
+    type: Optional[str] = None
+
+
+@dataclass
+class EntityPersonPropertiesResearch:
+    """Research information for a person.
+
+    Attributes:
+        works_count (int, optional): Lifetime number of works.
+        citation_count (int, optional): Lifetime citation count.
+        h_index (int, optional): Research h-index.
+        first_publication_year (int, optional): Year of the first publication.
+        latest_publication_year (int, optional): Year of the latest publication.
+        areas (List[str], optional): Ranked research areas, most active first.
+        notable_works (List[EntityPersonPropertiesNotableWork], optional): Most-cited notable works.
+    """
+
+    works_count: Optional[int] = None
+    citation_count: Optional[int] = None
+    h_index: Optional[int] = None
+    first_publication_year: Optional[int] = None
+    latest_publication_year: Optional[int] = None
+    areas: Optional[List[str]] = None
+    notable_works: Optional[List[EntityPersonPropertiesNotableWork]] = None
+
+
+@dataclass
 class EntityPersonProperties:
-    """Structured properties for a person entity."""
+    """Structured properties for a person entity.
+
+    Attributes:
+        name (str, optional): Person name.
+        location (str, optional): Person location.
+        work_history (List[EntityPersonPropertiesWorkHistoryEntry], optional): Known professional roles for this person.
+        first_name (str, optional): Person first name.
+        last_name (str, optional): Person last name.
+        education_history (List[EntityPersonPropertiesEducationHistoryEntry], optional): Known education history for this person.
+        research (EntityPersonPropertiesResearch, optional): Person research information.
+    """
 
     name: Optional[str] = None
     location: Optional[str] = None
     work_history: Optional[List[EntityPersonPropertiesWorkHistoryEntry]] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    education_history: Optional[List[EntityPersonPropertiesEducationHistoryEntry]] = None
+    research: Optional[EntityPersonPropertiesResearch] = None
 
 
 @dataclass
@@ -1155,6 +1491,139 @@ class StreamChunk:
 
 
 @dataclass
+class ApiWarning:
+    """A warning the Exa API returns about a request, such as a field it ignores.
+
+    A warning never changes the status code or the result. It is for whoever
+    owns the code that builds the request: fix the request, and do not pass the
+    warning to a model. Today /search returns them, in its response and stream.
+
+    Attributes:
+        code (str): Machine-readable code in UPPER_SNAKE case, such as
+            'IGNORED_FIELD' (the field is accepted and has no effect). The set
+            of codes is open, so handle codes you do not know.
+        path (str): JSON Pointer to the request field the warning is about,
+            such as '/startCrawlDate'.
+        message (str): What to change in the request, in plain words.
+    """
+
+    code: str
+    path: str
+    message: str
+
+
+SearchWarning = ApiWarning
+"""A warning about a search request: an `ApiWarning`."""
+
+
+def parse_api_warnings(raw: Any) -> Optional[List[ApiWarning]]:
+    """Parse a response's `warnings` array.
+
+    Args:
+        raw: Raw `warnings` field from the API payload. The API omits the field
+            when there are no warnings.
+
+    Returns:
+        The warnings, or None when the payload carries no `warnings` array.
+        Items without a string `code`, `path` and `message` are skipped, so a
+        malformed warning never fails a request.
+    """
+
+    if not isinstance(raw, list):
+        return None
+
+    return [
+        ApiWarning(code=item["code"], path=item["path"], message=item["message"])
+        for item in raw
+        if isinstance(item, dict)
+        and isinstance(item.get("code"), str)
+        and isinstance(item.get("path"), str)
+        and isinstance(item.get("message"), str)
+    ]
+
+
+parse_search_warnings = parse_api_warnings
+
+
+@dataclass
+class SearchNotice:
+    """A note about how the results of a search were produced.
+
+    For example, a query restriction relaxed to return results. A notice is
+    written to be shown to a model. Pass its `message` to the model that reads
+    the results.
+
+    Attributes:
+        code (str): Machine-readable code in UPPER_SNAKE case, such as
+            'RESTRICTIONS_RELAXED' (no results matched a restriction in the
+            query, so the results come from a search with it removed). The set
+            of codes is open, so handle codes you do not know.
+        path (str): JSON Pointer to the request field the notice is about,
+            such as '/query'.
+        message (str): Complete on its own and written to be shown to a model.
+        details (Dict[str, Any], optional): Extra context, with keys as the API
+            sent them. No schema is promised for its keys, and it never carries
+            information that `message` lacks.
+    """
+
+    code: str
+    path: str
+    message: str
+    details: Optional[Dict[str, Any]] = None
+
+
+def parse_search_notices(raw: Any) -> Optional[List[SearchNotice]]:
+    """Parse the `notices` array of a /search response.
+
+    Args:
+        raw: Raw `notices` field from the API payload. The API omits the field
+            when there are no notices.
+
+    Returns:
+        The notices, or None when the payload carries no `notices` array.
+        Items without a string `code`, `path` and `message` are skipped, so a
+        malformed notice never fails a search. `details` is None unless it is
+        an object.
+    """
+
+    if not isinstance(raw, list):
+        return None
+
+    return [
+        SearchNotice(
+            code=item["code"],
+            path=item["path"],
+            message=item["message"],
+            details=item["details"] if isinstance(item.get("details"), dict) else None,
+        )
+        for item in raw
+        if isinstance(item, dict)
+        and isinstance(item.get("code"), str)
+        and isinstance(item.get("path"), str)
+        and isinstance(item.get("message"), str)
+    ]
+
+
+@dataclass
+class SearchStreamChunk(StreamChunk):
+    """A single chunk of a streaming search response.
+
+    Attributes:
+        content (Optional[str]): The partial text content of the streamed response.
+        citations (Optional[List[AnswerResult]]): List of citations if provided in this chunk.
+        warnings (Optional[List[ApiWarning]]): Notes about the request, such as
+            a field the API ignores. When the API returns any, they arrive on one
+            chunk of their own, after the streamed text.
+    """
+
+    warnings: Optional[List[ApiWarning]] = None
+
+    def has_data(self) -> bool:
+        """Check if this chunk contains any data."""
+        return super().has_data() or bool(self.warnings)
+
+
+@dataclass
 class AnswerResponse:
     """A class representing the response for an answer operation.
 
@@ -1194,6 +1663,7 @@ class StreamAnswerResponse:
                 f"Request failed with status code {self._raw_response.status_code}: {self._raw_response.text}"
             )
 
+    @typed_timeouts
     def __iter__(self) -> Iterator[StreamChunk]:
         for line in self._raw_response.iter_lines():
             if not line:
@@ -1230,9 +1700,18 @@ class StreamAnswerResponse:
                         )
                     )
 
-            stream_chunk = StreamChunk(content=content, citations=citations)
+            stream_chunk = self._build_chunk(chunk, content, citations)
             if stream_chunk.has_data():
                 yield stream_chunk
+
+    def _build_chunk(
+        self,
+        payload: Dict[str, Any],
+        content: Optional[str],
+        citations: Optional[List[AnswerResult]],
+    ) -> StreamChunk:
+        """Build the chunk yielded for one stream payload."""
+        return StreamChunk(content=content, citations=citations)
 
     def close(self) -> None:
         """Close the underlying raw response to release the network socket."""
@@ -1253,71 +1732,167 @@ class AsyncStreamAnswerResponse:
             )
 
     def __aiter__(self):
+        @typed_timeouts
         async def generator():
-            async for line in self._raw_response.aiter_lines():
-                if not line:
-                    continue
-                decoded_line = line.removeprefix("data: ")
-                try:
-                    chunk = json.loads(decoded_line)
-                except json.JSONDecodeError:
-                    continue
+            try:
+                async for line in self._raw_response.aiter_lines():
+                    if not line:
+                        continue
+                    decoded_line = line.removeprefix("data: ")
+                    try:
+                        chunk = json.loads(decoded_line)
+                    except json.JSONDecodeError:
+                        continue
 
-                content = None
-                citations = None
+                    content = None
+                    citations = None
 
-                if "choices" in chunk and chunk["choices"]:
-                    if "delta" in chunk["choices"][0]:
-                        content = chunk["choices"][0]["delta"].get("content")
+                    if "choices" in chunk and chunk["choices"]:
+                        if "delta" in chunk["choices"][0]:
+                            content = chunk["choices"][0]["delta"].get("content")
 
-                if (
-                    "citations" in chunk
-                    and chunk["citations"]
-                    and chunk["citations"] != "null"
-                ):
-                    citations = []
-                    for s in chunk["citations"]:
-                        snake_s = to_snake_case(s)
-                        citations.append(
-                            AnswerResult(
-                                id=snake_s.get("id"),
-                                url=snake_s.get("url"),
-                                title=snake_s.get("title"),
-                                published_date=snake_s.get("published_date"),
-                                author=snake_s.get("author"),
-                                text=snake_s.get("text"),
+                    if (
+                        "citations" in chunk
+                        and chunk["citations"]
+                        and chunk["citations"] != "null"
+                    ):
+                        citations = []
+                        for s in chunk["citations"]:
+                            snake_s = to_snake_case(s)
+                            citations.append(
+                                AnswerResult(
+                                    id=snake_s.get("id"),
+                                    url=snake_s.get("url"),
+                                    title=snake_s.get("title"),
+                                    published_date=snake_s.get("published_date"),
+                                    author=snake_s.get("author"),
+                                    text=snake_s.get("text"),
+                                )
                             )
-                        )
 
-                stream_chunk = StreamChunk(content=content, citations=citations)
-                if stream_chunk.has_data():
-                    yield stream_chunk
+                    stream_chunk = self._build_chunk(chunk, content, citations)
+                    if stream_chunk.has_data():
+                        yield stream_chunk
+            finally:
+                await self._raw_response.aclose()
 
         return generator()
 
+    def _build_chunk(
+        self,
+        payload: Dict[str, Any],
+        content: Optional[str],
+        citations: Optional[List[AnswerResult]],
+    ) -> StreamChunk:
+        """Build the chunk yielded for one stream payload."""
+        return StreamChunk(content=content, citations=citations)
+
+    async def aclose(self) -> None:
+        """Close the async response to release the network socket."""
+        await self._raw_response.aclose()
+
     def close(self) -> None:
-        """Close the underlying raw response to release the network socket."""
-        self._raw_response.close()
+        """Preserve the legacy method name with guidance for async callers."""
+        raise RuntimeError("Use `await stream.aclose()` for asynchronous streams")
 
 
 class StreamSearchResponse(StreamAnswerResponse):
-    """A class representing a streaming search response."""
+    """A class representing a streaming search response.
+
+    Iterating yields SearchStreamChunk objects with partial text and citations,
+    and one chunk with the request's warnings when the API returns any.
+    """
+
+    def __iter__(self) -> Iterator[SearchStreamChunk]:
+        return cast(Iterator[SearchStreamChunk], super().__iter__())
+
+    def _build_chunk(
+        self,
+        payload: Dict[str, Any],
+        content: Optional[str],
+        citations: Optional[List[AnswerResult]],
+    ) -> SearchStreamChunk:
+        """Build the chunk yielded for one stream payload, with its warnings."""
+        issue_body_warnings("/search", "POST", payload)
+        return SearchStreamChunk(
+            content=content,
+            citations=citations,
+            warnings=parse_search_warnings(payload.get("warnings")),
+        )
 
 
 class AsyncStreamSearchResponse(AsyncStreamAnswerResponse):
-    """A class representing a streaming search response."""
+    """A class representing a streaming search response.
+
+    Iterating yields SearchStreamChunk objects with partial text and citations,
+    and one chunk with the request's warnings when the API returns any.
+    """
+
+    def __aiter__(self) -> AsyncIterator[SearchStreamChunk]:
+        return cast(AsyncIterator[SearchStreamChunk], super().__aiter__())
+
+    def _build_chunk(
+        self,
+        payload: Dict[str, Any],
+        content: Optional[str],
+        citations: Optional[List[AnswerResult]],
+    ) -> SearchStreamChunk:
+        """Build the chunk yielded for one stream payload, with its warnings."""
+        issue_body_warnings("/search", "POST", payload)
+        return SearchStreamChunk(
+            content=content,
+            citations=citations,
+            warnings=parse_search_warnings(payload.get("warnings")),
+        )
 
 
 T = TypeVar("T")
 
 
 @dataclass
+class ContentStatusError:
+    """Error details for a URL whose content could not be retrieved.
+
+    Attributes:
+        tag (str, optional): Specific error type.
+        http_status_code (int, optional): The corresponding HTTP status code.
+    """
+
+    tag: Optional[str] = None
+    http_status_code: Optional[int] = None
+
+
+@dataclass
 class ContentStatus:
-    """A class representing the status of a content retrieval operation."""
+    """A class representing the status of a content retrieval operation.
+
+    Attributes:
+        id (str): The URL or document ID that was requested.
+        status (str): Status of the content fetch operation.
+        source (str, optional): Where the returned content was sourced from.
+        error (ContentStatusError, optional): Error details, only present when status is "error".
+    """
 
     id: str
     status: str
-    source: str
+    source: Optional[str] = None
+    error: Optional[ContentStatusError] = None
+
+
+def _parse_content_status(raw: Dict[str, Any]) -> ContentStatus:
+    """Build a ContentStatus from one entry of a contents response's `statuses`."""
+    error = raw.get("error")
+    return ContentStatus(
+        id=raw.get("id"),
+        status=raw.get("status"),
+        source=raw.get("source"),
+        error=ContentStatusError(
+            tag=error.get("tag"),
+            http_status_code=error.get("httpStatusCode"),
+        )
+        if isinstance(error, dict)
+        else None,
+    )
 
 
 @dataclass
@@ -1328,14 +1903,18 @@ class SearchResponse(Generic[T]):
         results (List[Result]): A list of search results.
         resolved_search_type (str, optional): 'neural' or 'keyword' if auto.
         auto_date (str, optional): A date for filtering if autoprompt found one.
-        context (str, optional): DEPRECATED FIELD - do not use in new code.
-            Combined context string from legacy context responses. Use highlights, text, or output instead.
+        context (str, optional): Deprecated. Combined context string. Use highlights, text, or output.
         output (DeepSearchOutput, optional): Search synthesized output object returned
             when output_schema is provided, containing content and field-level
             grounding.
         statuses (List[ContentStatus], optional): Status list from get_contents.
         cost_dollars (CostDollars, optional): Cost breakdown.
         search_time (float, optional): Time taken for the search in milliseconds.
+        warnings (List[ApiWarning], optional): Notes about the search request,
+            such as a field the API ignores. None when the API returned none.
+        notices (List[SearchNotice], optional): Notes about how the results were
+            produced, written to be shown to a model. None when the API
+            returned none.
     """
 
     results: List[T]
@@ -1346,6 +1925,8 @@ class SearchResponse(Generic[T]):
     statuses: Optional[List[ContentStatus]] = None
     cost_dollars: Optional[CostDollars] = None
     search_time: Optional[float] = None
+    warnings: Optional[List[ApiWarning]] = None
+    notices: Optional[List[SearchNotice]] = None
 
     def __str__(self):
         output = "\n\n".join(str(result) for result in self.results)
@@ -1478,6 +2059,72 @@ def nest_fields(original_dict: Dict, fields_to_nest: List[str], new_key: str):
     return original_dict
 
 
+# A timeout bounds connecting and the wait for a response to start, never a
+# stream that is flowing: once a successful streamed response's headers have
+# arrived, its events may come as far apart as the server sends them. An error
+# response is read whole, under the timeout, for the error message.
+
+
+def _body_socket(raw: Any) -> Any:
+    """Return the socket a urllib3 response reads its body from, or None.
+
+    http.client reads the body through a file object made from the socket
+    (``raw._fp.fp.raw._sock`` on urllib3 1.26 and 2.x). A response that ends
+    the connection (``Connection: close``, HTTP/1.0) is handed the socket and
+    the connection lets go of it, so the file object is the one way to reach
+    it; ``raw.connection.sock`` is the same socket while the connection stays
+    open.
+    """
+    body_file = getattr(getattr(raw, "_fp", None), "fp", None)
+    sock = getattr(getattr(body_file, "raw", None), "_sock", None)
+    if sock is None:
+        sock = getattr(getattr(raw, "connection", None), "sock", None)
+    return sock
+
+
+def _started_stream(response: requests.Response) -> requests.Response:
+    """Return a streamed Requests response with its body untimed, or raise for an error status.
+
+    Requests applies the read timeout to the socket, which urllib3 then reads
+    the body through, so the socket's timeout is cleared.
+
+    Raises:
+        ValueError: If the response has an error status.
+    """
+    if response.status_code >= 400:
+        message = f"Request failed with status code {response.status_code}: {response.text}"
+        response.close()
+        raise ValueError(message)
+    if 200 <= response.status_code < 300:
+        sock = _body_socket(response.raw)
+        if sock is not None:
+            sock.settimeout(None)
+    return response
+
+
+async def _started_async_stream(response: httpx.Response) -> httpx.Response:
+    """Return a streamed HTTPX response with its body untimed, or raise for an error status.
+
+    HTTPX hands its request's ``timeout`` extension to the connection, which
+    looks up the read timeout when the body starts to be read, so a read
+    timeout of None set there now leaves the body untimed.
+
+    Raises:
+        ValueError: If the response has an error status.
+    """
+    if response.status_code >= 400:
+        body = await response.aread()
+        await response.aclose()
+        error_text = body.decode(errors="replace")
+        raise ValueError(
+            f"Request failed with status code {response.status_code}: {error_text}"
+        )
+    if 200 <= response.status_code < 300:
+        extensions = response.request.extensions
+        extensions["timeout"] = {**extensions.get("timeout", {}), "read": None}
+    return response
+
+
 class Exa:
     """A client for interacting with Exa API."""
 
@@ -1486,6 +2133,7 @@ class Exa:
         api_key: Optional[str] = None,
         base_url: str = "https://api.exa.ai",
         user_agent: Optional[str] = None,
+        timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
     ):
         """Initialize the Exa client with the provided API key and optional base URL and user agent.
 
@@ -1494,6 +2142,9 @@ class Exa:
                 Defaults to the EXA_API_KEY environment variable.
             base_url (str, optional): The base URL for the Exa API. Defaults to "https://api.exa.ai".
             user_agent (str, optional): Custom user agent. Defaults to "exa-py {version}".
+            timeout (float, optional): Default timeout in seconds for API requests.
+                Defaults to 600. Pass ``None`` to disable. Methods that accept
+                ``timeout`` can override this per call.
         """
         if api_key is None:
             api_key = os.environ.get("EXA_API_KEY")
@@ -1507,6 +2158,7 @@ class Exa:
             user_agent = f"exa-py/{_get_package_version()}"
 
         self.base_url = base_url
+        self.timeout = _validate_timeout(timeout)
         self.headers = {
             "x-api-key": api_key,
             "User-Agent": user_agent,
@@ -1525,6 +2177,7 @@ class Exa:
         self.openai = OpenAINamespace(self, self._tool_registry)
         self.anthropic = AnthropicNamespace(self, self._tool_registry)
 
+    @typed_timeouts
     def request(
         self,
         endpoint: str,
@@ -1532,6 +2185,10 @@ class Exa:
         method: str = "POST",
         params: Optional[Dict[str, Any]] = None,
         headers: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> Union[Dict[str, Any], requests.Response]:
         """Send a request to the Exa API, optionally streaming if data['stream'] is True.
 
@@ -1541,14 +2198,50 @@ class Exa:
             method (str, optional): The HTTP method to use. Defaults to "POST".
             params (Dict[str, Any], optional): Query parameters to include. Defaults to None.
             headers (Dict[str, str], optional): Additional headers to include in the request. Defaults to None.
+            timeout (float, optional): Timeout in seconds for this request.
+                Defaults to the client timeout. It bounds connecting and each wait
+                for data from the server, not the whole call. For a streamed
+                response it bounds the wait for the response to start. Once a
+                successful response's headers have arrived, the stream is read
+                with no timeout. An error response is read whole under it.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers. A header
+                the client already sets is replaced, case-insensitively. Headers set to
+                None are skipped. They do not change whether the response streams.
+                ``data``, ``params`` and ``headers`` decide that. An
+                ``Accept: text/event-stream`` set in ``headers``, as the Agent streams set
+                it, stays. Any other ``Accept``, such as the default one the other streams
+                send, is replaced.
+            extra_query (Mapping[str, Any], optional): Extra query parameters, except
+                ``stream``. Parameters set to None are skipped. On a GET request they
+                are merged over ``params``.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON
+                payload of a POST or PATCH request, except ``stream``.
 
         Returns:
             Union[dict, requests.Response]: If streaming, returns the Response object.
             Otherwise, returns the JSON-decoded response as a dict.
 
         Raises:
-            ValueError: If the request fails (non-200 status code).
+            ValueError: If the request fails (non-200 status code), or a successful
+                response's body is not JSON.
+            ExaTimeoutError: If connecting, waiting for the response to start, or
+                waiting for more of a response that is not streamed exceeds the
+                timeout. It is also an instance of the exception Requests raised. That
+                is a requests.exceptions.Timeout subclass while connecting or waiting
+                for the response to start, and requests.exceptions.ConnectionError when
+                the response stalls after it started. A connect timeout is a
+                requests.exceptions.ConnectTimeout, which is also a ConnectionError.
+            TypeError: If ``extra_body`` is given with a pre-serialized string payload.
         """
+        if method.upper() in ("POST", "PATCH"):
+            data = merge_body(data, extra_body)
+            warn_deprecated_fields(endpoint, data)
+        # GET requests send `params` with the extra query merged over them; the
+        # other methods send only the query string the call adds.
+        extra_params = merge_query(None, extra_query)
+        query_kwargs: Dict[str, Any] = {"params": extra_params} if extra_params else {}
+        params = merge_query(params, extra_query)
+
         # Handle the case when data is a string
         if isinstance(data, str):
             # Use the string directly as the data payload
@@ -1563,65 +2256,81 @@ class Exa:
         if headers:
             request_headers.update(headers)
 
-        # Check if we need streaming (either from data, params, or SSE Accept header)
+        # Check if we need streaming (either from data, params, or SSE Accept header).
+        # Decided before the extra headers are applied: they change what is sent,
+        # not how the response is read. merge_body and merge_query never take
+        # `stream` from the extras for the same reason.
         needs_streaming = (
             (data and isinstance(data, dict) and data.get("stream"))
             or (params and params.get("stream") == "true")
             or request_headers.get("Accept") == "text/event-stream"
         )
+        request_headers = merge_headers(request_headers, extra_headers)
 
-        if method.upper() == "GET":
-            if needs_streaming:
-                res = requests.get(
-                    self.base_url + endpoint,
-                    headers=request_headers,
-                    params=params,
-                    stream=True,
-                )
-                if res.status_code >= 400:
-                    message = (
-                        f"Request failed with status code {res.status_code}: {res.text}"
+        request_timeout = _validate_timeout(timeout) if timeout is not None else self.timeout
+
+        with reporting_failover_connect_timeouts(request_timeout):
+            if method.upper() == "GET":
+                if needs_streaming:
+                    res = requests.get(
+                        self.base_url + endpoint,
+                        headers=request_headers,
+                        params=params,
+                        stream=True,
+                        timeout=request_timeout,
                     )
-                    res.close()
-                    raise ValueError(message)
-                return res
-            else:
-                res = requests.get(
-                    self.base_url + endpoint, headers=request_headers, params=params
-                )
-        elif method.upper() == "POST":
-            if needs_streaming:
-                res = requests.post(
+                    return _started_stream(res)
+                else:
+                    res = requests.get(
+                        self.base_url + endpoint,
+                        headers=request_headers,
+                        params=params,
+                        timeout=request_timeout,
+                    )
+            elif method.upper() == "POST":
+                if needs_streaming:
+                    res = requests.post(
+                        self.base_url + endpoint,
+                        data=json_data,
+                        headers=request_headers,
+                        stream=True,
+                        timeout=request_timeout,
+                        **query_kwargs,
+                    )
+                    return _started_stream(res)
+                else:
+                    res = requests.post(
+                        self.base_url + endpoint,
+                        data=json_data,
+                        headers=request_headers,
+                        timeout=request_timeout,
+                        **query_kwargs,
+                    )
+            elif method.upper() == "PATCH":
+                res = requests.patch(
                     self.base_url + endpoint,
                     data=json_data,
                     headers=request_headers,
-                    stream=True,
+                    timeout=request_timeout,
+                    **query_kwargs,
                 )
-                if res.status_code >= 400:
-                    message = (
-                        f"Request failed with status code {res.status_code}: {res.text}"
-                    )
-                    res.close()
-                    raise ValueError(message)
-                return res
+            elif method.upper() == "DELETE":
+                res = requests.delete(
+                    self.base_url + endpoint,
+                    headers=request_headers,
+                    timeout=request_timeout,
+                    **query_kwargs,
+                )
             else:
-                res = requests.post(
-                    self.base_url + endpoint, data=json_data, headers=request_headers
-                )
-        elif method.upper() == "PATCH":
-            res = requests.patch(
-                self.base_url + endpoint, data=json_data, headers=request_headers
-            )
-        elif method.upper() == "DELETE":
-            res = requests.delete(self.base_url + endpoint, headers=request_headers)
-        else:
-            raise ValueError(f"Unsupported HTTP method: {method}")
+                raise ValueError(f"Unsupported HTTP method: {method}")
 
         if res.status_code >= 400:
             raise ValueError(
                 f"Request failed with status code {res.status_code}: {res.text}"
             )
-        return res.json()
+        payload = _decode_json_body(res)
+        issue_body_warnings(endpoint, method, payload, res.headers.get("x-request-id"))
+        return payload
 
     def search(
         self,
@@ -1642,13 +2351,18 @@ class Exa:
         category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
         objective: Optional[str] = None,
+        user_identifier: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+
     ) -> SearchResponse[Result]:
         """Perform a search.
 
@@ -1665,7 +2379,7 @@ class Exa:
         max characters by default.
 
         Args:
-            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
+            extra_body (Optional[Mapping[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             stream (bool, optional): If True, stream the synthesized search response.
                 Use ``stream_search(...)`` instead of ``search(..., stream=True)``.
@@ -1673,8 +2387,6 @@ class Exa:
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
                 For AI context, prefer {"highlights": True} for relevance-based sizing
                 and read result.highlights. See ContentsOptions for all options.
-                DEPRECATED FIELD WARNING: ``contents.context`` is deprecated;
-                use ``highlights`` or ``text`` instead.
             num_results (int, optional): Number of search results to return. Default 10.
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -1685,12 +2397,14 @@ class Exa:
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
             type (SearchType, optional): Search type - 'auto' (default), 'fast',
-                'deep-lite', 'deep', 'deep-reasoning', 'neural', or 'instant'.
+                'deep-lite', 'deep', 'deep-reasoning', 'neural', 'instant', or 'lite'
+                (beta: low-cost, reduced parameter set).
             category (Category, optional): Data category to focus on (e.g.
                 'company', 'news', 'publication').
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
-            user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
             additional_queries (List[str], optional): Alternative query formulations for deep search to skip
                 automatic LLM-based query expansion. Max 5 queries. Only applicable when type is
                 'deep-lite', 'deep', or 'deep-reasoning'.
@@ -1709,8 +2423,18 @@ class Exa:
                 as one step of a larger task, pass the goal of that step: which documents
                 should rank first, which should be excluded, and what to pull from them.
                 Up to 4096 characters.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
             betas (Sequence[str], optional): Exa-Beta tokens to send with the request
                 (e.g. ``[DYNAMIC_HIGHLIGHTS_BETA]`` for Dynamic Highlights).
+            timeout (float, optional): Per-operation network inactivity timeout in seconds. Defaults to the client timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
 
         Returns:
             SearchResponse: The response containing search results, etc.
@@ -1745,7 +2469,8 @@ class Exa:
         options = {
             k: v
             for k, v in locals().items()
-            if k not in ("self", "extra_body") and v is not None
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+
         }
         options.pop("stream", None)
         options.pop("betas", None)
@@ -1765,7 +2490,15 @@ class Exa:
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema", "schema"])
         options = _merge_search_body(options, extra_body)
-        data = self.request("/search", options, headers=headers_for_betas(betas))
+        data = self.request(
+            "/search",
+            options,
+            headers=headers_for_betas(betas),
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+        )
+
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -1799,6 +2532,8 @@ class Exa:
             output=parse_deep_search_output(data.get("output")),
             cost_dollars=cost_dollars,
             search_time=data.get("searchTime"),
+            warnings=parse_search_warnings(data.get("warnings")),
+            notices=parse_search_notices(data.get("notices")),
         )
 
     def stream_search(
@@ -1819,22 +2554,25 @@ class Exa:
         category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
         objective: Optional[str] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        user_identifier: Optional[str] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+
     ) -> StreamSearchResponse:
         """Generate a streaming search response.
 
         Args:
-            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
+            extra_body (Optional[Mapping[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
-                DEPRECATED FIELD WARNING: ``contents.context`` is deprecated;
-                use ``highlights`` or ``text`` instead.
             num_results (int, optional): Number of search results to return. Default 10.
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -1849,16 +2587,30 @@ class Exa:
             category (Category, optional): Data category to focus on.
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
-            user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
             additional_queries (List[str], optional): Alternative query formulations for deep search.
             system_prompt (str, optional): Instructions that guide the search process and streamed synthesis.
             output_schema (DeepOutputSchema, optional): Search output schema for structured synthesis.
-            objective (str, optional): The broader goal this search serves: the task the caller
-                is working on, beyond the query itself.
+            objective (str, optional): The broader goal this search serves: the task the
+                caller is working on, beyond the query itself. Up to 4096 characters.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+                It bounds the wait for the stream to start. A stream that has started is not timed.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+
 
         Returns:
             StreamSearchResponse: An iterator yielding OpenAI-style streaming chunks with
-                partial ``content`` and optional ``citations``.
+                partial ``content`` and optional ``citations``. When the API returns
+                ``warnings`` about the request, one chunk after the text carries them.
 
         Examples:
             stream = exa.stream_search(
@@ -1873,7 +2625,8 @@ class Exa:
         options = {
             k: v
             for k, v in locals().items()
-            if k not in ("self", "extra_body") and v is not None
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+
         }
 
         if contents is False:
@@ -1886,7 +2639,14 @@ class Exa:
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema"])
         options = _merge_search_body(options, extra_body, streaming=True)
-        raw_response = self.request("/search", options)
+        raw_response = self.request(
+            "/search",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+        )
+
         return StreamSearchResponse(raw_response)
 
     @deprecated(
@@ -1897,14 +2657,18 @@ class Exa:
         self,
         query: str,
         *,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
         **kwargs: Any,
     ) -> SearchResponse[Result]:
         """
         DEPRECATED: Use search() instead. The search() method now returns text contents by default.
 
         Args:
-            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
+            extra_body (Optional[Mapping[str, Any]]): Per-call body overrides, except stream.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
 
         Migration:
         - search_and_contents(query) → search(query)
@@ -1912,6 +2676,7 @@ class Exa:
         - search_and_contents(query, summary=True) → search(query, contents={"summary": True})
         """
 
+        timeout = kwargs.pop("timeout", None)
         options = {"query": query}
         for k, v in kwargs.items():
             if v is not None:
@@ -1937,26 +2702,17 @@ class Exa:
                 summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
         # Nest the appropriate fields under "contents"
-        options = nest_fields(
-            options,
-            [
-                "text",
-                "summary",
-                "highlights",
-                "context",  # DEPRECATED FIELD: accepted only for backward compatibility.
-                "subpages",
-                "subpage_target",
-                "livecrawl",
-                "livecrawl_timeout",
-                "max_age_hours",
-                "snapshot_as_of",
-                "extras",
-            ],
-            "contents",
-        )
+        options = nest_fields(options, NESTED_CONTENTS_FIELDS, "contents")
         options = to_camel_case(options, skip_keys=["schema"])
         options = _merge_search_body(options, extra_body)
-        data = self.request("/search", options)
+        data = self.request(
+            "/search",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+        )
+
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -1990,12 +2746,15 @@ class Exa:
             output=parse_deep_search_output(data.get("output")),
             cost_dollars=cost_dollars,
             search_time=data.get("searchTime"),
+            warnings=parse_search_warnings(data.get("warnings")),
+            notices=parse_search_notices(data.get("notices")),
         )
 
     @overload
     def get_contents(
         self,
         urls: Union[str, List[str], List[_Result]],
+        *,
         livecrawl_timeout: Optional[int] = None,
         livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
         max_age_hours: Optional[int] = None,
@@ -2005,7 +2764,12 @@ class Exa:
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
         flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithText]: ...
 
     @overload
@@ -2023,7 +2787,12 @@ class Exa:
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
         flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithText]: ...
 
     @overload
@@ -2041,7 +2810,12 @@ class Exa:
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
         flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithSummary]: ...
 
     @overload
@@ -2060,8 +2834,43 @@ class Exa:
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
         flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithTextAndSummary]: ...
+
+    # Every content option the method accepts, for the calls the overloads above
+    # do not cover (highlights, metadata, context, or False for text or
+    # summary). The result type is not narrowed for them.
+    @overload
+    def get_contents(
+        self,
+        urls: Union[str, List[str], List[_Result]],
+        *,
+        text: Optional[Union[TextContentsOptions, bool]] = None,
+        summary: Optional[Union[SummaryContentsOptions, bool]] = None,
+        highlights: Optional[Union[HighlightsContentsOptions, bool]] = None,
+        metadata: Optional[Union[Dict[str, Any], bool]] = None,
+        context: Optional[Union[ContextContentsOptions, bool]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
+        betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[Any]: ...
 
     def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
         """Retrieve contents for a list of URLs.
@@ -2079,8 +2888,19 @@ class Exa:
             subpage_target (str | List[str], optional): Target subpages to retrieve.
             extras (ExtrasOptions, optional): Options for extra content (links, image_links).
             flags (List[str], optional): Experimental flags.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
             betas (Sequence[str], optional): Exa-Beta tokens to send with the request
                 (e.g. ``[DYNAMIC_HIGHLIGHTS_BETA]`` for Dynamic Highlights).
+            timeout (float, optional): Per-operation network inactivity timeout in seconds. Defaults to the client timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             SearchResponse[Result]: The response containing the contents of the URLs.
@@ -2103,6 +2923,10 @@ class Exa:
             urls = [r.url for r in urls]
 
         betas = kwargs.pop("betas", None)
+        timeout = kwargs.pop("timeout", None)
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        extra_body = kwargs.pop("extra_body", None)
 
         options = {"urls": urls}
         for k, v in kwargs.items():
@@ -2119,6 +2943,7 @@ class Exa:
         merged_options = {}
         merged_options.update(CONTENTS_OPTIONS_TYPES)
         merged_options.update(CONTENTS_ENDPOINT_OPTIONS_TYPES)
+        merged_options.update(CONTENTS_REQUEST_OPTIONS_TYPES)
         validate_search_options(options, merged_options)
 
         # Convert schema if present in summary options
@@ -2128,17 +2953,17 @@ class Exa:
                 summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
         options = to_camel_case(options, ["schema"])
-        data = self.request("/contents", options, headers=headers_for_betas(betas))
+        data = self.request(
+            "/contents",
+            options,
+            headers=headers_for_betas(betas),
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
-        statuses = []
-        for status in data.get("statuses", []):
-            statuses.append(
-                ContentStatus(
-                    id=status.get("id"),
-                    status=status.get("status"),
-                    source=status.get("source"),
-                )
-            )
+        statuses = [_parse_content_status(status) for status in data.get("statuses", [])]
         results = []
         for result in data["results"]:
             snake_result = to_snake_case(result)
@@ -2191,6 +3016,10 @@ class Exa:
         exclude_source_domain: Optional[bool] = None,
         category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[Result]:
         """DEPRECATED METHOD: find_similar()/findSimilar is deprecated. Use search() instead.
 
@@ -2206,8 +3035,6 @@ class Exa:
             contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
                 See ContentsOptions for available options (text, highlights, summary, etc.).
-                DEPRECATED FIELD WARNING: ``contents.context`` is deprecated;
-                use ``highlights`` or ``text`` instead.
             num_results (int, optional): Number of results to return. Default is None (server default).
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -2221,6 +3048,10 @@ class Exa:
             category (Category, optional): Data category to focus on (e.g.
                 'company', 'news', 'publication').
             flags (List[str], optional): Experimental flags.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             SearchResponse[Result]
@@ -2232,7 +3063,11 @@ class Exa:
                 num_results=2,
             )
         """
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+        }
 
         # Handle contents parameter with default behavior
         if contents is False:
@@ -2247,7 +3082,14 @@ class Exa:
 
         validate_search_options(options, FIND_SIMILAR_OPTIONS_TYPES)
         options = to_camel_case(options)
-        data = self.request("/findSimilar", options)
+        data = self.request(
+            "/findSimilar",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -2310,6 +3152,10 @@ class Exa:
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithText]: ...
 
     @overload
@@ -2342,6 +3188,10 @@ class Exa:
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithText]: ...
 
     @overload
@@ -2374,6 +3224,10 @@ class Exa:
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithText]: ...
 
     @overload
@@ -2406,6 +3260,10 @@ class Exa:
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithSummary]: ...
 
     @overload
@@ -2439,7 +3297,54 @@ class Exa:
         subpages: Optional[int] = None,
         subpage_target: Optional[Union[str, List[str]]] = None,
         extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[ResultWithTextAndSummary]: ...
+
+    # Every content option the method accepts, for the calls the overloads above
+    # do not cover (highlights, metadata, context, or False for text or
+    # summary). The result type is not narrowed for them.
+    @overload
+    @deprecated(
+        "find_similar_and_contents() is deprecated. Use search() instead; "
+        "search() returns text contents by default."
+    )
+    def find_similar_and_contents(
+        self,
+        url: str,
+        *,
+        text: Optional[Union[TextContentsOptions, bool]] = None,
+        summary: Optional[Union[SummaryContentsOptions, bool]] = None,
+        highlights: Optional[Union[HighlightsContentsOptions, bool]] = None,
+        metadata: Optional[Union[Dict[str, Any], bool]] = None,
+        context: Optional[Union[ContextContentsOptions, bool]] = None,
+        num_results: Optional[int] = None,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        start_crawl_date: Optional[str] = None,
+        end_crawl_date: Optional[str] = None,
+        start_published_date: Optional[str] = None,
+        end_published_date: Optional[str] = None,
+        include_text: Optional[List[str]] = None,
+        exclude_text: Optional[List[str]] = None,
+        exclude_source_domain: Optional[bool] = None,
+        category: Optional[Category] = None,
+        flags: Optional[List[str]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[Any]: ...
 
     @deprecated(
         "find_similar_and_contents() is deprecated. Use search() instead; "
@@ -2455,6 +3360,10 @@ class Exa:
         - find_similar_and_contents(url, summary=True) → search(f"pages similar to {url}", contents={"summary": True})
         """
 
+        timeout = kwargs.pop("timeout", None)
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        extra_body = kwargs.pop("extra_body", None)
         options = {"url": url}
         for k, v in kwargs.items():
             if v is not None:
@@ -2476,25 +3385,16 @@ class Exa:
                 summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
         # We nest the content fields
-        options = nest_fields(
-            options,
-            [
-                "text",
-                "summary",
-                "highlights",
-                "context",  # DEPRECATED FIELD: accepted only for backward compatibility.
-                "subpages",
-                "subpage_target",
-                "livecrawl",
-                "livecrawl_timeout",
-                "max_age_hours",
-                "snapshot_as_of",
-                "extras",
-            ],
-            "contents",
-        )
+        options = nest_fields(options, NESTED_CONTENTS_FIELDS, "contents")
         options = to_camel_case(options, skip_keys=["schema"])
-        data = self.request("/findSimilar", options)
+        data = self.request(
+            "/findSimilar",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -2673,7 +3573,12 @@ class Exa:
         system_prompt: Optional[str] = None,
         model: Optional[Literal["exa", "exa-pro"]] = None,
         output_schema: Optional[JSONSchemaInput] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
+        user_identifier: Optional[str] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> Union[AnswerResponse, StreamAnswerResponse]: ...
 
     def answer(
@@ -2685,7 +3590,12 @@ class Exa:
         system_prompt: Optional[str] = None,
         model: Optional[Literal["exa", "exa-pro"]] = None,
         output_schema: Optional[JSONSchemaInput] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
+        user_identifier: Optional[str] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> Union[AnswerResponse, StreamAnswerResponse]:
         """Generate an answer to a query using Exa's search and LLM capabilities.
 
@@ -2695,6 +3605,19 @@ class Exa:
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             AnswerResponse: An object containing the answer and citations.
@@ -2721,14 +3644,26 @@ class Exa:
                 "Please use `stream_answer(...)` for streaming."
             )
 
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        _validate_user_location(user_location)
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+        }
 
         # Convert output_schema if present
         if "output_schema" in options and options["output_schema"] is not None:
             options["output_schema"] = _convert_schema_input(options["output_schema"])
 
         options = to_camel_case(options, ["output_schema"])
-        response = self.request("/answer", options)
+        response = self.request(
+            "/answer",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
 
         citations = []
         for result in response["citations"]:
@@ -2754,7 +3689,12 @@ class Exa:
         system_prompt: Optional[str] = None,
         model: Optional[Literal["exa", "exa-pro"]] = None,
         output_schema: Optional[JSONSchemaInput] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
+        user_identifier: Optional[str] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> StreamAnswerResponse:
         """Generate a streaming answer response.
 
@@ -2764,6 +3704,20 @@ class Exa:
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+                It bounds the wait for the stream to start. A stream that has started is not timed.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             StreamAnswerResponse: An object that can be iterated over to retrieve (partial text, partial citations).
@@ -2779,7 +3733,12 @@ class Exa:
                     for citation in chunk.citations:
                         print("Citation found:", citation.url)
         """
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        _validate_user_location(user_location)
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+        }
 
         # Convert output_schema if present
         if "output_schema" in options and options["output_schema"] is not None:
@@ -2787,17 +3746,53 @@ class Exa:
 
         options = to_camel_case(options, skip_keys=["output_schema"])
         options["stream"] = True
-        raw_response = self.request("/answer", options)
+        raw_response = self.request(
+            "/answer",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         return StreamAnswerResponse(raw_response)
 
 
 class AsyncExa(Exa):
+    # The async clients that replace the sync ones `Exa.__init__` sets, declared
+    # so that type checkers which take an attribute's type from the class that
+    # first assigns it see the async types on AsyncExa.
+    research: AsyncResearchClient  # type: ignore[assignment]
+    websets: AsyncWebsetsClient  # type: ignore[assignment]
+    monitors: AsyncSearchMonitorsClient  # type: ignore[assignment]
+    agent: AsyncAgentNamespace  # type: ignore[assignment]
+    beta: AsyncBetaClient  # type: ignore[assignment]
+    tools: AsyncToolNamespace
+    openai: AsyncOpenAINamespace
+    anthropic: AsyncAnthropicNamespace
+    _client: Optional[httpx.AsyncClient]
+
     def __init__(
         self,
         api_key: Optional[str] = None,
         api_base: str = "https://api.exa.ai",
+        timeout: Optional[float] = DEFAULT_REQUEST_TIMEOUT,
     ):
-        super().__init__(api_key, api_base)
+        """Initialize the asynchronous Exa client.
+
+        Args:
+            api_key (str, optional): The API key for authenticating with the Exa API.
+                Defaults to the EXA_API_KEY environment variable.
+            api_base (str, optional): The base URL for the Exa API. Defaults to "https://api.exa.ai".
+            timeout (float, optional): Default timeout in seconds for API requests.
+                Defaults to 600. Pass ``None`` to disable. Methods that accept
+                ``timeout`` can override this per call. Cancel in-flight requests
+                by cancelling the awaiting asyncio task.
+
+        Examples:
+            >>> async with AsyncExa(api_key="your-api-key") as exa:
+            ...     results = await exa.search("latest AI research papers")
+        """
+        super().__init__(api_key, api_base, timeout=timeout)
         # Override the synchronous ResearchClient with its async counterpart.
         self.research = AsyncResearchClient(self)
         # Override the synchronous WebsetsClient with its async counterpart.
@@ -2818,10 +3813,40 @@ class AsyncExa(Exa):
         # this may only be a
         if self._client is None:
             self._client = httpx.AsyncClient(
-                base_url=self.base_url, headers=self.headers, timeout=600
+                base_url=self.base_url, headers=self.headers, timeout=self.timeout
             )
         return self._client
 
+    async def aclose(self) -> None:
+        """Close the HTTP connections this client keeps open.
+
+        Call it when you are done with the client, or use the client as an
+        ``async with`` block, which calls it on exit. A request made after it
+        opens new connections.
+
+        Examples:
+            >>> exa = AsyncExa(api_key="your-api-key")
+            >>> try:
+            ...     results = await exa.search("latest AI research papers")
+            ... finally:
+            ...     await exa.aclose()
+        """
+        client, self._client = self._client, None
+        if client is not None:
+            await client.aclose()
+
+    async def __aenter__(self) -> Self:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        await self.aclose()
+
+    @typed_timeouts
     async def async_request(
         self,
         endpoint: str,
@@ -2829,6 +3854,10 @@ class AsyncExa(Exa):
         method: str = "POST",
         params=None,
         headers: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ):
         """Send a request to the Exa API, optionally streaming if data['stream'] is True.
 
@@ -2838,72 +3867,121 @@ class AsyncExa(Exa):
             method (str, optional): The HTTP method to use. Defaults to "POST".
             params (dict, optional): Query parameters.
             headers (Dict[str, str], optional): Additional headers to include in the request. Defaults to None.
+            timeout (float, optional): Timeout in seconds for this request.
+                Defaults to the client timeout. It bounds connecting and each wait
+                for data from the server, not the whole call. For a streamed
+                response it bounds the wait for the response to start. Once a
+                successful response's headers have arrived, the stream is read
+                with no timeout. An error response is read whole under it.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers. A header
+                the client already sets is replaced, case-insensitively. Headers set to
+                None are skipped. They do not change whether the response streams.
+                ``data``, ``params`` and ``headers`` decide that. An
+                ``Accept: text/event-stream`` set in ``headers``, as the Agent streams set
+                it, stays. Any other ``Accept``, such as the default one the other streams
+                send, is replaced.
+            extra_query (Mapping[str, Any], optional): Extra query parameters, except
+                ``stream``. Parameters set to None are skipped. On a GET request they
+                are merged over ``params``.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON
+                payload of a POST or PATCH request, except ``stream``.
 
         Returns:
             Union[dict, httpx.Response]: If streaming, returns the Response object.
             Otherwise, returns the JSON-decoded response as a dict.
 
         Raises:
-            ValueError: If the request fails (non-200 status code).
+            ValueError: If the request fails (non-200 status code), or a successful
+                response's body is not JSON.
+            ExaTimeoutError: If connecting, sending, waiting for the response to
+                start, or waiting for more of a response that is not streamed
+                exceeds the timeout. It is also an instance of the
+                httpx.TimeoutException subclass HTTPX raised.
+            TypeError: If ``extra_body`` is given with a pre-serialized string payload.
         """
+        if method.upper() in ("POST", "PATCH"):
+            data = merge_body(data, extra_body)
+            warn_deprecated_fields(endpoint, data)
+        # GET requests send `params` with the extra query merged over them; the
+        # other methods send only the query string the call adds.
+        extra_params = merge_query(None, extra_query)
+        query_kwargs: Dict[str, Any] = {"params": extra_params} if extra_params else {}
+        params = merge_query(params, extra_query)
+
         # Merge additional headers with existing headers
         request_headers = {**self.headers}
         if headers:
             request_headers.update(headers)
 
-        # Check if we need streaming (either from data, params, or SSE Accept header)
+        # Check if we need streaming (either from data, params, or SSE Accept header).
+        # Decided before the extra headers are applied: they change what is sent,
+        # not how the response is read. merge_body and merge_query never take
+        # `stream` from the extras for the same reason.
         needs_streaming = (
             (data and isinstance(data, dict) and data.get("stream"))
             or (params and params.get("stream") == "true")
             or request_headers.get("Accept") == "text/event-stream"
         )
+        request_headers = merge_headers(request_headers, extra_headers)
+
+        # Only pass the kwarg for per-call overrides; otherwise the
+        # AsyncClient-level timeout (set on the constructor) applies.
+        timeout_kwargs: Dict[str, Any] = {}
+        if timeout is not None:
+            timeout_kwargs["timeout"] = _validate_timeout(timeout)
 
         if method.upper() == "GET":
             if needs_streaming:
-                request = httpx.Request(
+                request = self.client.build_request(
                     "GET",
                     self.base_url + endpoint,
                     params=params,
                     headers=request_headers,
+                    **timeout_kwargs,
                 )
                 res = await self.client.send(request, stream=True)
-                if res.status_code >= 400:
-                    body = await res.aread()
-                    await res.aclose()
-                    error_text = body.decode(errors="replace")
-                    raise ValueError(
-                        f"Request failed with status code {res.status_code}: {error_text}"
-                    )
-                return res
+                return await _started_async_stream(res)
             else:
                 res = await self.client.get(
-                    self.base_url + endpoint, params=params, headers=request_headers
+                    self.base_url + endpoint,
+                    params=params,
+                    headers=request_headers,
+                    **timeout_kwargs,
                 )
         elif method.upper() == "POST":
             if needs_streaming:
-                request = httpx.Request(
-                    "POST", self.base_url + endpoint, json=data, headers=request_headers
+                request = self.client.build_request(
+                    "POST",
+                    self.base_url + endpoint,
+                    json=data,
+                    headers=request_headers,
+                    **timeout_kwargs,
+                    **query_kwargs,
                 )
                 res = await self.client.send(request, stream=True)
-                if res.status_code >= 400:
-                    body = await res.aread()
-                    await res.aclose()
-                    error_text = body.decode(errors="replace")
-                    raise ValueError(
-                        f"Request failed with status code {res.status_code}: {error_text}"
-                    )
-                return res
+                return await _started_async_stream(res)
             else:
                 res = await self.client.post(
-                    self.base_url + endpoint, json=data, headers=request_headers
+                    self.base_url + endpoint,
+                    json=data,
+                    headers=request_headers,
+                    **timeout_kwargs,
+                    **query_kwargs,
                 )
         elif method.upper() == "PATCH":
             res = await self.client.patch(
-                self.base_url + endpoint, json=data, headers=request_headers
+                self.base_url + endpoint,
+                json=data,
+                headers=request_headers,
+                **timeout_kwargs,
+                **query_kwargs,
             )
         elif method.upper() == "DELETE":
             res = await self.client.delete(
-                self.base_url + endpoint, headers=request_headers
+                self.base_url + endpoint,
+                headers=request_headers,
+                **timeout_kwargs,
+                **query_kwargs,
             )
         else:
             raise ValueError(f"Unsupported HTTP method: {method}")
@@ -2911,7 +3989,9 @@ class AsyncExa(Exa):
             raise ValueError(
                 f"Request failed with status code {res.status_code}: {res.text}"
             )
-        return res.json()
+        payload = _decode_json_body(res)
+        issue_body_warnings(endpoint, method, payload, res.headers.get("x-request-id"))
+        return payload
 
     async def search(
         self,
@@ -2932,15 +4012,20 @@ class AsyncExa(Exa):
         category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
         objective: Optional[str] = None,
+        user_identifier: Optional[str] = None,
         betas: Optional[Sequence[str]] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+
     ) -> SearchResponse[Result]:
-        """Perform a search with a prompt-engineered query to retrieve relevant results.
+        """Perform a search.
 
         For AI answers, RAG, and search previews, use ``contents={"highlights": True}``
         and read each result's ``highlights`` list. Exa dynamically chooses the
@@ -2955,7 +4040,7 @@ class AsyncExa(Exa):
         max characters by default.
 
         Args:
-            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
+            extra_body (Optional[Mapping[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             stream (bool, optional): If True, stream the synthesized search response.
                 Use ``stream_search(...)`` instead of ``search(..., stream=True)``.
@@ -2963,8 +4048,6 @@ class AsyncExa(Exa):
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
                 For AI context, prefer {"highlights": True} for relevance-based sizing
                 and read result.highlights. See ContentsOptions for all options.
-                DEPRECATED FIELD WARNING: ``contents.context`` is deprecated;
-                use ``highlights`` or ``text`` instead.
             num_results (int, optional): Number of search results to return. Default 10.
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -2975,12 +4058,14 @@ class AsyncExa(Exa):
             include_text (List[str], optional): Strings that must appear in the page text.
             exclude_text (List[str], optional): Strings that must not appear in the page text.
             type (SearchType, optional): Search type - 'auto' (default), 'fast',
-                'deep-lite', 'deep', 'deep-reasoning', 'neural', or 'instant'.
+                'deep-lite', 'deep', 'deep-reasoning', 'neural', 'instant', or 'lite'
+                (beta: low-cost, reduced parameter set).
             category (Category, optional): Data category to focus on (e.g.
                 'company', 'news', 'publication').
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
-            user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
             additional_queries (List[str], optional): Alternative query formulations for deep search to skip
                 automatic LLM-based query expansion. Max 5 queries. Only applicable when type is
                 'deep-lite', 'deep', or 'deep-reasoning'.
@@ -2999,8 +4084,18 @@ class AsyncExa(Exa):
                 as one step of a larger task, pass the goal of that step: which documents
                 should rank first, which should be excluded, and what to pull from them.
                 Up to 4096 characters.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
             betas (Sequence[str], optional): Exa-Beta tokens to send with the request
                 (e.g. ``[DYNAMIC_HIGHLIGHTS_BETA]`` for Dynamic Highlights).
+            timeout (float, optional): Per-operation network inactivity timeout in seconds. Defaults to the client timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
 
         Returns:
             SearchResponse: The response containing search results, etc.
@@ -3032,7 +4127,8 @@ class AsyncExa(Exa):
         options = {
             k: v
             for k, v in locals().items()
-            if k not in ("self", "extra_body") and v is not None
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+
         }
         options.pop("stream", None)
         options.pop("betas", None)
@@ -3052,7 +4148,15 @@ class AsyncExa(Exa):
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema", "schema"])
         options = _merge_search_body(options, extra_body)
-        data = await self.async_request("/search", options, headers=headers_for_betas(betas))
+        data = await self.async_request(
+            "/search",
+            options,
+            headers=headers_for_betas(betas),
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+        )
+
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -3086,6 +4190,8 @@ class AsyncExa(Exa):
             output=parse_deep_search_output(data.get("output")),
             cost_dollars=cost_dollars,
             search_time=data.get("searchTime"),
+            warnings=parse_search_warnings(data.get("warnings")),
+            notices=parse_search_notices(data.get("notices")),
         )
 
     async def stream_search(
@@ -3106,22 +4212,25 @@ class AsyncExa(Exa):
         category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
         moderation: Optional[bool] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
         additional_queries: Optional[List[str]] = None,
         system_prompt: Optional[str] = None,
         output_schema: Optional[DeepOutputSchema] = None,
         objective: Optional[str] = None,
-        extra_body: Optional[Dict[str, Any]] = None,
+        user_identifier: Optional[str] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+
     ) -> AsyncStreamSearchResponse:
         """Generate a streaming search response asynchronously.
 
         Args:
-            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
+            extra_body (Optional[Mapping[str, Any]]): Per-call body overrides, except stream.
             query (str): The query string.
             contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
-                DEPRECATED FIELD WARNING: ``contents.context`` is deprecated;
-                use ``highlights`` or ``text`` instead.
             num_results (int, optional): Number of search results to return. Default 10.
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -3136,15 +4245,30 @@ class AsyncExa(Exa):
             category (Category, optional): Data category to focus on.
             flags (List[str], optional): Experimental flags for Exa usage.
             moderation (bool, optional): If True, the search results will be moderated for safety.
-            user_location (str, optional): Two-letter ISO country code of the user (e.g. US).
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
             additional_queries (List[str], optional): Alternative query formulations for deep search.
             system_prompt (str, optional): Instructions that guide the search process and streamed synthesis.
             output_schema (DeepOutputSchema, optional): Search output schema for structured synthesis.
-            objective (str, optional): The broader goal this search serves: the task the caller
-                is working on, beyond the query itself.
+            objective (str, optional): The broader goal this search serves: the task the
+                caller is working on, beyond the query itself. Up to 4096 characters.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+                It bounds the wait for the stream to start. A stream that has started is not timed.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+
 
         Returns:
             AsyncStreamSearchResponse: An async iterator yielding OpenAI-style streaming chunks.
+                When the API returns ``warnings`` about the request, one chunk after the
+                text carries them.
 
         Examples:
             >>> async_exa = AsyncExa(api_key="your-api-key")
@@ -3159,7 +4283,8 @@ class AsyncExa(Exa):
         options = {
             k: v
             for k, v in locals().items()
-            if k not in ("self", "extra_body") and v is not None
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+
         }
 
         if contents is False:
@@ -3172,7 +4297,14 @@ class AsyncExa(Exa):
         validate_search_options(options, SEARCH_OPTIONS_TYPES)
         options = to_camel_case(options, skip_keys=["output_schema"])
         options = _merge_search_body(options, extra_body, streaming=True)
-        raw_response = await self.async_request("/search", options)
+        raw_response = await self.async_request(
+            "/search",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+        )
+
         return AsyncStreamSearchResponse(raw_response)
 
     @deprecated(
@@ -3183,14 +4315,18 @@ class AsyncExa(Exa):
         self,
         query: str,
         *,
-        extra_body: Optional[Dict[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
         **kwargs: Any,
     ) -> SearchResponse[Result]:
         """
         DEPRECATED: Use search() instead. The search() method now returns text contents by default.
 
         Args:
-            extra_body (Optional[Dict[str, Any]]): Per-call body overrides, except stream.
+            extra_body (Optional[Mapping[str, Any]]): Per-call body overrides, except stream.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
 
         Migration:
         - search_and_contents(query) → search(query)
@@ -3198,6 +4334,7 @@ class AsyncExa(Exa):
         - search_and_contents(query, summary=True) → search(query, contents={"summary": True})
         """
 
+        timeout = kwargs.pop("timeout", None)
         options = {"query": query}
         for k, v in kwargs.items():
             if v is not None:
@@ -3223,26 +4360,17 @@ class AsyncExa(Exa):
                 summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
         # Nest the appropriate fields under "contents"
-        options = nest_fields(
-            options,
-            [
-                "text",
-                "summary",
-                "highlights",
-                "context",  # DEPRECATED FIELD: accepted only for backward compatibility.
-                "subpages",
-                "subpage_target",
-                "livecrawl",
-                "livecrawl_timeout",
-                "max_age_hours",
-                "snapshot_as_of",
-                "extras",
-            ],
-            "contents",
-        )
+        options = nest_fields(options, NESTED_CONTENTS_FIELDS, "contents")
         options = to_camel_case(options, skip_keys=["schema"])
         options = _merge_search_body(options, extra_body)
-        data = await self.async_request("/search", options)
+        data = await self.async_request(
+            "/search",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+        )
+
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -3275,7 +4403,131 @@ class AsyncExa(Exa):
             context=data.get("context"),  # DEPRECATED FIELD: legacy context response.
             cost_dollars=cost_dollars,
             search_time=data.get("searchTime"),
+            warnings=parse_search_warnings(data.get("warnings")),
+            notices=parse_search_notices(data.get("notices")),
         )
+
+    @overload
+    async def get_contents(
+        self,
+        urls: Union[str, List[str], List[_Result]],
+        *,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
+        betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithText]: ...
+
+    @overload
+    async def get_contents(
+        self,
+        urls: Union[str, List[str], List[_Result]],
+        *,
+        text: Union[TextContentsOptions, Literal[True]],
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
+        betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithText]: ...
+
+    @overload
+    async def get_contents(
+        self,
+        urls: Union[str, List[str], List[_Result]],
+        *,
+        summary: Union[SummaryContentsOptions, Literal[True]],
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
+        betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithSummary]: ...
+
+    @overload
+    async def get_contents(
+        self,
+        urls: Union[str, List[str], List[_Result]],
+        *,
+        text: Union[TextContentsOptions, Literal[True]],
+        summary: Union[SummaryContentsOptions, Literal[True]],
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
+        betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithTextAndSummary]: ...
+
+    # Every content option the method accepts, for the calls the overloads above
+    # do not cover (highlights, metadata, context, or False for text or
+    # summary). The result type is not narrowed for them.
+    @overload
+    async def get_contents(
+        self,
+        urls: Union[str, List[str], List[_Result]],
+        *,
+        text: Optional[Union[TextContentsOptions, bool]] = None,
+        summary: Optional[Union[SummaryContentsOptions, bool]] = None,
+        highlights: Optional[Union[HighlightsContentsOptions, bool]] = None,
+        metadata: Optional[Union[Dict[str, Any], bool]] = None,
+        context: Optional[Union[ContextContentsOptions, bool]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        flags: Optional[List[str]] = None,
+        user_identifier: Optional[str] = None,
+        betas: Optional[Sequence[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[Any]: ...
 
     async def get_contents(self, urls: Union[str, List[str], List[_Result]], **kwargs):
         """Retrieve contents for a list of URLs asynchronously.
@@ -3293,8 +4545,19 @@ class AsyncExa(Exa):
             subpage_target (str | List[str], optional): Target subpages to retrieve.
             extras (ExtrasOptions, optional): Options for extra content (links, image_links).
             flags (List[str], optional): Experimental flags.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
             betas (Sequence[str], optional): Exa-Beta tokens to send with the request
                 (e.g. ``[DYNAMIC_HIGHLIGHTS_BETA]`` for Dynamic Highlights).
+            timeout (float, optional): Per-operation network inactivity timeout in seconds. Defaults to the client timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             SearchResponse[Result]: The response containing the contents of the URLs.
@@ -3317,6 +4580,10 @@ class AsyncExa(Exa):
             urls = [r.url for r in urls]
 
         betas = kwargs.pop("betas", None)
+        timeout = kwargs.pop("timeout", None)
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        extra_body = kwargs.pop("extra_body", None)
 
         options = {"urls": urls}
         for k, v in kwargs.items():
@@ -3333,6 +4600,7 @@ class AsyncExa(Exa):
         merged_options = {}
         merged_options.update(CONTENTS_OPTIONS_TYPES)
         merged_options.update(CONTENTS_ENDPOINT_OPTIONS_TYPES)
+        merged_options.update(CONTENTS_REQUEST_OPTIONS_TYPES)
         validate_search_options(options, merged_options)
 
         # Convert schema if present in summary options
@@ -3342,17 +4610,17 @@ class AsyncExa(Exa):
                 summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
         options = to_camel_case(options, ["schema"])
-        data = await self.async_request("/contents", options, headers=headers_for_betas(betas))
+        data = await self.async_request(
+            "/contents",
+            options,
+            headers=headers_for_betas(betas),
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
-        statuses = []
-        for status in data.get("statuses", []):
-            statuses.append(
-                ContentStatus(
-                    id=status.get("id"),
-                    status=status.get("status"),
-                    source=status.get("source"),
-                )
-            )
+        statuses = [_parse_content_status(status) for status in data.get("statuses", [])]
         results = []
         for result in data["results"]:
             snake_result = to_snake_case(result)
@@ -3405,6 +4673,10 @@ class AsyncExa(Exa):
         exclude_source_domain: Optional[bool] = None,
         category: Optional[Category] = None,
         flags: Optional[List[str]] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> SearchResponse[Result]:
         """DEPRECATED METHOD: find_similar()/findSimilar is deprecated. Use search() instead.
 
@@ -3420,8 +4692,6 @@ class AsyncExa(Exa):
             contents (ContentsOptions | False, optional): Options for retrieving page contents.
                 Defaults to {"text": {"maxCharacters": 10000}}. Use False to disable contents.
                 See ContentsOptions for available options (text, highlights, summary, etc.).
-                DEPRECATED FIELD WARNING: ``contents.context`` is deprecated;
-                use ``highlights`` or ``text`` instead.
             num_results (int, optional): Number of results to return. Default is None (server default).
             include_domains (List[str], optional): Domains to include in the search.
             exclude_domains (List[str], optional): Domains to exclude from the search.
@@ -3435,6 +4705,10 @@ class AsyncExa(Exa):
             category (Category, optional): Data category to focus on (e.g.
                 'company', 'news', 'publication').
             flags (List[str], optional): Experimental flags.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             SearchResponse[Result]
@@ -3452,7 +4726,11 @@ class AsyncExa(Exa):
             ...     include_domains=["arxiv.org", "openreview.net"],
             ... )
         """
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+        }
 
         # Handle contents parameter with default behavior
         if contents is False:
@@ -3467,7 +4745,14 @@ class AsyncExa(Exa):
 
         validate_search_options(options, FIND_SIMILAR_OPTIONS_TYPES)
         options = to_camel_case(options)
-        data = await self.async_request("/findSimilar", options)
+        data = await self.async_request(
+            "/findSimilar",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -3501,6 +4786,193 @@ class AsyncExa(Exa):
             search_time=data.get("searchTime"),
         )
 
+    @overload
+    @deprecated(
+        "find_similar_and_contents() is deprecated. Use search() instead; "
+        "search() returns text contents by default."
+    )
+    async def find_similar_and_contents(
+        self,
+        url: str,
+        *,
+        num_results: Optional[int] = None,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        start_crawl_date: Optional[str] = None,
+        end_crawl_date: Optional[str] = None,
+        start_published_date: Optional[str] = None,
+        end_published_date: Optional[str] = None,
+        include_text: Optional[List[str]] = None,
+        exclude_text: Optional[List[str]] = None,
+        exclude_source_domain: Optional[bool] = None,
+        category: Optional[Category] = None,
+        flags: Optional[List[str]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithText]: ...
+
+    @overload
+    @deprecated(
+        "find_similar_and_contents() is deprecated. Use search() instead; "
+        "search() returns text contents by default."
+    )
+    async def find_similar_and_contents(
+        self,
+        url: str,
+        *,
+        text: Union[TextContentsOptions, Literal[True]],
+        num_results: Optional[int] = None,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        start_crawl_date: Optional[str] = None,
+        end_crawl_date: Optional[str] = None,
+        start_published_date: Optional[str] = None,
+        end_published_date: Optional[str] = None,
+        include_text: Optional[List[str]] = None,
+        exclude_text: Optional[List[str]] = None,
+        exclude_source_domain: Optional[bool] = None,
+        category: Optional[Category] = None,
+        flags: Optional[List[str]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithText]: ...
+
+    @overload
+    @deprecated(
+        "find_similar_and_contents() is deprecated. Use search() instead; "
+        "search() returns text contents by default."
+    )
+    async def find_similar_and_contents(
+        self,
+        url: str,
+        *,
+        summary: Union[SummaryContentsOptions, Literal[True]],
+        num_results: Optional[int] = None,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        start_crawl_date: Optional[str] = None,
+        end_crawl_date: Optional[str] = None,
+        start_published_date: Optional[str] = None,
+        end_published_date: Optional[str] = None,
+        include_text: Optional[List[str]] = None,
+        exclude_text: Optional[List[str]] = None,
+        exclude_source_domain: Optional[bool] = None,
+        category: Optional[Category] = None,
+        flags: Optional[List[str]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithSummary]: ...
+
+    @overload
+    @deprecated(
+        "find_similar_and_contents() is deprecated. Use search() instead; "
+        "search() returns text contents by default."
+    )
+    async def find_similar_and_contents(
+        self,
+        url: str,
+        *,
+        text: Union[TextContentsOptions, Literal[True]],
+        summary: Union[SummaryContentsOptions, Literal[True]],
+        num_results: Optional[int] = None,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        start_crawl_date: Optional[str] = None,
+        end_crawl_date: Optional[str] = None,
+        start_published_date: Optional[str] = None,
+        end_published_date: Optional[str] = None,
+        include_text: Optional[List[str]] = None,
+        exclude_text: Optional[List[str]] = None,
+        exclude_source_domain: Optional[bool] = None,
+        category: Optional[Category] = None,
+        flags: Optional[List[str]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[ResultWithTextAndSummary]: ...
+
+    # Every content option the method accepts, for the calls the overloads above
+    # do not cover (highlights, metadata, context, or False for text or
+    # summary). The result type is not narrowed for them.
+    @overload
+    @deprecated(
+        "find_similar_and_contents() is deprecated. Use search() instead; "
+        "search() returns text contents by default."
+    )
+    async def find_similar_and_contents(
+        self,
+        url: str,
+        *,
+        text: Optional[Union[TextContentsOptions, bool]] = None,
+        summary: Optional[Union[SummaryContentsOptions, bool]] = None,
+        highlights: Optional[Union[HighlightsContentsOptions, bool]] = None,
+        metadata: Optional[Union[Dict[str, Any], bool]] = None,
+        context: Optional[Union[ContextContentsOptions, bool]] = None,
+        num_results: Optional[int] = None,
+        include_domains: Optional[List[str]] = None,
+        exclude_domains: Optional[List[str]] = None,
+        start_crawl_date: Optional[str] = None,
+        end_crawl_date: Optional[str] = None,
+        start_published_date: Optional[str] = None,
+        end_published_date: Optional[str] = None,
+        include_text: Optional[List[str]] = None,
+        exclude_text: Optional[List[str]] = None,
+        exclude_source_domain: Optional[bool] = None,
+        category: Optional[Category] = None,
+        flags: Optional[List[str]] = None,
+        livecrawl_timeout: Optional[int] = None,
+        livecrawl: Optional[LIVECRAWL_OPTIONS] = None,
+        max_age_hours: Optional[int] = None,
+        snapshot_as_of: Optional[str] = None,
+        filter_empty_results: Optional[bool] = None,
+        subpages: Optional[int] = None,
+        subpage_target: Optional[Union[str, List[str]]] = None,
+        extras: Optional[ExtrasOptions] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
+    ) -> SearchResponse[Any]: ...
+
     @deprecated(
         "find_similar_and_contents() is deprecated. Use search() instead; "
         "search() returns text contents by default."
@@ -3514,6 +4986,10 @@ class AsyncExa(Exa):
         - find_similar_and_contents(url, text=True) → search(f"pages similar to {url}", contents={"text": True})
         - find_similar_and_contents(url, summary=True) → search(f"pages similar to {url}", contents={"summary": True})
         """
+        timeout = kwargs.pop("timeout", None)
+        extra_headers = kwargs.pop("extra_headers", None)
+        extra_query = kwargs.pop("extra_query", None)
+        extra_body = kwargs.pop("extra_body", None)
         options = {"url": url}
         for k, v in kwargs.items():
             if v is not None:
@@ -3535,25 +5011,16 @@ class AsyncExa(Exa):
                 summary_opts["schema"] = _convert_schema_input(summary_opts["schema"])
 
         # We nest the content fields
-        options = nest_fields(
-            options,
-            [
-                "text",
-                "summary",
-                "highlights",
-                "context",  # DEPRECATED FIELD: accepted only for backward compatibility.
-                "subpages",
-                "subpage_target",
-                "livecrawl",
-                "livecrawl_timeout",
-                "max_age_hours",
-                "snapshot_as_of",
-                "extras",
-            ],
-            "contents",
-        )
+        options = nest_fields(options, NESTED_CONTENTS_FIELDS, "contents")
         options = to_camel_case(options, skip_keys=["schema"])
-        data = await self.async_request("/findSimilar", options)
+        data = await self.async_request(
+            "/findSimilar",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         cost_dollars = parse_cost_dollars(data.get("costDollars"))
         results = []
         for result in data["results"]:
@@ -3597,7 +5064,12 @@ class AsyncExa(Exa):
         system_prompt: Optional[str] = None,
         model: Optional[Literal["exa", "exa-pro"]] = None,
         output_schema: Optional[JSONSchemaInput] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
+        user_identifier: Optional[str] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> Union[AnswerResponse, StreamAnswerResponse]:
         """Generate an answer to a query using Exa's search and LLM capabilities.
 
@@ -3607,6 +5079,19 @@ class AsyncExa(Exa):
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             AnswerResponse: An object containing the answer and citations.
@@ -3631,14 +5116,26 @@ class AsyncExa(Exa):
                 "Please use `stream_answer(...)` for streaming."
             )
 
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        _validate_user_location(user_location)
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+        }
 
         # Convert output_schema if present
         if "output_schema" in options and options["output_schema"] is not None:
             options["output_schema"] = _convert_schema_input(options["output_schema"])
 
         options = to_camel_case(options, skip_keys=["output_schema"])
-        response = await self.async_request("/answer", options)
+        response = await self.async_request(
+            "/answer",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
 
         citations = []
         for result in response["citations"]:
@@ -3664,7 +5161,12 @@ class AsyncExa(Exa):
         system_prompt: Optional[str] = None,
         model: Optional[Literal["exa", "exa-pro"]] = None,
         output_schema: Optional[JSONSchemaInput] = None,
-        user_location: Optional[str] = None,
+        user_location: Optional[Union[str, UserLocation]] = None,
+        user_identifier: Optional[str] = None,
+        timeout: Optional[float] = None,
+        extra_headers: Optional[Mapping[str, Optional[str]]] = None,
+        extra_query: Optional[Mapping[str, Any]] = None,
+        extra_body: Optional[Mapping[str, Any]] = None,
     ) -> AsyncStreamAnswerResponse:
         """Generate a streaming answer response.
 
@@ -3674,7 +5176,20 @@ class AsyncExa(Exa):
             system_prompt (str, optional): A system prompt to guide the LLM's behavior when generating the answer.
             model (str, optional): The model to use for answering. Defaults to None.
             output_schema (dict[str, Any], optional): JSON schema describing the desired answer structure.
-            user_location (str, optional): The user's location for location-aware answers.
+            user_location (str | UserLocation, optional): The end user's location, as a
+                two-letter ISO 3166-1 country code or a UserLocation dict.
+            user_identifier (str, optional): An opaque ID you assign to the end user
+                this request is made for, such as a UUID, used to attribute usage to
+                that end user. Must not contain personal information such as an email
+                address, phone number, username or name. Hash such values before
+                sending them. 1 to 64 characters: letters, digits, ``_`` and ``-``.
+                Retained even when your team has Zero Data Retention enabled. Does not
+                affect results.
+            timeout (float, optional): Timeout in seconds for this request. Defaults to the client-level timeout.
+                It bounds the wait for the stream to start. A stream that has started is not timed.
+            extra_headers (Mapping[str, Optional[str]], optional): Extra headers to send with the request.
+            extra_query (Mapping[str, Any], optional): Extra query parameters to send with the request.
+            extra_body (Mapping[str, Any], optional): Extra fields merged over the JSON request body, except stream.
 
         Returns:
             AsyncStreamAnswerResponse: An object that can be iterated over to retrieve (partial text, partial citations).
@@ -3694,7 +5209,12 @@ class AsyncExa(Exa):
             ...     if chunk.citations:
             ...         print(f"\\nCitations: {[c.url for c in chunk.citations]}")
         """
-        options = {k: v for k, v in locals().items() if k != "self" and v is not None}
+        _validate_user_location(user_location)
+        options = {
+            k: v
+            for k, v in locals().items()
+            if k not in _NON_BODY_ARGUMENTS and v is not None
+        }
 
         # Convert output_schema if present
         if "output_schema" in options and options["output_schema"] is not None:
@@ -3702,5 +5222,12 @@ class AsyncExa(Exa):
 
         options = to_camel_case(options, skip_keys=["output_schema"])
         options["stream"] = True
-        raw_response = await self.async_request("/answer", options)
+        raw_response = await self.async_request(
+            "/answer",
+            options,
+            timeout=timeout,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+        )
         return AsyncStreamAnswerResponse(raw_response)

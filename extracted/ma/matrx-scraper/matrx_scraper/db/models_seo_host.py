@@ -4,7 +4,7 @@
 ``run_collection("pagespeed_insights", …)`` funnel; this module never writes and
 never fetches — it exists so the deterministic analysis sweep
 (``web_crawl/analysis.py``) can READ the lab metrics that the performance half of
-the ``web.analysis_item`` catalogue is scored from.
+the ``web.analysis_item`` catalog is scored from.
 
 Why a mirror rather than a dependency: matrx-seo already mirrors the host's
 ``web.site`` / ``web.page`` in its own ``db/models_host.py`` for exactly this

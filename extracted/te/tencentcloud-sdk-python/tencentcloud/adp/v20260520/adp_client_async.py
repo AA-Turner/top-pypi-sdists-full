@@ -25,6 +25,24 @@ class AdpClient(AbstractClient):
     _endpoint = 'adp.tencentcloudapi.com'
     _service = 'adp'
 
+    async def CallMCPTool(
+            self,
+            request: models.CallMCPToolRequest,
+            opts: Dict = None,
+    ) -> models.CallMCPToolResponse:
+        """
+        用户在 MCP App iframe 内触发的工具调用
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CallMCPTool"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CallMCPToolResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def CheckLabel(
             self,
             request: models.CheckLabelRequest,
@@ -416,6 +434,25 @@ class AdpClient(AbstractClient):
         kwargs["action"] = "CreateWebSocketToken"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.CreateWebSocketTokenResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def CreateWorkflowRun(
+            self,
+            request: models.CreateWorkflowRunRequest,
+            opts: Dict = None,
+    ) -> models.CreateWorkflowRunResponse:
+        """
+        本接口用来创建工作流的异步运行实例，创建成功后工作流会在后台异步运行，接口返回工作流运行实例ID（WorkflowRunId）等信息。后面可通过调用DescribeWorkflowRun接口查工作流运行的详情。
+        注意：工作流的异步运行是基于应用的，需要先把对应的应用配置成“单工作流模式”，才能创建成功。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "CreateWorkflowRun"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.CreateWorkflowRunResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -1339,6 +1376,42 @@ class AdpClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def DescribeNodeBatchRun(
+            self,
+            request: models.DescribeNodeBatchRunRequest,
+            opts: Dict = None,
+    ) -> models.DescribeNodeBatchRunResponse:
+        """
+        DescribeNodeBatchRun
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeNodeBatchRun"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeNodeBatchRunResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DescribeNodeRunDetail(
+            self,
+            request: models.DescribeNodeRunDetailRequest,
+            opts: Dict = None,
+    ) -> models.DescribeNodeRunDetailResponse:
+        """
+        查看工作流节点运行详情
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeNodeRunDetail"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeNodeRunDetailResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def DescribePlugin(
             self,
             request: models.DescribePluginRequest,
@@ -1640,6 +1713,42 @@ class AdpClient(AbstractClient):
         kwargs["action"] = "DescribeVariableList"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.DescribeVariableListResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DescribeWorkflowRun(
+            self,
+            request: models.DescribeWorkflowRunRequest,
+            opts: Dict = None,
+    ) -> models.DescribeWorkflowRunResponse:
+        """
+        查询工作流运行详情
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeWorkflowRun"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeWorkflowRunResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def DescribeWorkflowRunSummaryList(
+            self,
+            request: models.DescribeWorkflowRunSummaryListRequest,
+            opts: Dict = None,
+    ) -> models.DescribeWorkflowRunSummaryListResponse:
+        """
+        查询工作流运行实例列表
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "DescribeWorkflowRunSummaryList"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.DescribeWorkflowRunSummaryListResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -2059,6 +2168,24 @@ class AdpClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def ReadMCPResource(
+            self,
+            request: models.ReadMCPResourceRequest,
+            opts: Dict = None,
+    ) -> models.ReadMCPResourceResponse:
+        """
+        读取 MCP UI 资源（HTML），供前端 iframe 加载 MCP App 界面
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ReadMCPResource"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ReadMCPResourceResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def ReleaseSkill(
             self,
             request: models.ReleaseSkillRequest,
@@ -2109,6 +2236,24 @@ class AdpClient(AbstractClient):
         kwargs["action"] = "ResumeAppTrigger"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.ResumeAppTriggerResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def ResumeWorkflowRun(
+            self,
+            request: models.ResumeWorkflowRunRequest,
+            opts: Dict = None,
+    ) -> models.ResumeWorkflowRunResponse:
+        """
+        继续运行等待输入的工作流异步运行实例
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "ResumeWorkflowRun"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.ResumeWorkflowRunResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         
@@ -2168,6 +2313,42 @@ class AdpClient(AbstractClient):
         
         return await self.call_and_deserialize(**kwargs)
         
+    async def SaveWorkflowDebugContext(
+            self,
+            request: models.SaveWorkflowDebugContextRequest,
+            opts: Dict = None,
+    ) -> models.SaveWorkflowDebugContextResponse:
+        """
+        SaveWorkflowDebugContext
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "SaveWorkflowDebugContext"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.SaveWorkflowDebugContextResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def SaveWorkflowToolNodeOutput(
+            self,
+            request: models.SaveWorkflowToolNodeOutputRequest,
+            opts: Dict = None,
+    ) -> models.SaveWorkflowToolNodeOutputResponse:
+        """
+        SaveWorkflowToolNodeOutput
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "SaveWorkflowToolNodeOutput"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.SaveWorkflowToolNodeOutputResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
     async def SearchKnowledge(
             self,
             request: models.SearchKnowledgeRequest,
@@ -2181,6 +2362,24 @@ class AdpClient(AbstractClient):
         kwargs["action"] = "SearchKnowledge"
         kwargs["params"] = request._serialize()
         kwargs["resp_cls"] = models.SearchKnowledgeResponse
+        kwargs["headers"] = request.headers
+        kwargs["opts"] = opts or {}
+        
+        return await self.call_and_deserialize(**kwargs)
+        
+    async def StopWorkflowRunList(
+            self,
+            request: models.StopWorkflowRunListRequest,
+            opts: Dict = None,
+    ) -> models.StopWorkflowRunListResponse:
+        """
+        批量停止正在进行的工作流运行实例。
+        """
+        
+        kwargs = {}
+        kwargs["action"] = "StopWorkflowRunList"
+        kwargs["params"] = request._serialize()
+        kwargs["resp_cls"] = models.StopWorkflowRunListResponse
         kwargs["headers"] = request.headers
         kwargs["opts"] = opts or {}
         

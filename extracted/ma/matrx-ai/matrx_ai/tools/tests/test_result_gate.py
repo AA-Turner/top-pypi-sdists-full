@@ -114,7 +114,7 @@ def test_over_soft_cap_truncates_stashes_and_alarms(captured_events):
 def test_self_capped_is_trusted_but_an_over_cap_claim_is_recorded(captured_events):
     # The 2026-09-12 silent overflow: `context` mode=full on a lazy source claimed
     # output_self_capped and returned 113,535 chars. Content stays untouched (the
-    # claim is honoured) but the false claim is RECORDED — never silent.
+    # claim is honored) but the false claim is RECORDED — never silent.
     body = "z" * (TOOL_RESULT_SOFT_CAP_CHARS + 100_000)
     cd = _content_dict(body)
     out, truncated = apply_size_gate(

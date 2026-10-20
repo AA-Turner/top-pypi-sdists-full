@@ -79,6 +79,13 @@ class ExecutionState:
     # parallel agents via ``ctx.metadata``.  It now lives here, owned.
     reserved_request_ids: dict[int, str] = field(default_factory=dict)
 
+    # The metadata of the request this execution runs (``AIMatrixRequest.metadata``), read-only.
+    # The conversation and message writers under this execution hand it to the host's
+    # stored-values screen (``db/stored_values_screen.active_request_metadata``): a door that
+    # names its run on the REQUEST (a held code call, a NamedAgent, a raw mandate agent) is seen
+    # as that run before its conversation row is created, never only on the context.
+    request_metadata: dict[str, Any] | None = None
+
     # The provider's final SDK-ready request dict for the most recent
     # iteration.  Set by ``capture_request_payload`` (in
     # ``matrx_ai.providers.snapshot``) right before each provider call;
@@ -94,6 +101,19 @@ class ExecutionState:
     # opt-in (2 rows/day), a corrupt `provider` column on every row once
     # capture went always-on (D-33). Popped with the payload.
     snapshot_provider: str | None = None
+
+    # Every setting this turn's outbound seams dropped, clamped or translated —
+    # ``outbound_params.publish_settings_adjustments`` appends, the executor pops
+    # it WITH ``snapshot_payload`` into ``chat.request_snapshot.metadata``
+    # (PB-03 defect 7: an adjustment is stored with the request, never only logged).
+    settings_adjustments: list[dict[str, Any]] | None = None
+
+    # Where this send's translator put the platform's per-turn text (owner decision,
+    # defects 23 + 35, ruling L29: its own host turn on every provider, or the end of the
+    # system message for a ``strict_role_alternation`` model). Set by ``base_translator.record_platform_text_placement``;
+    # the executor pops it WITH ``snapshot_payload`` into
+    # ``chat.request_snapshot.metadata.platform_text_placement``.
+    platform_text_placements: list[dict[str, Any]] | None = None
 
     # The id the provider-call-failure snapshot WILL be written under, allocated
     # before each provider call of a persisted run. A settings-rejection record
@@ -120,7 +140,7 @@ class ExecutionState:
     writes: WriteCoordinator | None = None
 
     # In-flight persist context. The main loop keeps these current as it runs
-    # so that if the request is CANCELLED mid-stream (client disconnect, server
+    # so that if the request is CANCELED mid-stream (client disconnect, server
     # shutdown), the outer ``execute_until_complete`` can shield-persist the
     # accumulated cost/usage instead of losing it. ``cancel_persist_done`` is
     # the idempotency guard so a normal completion that races a cancel doesn't
@@ -136,12 +156,22 @@ class ExecutionState:
     # mid-turn — the class that silently stopped admin@admin.com's staff thread
     # from writing chat.message (Lane AZ, 2026-09-28).
     trigger_message: Any | None = None
+    # The history as the ledger knew it: the list at execution start, refreshed after
+    # every turn barrier. Object refs only (no copies). When a mutator shifts the live
+    # list mid-turn, the barrier restores this prefix and keeps what was appended after
+    # it, so the reply is stored instead of refused (defect 50, 2026-10-19).
+    recorded_history: list[Any] | None = None
     # cx_message.id of every message ALREADY persisted (loaded from the DB)
     # before this execution started. Persistence must never re-INSERT these —
     # on a retry (user_input=None) the conversation's existing messages are
     # reloaded into config.messages, and without this guard the loaded user
     # message gets a fresh UUID and is duplicated. Captured once at start.
     pre_existing_message_ids: set[str] = field(default_factory=set)
+    # First message position this turn persists: one past the stored history. Equal to the
+    # trigger on a continuation; on turn 1 it is 0, so every authored input message before the
+    # trigger (few-shot pairs, the template a client-carried door sends) is stored in order and
+    # turn 2 reloads exactly the history the model saw.
+    persist_from_position: int | None = None
     persisted: bool = False
     # The provider response whose tool calls are being dispatched RIGHT NOW —
     # set just before ``handle_tool_calls`` and cleared the moment the loop's
@@ -223,6 +253,12 @@ class ExecutionState:
     # nothing was saved rather than the run quietly accepting the claim.
     change_claim_corrections: int = 0
 
+    # BLANK-TURN CONTINUATION (``_drop_blank_turn_for_continuation``). A model
+    # that ends a turn with no visible output (reasoning only / nothing at all
+    # — live: Gemini Pro after tool results) gets ONE continuation turn that
+    # asks for the answer before the run is failed. One-shot per run.
+    empty_reply_continuations: int = 0
+
     def snapshot(self) -> ExecutionStateSnapshot:
         """Return a frozen copy safe to hand to a background task."""
         return ExecutionStateSnapshot(
@@ -273,7 +309,7 @@ def clear_execution_state(token: Token) -> None:
 #
 # ``run_agent`` opens a sink before ``Agent.execute``; the FIRST
 # ``execute_until_complete`` under it binds its ExecutionState. When the run is
-# cancelled (a per-call time limit, a client disconnect, a sibling's gather
+# canceled (a per-call time limit, a client disconnect, a sibling's gather
 # cancel, a budget stop) or crashes out of the loop, ``Agent.execute`` raises
 # instead of returning — and the usage accumulated on the in-flight request
 # would otherwise never reach the run's settle, which then recorded $0 (news

@@ -12,7 +12,7 @@ from numpy.testing import assert_array_equal
 
 import asdf
 import asdf.constants
-from asdf.exceptions import AsdfFutureWarning, ValidationError
+from asdf.exceptions import ValidationError
 from asdf.extension import Converter, Extension, TagDefinition
 from asdf.tags.core import ndarray
 from asdf.testing import helpers
@@ -22,7 +22,9 @@ from asdf.testing import helpers
 def ndarray_tag():
     af = asdf.AsdfFile()
     cvt = af.extension_manager.get_converter_for_type(np.ndarray)
-    full_tag = cvt.select_tag(np.zeros(0), af)
+    full_tag = cvt.select_tag(np.zeros(0), af._create_serialization_context())
+    assert full_tag is not None
+
     return full_tag.removeprefix("tag:stsci.edu:asdf/")
 
 
@@ -147,6 +149,7 @@ def roundtrip(af, raw=False, standard_version=None):
 
 
 def test_sharing():
+    asdf.get_config().default_array_save_base = True
     x = np.arange(0, 10, dtype=float)
     tree = {"science_data": x, "subset": x[3:-3], "skipping": x[::2]}
 
@@ -412,7 +415,7 @@ def test_mask_roundtrip(mask):
         assert (tree["masked"].mask == af["masked"].mask).all()
         # ensure tree validity
         assert (af["unmasked"] == af["masked"].data).all()
-        assert len(af._blocks.blocks) == 2
+        assert len(af._blocks.blocks) == 3
 
 
 def test_len_roundtrip():
@@ -957,11 +960,11 @@ arr: !{ndarray_tag}
   shape: [2]
     """
 
+    asdf.get_config().warn_on_failed_conversion = False
     buff = helpers.yaml_to_asdf(content)
     with pytest.raises(ValueError, match=r"inline data doesn't match the given shape"):
-        with pytest.warns(AsdfFutureWarning):
-            with asdf.open(buff) as af:
-                af["arr"]
+        with asdf.open(buff) as af:
+            af["arr"]
 
 
 def test_broadcasted_array():

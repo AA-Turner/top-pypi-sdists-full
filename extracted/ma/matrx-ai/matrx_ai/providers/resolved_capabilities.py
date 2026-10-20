@@ -80,6 +80,14 @@ class ResolvedModelCapabilities(BaseModel):
     # not support assistant message prefill"), so it is data, never a name check.
     # Read by ``matrx_ai.config.message_flags``.
     supports_assistant_prefill: bool = False
+    # The model REJECTS two user-role turns in a row — declared per model as the
+    # ``strict_role_alternation`` feature only after a live probe proved it (lane
+    # L29, 2026-10-18: every active Groq/Cerebras/Together/Moonshot chat offering
+    # accepted user, user). Read by ``BaseTranslator.place_trailing_on_chat_messages``.
+    requires_strict_role_alternation: bool = False
+    # The provider continues an answer past one call's output limit (the ``long_decode``
+    # feature; Gemini 4 Argon). Without it a Gemini call is always exactly one call.
+    supports_long_decode: bool = False
     # tool / search axes
     supports_function_calling: bool  # THE gate for ALL tool injection
     supports_web_search: bool
@@ -210,6 +218,8 @@ def resolve_model_capabilities(
         produces_decision="decision" in declared.output,
         supports_dialogue="dialogue" in declared.features,
         supports_assistant_prefill="assistant_prefill" in declared.features,
+        requires_strict_role_alternation="strict_role_alternation" in declared.features,
+        supports_long_decode="long_decode" in declared.features,
         supports_function_calling="function_calling" in declared.features,
         supports_web_search="web_search" in declared.features,
         native_capabilities=frozenset(declared.features & NATIVE_PROVIDER_CAPABILITIES),

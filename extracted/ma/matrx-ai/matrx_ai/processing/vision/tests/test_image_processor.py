@@ -120,7 +120,7 @@ def test_reencode_respects_max_bytes_cap() -> None:
 
 def test_reencode_ocr_mode_uses_444_chroma() -> None:
     """OCR mode swaps to 4:4:4 chroma. We can't read PIL's internal
-    'subsampling' flag back from the bytes, but we can verify behaviour
+    'subsampling' flag back from the bytes, but we can verify behavior
     via output difference: a monochrome high-frequency image encoded with
     4:4:4 + q>=90 must be LARGER than the same image encoded at default
     4:2:0 + q=85, even though both classes share long_edge."""

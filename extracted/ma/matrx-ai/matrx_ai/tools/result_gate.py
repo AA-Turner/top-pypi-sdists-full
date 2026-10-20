@@ -42,7 +42,7 @@ GateTier = Literal[
 """Every tier is RECORDED — an over-cap result that no tier names is a silent overflow.
 
 * ``self_cap_exceeded`` — the tool declared ``output_self_capped`` but its result is
-  over the soft cap with no ``approved_max_chars`` covering it. The claim is honoured
+  over the soft cap with no ``approved_max_chars`` covering it. The claim is honored
   (content untouched), and the lie is recorded. Production: ``context`` mode=full on a
   lazy source returned 113,535 chars on 2026-09-12 while claiming self-capped.
 * ``blocks_over_cap`` — a typed content-block list (``provider_content``) whose text is
@@ -398,8 +398,8 @@ SECTION_EXCERPT_CHARS = 1_200
 
 #: Section headings that are chrome on every page rather than content. Matched
 #: case-insensitively as whole headings. Deliberately SHORT: a longer list is a
-#: guess, and the boilerplate judgement belongs to the mandate, not to this
-#: constant. These are only the ones no judgement is needed for.
+#: guess, and the boilerplate judgment belongs to the mandate, not to this
+#: constant. These are only the ones no judgment is needed for.
 _OBVIOUS_BOILERPLATE = frozenset(
     {
         "navigation",

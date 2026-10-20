@@ -13,7 +13,7 @@ rather than by any new logic:
    reads two signals — the recorded content type and the URL's shape — and the
    first was silent for 80% of the registry.
 
-2. **A sitemap full of dead URLs was undetectable.** The catalogue check
+2. **A sitemap full of dead URLs was undetectable.** The catalog check
    `sitemap_health` (weight 2.0) has ALWAYS promised the band ">10% of sitemap
    URLs are non-200, redirected, noindexed or robots-blocked", and
    `site_analysis._load_sitemap_membership` has ALWAYS classified junk off
@@ -78,7 +78,7 @@ from matrx_scraper.utils.proxy import redact_url_secrets
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# CAPS constants. Changing behaviour is a code push, never an env var.
+# CAPS constants. Changing behavior is a code push, never an env var.
 
 #: Where a verification's own evidence lands on the page row.
 VERIFICATION_METADATA_KEY = "url_verification"
@@ -102,7 +102,7 @@ USER_AGENT = "MatrxScraperBot/url-verify (+https://aimatrx.com)"
 #: HEAD is wildly inconsistently supported. These say "this host dislikes HEAD",
 #: not "this URL is broken", so they earn the GET fallback.
 HEAD_FALLBACK_STATUSES = frozenset({400, 401, 403, 405, 406, 409, 501, 502})
-#: The GET fallback asks for the first byte only. A server that honours it sends
+#: The GET fallback asks for the first byte only. A server that honors it sends
 #: 206 and one byte; one that ignores it sends 200 and a body we never read
 #: (the response is streamed and closed at the headers).
 RANGE_HEADER = {"Range": "bytes=0-0"}

@@ -51,7 +51,9 @@ class Brand(MatrxEntity):
     kind = TextField(null=False, default='company')
     person_party_id = ForeignKey(to_model='Party', to_column='id', to_schema='crm', )
     person_user_id = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_exclusion': {'from_model': 'BrandExclusion', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_exclusion', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'brand_persona': {'from_model': 'BrandPersona', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_persona', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_asset': {'from_model': 'BrandAsset', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_asset', 'from_schema': 'web'}, 'brand_choice': {'from_model': 'BrandChoice', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_choice', 'from_schema': 'web'}, 'brand_exclusion': {'from_model': 'BrandExclusion', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_exclusion', 'from_schema': 'web'}, 'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}, 'brand_persona': {'from_model': 'BrandPersona', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_persona', 'from_schema': 'web'}, 'brand_review': {'from_model': 'BrandReview', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_review', 'from_schema': 'web'}, 'brand_testimony': {'from_model': 'BrandTestimony', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'brand_testimony', 'from_schema': 'web'}, 'business_fact': {'from_model': 'BusinessFact', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_fact', 'from_schema': 'web'}, 'business_location': {'from_model': 'BusinessLocation', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'business_location', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'site': {'from_model': 'Site', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'site', 'from_schema': 'web'}, 'temp_brand_firmographic': {'from_model': 'TempBrandFirmographic', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'temp_brand_firmographic', 'from_schema': 'web'}, 'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}, 'temp_brand_recognition': {'from_model': 'TempBrandRecognition', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'temp_brand_recognition', 'from_schema': 'web'}, 'voice_fingerprint': {'from_model': 'VoiceFingerprint', 'from_field': 'brand_id', 'referenced_field': 'id', 'related_name': 'voice_fingerprint', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "brand"
     _db_schema = "web"
@@ -100,6 +102,8 @@ class BrandRelationKind(MatrxEntity):
     description = TextField()
     has_sentiment = BooleanField(null=False, default=False)
     usage = TextField(null=False, default='use')
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "brand_relation_kind"
@@ -176,6 +180,8 @@ class DomainCategory(MatrxEntity):
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
     label = TextField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "domain_category"
@@ -251,6 +257,8 @@ class ListingPublisher(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'location_listing': {'from_model': 'LocationListing', 'from_field': 'publisher_id', 'referenced_field': 'id', 'related_name': 'location_listing', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "listing_publisher"
@@ -307,6 +315,8 @@ class NewsItem(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "news_item"
@@ -355,6 +365,8 @@ class OfferingTemplate(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'brand_offering': {'from_model': 'BrandOffering', 'from_field': 'template_id', 'referenced_field': 'id', 'related_name': 'brand_offering', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "offering_template"
@@ -399,6 +411,8 @@ class Provider(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_item': {'from_model': 'AnalysisItem', 'from_field': 'default_provider_id', 'referenced_field': 'id', 'related_name': 'analysis_item', 'from_schema': 'web'}, 'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'provider_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'provider_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "provider"
@@ -451,6 +465,8 @@ class YoutubeVideo(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "youtube_video"
@@ -504,6 +520,8 @@ class AnalysisItem(MatrxEntity):
     published_to_web_by = UUIDField()
     evidence_kind = TextField(null=False, default='measured')
     tier = TextField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'item_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'item_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'item_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "analysis_item"
@@ -547,6 +565,41 @@ class BrandAsset(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "component"
 
+class BrandChoice(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    element_id = ForeignKey(to_model='Categories', to_column='id', to_schema='platform', null=False)
+    value = JSONBField(null=False)
+    origin = TextField(null=False)
+    recommended_placement = TextField()
+    opinion_reason = TextField()
+    decision = TextField(null=False, default='open')
+    decided_by = UUIDField()
+    decided_at = DateTimeField()
+    decided_via = TextField()
+    decision_reason = TextField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    placement = TextField()
+    word_signals = JSONBField(null=False, default=[])
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "brand_choice"
+    _db_schema = "web"
+    _entity_token = "web_brand_choice"
+    _is_versioned = True
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "component"
+
 
 
 class ShownTo(StrEnum):
@@ -585,6 +638,8 @@ class BrandExclusion(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "brand_exclusion"
@@ -670,6 +725,8 @@ class BrandPersona(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "brand_persona"
@@ -679,6 +736,73 @@ class BrandPersona(MatrxEntity):
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "entity"
+
+class BrandReview(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    source = TextField(null=False)
+    place_id = TextField()
+    external_review_id = TextField(null=False)
+    author_name = TextField()
+    rating = DecimalField()
+    review_text = TextField()
+    published_at = DateTimeField()
+    owner_response = TextField()
+    raw = JSONBField(null=False, default={})
+    fetched_at = DateTimeField(null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "brand_review"
+    _db_schema = "web"
+    _entity_token = "web_brand_review"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "component"
+
+class BrandTestimony(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    room_id = ForeignKey(to_model='Categories', to_column='id', to_schema='platform', null=False)
+    topic = TextField(null=False)
+    statement = TextField(null=False)
+    quote = TextField()
+    source_url = TextField()
+    source_value = TextField()
+    firsthand = BooleanField()
+    checkable = BooleanField()
+    how_to_check = TextField()
+    conferred = BooleanField()
+    respondent_key = TextField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "brand_testimony"
+    _db_schema = "web"
+    _entity_token = "web_brand_testimony"
+    _is_versioned = True
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "component"
 
 class BusinessFact(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -698,7 +822,7 @@ class BusinessFact(MatrxEntity):
     confirmed_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     confirmed_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_fact_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'resolved_fact_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'source_fact_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}, 'temp_brand_recognition': {'from_model': 'TempBrandRecognition', 'from_field': 'source_fact_id', 'referenced_field': 'id', 'related_name': 'temp_brand_recognition', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "business_fact"
     _db_schema = "web"
@@ -741,7 +865,7 @@ class BusinessLocation(MatrxEntity):
     version = IntegerField(null=False, default=1)
     metadata = JSONBField(null=False, default={})
     custom_fields = JSONBField(null=False, default={})
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'location_listing': {'from_model': 'LocationListing', 'from_field': 'location_id', 'referenced_field': 'id', 'related_name': 'location_listing', 'from_schema': 'web'}}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'location_listing': {'from_model': 'LocationListing', 'from_field': 'location_id', 'referenced_field': 'id', 'related_name': 'location_listing', 'from_schema': 'web'}, 'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'location_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "business_location"
     _db_schema = "web"
@@ -750,6 +874,64 @@ class BusinessLocation(MatrxEntity):
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
+
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class TempBrandFirmographic(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    price_range = TextField()
+    response_time = TextField()
+    employee_count_range = TextField()
+    annual_revenue = TextField()
+    ownership_type = TextField()
+    entity_type = TextField()
+    parent_company_name = TextField()
+    parent_party_id = ForeignKey(to_model='Party', to_column='id', to_schema='crm', )
+    target_market = TextField()
+    languages_spoken = TextField()
+    payment_methods = TextField()
+    live_chat = TextField()
+    funding = TextField()
+    google_place_id = TextField()
+    knowledge_graph_id = TextField()
+    organization_id = UUIDField(null=False)
+    created_by = UUIDField()
+    updated_by = UUIDField()
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    custom_fields = JSONBField(null=False, default={})
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "temp_brand_firmographic"
+    _db_schema = "web"
+    _entity_token = "web_temp_brand_firmographic"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
 
 
 
@@ -787,6 +969,8 @@ class VoiceFingerprint(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_web"
     _table_name = "voice_fingerprint"
@@ -1062,7 +1246,7 @@ class DiscoveredItem(MatrxEntity):
     relation_key = TextField()
     sentiment = TextField()
     resolved_offering_id = ForeignKey(to_model=BrandOffering, to_column='id', to_schema='web', )
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'temp_brand_presence': {'from_model': 'TempBrandPresence', 'from_field': 'source_item_id', 'referenced_field': 'id', 'related_name': 'temp_brand_presence', 'from_schema': 'web'}, 'temp_brand_recognition': {'from_model': 'TempBrandRecognition', 'from_field': 'source_item_id', 'referenced_field': 'id', 'related_name': 'temp_brand_recognition', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "discovered_item"
     _db_schema = "web"
@@ -1425,6 +1609,8 @@ class Site(MatrxEntity):
     published_to_web = BooleanField(null=False)
     published_to_web_at = DateTimeField()
     published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_preset': {'from_model': 'CrawlPreset', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_preset', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_session': {'from_model': 'CrawlSession', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_session', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'endpoint_family_sweep_state': {'from_model': 'EndpointFamilySweepState', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'endpoint_family_sweep_state', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page': {'from_model': 'Page', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'site_endpoint_rule': {'from_model': 'SiteEndpointRule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_endpoint_rule', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}, 'sitemap': {'from_model': 'Sitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'sitemap', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}, 'tag_manager_snapshot': {'from_model': 'TagManagerSnapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'tag_manager_snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "site"
@@ -1619,6 +1805,114 @@ class TagManagerSnapshot(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "component"
 
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class TempBrandPresence(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    presence_type = TextField(null=False)
+    platform_name = TextField()
+    label = TextField(null=False)
+    url = TextField()
+    domain = TextField()
+    rating = DecimalField()
+    review_count = IntegerField()
+    follower_count = BigIntegerField()
+    location_id = ForeignKey(to_model=BusinessLocation, to_column='id', to_schema='web', )
+    source_fact_id = ForeignKey(to_model=BusinessFact, to_column='id', to_schema='web', )
+    source_item_id = ForeignKey(to_model=DiscoveredItem, to_column='id', to_schema='web', )
+    organization_id = UUIDField(null=False)
+    created_by = UUIDField()
+    updated_by = UUIDField()
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    custom_fields = JSONBField(null=False, default={})
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "temp_brand_presence"
+    _db_schema = "web"
+    _entity_token = "web_temp_brand_presence"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
+
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
+class TempBrandRecognition(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    brand_id = ForeignKey(to_model=Brand, to_column='id', to_schema='web', null=False)
+    recognition_type = TextField(null=False)
+    name = TextField(null=False)
+    issuer_name = TextField()
+    issuer_party_id = ForeignKey(to_model='Party', to_column='id', to_schema='crm', )
+    reference_number = TextField()
+    valid_from_text = TextField()
+    valid_until_text = TextField()
+    year = IntegerField()
+    url = TextField()
+    source_fact_id = ForeignKey(to_model=BusinessFact, to_column='id', to_schema='web', )
+    source_item_id = ForeignKey(to_model=DiscoveredItem, to_column='id', to_schema='web', )
+    organization_id = UUIDField(null=False)
+    created_by = UUIDField()
+    updated_by = UUIDField()
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    custom_fields = JSONBField(null=False, default={})
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "temp_brand_recognition"
+    _db_schema = "web"
+    _entity_token = "web_temp_brand_recognition"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
+
 # Read-only model for the web.v_latest_result VIEW (auto-generated — views are not writable).
 class VLatestResult(Model):
     id = UUIDField()
@@ -1763,11 +2057,15 @@ __all__ = [
     "YoutubeVideo",
     "AnalysisItem",
     "BrandAsset",
+    "BrandChoice",
     "BrandExclusion",
     "BrandOffering",
     "BrandPersona",
+    "BrandReview",
+    "BrandTestimony",
     "BusinessFact",
     "BusinessLocation",
+    "TempBrandFirmographic",
     "VoiceFingerprint",
     "LocationListing",
     "AnalysisResult",
@@ -1794,6 +2092,8 @@ __all__ = [
     "Sitemap",
     "Snapshot",
     "TagManagerSnapshot",
+    "TempBrandPresence",
+    "TempBrandRecognition",
     "Visibility",
     "ShownTo",
     "VLatestResult",
@@ -1819,11 +2119,15 @@ model_registry.register_all(
         YoutubeVideo,
         AnalysisItem,
         BrandAsset,
+        BrandChoice,
         BrandExclusion,
         BrandOffering,
         BrandPersona,
+        BrandReview,
+        BrandTestimony,
         BusinessFact,
         BusinessLocation,
+        TempBrandFirmographic,
         VoiceFingerprint,
         LocationListing,
         AnalysisResult,
@@ -1850,6 +2154,8 @@ model_registry.register_all(
         Sitemap,
         Snapshot,
         TagManagerSnapshot,
+        TempBrandPresence,
+        TempBrandRecognition,
         VLatestResult,
         VPageList,
         VPageScore,

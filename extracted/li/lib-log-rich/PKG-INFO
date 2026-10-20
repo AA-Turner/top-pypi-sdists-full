@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_log_rich
-Version: 6.5.3
+Version: 6.5.5
 Summary: Rich-powered logging runtime with contextual metadata, multi-sink fan-out, and ring-buffer dumps
 Project-URL: Homepage, https://github.com/bitranox/lib_log_rich
 Project-URL: Repository, https://github.com/bitranox/lib_log_rich.git
@@ -42,7 +42,7 @@ Requires-Dist: pytest-asyncio>=1.4.0; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: rtoml>=0.14.0; extra == 'dev'
-Requires-Dist: ruff>=0.17.0; extra == 'dev'
+Requires-Dist: ruff>=0.17.1; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Provides-Extra: eventlog
@@ -526,7 +526,9 @@ Key points:
 
 - `.env` loading is explicit - nothing is read unless you call `enable_dotenv()` (or `load_dotenv()`).
 - Precedence stays intact: CLI flag ➝ real `os.environ` ➝ discovered `.env` ➝ defaults.
-- Search uses `python-dotenv.find_dotenv(usecwd=True)` and stops once `.env` appears or the filesystem root is reached.
+- Search walks up from the cwd (or `search_from`) and stops at the first `.env`, at a directory holding a
+  `pyproject.toml`/`.git` marker, or at a directory it cannot look into. A `.env` that is not UTF-8 raises
+  `DotenvDecodeError`, naming the file and byte offset but none of its content.
 - Pass `dotenv_override=True` when you intentionally want `.env` values to win over real environment variables.
 
 See [DOTENV.md](DOTENV.md) for more detail, examples, and CLI usage.

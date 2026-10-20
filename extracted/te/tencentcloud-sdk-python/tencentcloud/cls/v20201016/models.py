@@ -2838,9 +2838,12 @@ class AnonymousLoginInfo(AbstractModel):
         :param _SecretKey: <p>匿名登录账号secretKey</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type SecretKey: str
+        :param _RoleArn: <p>角色的资源描述，可在<a href="https://console.cloud.tencent.com/cam/role">访问管理</a>，点击角色名获取。<br>普通角色：<br>qcs::cam::uin/12345678:role/4611686018427397919、qcs::cam::uin/12345678:roleName/testRoleName<br>服务角色：<br>qcs::cam::uin/12345678:role/tencentcloudServiceRole/4611686018427397920、qcs::cam::uin/12345678:role/tencentcloudServiceRoleName/testServiceRoleName</p><p>DataSight将扮演此角色，使用此角色的临时密钥来发起API请求。</p>
+        :type RoleArn: str
         """
         self._SecretId = None
         self._SecretKey = None
+        self._RoleArn = None
 
     @property
     def SecretId(self):
@@ -2866,10 +2869,22 @@ class AnonymousLoginInfo(AbstractModel):
     def SecretKey(self, SecretKey):
         self._SecretKey = SecretKey
 
+    @property
+    def RoleArn(self):
+        r"""<p>角色的资源描述，可在<a href="https://console.cloud.tencent.com/cam/role">访问管理</a>，点击角色名获取。<br>普通角色：<br>qcs::cam::uin/12345678:role/4611686018427397919、qcs::cam::uin/12345678:roleName/testRoleName<br>服务角色：<br>qcs::cam::uin/12345678:role/tencentcloudServiceRole/4611686018427397920、qcs::cam::uin/12345678:role/tencentcloudServiceRoleName/testServiceRoleName</p><p>DataSight将扮演此角色，使用此角色的临时密钥来发起API请求。</p>
+        :rtype: str
+        """
+        return self._RoleArn
+
+    @RoleArn.setter
+    def RoleArn(self, RoleArn):
+        self._RoleArn = RoleArn
+
 
     def _deserialize(self, params):
         self._SecretId = params.get("SecretId")
         self._SecretKey = params.get("SecretKey")
+        self._RoleArn = params.get("RoleArn")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3046,10 +3061,13 @@ class AuthRoleInfo(AbstractModel):
         :param _SecretKey: <p>Auth角色对应权限SecretKey</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type SecretKey: str
+        :param _RoleArn: <p>角色的资源描述，可在<a href="https://console.cloud.tencent.com/cam/role">访问管理</a>，点击角色名获取。<br>普通角色：<br>qcs::cam::uin/12345678:role/4611686018427397919、qcs::cam::uin/12345678:roleName/testRoleName<br>服务角色：<br>qcs::cam::uin/12345678:role/tencentcloudServiceRole/4611686018427397920、qcs::cam::uin/12345678:role/tencentcloudServiceRoleName/testServiceRoleName</p><p>DataSight将扮演此角色，使用此角色的临时密钥来发起API请求。</p>
+        :type RoleArn: str
         """
         self._RoleName = None
         self._SecretId = None
         self._SecretKey = None
+        self._RoleArn = None
 
     @property
     def RoleName(self):
@@ -3085,11 +3103,23 @@ class AuthRoleInfo(AbstractModel):
     def SecretKey(self, SecretKey):
         self._SecretKey = SecretKey
 
+    @property
+    def RoleArn(self):
+        r"""<p>角色的资源描述，可在<a href="https://console.cloud.tencent.com/cam/role">访问管理</a>，点击角色名获取。<br>普通角色：<br>qcs::cam::uin/12345678:role/4611686018427397919、qcs::cam::uin/12345678:roleName/testRoleName<br>服务角色：<br>qcs::cam::uin/12345678:role/tencentcloudServiceRole/4611686018427397920、qcs::cam::uin/12345678:role/tencentcloudServiceRoleName/testServiceRoleName</p><p>DataSight将扮演此角色，使用此角色的临时密钥来发起API请求。</p>
+        :rtype: str
+        """
+        return self._RoleArn
+
+    @RoleArn.setter
+    def RoleArn(self, RoleArn):
+        self._RoleArn = RoleArn
+
 
     def _deserialize(self, params):
         self._RoleName = params.get("RoleName")
         self._SecretId = params.get("SecretId")
         self._SecretKey = params.get("SecretKey")
+        self._RoleArn = params.get("RoleArn")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5979,12 +6009,15 @@ class ConsoleAccount(AbstractModel):
         :param _Email: <p>电子邮箱，用于发送验证码</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type Email: str
+        :param _RoleArn: <p>角色的资源描述，可在<a href="https://console.cloud.tencent.com/cam/role">访问管理</a>，点击角色名获取。<br>普通角色：<br>qcs::cam::uin/12345678:role/4611686018427397919、qcs::cam::uin/12345678:roleName/testRoleName<br>服务角色：<br>qcs::cam::uin/12345678:role/tencentcloudServiceRole/4611686018427397920、qcs::cam::uin/12345678:role/tencentcloudServiceRoleName/testServiceRoleName</p><p>DataSight将扮演此角色，使用此角色的临时密钥来发起API请求。</p>
+        :type RoleArn: str
         """
         self._UserName = None
         self._Password = None
         self._SecretId = None
         self._SecretKey = None
         self._Email = None
+        self._RoleArn = None
 
     @property
     def UserName(self):
@@ -6046,6 +6079,17 @@ class ConsoleAccount(AbstractModel):
     def Email(self, Email):
         self._Email = Email
 
+    @property
+    def RoleArn(self):
+        r"""<p>角色的资源描述，可在<a href="https://console.cloud.tencent.com/cam/role">访问管理</a>，点击角色名获取。<br>普通角色：<br>qcs::cam::uin/12345678:role/4611686018427397919、qcs::cam::uin/12345678:roleName/testRoleName<br>服务角色：<br>qcs::cam::uin/12345678:role/tencentcloudServiceRole/4611686018427397920、qcs::cam::uin/12345678:role/tencentcloudServiceRoleName/testServiceRoleName</p><p>DataSight将扮演此角色，使用此角色的临时密钥来发起API请求。</p>
+        :rtype: str
+        """
+        return self._RoleArn
+
+    @RoleArn.setter
+    def RoleArn(self, RoleArn):
+        self._RoleArn = RoleArn
+
 
     def _deserialize(self, params):
         self._UserName = params.get("UserName")
@@ -6053,6 +6097,7 @@ class ConsoleAccount(AbstractModel):
         self._SecretId = params.get("SecretId")
         self._SecretKey = params.get("SecretKey")
         self._Email = params.get("Email")
+        self._RoleArn = params.get("RoleArn")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9903,9 +9948,9 @@ class CreateConsoleRequest(AbstractModel):
         :type LoginMode: int
         :param _DomainPrefix: <p>自定义域名前缀</p>
         :type DomainPrefix: str
-        :param _Accounts: <p>用户账号信息</p><p>“账号密码鉴权”登录方式必传</p>
+        :param _Accounts: <p>用户账号信息</p><p>“账号密码鉴权”登录方式必传。<br>SecretId + SecretKey 或 RoleArn需要传其中一种。</p>
         :type Accounts: list of ConsoleAccount
-        :param _AnonymousLogin: <p>匿名登录账号信息</p><p>“匿名登录”登录方式必传</p>
+        :param _AnonymousLogin: <p>匿名登录账号信息</p><p>“匿名登录”登录方式必传。<br>SecretId + SecretKey 或 RoleArn需要传其中一种。</p>
         :type AnonymousLogin: :class:`tencentcloud.cls.v20201016.models.AnonymousLoginInfo`
         :param _IntranetType: <p>内网类型，默认为0</p>
         :type IntranetType: int
@@ -9915,7 +9960,7 @@ class CreateConsoleRequest(AbstractModel):
         :type VpcId: str
         :param _SubnetId: <p>内网子网SubnetId</p>
         :type SubnetId: str
-        :param _AuthRoles: <p>Auth角色信息</p><p>“第三方认证登录”登录方式必传</p>
+        :param _AuthRoles: <p>Auth角色信息</p><p>“第三方认证登录”登录方式必传。<br>SecretId + SecretKey 或 RoleArn需要传其中一种。</p>
         :type AuthRoles: list of AuthRoleInfo
         :param _Tags: <p>标签描述列表，通过指定该参数可以同时绑定标签到相应的日志主题。最大支持10个标签键值对，同一个资源只能绑定到同一个标签键下。</p>
         :type Tags: list of Tag
@@ -9979,7 +10024,7 @@ class CreateConsoleRequest(AbstractModel):
 
     @property
     def Accounts(self):
-        r"""<p>用户账号信息</p><p>“账号密码鉴权”登录方式必传</p>
+        r"""<p>用户账号信息</p><p>“账号密码鉴权”登录方式必传。<br>SecretId + SecretKey 或 RoleArn需要传其中一种。</p>
         :rtype: list of ConsoleAccount
         """
         return self._Accounts
@@ -9990,7 +10035,7 @@ class CreateConsoleRequest(AbstractModel):
 
     @property
     def AnonymousLogin(self):
-        r"""<p>匿名登录账号信息</p><p>“匿名登录”登录方式必传</p>
+        r"""<p>匿名登录账号信息</p><p>“匿名登录”登录方式必传。<br>SecretId + SecretKey 或 RoleArn需要传其中一种。</p>
         :rtype: :class:`tencentcloud.cls.v20201016.models.AnonymousLoginInfo`
         """
         return self._AnonymousLogin
@@ -10045,7 +10090,7 @@ class CreateConsoleRequest(AbstractModel):
 
     @property
     def AuthRoles(self):
-        r"""<p>Auth角色信息</p><p>“第三方认证登录”登录方式必传</p>
+        r"""<p>Auth角色信息</p><p>“第三方认证登录”登录方式必传。<br>SecretId + SecretKey 或 RoleArn需要传其中一种。</p>
         :rtype: list of AuthRoleInfo
         """
         return self._AuthRoles
@@ -17942,7 +17987,7 @@ class DataTransformResouceInfo(AbstractModel):
         :type RoleARN: str
         :param _ExternalId: <p>外部ID值，可以在被投递账号的角色-载体里找到该值</p>
         :type ExternalId: str
-        :param _TopicName: <p>topic名称</p>
+        :param _TopicName: <p>目标日志主题的名称,当DataTransformType=1(前置加工任务)时, 该值和源日志主题名称的值相同.</p>
         :type TopicName: str
         :param _LogsetName: <p>日志集的名称</p>
         :type LogsetName: str
@@ -18012,7 +18057,7 @@ class DataTransformResouceInfo(AbstractModel):
 
     @property
     def TopicName(self):
-        r"""<p>topic名称</p>
+        r"""<p>目标日志主题的名称,当DataTransformType=1(前置加工任务)时, 该值和源日志主题名称的值相同.</p>
         :rtype: str
         """
         return self._TopicName
@@ -18173,59 +18218,53 @@ class DataTransformTaskInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Name: 数据加工任务名称
+        :param _Name: <p>数据加工任务名称</p>
         :type Name: str
-        :param _TaskId: 数据加工任务id
+        :param _TaskId: <p>数据加工任务id</p>
         :type TaskId: str
-        :param _EnableFlag: 任务启用状态，默认为1，正常开启,  2关闭
+        :param _EnableFlag: <p>任务启用状态，默认为1，正常开启,  2关闭</p>
         :type EnableFlag: int
-        :param _Type: 加工任务类型，1： DSL(使用自定义加工语言的加工任务)， 2：SQL(使用sql的加工任务)
+        :param _Type: <p>加工任务类型，1： DSL(使用自定义加工语言的加工任务)， 2：SQL(使用sql的加工任务)</p>
         :type Type: int
-        :param _SrcTopicId: 源日志主题
+        :param _SrcTopicId: <p>源日志主题ID,当DataTransformType=1,代表当前任务的类型是前置加工任务,该值和目标日志主题的ID值相同.</p>
         :type SrcTopicId: str
-        :param _Status: 当前加工任务状态（1准备中/2运行中/3停止中/4已停止）
+        :param _Status: <p>当前加工任务状态（1准备中/2运行中/3停止中/4已停止）</p>
         :type Status: int
-        :param _CreateTime: 创建时间
-时间格式：yyyy-MM-dd HH:mm:ss
+        :param _CreateTime: <p>创建时间<br>时间格式：yyyy-MM-dd HH:mm:ss</p>
         :type CreateTime: str
-        :param _UpdateTime: 最近修改时间
-时间格式：yyyy-MM-dd HH:mm:ss
+        :param _UpdateTime: <p>最近修改时间<br>时间格式：yyyy-MM-dd HH:mm:ss</p>
         :type UpdateTime: str
-        :param _LastEnableTime: 最后启用时间，如果需要重建集群，修改该时间
-时间格式：yyyy-MM-dd HH:mm:ss
+        :param _LastEnableTime: <p>最后启用时间，如果需要重建集群，修改该时间<br>时间格式：yyyy-MM-dd HH:mm:ss</p>
         :type LastEnableTime: str
-        :param _SrcTopicName: 日志主题名称
+        :param _SrcTopicName: <p>源日志主题名称,当DataTransformType=1,代表当前任务的类型是前置加工任务,该值和目标日志主题名称的值相同.</p>
         :type SrcTopicName: str
-        :param _LogsetId: 日志集id
+        :param _LogsetId: <p>日志集id</p>
         :type LogsetId: str
-        :param _DstResources: 加工任务目的topic_id以及别名
+        :param _DstResources: <p>加工任务目的topic_id以及别名</p>
         :type DstResources: list of DataTransformResouceInfo
-        :param _EtlContent: 加工逻辑函数。
+        :param _EtlContent: <p>加工逻辑函数。</p>
         :type EtlContent: str
-        :param _BackupTopicID: 兜底topic_id
+        :param _BackupTopicID: <p>兜底topic_id</p>
         :type BackupTopicID: str
-        :param _BackupGiveUpData: 超限之后是否丢弃日志数据
+        :param _BackupGiveUpData: <p>超限之后是否丢弃日志数据</p>
         :type BackupGiveUpData: bool
-        :param _HasServicesLog: 是否开启投递服务日志。 1关闭,2开启
+        :param _HasServicesLog: <p>是否开启投递服务日志。 1关闭,2开启</p>
         :type HasServicesLog: int
-        :param _TaskDstCount: 任务目标日志主题数量
+        :param _TaskDstCount: <p>任务目标日志主题数量</p>
         :type TaskDstCount: int
-        :param _DataTransformType: 数据加工类型。0：标准加工任务；1：前置加工任务。
+        :param _DataTransformType: <p>数据加工类型。0：标准加工任务；1：前置加工任务。当该值=1时, 源日志主题和目标日志主题的名称和ID相同.</p><p>枚举值：</p><ul><li>1： 前置加工任务</li><li>0： 标准加工任务</li></ul>
         :type DataTransformType: int
-        :param _KeepFailureLog: 保留失败日志状态。 1:不保留，2:保留
+        :param _KeepFailureLog: <p>保留失败日志状态。 1:不保留，2:保留</p>
         :type KeepFailureLog: int
-        :param _FailureLogKey: 失败日志的字段名称
+        :param _FailureLogKey: <p>失败日志的字段名称</p>
         :type FailureLogKey: str
-        :param _ProcessFromTimestamp: 指定加工数据的开始时间，秒级时间戳。
-- 日志主题生命周期内的任意时间范围，如果超出了生命周期,只处理生命周期内有数据的部分。
+        :param _ProcessFromTimestamp: <p>指定加工数据的开始时间，秒级时间戳。</p><ul><li>日志主题生命周期内的任意时间范围，如果超出了生命周期,只处理生命周期内有数据的部分。</li></ul>
         :type ProcessFromTimestamp: int
-        :param _ProcessToTimestamp: 指定加工数据的结束时间，秒级时间戳。
-1. 不可指定未来的时间
-2. 不填则表示持续执行
+        :param _ProcessToTimestamp: <p>指定加工数据的结束时间，秒级时间戳。</p><ol><li>不可指定未来的时间</li><li>不填则表示持续执行</li></ol>
         :type ProcessToTimestamp: int
-        :param _DataTransformSqlDataSources: sql数据源信息
+        :param _DataTransformSqlDataSources: <p>sql数据源信息</p>
         :type DataTransformSqlDataSources: list of DataTransformSqlDataSource
-        :param _EnvInfos: 环境变量
+        :param _EnvInfos: <p>环境变量</p>
         :type EnvInfos: list of EnvInfo
         """
         self._Name = None
@@ -18255,7 +18294,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def Name(self):
-        r"""数据加工任务名称
+        r"""<p>数据加工任务名称</p>
         :rtype: str
         """
         return self._Name
@@ -18266,7 +18305,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def TaskId(self):
-        r"""数据加工任务id
+        r"""<p>数据加工任务id</p>
         :rtype: str
         """
         return self._TaskId
@@ -18277,7 +18316,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def EnableFlag(self):
-        r"""任务启用状态，默认为1，正常开启,  2关闭
+        r"""<p>任务启用状态，默认为1，正常开启,  2关闭</p>
         :rtype: int
         """
         return self._EnableFlag
@@ -18288,7 +18327,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def Type(self):
-        r"""加工任务类型，1： DSL(使用自定义加工语言的加工任务)， 2：SQL(使用sql的加工任务)
+        r"""<p>加工任务类型，1： DSL(使用自定义加工语言的加工任务)， 2：SQL(使用sql的加工任务)</p>
         :rtype: int
         """
         return self._Type
@@ -18299,7 +18338,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def SrcTopicId(self):
-        r"""源日志主题
+        r"""<p>源日志主题ID,当DataTransformType=1,代表当前任务的类型是前置加工任务,该值和目标日志主题的ID值相同.</p>
         :rtype: str
         """
         return self._SrcTopicId
@@ -18310,7 +18349,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def Status(self):
-        r"""当前加工任务状态（1准备中/2运行中/3停止中/4已停止）
+        r"""<p>当前加工任务状态（1准备中/2运行中/3停止中/4已停止）</p>
         :rtype: int
         """
         return self._Status
@@ -18321,8 +18360,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""创建时间
-时间格式：yyyy-MM-dd HH:mm:ss
+        r"""<p>创建时间<br>时间格式：yyyy-MM-dd HH:mm:ss</p>
         :rtype: str
         """
         return self._CreateTime
@@ -18333,8 +18371,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def UpdateTime(self):
-        r"""最近修改时间
-时间格式：yyyy-MM-dd HH:mm:ss
+        r"""<p>最近修改时间<br>时间格式：yyyy-MM-dd HH:mm:ss</p>
         :rtype: str
         """
         return self._UpdateTime
@@ -18345,8 +18382,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def LastEnableTime(self):
-        r"""最后启用时间，如果需要重建集群，修改该时间
-时间格式：yyyy-MM-dd HH:mm:ss
+        r"""<p>最后启用时间，如果需要重建集群，修改该时间<br>时间格式：yyyy-MM-dd HH:mm:ss</p>
         :rtype: str
         """
         return self._LastEnableTime
@@ -18357,7 +18393,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def SrcTopicName(self):
-        r"""日志主题名称
+        r"""<p>源日志主题名称,当DataTransformType=1,代表当前任务的类型是前置加工任务,该值和目标日志主题名称的值相同.</p>
         :rtype: str
         """
         return self._SrcTopicName
@@ -18368,7 +18404,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def LogsetId(self):
-        r"""日志集id
+        r"""<p>日志集id</p>
         :rtype: str
         """
         return self._LogsetId
@@ -18379,7 +18415,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def DstResources(self):
-        r"""加工任务目的topic_id以及别名
+        r"""<p>加工任务目的topic_id以及别名</p>
         :rtype: list of DataTransformResouceInfo
         """
         return self._DstResources
@@ -18390,7 +18426,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def EtlContent(self):
-        r"""加工逻辑函数。
+        r"""<p>加工逻辑函数。</p>
         :rtype: str
         """
         return self._EtlContent
@@ -18401,7 +18437,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def BackupTopicID(self):
-        r"""兜底topic_id
+        r"""<p>兜底topic_id</p>
         :rtype: str
         """
         return self._BackupTopicID
@@ -18412,7 +18448,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def BackupGiveUpData(self):
-        r"""超限之后是否丢弃日志数据
+        r"""<p>超限之后是否丢弃日志数据</p>
         :rtype: bool
         """
         return self._BackupGiveUpData
@@ -18423,7 +18459,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def HasServicesLog(self):
-        r"""是否开启投递服务日志。 1关闭,2开启
+        r"""<p>是否开启投递服务日志。 1关闭,2开启</p>
         :rtype: int
         """
         return self._HasServicesLog
@@ -18434,7 +18470,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def TaskDstCount(self):
-        r"""任务目标日志主题数量
+        r"""<p>任务目标日志主题数量</p>
         :rtype: int
         """
         return self._TaskDstCount
@@ -18445,7 +18481,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def DataTransformType(self):
-        r"""数据加工类型。0：标准加工任务；1：前置加工任务。
+        r"""<p>数据加工类型。0：标准加工任务；1：前置加工任务。当该值=1时, 源日志主题和目标日志主题的名称和ID相同.</p><p>枚举值：</p><ul><li>1： 前置加工任务</li><li>0： 标准加工任务</li></ul>
         :rtype: int
         """
         return self._DataTransformType
@@ -18456,7 +18492,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def KeepFailureLog(self):
-        r"""保留失败日志状态。 1:不保留，2:保留
+        r"""<p>保留失败日志状态。 1:不保留，2:保留</p>
         :rtype: int
         """
         return self._KeepFailureLog
@@ -18467,7 +18503,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def FailureLogKey(self):
-        r"""失败日志的字段名称
+        r"""<p>失败日志的字段名称</p>
         :rtype: str
         """
         return self._FailureLogKey
@@ -18478,8 +18514,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def ProcessFromTimestamp(self):
-        r"""指定加工数据的开始时间，秒级时间戳。
-- 日志主题生命周期内的任意时间范围，如果超出了生命周期,只处理生命周期内有数据的部分。
+        r"""<p>指定加工数据的开始时间，秒级时间戳。</p><ul><li>日志主题生命周期内的任意时间范围，如果超出了生命周期,只处理生命周期内有数据的部分。</li></ul>
         :rtype: int
         """
         return self._ProcessFromTimestamp
@@ -18490,9 +18525,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def ProcessToTimestamp(self):
-        r"""指定加工数据的结束时间，秒级时间戳。
-1. 不可指定未来的时间
-2. 不填则表示持续执行
+        r"""<p>指定加工数据的结束时间，秒级时间戳。</p><ol><li>不可指定未来的时间</li><li>不填则表示持续执行</li></ol>
         :rtype: int
         """
         return self._ProcessToTimestamp
@@ -18503,7 +18536,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def DataTransformSqlDataSources(self):
-        r"""sql数据源信息
+        r"""<p>sql数据源信息</p>
         :rtype: list of DataTransformSqlDataSource
         """
         return self._DataTransformSqlDataSources
@@ -18514,7 +18547,7 @@ class DataTransformTaskInfo(AbstractModel):
 
     @property
     def EnvInfos(self):
-        r"""环境变量
+        r"""<p>环境变量</p>
         :rtype: list of EnvInfo
         """
         return self._EnvInfos
@@ -43701,9 +43734,9 @@ class ModifyConsoleRequest(AbstractModel):
         :type LoginMode: int
         :param _DomainPrefix: <p>自定义域名前缀</p>
         :type DomainPrefix: str
-        :param _Accounts: <p>用户账号信息</p><p>“账号密码鉴权”登录方式必传</p>
+        :param _Accounts: <p>用户账号信息</p><p>“账号密码鉴权”登录方式必传。<br>如果SecretId、SecretKey、RoleArn都不传，表示不修改这部分鉴权信息。</p>
         :type Accounts: list of ConsoleAccount
-        :param _AnonymousLogin: <p>匿名登录账号信息</p><p>“匿名登录”登录方式必传</p>
+        :param _AnonymousLogin: <p>匿名登录账号信息</p><p>“匿名登录”登录方式必传。<br>如果SecretId、SecretKey、RoleArn都不传，表示不修改这部分鉴权信息。</p>
         :type AnonymousLogin: :class:`tencentcloud.cls.v20201016.models.AnonymousLoginInfo`
         :param _IntranetType: <p>内网类型，默认为0</p>
         :type IntranetType: int
@@ -43713,7 +43746,7 @@ class ModifyConsoleRequest(AbstractModel):
         :type VpcId: str
         :param _SubnetId: <p>内网子网SubnetId</p>
         :type SubnetId: str
-        :param _AuthRoles: <p>Auth用户角色信息</p><p>“第三方认证登录”登录方式必传</p>
+        :param _AuthRoles: <p>Auth用户角色信息</p><p>“第三方认证登录”登录方式必传。<br>如果SecretId、SecretKey、RoleArn都不传，表示不修改这部分鉴权信息。</p>
         :type AuthRoles: list of AuthRoleInfo
         :param _HideParams: <p>自定义隐藏参数</p>
         :type HideParams: list of str
@@ -43786,7 +43819,7 @@ class ModifyConsoleRequest(AbstractModel):
 
     @property
     def Accounts(self):
-        r"""<p>用户账号信息</p><p>“账号密码鉴权”登录方式必传</p>
+        r"""<p>用户账号信息</p><p>“账号密码鉴权”登录方式必传。<br>如果SecretId、SecretKey、RoleArn都不传，表示不修改这部分鉴权信息。</p>
         :rtype: list of ConsoleAccount
         """
         return self._Accounts
@@ -43797,7 +43830,7 @@ class ModifyConsoleRequest(AbstractModel):
 
     @property
     def AnonymousLogin(self):
-        r"""<p>匿名登录账号信息</p><p>“匿名登录”登录方式必传</p>
+        r"""<p>匿名登录账号信息</p><p>“匿名登录”登录方式必传。<br>如果SecretId、SecretKey、RoleArn都不传，表示不修改这部分鉴权信息。</p>
         :rtype: :class:`tencentcloud.cls.v20201016.models.AnonymousLoginInfo`
         """
         return self._AnonymousLogin
@@ -43852,7 +43885,7 @@ class ModifyConsoleRequest(AbstractModel):
 
     @property
     def AuthRoles(self):
-        r"""<p>Auth用户角色信息</p><p>“第三方认证登录”登录方式必传</p>
+        r"""<p>Auth用户角色信息</p><p>“第三方认证登录”登录方式必传。<br>如果SecretId、SecretKey、RoleArn都不传，表示不修改这部分鉴权信息。</p>
         :rtype: list of AuthRoleInfo
         """
         return self._AuthRoles

@@ -21,6 +21,10 @@ from dashscope.agentstudio.resources.environments import (
     AsyncEnvironments,
 )
 from dashscope.agentstudio.resources.files import Files, AsyncFiles
+from dashscope.agentstudio.resources.memory_stores import (
+    MemoryStores,
+    AsyncMemoryStores,
+)
 from dashscope.agentstudio.resources.security import Security, AsyncSecurity
 from dashscope.agentstudio.resources.sessions import Sessions, AsyncSessions
 from dashscope.agentstudio.resources.skills import Skills, AsyncSkills
@@ -144,6 +148,7 @@ class Client:
         self.files = Files(self)
         self.skills = Skills(self)
         self.vaults = Vaults(self)
+        self.memory_stores = MemoryStores(self)
         self.webhook_endpoints = WebhookEndpoints(self)
         self.security = Security(self)
 
@@ -218,6 +223,7 @@ class AsyncClient:
         self.files = AsyncFiles(self)
         self.skills = AsyncSkills(self)
         self.vaults = AsyncVaults(self)
+        self.memory_stores = AsyncMemoryStores(self)
         self.webhook_endpoints = AsyncWebhookEndpoints(self)
         self.security = AsyncSecurity(self)
 

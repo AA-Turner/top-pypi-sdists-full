@@ -2,8 +2,10 @@
 """CLI commands for connector integration-test secrets.
 
 Commands:
+    airbyte-ops secrets create   - Create a connector secret in GSM
     airbyte-ops secrets fetch   - Download connector secrets from GSM into `./secrets/`
     airbyte-ops secrets list    - List connector secrets visible in GSM
+    airbyte-ops secrets update  - Add a version and disable previous enabled versions
     airbyte-ops secrets ci-mask - Emit GitHub Actions `::add-mask::` lines
 
 These commands operate on the connector integration-test secrets stored in
@@ -27,6 +29,7 @@ from __future__ import annotations
 
 __all__: list[str] = []
 
+from pathlib import Path
 from typing import Annotated
 
 from airbyte_cdk.utils.connector_paths import resolve_connector_name_and_directory
@@ -38,12 +41,16 @@ from airbyte_ops_mcp.cli._base import App, app
 from airbyte_ops_mcp.connector_secrets import (
     DEFAULT_GCP_PROJECT_ID,
     ConnectorSecretWithNoValidVersionsError,
+    create_secret,
     extract_gcp_secret_name,
     fetch_secret_handles,
+    get_connector_secret,
     get_gcp_secret_url,
     get_gsm_secrets_client,
+    get_gsm_writer_client,
     get_secret_filepath,
     get_secrets_dir,
+    update_secret,
     write_secret_file,
 )
 from airbyte_ops_mcp.connector_secrets.ci_masks import (
@@ -63,11 +70,164 @@ _CONNECTOR_HELP = (
     "If omitted, the current working directory is used and must be a connector "
     "directory."
 )
+_WRITE_CONNECTOR_HELP = (
+    "Required connector name (e.g. 'source-pokeapi') or path to a connector directory."
+)
 _GCP_PROJECT_ID_HELP = (
     "GCP project ID for retrieving integration-test credentials. Defaults to "
     "the `GCP_PROJECT_ID` environment variable, or 'dataline-integration-testing' "
     "when unset."
 )
+_SECRET_NAME_HELP = (
+    "GSM secret name. New names must match "
+    "`SECRET_<CONNECTOR_NAME_UPPERCASE>__<SUFFIX>`."
+)
+_CONFIG_FILE_HELP = "Path to the JSON config file to write as the new secret version."
+
+
+def _resolve_connector_for_write(
+    connector: str,
+    config_file: Path | None,
+) -> tuple[str, Path | None]:
+    """Resolve a connector name and directory, accepting bare names with a config file."""
+    if (
+        config_file is not None
+        and "/" not in connector
+        and "\\" not in connector
+        and not Path(connector).is_dir()
+    ):
+        return connector, None
+    connector_name, connector_directory = resolve_connector_name_and_directory(
+        connector
+    )
+    return connector_name, connector_directory
+
+
+def _require_config_file(config_file: Path) -> str:
+    """Read a config file or raise a clear path-only error."""
+    if not config_file.is_file():
+        raise FileNotFoundError(f"Config file not found: {config_file}")
+    try:
+        return config_file.read_bytes().decode("utf-8")
+    except UnicodeDecodeError:
+        raise ValueError(f"Config file is not valid UTF-8: {config_file}") from None
+
+
+@secrets_app.command(name="create")
+def create(
+    connector: Annotated[str, Parameter(help=_WRITE_CONNECTOR_HELP)],
+    *,
+    secret_name: Annotated[
+        str, Parameter(name="--secret-name", help=_SECRET_NAME_HELP)
+    ],
+    filename: Annotated[
+        str | None,
+        Parameter(
+            name="--filename",
+            help="Optional lowercase filename label used under the connector's `secrets/` directory.",
+        ),
+    ] = None,
+    config_file: Annotated[
+        Path | None, Parameter(name="--config-file", help=_CONFIG_FILE_HELP)
+    ] = None,
+    gcp_project_id: Annotated[
+        str, Parameter(help=_GCP_PROJECT_ID_HELP)
+    ] = DEFAULT_GCP_PROJECT_ID,
+) -> None:
+    """Create a new connector integration-test secret in GSM.
+
+    The command fails if the secret already exists or if its resolved
+    `secrets/<filename>.json` path conflicts with another secret. Secret names
+    must follow `SECRET_<CONNECTOR_NAME_UPPERCASE>__<SUFFIX>`. Credentials are
+    read from `GCP_GSM_WRITER_CREDENTIALS` (or ADC); payloads must be non-empty
+    JSON objects.
+    """
+    connector_name, connector_directory = _resolve_connector_for_write(
+        connector, config_file
+    )
+    if config_file is None:
+        if connector_directory is None:
+            raise ValueError(
+                "A connector directory is required when `--config-file` is not set."
+            )
+        secrets_dir = get_secrets_dir(
+            connector_directory=connector_directory,
+            ensure_exists=False,
+        )
+        config_file = secrets_dir / f"{filename or 'config'}.json"
+
+    value = _require_config_file(config_file)
+    client = get_gsm_writer_client()
+    version_name = create_secret(
+        connector_name=connector_name,
+        value=value,
+        secret_name=secret_name,
+        filename=filename,
+        gcp_project_id=gcp_project_id,
+        client=client,
+    )
+    secret_url = get_gcp_secret_url(secret_name, gcp_project_id)
+    error_console.print(
+        f"{secret_name} version {version_name.rsplit('/', 1)[-1]}: {secret_url}"
+    )
+
+
+@secrets_app.command(name="update")
+def update(
+    connector: Annotated[str, Parameter(help=_WRITE_CONNECTOR_HELP)],
+    *,
+    secret_name: Annotated[
+        str, Parameter(name="--secret-name", help=_SECRET_NAME_HELP)
+    ],
+    config_file: Annotated[
+        Path | None, Parameter(name="--config-file", help=_CONFIG_FILE_HELP)
+    ] = None,
+    gcp_project_id: Annotated[
+        str, Parameter(help=_GCP_PROJECT_ID_HELP)
+    ] = DEFAULT_GCP_PROJECT_ID,
+) -> None:
+    """Add a new version to an existing connector integration-test secret.
+
+    The command fails if the secret is missing or its connector label does not
+    match. After adding a new version, it disables versions that were previously
+    enabled. If disabling fails, the new version remains latest and the error
+    lists versions that still need disabling. Credentials are read from
+    `GCP_GSM_WRITER_CREDENTIALS` (or ADC); payloads must be non-empty JSON
+    objects.
+    """
+    connector_name, connector_directory = _resolve_connector_for_write(
+        connector, config_file
+    )
+    client = get_gsm_writer_client()
+    secret = get_connector_secret(
+        connector_name=connector_name,
+        secret_name=secret_name,
+        gcp_project_id=gcp_project_id,
+        client=client,
+    )
+    if config_file is None:
+        if connector_directory is None:
+            raise ValueError(
+                "A connector directory is required when `--config-file` is not set."
+            )
+        secrets_dir = get_secrets_dir(
+            connector_directory=connector_directory,
+            ensure_exists=False,
+        )
+        config_file = get_secret_filepath(secrets_dir=secrets_dir, secret=secret)
+
+    value = _require_config_file(config_file)
+    version_name = update_secret(
+        connector_name=connector_name,
+        value=value,
+        secret_name=secret_name,
+        gcp_project_id=gcp_project_id,
+        client=client,
+    )
+    secret_url = get_gcp_secret_url(secret_name, gcp_project_id)
+    error_console.print(
+        f"{secret_name} version {version_name.rsplit('/', 1)[-1]}: {secret_url}"
+    )
 
 
 @secrets_app.command(name="fetch")

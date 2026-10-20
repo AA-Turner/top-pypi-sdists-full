@@ -1344,7 +1344,7 @@ CONTENT_OK_WORDS = 300
 CONTENT_WARN_WORDS = 150
 CONTENT_FAIL_WORDS = 50
 
-# `url_design_quality` — the deduction formula from its live catalogue row.
+# `url_design_quality` — the deduction formula from its live catalog row.
 URL_DESIGN_MAX_LENGTH = 115
 URL_DESIGN_MAX_PARAMS = 2
 URL_DESIGN_LONG_PENALTY = 15
@@ -1400,7 +1400,7 @@ REDIRECT_CHAIN_MAX_HOPS = 2
 
 # Weight ceiling for the HTML DOCUMENT — the only transfer size the crawl
 # measures. Subresource bytes (images, scripts, fonts) are NOT fetched, so
-# there is no total-page-weight number here and the catalogue row says so.
+# there is no total-page-weight number here and the catalog row says so.
 LARGE_PAGE_BYTES = 5_000_000
 
 # TTFB bands, straight from the `ttfb_server_response` row's score_contract and
@@ -1428,9 +1428,9 @@ VIEWPORT_ZOOM_DISABLED_VALUES = frozenset({"no", "0", "false"})
 # ico, tiff) is fetched and then dropped, so the share renders imageless.
 OG_IMAGE_SUPPORTED_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "gif", "webp"})
 
-# The Open Graph tags a rich share preview requires, per the catalogue row.
+# The Open Graph tags a rich share preview requires, per the catalog row.
 SOCIAL_REQUIRED_OG_TAGS = ("og:title", "og:description", "og:image", "og:url", "og:type")
-# Deductions from the tag-coverage score — the catalogue row's formula, verbatim.
+# Deductions from the tag-coverage score — the catalog row's formula, verbatim.
 SOCIAL_OG_URL_CONFLICT_PENALTY = 20
 SOCIAL_NO_TWITTER_CARD_PENALTY = 10
 # Score bands the coverage formula maps to a status. Only a complete card
@@ -1443,7 +1443,7 @@ SOCIAL_META_WARN_SCORE = 60
 META_REFRESH_INSTANT_MAX_SECONDS = 0
 
 # --- Security --------------------------------------------------------------
-# The bands below are the `security` catalogue rows' `score_contract`, verbatim.
+# The bands below are the `security` catalog rows' `score_contract`, verbatim.
 
 # Response headers persisted as security evidence. An ALLOWLIST, never the whole
 # header set: a snapshot must not carry `set-cookie` or any credential echo, and
@@ -1464,7 +1464,7 @@ SECURITY_RESPONSE_HEADERS: frozenset[str] = frozenset(
 )
 
 # Indexing directives a server can send as a RESPONSE HEADER instead of (or as
-# well as) the robots meta tag. Google honours both; before 2026-09-28 only the
+# well as) the robots meta tag. Google honors both; before 2026-09-28 only the
 # meta tag was read, so a header-noindexed page scored as indexable (caught by
 # the audit fixture site's /noindex-header and badseo.dev's /index/noindex-header).
 # Persisted beside the security headers by `security_response_headers()`.
@@ -1562,7 +1562,7 @@ CONTENT_DEPTH_COMMERCE_SCHEMA_TYPES = frozenset(
         "productmodel",
     }
 )
-#: Types with no content expectation at all — exempt, per the catalogue row.
+#: Types with no content expectation at all — exempt, per the catalog row.
 CONTENT_DEPTH_UTILITY_SCHEMA_TYPES = frozenset(
     {
         "aboutpage",
@@ -1817,7 +1817,7 @@ class PageEvidence:
     # sample, and it is carried here so ONE struct describes a captured page.
     response_headers: dict[str, str] | None = None
     # Result of probing this URL's http:// variant — {"status": int,
-    # "location": str | None}. `None` = never probed (the catalogue row's own
+    # "location": str | None}. `None` = never probed (the catalog row's own
     # declared capture gap), which `check_https_enforcement` answers `n_a` for.
     http_variant_probe: dict[str, Any] | None = None
     # Transfer size of the HTML DOCUMENT only — subresources are never fetched,
@@ -2097,7 +2097,7 @@ def evidence_from_audit(
 
 
 def check_url_design_quality(ev: PageEvidence) -> CheckOutcome:
-    """Grade only URL facts named by the live catalogue deduction formula."""
+    """Grade only URL facts named by the live catalog deduction formula."""
     parts = urlsplit(ev.url)
     params = parse_qsl(parts.query, keep_blank_values=True)
     designed_part = f"{parts.path}?{parts.query}" if parts.query else parts.path
@@ -2143,7 +2143,7 @@ def check_url_design_quality(ev: PageEvidence) -> CheckOutcome:
     length_only = penalty == URL_DESIGN_LONG_PENALTY and len(problems) == 1
     if length_only:
         # A long slug is not a defect worth a person's time (changing a live URL
-        # means redirects and risk). It lowers the score the catalogue formula
+        # means redirects and risk). It lowers the score the catalog formula
         # gives it, but never opens a finding.
         return CheckOutcome(
             "pass",
@@ -2890,7 +2890,7 @@ def check_image_lazy_loading(ev: PageEvidence) -> CheckOutcome:
 
     # An image with no resolvable source is a script placeholder (the real URL
     # arrives from a lazy-loader attribute we did not capture, e.g. nitro-lazy-src
-    # or a data: URI). Its loading behaviour is unknowable here, so it is neither
+    # or a data: URI). Its loading behavior is unknowable here, so it is neither
     # eager nor lazy — 383 findings said "loads eagerly" about exactly these.
     items = _content_images(items)
     if not items:
@@ -2956,7 +2956,7 @@ def check_image_lazy_loading(ev: PageEvidence) -> CheckOutcome:
 
 
 #: Below this many legacy-format image bytes a page has no "significant raster
-#: images" (the catalogue row scores 100) — WebP would save a few KB.
+#: images" (the catalog row scores 100) — WebP would save a few KB.
 IMAGE_MODERN_FORMAT_MIN_LEGACY_BYTES = 50_000
 _TRACKER_HOST_MARKERS = (
     "px.ads.",
@@ -3328,7 +3328,7 @@ def check_canonical_conflicts(ev: PageEvidence) -> CheckOutcome:
 # --- Transport (was ONLY in the aidream IssueDetector) ---------------------
 #
 # Status and redirects are split into FOUR checks, not two, because the
-# `web.analysis_item` catalogue models them as four separate items
+# `web.analysis_item` catalog models them as four separate items
 # (`broken_page_4xx`, `server_error_5xx`, `redirect_chain`, `redirect_loop`)
 # with different weights and severity bands — a 5xx is a 3.0-weight outage, a
 # 4xx is a dead end, and a loop is categorically worse than a long chain. One
@@ -3410,7 +3410,7 @@ def check_server_error_5xx(ev: PageEvidence) -> CheckOutcome:
             remediation=RECAPTURE_PAGE,
         )
     # 0 is the crawler's "no response at all" (timeout / connection refused),
-    # which the catalogue item scores together with 5xx.
+    # which the catalog item scores together with 5xx.
     if status == 0:
         return CheckOutcome(
             "fail",
@@ -3496,7 +3496,7 @@ def check_temporary_redirect_usage(ev: PageEvidence) -> CheckOutcome:
     nothing to the new one. Almost every 302 on a real site is permanent in
     practice, which quietly strands the destination.
 
-    ⚠️ SINGLE-SESSION TIER ONLY. The catalogue row scores a 302 that survives
+    ⚠️ SINGLE-SESSION TIER ONLY. The catalog row scores a 302 that survives
     three or more crawl sessions harder (40) than one seen once (65), because
     persistence is what proves it is not genuinely temporary. This sweep reads
     only the LATEST accepted snapshot per page, so the multi-session tier is
@@ -3563,7 +3563,7 @@ def check_soft_404_detection(ev: PageEvidence) -> CheckOutcome:
     A "soft 404" answers OK and then shows the visitor nothing — so search
     engines index an empty page, and the site's real 404s never get counted.
 
-    ⚠️ Two of the catalogue row's signals need evidence this per-page check
+    ⚠️ Two of the catalog row's signals need evidence this per-page check
     cannot see: a hash match against the SITE's own 404 template (that is a
     site-wide comparison) and a redirect to a generic error page. Only the
     page-local signals — not-found phrasing and a near-empty body — are scored
@@ -3718,7 +3718,7 @@ def check_mixed_content(ev: PageEvidence) -> CheckOutcome:
 def check_https_enforcement(ev: PageEvidence) -> CheckOutcome:
     """Served over HTTPS, and no HTTP duplicate left reachable.
 
-    Two independent facts, and the catalogue row scores both. The FIRST is free
+    Two independent facts, and the catalog row scores both. The FIRST is free
     — the URL's own scheme — and is the whole reason this check is per-page: a
     single http:// page on an otherwise-HTTPS site is the failure. The SECOND
     needs a probe of the URL's http:// variant, supplied as
@@ -3808,7 +3808,7 @@ def check_page_weight(ev: PageEvidence) -> CheckOutcome:
     The crawl downloads the document and reads every subresource URL out of the
     markup, but it never fetches those subresources, so their transfer sizes do
     not exist anywhere in the evidence. This check therefore grades the one
-    number that IS measured, and the catalogue row states the same scope. The
+    number that IS measured, and the catalog row states the same scope. The
     day subresource sizes are captured, both move together.
     """
     size = ev.response_bytes
@@ -4440,7 +4440,7 @@ def _block_types(block: dict[str, Any]) -> list[str]:
 
 
 def _property_value(node: dict[str, Any], prop: str) -> Any:
-    """The declared value for `prop`, honouring the accepted alias spellings."""
+    """The declared value for `prop`, honoring the accepted alias spellings."""
     for name in SCHEMA_PROPERTY_ALIASES.get(prop, (prop,)):
         value = node.get(name)
         if value not in (None, "", [], {}):
@@ -4567,7 +4567,7 @@ def _is_propertyless_scope(block: dict[str, Any], data: dict[str, Any]) -> bool:
 def check_structured_data_validity(ev: PageEvidence) -> CheckOutcome:
     """Parse errors and rich-result completeness, from the stored capture.
 
-    Order is the catalogue row's, top-down: a parse error voids the whole
+    Order is the catalog row's, top-down: a parse error voids the whole
     script, so it outranks any missing property.
     """
     payload = ev.structured_data or {}
@@ -4735,7 +4735,7 @@ def hreflang_entries(ev: PageEvidence) -> list[tuple[str, str]]:
 def check_hreflang_validity(ev: PageEvidence) -> CheckOutcome:
     """Codes, absolute URLs, self-reference, canonical agreement, x-default.
 
-    Rule order is the catalogue row's and is deliberate: an invalid code breaks
+    Rule order is the catalog row's and is deliberate: an invalid code breaks
     the whole cluster for every page in it, so it is reported ahead of the
     self-reference and canonical problems that break only this page's half.
     """
@@ -4857,7 +4857,7 @@ CLS_POOR_PENALTY_PER_UNIT = 100
 
 # The band a "good" measurement is scored within (90-100), and the middle band
 # (50-89) that "needs improvement" maps onto. Shared by all three CWV checks —
-# the catalogue rows publish the identical shape.
+# the catalog rows publish the identical shape.
 CWV_GOOD_BAND = (90, 100)
 CWV_MID_BAND = (50, 89)
 CWV_POOR_CEILING = 49
@@ -4871,7 +4871,7 @@ DELIVERY_POOR_FLOOR = 10
 # caching_policy — a static asset is "well cached" at or above this lifetime.
 CACHE_WELL_CACHED_MIN_MS = 30 * 24 * 60 * 60 * 1_000
 #: Below this many static bytes, caching is not a meaningful lever and the
-#: catalogue row's formula scores a flat 100 ("negligible static bytes").
+#: catalog row's formula scores a flat 100 ("negligible static bytes").
 CACHE_NEGLIGIBLE_STATIC_BYTES = 10_000
 
 #: A measurement older than this is stale evidence, not today's truth: answer

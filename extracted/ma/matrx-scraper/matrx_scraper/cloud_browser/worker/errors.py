@@ -1,4 +1,4 @@
-"""Typed error / conflict catalogue — S2 §9.
+"""Typed error / conflict catalog — S2 §9.
 
 The distinction between the two failure planes is load-bearing (S2 §9.1):
 
@@ -8,7 +8,7 @@ The distinction between the two failure planes is load-bearing (S2 §9.1):
     command executor, never here.
   * **Envelope-level** — the protocol or state said no (stale token, wrong order,
     human in control, draining, shutting down). This module owns it: a
-    ``WorkerProtocolError`` carrying a literal ``code`` from the catalogue.
+    ``WorkerProtocolError`` carrying a literal ``code`` from the catalog.
 
 A worker that turns a selector-not-found into an envelope error, or a stale token
 into a ``success=false`` result, fails conformance. Mixing the planes is how a

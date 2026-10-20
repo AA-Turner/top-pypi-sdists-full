@@ -515,6 +515,8 @@ async def validate_plan_agents(plan: AgentPlan, app_ctx: Any) -> list[PlanIssue]
     issues: list[PlanIssue] = []
     rows: dict[str, Any] = {}
     for s in plan.steps:
+        if s.agent_id is None:  # an ``ask`` step: a person answers, there is no agent to load
+            continue
         agent_id = str(s.agent_id)
         if agent_id in rows:
             continue

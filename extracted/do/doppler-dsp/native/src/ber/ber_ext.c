@@ -156,6 +156,39 @@ jm_inflight_free (jm_inflight_t *g)
 }
 #endif /* JM_INFLIGHT_DEFINED */
 
+#ifndef JM_CAPSULE_LEND_DEFINED
+#define JM_CAPSULE_LEND_DEFINED
+/* gh-2328: a lent capsule's context is the object that owns its pointer.
+ * The destructor releases that reference and nothing else -- the pointer is
+ * the owner's to free -- so whoever keeps the capsule keeps the owner. */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__ ((unused))
+#endif
+static void
+jm_capsule_lend_release (PyObject *cap)
+{
+  Py_XDECREF ((PyObject *)PyCapsule_GetContext (cap));
+}
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__ ((unused))
+#endif
+static PyObject *
+jm_capsule_lend (void *ptr, const char *name, PyObject *owner)
+{
+  PyObject *cap = PyCapsule_New (ptr, name, jm_capsule_lend_release);
+  if (!cap)
+    return NULL;
+  Py_INCREF (owner);
+  if (PyCapsule_SetContext (cap, owner) < 0)
+    {
+      Py_DECREF (owner);
+      Py_DECREF (cap);
+      return NULL;
+    }
+  return cap;
+}
+#endif /* JM_CAPSULE_LEND_DEFINED */
+
 #include "ber_ext_ber_meter.c"
 #include "ber_ext_frame_meter.c"
 
@@ -204,6 +237,17 @@ _bind_ber_evm_scatter_floor_db (PyObject *self, PyObject *args, PyObject *kwds)
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "i", _kwlist, &m))
     return NULL;
   return PyFloat_FromDouble (dp_ber_evm_scatter_floor_db (m));
+}
+
+static PyObject *
+_bind_ber_evm_ideal_db (PyObject *self, PyObject *args, PyObject *kwds)
+{
+  (void)self;
+  static char *_kwlist[] = { "esn0_db", NULL };
+  double       esn0_db   = 0.0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "d", _kwlist, &esn0_db))
+    return NULL;
+  return PyFloat_FromDouble (dp_ber_evm_ideal_db (esn0_db));
 }
 
 static PyObject *
@@ -507,6 +551,36 @@ static PyMethodDef ber_module_methods[] = {
     "-------\n"
     "float\n"
     "    The floor in dB, or NAN for M < 2, which is no constellation.\n" },
+  { "ber_evm_ideal_db", (PyCFunction)(void *)_bind_ber_evm_ideal_db,
+    METH_VARARGS | METH_KEYWORDS,
+    "What dp_ber_evm_db() reads on an ideal stream at esn0_db.\n"
+    "\n"
+    "The meter's NOISE floor, the counterpart of the scatter floor above: a\n"
+    "perfectly synchronised stream at Es/N0 with no decision errors. The\n"
+    "meter scales its window to unit TOTAL power, signal plus noise, so with\n"
+    "`r = Es/N0` the error against the unit decision is `E|e|^2 = 2 - 2\n"
+    "sqrt(r/(1+r))`, which is NOT `1/r`: at 20 dB it reads -20.03 dB, at 10\n"
+    "dB -10.31 dB, at 5 dB -5.91 dB. A receiver's implementation loss is its\n"
+    "EVM minus this, never its EVM plus Es/N0: against -Es/N0 an ideal\n"
+    "receiver already reads 0.9 dB better at 5 dB, so that reference hides\n"
+    "that much loss. Decision errors (below about 5 dB at BPSK) pull a real\n"
+    "reading under this; it is the noise-only ideal, the same for every M.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "esn0_db : float\n"
+    "    Es/N0, dB.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "float\n"
+    "    The ideal reading in dB.\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> from doppler.ber import ber_evm_ideal_db\n"
+    ">>> [round(ber_evm_ideal_db(e), 2) for e in (20.0, 10.0, 5.0)]\n"
+    "[-20.03, -10.31, -5.91]\n" },
   { "ber_settle_syms", (PyCFunction)(void *)_bind_ber_settle_syms,
     METH_VARARGS | METH_KEYWORDS,
     "Symbols to discard before a steady-state measurement means anything: "
@@ -583,22 +657,25 @@ static PyMethodDef ber_module_methods[] = {
     "against the stream's OWN hard decision, with the constellation rotation "
     "estimated from the data. References neither the transmitted symbols nor "
     "a lag, so it cannot be fooled by an alignment search. A locked "
-    "matched-filter output reads EVM_dB ~ -(Es/N0)_dB (an I/Q-plane quantity "
-    "-- no factor of two; quoting one flatters the result by 3 dB). Read it "
-    "against ber_evm_scatter_floor_db(m), NEVER against 0 dB. The window is "
-    "explicit because BER and EVM must be measured on the SAME one: a "
-    "convenience back-half default scores a different window than the error "
-    "rate did, and the two eventually disagree in a way that reads as a "
-    "receiver defect rather than the harness bug it is. Returns 0.0 for a "
-    "window under 20 symbols. M < 2 returns NaN.\n"
+    "matched-filter output reads near -(Es/N0) -- exactly "
+    "ber_evm_ideal_db(esn0_db), the window being scaled to unit total power "
+    "(an I/Q-plane quantity -- no factor of two; quoting one flatters the "
+    "result by 3 dB). Read it against ber_evm_scatter_floor_db(m), NEVER "
+    "against 0 dB. The window is explicit because BER and EVM must be "
+    "measured on the SAME one: a convenience back-half default scores a "
+    "different window than the error rate did, and the two eventually "
+    "disagree in a way that reads as a receiver defect rather than the "
+    "harness bug it is. Returns 0.0 for a window under 20 symbols. M < 2 "
+    "returns NaN.\n"
     "\n"
     "Scores each symbol against the stream's OWN hard decision, with the\n"
     "constellation rotation estimated from the data — so it references\n"
     "neither the transmitted symbols nor a lag, and cannot be fooled by an\n"
     "alignment search. At a matched-filter output the error vector IS the\n"
-    "complex noise, so a locked stream reads `EVM[dB] ~ -(Es/N0)[dB]`. EVM\n"
-    "is an I/Q-plane quantity: there is no factor of two — that belongs to\n"
-    "an I-only measurement, and quoting it flatters the result by 3 dB.\n"
+    "complex noise, so a locked stream reads near -(Es/N0) -- exactly, the\n"
+    "window being scaled to unit total power, dp_ber_evm_ideal_db(). EVM is\n"
+    "an I/Q-plane quantity: there is no factor of two — that belongs to an\n"
+    "I-only measurement, and quoting it flatters the result by 3 dB.\n"
     "\n"
     "**Pass the real `m`**, and read the result against\n"
     "ber_evm_scatter_floor_db(m), never against 0 dB.\n"

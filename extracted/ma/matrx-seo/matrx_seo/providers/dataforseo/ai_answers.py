@@ -89,7 +89,7 @@ def _mention_pattern(value: str) -> re.Pattern[str] | None:
     Provider prose is allowed to vary punctuation and whitespace (``A.I.
     Matrx`` versus ``AI Matrx``), but a short substring inside an unrelated
     word is never a mention.  This deliberately stays deterministic: aliases
-    are user-owned identity data, not an LLM judgement.
+    are user-owned identity data, not an LLM judgment.
 
     Long aliases match case-insensitively (the pattern is applied to casefolded
     text). SHORT aliases (fewer than ``SHORT_ALIAS_LENGTH`` letters and digits)

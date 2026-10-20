@@ -1,4 +1,4 @@
-"""Modules both the SDK and the CLI need (plan 2.11, D29).
+"""Modules the SDK, the CLI and the Probe service need (plan 2.11, D29).
 
 `probe.cli`'s package initializer imports the whole CLI (typer, questionary and
 every command), so an SDK module that reached into `probe.cli` for one helper
@@ -7,7 +7,11 @@ dependencies, would lose that helper silently behind the `except Exception`
 every such call site wraps it in: no run lock (auto-update could land mid-run)
 and no worker telemetry. What lives here imports nothing from `probe.cli`.
 
-`probe.cli.run_lock` and `probe.cli.telemetry` remain importable: each is the
-SAME module object as its counterpart here (not a copy), so a monkeypatch
-through either name is seen by both.
+The Probe service (`probe.service`) is the third such reader: it must never
+load the CLI, and it checks the run locks and records its update deferrals
+with `run_lock` and `autoupdate` from here.
+
+`probe.cli.run_lock`, `probe.cli.telemetry` and `probe.cli.autoupdate` remain
+importable: each is the SAME module object as its counterpart here (not a
+copy), so a monkeypatch through either name is seen by both.
 """

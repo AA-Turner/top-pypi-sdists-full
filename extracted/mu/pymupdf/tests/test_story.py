@@ -293,3 +293,72 @@ def test_3813():
     print(f'text_expected:\n    {textwrap.indent(text_expected, "   ")}')
     
     assert text == text_expected
+
+
+def test_5110():
+    path_out = os.path.normpath(f'{__file__}/../../tests/test_5110_out.pdf')
+    mediabox = pymupdf.paper_rect("letter")
+    frame = mediabox + (54, 54, -54, -54)
+    html = textwrap.dedent(f'''
+            <html><body>
+            <div style="background-color:#1f3a5f;color:#ffffff;padding:12pt">BANNER</div>
+            <p>{'filler words ' * 400}</p>
+            </body></html>
+            ''')
+    
+    # Create pdf.
+    story = pymupdf.Story(html=html)
+    writer = pymupdf.DocumentWriter(path_out)
+    story.write(writer, lambda rect_num, filled: (mediabox, frame, None))
+    writer.close()
+
+    # Look for drawings that overlap frame in second page.
+    with pymupdf.open(path_out) as document:
+        page = document[1]
+        for drawing in page.get_drawings():
+            rect = drawing["rect"]
+            print(f'Drawing with {rect=}: {drawing=}')
+        num_drawings = len(page.get_drawings())
+        print(f'{num_drawings=}')
+        if pymupdf.mupdf_version_tuple >= (1, 28, 6):
+            assert num_drawings == 0
+        else:
+            # 2026-09-11: Expect error.
+            assert num_drawings == 1
+
+
+def test_5119():
+    # This does not yet reproduce the problem - does not hang.
+    
+    chinese_text = '\u4f60\u7684' * 1000
+    html = textwrap.dedent(f'''
+            <style>
+                .column {{
+                    width: 100px;
+                }}
+            </style>
+            <div class="column">
+                {chinese_text}
+            </div>
+            ''')
+    path_out = os.path.normpath(f'{__file__}/../../tests/test_5119_out.pdf')
+    story = pymupdf.Story(html=html)
+    mediabox = pymupdf.paper_rect("a4")
+    where = mediabox + (36, 36, -36, -36)
+    writer = pymupdf.DocumentWriter(path_out)
+    more = 1
+    page_count = 0
+    while more:
+        page_count += 1
+        # Safety limit added only to demonstrate the problem.
+        if page_count > 100:
+            raise RuntimeError('Story.place() did not make progress')
+        device = writer.begin_page(mediabox)
+        more, filled = story.place(where)
+        print(
+            f'page={page_count}, more={more}, filled={filled}'
+        )
+        story.draw(device)
+        writer.end_page()
+    writer.close()
+    

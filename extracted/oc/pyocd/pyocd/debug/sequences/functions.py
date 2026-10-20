@@ -33,12 +33,14 @@ from typing import (cast, Callable, Dict, Iterator, TYPE_CHECKING, Optional, Tup
 from ...core import exceptions
 from ...coresight.coresight_target import CoreSightTarget
 from ...coresight.ap import (APAddressBase, APv1Address, AccessPort, MEM_AP)
+from ...coresight.dap import ADIVersion
 from ...probe.debug_probe import DebugProbe
 from .delegates import DebugSequenceFunctionsDelegate
 from .sequences import DebugSequenceRuntimeError
 
 if TYPE_CHECKING:
     from ...coresight.dap import DebugPort
+    from ...core.memory_interface import MemoryInterface
 
 LOG = logging.getLogger(__name__)
 
@@ -78,6 +80,7 @@ class _SequenceBufferManager:
     def ensure_capacity(buffer: _Buffer, size: int) -> None:
         if size > len(buffer.data):
             buffer.data.extend(b"\x00" * (size - len(buffer.data)))
+
 
 # Disable warnings for the non-standard methods names we use to match the sequences function
 # names, since introspection is used to look up functions.
@@ -149,26 +152,26 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
 
         return access_size_bits // 8, increment
 
-    def _read_value(self, ap: MEM_AP, addr: int, size: int) -> int:
+    def _read_value(self, interface: "MemoryInterface", addr: int, size: int) -> int:
         if size == 1:
-            return ap.read8(addr)
+            return interface.read8(addr)
         if size == 2:
-            return ap.read16(addr)
+            return interface.read16(addr)
         if size == 4:
-            return ap.read32(addr)
+            return interface.read32(addr)
         if size == 8:
-            return ap.read64(addr)
+            return interface.read64(addr)
         raise DebugSequenceRuntimeError(f"unsupported access size {size * 8}")
 
-    def _write_value(self, ap: MEM_AP, addr: int, size: int, value: int) -> None:
+    def _write_value(self, interface: "MemoryInterface", addr: int, size: int, value: int) -> None:
         if size == 1:
-            ap.write8(addr, value)
+            interface.write8(addr, value)
         elif size == 2:
-            ap.write16(addr, value)
+            interface.write16(addr, value)
         elif size == 4:
-            ap.write32(addr, value)
+            interface.write32(addr, value)
         elif size == 8:
-            ap.write64(addr, value)
+            interface.write64(addr, value)
         else:
             raise DebugSequenceRuntimeError(f"unsupported access size {size * 8}")
 
@@ -686,21 +689,38 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
             - Bit 0..8: Debug access size. One of 8, 16, 32 and 64. Specified debug access size must be \
                 supported by the target hardware. For example a DP register access must always be 32-Bit.
             - Bit 0: Additionally set this Bit to 1 to increment the target address after each debug read \
-                access of the specified size.
+                access of the specified size. \
+            - Bit 9: Target address space. \
+                0: Access target memory using the access port specified by __ap or __apid. \
+                1: Access an address in the system's APv2 (ADIv6) top-level access port space. \
+                   This address space only supports 32-bit accesses. The debugger must generate \
+                    an error if a different debug access size is specified.
         @return: Always 0. Function causes fatal error if not successful.
         """
+        APV2_ADDRESS_SPACE_MASK = 1 << 9
+
         access_size, increment = self._decode_mode(mode)
         self._check_alignment(offset, access_size, "buffOffset")
         self._check_alignment(addr, access_size, "addr")
         self._check_alignment(length, access_size, "length")
 
+        # Check target address space
+        if mode & APV2_ADDRESS_SPACE_MASK:
+            dp = self._get_dp()
+            if dp.adi_version != ADIVersion.ADIv6:
+                raise DebugSequenceRuntimeError("APv2 top-level access port space requires ADIv6")
+            if access_size != 4:
+                raise DebugSequenceRuntimeError("APv2 top-level access port space only supports 32-bit accesses")
+            interface = dp.apacc_memory_interface
+        else:
+            interface = self._get_mem_ap()
+
         buffer = self._buffer_manager.get(id, create=True)
         end = offset + length
         self._buffer_manager.ensure_capacity(buffer, end)
 
-        ap = self._get_mem_ap()
         while length > 0:
-            value = self._read_value(ap, addr, access_size)
+            value = self._read_value(interface, addr, access_size)
             buffer.data[offset:offset + access_size] = self._int_to_bytes(value, access_size)
             if increment:
                 addr += access_size
@@ -725,15 +745,33 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
             - Bit 0..8: Debug access size. One of 8, 16, 32 and 64. Specified debug access size must be \
                 supported by the target hardware. For example a DP register access must always be 32-Bit.
             - Bit 0: Additionally set this Bit to 1 to increment the target address after each debug write \
-                access of the specified size.
+                access of the specified size. \
+            - Bit 9: Target address space. \
+                0: Access target memory using the access port specified by __ap or __apid. \
+                1: Access an address in the system's APv2 (ADIv6) top-level access port space. \
+                   This address space only supports 32-bit accesses. The debugger must generate \
+                    an error if a different debug access size is specified.
         @return: Number of actually written bytes.
         """
-        buffer = self._buffer_manager.get(id, create=False)
+        APV2_ADDRESS_SPACE_MASK = 1 << 9
 
         access_size, increment = self._decode_mode(mode)
         self._check_alignment(offset, access_size, "buffOffset")
         self._check_alignment(addr, access_size, "addr")
         self._check_alignment(length, access_size, "length")
+
+        # Check target address space
+        if mode & APV2_ADDRESS_SPACE_MASK:
+            dp = self._get_dp()
+            if dp.adi_version != ADIVersion.ADIv6:
+                raise DebugSequenceRuntimeError("APv2 top-level access port space requires ADIv6")
+            if access_size != 4:
+                raise DebugSequenceRuntimeError("APv2 top-level access port space only supports 32-bit accesses")
+            interface = dp.apacc_memory_interface
+        else:
+            interface = self._get_mem_ap()
+
+        buffer = self._buffer_manager.get(id, create=False)
 
         available = len(buffer.data) - offset
         if available <= 0:
@@ -744,11 +782,10 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
         if write_len <= 0:
             return 0
 
-        ap = self._get_mem_ap()
         remaining = write_len
         while remaining > 0:
             value = int.from_bytes(buffer.data[offset:offset + access_size], "little")
-            self._write_value(ap, addr, access_size, value)
+            self._write_value(interface, addr, access_size, value)
             if increment:
                 addr += access_size
             offset += access_size
@@ -819,14 +856,14 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
         @param path: Constant string value representing the destination to which to stream data to. \
             Refer to character sequences for path/file name place holders.
         @param mode: Specifies how to treat the data source in the specified mode.
-            - Bit 0..3: Format of the data source: 0 - Binary File
+            - Bit 0..3: Format of the data source: 0 - Binary File 1 - Trace Buffer
             - Bit 4..7: Communication options for data sink: 0 - Overwrite 1 - Append
         @param timeout: Timeout in microseconds. If 0, then synchronously wait for the operation to finish.
         @return: Number of bytes streamed to data sink.
         """
         fmt = mode & 0xF
-        if fmt not in (0,):
-            raise DebugSequenceRuntimeError("Only binary file streams (mode 0) are supported")
+        if fmt not in (0, 1):
+            raise DebugSequenceRuntimeError("Unsupported buffer stream output format")
 
         buffer = self._buffer_manager.get(id, create=False)
         available = len(buffer.data) - offset
@@ -835,6 +872,12 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
 
         write_len = min(length, available)
         data = bytes(buffer.data[offset:offset + write_len])
+
+        if fmt == 1:
+            try:
+                return self.target.write_trace_buffer(path, data)
+            except ValueError as err:
+                raise DebugSequenceRuntimeError(str(err)) from err
 
         file_path = self._expand_path(path)
         append = (mode & 0x10) != 0
@@ -860,6 +903,14 @@ class DebugSequenceCommonFunctions(DebugSequenceFunctionsDelegate):
             raise exc
 
         return write_len
+
+    def tracebufferselected(self, name: str) -> int:
+        """Return whether a configured trace buffer is selected by name."""
+        trace_buffers = self.context.delegate.trace_buffers
+        if not name and len(trace_buffers) > 1:
+            raise DebugSequenceRuntimeError("Empty trace buffer name is ambiguous")
+        sink = trace_buffers.get(name)
+        return int(sink is not None and sink.enabled)
 
     def runapplication(self, path: str, args: str, workdir: str, timeout: int) -> int:
         """@brief Run an external application.

@@ -16,7 +16,7 @@ against the audit ids PSI actually serves today. The Lighthouse 12 fixture in
 no longer be the only evidence.
 
 Consumers: `matrx_scraper.seo_audit`'s `asset_delivery` / `caching_policy`
-catalogue checks read exactly the shape produced here.
+catalog checks read exactly the shape produced here.
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def test_delivery_savings_are_summed_from_the_insight_audits(audits: dict[str, A
 
 
 def test_caching_is_not_double_charged_to_delivery(audits: dict[str, Any]) -> None:
-    """`cache-insight` has its own catalogue item; counting it twice would
+    """`cache-insight` has its own catalog item; counting it twice would
     penalise one defect under two scores."""
     delivery = _delivery_facts(audits)
     assert "cache-insight" not in delivery["audits"]

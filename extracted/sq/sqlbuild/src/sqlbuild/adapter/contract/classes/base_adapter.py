@@ -115,6 +115,7 @@ class BaseAdapter(RetentionAdapterMixin, StrictAdapter):
     statement_limit_excludes_queueing: ClassVar[bool] = False
     metadata_inspection_concurrency: ClassVar[int] = 1
     supports_session_warehouse: ClassVar[bool] = False
+    state_timestamp_type: ClassVar[str | None] = None
     _snapshot_sql_dialect: ClassVar[SnapshotSqlDialect] = SnapshotSqlDialect(
         timestamp_type="TIMESTAMP",
         distinct_condition=render_is_distinct_from,
@@ -1464,6 +1465,20 @@ class BaseAdapter(RetentionAdapterMixin, StrictAdapter):
     ) -> int | None:
         raise AdapterUserError(message="merge requires an engine-specific implementation")
 
+    def widen_target_nullability(
+        self,
+        *,
+        connection: Any,
+        destination: str,
+        target_columns: tuple[ColumnInfo, ...],
+        incoming_columns: tuple[ColumnInfo, ...],
+        statement_recorder: StatementRecorder,
+    ) -> tuple[ColumnInfo, ...]:
+        """Let target columns admit NULL where incoming ones do; return the target columns."""
+
+        del connection, destination, incoming_columns, statement_recorder
+        return target_columns
+
     def add_columns(
         self,
         *,
@@ -1555,7 +1570,11 @@ class BaseAdapter(RetentionAdapterMixin, StrictAdapter):
         )
         projections: str = "COUNT(*)"
         if cursor_column is not None:
-            projections += f", MIN({cursor_column}), MAX({cursor_column})"
+            operand: str = self.render_cursor_operand(
+                expression=cursor_column,
+                cursor_type=None if start_cursor is None else start_cursor.kind,
+            )
+            projections += f", MIN({operand}), MAX({operand})"
         query: str = f"SELECT {projections} FROM {relation}"
         if cursor_filter:
             query += f" WHERE {cursor_filter}"
@@ -1691,7 +1710,12 @@ class BaseAdapter(RetentionAdapterMixin, StrictAdapter):
             value_sql: str = f"CAST({alias}.{key} AS VARCHAR)"
             key_parts.append(f"CONCAT(LENGTH({value_sql}), ':', {value_sql})")
         payload_parts: str = ", ".join((f"'{seed}'", *key_parts))
-        return f"MD5(CONCAT_WS('|', {payload_parts}))"
+        return self._render_row_diff_digest(f"CONCAT_WS('|', {payload_parts})")
+
+    def _render_row_diff_digest(self, payload_sql: str) -> str:
+        """Render the hash function applied to one canonical key payload."""
+
+        return f"MD5({payload_sql})"
 
     def sample_unequal_rows(
         self,
@@ -2535,6 +2559,32 @@ def _validate_rectangular_typed_array(*, value: SqlValue, adapter_name: str) -> 
         return (len(items), *(child_dimensions[0] if child_dimensions else ()))
 
     dimensions(value)
+
+
+def _render_explicit_source_relation_cast_subquery(
+    *,
+    source_relation: str,
+    cast_projections: tuple[str, ...],
+    cast_column_names: tuple[str, ...],
+    warehouse_column_names: tuple[str, ...],
+    all_columns_cast: bool,
+    render_identifier: Callable[[str], str],
+) -> str:
+    """Render source casts by listing pass-through columns, for engines without star exclusion."""
+
+    cast_clause: str = ", ".join(cast_projections)
+    if all_columns_cast:
+        return f"(SELECT {cast_clause} FROM {source_relation})"
+    projection_names: set[str] = set(cast_column_names)
+    passthrough_clause: str = ", ".join(
+        render_identifier(column)
+        for column in warehouse_column_names
+        if column not in projection_names
+    )
+    projection_clause: str = (
+        f"{passthrough_clause}, {cast_clause}" if passthrough_clause else cast_clause
+    )
+    return f"(SELECT {projection_clause} FROM {source_relation})"
 
 
 def _quote_sql_string(value: str) -> str:

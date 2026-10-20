@@ -95,7 +95,8 @@ class SkillToolResult(KindModel):
     allowed_tools: list[str] | None = None
     disable_auto_invocation: bool | None = None
     trigger_patterns: JsonValue | None = None
-    #: …plus the full-or-paged body.
+    not_runnable: list[str] | None = None
+    #: …plus the full-or-paged body (mode auto|full|page|outline|section|set).
     mode: str | None = None
     body: str | None = None
     total_chars: int | None = None
@@ -103,6 +104,16 @@ class SkillToolResult(KindModel):
     chars_returned: int | None = None
     has_more: bool | None = None
     next_offset: int | None = None
+    #: long documents — the heading outline and the one section returned.
+    outline: list[dict] | None = None
+    outline_truncated: bool | None = None
+    section_count: int | None = None
+    section: dict | None = None
+    next_section_id: str | None = None
+    #: skill sets — the member skills.
+    members: list[dict] | None = None
+    #: members left out because forbidden, deleted or not readable by this person.
+    skipped: int | None = None
 
 
 @kind(

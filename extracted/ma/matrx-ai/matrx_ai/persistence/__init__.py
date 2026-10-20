@@ -51,6 +51,8 @@ from matrx_ai.persistence.coordinator import (
 from matrx_ai.persistence.queue_helpers import (
     OrganizationlessInsertError,
     get_coordinator,
+    get_live_coordinator,
+    live_owner_is_terminal,
     queue_agent_memory_create,
     queue_agent_memory_delete,
     queue_agent_memory_update,
@@ -104,6 +106,8 @@ __all__ = [
     "ReplayReport",
     "WriteCoordinator",
     "get_coordinator",
+    "get_live_coordinator",
+    "live_owner_is_terminal",
     "queue_agent_memory_create",
     "queue_agent_memory_delete",
     "queue_agent_memory_update",

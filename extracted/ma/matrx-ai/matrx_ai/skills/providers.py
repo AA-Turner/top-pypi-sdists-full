@@ -21,7 +21,13 @@ from uuid import UUID
 from matrx_utils import vcprint
 from matrx_utils.row_access import is_published
 
-from matrx_ai.skills.models import SkillBody, SkillHint, not_runnable_tooling
+from matrx_ai.skills.models import (
+    SKILL_SET_TYPE,
+    SkillBody,
+    SkillHint,
+    not_runnable_tooling,
+    set_members_of,
+)
 
 # Skill categories live in the consolidated, dimension-based category table
 # (platform.categories, 2026-06-28 canonical reorg) alongside every other
@@ -67,6 +73,60 @@ def _cache_fresh(entry: tuple[float, Any] | None) -> bool:
     return entry is not None and (time.monotonic() - entry[0]) < _CATALOG_TTL_SECONDS
 
 
+#: One background reload per cache key at a time (see ``_serve_cached``).
+_refreshing: dict[str, asyncio.Task[Any]] = {}
+
+
+async def _serve_cached(
+    cache: dict[str, tuple[float, Any]], key: str, load: Any
+) -> Any:
+    """STALE-WHILE-REVALIDATE over one catalog slice — a chat turn never waits on a reload.
+
+    Measured 2026-10-17: with the 300 s window expiring between one person's sends on a
+    task, nearly every /chat/new turn paid the skill catalog reload on its own clock
+    (``skills_merged`` p50 188 ms, p90 376 ms in production). Now an entry past the window
+    is served AT ONCE while ONE background reload replaces it, so a reloaded slice is at
+    most one reload behind the database — and a change still lands on its own via
+    ``invalidate_skill_catalog_cache``. Only a slice never loaded in this process (or
+    just invalidated) is read on the caller's clock, single-flight under the lock.
+    """
+    entry = cache.get(key)
+    if entry is not None:
+        if not _cache_fresh(entry):
+            _reload_in_background(cache, key, load)
+        return entry[1]
+    async with _catalog_lock:
+        entry = cache.get(key)
+        if entry is not None:
+            return entry[1]
+        value = await load()
+        cache[key] = (time.monotonic(), value)
+        return value
+
+
+def _reload_in_background(cache: dict[str, tuple[float, Any]], key: str, load: Any) -> None:
+    flight = f"{id(cache)}:{key}"
+    running = _refreshing.get(flight)
+    if running is not None and not running.done():
+        return
+    from matrx_utils import detached_task
+
+    async def _reload() -> None:
+        try:
+            value = await load()
+        except Exception as exc:  # noqa: BLE001 — the served copy stays; said, never swallowed
+            vcprint(
+                f"[skills] background reload of catalog slice {key!r} failed "
+                f"({type(exc).__name__}: {exc}); serving the previous copy until the next try",
+                color="red",
+            )
+            return
+        cache[key] = (time.monotonic(), value)
+
+    # A fresh context: the reload opens its own database session, never the request's.
+    _refreshing[flight] = detached_task(_reload(), name=f"skill-catalog-reload:{key}")
+
+
 def invalidate_skill_catalog_cache() -> None:
     """Drop the process-level skill catalog cache (categories + skill slices).
 
@@ -88,7 +148,9 @@ async def preload_skill_catalog() -> None:
         provider = DbSkillProvider()
         await provider._load_category_rows()
         await provider._get_system_public_rows()
-        vcprint("[skills] catalog preloaded (categories + system/public)", color="green")
+        # The slice every agent run with skills reads (filtered per person in memory).
+        await provider._get_all_active_rows()
+        vcprint("[skills] catalog preloaded (categories + system/public + all active)", color="green")
     except Exception as exc:
         vcprint(f"[skills] catalog preload skipped (non-fatal): {exc!r}", color="yellow")
 
@@ -198,18 +260,21 @@ def _row_to_body(row: Any, category_path: list[str]) -> SkillBody:
         else []
     )
 
+    skill_type = str(row.skill_type) if row.skill_type is not None else "reference"
+    config = getattr(row, "config", None)
     return SkillBody(
         id=UUID(str(row.id)),
         skill_id=row.skill_id,
         label=row.label,
         description=row.description,
-        skill_type=str(row.skill_type) if row.skill_type is not None else "reference",
+        skill_type=skill_type,
+        set_members=set_members_of(config) if skill_type == SKILL_SET_TYPE else [],
         body=row.body or "",
         category_path=category_path,
         allowed_tools=allowed,
         trigger_patterns=triggers,
         disable_auto_invocation=bool(getattr(row, "disable_auto_invocation", False)),
-        not_runnable=not_runnable_tooling(getattr(row, "config", None)),
+        not_runnable=not_runnable_tooling(config),
         version=getattr(row, "version", None),
     )
 
@@ -259,18 +324,11 @@ class DbSkillProvider:
         (top-level buckets) so the category table is read at most once per TTL
         window instead of twice per request.
         """
-        cached = _categories_cache.get(_SKILL_DIMENSION)
-        if _cache_fresh(cached):
-            return cached[1]
-        async with _catalog_lock:
-            cached = _categories_cache.get(_SKILL_DIMENSION)
-            if _cache_fresh(cached):
-                return cached[1]
-            mgr = self._categories_manager()
-            rows = await mgr.load_items(dimension=_SKILL_DIMENSION)
-            rows = [r for r in rows if getattr(r, "deleted_at", None) is None]
-            _categories_cache[_SKILL_DIMENSION] = (time.monotonic(), rows)
-            return rows
+        async def load() -> list[Any]:
+            rows = await self._categories_manager().load_items(dimension=_SKILL_DIMENSION)
+            return [r for r in rows if getattr(r, "deleted_at", None) is None]
+
+        return await _serve_cached(_categories_cache, _SKILL_DIMENSION, load)
 
     async def _ensure_categories(self) -> None:
         if self._categories_loaded:
@@ -318,13 +376,7 @@ class DbSkillProvider:
 
     async def _get_system_public_rows(self) -> list[Any]:
         """Global system + public active skills, process-cached (user-agnostic)."""
-        cached = _skills_cache.get(_SYSTEM_PUBLIC_KEY)
-        if _cache_fresh(cached):
-            return cached[1]
-        async with _catalog_lock:
-            cached = _skills_cache.get(_SYSTEM_PUBLIC_KEY)
-            if _cache_fresh(cached):
-                return cached[1]
+        async def load() -> list[Any]:
             mgr = self._defs_manager()
             # `is_system` is a curation flag ("platform-maintained, not
             # user-authored") — NOT an access override. Filesystem ingest
@@ -346,21 +398,16 @@ class DbSkillProvider:
                     continue
                 seen.add(rid)
                 rows.append(row)
-            _skills_cache[_SYSTEM_PUBLIC_KEY] = (time.monotonic(), rows)
             return rows
+
+        return await _serve_cached(_skills_cache, _SYSTEM_PUBLIC_KEY, load)
 
     async def _get_all_active_rows(self) -> list[Any]:
         """Every active skill row, process-cached (filtered per person by ``_readable_ids``)."""
-        cached = _skills_cache.get(_ALL_ACTIVE_KEY)
-        if _cache_fresh(cached):
-            return cached[1]
-        async with _catalog_lock:
-            cached = _skills_cache.get(_ALL_ACTIVE_KEY)
-            if _cache_fresh(cached):
-                return cached[1]
-            rows = await self._defs_manager().filter_items(is_active=True)
-            _skills_cache[_ALL_ACTIVE_KEY] = (time.monotonic(), rows)
-            return rows
+        async def load() -> list[Any]:
+            return await self._defs_manager().filter_items(is_active=True)
+
+        return await _serve_cached(_skills_cache, _ALL_ACTIVE_KEY, load)
 
     async def _readable_ids(self, user_id: UUID | str, level: str = "viewer") -> set[str] | None:
         """The skill ids this person may read — the platform's ONE access rule.
@@ -374,7 +421,18 @@ class DbSkillProvider:
         global _readable_failure_announced
         key = f"{_READABLE_PREFIX}{user_id}" if level == "viewer" else f"{_READABLE_PREFIX}{level}:{user_id}"
         cached = _skills_cache.get(key)
-        if _cache_fresh(cached):
+        if cached is not None:
+            if not _cache_fresh(cached):
+                # Served now, refreshed behind the turn (see ``_serve_cached``).
+                async def load() -> set[str]:
+                    from matrx_orm import platform_accessible_ids
+
+                    return {
+                        str(i)
+                        for i in await platform_accessible_ids(str(user_id), SKILL_ENTITY_TOKEN, level)
+                    }
+
+                _reload_in_background(_skills_cache, key, load)
             return cached[1]
         try:
             from matrx_orm import platform_accessible_ids
@@ -420,17 +478,11 @@ class DbSkillProvider:
     async def _get_user_rows(self, user_id: UUID) -> list[Any]:
         """A single user's own active skills, process-cached per user_id."""
         key = str(user_id)
-        cached = _skills_cache.get(key)
-        if _cache_fresh(cached):
-            return cached[1]
-        async with _catalog_lock:
-            cached = _skills_cache.get(key)
-            if _cache_fresh(cached):
-                return cached[1]
-            mgr = self._defs_manager()
-            rows = await mgr.filter_items(is_active=True, created_by=key)
-            _skills_cache[key] = (time.monotonic(), rows)
-            return rows
+
+        async def load() -> list[Any]:
+            return await self._defs_manager().filter_items(is_active=True, created_by=key)
+
+        return await _serve_cached(_skills_cache, key, load)
 
     async def _fetch_visible(
         self,

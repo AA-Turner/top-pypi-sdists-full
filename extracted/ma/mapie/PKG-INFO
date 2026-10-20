@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MAPIE
-Version: 1.5.0
+Version: 1.6.0
 Summary: A scikit-learn-compatible module for estimating prediction intervals.
 Maintainer-email: Valentin Laurent <valentin.laurent@capgemini.com>, Louis Lacombe <louis.lacombe@capgemini.com>, Vincent Blot <vincent.blot@capgemini.com>, Geoffray Brelurut <geoffray.brelurut@capgemini.com>, Hassan Maissoro <hassan.maissoro@capgemini.com>, Adrien Le Coz <adrien.le-coz@inria.fr>
 License-Expression: BSD-3-Clause
@@ -63,7 +63,7 @@ Requires-Dist: mkdocs-gallery==0.10.4; extra == "docs"
 Requires-Dist: mkdocstrings[python]==1.0.4; extra == "docs"
 Requires-Dist: mkdocstrings-python==2.0.4; extra == "docs"
 Requires-Dist: ruff==0.14.3; extra == "docs"
-Requires-Dist: pymdown-extensions==10.21.3; extra == "docs"
+Requires-Dist: pymdown-extensions==11.0.1; extra == "docs"
 Requires-Dist: pandas==2.3.3; extra == "docs"
 Requires-Dist: typing_extensions==4.15.0; extra == "docs"
 Requires-Dist: torch==2.13.0; extra == "docs"
@@ -110,7 +110,7 @@ Dynamic: license-file
 
 🚀 MAPIE in 2026 🚀 New features have been implemented, starting with the application of **risk control** to emerging use cases such as **LLM-as-Judge** and **image segmentation**. In addition, **exchangeability tests** have been introduced to help users verify when MAPIE can be legitimately applied. Also, new **adaptive** conformal prediction methods have been added. Finally, the documentation has been updated with a new design!
 
-🎉 MAPIE in 2025 🎉 MAPIE v1 is live! This new version introduces major changes to the API. Check out the [release notes](content/getting-started/v1-release-notes.md).
+🎉 MAPIE in 2025 🎉 MAPIE v1 is live! This new version introduces major changes to the API. Check out the [release notes](doc/content/getting-started/v1-release-notes.md).
 
 See [GitHub Releases](https://github.com/scikit-learn-contrib/MAPIE/releases) and [HISTORY.md](https://github.com/scikit-learn-contrib/MAPIE/blob/master/HISTORY.md) for up-to-date details on the new features.
 

@@ -6,7 +6,7 @@ The invariants under test, each named in D-11/D-12 and the credential-entry spec
 * incomplete spec is REFUSED before any page touch (no fill, no capture);
 * multi-field materialization: a ``None`` field set requests nothing, a named set
   requests exactly those keys — the plumbing that lets the vault preserve its
-  single-form behaviour byte-for-byte;
+  single-form behavior byte-for-byte;
 * four distinguishable verdicts, each with a confidence and its signals;
 * ``challenged`` is never reported as failure; ``unknown`` is never success;
 * NO plaintext secret appears in results, signals, exceptions, captures, or the

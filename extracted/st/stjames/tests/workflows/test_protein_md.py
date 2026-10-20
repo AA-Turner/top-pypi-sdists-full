@@ -10,6 +10,13 @@ from stjames.workflows import ProteinMolecularDynamicsWorkflow
 from stjames.workflows.protein_md import Binder, BindingPoseTrajectory, HydrationSite
 
 
+@pytest.mark.parametrize("random_seed", [0, 2147483648])
+def test_random_seed_outside_openmm_range(multichain: PDB, random_seed: int) -> None:
+    """Reject OpenMM's automatic-seed sentinel and signed-integer overflow."""
+    with pytest.raises(ValueError, match="random_seed"):
+        ProteinMolecularDynamicsWorkflow.model_validate({"protein": multichain, "random_seed": random_seed})
+
+
 @fixture
 def multichain() -> PDB:
     """Two-chain protein with a small-molecule ligand (chains A, B; ligand LIG)."""

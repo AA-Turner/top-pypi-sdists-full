@@ -87,6 +87,7 @@ mod engine_atomic_actions_618;
 
 mod index_unbounded_ranges;
 mod infinite_ranges;
+mod insert_at_grid_edge;
 mod issue_306_structural_delete_dirty;
 mod issue_313_insert_invalidation;
 mod spill_admission_200;
@@ -250,5 +251,8 @@ mod temporal_lookup_semantics;
 mod xlookup_declared_length;
 mod xlookup_excel_parity;
 
+mod blocked_spill_structural_edit;
 mod snapshot_evaluation;
 mod stats_excel_compat;
+
+mod review_fn_table;

@@ -35,6 +35,8 @@ THIN_CONTENT_CHARS = 200
 EMPTY_CONTENT = "empty_content"
 THIN_CONTENT = "thin_content"
 WRONG_RESOURCE = "wrong_resource"
+#: A bot check / access wall answered with HTTP 200 (the browser rung renders it and nothing marks it).
+BOT_WALL = "blocked"
 
 
 @dataclass(frozen=True)
@@ -67,7 +69,7 @@ def _normalize_path(url: str) -> tuple[str, str]:
 def resource_changed(requested_url: str, response_url: str) -> bool:
     """Did we end up at a materially different resource than we asked for?
 
-    Scheme upgrades, `www.` and trailing-slash normalisation are NOT changes.
+    Scheme upgrades, `www.` and trailing-slash normalization are NOT changes.
     A request for `/abeautifulmess` answered from `/goldencoveco` is — that is
     the Pinterest decoy, and it must never pass as a plain success.
     """
@@ -110,6 +112,22 @@ def assess(result: Any, *, thin_chars: int = THIN_CONTENT_CHARS) -> SanityVerdic
     if not getattr(result, "success", False):
         # Already an honest failure — the gate adds evidence, not a verdict.
         return SanityVerdict(content_chars=chars, redirected_off_requested_path=changed)
+
+    # A short page that IS a bot wall (title or text) is a failure whatever the status said.
+    from matrx_scraper.scraper import challenge_text_reason
+
+    wall = challenge_text_reason(
+        title=getattr(result, "title", None),
+        text=next((v for v in (getattr(result, "text_data", None), getattr(result, "ai_content", None),
+                               getattr(result, "markdown_renderable", None)) if isinstance(v, str) and v.strip()), ""),
+    )
+    if wall:
+        return SanityVerdict(
+            content_chars=chars,
+            failure_reason=BOT_WALL,
+            redirected_off_requested_path=changed,
+            message="The site showed a bot check instead of the page, so nothing was read.",
+        )
 
     if chars == 0:
         if changed:

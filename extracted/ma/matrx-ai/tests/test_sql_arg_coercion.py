@@ -8,7 +8,7 @@ the same broken shape 8x, and the loop guard killed the run.
 A JSON-string object/array and the object/array itself resolve to the same
 thing, so the wire models now coerce the string form. Anything genuinely not an
 object/array raises an explicit, instructive error (never the bare Pydantic
-message). These tests pin both behaviours.
+message). These tests pin both behaviors.
 """
 from __future__ import annotations
 

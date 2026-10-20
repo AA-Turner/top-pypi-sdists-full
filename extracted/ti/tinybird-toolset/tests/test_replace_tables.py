@@ -100,6 +100,31 @@ class TestReplaceTables(unittest.TestCase):
             },
             "SELECT * FROM database.t_01010101 AS t WHERE (c1, c2) IN database.t_02020202",
         ),
+        (
+            "SELECT * APPLY(x -> (SELECT count() FROM tt)) FROM (SELECT 1 AS a)",
+            {("", "tt"): ("", "(select a from table2 where a > 1)")},
+            "SELECT * APPLY(x -> (SELECT count() FROM (select a from table2 where a > 1) AS tt)) FROM (SELECT 1 AS a)",
+        ),
+        (
+            "SELECT * APPLY(x -> x IN (SELECT a FROM tt)) FROM (SELECT 1 AS a)",
+            {("", "tt"): ("database", "t_01010101")},
+            "SELECT * APPLY(x -> x IN (SELECT a FROM database.t_01010101 AS tt)) FROM (SELECT 1 AS a)",
+        ),
+        (
+            "SELECT * APPLY(x -> x IN tt) FROM (SELECT 1 AS a)",
+            {("", "tt"): ("database", "t_01010101")},
+            "SELECT * APPLY(x -> x IN database.t_01010101) FROM (SELECT 1 AS a)",
+        ),
+        (
+            "SELECT sum(a) OVER (PARTITION BY (SELECT count() FROM tt)) FROM (SELECT 1 AS a)",
+            {("", "tt"): ("database", "t_01010101")},
+            "SELECT sum(a) OVER (PARTITION BY (SELECT count() FROM database.t_01010101 AS tt)) FROM (SELECT 1 AS a)",
+        ),
+        (
+            "SELECT sum(a) OVER w FROM (SELECT 1 AS a) WINDOW w AS (PARTITION BY a IN (SELECT a FROM tt))",
+            {("", "tt"): ("database", "t_01010101")},
+            "SELECT sum(a) OVER w FROM (SELECT 1 AS a) WINDOW w AS (PARTITION BY a IN (SELECT a FROM database.t_01010101 AS tt))",
+        ),
     ]
 
     def test_asterisks_no_database(self):
@@ -1016,6 +1041,37 @@ class TestDisabledFunctions(unittest.TestCase):
                 ValueError, "DB::Exception: Usage of function sleep.* is restricted"
             ):
                 chquery.replace_tables(q, replacements)
+
+    def test_blocked_function_in_apply(self):
+        queries = [
+            "SELECT * APPLY(sleep) FROM (SELECT 2 AS a)",
+            "SELECT * APPLY(x -> hostName()) FROM (SELECT 1 AS a)",
+            "SELECT * APPLY(filesystemCapacity) FROM (SELECT 'default' AS a)",
+            "SELECT COLUMNS('a') APPLY(x -> sleep(x)) FROM (SELECT 1 AS a)",
+            "SELECT t.* APPLY(x -> toInt64(currentUser())) FROM (SELECT 1 AS a) AS t",
+        ]
+        for q in queries:
+            with self.assertRaisesRegex(ValueError, "DB::Exception: Usage of function .* is restricted"):
+                chquery.replace_tables(q, {})
+
+    def test_allowed_function_in_apply(self):
+        for q in [
+            "SELECT * APPLY(sum) FROM (SELECT 2 AS a)",
+            "SELECT * APPLY(quantile(0.9)) FROM (SELECT 2 AS a)",
+            "SELECT * APPLY(x -> toString(x)) FROM (SELECT 2 AS a)",
+        ]:
+            chquery.replace_tables(q, {})
+
+    def test_blocked_function_in_window(self):
+        queries = [
+            "SELECT sum(a) OVER (PARTITION BY sleep(1)) FROM (SELECT 1 AS a)",
+            "SELECT sum(a) OVER (ORDER BY hostName()) FROM (SELECT 1 AS a)",
+            "SELECT sum(a) OVER (ORDER BY a ROWS BETWEEN toUInt64(sleep(1)) PRECEDING AND CURRENT ROW) FROM (SELECT 1 AS a)",
+            "SELECT sum(a) OVER w FROM (SELECT 1 AS a) WINDOW w AS (PARTITION BY sleep(1))",
+        ]
+        for q in queries:
+            with self.subTest(q=q), self.assertRaisesRegex(ValueError, "DB::Exception: Usage of function .* is restricted"):
+                chquery.replace_tables(q, {})
 
     def test_sleep_in_replacements(self):
         sql = "SELECT * FROM a, a"

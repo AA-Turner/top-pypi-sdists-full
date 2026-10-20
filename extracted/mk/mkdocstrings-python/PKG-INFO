@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: mkdocstrings-python
-Version: 2.0.9
+Version: 2.0.10
 Summary: A Python handler for mkdocstrings.
-Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
+Author-Email: Timothée Mazzucotelli <dev@pawamoy.fr>
 License-Expression: ISC
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -10,7 +10,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -28,8 +27,8 @@ Project-URL: Issues, https://github.com/mkdocstrings/python/issues
 Project-URL: Discussions, https://github.com/mkdocstrings/python/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/python
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.10
-Requires-Dist: mkdocstrings>=0.30
+Requires-Python: >=3.11
+Requires-Dist: mkdocstrings>=1.0.8
 Requires-Dist: mkdocs-autorefs>=1.4
 Requires-Dist: griffelib>=2.0
 Requires-Dist: typing-extensions>=4.0; python_version < "3.11"

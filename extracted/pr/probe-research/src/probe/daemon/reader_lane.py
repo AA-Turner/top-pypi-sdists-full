@@ -560,6 +560,7 @@ class ReaderLane:
 
         from probe.daemon import usage as usage_mod
         from probe.daemon import worker as worker_mod
+        starting_state = lease.session_state(self.sid)
 
         asks = self.store.waiting_read_asks()
         ask = asks[0] if asks else None
@@ -696,6 +697,8 @@ class ReaderLane:
                                            rounds=state.rounds, **spent)
             raise
         except Exception as exc:  # noqa: BLE001 -- logged, backed off, never the worker's
+            if self.w._quota_inline(exc, starting_state):
+                self.fail_open_asks("the free daemon allowance is exhausted; Probe is inline")
             if history is not None and worker_mod._refusal_code(exc) == worker_mod.PROMPT_TOO_LARGE:
                 # The route refused a continued conversation as over its ceiling: never
                 # sent. Fresh at the next poll, the same events -- not a failure.

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -32,8 +33,8 @@ class AioS3FSCursor(WithAsyncFetch):
 
     Uses ``AioS3FileSystem`` for S3 operations, which replaces
     ``ThreadPoolExecutor`` parallelism with ``asyncio.gather`` +
-    ``asyncio.to_thread``. Fetch operations are wrapped in
-    ``asyncio.to_thread()`` because CSV reading is blocking I/O.
+    ``asyncio.to_thread``. Fetch operations run in a thread because CSV
+    reading is blocking I/O.
 
     Example:
         >>> async with await pyathena.aio_connect(...) as conn:
@@ -156,7 +157,11 @@ class AioS3FSCursor(WithAsyncFetch):
 
         Returns:
             Self reference for method chaining.
+
+        Raises:
+            ProgrammingError: If the cursor is closed.
         """
+        self._ensure_open()
         self._validate_execute_kwargs(kwargs, ("block_size", "csv_reader"))
         await self._async_reset_state()
         options = ExecuteOptions.resolve(
@@ -183,16 +188,18 @@ class AioS3FSCursor(WithAsyncFetch):
         query_execution = await self._poll(self.query_id)
         if query_execution.state == AthenaQueryExecution.STATE_SUCCEEDED:
             self.result_set = await create_in_thread(
-                AthenaS3FSResultSet,
-                connection=self._connection,
-                converter=self._converter,
-                query_execution=query_execution,
-                arraysize=self.arraysize,
-                retry_config=self._retry_config,
-                csv_reader=kwargs.pop("csv_reader", self._csv_reader),
-                filesystem_class=AioS3FileSystem,
-                result_set_type_hints=options.result_set_type_hints,
-                **kwargs,
+                functools.partial(
+                    AthenaS3FSResultSet,
+                    connection=self._connection,
+                    converter=self._converter,
+                    query_execution=query_execution,
+                    arraysize=self.arraysize,
+                    retry_config=self._retry_config,
+                    csv_reader=kwargs.pop("csv_reader", self._csv_reader),
+                    filesystem_class=AioS3FileSystem,
+                    result_set_type_hints=options.result_set_type_hints,
+                    **kwargs,
+                )
             )
         else:
             raise OperationalError(query_execution.state_change_reason)

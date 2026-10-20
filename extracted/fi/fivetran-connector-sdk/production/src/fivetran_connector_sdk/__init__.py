@@ -4,11 +4,13 @@ import sys
 import grpc
 import json
 import atexit
+import time
 import traceback
 import faulthandler
 import threading
 import queue
 import subprocess
+from collections import defaultdict
 from types import GeneratorType
 from concurrent import futures
 
@@ -23,9 +25,15 @@ from fivetran_connector_sdk.operations import Operations
 from fivetran_connector_sdk.configuration_form import ConfigurationForm
 from fivetran_connector_sdk.test import Test
 from fivetran_connector_sdk import form_field
-from fivetran_connector_sdk_common import __version__, constants
+from fivetran_connector_sdk_common import __version__, constants as common_constants
 from fivetran_connector_sdk_common.memory_tracker import get_memory_tracker
 from fivetran_connector_sdk_common.constants import TABLES, PYPROJECT_TOML
+from fivetran_connector_sdk.constants import (
+    CAPTURE_PERFORMANCE_METRICS_ENABLED,
+    SDK_BUILD_NS, QUEUE_WAIT_NS, SDK_ASSEMBLY_NS, QUEUE_BACKPRESSURE_NS, CHECKPOINT_WAIT_NS,
+    GRPC_FIRST_SEND_MS, GRPC_SEND_RELATIVE_TOTAL_MS, GRPC_SEND_COUNT, GRPC_TIMESTAMP_OVERFLOW,
+    PRODUCER_WALL_NS
+)
 from fivetran_connector_sdk_common.helpers import print_library_log, PromptMode, _resolve_existing_project_path
 from fivetran_connector_sdk.schema_processing import process_tables
 from fivetran_connector_sdk_common.cli_commands import main, _deploy_connector
@@ -44,6 +52,23 @@ def _format_runtime_error_message(error_message):
     # (locally) and surfaced by the java client in the user task (when running in production).
     return f"{error_message}\n{traceback.format_exc()}"
 
+def _build_schema_response():
+    """Builds the SchemaResponse from TABLES (keyed by (schema, table), see constants.TABLES).
+
+    Branches on common_constants.SCHEMA_QUALIFIED (whether any schema() entry declared an explicit 'schema'): an
+    entirely unqualified schema() produces without_schema, byte-identical to before multiple-schema support.
+    Otherwise the response is with_schema, and entries without a 'schema' (which belong to the connection's own
+    schema) are sent as the schema with an empty name. An empty name can never be a declared schema, so it can't
+    be confused with a schema that happens to be named like the connection.
+    """
+    if not common_constants.SCHEMA_QUALIFIED:
+        return connector_sdk_pb2.SchemaResponse(without_schema=common_pb2.TableList(tables=TABLES.values()))
+
+    tables_by_schema = defaultdict(list)
+    for (schema, _table_name), table in TABLES.items():
+        tables_by_schema[schema].append(table)
+    schemas = [common_pb2.Schema(name=schema or "", tables=tables) for schema, tables in tables_by_schema.items()]
+    return connector_sdk_pb2.SchemaResponse(with_schema=common_pb2.SchemaList(schemas=schemas))
 
 class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
     # noinspection PyShadowingNames
@@ -65,7 +90,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         self.project_path = None
         self._debug_crash_report = None
 
-        if not constants.EXECUTED_VIA_CLI:
+        if not common_constants.EXECUTED_VIA_CLI:
             update_base_url_if_required()
 
     # Call this method to deploy the connector to Fivetran platform
@@ -116,7 +141,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         self.state = check_dict(state)
         Logging.LOG_LEVEL = log_level
 
-        if not constants.DEBUGGING:
+        if not common_constants.DEBUGGING:
             """
                 DO NOT MODIFY THE LOG MESSAGE BELOW
                 This is used to identify the readiness of the connector to run the code.
@@ -133,10 +158,10 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             ]
         )
         connector_sdk_pb2_grpc.add_SourceConnectorServicer_to_server(self, server)
-        bind_address = "127.0.0.1" if constants.DEBUGGING else "[::]"
+        bind_address = "127.0.0.1" if common_constants.DEBUGGING else "[::]"
         server.add_insecure_port(bind_address + ":" + str(port))
         server.start()
-        if constants.DEBUGGING:
+        if common_constants.DEBUGGING:
             return server
         server.wait_for_termination()
 
@@ -158,7 +183,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             log_level (Logging.Level): The logging level.
             naming (str): The formatted naming strategy (e.g., "FIVETRAN_NAMING" or "SOURCE_NAMING").
         """
-        constants.DEBUGGING = True
+        common_constants.DEBUGGING = True
         validate_configuration(configuration)
 
         check_newer_version(__version__)
@@ -210,7 +235,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             )
             sys.exit(1)
 
-        constants.DEBUGGING = True
+        common_constants.DEBUGGING = True
         Logging.LOG_LEVEL = Logging.Level.INFO
         try:
             self._cached_form = self.configuration_form_method()
@@ -226,15 +251,15 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             sys.exit(1)
 
     def _confirm_configuration_override(self, project_path: str):
-        config_path = os.path.join(project_path, constants.CONFIGURATION_JSON)
+        config_path = os.path.join(project_path, common_constants.CONFIGURATION_JSON)
         if os.path.exists(config_path):
             confirm = input(
-                f"'{constants.CONFIGURATION_JSON}' already exists in '{project_path}'\n"
+                f"'{common_constants.CONFIGURATION_JSON}' already exists in '{project_path}'\n"
                 f"running this command will override it\n"
                 f"continue? (y/N): "
             )
             if confirm.lower() != "y":
-                print_library_log(f"'{constants.CONFIGURATION_JSON}' already exists; creating new file and overriding values cancelled")
+                print_library_log(f"'{common_constants.CONFIGURATION_JSON}' already exists; creating new file and overriding values cancelled")
                 sys.exit(0)
 
     def generate_configuration(self, project_path: str, run_tests: bool = False, disable_encryption: bool = False):
@@ -296,7 +321,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         atexit.unregister(self._print_debug_crash_report)
 
     def _set_debug_crash_report(self, exception, handler, state=None, memory_tracker=None):
-        if not constants.DEBUGGING:
+        if not common_constants.DEBUGGING:
             return
 
         try:
@@ -402,7 +427,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 print_library_log("calling schema()", Logging.Level.INFO)
                 response = self.schema_method(configuration)
                 process_tables(response, table_list)
-                return connector_sdk_pb2.SchemaResponse(without_schema=common_pb2.TableList(tables=TABLES.values()))
+                return _build_schema_response()
 
             except Exception as e:
                 self._set_debug_crash_report(e, "schema()")
@@ -433,6 +458,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             print_library_log("calling update()", Logging.Level.INFO)
 
             def run_update():
+                t_producer_start = time.perf_counter_ns() if CAPTURE_PERFORMANCE_METRICS_ENABLED else None
                 try:
                     result = self.update_method(configuration=configuration, state=state)
                     # If the customer's update method returns a generator (i.e., uses yield),
@@ -448,6 +474,8 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                 except Exception as exc:
                     exception_queue.put(exc)
                 finally:
+                    if t_producer_start is not None:
+                        Operations.operation_stream._producer_wall_ns = time.perf_counter_ns() - t_producer_start
                     Operations.operation_stream.mark_done()
 
             thread = None
@@ -460,6 +488,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                     # checkpoint and file-upload-chunk flushes both return a list of responses.
                     if isinstance(response, list):
                         for res in response:
+                            Operations.operation_stream.record_grpc_send_timestamp()
                             yield res
                         # add_checkpoint blocks the producer until its checkpoint response is yielded.
                         # File-upload flushes also return lists, but they do not block the producer, so
@@ -467,6 +496,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
                         if any(res.WhichOneof("operation") == "checkpoint" for res in response):
                             Operations.operation_stream.unblock()
                     else:
+                        Operations.operation_stream.record_grpc_send_timestamp()
                         yield response
             finally:
                 memory_tracker.stop()
@@ -484,6 +514,21 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
             error_message = f"failed while executing update() error: {str(e)}"
             print_library_log(error_message, Logging.Level.SEVERE)
             raise RuntimeError(_format_runtime_error_message(error_message)) from e
+        finally:
+            # Send per-sync timing breakdown as gRPC trailing metadata, only when perf-metric capture is enabled.
+            if CAPTURE_PERFORMANCE_METRICS_ENABLED:
+                context.set_trailing_metadata([
+                    (SDK_BUILD_NS, str(Operations.operation_stream._sdk_build_ns)),
+                    (QUEUE_WAIT_NS, str(Operations.operation_stream._queue_wait_ns)),
+                    (SDK_ASSEMBLY_NS, str(Operations.operation_stream._sdk_batch_assembly_ns)),
+                    (QUEUE_BACKPRESSURE_NS, str(Operations.operation_stream._queue_backpressure_ns)),
+                    (CHECKPOINT_WAIT_NS, str(Operations.operation_stream._checkpoint_wait_ns)),
+                    (GRPC_FIRST_SEND_MS, str(Operations.operation_stream._grpc_first_send_ms)),
+                    (GRPC_SEND_RELATIVE_TOTAL_MS, str(Operations.operation_stream._grpc_send_relative_total_ms)),
+                    (GRPC_SEND_COUNT, str(Operations.operation_stream._grpc_send_count)),
+                    (GRPC_TIMESTAMP_OVERFLOW, str(Operations.operation_stream._grpc_timestamp_overflow).lower()),
+                    (PRODUCER_WALL_NS, str(Operations.operation_stream._producer_wall_ns)),
+                ])
 
 
 

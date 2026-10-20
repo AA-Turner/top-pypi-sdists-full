@@ -911,6 +911,142 @@ class CredentialListParams(BaseModel):
 
 
 # ===========================================================================
+# Memory stores
+# ===========================================================================
+
+
+class MemoryStoreCreateParams(BaseModel):
+    """Request body for ``POST /memory_stores``.
+
+    ``name`` must contain 1..255 characters; names may repeat within
+    a workspace, and the session mount slug ``/mnt/memory/<name>/`` is
+    derived from it. ``description`` is passed to the agent — write it
+    for the model, not for humans.
+    """
+
+    _fields = ("name", "description", "metadata")
+
+
+class MemoryStoreUpdateParams(BaseModel):
+    """Request body for ``POST /memory_stores/{store_id}``.
+
+    ``metadata`` is replaced wholesale (unlike CMA's merge-patch):
+    keys not included here are dropped; a key set to ``null`` deletes
+    it. To change one key, re-send the whole mapping.
+    """
+
+    _fields = ("name", "description", "metadata")
+
+
+class MemoryStoreListParams(BaseModel):
+    """Query params for ``GET /memory_stores``.
+
+    Note: unlike the console API, the public API has no ``keyword``
+    filter.
+    """
+
+    _fields = ("include_archived", "limit", "page")
+
+    def __init__(
+        self,
+        *,
+        include_archived: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> None:
+        if include_archived is not None:
+            kwargs["include_archived"] = str(
+                include_archived,
+            ).lower()
+        super().__init__(**kwargs)
+
+
+# ===========================================================================
+# Memories
+# ===========================================================================
+
+
+class MemoryCreateParams(BaseModel):
+    """Request body for ``POST /memory_stores/{store_id}/memories``.
+
+    ``path`` rules (enforced server-side, case-sensitive): POSIX style
+    with a leading ``/`` and no trailing ``/``; 2..1024 UTF-8 bytes;
+    NFC-normalized; every segment non-empty and not ``.`` or ``..``;
+    no control / format / line- or paragraph-separator code points.
+    ``content`` is UTF-8 text, <= 102400 bytes.  A memory already
+    existing at ``path`` returns 409 ``memory_path_conflict_error``
+    (the same rules apply to a rename via ``memories.update``).
+    """
+
+    _fields = ("path", "content")
+
+
+class MemoryUpdateParams(BaseModel):
+    """Request body for ``POST /memory_stores/{store_id}/memories/{memory_id}``.
+
+    At least one of ``path`` / ``content`` must be given.  Passing the
+    current ``content_sha256`` (from the retrieved memory) enables
+    optimistic concurrency — a mismatch returns 409
+    ``memory_precondition_failed_error``.
+    """
+
+    _fields = ("path", "content", "content_sha256")
+
+
+class MemoryListParams(BaseModel):
+    """Query params for ``GET /memory_stores/{store_id}/memories``.
+
+    ``path_prefix`` scopes the listing (server-validated: must start
+    and end with ``/`` — ``"/notes/"`` matches ``/notes/a.md`` but not
+    ``/notes_backup/old.md``; a bare ``"/"`` lists the whole store).
+    ``depth`` is 0/absent (flat) or 1 (single-level tree) on the wire;
+    ``view`` is ``basic`` (metadata only, the default, ``limit`` up to
+    100) or ``full`` (include ``content``, ``limit`` capped at 20 —
+    the backend rejects higher values with 400).
+    """
+
+    _fields = ("path_prefix", "depth", "view", "limit", "page")
+
+
+# ===========================================================================
+# Memory versions
+# ===========================================================================
+
+
+class MemoryVersionListParams(BaseModel):
+    """Query params for ``GET /memory_stores/{store_id}/memory_versions``.
+
+    Filters: ``memory_id``, ``operation`` (``created`` / ``modified`` /
+    ``deleted``), ``created_at_gte`` / ``created_at_lte`` (ISO-8601
+    timestamps; sent on the wire as ``created_at.gte`` /
+    ``created_at.lte``), ``view`` (``basic`` / ``full``).  Versions are
+    returned newest-first.
+    """
+
+    _fields = (
+        "memory_id",
+        "operation",
+        "created_at.gte",
+        "created_at.lte",
+        "view",
+        "limit",
+        "page",
+    )
+
+    def __init__(
+        self,
+        *,
+        created_at_gte: Optional[str] = None,
+        created_at_lte: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        if created_at_gte is not None:
+            kwargs["created_at.gte"] = created_at_gte
+        if created_at_lte is not None:
+            kwargs["created_at.lte"] = created_at_lte
+        super().__init__(**kwargs)
+
+
+# ===========================================================================
 # Webhook endpoints
 # ===========================================================================
 

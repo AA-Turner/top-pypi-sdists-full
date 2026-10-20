@@ -1,4 +1,4 @@
-"""Census 2026-10-14 fixes for the site/cross-page checks: each test fails on the old behaviour."""
+"""Census 2026-10-14 fixes for the site/cross-page checks: each test fails on the old behavior."""
 
 from __future__ import annotations
 

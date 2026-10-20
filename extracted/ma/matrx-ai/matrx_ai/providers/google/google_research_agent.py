@@ -31,7 +31,7 @@ Official interface: https://ai.google.dev/gemini-api/docs/deep-research
 
 Paid-work rules: the research is billed the moment it starts, so after
 creation nothing here is retryable (a retry would start and bill a second
-research), billed usage rides every failure, and a cancelled turn cancels the
+research), billed usage rides every failure, and a canceled turn cancels the
 Google interaction instead of leaving it running unobserved.
 """
 
@@ -691,7 +691,7 @@ class GoogleDeepResearchAgent:
         mark_billing_checked: Any,
     ) -> None:
         """Whatever Google billed so far rides the failure, so a failed or
-        cancelled research never records $0."""
+        canceled research never records $0."""
         usage = None
         if state.interaction_id:
             try:

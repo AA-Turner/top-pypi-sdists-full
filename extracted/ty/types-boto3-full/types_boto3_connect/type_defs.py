@@ -56,6 +56,7 @@ from .literals import (
     ContactParticipantRoleType,
     ContactRecordingTypeType,
     ContactStateType,
+    ContentDispositionType,
     CurrentMetricNameType,
     DataTableAttributeValueTypeType,
     DataTableLockLevelType,
@@ -3750,6 +3751,7 @@ class GetAttachedFileRequestTypeDef(TypedDict):
     FileId: str
     AssociatedResourceArn: str
     UrlExpiryInSeconds: NotRequired[int]
+    UrlContentDisposition: NotRequired[ContentDispositionType]
 
 
 class GetContactAttributesRequestTypeDef(TypedDict):

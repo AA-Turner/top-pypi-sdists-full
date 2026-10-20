@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from matrx_ai.config import ToolResultContent, UnifiedMessage
+from matrx_ai.config import ToolCallContent, ToolResultContent, UnifiedMessage
 from matrx_ai.config.context_trim import trim_messages_context
 
 
@@ -19,9 +19,29 @@ def _tool_result(chars: int, *, position: int | None = None) -> UnifiedMessage:
     )
 
 
+def _turn(i: int) -> UnifiedMessage:
+    """The assistant message that reads a result and makes the next call: one
+    model iteration (distance is counted in iterations since 2026-10-17)."""
+    return UnifiedMessage(
+        role="assistant",
+        position=None,
+        content=[ToolCallContent(id=f"next-{i}", name="large_tool", arguments={"q": i})],
+    )
+
+
+def _serial(results: list[UnifiedMessage]) -> list[UnifiedMessage]:
+    """A serial loop: every result is followed by the assistant turn that acted on it."""
+    out: list[UnifiedMessage] = []
+    for i, msg in enumerate(results):
+        out.append(msg)
+        if i < len(results) - 1:
+            out.append(_turn(i))
+    return out
+
+
 def test_trims_old_unpersisted_tool_results_during_active_loop() -> None:
-    # 15 loop turns; tier 1 (12 positions back) reaches the first three.
-    messages = [_tool_result(20_000) for _ in range(15)]
+    # 9 serial iterations; tier 1 (12 positions = 6 iterations back) reaches the first three.
+    messages = _serial([_tool_result(20_000) for _ in range(9)])
 
     report = trim_messages_context(messages)
 
@@ -33,8 +53,7 @@ def test_trims_old_unpersisted_tool_results_during_active_loop() -> None:
 
 
 def test_orders_unpersisted_turns_after_persisted_history() -> None:
-    messages = [_tool_result(20_000, position=10)]
-    messages.extend(_tool_result(20_000) for _ in range(14))
+    messages = _serial([_tool_result(20_000, position=10)] + [_tool_result(20_000) for _ in range(8)])
 
     report = trim_messages_context(messages)
 
@@ -57,7 +76,7 @@ def test_default_policy_is_the_2026_09_09_ruling() -> None:
 def test_recent_large_result_survives() -> None:
     """A 7K doc page read two tool calls ago must still be readable — the
     exact case that made the 2026-09-08 Google sync re-read a page 3 times."""
-    messages = [_tool_result(7_000) for _ in range(6)]
+    messages = _serial([_tool_result(7_000) for _ in range(6)])
     report = trim_messages_context(messages)
     assert report.blocks_rewritten == 0
 
@@ -96,7 +115,7 @@ def _tool_call(chars: int, *, position: int | None = None, call_id: str = "call-
 
 def test_stale_large_tool_call_arguments_are_rewritten() -> None:
     messages = [_tool_call(40_000, call_id="call-stale")]
-    messages.extend(_tool_result(100) for _ in range(30))
+    messages.extend(_serial([_tool_result(100) for _ in range(30)]))
 
     report = trim_messages_context(messages)
 
@@ -131,7 +150,7 @@ def test_stale_large_tool_call_arguments_are_rewritten() -> None:
 def test_fresh_large_tool_call_arguments_survive() -> None:
     """A workflow the assistant just saved is still readable in context."""
     messages = [_tool_call(40_000)]
-    messages.extend(_tool_result(100) for _ in range(5))
+    messages.extend(_serial([_tool_result(100) for _ in range(5)]))
 
     report = trim_messages_context(messages)
 
@@ -142,7 +161,7 @@ def test_fresh_large_tool_call_arguments_survive() -> None:
 
 def test_argument_trim_is_idempotent() -> None:
     messages = [_tool_call(40_000)]
-    messages.extend(_tool_result(100) for _ in range(30))
+    messages.extend(_serial([_tool_result(100) for _ in range(30)]))
 
     first = trim_messages_context(messages)
     stub = dict(messages[0].content[0].arguments)
@@ -166,14 +185,14 @@ def test_cache_gate_counts_argument_savings() -> None:
 
     # Six eligible 2,200-char results: 13,200 chars, ~4.6K tokens by the one measured
     # estimator (2.9 chars/token) — under the 5K floor.
-    results_only = [_tool_result(2_200) for _ in range(30)]
+    results_only = _serial([_tool_result(2_200) for _ in range(18)])
     protected = trim_messages_context(results_only, cache_state=fresh_cache)
     assert protected.blocks_rewritten == 0
     assert protected.eligible_but_skipped_reason == "cache_protect"
     assert protected.policy["cache_gate"]["est_savings_tokens"] < 5000
 
     with_arguments = [_tool_call(40_000)]
-    with_arguments.extend(_tool_result(2_200) for _ in range(29))
+    with_arguments.extend(_serial([_tool_result(2_200) for _ in range(17)]))
     trimmed = trim_messages_context(with_arguments, cache_state=fresh_cache)
     assert trimmed.eligible_but_skipped_reason is None
     assert trimmed.arguments_rewritten == 1
@@ -182,7 +201,7 @@ def test_cache_gate_counts_argument_savings() -> None:
 
 def test_trim_tool_call_arguments_false_restores_old_behaviour() -> None:
     messages = [_tool_call(40_000)]
-    messages.extend(_tool_result(100) for _ in range(30))
+    messages.extend(_serial([_tool_result(100) for _ in range(30)]))
 
     report = trim_messages_context(messages, policy=TrimPolicy(trim_tool_call_arguments=False))
 

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import ClassVar, cast
-
-from typing_extensions import Self
+from typing import ClassVar, Self, cast
 
 from xdsl.builder import Builder
 from xdsl.dialects import arith, math
@@ -38,7 +36,6 @@ from xdsl.irdl import (
     IRDLOperation,
     ParsePropInAttrDict,
     SameVariadicOperandSize,
-    attr_def,
     base,
     irdl_op_definition,
     operand_def,
@@ -968,15 +965,15 @@ class TransposeOp(LinalgStructuredOperation):
     def parse(cls, parser: Parser) -> Self:
         parser.parse_characters("ins")
         parser.parse_punctuation("(")
-        input = parser.parse_operand()
+        unresolved_input = parser.parse_unresolved_operand()
         parser.parse_punctuation(":")
-        parser.parse_type()
+        input = parser.resolve_operand(unresolved_input, parser.parse_type())
         parser.parse_punctuation(")")
         parser.parse_characters("outs")
         parser.parse_punctuation("(")
-        init = parser.parse_operand()
+        unresolved_init = parser.parse_unresolved_operand()
         parser.parse_punctuation(":")
-        parser.parse_type()
+        init = parser.resolve_operand(unresolved_init, parser.parse_type())
         parser.parse_punctuation(")")
         parser.parse_keyword("permutation")
         parser.parse_punctuation("=")
@@ -1085,7 +1082,7 @@ class QuantizedMatmulOp(NamedOperation):
 
     PRINT_ATTRS_IN_FRONT: ClassVar[bool] = True
 
-    memoized_indexing_maps = attr_def(
+    memoized_indexing_maps = prop_def(
         ArrayAttr[AffineMapAttr],
         default_value=ArrayAttr(
             [
@@ -1096,7 +1093,7 @@ class QuantizedMatmulOp(NamedOperation):
                 AffineMapAttr(AffineMap.from_callable(lambda i, j, _: (i, j))),
             ]
         ),
-        attr_name="linalg.memoized_indexing_maps",
+        prop_name="linalg.memoized_indexing_maps",
     )
 
     def __init__(
@@ -1467,15 +1464,15 @@ class BroadcastOp(IRDLOperation):
     def parse(cls, parser: Parser) -> Self:
         parser.parse_characters("ins")
         parser.parse_punctuation("(")
-        input = parser.parse_operand()
+        unresolved_input = parser.parse_unresolved_operand()
         parser.parse_punctuation(":")
-        parser.parse_type()
+        input = parser.resolve_operand(unresolved_input, parser.parse_type())
         parser.parse_punctuation(")")
         parser.parse_characters("outs")
         parser.parse_punctuation("(")
-        init = parser.parse_operand()
+        unresolved_init = parser.parse_unresolved_operand()
         parser.parse_punctuation(":")
-        parser.parse_type()
+        init = parser.resolve_operand(unresolved_init, parser.parse_type())
         parser.parse_punctuation(")")
         parser.parse_keyword("dimensions")
         parser.parse_punctuation("=")
@@ -1577,15 +1574,15 @@ class ReduceOp(IRDLOperation):
     def parse(cls, parser: Parser) -> Self:
         parser.parse_characters("ins")
         parser.parse_punctuation("(")
-        input = parser.parse_operand()
+        unresolved_input = parser.parse_unresolved_operand()
         parser.parse_punctuation(":")
-        parser.parse_type()
+        input = parser.resolve_operand(unresolved_input, parser.parse_type())
         parser.parse_punctuation(")")
         parser.parse_characters("outs")
         parser.parse_punctuation("(")
-        init = parser.parse_operand()
+        unresolved_init = parser.parse_unresolved_operand()
         parser.parse_punctuation(":")
-        parser.parse_type()
+        init = parser.resolve_operand(unresolved_init, parser.parse_type())
         parser.parse_punctuation(")")
         parser.parse_keyword("dimensions")
         parser.parse_punctuation("=")

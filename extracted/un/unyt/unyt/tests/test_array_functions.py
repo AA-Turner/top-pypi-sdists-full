@@ -101,7 +101,7 @@ NOOP_FUNCTIONS = {
     np.rollaxis,  # works out of the box (tested)
     np.rot90,  # works out of the box (tested)
     np.expand_dims,  # works out of the box (tested)
-    np.squeeze,  # works out of the box (tested)
+    np.squeeze,  # works because ndarray.squeeze is handled
     np.flip,  # works out of the box (tested)
     np.fliplr,  # works out of the box (tested)
     np.flipud,  # works out of the box (tested)
@@ -148,7 +148,6 @@ NOOP_FUNCTIONS = {
     np.extract,  # works out of the box (tested)
     np.setxor1d,  # we get it for free with previously implemented functions (tested)
     np.lexsort,  # returns pure numbers
-    np.digitize,  # returns pure numbers
     np.tril_indices_from,  # returns pure numbers
     np.triu_indices_from,  # returns pure numbers
     np.imag,  # works out of the box (tested)
@@ -311,6 +310,15 @@ def test_wrapping_completeness():
     # or are explicitly whitelisted
     for function in wrappable_functions.values():
         assert function in all_funcs
+
+
+def test_unsupported_array_function_returns_notimplemented():
+    x = unyt_array([1, 2, 3], "cm")
+
+    for func in UNSUPPORTED_FUNCTIONS:
+        assert x.__array_function__(func, (unyt_array,), (x,), {}) is NotImplemented
+    with pytest.raises(TypeError, match="no implementation found"):
+        np.packbits(x)
 
 
 @pytest.mark.parametrize(
@@ -1585,6 +1593,7 @@ def test_diagx(func):
     assert y.units == cm
 
 
+@pytest.mark.filterwarnings("ignore:numpy.fix is deprecated:DeprecationWarning")
 def test_fix():
     y = np.fix(1.2 * cm)
     assert y == 1.0 * cm
@@ -2097,6 +2106,30 @@ def test_searchsorted(val):
     assert res == 2
 
 
+def test_digitize_converts_bins():
+    # bins in different (but compatible) units must be converted to the data's
+    # units before binning: 1, 2, 3 cm are all far below 1 km, so they all land
+    # in the first bin (see #633)
+    res = np.digitize([1, 2, 3] * cm, [0, 1, 2, 3] * km)
+    assert_array_equal_units(res, np.array([1, 1, 1]))
+
+
+def test_digitize_right():
+    res = np.digitize([1, 2, 3] * cm, [0, 1, 2, 3] * km, right=True)
+    assert_array_equal_units(res, np.array([1, 1, 1]))
+
+
+def test_digitize_dimensionless_plain_bins():
+    # a dimensionless array with plain (unit-less) bins must still work
+    res = np.digitize([1, 2, 3] * dimensionless, [0, 1, 2, 3])
+    assert_array_equal_units(res, np.array([2, 3, 4]))
+
+
+def test_digitize_mixed_units():
+    with pytest.raises(UnitConversionError):
+        np.digitize([1, 2, 3] * g, [0, 1, 2, 3] * s)
+
+
 @pytest.mark.parametrize(
     "choicelist_gen, default",
     [
@@ -2404,7 +2437,9 @@ class TestFunctionHelpersSignatureCompatibility:
             args_target = self.get_param_group(params_helper, [kind])
             args_helper = self.get_param_group(params_helper, [kind])
 
-            if (nhelper := len(args_helper)) > (ntarget := len(args_target)):
+            if (nhelper := len(args_helper)) > (
+                ntarget := len(args_target)
+            ):  # pragma: no cover
                 unknown: list[str] = args_helper[ntarget:]
                 raise AssertionError(
                     f"Found unknown {kind} parameter(s) "
@@ -2446,3 +2481,27 @@ class TestFunctionHelpersSignatureCompatibility:
                 f"Default value mismatch for argument {name!r}. "
                 f"Helper has {ph.default!r}, target has {pt.default!r}"
             )
+
+
+def test_squeeze_array():
+    """Check that squeeze returns the correct type for the shape of the result."""
+    arr = np.ones((3, 1)) * cm
+    arr_squeezed = np.squeeze(arr)
+    assert arr_squeezed.ndim > 0
+    assert type(arr_squeezed) is unyt_array
+
+
+def test_squeeze_scalar():
+    """Check that squeeze returns the correct type for the shape of the result."""
+    arr = np.ones(1) * cm
+    arr_squeezed = np.squeeze(arr)
+    assert arr_squeezed.ndim == 0
+    assert type(arr_squeezed) is unyt_quantity
+
+
+def test_squeeze_with_axis():
+    """Check that squeeze obeys axis kwarg."""
+    arr = np.ones((1, 1)) * cm
+    squeeze_axis = (1,)
+    arr_squeezed = np.squeeze(arr, axis=1)
+    assert arr_squeezed.ndim == arr.ndim - len(squeeze_axis)

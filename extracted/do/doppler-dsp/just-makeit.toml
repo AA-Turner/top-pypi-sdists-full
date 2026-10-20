@@ -1,9 +1,9 @@
 include = ["objects/*.toml"]
 
 [project]
-jm_version = "0.106.0"
+jm_version = "0.108.0"
 name = "doppler"
-version = "0.72.0"
+version = "0.73.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
@@ -2882,7 +2882,8 @@ objects = ["doppler_channel"]
 
 [module.util]
 doc = """
-Shared numeric utilities used across the doppler modules.
+Shared utilities used across the doppler modules: the numeric helpers, and
+`fromto`, the path from a calling script to where it writes.
 
 Examples
 --------
@@ -2892,6 +2893,12 @@ Examples
 
 """
 objects = []
+
+# `fromto` is path arithmetic, not DSP, so it is plain Python in
+# src/doppler/util/paths.py: there is no C algorithm for a binding to wrap,
+# and the caller's __file__ is only reachable from Python.
+[module.util.reexports]
+paths = ["fromto"]
 
 [[module.util.functions]]
 name = "square_clip"
@@ -3489,6 +3496,14 @@ name = "m"
 type = "int"
 
 [[module.ber.functions]]
+name = "ber_evm_ideal_db"
+return_type = "double"
+
+[[module.ber.functions.params]]
+name = "esn0_db"
+type = "double"
+
+[[module.ber.functions]]
 name = "ber_settle_syms"
 doc = "Symbols to discard before a steady-state measurement means anything: 2*(5/bn_timing + 5/bn_carrier). Three factors, and skipping any produces a confident wrong number -- 5/Bn per loop is the standard second-order settling time (in SYMBOLS, since both bn are symbol-rate normalised); the two budgets ADD because the loops are cascaded (the carrier discriminator reads the on-time strobe, so it cannot converge until timing has); and the sum DOUBLES for joint tracking. This is a FLOOR, not the answer: take the max of it and every lock indicator the receiver publishes. Pass a loop's bn as 0 if it is not running."
 return_type = "size_t"
@@ -3522,7 +3537,7 @@ default = "0.9"
 
 [[module.ber.functions]]
 name = "ber_evm_db"
-doc = "Self-referenced EVM (dB) over an EXPLICIT window [lo, hi): each symbol against the stream's OWN hard decision, with the constellation rotation estimated from the data. References neither the transmitted symbols nor a lag, so it cannot be fooled by an alignment search. A locked matched-filter output reads EVM_dB ~ -(Es/N0)_dB (an I/Q-plane quantity -- no factor of two; quoting one flatters the result by 3 dB). Read it against ber_evm_scatter_floor_db(m), NEVER against 0 dB. The window is explicit because BER and EVM must be measured on the SAME one: a convenience back-half default scores a different window than the error rate did, and the two eventually disagree in a way that reads as a receiver defect rather than the harness bug it is. Returns 0.0 for a window under 20 symbols. M < 2 returns NaN."
+doc = "Self-referenced EVM (dB) over an EXPLICIT window [lo, hi): each symbol against the stream's OWN hard decision, with the constellation rotation estimated from the data. References neither the transmitted symbols nor a lag, so it cannot be fooled by an alignment search. A locked matched-filter output reads near -(Es/N0) -- exactly ber_evm_ideal_db(esn0_db), the window being scaled to unit total power (an I/Q-plane quantity -- no factor of two; quoting one flatters the result by 3 dB). Read it against ber_evm_scatter_floor_db(m), NEVER against 0 dB. The window is explicit because BER and EVM must be measured on the SAME one: a convenience back-half default scores a different window than the error rate did, and the two eventually disagree in a way that reads as a receiver defect rather than the harness bug it is. Returns 0.0 for a window under 20 symbols. M < 2 returns NaN."
 return_type = "double"
 
 [[module.ber.functions.params]]
@@ -3755,3 +3770,14 @@ values = ["none", "eof", "timeout", "interrupted"]
 [[enum]]
 name = "interp_method"
 values = ["floor", "nearest", "linear"]
+
+# The AsyncDsssReceiver's lifecycle states (async_dsss_receiver_core.h,
+# ASYNC_DSSS_RX_*), bound by name so the compiler checks every one. Read
+# through the receiver's `lifecycle` property as a string.
+[[enum]]
+name = "async_dsss_rx_state"
+values = ["searching", "refining", "tracking", "idle", "lost"]
+enumerators = [
+  "ASYNC_DSSS_RX_SEARCHING", "ASYNC_DSSS_RX_REFINING",
+  "ASYNC_DSSS_RX_TRACKING", "ASYNC_DSSS_RX_IDLE", "ASYNC_DSSS_RX_LOST",
+]

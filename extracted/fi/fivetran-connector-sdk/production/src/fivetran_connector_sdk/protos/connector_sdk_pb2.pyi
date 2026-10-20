@@ -105,7 +105,7 @@ class TableSelection(_message.Message):
     def __init__(self, included: bool = ..., table_name: _Optional[str] = ..., columns: _Optional[_Mapping[str, bool]] = ..., include_new_columns: bool = ...) -> None: ...
 
 class UpdateResponse(_message.Message):
-    __slots__ = ("structured_record", "schema_change", "checkpoint", "warning", "task", "structured_records", "unstructured_record")
+    __slots__ = ("structured_record", "schema_change", "checkpoint", "warning", "task", "structured_records", "unstructured_record", "truncate")
     STRUCTURED_RECORD_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_CHANGE_FIELD_NUMBER: _ClassVar[int]
     CHECKPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -113,6 +113,7 @@ class UpdateResponse(_message.Message):
     TASK_FIELD_NUMBER: _ClassVar[int]
     STRUCTURED_RECORDS_FIELD_NUMBER: _ClassVar[int]
     UNSTRUCTURED_RECORD_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATE_FIELD_NUMBER: _ClassVar[int]
     structured_record: StructuredRecord
     schema_change: SchemaChange
     checkpoint: Checkpoint
@@ -120,7 +121,18 @@ class UpdateResponse(_message.Message):
     task: _common_pb2.Task
     structured_records: StructuredRecords
     unstructured_record: UnstructuredRecord
-    def __init__(self, structured_record: _Optional[_Union[StructuredRecord, _Mapping]] = ..., schema_change: _Optional[_Union[SchemaChange, _Mapping]] = ..., checkpoint: _Optional[_Union[Checkpoint, _Mapping]] = ..., warning: _Optional[_Union[_common_pb2.Warning, _Mapping]] = ..., task: _Optional[_Union[_common_pb2.Task, _Mapping]] = ..., structured_records: _Optional[_Union[StructuredRecords, _Mapping]] = ..., unstructured_record: _Optional[_Union[UnstructuredRecord, _Mapping]] = ...) -> None: ...
+    truncate: Truncate
+    def __init__(self, structured_record: _Optional[_Union[StructuredRecord, _Mapping]] = ..., schema_change: _Optional[_Union[SchemaChange, _Mapping]] = ..., checkpoint: _Optional[_Union[Checkpoint, _Mapping]] = ..., warning: _Optional[_Union[_common_pb2.Warning, _Mapping]] = ..., task: _Optional[_Union[_common_pb2.Task, _Mapping]] = ..., structured_records: _Optional[_Union[StructuredRecords, _Mapping]] = ..., unstructured_record: _Optional[_Union[UnstructuredRecord, _Mapping]] = ..., truncate: _Optional[_Union[Truncate, _Mapping]] = ...) -> None: ...
+
+class Truncate(_message.Message):
+    __slots__ = ("schema_name", "table_name", "deferred")
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFERRED_FIELD_NUMBER: _ClassVar[int]
+    schema_name: str
+    table_name: str
+    deferred: bool
+    def __init__(self, schema_name: _Optional[str] = ..., table_name: _Optional[str] = ..., deferred: bool = ...) -> None: ...
 
 class SchemaChange(_message.Message):
     __slots__ = ("with_schema", "without_schema")

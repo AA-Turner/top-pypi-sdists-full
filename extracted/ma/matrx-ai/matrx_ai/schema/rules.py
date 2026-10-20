@@ -492,7 +492,7 @@ def normalize_combinator_siblings(node: Any) -> Any:
     """Return a deep copy of ``node`` in which no combinator has a sibling the
     provider rejects, recursively. Property and ``$defs`` NAMES are preserved
     verbatim — a property literally named ``discriminator`` or ``type`` is
-    untouched, because only schema KEYWORDS are normalised.
+    untouched, because only schema KEYWORDS are normalized.
 
     This is the general form of the rule the 2026-09-27 ``discriminator`` fix
     got one instance of. Everything outside :data:`COMBINATOR_SAFE_SIBLINGS` is
@@ -956,7 +956,7 @@ def drop_refinement_combinators(node: Any, notes: list[str] | None = None, _path
     "properties": {...}, "oneOf": [{"properties": {"recommendations":
     {"minItems": 1}}}, {"required": ["gap_description"]}]}``. No constrained
     decoder compiles it — Anthropic answered "Schema type 'oneOf' is not
-    supported", and after the generic union normalisation it answered "Schema
+    supported", and after the generic union normalization it answered "Schema
     type is missing", because distributing the parent into constraint-only
     branches manufactures type-less objects. The parent's structure is exact on
     its own; the refinement is RELAXED (named in ``notes``) and the platform's
@@ -1109,7 +1109,7 @@ def _references_any(node: Any, names: set[str]) -> bool:
 def express_nullable_as_anyof(node: dict[str, Any]) -> dict[str, Any]:
     """``{"type": ["T","null"], …}`` → ``{"anyOf": [{"type":"T", …}, {"type":"null"}]}``.
 
-    Same documents, different spelling. Gemini's ref-loop check recognises the
+    Same documents, different spelling. Gemini's ref-loop check recognizes the
     ``anyOf`` spelling as nullable and the type-ARRAY spelling as NOT nullable
     (measured live, see :func:`open_ref_loops`), so the spelling is the whole fix.
     """
@@ -1243,7 +1243,7 @@ def open_ref_loops(
         if isinstance(sub.get("type"), list) and "null" in sub["type"]:
             return express_nullable_as_anyof(sub)
         if _is_anyof_nullable(sub):
-            return sub  # already the spelling the provider recognises
+            return sub  # already the spelling the provider recognizes
         # (2) an array only has to be able to be EMPTY.
         types = sub.get("type")
         is_array = types == "array" or (isinstance(types, list) and "array" in types)
@@ -1284,9 +1284,9 @@ def _is_anyof_nullable(node: Any) -> bool:
     ("a ref loop of required fields was found at properties.no.anyOf.0"); the
     2026-09-27 measurement that looked like a nullable escape was an ARRAY branch,
     which escapes by being able to be empty (:func:`_array_escape`).
-    Original note: nullable in the ONE spelling the provider's cycle check recognises:
+    Original note: nullable in the ONE spelling the provider's cycle check recognizes:
     ``anyOf`` with a ``{"type": "null"}`` branch. A type ARRAY carrying ``"null"``
-    is NOT recognised (measured live on ``gemini-3.8-flash``, 2026-09-27)."""
+    is NOT recognized (measured live on ``gemini-3.8-flash``, 2026-09-27)."""
     if not isinstance(node, dict):
         return False
     branches = node.get("anyOf")

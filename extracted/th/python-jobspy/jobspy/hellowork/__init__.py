@@ -7,7 +7,8 @@ import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
+from pydantic import AliasPath, BaseModel, Field
 
 from jobspy.hellowork.constant import (
     date_windows,
@@ -24,66 +25,72 @@ from jobspy.model import (
     Compensation,
     Country,
     JobPost,
-    JobResponse,
     Location,
     Scraper,
     ScraperInput,
 )
 from jobspy.util import (
-    create_logger,
+    TLSRotating,
+    check_status,
     create_session,
-    format_description,
+    description_fields,
     utc_date,
 )
 
-log = create_logger("HelloWork")
+
+class JobPosting(BaseModel):
+    description: str | None = None
+    datePosted: str | None = None
+    sameAs: str | None = Field(
+        default=None, validation_alias=AliasPath("hiringOrganization", "sameAs")
+    )
+    industry: str | list[str] | None = None
+    occupationalCategory: str | None = None
+    skills: str | list[str] | None = None
 
 
 class HelloWork(Scraper):
     base_url = "https://www.hellowork.com"
     search_url = f"{base_url}/fr-fr/emploi/recherche.html"
-    delay = 2
-    band_delay = 3
+    delay = (2, 5)
 
-    def scrape(self, scraper_input: ScraperInput) -> JobResponse:
+    def scrape(self, scraper_input: ScraperInput) -> list[JobPost]:
         self.scraper_input = scraper_input
-        self.session = create_session(
-            proxies=self.proxies, ca_cert=self.ca_cert, user_agent=self.user_agent
-        )
+        self.session = create_session(TLSRotating(scraper_input.proxies), scraper_input)
         params = self._search_params()
         job_list: list[JobPost] = []
-        seen = set()
+        seen: set[object] = set()
         first_page = page = scraper_input.offset // jobs_per_page + 1
         skip = scraper_input.offset % jobs_per_page
 
         while len(job_list) < scraper_input.results_wanted:
             if page > first_page:
-                time.sleep(random.uniform(self.delay, self.delay + self.band_delay))
-            log.info(f"search page: {page}")
+                time.sleep(random.uniform(*self.delay))
+            self.log.info(f"search page: {page}")
             try:
                 response = self.session.get(
                     self.search_url, params=params | {"p": page}
                 )
-                if response.status_code != 200:
-                    log.error(f"HelloWork response status code {response.status_code}")
-                    break
+                check_status(response)
                 soup = BeautifulSoup(response.text, "html.parser")
                 cards = soup.select("li[data-id-storage-target=item]")
                 pager = soup.select_one("input[type=number][max]")
-                last_page = int(pager["max"]) if pager else page
+                last_page = int(str(pager["max"])) if pager else page
             except Exception as e:
-                log.error(f"HelloWork: {e}")
+                self.fail(str(e))
                 break
 
             new_cards = [
-                card for card in cards if card.get("data-id-storage-item-id") not in seen
+                card
+                for card in cards
+                if card.get("data-id-storage-item-id") not in seen
             ]
             seen.update(card.get("data-id-storage-item-id") for card in cards)
             for card in new_cards[skip if page == first_page else 0 :]:
                 try:
                     job_post = self._process_job(card)
                 except Exception as e:
-                    log.warning(f"skipping job: {e}")
+                    self.log.warning(f"skipping job: {e}")
                     continue
                 if job_post:
                     job_list.append(job_post)
@@ -94,27 +101,32 @@ class HelloWork(Scraper):
                 break
             page += 1
 
-        return JobResponse(jobs=job_list)
+        return job_list
 
-    def _search_params(self) -> dict:
+    def _search_params(self) -> dict[str, str | int | list[str]]:
         scraper_input = self.scraper_input
-        params = {"k": scraper_input.search_term, "l": scraper_input.location}
+        params: dict[str, str | int | list[str] | None] = {
+            "k": scraper_input.search_term,
+            "l": scraper_input.location,
+        }
         if scraper_input.location and scraper_input.distance is not None:
             params["ray"] = round(scraper_input.distance * km_per_mile)
         if hours_old := scraper_input.hours_old:
-            params["d"] = next((d for hours, d in date_windows if hours_old <= hours), None)
+            params["d"] = next(
+                (d for hours, d in date_windows if hours_old <= hours), None
+            )
         job_type = scraper_input.job_type
         if job_type in job_type_params:
             params |= job_type_params[job_type]
         elif job_type:
-            log.warning(
-                f"HelloWork: job_type {job_type.value[0]} isn't supported, ignoring it"
-            )
+            self.warn(f"job_type {job_type.value} isn't supported, ignoring it")
         if scraper_input.is_remote:
             params["t"] = "Complet"
         if scraper_input.easy_apply:
-            log.warning("HelloWork: easy_apply isn't supported, ignoring it")
-        return {name: value for name, value in params.items() if value not in (None, "")}
+            self.warn("easy_apply isn't supported, ignoring it")
+        return {
+            name: value for name, value in params.items() if value not in (None, "")
+        }
 
     @staticmethod
     def _hours_old(age: str) -> int | None:
@@ -126,8 +138,10 @@ class HelloWork(Scraper):
             return None
         return int(match[1]) * (24 if match[2] == "jour" else 1)
 
-    def _process_job(self, card) -> JobPost | None:
+    def _process_job(self, card: Tag) -> JobPost | None:
         analytics = card.select_one("div[data-cy=serpCard]")
+        if analytics is None:
+            raise ValueError("no card data")
         if related_list in analytics["data-analytics-values-param"]:
             return None
         hours = self._hours_old(card.find_all("div")[-1].get_text(strip=True))
@@ -135,11 +149,15 @@ class HelloWork(Scraper):
         if hours_old and (hours or 0) >= hours_old:
             return None
 
-        job_id = card["data-id-storage-item-id"]
+        job_id = str(card["data-id-storage-item-id"])
         link = card.select_one("a[data-cy=offerTitle]")
-        label = link["aria-label"]
+        if link is None:
+            raise ValueError("no title link")
+        label = str(link["aria-label"])
         title, *company = (p.get_text(strip=True) for p in link.select("h3 p"))
         contract = card.select_one("div[data-cy=contractCard]")
+        if contract is None or contract.parent is None:
+            raise ValueError("no contract")
         names = [contract.get_text(strip=True)] + re.findall(r"temps \w+", label)
         job_types = [job_type_labels[name] for name in names if name in job_type_labels]
         salary = next(
@@ -148,25 +166,26 @@ class HelloWork(Scraper):
                 for tag in contract.parent.find_all("div")
                 if (compensation := self._parse_salary(tag.get_text(strip=True)))
             ),
-            None,
+            Compensation(),
         )
         logo = card.select_one('img[src*="/img/entreprises/"]')
+        location = card.select_one("div[data-cy=localisationCard]")
+        if location is None:
+            raise ValueError("no location")
 
         job_post = JobPost(
             id=f"hw-{job_id}",
             title=title,
-            company_name="".join(company) or None,
-            location=self._parse_location(
-                card.select_one("div[data-cy=localisationCard]").get_text(strip=True)
-            ),
+            company="".join(company) or None,
+            location=self._parse_location(location.get_text(strip=True)),
             job_url=f"{self.base_url}{link['href']}",
             date_posted=(
                 utc_date(time.time() - hours * 3600) if hours is not None else None
             ),
-            job_type=job_types,
+            job_type=job_types or None,
             is_remote="Télétravail complet" in label,
-            compensation=salary,
-            company_logo=logo["src"] if logo else None,
+            **salary.model_dump(),
+            company_logo=str(logo["src"]) if logo else None,
         )
         if self.scraper_input.fetch_description:
             details = self._fetch_details(job_id, job_post.job_url)
@@ -203,27 +222,23 @@ class HelloWork(Scraper):
             currency="EUR" if currency == "€" else currency,
         )
 
-    def _fetch_details(self, job_id: str, job_url: str) -> dict:
+    def _fetch_details(self, job_id: str, job_url: str) -> dict[str, object]:
         """The job page's schema.org JobPosting; its date is Paris time written as UTC,
         and its jobLocationType says TELECOMMUTE for hybrid jobs too."""
         try:
             response = self.session.get(job_url)
-            if response.status_code != 200:
-                log.warning(
-                    f"HelloWork response status code {response.status_code} "
-                    f"for job {job_id}"
-                )
-                return {}
+            check_status(response)
             soup = BeautifulSoup(response.text, "html.parser")
-            posting = next(
-                (
-                    data
-                    for script in soup.select('script[type="application/ld+json"]')
-                    if (data := json.loads(script.string)).get("@type") == "JobPosting"
-                ),
-                {},
-            )
-            html = posting.get("description")
+            posting = JobPosting()
+            for script in soup.select('script[type="application/ld+json"]'):
+                try:
+                    data = json.loads(script.string or "")
+                except ValueError:
+                    continue
+                if isinstance(data, dict) and data.get("@type") == "JobPosting":
+                    posting = JobPosting.model_validate(data)
+                    break
+            html = posting.description
             if not html:
                 section = next(
                     (
@@ -237,12 +252,9 @@ class HelloWork(Scraper):
                     for button in section.find_all("button"):
                         button.decompose()
                 html = str(section) if section else None
-            description, emails = format_description(
-                html, self.scraper_input.description_format
-            )
-            details = {"description": description, "emails": emails}
-            if posted := posting.get("datePosted"):
-                posted = datetime.fromisoformat(posted.rstrip("Z"))
+            details = description_fields(html, self.scraper_input.description_format)
+            if posting.datePosted:
+                posted = datetime.fromisoformat(posting.datePosted.rstrip("Z"))
                 posted = posted.replace(tzinfo=ZoneInfo(paris_time))
                 posted = posted.astimezone(timezone.utc)
                 details["date_posted"] = posted.date()
@@ -254,18 +266,17 @@ class HelloWork(Scraper):
                 ),
                 None,
             )
-            company = posting.get("hiringOrganization") or {}
-            industry = posting.get("industry")
-            skills = posting.get("skills")
+            industry = posting.industry
+            skills = posting.skills
             return details | {
-                "company_url": company.get("sameAs"),
+                "company_url": posting.sameAs,
                 "company_industry": (
                     ", ".join(industry) if isinstance(industry, list) else industry
                 ),
-                "job_function": posting.get("occupationalCategory"),
+                "job_function": posting.occupationalCategory,
                 "skills": [skills] if isinstance(skills, str) else skills,
                 "experience_range": experience,
             }
         except Exception as e:
-            log.warning(f"HelloWork: job {job_id}: {e}")
+            self.log.warning(f"job {job_id}: {e}")
             return {}

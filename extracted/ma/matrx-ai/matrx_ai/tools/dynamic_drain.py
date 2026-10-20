@@ -148,6 +148,18 @@ async def drain_tool_mutations(config, ctx):
         before_custom = list(config.custom_tools)
         config.tools = [n for n in config.tools if n not in remove_names]
         config.custom_tools = [ct for ct in config.custom_tools if ct.name not in remove_names]
+        # The provider still sees these declarations (the tools array never
+        # shrinks mid-conversation, declaration_ledger.py); record why, so a call
+        # to one is refused with a reason instead of a generic one.
+        from matrx_ai.tools.declaration_ledger import note_unavailable
+
+        removers = sorted({str(e.get("by") or "?") for e in pending
+                           if isinstance(e, dict) and e.get("action") == "remove"})
+        note_unavailable(
+            remove_names,
+            f"it was unloaded mid-conversation by {', '.join(removers)}",
+            conversation_id=getattr(ctx, "conversation_id", None),
+        )
         if ctx.client_tools:
             new_client = [n for n in ctx.client_tools if n not in remove_names]
             if new_client != list(ctx.client_tools):
@@ -179,6 +191,9 @@ async def drain_tool_mutations(config, ctx):
             config,
             ctx,
             add_specs,
+            # In-loop additions requested by a tool the run already holds (TOOL-SOURCES
+            # injectors table: dynamic_drain); bundle members are also tagged sticky below.
+            source="in_loop",
             active_executors=active_tool_executors(ctx),
         )
         vcprint(
@@ -354,9 +369,15 @@ async def drain_pending_injections(config, ctx, *, include_turn_end: bool = Fals
     # Skip entirely for internal agents; the inbox is a user-facing primitive.
     # conversation_type is the durable source of truth (any non-standard type is
     # internal); is_internal_agent is still honored so nothing regresses.
-    from matrx_ai.agents.conversation_type import is_internal_conversation
+    from matrx_ai.agents.conversation_type import (
+        STEERABLE_CHILD_KEY,
+        is_internal_conversation,
+    )
 
-    if is_internal_conversation(ctx):
+    # The one exception: a child its host launched as steerable (a background
+    # helper a parent may message while it works) drains its own inbox.
+    steerable = bool((getattr(ctx, "metadata", None) or {}).get(STEERABLE_CHILD_KEY))
+    if is_internal_conversation(ctx) and not steerable:
         return ctx
 
     # ONLY THE RUN THAT PERSISTS MAY TAKE FROM THE INBOX. Delivery is "free"

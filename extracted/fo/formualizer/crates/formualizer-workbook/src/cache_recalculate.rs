@@ -2,13 +2,16 @@
 //! Unsupported package/formula cases fail before any output is published.
 mod dynamic_metadata;
 mod error_reasons;
+pub(crate) use crate::cached_external_links as external_links;
 mod geometry;
+mod inert_sheets;
 mod ingest_view;
 mod legacy_intersection;
-mod package;
+pub(crate) mod package;
+mod phase_clock;
 mod result_projection;
 mod shared_qualifiers;
-mod sheet;
+pub(crate) mod sheet;
 mod table_lowering;
 mod tables;
 #[cfg(test)]
@@ -29,6 +32,7 @@ use formualizer_eval::engine::{
     CancelToken, Engine, EvalConfig, FormulaParsePolicy, SpillBoundsPolicy, SpillConfig,
     SpillConflictPolicy,
 };
+use phase_clock::PhaseClock;
 use std::collections::{BTreeMap, HashSet};
 #[cfg(not(target_arch = "wasm32"))]
 use std::io::Read;
@@ -66,6 +70,21 @@ impl Default for XlsxRecalculateLimits {
         }
     }
 }
+/// What recalculation does when formulas read external workbook links.
+/// Links are never refreshed under either policy.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ExternalLinkPolicy {
+    /// Read the values Excel last stored in the workbook for each link
+    /// (reported in [`XlsxRecalculateResult::external_links_used`]).
+    #[default]
+    Cached,
+    /// Refuse (`IoError::Unsupported`, feature `external link values`) a
+    /// workbook whose calculation reads any external link value; workbooks
+    /// whose links nothing reads still recalculate. Decided after
+    /// calculation, so other refusals keep their reasons; nothing is
+    /// published.
+    Refuse,
+}
 /// The source date system is authoritative; other evaluation policies come from `eval_config`.
 #[derive(Debug, Clone)]
 pub struct XlsxRecalculateOptions {
@@ -73,6 +92,8 @@ pub struct XlsxRecalculateOptions {
     pub cancel: Option<CancelToken>,
     pub limits: XlsxRecalculateLimits,
     pub error_location_limit: usize,
+    /// See [`ExternalLinkPolicy`]; defaults to reading cached values.
+    pub external_links: ExternalLinkPolicy,
 }
 impl Default for XlsxRecalculateOptions {
     fn default() -> Self {
@@ -81,6 +102,7 @@ impl Default for XlsxRecalculateOptions {
             cancel: None,
             limits: XlsxRecalculateLimits::default(),
             error_location_limit: DEFAULT_ERROR_LOCATION_LIMIT,
+            external_links: ExternalLinkPolicy::default(),
         }
     }
 }
@@ -99,6 +121,11 @@ pub struct XlsxRecalculateResult {
     /// system clock and no fixed timestamp was supplied (such builds refuse
     /// `TODAY`/`NOW` workbooks).
     pub clock_now_utc: Option<DateTime<Utc>>,
+    /// External links whose cached values the calculation read (each
+    /// `xl/externalLinks` part a formula or used defined name references).
+    /// Links are never refreshed: these values are the ones Excel last
+    /// stored in the workbook.
+    pub external_links_used: usize,
 }
 fn unsupported(feature: impl Into<String>, context: impl Into<String>) -> IoError {
     IoError::Unsupported {
@@ -399,14 +426,14 @@ impl Seek for BoundedOutput {
 /// Worksheet source, formula cells and prior-footprint dynamic-array
 /// ownership. The per-cell source index exists only for worksheets with
 /// admitted anchors; a sheet with a new spill builds it after evaluation.
-struct SheetPlan {
+pub(crate) struct SheetPlan {
     tables: Vec<tables::Table>,
     hidden_rows: Vec<u32>,
     /// `sheetFormatPr/@zeroHeight`: row visibility is not provable.
     rows_hidden_by_default: bool,
     active_filters: Vec<sheet::SourceRect>,
     data: Vec<u8>,
-    cells: Vec<sheet::Cell>,
+    pub(crate) cells: Vec<sheet::Cell>,
     index: Option<sheet::SourceIndex>,
     ownership: dynamic_metadata::SheetOwnership,
     /// Serialized `<c>` elements, counted toward the generated-cell bound.
@@ -421,6 +448,9 @@ struct SourceAdmission<'a> {
     plans: Vec<SheetPlan>,
     formula_count: usize,
     metadata: Option<dynamic_metadata::DynamicMetadata>,
+    /// External sources served from the link caches, when the workbook
+    /// has links.
+    external: Option<external_links::Plan>,
 }
 /// Bounded package/worksheet admission. This also resolves the XLDAPR
 /// metadata chain and returns disjoint prior-footprint ownership per
@@ -430,7 +460,20 @@ fn admit_source<'a>(
     options: &XlsxRecalculateOptions,
 ) -> Result<SourceAdmission<'a>, IoError> {
     let mut archive = package::admit(bytes, options)?;
-    let (sheets, date_system, metadata_part) = package::discover(&mut archive, options)?;
+    let package::Discovery {
+        sheets,
+        date_system,
+        metadata: metadata_part,
+        external_links,
+        defined_names,
+    } = package::discover(&mut archive, options)?;
+    let links = if external_links.is_empty() {
+        None
+    } else {
+        let links = external_links::parse(&mut archive, &external_links, options)?;
+        links.check_kinds()?;
+        Some(links)
+    };
     let metadata = metadata_part
         .map(|part| dynamic_metadata::parse(&mut archive, &part, options))
         .transpose()?;
@@ -442,11 +485,15 @@ fn admit_source<'a>(
     let mut table_names = HashSet::new();
     for sheet in &sheets {
         checkpoint(&options.cancel)?;
-        let data = package::read_part(
-            &mut archive,
-            &sheet.part,
-            options.limits.max_worksheet_bytes,
-        )?;
+        let data = if sheet.inert {
+            inert_sheets::EMPTY.as_bytes().to_vec()
+        } else {
+            package::read_part(
+                &mut archive,
+                &sheet.part,
+                options.limits.max_worksheet_bytes,
+            )?
+        };
         let counted = (observed, logical_cells);
         let mut scanned = sheet::scan(
             &data,
@@ -602,6 +649,10 @@ fn admit_source<'a>(
             Ok(())
         })?;
     }
+    // Every external reference read must map exactly to cached cells.
+    let external = links
+        .map(|links| external_links::plan(&links, &sheets, &plans, &defined_names, options))
+        .transpose()?;
     Ok(SourceAdmission {
         archive,
         sheets,
@@ -609,6 +660,7 @@ fn admit_source<'a>(
         plans,
         formula_count,
         metadata,
+        external,
     })
 }
 /// A permissive engine spill policy could overwrite source-unowned inputs or
@@ -643,7 +695,9 @@ pub fn recalculate_xlsx_bytes(
     // The engine would otherwise fall back to the system clock and the run
     // would report an instant it did not use.
     options.eval_config.deterministic_mode.validate()?;
+    let mut clock = PhaseClock::from_env();
     let admission = admit_source(bytes, &options)?;
+    clock.lap("admit (package, worksheet scan, tables)");
     if admission
         .plans
         .iter()
@@ -661,12 +715,29 @@ pub fn recalculate_xlsx_bytes(
         result.clock_now_utc = clock_instant(&options);
         return Ok(result);
     }
-    let mut ingested = ingest_source(bytes, admission, &options)?;
+    let mut ingested = ingest_source(bytes, admission, &options, &mut clock)?;
     let clock_now_utc = evaluate(&mut ingested.engine, &options)?;
+    clock.lap("evaluate (incl. deferred graph build)");
     // Deferred graph building parses formulas during evaluation.
     refuse_parse_failure(&ingested.engine, ingested.refuse_parse_failures)?;
-    let mut result = publish(bytes, ingested, formula_count, &options)?;
+    clock.families(&ingested.engine);
+    let first_read = ingested.external_first_read.take();
+    let mut result = publish(bytes, ingested, formula_count, &options, &mut clock)?;
+    // Decided last, so every other refusal keeps its reason and a refusal
+    // here means the run succeeds with cached values.
+    if options.external_links == ExternalLinkPolicy::Refuse && result.external_links_used > 0 {
+        let n = result.external_links_used;
+        return Err(unsupported(
+            "external link values",
+            format!(
+                "{} (recalculating would use the values cached in the workbook for {n} external link{}; links are never refreshed)",
+                first_read.unwrap_or_else(|| "workbook".into()),
+                if n == 1 { "" } else { "s" }
+            ),
+        ));
+    }
     result.clock_now_utc = clock_now_utc;
+    clock.total(formula_count);
     Ok(result)
 }
 /// The instant this run's `NOW()`/`TODAY()` observe: the fixed timestamp in
@@ -695,6 +766,10 @@ struct Ingested<'a> {
     metadata: Option<dynamic_metadata::DynamicMetadata>,
     /// The caller's policy was strict: a recorded parse failure refuses.
     refuse_parse_failures: bool,
+    /// See [`XlsxRecalculateResult::external_links_used`].
+    external_links_used: usize,
+    /// The first external read, when any.
+    external_first_read: Option<String>,
 }
 /// Under the default strict policy, a stored formula the parser cannot read
 /// is an unsupported feature of this input, not an engine failure. Ingestion
@@ -712,6 +787,94 @@ fn refuse_parse_failure(engine: &Engine<WBResolver>, refuse: bool) -> Result<(),
         _ => Ok(()),
     }
 }
+// This is only a prefilter for the AST-based refusal check. Retain string
+// mentions conservatively, including literal INDIRECT targets and odd names.
+fn formula_mentions_unimported_name(
+    formula: &str,
+    names: &std::collections::HashSet<String>,
+    unicode: bool,
+) -> bool {
+    let contains = |token: &str| {
+        names.contains(&token.to_ascii_lowercase())
+            || (unicode && !token.is_ascii() && names.contains(&token.to_lowercase()))
+    };
+    let token_matches = |token: &str| {
+        let folded = token.to_ascii_lowercase();
+        let mut bare = folded.as_str();
+        while let Some(rest) = ["_xlfn.", "_xlws.", "_xlpm.", "_xll."]
+            .iter()
+            .find_map(|prefix| bare.strip_prefix(prefix))
+        {
+            bare = rest;
+        }
+        contains(token) || (bare.len() != token.len() && contains(bare))
+    };
+    let normalized = format!("={}", formula.trim_start_matches('='));
+    let Ok(tokens) = formualizer_parse::TokenStream::new(&normalized) else {
+        // Never exclude a formula whose tokenization needs recovery.
+        return true;
+    };
+    for i in 0..tokens.len() {
+        let Some(token) = tokens.get(i) else { continue };
+        let text = token.value.trim_end_matches('(');
+        let text = text
+            .strip_prefix('"')
+            .and_then(|s| s.strip_suffix('"'))
+            .unwrap_or(text);
+        if token_matches(text) || token_matches(text.rsplit('!').next().unwrap_or(text)) {
+            return true;
+        }
+    }
+    false
+}
+
+#[cfg(test)]
+mod name_prefilter_tests {
+    use super::formula_mentions_unimported_name;
+    use std::collections::HashSet;
+
+    #[test]
+    fn qualified_prefixed_and_literal_name_tokens_are_retained() {
+        let names: HashSet<_> = ["bad", "a.b", "a\\b", "ñame", "a b", ".x", "abc?", "1abc"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        for formula in [
+            "BAD+1",
+            "Sheet2!BAD",
+            "'My Sheet'!BAD",
+            "_xlfn._xlws._xlpm.BAD",
+            "a.b+1",
+            "a\\b+1",
+            "ÑAME+1",
+            ".x+1",
+            "abc?+1",
+            "Sheet2!abc?",
+            "1abc+1",
+            "INDIRECT(\"a b\")",
+            "INDIRECT(\"'My Sheet'!BAD\")",
+            "\"BAD\"&\"x\"",
+        ] {
+            assert!(
+                formula_mentions_unimported_name(formula, &names, true),
+                "{formula}"
+            );
+        }
+        assert!(!formula_mentions_unimported_name("BADLY+A1", &names, true));
+        assert!(!formula_mentions_unimported_name("ÑAME+1", &names, false));
+    }
+
+    #[test]
+    fn unused_name_prefilter_scales_with_formula_tokens() {
+        let names = (0..8_000).map(|i| format!("nm_{i}")).collect();
+        let started = std::time::Instant::now();
+        for _ in 0..20_000 {
+            assert!(!formula_mentions_unimported_name("A1+123", &names, true));
+        }
+        assert!(started.elapsed() < std::time::Duration::from_secs(3));
+    }
+}
+
 /// Build the transient ingestion view, replay it through Calamine into a new
 /// engine, validate calculation names and declare every
 /// admitted dynamic-array anchor. Nothing is evaluated or published.
@@ -719,14 +882,16 @@ fn ingest_source<'a>(
     bytes: &[u8],
     admission: SourceAdmission<'a>,
     options: &XlsxRecalculateOptions,
+    clock: &mut PhaseClock,
 ) -> Result<Ingested<'a>, IoError> {
     let SourceAdmission {
         mut archive,
         sheets,
         date_system,
         plans,
-        formula_count,
+        formula_count: _,
         metadata,
+        external,
     } = admission;
     let anchors = plans.iter().any(|p| !p.ownership.anchors.is_empty());
     checkpoint(&options.cancel)?;
@@ -753,8 +918,14 @@ fn ingest_source<'a>(
     for (index, (sheet, plan)) in sheets.iter().zip(&plans).enumerate() {
         let mut patches = ingest_view::patches(plan, &options.cancel)?;
         if !calc_chain.is_empty() {
-            let (legacy, _) =
-                legacy_intersection::patches(index, plan, &calc_chain, &table_names, options)?;
+            let (legacy, _) = legacy_intersection::patches(
+                index,
+                plan,
+                &calc_chain,
+                &table_names,
+                external.as_ref().map(|e| &e.range_names),
+                options,
+            )?;
             patches.extend(legacy);
         }
         if has_tables {
@@ -773,15 +944,17 @@ fn ingest_source<'a>(
             );
         }
     }
-    let ingest_bytes = if view_parts.is_empty() {
+    let mut view_edits = package::Edits {
+        replace: view_parts,
+        add: BTreeMap::new(),
+    };
+    inert_sheets::project(&mut archive, &sheets, &mut view_edits, options)?;
+    let ingest_bytes = if view_edits.replace.is_empty() && view_edits.add.is_empty() {
         bytes.to_vec()
     } else {
-        let edits = package::Edits {
-            replace: view_parts,
-            add: BTreeMap::new(),
-        };
-        package::rewrite(bytes, &mut archive, &edits, options)?
+        package::rewrite(bytes, &mut archive, &view_edits, options)?
     };
+    clock.lap("ingest view (calc chain, patches, package rewrite)");
     let opened = if let Some(cancel) = options.cancel.clone() {
         CalamineAdapter::open_bytes_cancellable(ingest_bytes, cancel)
     } else {
@@ -814,7 +987,23 @@ fn ingest_source<'a>(
     // XLSX dates are serial caches. Native chrono materialization cannot retain
     // Excel-1900 phantom serial 60 and can discard fractional duration precision.
     config.temporal_egress = formualizer_eval::engine::TemporalEgress::Serial;
-    let mut engine: Engine<WBResolver> = Engine::new(WBResolver::default(), config);
+    // External references read the link caches through engine sources named
+    // by their reference text, defined before any formula is staged.
+    let (external_values, external_links_used, external_first_read) = match external {
+        Some(plan) => {
+            adapter.skip_external_names(plan.skipped_names);
+            (
+                Some(std::sync::Arc::new(plan.values)),
+                plan.links_used,
+                plan.first_read,
+            )
+        }
+        None => (None, 0, None),
+    };
+    let resolver = external_values
+        .clone()
+        .map_or_else(WBResolver::default, WBResolver::with_external_values);
+    let mut engine: Engine<WBResolver> = Engine::new(resolver, config);
     let mut load_limits = engine.workbook_load_limits().clone();
     load_limits.max_sheet_cols = load_limits.max_sheet_cols.min(options.limits.max_columns);
     load_limits.max_sheet_logical_cells = load_limits
@@ -827,7 +1016,19 @@ fn ingest_source<'a>(
         .max_formula_spool_bytes_per_workbook
         .min(options.limits.max_expanded_bytes as u64);
     engine.set_workbook_load_limits(load_limits);
-    adapter.validate_calculation_names(&[])?;
+    if let Some(values) = &external_values {
+        engine.adopt_file_sheets(sheets.iter().map(|s| s.name.as_str()))?;
+        // Cached values never change during a run: a fixed source version.
+        for name in values.scalar_names() {
+            engine.define_source_scalar(name, Some(0))?;
+        }
+        for name in values.range_names() {
+            engine.define_source_table(name, Some(0))?;
+        }
+        adapter.admit_external_references(values.clone());
+    }
+    adapter.validate_calculation_names(&[], sheets.iter().any(|s| s.inert))?;
+    inert_sheets::validate(&sheets, &plans, &adapter, options)?;
     if plans.iter().any(|p| !p.tables.is_empty()) {
         use formualizer_eval::reference::{CellRef, Coord, RangeRef};
         engine.adopt_file_sheets(sheets.iter().map(|s| s.name.as_str()))?;
@@ -850,9 +1051,11 @@ fn ingest_source<'a>(
         }
     }
     checkpoint(&options.cancel)?;
+    clock.lap("calamine open, names, tables");
     let ingested = adapter.stream_into_engine(&mut engine);
     checkpoint(&options.cancel)?;
     ingested?;
+    clock.lap("stream into engine");
     refuse_parse_failure(&engine, refuse_parse_failures)?;
     for (sheet, plan) in sheets.iter().zip(&plans) {
         for table in &plan.tables {
@@ -881,14 +1084,27 @@ fn ingest_source<'a>(
             }
         }
     }
-    if adapter.has_document_names() {
+    let unimported: std::collections::HashSet<_> =
+        adapter.unimported_document_names().into_iter().collect();
+    let guard_indirect = adapter.has_new_unimported_names();
+    if !unimported.is_empty() {
         // Metadata-only names may be omitted from the engine only if no source
-        // calculation references them. Inspect after shared-formula replay but
-        // before evaluation/publication; avoid this pass for ordinary workbooks.
-        let mut source_formulas = Vec::with_capacity(formula_count);
+        // calculation references them. Only a formula whose source text names
+        // one can; a shared formula's copies name what its anchor names. Inspect
+        // those after shared-formula replay but before evaluation/publication.
+        let mut source_formulas = Vec::new();
         for (sheet, plan) in sheets.iter().zip(&plans) {
             for cell in &plan.cells {
                 checkpoint(&options.cancel)?;
+                let text = cell.formula_text.to_ascii_lowercase();
+                if !formula_mentions_unimported_name(
+                    &cell.formula_text,
+                    &unimported,
+                    guard_indirect,
+                ) && !(guard_indirect && text.contains("indirect"))
+                {
+                    continue;
+                }
                 let address = CellAddress::new(&sheet.name, cell.row, cell.col)
                     .map_err(|e| IoError::from_backend("xlsx-coordinate", e))?;
                 if let Some(formula) = engine
@@ -897,11 +1113,12 @@ fn ingest_source<'a>(
                     .cell
                     .formula
                 {
-                    source_formulas.push(formula);
+                    source_formulas.push((sheet.name.clone(), formula));
                 }
             }
         }
-        adapter.validate_calculation_names(&source_formulas)?;
+        adapter.validate_calculation_names(&source_formulas, sheets.iter().any(|s| s.inert))?;
+        clock.lap("document-name reference check");
     }
     visibility_guard::validate(&engine, &sheets, &plans, options)?;
     checkpoint(&options.cancel)?;
@@ -910,6 +1127,7 @@ fn ingest_source<'a>(
         declare_anchors(&mut engine, &sheets, &plans, options)?;
         refuse_parse_failure(&engine, refuse_parse_failures)?;
     }
+    clock.lap("post-ingest checks (headers, visibility, anchors)");
     Ok(Ingested {
         archive,
         sheets,
@@ -917,6 +1135,8 @@ fn ingest_source<'a>(
         engine,
         metadata,
         refuse_parse_failures,
+        external_links_used,
+        external_first_read,
     })
 }
 /// Give every admitted anchor its source spill identity, so a current
@@ -997,6 +1217,7 @@ fn unchanged(
         cache_cells_changed: 0,
         worksheet_parts_changed: 0,
         clock_now_utc: None,
+        external_links_used: 0,
     }
 }
 /// The validated value of one source formula, exactly as the scalar writer
@@ -1041,10 +1262,12 @@ fn record_result(
     match value {
         LiteralValue::Error(error)
             if error.kind == formualizer_common::ExcelErrorKind::Name
-                && error.message.is_none() =>
+                && error.message().is_none() =>
         {
             let mut error = error.clone();
-            error.message = error_reasons::name_error_reason(engine, sheet, cell.row, cell.col);
+            error.set_message(error_reasons::name_error_reason(
+                engine, sheet, cell.row, cell.col,
+            ));
             summary.record(sheet, location, &LiteralValue::Error(error), limit);
         }
         _ => summary.record(sheet, location, value, limit),
@@ -1105,6 +1328,7 @@ fn publish(
     ingested: Ingested<'_>,
     formula_count: usize,
     options: &XlsxRecalculateOptions,
+    clock: &mut PhaseClock,
 ) -> Result<XlsxRecalculateResult, IoError> {
     let Ingested {
         mut archive,
@@ -1113,6 +1337,8 @@ fn publish(
         engine,
         metadata,
         refuse_parse_failures: _,
+        external_links_used,
+        external_first_read: _,
     } = ingested;
     let coerced: HashSet<_> = engine
         .formula_parse_diagnostics()
@@ -1138,6 +1364,7 @@ fn publish(
         &mut expanded,
         options,
     )?;
+    clock.lap("publication (validate results, build patches)");
     summary.status = if summary.errors == 0 {
         RecalculateStatus::Success
     } else {
@@ -1148,9 +1375,12 @@ fn publish(
         if bytes.len() > options.limits.max_output_bytes {
             return Err(unsupported("output byte limit", "XLSX package"));
         }
-        return Ok(unchanged(bytes, formula_count, summary));
+        let mut result = unchanged(bytes, formula_count, summary);
+        result.external_links_used = external_links_used;
+        return Ok(result);
     }
     let output = package::rewrite(bytes, &mut archive, &edits, options)?;
+    clock.lap("package rewrite");
     if !edits.add.is_empty() {
         // An added part must agree with its relationship and content type.
         package::check_output(&output, options)?;
@@ -1163,6 +1393,7 @@ fn publish(
         cache_cells_changed: changed,
         worksheet_parts_changed: worksheets,
         clock_now_utc: None,
+        external_links_used,
     })
 }
 /// Publication: scalar caches and dynamic-array geometry, plus, when an

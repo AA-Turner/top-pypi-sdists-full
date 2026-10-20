@@ -26,6 +26,8 @@ Usage::
         ListKnowledgeBaseDocumentsPaginator,
         ListKnowledgeBasesPaginator,
         ListPromptsPaginator,
+        ListRetrievalInstructionVersionsPaginator,
+        ListRetrievalInstructionsPaginator,
         ListVpcConfigurationsPaginator,
     )
 
@@ -46,6 +48,8 @@ Usage::
     list_knowledge_base_documents_paginator: ListKnowledgeBaseDocumentsPaginator = client.get_paginator("list_knowledge_base_documents")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_prompts_paginator: ListPromptsPaginator = client.get_paginator("list_prompts")
+    list_retrieval_instruction_versions_paginator: ListRetrievalInstructionVersionsPaginator = client.get_paginator("list_retrieval_instruction_versions")
+    list_retrieval_instructions_paginator: ListRetrievalInstructionsPaginator = client.get_paginator("list_retrieval_instructions")
     list_vpc_configurations_paginator: ListVpcConfigurationsPaginator = client.get_paginator("list_vpc_configurations")
     ```
 """
@@ -86,6 +90,10 @@ from .type_defs import (
     ListKnowledgeBasesResponseTypeDef,
     ListPromptsRequestPaginateTypeDef,
     ListPromptsResponseTypeDef,
+    ListRetrievalInstructionsRequestPaginateTypeDef,
+    ListRetrievalInstructionsResponseTypeDef,
+    ListRetrievalInstructionVersionsRequestPaginateTypeDef,
+    ListRetrievalInstructionVersionsResponseTypeDef,
     ListVpcConfigurationsRequestPaginateTypeDef,
     ListVpcConfigurationsResponseTypeDef,
 )
@@ -110,6 +118,8 @@ __all__ = (
     "ListKnowledgeBaseDocumentsPaginator",
     "ListKnowledgeBasesPaginator",
     "ListPromptsPaginator",
+    "ListRetrievalInstructionVersionsPaginator",
+    "ListRetrievalInstructionsPaginator",
     "ListVpcConfigurationsPaginator",
 )
 
@@ -363,6 +373,44 @@ class ListPromptsPaginator(_ListPromptsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListPrompts.html#AgentsforBedrock.Paginator.ListPrompts.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listpromptspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRetrievalInstructionVersionsPaginatorBase = Paginator[
+        ListRetrievalInstructionVersionsResponseTypeDef
+    ]
+else:
+    _ListRetrievalInstructionVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRetrievalInstructionVersionsPaginator(_ListRetrievalInstructionVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListRetrievalInstructionVersions.html#AgentsforBedrock.Paginator.ListRetrievalInstructionVersions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listretrievalinstructionversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRetrievalInstructionVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRetrievalInstructionVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListRetrievalInstructionVersions.html#AgentsforBedrock.Paginator.ListRetrievalInstructionVersions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listretrievalinstructionversionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRetrievalInstructionsPaginatorBase = Paginator[ListRetrievalInstructionsResponseTypeDef]
+else:
+    _ListRetrievalInstructionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRetrievalInstructionsPaginator(_ListRetrievalInstructionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListRetrievalInstructions.html#AgentsforBedrock.Paginator.ListRetrievalInstructions)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listretrievalinstructionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRetrievalInstructionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRetrievalInstructionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListRetrievalInstructions.html#AgentsforBedrock.Paginator.ListRetrievalInstructions.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listretrievalinstructionspaginator)
         """
 
 if TYPE_CHECKING:

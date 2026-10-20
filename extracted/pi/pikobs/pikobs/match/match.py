@@ -207,7 +207,10 @@ def rank_select(exprs: Sequence[str], order: str = "d.obsvalue") -> str:
 def key_join(spec: MatchSpec, left: str = 'c', right: str = 'e',
              prefix: str = 'k_') -> str:
     """The ON clause pairing two side tables."""
-    return " AND ".join(f"{left}.{k} = {right}.{k}"
+    # IS, not =: a surface observation has no level (vcoord NULL), and in SQL
+    # NULL = NULL is never true, so with = no surface observation, no ground
+    # GPS, ever found its twin. For values that are there, IS is =.
+    return " AND ".join(f"{left}.{k} IS {right}.{k}"
                         for k in key_aliases(spec, prefix=prefix))
 
 

@@ -9,7 +9,7 @@ linked Lane Planner's call to Weather Desk back to the card that ran Lane
 Planner. Arman's ruling the same morning: nested work is SHOWN after a reload,
 the same as live.
 
-The behaviour proven here, on the INSERT payloads the logger queues for
+The behavior proven here, on the INSERT payloads the logger queues for
 ``chat.tool_call`` (the rows that get stored):
   1. a child's tool call names the parent's agent_call ROW as ``parent_call_id``;
   2. depth is kept — the grandchild's call names the CHILD's agent_call row;

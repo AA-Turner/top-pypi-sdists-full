@@ -47,6 +47,9 @@ __all__ = [
     "TurnToolLedger",
     "apply_ledger_truth",
     "get_turn_ledger",
+    "record_row_opened",
+    "record_row_settled",
+    "take_open_rows",
     "record_tool_outcome",
     "record_tool_started",
     "reset_turn_ledger",
@@ -96,6 +99,11 @@ class TurnToolLedger:
 
     entries: list[ToolLedgerEntry] = field(default_factory=list)
     _by_key: dict[str, ToolLedgerEntry] = field(default_factory=dict)
+    #: ``chat.tool_call`` rows this run INSERTed in a non-terminal status and
+    #: has not yet queued a terminal (or parked) status for: row id -> tool
+    #: name. What is still here when the run ends is settled by the run-end
+    #: sweep (``ToolExecutionLogger.settle_open_rows_at_run_end``).
+    open_rows: dict[str, str] = field(default_factory=dict)
 
     def upsert(self, key: str, tool_name: str) -> ToolLedgerEntry:
         entry = self._by_key.get(key)
@@ -127,6 +135,10 @@ _TURN_LEDGER: ContextVar[TurnToolLedger | None] = ContextVar("matrx_turn_tool_le
 #: dropped when the ledger closes (``reset_turn_ledger``), so this never grows.
 _LEDGER_BY_KEY: dict[str, TurnToolLedger] = {}
 
+#: row id -> the ledger of the run that opened that ``chat.tool_call`` row. Same
+#: reason as ``_LEDGER_BY_KEY``: a settle can be written from a detached context.
+_LEDGER_BY_ROW: dict[str, TurnToolLedger] = {}
+
 
 def _ledger_for(key: str) -> TurnToolLedger | None:
     """The ledger this call belongs to: the ambient one, else the one that
@@ -154,6 +166,9 @@ def reset_turn_ledger(token: Token) -> None:
         for key in list(ledger._by_key):
             if _LEDGER_BY_KEY.get(key) is ledger:
                 _LEDGER_BY_KEY.pop(key, None)
+        for row_id in list(ledger.open_rows):
+            if _LEDGER_BY_ROW.get(row_id) is ledger:
+                _LEDGER_BY_ROW.pop(row_id, None)
     try:
         _TURN_LEDGER.reset(token)
     except (ValueError, RuntimeError):  # different context — nothing to reset
@@ -217,6 +232,44 @@ def record_tool_started(
             entry.command = command
     except Exception as exc:  # noqa: BLE001 — the ledger never breaks a run
         vcprint(f"[ToolLedger] record_tool_started failed: {exc}", color="yellow")
+
+
+def record_row_opened(*, row_id: str, tool_name: str) -> None:
+    """A ``chat.tool_call`` row was queued in a non-terminal status by this run."""
+    try:
+        ledger = _TURN_LEDGER.get()
+        if ledger is None or not row_id:
+            return
+        ledger.open_rows[row_id] = tool_name or "unknown"
+        _LEDGER_BY_ROW[row_id] = ledger
+    except Exception as exc:  # noqa: BLE001 — the ledger never breaks a run
+        vcprint(f"[ToolLedger] record_row_opened failed: {exc}", color="yellow")
+
+
+def record_row_settled(row_id: str) -> None:
+    """A terminal (or parked) status was queued for this row."""
+    try:
+        if not row_id:
+            return
+        ledger = _LEDGER_BY_ROW.pop(row_id, None) or _TURN_LEDGER.get()
+        if ledger is not None:
+            ledger.open_rows.pop(row_id, None)
+    except Exception as exc:  # noqa: BLE001
+        vcprint(f"[ToolLedger] record_row_settled failed: {exc}", color="yellow")
+
+
+def take_open_rows() -> dict[str, str]:
+    """Every row this run opened and never settled (row id -> tool name), and
+    forget them — the caller settles them."""
+    ledger = _TURN_LEDGER.get()
+    if ledger is None or not ledger.open_rows:
+        return {}
+    rows = dict(ledger.open_rows)
+    ledger.open_rows.clear()
+    for row_id in rows:
+        if _LEDGER_BY_ROW.get(row_id) is ledger:
+            _LEDGER_BY_ROW.pop(row_id, None)
+    return rows
 
 
 def record_tool_outcome(

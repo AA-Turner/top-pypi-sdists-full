@@ -9,7 +9,7 @@ the individual clip videos, the transcript-derived feature image and the compose
 filter, a provider hiccup, a slow render), and individually replaceable through
 `POST /podcast/runs/{id}/assets/regenerate`.
 
-So they are modelled apart, and the split is load-bearing in three places:
+So they are modeled apart, and the split is load-bearing in three places:
 
 1. **Completion.** Essential stages gate the run's terminal state. Ancillary
    stages never do. A run whose audio is finished is a FINISHED PODCAST even if

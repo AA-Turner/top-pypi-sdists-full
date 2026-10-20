@@ -163,6 +163,31 @@ def _rebuild_tool_result_content(
     return content_blocks
 
 
+WAITING_ON_PERSON_TEXT = (
+    "WAITING ON THE PERSON [{name}]: this change was proposed to the person and "
+    "they have not decided on it yet (their approval card is still open, or they "
+    "moved on without answering). It is NOT a failure and nothing was lost: "
+    "nothing was written or changed yet. Do not call it again and do not tell "
+    "the person it failed or 'dropped out'. If they ask, say it is waiting for "
+    "their Apply or Keep as is; if the edit still matters, propose it once."
+)
+
+
+def _waiting_on_person_block(tc: CxToolCall) -> dict[str, Any]:
+    name = getattr(tc, "tool_name", "") or "tool"
+    text = WAITING_ON_PERSON_TEXT.format(name=name)
+    return {
+        "type": "tool_result",
+        "tool_use_id": tc.call_id,
+        "call_id": tc.call_id,
+        "name": name,
+        "content": text,
+        "is_error": False,
+        "output_chars": len(text),
+        "output_preview": None,
+    }
+
+
 def _stub_tool_result_text(tc: CxToolCall) -> str:
     """The compact model-facing replacement for a groomed tool result. Names the
     value key + true size and the retrieval paths, so the model can always get
@@ -405,7 +430,19 @@ async def rebuild_conversation_messages(
     result: list[dict[str, Any]] = []
     # One knob read per organization per rebuild (a conversation has one).
     edited_visible_by_org: dict[str | None, bool] = {}
-    for msg in ordered_messages:
+    # A turn that ENDS on its client-delegated calls is still waiting on the
+    # client; one with a later model-visible message means the person moved on
+    # without deciding. Only the second gets the "waiting on the person" result.
+    last_visible_idx = max(
+        (
+            i
+            for i, m in enumerate(ordered_messages)
+            if bool(getattr(m, "is_visible_to_model", True))
+            and getattr(m, "deleted_at", None) is None
+        ),
+        default=-1,
+    )
+    for msg_idx, msg in enumerate(ordered_messages):
         # Agent-context boundary (the designed primitive): the model sees ONLY
         # messages flagged is_visible_to_model and not soft-deleted. A failed
         # turn and any system-compacted message carry is_visible_to_model=False —
@@ -455,6 +492,9 @@ async def rebuild_conversation_messages(
         if role == "assistant":
             tool_use_ids = _assistant_tool_use_call_ids(msg)
             synth_tcs: list[CxToolCall] = []
+            # (row, waiting) in tool_use order - parallel calls keep their order
+            synth_plan: list[tuple[CxToolCall, bool]] = []
+            has_later_message = msg_idx < last_visible_idx
             for cid in tool_use_ids:
                 seen_tool_uses[cid] = seen_tool_uses.get(cid, 0) + 1
                 # Already answered? Count the persisted results + synths emitted
@@ -482,21 +522,46 @@ async def rebuild_conversation_messages(
                     ),
                     None,
                 )
+                waiting = False
                 if pick is None:
-                    continue
+                    # A parallel client-resolved call still `delegated` while the
+                    # conversation moved on: the person has not decided. It gets
+                    # its OWN honest result (never the generic "never answered"
+                    # error that made the model say its tries "kept dropping").
+                    if not has_later_message:
+                        continue
+                    pick = next(
+                        (
+                            r
+                            for r in rows
+                            if str(getattr(r, "id", "")) not in consumed_row_ids
+                            and (r.status or "").lower() == "delegated"
+                        ),
+                        None,
+                    )
+                    if pick is None:
+                        continue
+                    waiting = True
                 synth_tcs.append(pick)
+                synth_plan.append((pick, waiting))
                 rid = getattr(pick, "id", None)
                 if rid:
                     consumed_row_ids.add(str(rid))
                 synth_done[cid] = synth_done.get(cid, 0) + 1
             if synth_tcs:
-                synth_content = _rebuild_tool_result_content(synth_tcs)
+                synth_content = []
+                for plan_tc, plan_waiting in synth_plan:
+                    synth_content.extend(
+                        [_waiting_on_person_block(plan_tc)]
+                        if plan_waiting
+                        else _rebuild_tool_result_content([plan_tc])
+                    )
                 # The synthesised tool message has no DB row of its own; we
                 # do NOT persist it. It exists only in the rebuilt
                 # UnifiedConfig so the provider sees a coherent tool_use /
                 # tool_result pair. Anthropic's pairing rule needs role=tool;
                 # other providers tolerate this shape via UnifiedMessage's
-                # normalisation.
+                # normalization.
                 from matrx_ai.config.unified_config import (
                     UnifiedMessage as _UM,
                 )

@@ -11,7 +11,8 @@ A tool is pinned when its payload IS the interface, not process detail:
   - a review the person must act on (google_email_send)
   - hand-off to the person (request_user_takeover, credential capture)
   - plans awaiting approval (update_plan, plan_approval)
-  - image / media generation (the picture is the answer; image generation rides agent_call)
+  - image / media generation (the picture is the answer; image generation rides `agent`,
+    and the retiring `agent_call` whose stored cards still render)
 Also pinned per call, not per name: a write HELD for approval (awaiting_approval) and a
 surface-write (the diff is the result).
 
@@ -52,6 +53,8 @@ PINNED_TOOLS: frozenset[str] = frozenset(
         "capture_credential",
         "update_plan",
         "plan_approval",
+        "agent",
+        "send_message",
         "agent_call",
         "generate_image",
         "image_generate",

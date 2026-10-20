@@ -88,8 +88,11 @@ class ExternalMCPClient:
     resolves one into the recipe.
     """
 
-    def __init__(self, timeout: float = 120.0):
+    def __init__(self, timeout: float = 120.0, *, budget_seconds: float | None = None):
         self._timeout = timeout
+        #: The most one ``call_tool`` may take, every attempt and wait included (the caller's own deadline, e.g. the
+        #: agent dispatch ceiling); ``None`` = each attempt may use the full ``timeout``.
+        self._budget = budget_seconds
         self._request_id = 0
 
     # ------------------------------------------------------------------
@@ -129,7 +132,7 @@ class ExternalMCPClient:
                     tool_data.get("inputSchema") or tool_data.get("input_schema", {})
                 ),
                 output_schema=tool_data.get("outputSchema") or tool_data.get("output_schema"),
-                # The server's declared behaviour hints (readOnlyHint,
+                # The server's declared behavior hints (readOnlyHint,
                 # destructiveHint, ...). Dropping them left every discovered
                 # tool unclassified in the destructive-operations register.
                 annotations=_mcp_annotations(tool_data.get("annotations")),
@@ -247,81 +250,119 @@ class ExternalMCPClient:
         # server only knows its own local tool names, so we strip the
         # ``<slug>:`` prefix below in ``_strip_namespace``.
 
-        try:
-            raw = await self._send(server_url, request_payload, tool_def.mcp_server_auth)
-            result_data = raw.get("result", {})
+        # A provider that stumbles is asked again when that is safe, and a failure says whose it was
+        # (``mcp_resilience``: every connected tool inherits this).
+        from matrx_ai.tools import mcp_resilience
 
-            content_list = result_data.get("content") or []
-            text_parts = self._content_text_parts(content_list)
-            if result_data.get("structuredContent") is not None:
-                # ``structuredContent`` is the typed tool value. Servers may
-                # also include a text compatibility block for older clients;
-                # preferring that prose wrapper makes an object output schema
-                # appear to drift even though the server returned the exact
-                # structured value it declared.
-                output = result_data["structuredContent"]
-            elif text_parts:
-                output = "\n".join(text_parts)
+        tries = mcp_resilience.attempts()
+        repeatable = mcp_resilience.safe_to_repeat(tool_def)
+        provider = mcp_resilience.provider_name(server_url, tool_def.name)
+        deadline = mcp_resilience.Deadline(self._budget, tries, repeatable=repeatable)
+        for attempt in range(1, tries + 1):
+            waited = deadline.for_attempt(attempt, self._timeout)
+            try:
+                raw = await asyncio.wait_for(self._send(server_url, request_payload, tool_def.mcp_server_auth), timeout=waited)
+            except OutboundUrlRefused as exc:
+                return ToolResult(
+                    success=False,
+                    error=ToolError.from_exception(
+                        exc,
+                        error_type="not_allowed",
+                        message=f"MCP server address refused: {exc}",
+                        is_retryable=False,
+                        suggested_action="Point the MCP server at its public https address.",
+                    ),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name=tool_def.name,
+                    call_id=ctx.call_id,
+                )
+            except Exception as exc:  # noqa: BLE001 — every failure is classified and said, never swallowed
+                kind = mcp_resilience.classify(exc)
+                if (kind and attempt < tries and (kind == mcp_resilience.NOT_REACHED or repeatable)
+                        and deadline.room_for_another(attempt)):
+                    logger.warning("[mcp] %s %s: %s; asking again (%d/%d)", provider, local_name, type(exc).__name__, attempt + 1, tries)
+                    await asyncio.sleep(mcp_resilience.wait_before(attempt))
+                    continue
+                if kind is None:
+                    # not a stumble: the request itself failed; said with its cause (a timeout's text is empty)
+                    return ToolResult(
+                        success=False,
+                        error=ToolError.from_exception(
+                            exc,
+                            error_type="mcp_connection",
+                            message=f"{provider} refused “{local_name}”: {mcp_resilience.cause(exc, timeout=self._timeout)}",
+                            is_retryable=False,
+                            suggested_action="Read the reason; asking again the same way gets the same answer.",
+                        ),
+                        started_at=started_at,
+                        completed_at=time.time(),
+                        tool_name=tool_def.name,
+                        call_id=ctx.call_id,
+                    )
+                message, action = mcp_resilience.failure_words(
+                    provider=provider, tool=local_name, kind=kind,
+                    why=mcp_resilience.cause(exc, timeout=waited), tries=attempt, repeatable=repeatable,
+                )
+                return ToolResult(
+                    success=False,
+                    error=ToolError.from_exception(
+                        exc,
+                        error_type="provider_unconfirmed" if kind == mcp_resilience.NO_ANSWER and not repeatable else "provider_unavailable",
+                        message=message,
+                        is_retryable=True,
+                        suggested_action=action,
+                    ),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name=tool_def.name,
+                    call_id=ctx.call_id,
+                )
             else:
-                output = json.dumps(content_list)
+                result_data = raw.get("result", {})
 
-            is_error = result_data.get("isError", False)
-            return ToolResult(
-                success=not is_error,
-                output=output,
-                error=(
-                    ToolError(error_type="mcp_remote", message=str(output))
-                    if is_error
-                    else None
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name=tool_def.name,
-                call_id=ctx.call_id,
-            )
-        except httpx.TimeoutException:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="timeout",
-                    message=f"MCP server at {server_url} timed out after {self._timeout}s",
-                    is_retryable=True,
-                    suggested_action="Try again or check the MCP server status.",
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name=tool_def.name,
-                call_id=ctx.call_id,
-            )
-        except OutboundUrlRefused as exc:
-            return ToolResult(
-                success=False,
-                error=ToolError.from_exception(
-                    exc,
-                    error_type="not_allowed",
-                    message=f"MCP server address refused: {exc}",
-                    is_retryable=False,
-                    suggested_action="Point the MCP server at its public https address.",
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name=tool_def.name,
-                call_id=ctx.call_id,
-            )
-        except Exception as exc:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="mcp_connection",
-                    message=f"Failed to call MCP server: {exc}",
-                    is_retryable=True,
-                    suggested_action="Check MCP server connectivity.",
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name=tool_def.name,
-                call_id=ctx.call_id,
-            )
+                content_list = result_data.get("content") or []
+                text_parts = self._content_text_parts(content_list)
+                if result_data.get("structuredContent") is not None:
+                    # ``structuredContent`` is the typed tool value. Servers may
+                    # also include a text compatibility block for older clients;
+                    # preferring that prose wrapper makes an object output schema
+                    # appear to drift even though the server returned the exact
+                    # structured value it declared.
+                    output = result_data["structuredContent"]
+                elif text_parts:
+                    output = "\n".join(text_parts)
+                else:
+                    output = json.dumps(content_list)
+
+                is_error = result_data.get("isError", False)
+                stumbled = mcp_resilience.classify_reply(str(output)) if is_error else None
+                if (stumbled and attempt < tries and (stumbled == mcp_resilience.NOT_REACHED or repeatable)
+                        and deadline.room_for_another(attempt)):
+                    await asyncio.sleep(mcp_resilience.wait_before(attempt))
+                    continue
+                if stumbled:
+                    message, action = mcp_resilience.failure_words(provider=provider, tool=local_name, kind=stumbled,
+                                                                   why=mcp_resilience.cause(None, reply=str(output)),
+                                                                   tries=attempt, repeatable=repeatable)
+                    return ToolResult(success=False, output=output,
+                                      error=ToolError(error_type="provider_unavailable", message=message, is_retryable=True,
+                                                      suggested_action=action),
+                                      started_at=started_at, completed_at=time.time(), tool_name=tool_def.name, call_id=ctx.call_id)
+                return ToolResult(
+                    success=not is_error,
+                    output=output,
+                    error=(
+                        ToolError(error_type="mcp_remote", message=str(output))
+                        if is_error
+                        else None
+                    ),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name=tool_def.name,
+                    call_id=ctx.call_id,
+                )
+        raise AssertionError("the retry loop returns on its last attempt")  # pragma: no cover
 
     async def _call_tool_stdio(
         self,
@@ -342,59 +383,84 @@ class ExternalMCPClient:
             args=runtime.args,
             env=runtime.env or None,
         )
-        try:
-            async with stdio_client(params) as (read_stream, write_stream):
-                async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
-                    # ``ClientSession.call_tool`` validates the provider's output
-                    # schema client-side. Some official servers return additive
-                    # fields while their own schema lags; the HTTP path never
-                    # applies that extra client gate, so stdio preserves parity by
-                    # reading the typed MCP result without re-validating it here.
-                    result = await session.send_request(
-                        types.ClientRequest(
-                            types.CallToolRequest(
-                                params=types.CallToolRequestParams(
-                                    name=local_name,
-                                    arguments=args,
-                                )
+        # the same rule as the HTTP path (``mcp_resilience``): a local server that stumbles is asked again when safe
+        from matrx_ai.tools import mcp_resilience
+
+        tries = mcp_resilience.attempts()
+        repeatable = mcp_resilience.safe_to_repeat(tool_def)
+        provider = f"The local tool “{str(runtime.command).rsplit('/', 1)[-1]}”"
+        deadline = mcp_resilience.Deadline(self._budget, tries, repeatable=repeatable)
+        for attempt in range(1, tries + 1):
+            waited = deadline.for_attempt(attempt, self._timeout)
+            try:
+                return await asyncio.wait_for(
+                    self._stdio_once(params, tool_def, local_name, args, ctx, started_at, types, ClientSession, stdio_client),
+                    timeout=waited)
+            except Exception as exc:  # noqa: BLE001 — classified and said, never swallowed
+                kind = mcp_resilience.classify(exc)
+                if (kind and attempt < tries and (kind == mcp_resilience.NOT_REACHED or repeatable)
+                        and deadline.room_for_another(attempt)):
+                    await asyncio.sleep(mcp_resilience.wait_before(attempt))
+                    continue
+                if kind:
+                    message, action = mcp_resilience.failure_words(provider=provider, tool=local_name, kind=kind,
+                                                                   why=mcp_resilience.cause(exc, timeout=waited),
+                                                                   tries=attempt, repeatable=repeatable)
+                else:
+                    message = f"{provider} could not run “{local_name}”: {mcp_resilience.cause(exc, timeout=self._timeout)}"
+                    action = "Check that the local tool is installed and starts on this computer."
+                return ToolResult(
+                    success=False,
+                    error=ToolError.from_exception(exc, error_type="mcp_connection", message=message,
+                                                   is_retryable=bool(kind), suggested_action=action),
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name=tool_def.name,
+                    call_id=ctx.call_id,
+                )
+        raise AssertionError("the retry loop returns on its last attempt")  # pragma: no cover
+
+    async def _stdio_once(self, params, tool_def, local_name, args, ctx, started_at, types, ClientSession, stdio_client) -> ToolResult:
+        """One stdio call; a failure raises (``_call_tool_stdio`` decides whether to ask again and says it)."""
+        async with stdio_client(params) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                # ``ClientSession.call_tool`` validates the provider's output
+                # schema client-side. Some official servers return additive
+                # fields while their own schema lags; the HTTP path never
+                # applies that extra client gate, so stdio preserves parity by
+                # reading the typed MCP result without re-validating it here.
+                result = await session.send_request(
+                    types.ClientRequest(
+                        types.CallToolRequest(
+                            params=types.CallToolRequestParams(
+                                name=local_name,
+                                arguments=args,
                             )
-                        ),
-                        types.CallToolResult,
-                    )
-            text_parts = self._content_text_parts(result.content)
-            output: Any
-            if result.structuredContent is not None:
-                output = result.structuredContent
-            else:
-                output = "\n".join(text_parts)
-            is_error = bool(result.isError)
-            return ToolResult(
-                success=not is_error,
-                output=output,
-                error=(
-                    ToolError(error_type="mcp_remote", message=str(output))
-                    if is_error
-                    else None
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name=tool_def.name,
-                call_id=ctx.call_id,
-            )
-        except Exception as exc:
-            return ToolResult(
-                success=False,
-                error=ToolError(
-                    error_type="mcp_connection",
-                    message=f"Failed to call stdio MCP server: {exc}",
-                    is_retryable=True,
-                ),
-                started_at=started_at,
-                completed_at=time.time(),
-                tool_name=tool_def.name,
-                call_id=ctx.call_id,
-            )
+                        )
+                    ),
+                    types.CallToolResult,
+                )
+        text_parts = self._content_text_parts(result.content)
+        output: Any
+        if result.structuredContent is not None:
+            output = result.structuredContent
+        else:
+            output = "\n".join(text_parts)
+        is_error = bool(result.isError)
+        return ToolResult(
+            success=not is_error,
+            output=output,
+            error=(
+                ToolError(error_type="mcp_remote", message=str(output))
+                if is_error
+                else None
+            ),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name=tool_def.name,
+            call_id=ctx.call_id,
+        )
 
     @staticmethod
     def _content_text_parts(content: list[Any]) -> list[str]:

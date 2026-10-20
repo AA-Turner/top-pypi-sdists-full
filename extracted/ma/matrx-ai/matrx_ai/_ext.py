@@ -60,36 +60,6 @@ def has_ext(name: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Post-finalize hook (Phase B — universal auto-ingest seam)
-# ---------------------------------------------------------------------------
-#
-# The host (aidream) injects a callable that the orchestrator invokes once a
-# conversation turn is set up / finalized, so the host can fire its own
-# fire-and-forget side effects (KG auto-ingest of the new messages) WITHOUT
-# matrx-ai importing aidream. matrx-ai never knows what the hook does — it
-# only knows "call it, swallow nothing, never block on it".
-#
-# Contract:
-#   * The hook is OPTIONAL. When unconfigured, ``get_post_finalize_hook()``
-#     returns None and the orchestrator skips it — matrx-ai stays standalone.
-#   * The hook MUST be non-blocking from the orchestrator's perspective: the
-#     host implementation schedules its work via detached_task and returns
-#     immediately. matrx-ai calls it best-effort and never awaits real work.
-#   * Signature (keyword-only, forward-compatible):
-#         hook(*, conversation_id: str, user_id: str,
-#              organization_id: str | None, messages: list,
-#              is_continuation: bool) -> None
-#     The host ignores kwargs it doesn't need.
-
-_POST_FINALIZE_HOOK_KEY = "post_finalize_hook"
-
-
-def get_post_finalize_hook() -> Any:
-    """Return the host-injected post-finalize hook, or None when unset."""
-    return _registry.get(_POST_FINALIZE_HOOK_KEY)
-
-
-# ---------------------------------------------------------------------------
 # Request-settled hook (a stored turn reached its FINAL persist)
 # ---------------------------------------------------------------------------
 #
@@ -185,6 +155,25 @@ def get_reference_fence_stager() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Snapshot swap keeper (a stored snapshot must stay restorable "as sent")
+# ---------------------------------------------------------------------------
+#
+# A request snapshot is stored REDACTED (swap values put back to their keys). The map that
+# restores it lives host-side. The ONE place a snapshot is written calls this seam with the
+# conversation id and the swaps the payload was redacted with, so EVERY path that stores a
+# snapshot (client, /try, workflow, mandate_call holder runs, agent_call children, helpers,
+# connector runs, the Builder) also keeps the map. Optional; ``async keeper(conversation_id,
+# swaps) -> None``; the host must not raise (the caller wraps it regardless).
+
+_SNAPSHOT_SWAP_KEEPER_KEY = "snapshot_swap_keeper"
+
+
+def get_snapshot_swap_keeper() -> Any:
+    """Return the host-injected snapshot swap keeper, or None when unset."""
+    return _registry.get(_SNAPSHOT_SWAP_KEEPER_KEY)
+
+
+# ---------------------------------------------------------------------------
 # Iteration tool refresh (per-iteration host-owned toolset reconciliation)
 # ---------------------------------------------------------------------------
 #
@@ -268,6 +257,64 @@ _PROGRAMMATIC_AGENT_PRE_SUBSTITUTION_HOOK_KEY = "programmatic_agent_pre_substitu
 def get_programmatic_agent_pre_substitution_hook() -> Any:
     """Return the host pre-substitution hook, or None when unset."""
     return _registry.get(_PROGRAMMATIC_AGENT_PRE_SUBSTITUTION_HOOK_KEY)
+
+
+# The HAND-OVER resolver (Orchestra context passthrough). An agent tool whose spec
+# carries ``host_data`` takes an optional ``hand_over`` argument: values the CALLER
+# holds, named rather than retyped. Only the host knows what those values are and
+# how a member may receive them, so dispatch hands the raw argument to this seam
+# BEFORE the child agent is built.
+#
+# Contract:
+#   * OPTIONAL. Unset → the argument is carried to the child untouched
+#     (``Agent.host_data["hand_over"]``) and nothing is resolved.
+#   * Signature: ``async resolver(*, host_data, hand_over, parent_context_objects,
+#     declared_fields, tool_name) -> dict`` returning any of ``variables``
+#     (field → text, merged into the child's variables), ``message_text`` (appended to
+#     the child's input), ``host_state`` (opaque, kept on ``Agent.host_data["state"]``
+#     for the host's prepare hook) and ``notes`` (list of dicts the caller sees in the
+#     tool result).
+
+_AGENT_TOOL_HANDOVER_RESOLVER_KEY = "agent_tool_handover_resolver"
+
+
+def get_agent_tool_handover_resolver() -> Any:
+    """Return the host hand-over resolver, or None when unset."""
+    return _registry.get(_AGENT_TOOL_HANDOVER_RESOLVER_KEY)
+
+
+# GUARDED CONTEXT EDITS (simultaneous edits to a record-backed context value). Before
+# ``context_patch`` lands an edit locally it asks the host to land it on the RECORD: the host
+# re-reads the record, merges a non-overlapping edit onto the fresh version
+# (``matrx_ai.tools.merge3``), compare-and-swaps it, and holds the record for the rest of the
+# run; an overlapping edit waits for the holder and comes back with the fresh version.
+#
+# Contract:
+#   * OPTIONAL. Unset, or the hook returns None for an object it does not guard → the
+#     existing fire-and-forget writeback runs unchanged.
+#   * Signature: ``async hook(*, obj, base, edited, command) -> dict | None`` where the dict
+#     is ``{"status": "landed", "content": …, "version": int, "rebased": bool}`` or
+#     ``{"status": "conflict", "content": fresh, "version": int, "changed": str,
+#     "retryable": bool, "reason": str}``.
+
+_GUARDED_CONTEXT_EDIT_KEY = "guarded_context_edit"
+
+
+def get_guarded_context_edit() -> Any:
+    """Return the host's guarded-edit hook, or None when unset."""
+    return _registry.get(_GUARDED_CONTEXT_EDIT_KEY)
+
+
+# THE RUN-END RELEASE: awaited in ``execute_until_complete``'s finally with the run's own
+# conversation id, so whatever the run holds (records it edited) is released at turn end.
+# Signature: ``async hook(*, conversation_id) -> None``. OPTIONAL.
+
+_RUN_END_RELEASE_HOOK_KEY = "run_end_release_hook"
+
+
+def get_run_end_release_hook() -> Any:
+    """Return the host's run-end release hook, or None when unset."""
+    return _registry.get(_RUN_END_RELEASE_HOOK_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -416,7 +463,7 @@ def get_turn_directive_handler() -> Any:
 #     HandoffOutcome); ``settle`` is ``async settle(*, success: bool,
 #     usage_history, cancelled: bool = False) -> None`` and MUST be awaited
 #     exactly once after the child run finishes (``cancelled=True`` — the
-#     child was cut off or stopped — settles CANCELLED with its real spend) (it detaches internally; a failure to settle is
+#     child was cut off or stopped — settles CANCELED with its real spend) (it detaches internally; a failure to settle is
 #     swept by the host's reaper).
 
 _CHILD_EXECUTION_SPAWNER_KEY = "child_execution_spawner"
@@ -529,6 +576,41 @@ def get_internal_run_tracker() -> Any:
     return _registry.get(_INTERNAL_RUN_TRACKER_KEY)
 
 
+# ---------------------------------------------------------------------------
+# System processes — platform work done ABOUT a conversation (the labeler today)
+# ---------------------------------------------------------------------------
+#
+# A system process runs as the PLATFORM, and the platform pays (Arman,
+# 2026-10-18: "it's always going to be the system"). matrx-ai does not know who
+# the platform is, so the host injects two seams:
+#
+#   * ``system_process_scope(*, feature: str, conversation_id: str | None)`` →
+#     an async context manager. Inside it the ambient AppContext is the
+#     platform's identity, its ``conversation_id`` is the subject conversation and
+#     ``system_run`` is False — so a held call made inside (``run_held_call``)
+#     transitions into a system run and mints its own HIDDEN ``system_process``
+#     conversation linked to the subject, billed to the platform.
+#   * ``system_process_seed(*, process_key: str, subject_id: str, payload: dict,
+#     delay_seconds: float)`` → awaitable. Seeds the durable retry the host's
+#     drain runs if the inline attempt never lands. Raises on a storage failure.
+#
+# Unconfigured (a standalone or client host — no platform tenant exists): the
+# scope is a no-op, so the call runs as the caller, and nothing is seeded.
+
+_SYSTEM_PROCESS_SCOPE_KEY = "system_process_scope"
+_SYSTEM_PROCESS_SEED_KEY = "system_process_seed"
+
+
+def get_system_process_scope() -> Any:
+    """The host's platform-identity scope for a system process, or None when unset."""
+    return _registry.get(_SYSTEM_PROCESS_SCOPE_KEY)
+
+
+def get_system_process_seed() -> Any:
+    """The host's durable-retry seeder for a system process, or None when unset."""
+    return _registry.get(_SYSTEM_PROCESS_SEED_KEY)
+
+
 # Optional host-owned bound-execution presence wrapper.  It receives a
 # NOT-YET-STARTED thunk and the current AppContext; unconfigured package hosts
 # retain the exact historical execution path.
@@ -635,6 +717,28 @@ _BOOKMARK_RESOLVER_KEY = "bookmark_resolver"
 def get_bookmark_resolver() -> Any:
     """Return the host-injected bookmark resolver, or None when unset."""
     return _registry.get(_BOOKMARK_RESOLVER_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Source-name resolver (every attachment names its source — PB-05 defect 47)
+# ---------------------------------------------------------------------------
+#
+# An attached table row / list item / agent / project / transcript / note / task
+# whose composer sent no display name gets it from the host, read AS THE PERSON.
+#
+# Contract:
+#   * OPTIONAL. Unconfigured → ``get_source_name_resolver()`` returns None and the
+#     attachment keeps kind + id with a visible ``name_unavailable`` + stored notice.
+#   * Signature: async resolver(pairs: list[tuple[kind, id]], *, user_id) ->
+#         dict[tuple[kind, id], str]. ONE call per attachment set; the host batches
+#     by kind. A pair it may not read is simply absent (fail closed).
+
+_SOURCE_NAME_RESOLVER_KEY = "source_name_resolver"
+
+
+def get_source_name_resolver() -> Any:
+    """Return the host-injected source-name resolver, or None when unset."""
+    return _registry.get(_SOURCE_NAME_RESOLVER_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -916,3 +1020,17 @@ _GUEST_MINT_LIMIT_READER_KEY = "guest_mint_limit_reader"
 def get_guest_mint_limit_reader() -> Any:
     """Return the host-injected guest-mint ceiling reader, or None when unset."""
     return _registry.get(_GUEST_MINT_LIMIT_READER_KEY)
+
+
+# The host MAY inject ``async challenge(ip_address) -> None``, asked when a NEW guest identity is
+# about to be minted (after the per-IP ceiling admits it, before GoTrue). It verifies the request's
+# human challenge (e.g. a Turnstile token the host carried) and raises ``GuestMintChallengeError``
+# to refuse the mint; returning means "mint". Unset = no challenge (announced by the host).
+# Consumer + contract: ``matrx_ai/db/_guest_registry_impl.py::_enforce_mint_ceiling``.
+
+_GUEST_MINT_CHALLENGE_KEY = "guest_mint_challenge"
+
+
+def get_guest_mint_challenge() -> Any:
+    """Return the host-injected new-guest challenge, or None when unset."""
+    return _registry.get(_GUEST_MINT_CHALLENGE_KEY)

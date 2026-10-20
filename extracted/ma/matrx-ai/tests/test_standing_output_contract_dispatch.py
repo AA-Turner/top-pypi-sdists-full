@@ -126,7 +126,7 @@ async def test_a_relaxed_turn_that_only_talks_dispatches_nothing() -> None:
 
 @pytest.mark.asyncio
 async def test_without_the_declaration_a_relaxed_turn_is_untouched() -> None:
-    """The ordinary agent's behaviour is unchanged: no contract, no parse."""
+    """The ordinary agent's behavior is unchanged: no contract, no parse."""
     from matrx_ai.orchestrator.executor import _emit_structured_output_if_schema
 
     emitter = _Emitter()

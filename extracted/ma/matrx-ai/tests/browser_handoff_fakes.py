@@ -2,7 +2,7 @@
 
 Two fakes, each backed by a DURABLE dict store passed in from the test — the
 same object survives a simulated manager restart, so "kill the process" is
-modelled as: throw away the engine + coordinator + scope objects, keep only the
+modeled as: throw away the engine + coordinator + scope objects, keep only the
 three durable stores (runtime ExecutionStore, the ledger, the handoff rows),
 and rebuild. No fake owns continuity in memory.
 

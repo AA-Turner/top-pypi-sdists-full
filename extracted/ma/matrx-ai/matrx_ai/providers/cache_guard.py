@@ -39,6 +39,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -168,11 +169,23 @@ def _loop_key(
 def provider_prompt_cache_key(
     conversation_id: str | None, request_id: str | None
 ) -> str | None:
-    """Return a stable, opaque cache-routing key for one provider/tool loop."""
+    """Return a stable, opaque cache-routing key for one CONVERSATION.
+
+    🚨 THE CACHE LINE LAW, routing half (2026-10-17). OpenAI routes a request to a
+    prompt cache by the prefix hash plus ``prompt_cache_key`` ("separates cache
+    reuse between groups of requests"; guidance: about 15 requests per minute per
+    key; keys route, they never pin). The key used to hash request id +
+    conversation id, so EVERY TURN of one conversation carried a different key and
+    turn N+1 was routed by chance, away from the cache turn N wrote. The group that
+    shares a prefix across turns is the conversation, so the key is the
+    conversation alone; the request id is only the fallback for a call with no
+    conversation (an ephemeral run), whose prefix is not reused across turns
+    anyway. Guard: ``tests/test_prompt_cache_key_is_stable_across_turns.py``.
+    """
     if not conversation_id and not request_id:
         return None
-    loop_identity = f"{request_id or 'unknown-request'}:{conversation_id or 'unknown-conversation'}"
-    digest = hashlib.sha256(loop_identity.encode()).hexdigest()
+    group = f"conversation:{conversation_id}" if conversation_id else f"request:{request_id}"
+    digest = hashlib.sha256(group.encode()).hexdigest()
     return _PROMPT_CACHE_KEY_PREFIX + digest[:_PROMPT_CACHE_KEY_DIGEST_CHARS]
 
 
@@ -234,7 +247,7 @@ def extract_cache_metrics(provider: str, raw_usage: dict[str, Any] | None) -> Ca
 
     Each provider spells it differently and counts ``input_tokens`` differently
     (Anthropic EXCLUDES cache read/write from input_tokens; OpenAI/Google
-    INCLUDE cached in the prompt total). Normalise to one shape so the guard —
+    INCLUDE cached in the prompt total). Normalize to one shape so the guard —
     and any future consumer — reasons about caching identically everywhere.
     """
     raw = raw_usage or {}
@@ -332,10 +345,18 @@ def observe_cache_usage(
 # the org catalog flipping 8,764 -> 3,676 -> 8,764 chars (conversation 88a134af)
 # both went unseen. This layer remembers the last frozen system text per
 # (provider, conversation) and screams when a LATER request sends different
-# text. Only frozen prompts are compared: a mandate-held conversation re-renders
-# its live Holder by design and is not frozen.
+# text. Only frozen prompts are compared — and since 2026-10-16 a mandate-held
+# conversation's held system text counts as frozen once the send boundary has
+# settled it (``send_boundary._settle_held_prompt``; the executor passes
+# ``prefix_frozen``). Its one lawful change, a Holder or catalog change, goes
+# through ``deliberate_cache_break``, which resets this memory so it is
+# reported once, as deliberate, never as a violation.
 
 _CONVERSATION_PREFIX: OrderedDict[str, tuple[str, str, str]] = OrderedDict()
+#: (conversation_id, kind) already alarmed by ``scream_cache_line_violation``.
+_ALARMED: OrderedDict[tuple[str, str], None] = OrderedDict()
+_MAX_ALARMED = 4096
+_ALARM_LOCK = threading.Lock()
 
 
 def _observe_across_turns(
@@ -372,6 +393,192 @@ def _observe_across_turns(
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Layer 0b — THE TOOLS BLOCK ACROSS THE WHOLE CONVERSATION (2026-10-16)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Tools head the provider cache prefix (tools -> system -> messages on
+# Anthropic): a removal, reorder or byte change at tool position N re-writes the
+# entire conversation at the cache-write price. Real jobs lost 980 cents this way
+# across 14 conversations (common-docs projects/agent-evaluation/reports/
+# tool-list-cache-stability.md). The declaration ledger
+# (matrx_ai/tools/declaration_ledger.py) makes the array append-only; this layer
+# is the INDEPENDENT check on the literal SDK payload: it remembers the last tools
+# block per (provider, conversation) and SCREAMS (red banner + capture_error) when
+# a later request's block is anything but the previous one with tools appended.
+
+_CONVERSATION_TOOLS: OrderedDict[str, tuple[tuple[str, str], ...]] = OrderedDict()
+
+
+def _declaration_identity(decl: Any) -> tuple[str, str] | None:
+    """``(name, digest)`` for one provider declaration; ``cache_control`` excluded
+    (a breakpoint marker is not tool content)."""
+    if not isinstance(decl, dict):
+        return None
+    name = decl.get("name")
+    if not isinstance(name, str):
+        fn = decl.get("function")
+        name = fn.get("name") if isinstance(fn, dict) else None
+    if not isinstance(name, str):
+        name = f"<{decl.get('type') or 'nameless'}>"
+    body = {k: v for k, v in decl.items() if k != "cache_control"}
+    import json
+
+    digest = hashlib.sha256(
+        json.dumps(body, sort_keys=True, default=str).encode("utf-8", "replace")
+    ).hexdigest()[:16]
+    return name, digest
+
+
+def payload_tool_declarations(payload: Any) -> list[Any] | None:
+    """The literal ``tools`` list of an SDK-ready payload, or None when the
+    payload shape carries none we can read (dict ``tools`` key or attribute)."""
+    tools = payload.get("tools") if isinstance(payload, dict) else getattr(payload, "tools", None)
+    return list(tools) if isinstance(tools, list | tuple) else None
+
+
+def wire_tool_names(payload: Any) -> tuple[str, ...] | None:
+    decls = payload_tool_declarations(payload)
+    if decls is None:
+        return None
+    return tuple(i[0] for i in (_declaration_identity(d) for d in decls) if i is not None)
+
+
+def observe_tool_declarations(
+    *,
+    provider: str | None,
+    conversation_id: str | None,
+    payload: Any,
+    model: str = "",
+) -> str | None:
+    """Compare this request's tools block with the conversation's previous one.
+
+    Returns the violation kind when it screamed (for tests), else None. Never
+    raises. Rules: an empty block (a model/provider limit removed every tool)
+    is not compared and not recorded. A block sharing NO tool with the previous
+    one (a whole-belt swap, e.g. an agent switch) is recorded and screams
+    ``tool_belt_replaced_mid_conversation`` unless the ledger already made and
+    captured it as a deliberate break (adversarial I2, 2026-10-18).
+    """
+    if not CACHE_GUARD_ENABLED or not conversation_id:
+        return None
+    try:
+        decls = payload_tool_declarations(payload)
+        if not decls:
+            return None
+        current = tuple(i for i in (_declaration_identity(d) for d in decls) if i is not None)
+        key = f"{provider or '?'}:{conversation_id}"
+        previous = _CONVERSATION_TOOLS.get(key)
+        disjoint = bool(previous) and not ({n for n, _ in current} & {n for n, _ in previous})
+        _CONVERSATION_TOOLS[key] = current
+        _CONVERSATION_TOOLS.move_to_end(key)
+        while len(_CONVERSATION_TOOLS) > _MAX_TRACKED_LOOPS:
+            _CONVERSATION_TOOLS.popitem(last=False)
+        if previous is None or current[: len(previous)] == previous:
+            return None  # first sight, unchanged, or a pure append
+        from matrx_ai.tools.declaration_ledger import _NO_BREAK, consume_deliberate_scope
+
+        scope = consume_deliberate_scope(conversation_id, provider)
+
+        prev_names = [n for n, _ in previous]
+        cur_names = [n for n, _ in current]
+        removed = [n for n in prev_names if n not in cur_names]
+        prev_digest = dict(previous)
+        changed = [n for n, d in current if n in prev_digest and prev_digest[n] != d]
+        kept = [n for n in cur_names if n in prev_digest]
+        reordered = kept != [n for n in prev_names if n in cur_names]
+        inserted = [
+            n for i, n in enumerate(cur_names) if n not in prev_digest and i < len(prev_names)
+        ]
+        if scope is not _NO_BREAK:
+            # The ledger recorded a break. Excuse it only when this request's change is
+            # confined to the names that break covers (None = the whole belt); any
+            # other change riding along is a second, unrecorded break (adversarial M5).
+            touched = set(removed) | set(changed) | set(inserted)
+            if scope is None or (not reordered and touched <= scope):
+                return None
+        kind = (
+            "tool_belt_replaced_mid_conversation" if disjoint
+            else "tool_removed_mid_conversation" if removed
+            else "tool_definition_changed_mid_conversation" if changed
+            else "tool_reordered_mid_conversation" if reordered
+            else "tool_inserted_before_existing_tools"
+        )
+        first_diff = next(
+            (i for i, (a, b) in enumerate(zip(previous, current, strict=False)) if a != b),
+            min(len(previous), len(current)),
+        )
+        _scream_tool_list_change(
+            kind=kind,
+            provider=provider or "",
+            model=model,
+            conversation_id=conversation_id,
+            removed=removed,
+            changed=changed,
+            reordered=reordered,
+            inserted=inserted,
+            first_diff=first_diff,
+            previous_count=len(previous),
+            current_count=len(current),
+        )
+        return kind
+    except Exception as exc:  # noqa: BLE001 — a guard must never break the request
+        vcprint(f"[cache_guard] tools-block layer failed (non-fatal): {exc}", color="yellow")
+        return None
+
+
+def _scream_tool_list_change(**details: Any) -> None:
+    vcprint(
+        f"\n{_BAR}\n"
+        f"🚨🚨🚨  PROMPT CACHE KILLED — TOOLS BLOCK CHANGED MID-CONVERSATION  🚨🚨🚨\n"
+        f"{_BAR}\n"
+        f"kind={details['kind']} conversation={details['conversation_id']} "
+        f"provider={details['provider']} model={details['model']}\n"
+        f"Tools head the cache prefix: everything after tool #{details['first_diff'] + 1} "
+        f"(system + the whole history) is re-written at the cache-write price.\n"
+        f"A tool once sent must stay declared, in place, byte-identical; new tools are\n"
+        f"appended at the END (matrx_ai/tools/declaration_ledger.py).\n"
+        f"  removed  : {details['removed'] or '—'}\n"
+        f"  changed  : {details['changed'] or '—'}\n"
+        f"  inserted : {details['inserted'] or '—'}\n"
+        f"  reordered: {details['reordered']}\n"
+        f"  count    : {details['previous_count']} -> {details['current_count']}\n"
+        f"{_BAR}\n",
+        color="red",
+        log_level="error",
+    )
+    _schedule_tool_list_capture(details)
+
+
+def _schedule_tool_list_capture(details: dict[str, Any]) -> None:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    detached_task(_capture_tool_list_change(details), name="tool_list_change_capture")
+
+
+async def _capture_tool_list_change(details: dict[str, Any]) -> None:
+    try:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            RuntimeError(f"prompt cache: tools block changed mid-conversation ({details['kind']})"),
+            kind="prompt_cache_tool_list_changed",
+            error_type=details["kind"],
+            route="matrx_ai.providers.cache_guard.observe_tool_declarations",
+            payload={k: v for k, v in details.items() if k != "kind"},
+        )
+    except Exception:
+        pass
+
+
+def reset_tool_declarations_for_tests() -> None:
+    _CONVERSATION_TOOLS.clear()
+    with _ALARM_LOCK:
+        _ALARMED.clear()
+
+
 def scream_cache_line_violation(
     *,
     kind: str,
@@ -388,7 +595,27 @@ def scream_cache_line_violation(
     One function for every layer that detects it (the cross-turn guard here,
     the send boundary's frozen-prompt check), so the capture always has the
     same kind and shape. Never raises.
+
+    ONE alarm per (conversation, kind) per process: the first sighting gets the
+    banner and the captured row (with ``conversation_id`` on the row itself, so
+    the queue groups it); repeats print one line. One conversation raised 297
+    identical rows in 48 minutes (adversarial I6, 2026-10-18) and buried real ones.
     """
+    if conversation_id:
+        alarm_key = (str(conversation_id), kind)
+        with _ALARM_LOCK:
+            repeat = alarm_key in _ALARMED
+            if not repeat:
+                _ALARMED[alarm_key] = None
+                while len(_ALARMED) > _MAX_ALARMED:
+                    _ALARMED.popitem(last=False)
+        if repeat:
+            vcprint(
+                f"[cache_guard] {kind} again on conversation {conversation_id} "
+                f"(already alarmed once in this process; not re-captured)",
+                color="yellow",
+            )
+            return
     banner = (
         f"\n{_BAR}\n"
         f"🚨🚨🚨  CACHE LINE LAW BROKEN — TEXT BEHIND THE CACHE LINE CHANGED  🚨🚨🚨\n"
@@ -421,6 +648,105 @@ def scream_cache_line_violation(
     )
 
 
+def forget_conversation_prefix(conversation_id: str | None) -> None:
+    """Drop the cross-turn memory for one conversation (every provider)."""
+    if not conversation_id:
+        return
+    suffix = f":{conversation_id}"
+    for key in [k for k in _CONVERSATION_PREFIX if k.endswith(suffix)]:
+        _CONVERSATION_PREFIX.pop(key, None)
+
+
+def deliberate_cache_break(
+    *,
+    kind: str,
+    reason: str,
+    conversation_id: str | None,
+    prev_text: str,
+    new_text: str,
+    where: str,
+) -> None:
+    """A LAWFUL change behind the cache line, said out loud.
+
+    The one change the law allows on a held system text is the Holder itself
+    or the org catalog changing. It still re-writes the whole cached history
+    at the cache-write price, so it is never silent: a banner, a captured
+    record (kind ``prompt_cache_deliberate_break`` — not a violation), and the
+    cross-turn memory reset so Layer 0 does not report it a second time.
+    Never raises.
+    """
+    banner = (
+        f"\n{_BAR}\n"
+        f"⚠️  DELIBERATE PROMPT-CACHE BREAK — {reason}\n"
+        f"{_BAR}\n"
+        f"kind={kind} conversation={conversation_id}\n"
+        f"The held system text was re-rendered and frozen again; the cached\n"
+        f"history is re-written once at the cache-write price.\n"
+        f"\n{_short_diff(prev_text, new_text)}\n"
+        f"{_BAR}\n"
+    )
+    vcprint(banner, color="yellow", log_level="warning")
+    forget_conversation_prefix(conversation_id)
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    detached_task(
+        _record_deliberate_break(
+            kind=kind,
+            reason=reason,
+            conversation_id=conversation_id,
+            prev_len=len(prev_text),
+            new_len=len(new_text),
+            where=where,
+        ),
+        name="deliberate_cache_break_capture",
+    )
+
+
+async def _record_deliberate_break(
+    *, kind: str, reason: str, conversation_id: str | None, prev_len: int, new_len: int, where: str
+) -> None:
+    try:
+        from matrx_ai._ext import get_ext
+
+        record_error = get_ext("record_error")
+    except Exception:
+        return
+    if record_error is None:
+        return
+    try:
+        pending = record_error(
+            RuntimeError(f"deliberate prompt-cache break: {reason}"),
+            kind="prompt_cache_deliberate_break",
+            error_type=kind,
+            error_text=f"Held system text re-rendered: {reason}",
+            route=where,
+            payload={
+                "conversation_id": conversation_id,
+                "reason": reason,
+                "previous_length": prev_len,
+                "current_length": new_len,
+            },
+        )
+        if inspect.isawaitable(pending):
+            await pending
+    except Exception:
+        pass
+
+
+def _uuid_or_none(value: str | None) -> str | None:
+    """The value when it is a UUID (the ``system_error.conversation_id`` column is one)."""
+    if not value:
+        return None
+    try:
+        import uuid
+
+        return str(uuid.UUID(str(value)))
+    except (ValueError, TypeError):
+        return None
+
+
 async def _record_cache_line_violation(
     *,
     kind: str,
@@ -451,6 +777,7 @@ async def _record_cache_line_violation(
             error_type=kind,
             error_text="Text behind the prompt-cache line changed between turns",
             route=where,
+            conversation_id=_uuid_or_none(conversation_id),
             payload={
                 "provider": provider,
                 "model": model,

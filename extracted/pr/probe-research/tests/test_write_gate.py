@@ -438,6 +438,8 @@ NOT_RESEARCH = frozenset(
         "snapshot-prune-refs",
         "snapshot-restore",
         "snapshot-show",
+        # `probe service`: the machine-wide Probe service's own plumbing.
+        "service",
         # `probe status`: this device's install as data, like `doctor`.
         "status",
         "statusline",

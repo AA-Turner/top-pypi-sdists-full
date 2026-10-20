@@ -6,9 +6,12 @@ import datetime
 import decimal
 import io
 import logging
+import math
 import os
 import re
+import reprlib
 import typing
+import uuid
 from collections import defaultdict
 from collections.abc import (
     Callable,
@@ -18,9 +21,26 @@ from collections.abc import (
     Sequence,
     Set as AbstractSet,
 )
-from typing import IO, TYPE_CHECKING, Any, Final, Protocol, TypeVar, Union, cast
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import (
+    IO,
+    TYPE_CHECKING,
+    Any,
+    Final,
+    ParamSpec,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from prov import Error
+from prov._warnings import (
+    ProvFutureRejectionWarning,
+    future_rejection_message,
+    warn,
+)
 from prov.constants import (
     PROV_ACTIVITY,
     PROV_AGENT,
@@ -75,17 +95,27 @@ from prov.constants import (
     PROV_TYPE,
     PROV_USAGE,
     PROV_VALUE,
+    XSD,
     XSD_ANYURI,
     XSD_BOOLEAN,
+    XSD_DATE,
     XSD_DATETIME,
     XSD_DECIMAL,
     XSD_DOUBLE,
     XSD_INT,
     XSD_INTEGER,
     XSD_LONG,
+    XSD_QNAME,
     XSD_STRING,
+    XSD_TIME,
 )
-from prov.identifier import Identifier, Namespace, QualifiedName, _slot_state
+from prov.identifier import (
+    Identifier,
+    Namespace,
+    QualifiedName,
+    _provn_string_literal,
+    _slot_state,
+)
 
 if TYPE_CHECKING:
     from prov.model.bundle import ProvBundle
@@ -340,21 +370,15 @@ class TypedValueSet(MutableSet[Any]):
         return f"{type(self).__name__}({list(self._index.values())!r})"
 
 
-def _ensure_multiline_string_triple_quoted(value: str) -> str:
-    # converting the value to a string
-    s = str(value)
-    # Escape backslashes first, so quote-escaping below doesn't re-escape
-    # the backslashes it just introduced.
-    s = s.replace("\\", "\\\\")
-    # Escaping any double quote
-    s = s.replace('"', '\\"')
-    if "\n" in s:
-        return f'"""{s}"""'
-    else:
-        # STRING_LITERAL2 ([60]) forbids a bare CR in a short string; the
-        # lexer decodes the "\r" escape, so use it rather than emit one raw.
-        s = s.replace("\r", "\\r")
-        return f'"{s}"'
+def _xsd_double_text(value: float) -> str:
+    """The xsd:double lexical form of a float: INF, -INF and NaN for the
+    non-finite values (XSD 1.1 Part 2, numericalSpecialRep), float's repr()
+    otherwise."""
+    if math.isnan(value):
+        return "NaN"
+    if math.isinf(value):
+        return "INF" if value > 0 else "-INF"
+    return float.__repr__(value)
 
 
 def _xsd_datetime_text(value: datetime.datetime) -> str:
@@ -364,6 +388,15 @@ def _xsd_datetime_text(value: datetime.datetime) -> str:
     if offset is not None and (offset.total_seconds() % 60 or offset.microseconds):
         value = value.astimezone(datetime.timezone.utc)
     return value.isoformat()
+
+
+_XSD_MAX_OFFSET = datetime.timedelta(hours=14)
+
+
+def _offset_beyond_xsd_bound(value: datetime.datetime) -> bool:
+    """Whether ``value``'s timezone offset lies outside xsd:dateTime's ±14:00."""
+    offset = value.utcoffset()
+    return offset is not None and abs(offset) > _XSD_MAX_OFFSET
 
 
 def encoding_provn_value(
@@ -380,11 +413,11 @@ def encoding_provn_value(
     via :func:`str`.
     """
     if isinstance(value, str):
-        return _ensure_multiline_string_triple_quoted(value)
+        return _provn_string_literal(value)
     elif isinstance(value, datetime.datetime):
         return f'"{_xsd_datetime_text(value)}" %% xsd:dateTime'
     elif isinstance(value, float):
-        return f'"{value!r}" %% xsd:double'
+        return f'"{_xsd_double_text(value)}" %% xsd:double'
     elif isinstance(value, bool):
         # Before the int branch: bool is an int subtype. "true"/"false" is
         # the lexical form every other PROV-N producer writes.
@@ -397,6 +430,20 @@ def encoding_provn_value(
     else:
         # TODO: QName export
         return str(value)
+
+
+# PROV-N's LANGTAG ([63]) without the "@"; every BCP 47 tag matches it.
+_LANGTAG = re.compile(r"[a-zA-Z]+(-[a-zA-Z0-9]+)*")
+
+
+def _warn_language_tag(langtag: str, value: str) -> None:
+    """Warn that 3.3.0 rejects ``langtag``, which does not match ``_LANGTAG``."""
+    detail = (
+        f"the language tag {langtag!r} of {value!r} is not a BCP 47 tag"
+        if langtag
+        else f"the language tag of {value!r} is empty"
+    )
+    warn(future_rejection_message(detail, issue=472), ProvFutureRejectionWarning)
 
 
 class Literal:
@@ -432,8 +479,13 @@ class Literal:
                 ``None``).
             langtag: An optional language tag. When given, ``datatype`` is
                 coerced to ``prov:InternationalizedString`` (default: ``None``).
+                An empty tag, or a tag such as ``"en_US"`` that is not shaped like a
+                BCP 47 tag, emits a
+                :class:`~prov.model.ProvFutureRejectionWarning`.
         """
         self._value = str(value)  # value is always a string
+        if langtag is not None and not _LANGTAG.fullmatch(str(langtag)):
+            _warn_language_tag(str(langtag), self._value)
         if langtag:
             if datatype is None:
                 logger.debug(
@@ -549,7 +601,7 @@ class Literal:
         this is a writer-only choice and leaves the model's own ``langtag``
         value (``""``, not ``None``) untouched.
         """
-        quoted_value = _ensure_multiline_string_triple_quoted(self._value)
+        quoted_value = _provn_string_literal(self._value)
         if self._langtag:
             # a language tag can only go with prov:InternationalizedString.
             # PROV-N's LANGTAG ([63]) only allows hyphens between subtags, so
@@ -648,6 +700,143 @@ class ProvElementIdentifierRequired(ProvException):
         return "An identifier is missing. All PROV elements require a valid identifier."
 
 
+#  Attribute value warnings and the rebuild guard
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+# True while a record is rebuilt from one already asserted, so the 3.3.0
+# warnings about its values fire once, when they are first asserted.
+_rebuilding: ContextVar[bool] = ContextVar("prov_rebuilding", default=False)
+
+
+def _rebuild(make: Callable[_P, _R], *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    """Return ``make(*args, **kwargs)``, which rebuilds records already asserted."""
+    token = _rebuilding.set(True)
+    try:
+        return make(*args, **kwargs)
+    finally:
+        _rebuilding.reset(token)
+
+
+# True while a reader that warns about unresolvable qualified-name values
+# itself builds records, so the model does not warn about them again.
+_reader_checks_names: ContextVar[bool] = ContextVar(
+    "prov_reader_checks_names", default=False
+)
+
+
+@contextmanager
+def _reader_checking_names() -> Iterator[None]:
+    """Build records inside a reader that checks its qualified-name values."""
+    token = _reader_checks_names.set(True)
+    try:
+        yield
+    finally:
+        _reader_checks_names.reset(token)
+
+
+# The types of a converted non-formal attribute value that need no check.
+# bool is an int and QualifiedName an Identifier, so isinstance() needs only
+# the tuple.
+_PLAIN_VALUE_TYPES = frozenset(
+    {str, int, bool, float, Identifier, QualifiedName, Literal}
+)
+_PLAIN_VALUE_BASES = (str, int, float, Identifier, Literal)
+
+# The values prov 3.3.0 converts to a typed Literal (#482), in lookup order.
+# datetime.datetime is a date, so it must be excluded before this table.
+_PROV_FORMS: tuple[tuple[type | tuple[type, ...], QualifiedName], ...] = (
+    (decimal.Decimal, XSD_DECIMAL),
+    (datetime.date, XSD_DATE),
+    (datetime.time, XSD_TIME),
+    (datetime.timedelta, XSD["duration"]),
+    (uuid.UUID, XSD_ANYURI),
+    ((bytes, bytearray, memoryview), XSD["base64Binary"]),
+)
+
+
+# Bounds a warning's copy of a value, which may be a large bytes object.
+_value_repr = reprlib.Repr()
+_value_repr.maxother = _value_repr.maxstring = 80
+
+
+def _warn_offset_beyond_bound(detail: str, outcome: str = "reject this") -> None:
+    """Warn that the time in ``detail`` has an offset beyond ±14:00 (#513)."""
+    if not _rebuilding.get():
+        warn(
+            future_rejection_message(
+                f"{detail} has a timezone offset beyond ±14:00", outcome, issue=513
+            ),
+            ProvFutureRejectionWarning,
+        )
+
+
+def _warn_about_value(
+    attr: QualifiedName, original_value: object, value: object
+) -> None:
+    """Warn about a converted non-formal attribute value 3.3.0 treats differently."""
+    if isinstance(value, datetime.datetime):
+        if isinstance(original_value, Literal) and _offset_beyond_xsd_bound(value):
+            _warn_offset_beyond_bound(
+                f"{attr} {original_value}", "keep it as a Literal"
+            )
+    elif value is not None and not isinstance(value, _PLAIN_VALUE_BASES):
+        _warn_no_prov_form(attr, value)
+
+
+def _warn_no_prov_form(attr: QualifiedName, value: object) -> None:
+    """Warn that 3.3.0 converts or rejects ``value``, which has no PROV form."""
+    if _rebuilding.get():
+        return
+    cls = type(value)
+    name = (
+        cls.__qualname__
+        if cls.__module__ == "builtins"
+        else f"{cls.__module__}.{cls.__qualname__}"
+    )
+    detail = f"the value {_value_repr.repr(value)} of {attr} has type {name}"
+    for types, datatype in _PROV_FORMS:
+        if isinstance(value, types):
+            message = future_rejection_message(
+                detail, f"store it as a Literal of type {datatype}", issue=482
+            )
+            break
+    else:
+        message = future_rejection_message(
+            f"{detail}, which has no PROV form", issue=482
+        )
+    warn(message, ProvFutureRejectionWarning)
+
+
+def _warn_unresolved_name(
+    bundle: ProvBundle, attr: QualifiedName, literal: Literal, value: object
+) -> None:
+    """Warn that ``literal``, typed as a qualified name, does not resolve by its
+    prefix (#516, #553); ``value`` is what it converted to."""
+    if (
+        _reader_checks_names.get()
+        or _rebuilding.get()
+        or literal.datatype not in (PROV_QUALIFIEDNAME, XSD_QNAME)
+    ):
+        return
+    reason = bundle._unresolved_reason(literal.value)
+    if reason is not None:
+        today = (
+            f"it reads as {value}"
+            if isinstance(value, QualifiedName)
+            else "it is kept as a Literal"
+        )
+        issue = 553 if isinstance(value, QualifiedName) else 516
+        warn(
+            future_rejection_message(
+                f"the qualified name {literal.value!r} of {attr} does not resolve,"
+                f" because {reason}; {today}",
+                issue=issue,
+            ),
+            ProvFutureRejectionWarning,
+        )
+
+
 #  PROV records
 class ProvRecord:
     """Base class for PROV records."""
@@ -700,8 +889,11 @@ class ProvRecord:
 
     def copy(self) -> ProvRecord:
         """Return an exact copy of this record."""
-        return PROV_REC_CLS[self.get_type()](
-            self._bundle, self.identifier, self.attributes
+        return _rebuild(
+            PROV_REC_CLS[self.get_type()],
+            self._bundle,
+            self.identifier,
+            self.attributes,
         )
 
     def get_type(self) -> QualifiedName:
@@ -864,7 +1056,12 @@ class ProvRecord:
             if literal.datatype:
                 # try to convert a generic Literal object to Python standard type
                 # to match the JSON decoding's literal conversion
-                value = parse_xsd_types(literal.value, literal.datatype)
+                # #522: a lexical form outside the datatype's lexical space
+                # keeps the Literal.
+                try:
+                    value = parse_xsd_types(literal.value, literal.datatype)
+                except (ValueError, OverflowError):
+                    return literal
                 # #235: only collapse the integer family when it is lossless,
                 # i.e. the asserted datatype is the one `prov` would itself
                 # infer for the parsed value. Otherwise, keep the Literal so
@@ -911,19 +1108,30 @@ class ProvRecord:
                 qname = original_value
             value = self._bundle.mandatory_valid_qname(qname)
         elif attr in PROV_ATTRIBUTE_LITERALS:
-            # Expecting a datetime object or a string that can be parsed as a datetime
+            # Expecting a datetime, or a string or xsd:dateTime Literal that parses as one
             if isinstance(original_value, str):
                 value = parse_xsd_datetime(original_value)
+            elif (
+                isinstance(original_value, Literal)
+                and original_value.datatype == XSD_DATETIME
+            ):
+                value = parse_xsd_datetime(original_value.value)
             else:
                 value = original_value
             if not isinstance(value, datetime.datetime):
                 raise ProvException(
                     f"Invalid value for attribute {attr}: {original_value}. "
-                    f"Expected a datetime object or a string that can be parsed"
-                    f" as a datetime."
+                    f"Expected a datetime, or a string or xsd:dateTime Literal"
+                    f" that parses as one."
                 )
+            if _offset_beyond_xsd_bound(value):
+                _warn_offset_beyond_bound(f"{attr} {value.isoformat()}")
         else:
             value = self._auto_literal_conversion(original_value)
+            if type(value) not in _PLAIN_VALUE_TYPES:
+                _warn_about_value(attr, original_value, value)
+            elif isinstance(original_value, Literal):
+                _warn_unresolved_name(self._bundle, attr, original_value, value)
 
         if value is None:
             raise ProvException(f"Invalid value for attribute {attr}: {original_value}")

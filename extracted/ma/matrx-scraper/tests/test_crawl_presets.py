@@ -1,6 +1,6 @@
 """Level 1: web_crawl.presets — crawl-preset CRUD + recrawl-config derivation.
 
-The forcing function here is BEHAVIOUR, not call shape: every test asserts what
+The forcing function here is BEHAVIOR, not call shape: every test asserts what
 a user would observe (which config comes back, in what order, whether a use is
 counted) rather than which ORM method was called. Mocked models — no live DB.
 

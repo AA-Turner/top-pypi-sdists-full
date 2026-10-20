@@ -1,13 +1,13 @@
 """Crawler honesty — OPENSEO-TOOLS-SPEC §8.1 / acceptance T12 (Lane H).
 
-Every behaviour here is proven against a REAL HTTP server on loopback (aiohttp),
+Every behavior here is proven against a REAL HTTP server on loopback (aiohttp),
 fetched by the REAL crawler and transport (curl_cffi / httpx) — never a stubbed
 ``scrape``. The only stand-in is the network policy (``local_network``): the SSRF gate
 lets exactly this server's origin through.
 
-Behaviours (one test each, every one fails on the pre-change code):
+Behaviors (one test each, every one fails on the pre-change code):
 
-* ``Retry-After`` (seconds or HTTP-date) is honoured, else
+* ``Retry-After`` (seconds or HTTP-date) is honored, else
   ``crawl.retry_after_default_s × 2^(n−1)``;
 * a 429 pauses ALL new requests of the crawl, not just one worker's host;
 * more than ``crawl.max_consecutive_429`` 429s in a row stops the crawl as

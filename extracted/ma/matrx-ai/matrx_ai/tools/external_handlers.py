@@ -72,7 +72,7 @@ Resolution order (per execution)
 
 Handler return values
 ----------------------
-Handlers may return any of the following — all are normalised automatically:
+Handlers may return any of the following — all are normalized automatically:
 
 - ``ToolResult``          — passed through as-is (preferred)
 - ``dict``                — wrapped as ``ToolResult(success=True, output=...)``
@@ -238,7 +238,7 @@ def external_tool(tool_name: str) -> Callable[[_F], _F]:
                 return {"image": await capture_screen(args.get("region"))}
 
     The method may return any value — ``ToolResult``, ``dict``, ``str``, or anything
-    else.  The adapter normalises the return value before it reaches the model.
+    else.  The adapter normalizes the return value before it reaches the model.
 
     The ``self`` argument receives the adapter instance, giving methods access to any
     shared state or configuration stored on the class.
@@ -373,7 +373,7 @@ class ExternalToolAdapter:
     def _make_handler(
         self, method: Callable[..., Awaitable[Any]], tool_name: str
     ) -> ExternalToolHandler:
-        """Wrap a decorated method as a normalised ``ExternalToolHandler``."""
+        """Wrap a decorated method as a normalized ``ExternalToolHandler``."""
         async def handler(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             import time
 
@@ -475,7 +475,7 @@ class ExternalToolAdapter:
 
 
 # ------------------------------------------------------------------
-# Internal normalisation helper (shared by adapter + invoke_external_handler)
+# Internal normalization helper (shared by adapter + invoke_external_handler)
 # ------------------------------------------------------------------
 
 async def _normalise_result(
@@ -592,13 +592,13 @@ async def invoke_external_handler(
     args: dict[str, Any],
     ctx: ToolContext,
 ) -> ToolResult:
-    """Invoke the registered handler for a tool, returning a normalised ``ToolResult``.
+    """Invoke the registered handler for a tool, returning a normalized ``ToolResult``.
 
     This is called internally by ``ToolExecutor._execute_external_handler``.
     It handles:
     - handler lookup (with graceful error if none registered)
     - invocation with timeout guard inherited from the executor
-    - normalisation of raw return values into ``ToolResult``
+    - normalization of raw return values into ``ToolResult``
     - exception capture → structured ``ToolResult`` with error details
     """
     import time

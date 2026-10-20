@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import logging
 import math
+import re
 import time
 import threading
 from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
@@ -52,6 +53,7 @@ from databricks.sql.utils import (
     convert_arrow_based_set_to_arrow_table,
     convert_decimals_in_arrow_table,
     convert_column_based_set_to_arrow_table,
+    escape_metadata_catalog_name,
     serialize_query_tags,
 )
 from databricks.sql.types import SSLOptions
@@ -75,6 +77,19 @@ DATABRICKS_REASON_HEADER = "x-databricks-reason-phrase"
 
 TIMESTAMP_AS_STRING_CONFIG = "spark.thriftserver.arrowBasedRowSet.timestampAsString"
 DEFAULT_SOCKET_TIMEOUT = float(900)
+
+# thrift>=0.25.0 changed TBinaryProtocol's default string_length_limit from
+# unbounded (None) to DEFAULT_STRING_LENGTH_LIMIT (DEFAULT_MAX_FRAME_SIZE,
+# ~15.6 MiB) as part of its CVE-2026-85494 fix (peer-declared length with no
+# effective maximum). That default is sized for untrusted/unbounded peers;
+# this connector already bounds its own result stream via the TLS-verified,
+# server-negotiated `buffer_size_bytes` (default 100 MiB, see client.py's
+# DEFAULT_RESULT_BUFFER_SIZE_BYTES) and the inline Arrow batches in
+# TFetchResultsResp routinely exceed thrift's new ~15.6 MiB cap. Pass these
+# explicitly so upgrading thrift does not silently cap -- or regress -- the
+# connector's own, already-bounded result size behavior.
+THRIFT_BINARY_PROTOCOL_STRING_LENGTH_LIMIT = None
+THRIFT_BINARY_PROTOCOL_CONTAINER_LENGTH_LIMIT = None
 
 # see Connection.__init__ for parameter descriptions.
 # - Min/Max avoids unsustainable configs (sane values are far more constrained)
@@ -164,6 +179,7 @@ class ThriftDatabricksClient(DatabricksClient):
             raise ValueError("No valid connection settings.")
 
         self._host = server_hostname
+        self._escape_catalog_name = kwargs.get("escape_catalog_name", False)
         self._initialize_retry_args(kwargs)
         self._use_arrow_native_complex_types = kwargs.get(
             "_use_arrow_native_complex_types", True
@@ -237,7 +253,11 @@ class ThriftDatabricksClient(DatabricksClient):
         self._transport.setTimeout(timeout and (float(timeout) * 1000.0))
 
         self._transport.setCustomHeaders(dict(http_headers))
-        protocol = thrift.protocol.TBinaryProtocol.TBinaryProtocol(self._transport)
+        protocol = thrift.protocol.TBinaryProtocol.TBinaryProtocol(
+            self._transport,
+            string_length_limit=THRIFT_BINARY_PROTOCOL_STRING_LENGTH_LIMIT,
+            container_length_limit=THRIFT_BINARY_PROTOCOL_CONTAINER_LENGTH_LIMIT,
+        )
         self._client = TCLIService.Client(protocol)
 
         try:
@@ -788,27 +808,35 @@ class ThriftDatabricksClient(DatabricksClient):
         else:
             precision, scale = None, None
 
-        # Extract variant type from field if available
+        # Extract logical types that Thrift surfaces as strings from Arrow metadata.
         if field is not None:
             try:
-                # Check for variant type in metadata
                 if field.metadata and b"Spark:DataType:SqlName" in field.metadata:
                     sql_type = field.metadata.get(b"Spark:DataType:SqlName")
-                    if sql_type == b"VARIANT":
-                        cleaned_type = "variant"
+                    logical_type = re.fullmatch(
+                        rb"(variant|geometry|geography)(?:\([^()]*\))?",
+                        sql_type.strip(),
+                        re.IGNORECASE,
+                    )
+                    if logical_type:
+                        cleaned_type = logical_type.group(1).decode("ascii").lower()
             except Exception as e:
-                logger.debug(f"Could not extract variant type from field: {e}")
+                logger.debug(f"Could not extract logical type from field: {e}")
 
         return col.columnName, cleaned_type, None, None, precision, scale, None
 
     @staticmethod
     def _hive_schema_to_description(t_table_schema, schema_bytes=None, host_url=None):
+        arrow_fields = []
         field_dict = {}
         if pyarrow and schema_bytes:
             try:
                 arrow_schema = pyarrow.ipc.read_schema(pyarrow.py_buffer(schema_bytes))
-                # Build a dictionary mapping column names to fields
-                for field in arrow_schema:
+                arrow_fields = list(arrow_schema)
+                # Retain a name fallback for malformed/partial schemas, but use
+                # result-column position whenever it is available. SQL permits
+                # duplicate aliases, for which a name lookup is ambiguous.
+                for field in arrow_fields:
                     field_dict[field.name] = field
             except Exception as e:
                 logger.debug(f"Could not parse arrow schema: {e}")
@@ -816,10 +844,14 @@ class ThriftDatabricksClient(DatabricksClient):
         return [
             ThriftDatabricksClient._col_to_description(
                 col,
-                field_dict.get(col.columnName) if field_dict else None,
+                (
+                    arrow_fields[index]
+                    if index < len(arrow_fields)
+                    else field_dict.get(col.columnName)
+                ),
                 host_url,
             )
-            for col in t_table_schema.columns
+            for index, col in enumerate(t_table_schema.columns)
         ]
 
     def _results_message_to_execute_response(
@@ -1176,7 +1208,9 @@ class ThriftDatabricksClient(DatabricksClient):
             getDirectResults=ttypes.TSparkGetDirectResults(
                 maxRows=max_rows, maxBytes=max_bytes
             ),
-            catalogName=catalog_name,
+            catalogName=escape_metadata_catalog_name(
+                catalog_name, self._escape_catalog_name
+            ),
             schemaName=schema_name,
         )
         resp = self.make_request(self._client.GetSchemas, req)
@@ -1222,7 +1256,9 @@ class ThriftDatabricksClient(DatabricksClient):
             getDirectResults=ttypes.TSparkGetDirectResults(
                 maxRows=max_rows, maxBytes=max_bytes
             ),
-            catalogName=catalog_name,
+            catalogName=escape_metadata_catalog_name(
+                catalog_name, self._escape_catalog_name
+            ),
             schemaName=schema_name,
             tableName=table_name,
             tableTypes=table_types,
@@ -1270,7 +1306,9 @@ class ThriftDatabricksClient(DatabricksClient):
             getDirectResults=ttypes.TSparkGetDirectResults(
                 maxRows=max_rows, maxBytes=max_bytes
             ),
-            catalogName=catalog_name,
+            catalogName=escape_metadata_catalog_name(
+                catalog_name, self._escape_catalog_name
+            ),
             schemaName=schema_name,
             tableName=table_name,
             columnName=column_name,

@@ -9,7 +9,10 @@ class TrainingCheckpointResponse(BaseModel):
   training_run_id: str
 
   step_index: int
-  """Training step whose committed checkpoint was resolved."""
+  """
+    Training step whose committed checkpoint was resolved; step 0 precedes optimizer
+    updates.
+    """
 
   checkpoint_id: str
   """Committed checkpoint id for deploy or checkpoint eval."""

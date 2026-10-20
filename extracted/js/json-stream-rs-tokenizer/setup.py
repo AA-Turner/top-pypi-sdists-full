@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name="json-stream-rs-tokenizer",
-    version="0.5.3",
+    version="0.5.4",
     rust_extensions=[
         RustExtension(
             "json_stream_rs_tokenizer.json_stream_rs_tokenizer",
@@ -32,7 +32,7 @@ setup(
             "https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/CHANGELOG.md"
         ),
     },
-    python_requires=">=3.8,<3.15",
+    python_requires=">=3.9,<3.16",
     install_requires=[],
     extras_require={
         "benchmark": [
@@ -56,12 +56,12 @@ setup(
         "Programming Language :: Rust",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
 )

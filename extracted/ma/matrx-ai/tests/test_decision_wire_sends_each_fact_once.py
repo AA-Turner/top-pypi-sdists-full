@@ -54,8 +54,8 @@ QUESTIONS = [
     {
         "name": "is_defect",
         "type": "noul",
-        "instructions": "Is this a defect in existing behaviour?",
-        "criteria": {"true": "existing behaviour is wrong", "false": "new behaviour is wanted"},
+        "instructions": "Is this a defect in existing behavior?",
+        "criteria": {"true": "existing behavior is wrong", "false": "new behavior is wanted"},
         "suggested_threshold": 0.7,
     },
     {

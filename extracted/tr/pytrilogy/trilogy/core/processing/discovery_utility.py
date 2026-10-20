@@ -781,6 +781,23 @@ def disconnected_components(
     return sorted(groups, key=lambda grp: min(c.address for c in grp))
 
 
+def _scalar_rooted(concept: BuildConcept, _seen: set[str] | None = None) -> bool:
+    """Every leaf is a literal or a grain-() root (`property <*>.x`): one row
+    whatever a WHERE selects. ``sum(amount)`` is single-row but reads amount's
+    rows, so it is not."""
+    if concept.derivation == Derivation.ROOT or concept.lineage is None:
+        return concept.granularity == Granularity.SINGLE_ROW
+    seen = _seen if _seen is not None else set()
+    if concept.address in seen:
+        return True
+    seen.add(concept.address)
+    return all(
+        _scalar_rooted(arg, seen)
+        for arg in concept.concept_arguments
+        if isinstance(arg, BuildConcept)
+    )
+
+
 def _output_is_rootless(outputs: list[BuildConcept]) -> bool:
     """Every output has no datasource dependency: a constant, a single-row scalar,
     or a value generated purely from literals (lineage but no concept arguments,
@@ -828,6 +845,30 @@ def _rowset_handles_read_by_scalars(
                 continue
             if _crossjoinable(arg):
                 stack.extend(arg.concept_arguments)
+    return list(found.values())
+
+
+def _rowset_grain_keys(
+    outputs: list[BuildConcept], grain_only: dict[str, set[str]]
+) -> list[BuildConcept]:
+    """Rowset handles an output aggregate is grouped `by` without reading them
+    (`sum(x) by rs.key`). A grain-only key is no join edge, but grouping by a
+    rowset's rows pairs them with the measure's, and that pairing needs a
+    declared join."""
+    found: dict[str, BuildConcept] = {}
+    stack = list(outputs)
+    seen: set[str] = set()
+    while stack:
+        concept = stack.pop()
+        if concept.address in seen or concept.derivation == Derivation.ROWSET:
+            continue
+        seen.add(concept.address)
+        keys = grain_only.get(concept.address, set())
+        for arg in concept.concept_arguments:
+            if arg.address in keys and arg.derivation == Derivation.ROWSET:
+                found.setdefault(arg.address, arg)
+            elif arg.derivation in READ_THROUGH_DERIVATIONS:
+                stack.append(arg)
     return list(found.values())
 
 
@@ -1127,6 +1168,9 @@ def raise_if_disconnected_for(
                 concepts = unique(concepts + handles, "address")
     grain_only = _aggregate_grain_only_parents(environment)
     bound = _bound_addresses(g)
+    grain_keys = _rowset_grain_keys(outputs, grain_only)
+    output_addresses |= {c.address for c in grain_keys}
+    concepts = unique(concepts + grain_keys, "address")
     subgraphs = disconnected_components(
         environment,
         concepts,
@@ -1467,8 +1511,10 @@ def raise_if_where_population_split(
     That is right with no WHERE (two scalar aggregates over unrelated models are a
     well-defined cross join) and wrong with one, because an output whose source no
     join relates to the filter would ride through silently unfiltered. Anchor those
-    skipped outputs by their upstream row sources instead and name the split. Only
-    called once discovery has already failed, so it can only sharpen the message."""
+    skipped outputs by their upstream row sources instead and name the split.
+    Checked before discovery, which would otherwise plan the stranded output as an
+    unfiltered cross join under an EXISTS gate. Scalars over grain-() roots read
+    one row whatever the WHERE selects, so the EXISTS gate is all they need."""
     if conditions is None:
         return
     filter_args = [c for c in conditions.row_arguments if not _crossjoinable(c)]
@@ -1483,7 +1529,8 @@ def raise_if_where_population_split(
     stranded = [
         c
         for c in outputs
-        if (components := _reachable_components(c, environment, comp_of))
+        if not _scalar_rooted(c)
+        and (components := _reachable_components(c, environment, comp_of))
         and not components & filter_components
     ]
     if not stranded:

@@ -3,7 +3,7 @@
 These pin the properties that used to live in only ONE of the two Brave clients
 (and so were absent from whichever one you happened to call): a 429 is a typed
 error and never an empty result set, pacing re-tunes from Brave's own header,
-`Retry-After` is honoured, and the locale/section parameters exist at all.
+`Retry-After` is honored, and the locale/section parameters exist at all.
 """
 
 from typing import Any

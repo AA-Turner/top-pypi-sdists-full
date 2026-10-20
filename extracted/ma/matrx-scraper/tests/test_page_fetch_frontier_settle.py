@@ -12,7 +12,7 @@ with "1 item(s) in flight and 0 queued, after fetching 0 of 1".
 Two independent layers, each asserted here, each sufficient alone:
   1. The run loop never stops for the page budget while any worker holds a
      reserved slot (`_pages_reserved > 0` means work is possibly invisible).
-  2. A worker cancelled mid-item requeues its claim (will_retry) before the
+  2. A worker canceled mid-item requeues its claim (will_retry) before the
      CancelledError propagates, so even a torn-down worker strands nothing.
 """
 
@@ -120,7 +120,7 @@ async def test_page_budget_stop_waits_for_invisible_claim(
 ) -> None:
     """THE race. With the claim invisible for 350ms, the old stop condition
     (`fetched + reserved >= max_pages and inflight == 0`) broke out of the run
-    loop on its first tick, cancelled the worker mid-claim, and stranded the
+    loop on its first tick, canceled the worker mid-claim, and stranded the
     item in flight. The loop must wait for reserved slots to resolve."""
 
     async def allow_test_url(url: str) -> None:

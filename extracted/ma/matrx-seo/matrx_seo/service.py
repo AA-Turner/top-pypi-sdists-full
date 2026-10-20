@@ -381,7 +381,7 @@ class SeoCollectionService:
         the window, so identical concurrent requests collapse onto one purchase;
         (3) a window of 0, or a bucket run that is somehow stale, buys under a
         one-time purchase nonce. Holds for any number of re-buys and never hands
-        back a stale run labelled reused."""
+        back a stale run labeled reused."""
         async def fresh() -> CollectionReceipt | None:
             return await self.repository.find_fresh_completed(
                 adapter.provider,
@@ -816,7 +816,7 @@ class SeoCollectionService:
                 receipt=receipt.model_dump(mode="json"),
             )
         except asyncio.CancelledError:
-            # Terminalize before propagating: without this, a cancelled collect
+            # Terminalize before propagating: without this, a canceled collect
             # leaves the run 'processing' until the lifecycle watchdog abandons
             # it. The terminal write must outlive the cancellation that caused
             # it, and cancellation can arrive repeatedly during shutdown — keep
@@ -824,7 +824,7 @@ class SeoCollectionService:
             await _stop_lease_heartbeat(heartbeat, suppress_failure=True)
             error = {
                 "type": "CancelledError",
-                "message": "SEO collection task was cancelled",
+                "message": "SEO collection task was canceled",
             }
             write = asyncio.create_task(self.repository.cancel_run(run, error))
             while not write.done():

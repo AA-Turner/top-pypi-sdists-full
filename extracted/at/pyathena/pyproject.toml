@@ -12,7 +12,7 @@ dependencies = [
     "botocore>=1.43.31",
     "tenacity>=8.0.1",
     "fsspec>=2026.9.0",
-    "tzdata",
+    "tzdata>=2024.2",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -48,6 +48,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dynamic = ["version"]
 
@@ -92,6 +93,11 @@ dev = [
     "pandas>=3.0.0",
     "pyarrow>=22.0.0",
     "polars>=1.39.0",
+    # Python 3.14 and later, including the newest version that pull requests test,
+    # use Polars 2; Polars 1.x Series methods return None on Python 3.15
+    # (pola-rs/polars#29419). The older versions keep the newest Polars 1.x release.
+    "polars>=2.0.0; python_version >= '3.14'",
+    "polars<2.0.0; python_version < '3.14'",
     "Jinja2>=3.1.0",
     "mypy>=0.900",
     "pytest>=3.5",
@@ -130,6 +136,20 @@ source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
 version-file = "pyathena/_version.py"
+
+[tool.uv]
+# pyarrow 26.0.0 is the first release with Python 3.15 wheels; without this, every
+# resolution of the lock keeps the version that the benchmarks' awswrangler allows.
+constraint-dependencies = ["pyarrow>=26.0.0; python_version >= '3.15'"]
+# The benchmark measures PolarsCursor in one environment per Polars major version;
+# the root development group pins Polars by Python version instead.
+conflicts = [
+    [
+        { package = "pyathena", group = "dev" },
+        { package = "pyathena-benchmarks", group = "polars1" },
+        { package = "pyathena-benchmarks", group = "polars2" },
+    ],
+]
 
 [tool.uv.workspace]
 members = ["benchmarks"]
@@ -226,7 +246,7 @@ exclude = [
 legacy_tox_ini = """
 [tox]
 isolated_build = true
-envlist = py{311,312,313,314}-{pyathena,sqla,sqla_async}
+envlist = py{311,312,313,314,315}-{pyathena,sqla,sqla_async}
 
 [gh-actions]
 python =
@@ -234,6 +254,7 @@ python =
     3.12: py312
     3.13: py313
     3.14: py314
+    3.15: py315
 
 [gh-actions:env]
 TEST_TYPE =

@@ -5,12 +5,17 @@ from __future__ import annotations
 import csv
 import importlib
 import logging
+import sys
+import threading
 from collections import abc
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
+from contextvars import copy_context
+from datetime import datetime, timezone
 from functools import partial
 from io import BufferedReader, BytesIO, IOBase, StringIO, TextIOWrapper
+from itertools import chain, islice
 from multiprocessing import cpu_count
 from types import GeneratorType
 from typing import (
@@ -25,16 +30,21 @@ from fsspec import open as filesystem_open
 from pyathena import OperationalError
 from pyathena.arrow.reader import ParquetChunkReader
 from pyathena.arrow.util import to_column_info
-from pyathena.converter import Converter
-from pyathena.error import ProgrammingError
+from pyathena.converter import Converter, _parse_time_zone, _to_datetime_with_tz
+from pyathena.error import DataError, ProgrammingError
 from pyathena.filesystem.s3 import S3FileSystem
 from pyathena.model import AthenaQueryExecution
 from pyathena.pandas.reader import _BINARY_NULL, BinaryCSVReader
-from pyathena.result_set import AthenaResultSet
+from pyathena.result_set import (
+    _CLOSED_MESSAGE,
+    _FETCH_FAILED_MESSAGE,
+    AthenaResultSet,
+    AthenaUnloadResultSetMetadataReader,
+)
 from pyathena.util import RetryConfig, override, parse_output_location
 
 if TYPE_CHECKING:
-    from pandas import DataFrame, Index, Series
+    from pandas import DataFrame, Series
     from pandas.io.parsers import TextFileReader
     from pyarrow import Table
     from pyarrow.parquet import FileMetaData
@@ -42,6 +52,14 @@ if TYPE_CHECKING:
     from pyathena.connection import Connection
 
 _logger = logging.getLogger(__name__)
+
+_READ_FAILED_MESSAGE = "PandasDataFrameIterator cannot be read after a failed read."
+
+# The Athena types whose CSV text AthenaPandasResultSet reads as text and converts after
+# reading; see _TemporalConverter.
+_CSV_TEMPORAL_TYPES = ("timestamp", "date", "timestamp with time zone")
+# A timestamp's text up to its sixth fractional digit, for years of four digits.
+_TIMESTAMP_TEXT_LENGTH = len("2000-01-01 00:00:00.000000")
 
 
 def _convert_binary_csv(converter: Callable[[str | None], Any], value: str) -> Any:
@@ -190,6 +208,32 @@ def _read_csv_with_pyarrow(source: str | IOBase, read_csv_kwargs: dict[str, Any]
     return df
 
 
+def _replace_by_label(df: DataFrame, name: Any, convert: Callable[[Series], Series]) -> None:
+    """Replace the values of a column or an index level of a DataFrame, given its label.
+
+    Args:
+        df: The DataFrame, updated in place.
+        name: The label of a column, or the name of an index level or of the index. A
+            partial label of MultiIndex columns is not replaced.
+        convert: Returns the new values of the given values, with their index.
+    """
+    import pandas as pd
+
+    index = df.index
+    if name in df.columns:
+        values = df[name]
+        if isinstance(values, pd.Series):
+            # Not a partial label of MultiIndex columns.
+            df[name] = convert(values)
+    elif isinstance(index, pd.MultiIndex) and name in index.names:
+        levels = [index.get_level_values(i) for i in range(index.nlevels)]
+        i = index.names.index(name)
+        levels[i] = pd.Index(convert(pd.Series(levels[i])), name=name)
+        df.index = pd.MultiIndex.from_arrays(levels, names=index.names)
+    elif index.name == name:
+        df.index = pd.Index(convert(pd.Series(index)), name=name)
+
+
 class _JSONConverter:
     """A json converter for the text of a json column that ``pandas.read_csv()`` read.
 
@@ -230,29 +274,14 @@ class _JSONConverter:
             df: The DataFrame or chunk, updated in place.
             name: The label of the json column, which can also be an index level.
         """
-        import pandas as pd
+        _replace_by_label(df, name, self._convert_values)
 
-        index = df.index
-        if name in df.columns:
-            values = df[name]
-            if isinstance(values, pd.Series):
-                # Not a partial label of MultiIndex columns.
-                df[name] = self._convert_values(values, index)
-        elif isinstance(index, pd.MultiIndex) and name in index.names:
-            levels = [index.get_level_values(i) for i in range(index.nlevels)]
-            i = index.names.index(name)
-            levels[i] = pd.Index(self._convert_values(levels[i]), name=name)
-            df.index = pd.MultiIndex.from_arrays(levels, names=index.names)
-        elif index.name == name:
-            df.index = pd.Index(self._convert_values(index), name=name)
-
-    def _convert_values(self, values: Series | Index, index: Index | None = None) -> Series:
+    def _convert_values(self, values: Series) -> Series:
         """Convert json text values.
 
         Args:
             values: The text values, with NaN for a value that pandas read as missing.
                 Values that pandas already parsed, such as an index or dates, are kept.
-            index: The index of the returned values, or None for a default index.
 
         Returns:
             The converted values: objects with None if there is NULL, as a NULL would
@@ -262,7 +291,7 @@ class _JSONConverter:
 
         if values.dtype.kind in "mM":
             # pandas parsed the text as dates, as parse_dates given to execute() asks.
-            return pd.Series(values.array, index=index)
+            return pd.Series(values.array, index=values.index)
         # Each value is one of three kinds:
         # - text, which pandas kept as read: the JSON text, converted here;
         # - a missing value: NULL, converted from an empty string, as pandas passes
@@ -276,10 +305,208 @@ class _JSONConverter:
                 else (self._converter("") if pd.isna(v) else v)
                 for v in values.to_numpy()
             ],
-            index=index,
+            index=values.index,
             dtype=object,
         )
         return converted if converted.isna().any() else converted.infer_objects()
+
+
+class _TemporalConverter:
+    """A converter for the text of a temporal column that ``pandas.read_csv()`` read.
+
+    ``timestamp``, ``date``, and ``timestamp with time zone`` columns are read as text
+    and converted as whole columns after reading, so that their dtypes depend only on
+    the Athena type: ``datetime64[us]``, ``datetime64[us]``, and ``datetime64[us, UTC]``.
+    Fractional digits beyond microseconds are truncated. A column that pandas already
+    parsed, as with ``parse_dates`` when a ``dtype`` given to ``execute()`` replaces
+    PyAthena's, gets the same unit.
+    """
+
+    __slots__ = ("_type",)
+
+    def __init__(self, type_: str) -> None:
+        """Create the converter of a column type.
+
+        Args:
+            type_: The Athena type of the column, one of ``_CSV_TEMPORAL_TYPES``.
+        """
+        self._type = type_
+
+    @property
+    def type(self) -> str:
+        """The Athena type of the column."""
+        return self._type
+
+    def convert(self, df: DataFrame, name: Any) -> None:
+        """Convert the text of a column in a DataFrame that ``read_csv()`` returned.
+
+        Args:
+            df: The DataFrame or chunk, updated in place.
+            name: The label of the column, which can also be an index level.
+
+        Raises:
+            DataError: If a value fails to convert, such as a ``timestamp with time
+                zone`` value with an unknown zone or a local time without one instant in
+                its zone. The message names the column.
+        """
+        try:
+            _replace_by_label(df, name, self._convert_values)
+        except Exception as e:
+            raise DataError(f"Column {name!r}: {e}") from e
+
+    def _convert_values(self, values: Series) -> Series:
+        """Convert the values of a column.
+
+        Args:
+            values: The text values, with missing values for NULL, or values that
+                pandas already parsed as dates.
+
+        Returns:
+            The converted values, with the index of ``values``.
+        """
+        if self._type == "timestamp with time zone":
+            return _to_utc_timestamps(values)
+        return _to_timestamps(values, date=self._type == "date")
+
+
+class _TimeZoneConverter:
+    """A converter that ``pandas.read_csv()`` applies to each ``timestamp with time zone`` value.
+
+    With ``parse_dates`` or ``dtype`` given to ``execute()``, or with a conversion
+    function other than the default one, pandas applies the column's conversion
+    function to each value as it reads, unless ``converters`` given to ``execute()``
+    replaces the conversion functions. This names the column in the
+    ``DataError`` of a value that fails to convert, as ``_TemporalConverter`` does.
+    """
+
+    __slots__ = ("_converter", "_label", "error")
+
+    def __init__(self, converter: Callable[[str | None], Any], label: Any) -> None:
+        """Wrap the conversion function of a column.
+
+        Args:
+            converter: The conversion function.
+            label: The label of the column.
+        """
+        self._converter = converter
+        self._label = label
+        # The DataError that the converter raised, which a whole read raises as it is.
+        self.error: DataError | None = None
+
+    def __call__(self, value: str | None) -> Any:
+        """Convert a value.
+
+        Args:
+            value: The text of the value.
+
+        Returns:
+            The converted value.
+
+        Raises:
+            DataError: If the value fails to convert, such as a value with an unknown
+                zone or a local time without one instant in its zone. The message names
+                the column.
+        """
+        try:
+            return self._converter(value)
+        except DataError as e:
+            self.error = DataError(f"Column {self._label!r}: {e}")
+            raise self.error from e
+
+
+def _to_timestamps(values: Series, date: bool = False) -> Series:
+    """Convert timestamp or date text to ``datetime64[us]``.
+
+    Args:
+        values: The text values, with missing values for NULL, or datetime values.
+        date: Whether the values are dates, which have no time to truncate.
+
+    Returns:
+        The values as ``datetime64[us]``, with NaT for NULL.
+    """
+    import pandas as pd
+
+    if values.dtype.kind == "M":
+        return values.dt.as_unit("us")
+    if isinstance(values.dtype, pd.StringDtype) and values.dtype.storage == "pyarrow":
+        # pyarrow parses its strings without a Python object per value, as
+        # pandas.to_datetime() would make.
+        import pyarrow as pa
+        import pyarrow.compute as pc
+
+        array = pa.array(values.array)
+        if date:
+            parsed = pc.cast(pc.cast(array, pa.date32()), pa.timestamp("us"))
+        else:
+            # Truncate the fraction to microseconds, as Athena's years have four digits.
+            text = pc.utf8_slice_codeunits(array, 0, _TIMESTAMP_TEXT_LENGTH)
+            parsed = pc.cast(text, pa.timestamp("us"))
+        return pd.Series(parsed.to_numpy(zero_copy_only=False), index=values.index)
+    text = values.astype("string")
+    if not date:
+        text = text.str.slice(0, _TIMESTAMP_TEXT_LENGTH)
+    return pd.to_datetime(text, format="ISO8601").dt.as_unit("us")
+
+
+def _to_utc_timestamps(values: Series) -> Series:
+    """Convert ``timestamp with time zone`` text to ``datetime64[us, UTC]``.
+
+    The local times of each zone are localized together. As for the fetch methods of
+    the other cursors, a local time that the zone repeats or skips is not converted.
+
+    Args:
+        values: The text values, a local time followed by a zone name or a ``+HH:MM``
+            or ``-HH:MM`` offset, with missing values for NULL, or aware datetime
+            values.
+
+    Returns:
+        The instants as ``datetime64[us, UTC]``, with NaT for NULL.
+
+    Raises:
+        DataError: If a zone is unknown, or a local time does not identify one instant
+            in its zone.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if values.dtype.kind == "M":
+        return values.dt.tz_convert("UTC").dt.as_unit("us")
+    text = values if isinstance(values.dtype, pd.StringDtype) else values.astype("string")
+    # The local time before the last space, and the zone after it. pandas runs these
+    # regular expressions in pyarrow for pyarrow-backed strings, without an object
+    # per value.
+    local = _to_timestamps(text.str.replace(r" [^ ]*$", "", regex=True)).to_numpy(
+        dtype="datetime64[us]"
+    )
+    # Integer codes of the zones, -1 for NULL, and the positions of each zone's values,
+    # grouped once by a stable sort of the codes.
+    codes, zone_names = pd.factorize(text.str.replace(r"^.* ", "", regex=True))
+    order = np.argsort(codes, kind="stable")
+    bounds = np.searchsorted(codes[order], np.arange(-1, len(zone_names) + 1))
+    utc = np.full(len(values), np.datetime64("NaT", "us"))
+    for code, zone_name in enumerate(zone_names):
+        positions = order[bounds[code + 1] : bounds[code + 2]]
+        zone = _parse_time_zone(zone_name)
+        if isinstance(zone, timezone):
+            utc[positions] = local[positions] - np.timedelta64(zone.utcoffset(None), "us")
+            continue
+        localized = pd.Series(local[positions]).dt.tz_localize(
+            zone, ambiguous="NaT", nonexistent="NaT"
+        )
+        utc[positions] = (
+            localized.dt.tz_convert("UTC").dt.tz_localize(None).to_numpy(dtype="datetime64[us]")
+        )
+        # pandas also reports local times before a zone's first transition as
+        # nonexistent, so the values that it does not localize are converted one at a
+        # time, which raises the DataError of a value without one instant.
+        failed = positions[np.isnat(utc[positions])]
+        if len(failed):
+            offsets = [
+                cast(datetime, _to_datetime_with_tz(value)).utcoffset()
+                for value in text.iloc[failed]
+            ]
+            utc[failed] = local[failed] - np.array(offsets, dtype="timedelta64[us]")
+    return pd.Series(utc, index=values.index).dt.tz_localize("UTC")
 
 
 class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
@@ -308,11 +535,16 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
         Most users should access results through PandasCursor methods.
     """
 
+    # The number of rows whose values the row iterators convert at once.
+    _ROW_BLOCK_SIZE: ClassVar[int] = 10_000
+
     def __init__(
         self,
         reader: TextFileReader | Iterator[DataFrame] | DataFrame,
         trunc_date: Callable[[DataFrame], DataFrame],
         csv_stream: IOBase | None = None,
+        fetch_types: Mapping[Any, str] | None = None,
+        closed: threading.Event | None = None,
     ) -> None:
         """Initialize the iterator.
 
@@ -321,6 +553,11 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
                 single DataFrame.
             trunc_date: Function to apply to each chunk, such as date truncation.
             csv_stream: Optional CSV stream owned and closed by this iterator.
+            fetch_types: The labels of the datetime columns whose values the row
+                iterators return as ``"datetime"`` or ``"date"`` objects, with None
+                for NaT, instead of pandas ``Timestamp`` values.
+            closed: Set when the result set that created the iterator is closed,
+                after which reads raise ``ProgrammingError``.
         """
         from pandas import DataFrame
 
@@ -330,6 +567,10 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
             self._reader = reader
         self._trunc_date = trunc_date
         self._csv_stream = csv_stream
+        self._fetch_types: dict[Any, str] = dict(fetch_types or {})
+        self._closed = closed
+        # Whether a read raised, after which the position of the next chunk is unknown.
+        self._read_failed = False
 
     @override
     def __next__(self) -> DataFrame:
@@ -340,11 +581,39 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
 
         Raises:
             StopIteration: When no more chunks are available.
+            ProgrammingError: If an earlier read failed, or the result set that
+                created the iterator is closed.
         """
+        return self._read_chunk(next)
+
+    def _read_chunk(self, read: Callable[[Any], DataFrame]) -> DataFrame:
+        """Read the next chunk with date truncation applied.
+
+        The iterator is closed at the end of the chunks and after an exception, and
+        later reads after an exception raise ``ProgrammingError``.
+
+        Args:
+            read: The function that reads the chunk from the reader.
+
+        Returns:
+            The chunk.
+
+        Raises:
+            StopIteration: When no more chunks are available.
+            ProgrammingError: If an earlier read failed, or the result set that
+                created the iterator is closed.
+        """
+        if self._closed is not None and self._closed.is_set():
+            raise ProgrammingError(_CLOSED_MESSAGE)
+        if self._read_failed:
+            raise ProgrammingError(_READ_FAILED_MESSAGE)
         try:
-            df = next(self._reader)
-            return self._trunc_date(df)
+            return self._trunc_date(read(self._reader))
+        except StopIteration:
+            self.close()
+            raise
         except BaseException:
+            self._read_failed = True
             self.close()
             raise
 
@@ -362,34 +631,123 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
         self.close()
 
     def close(self) -> None:
-        """Close the iterator and release resources."""
+        """Close the iterator and release resources; later reads get no chunks."""
         from pandas.io.parsers import TextFileReader
 
-        reader = self._reader
-        self._reader = iter(())
+        reader, self._reader = self._reader, iter(())
+        csv_stream, self._csv_stream = self._csv_stream, None
         try:
             if isinstance(reader, (TextFileReader, GeneratorType)):
                 reader.close()
         finally:
-            if self._csv_stream is not None:
-                self._csv_stream.close()
+            if csv_stream is not None:
+                csv_stream.close()
 
     def iterrows(self) -> Iterator[tuple[int, dict[str, Any]]]:
         """Iterate over rows as (index, row_dict) tuples.
 
         Row indices are continuous across all chunks, starting from 0.
 
+        Once the result set that created the iterator is closed, the rows of the
+        chunk already read are still returned, and reading the next chunk raises
+        ``ProgrammingError``.
+
         Yields:
             Tuple of (row_index, row_dict) for each row across all chunks.
         """
         row_num = 0
         for df in self:
-            # Use itertuples for memory efficiency instead of to_dict("records")
-            # which loads all rows into memory at once
             columns = df.columns.tolist()
-            for row in df.itertuples(index=False):
+            for row in chain.from_iterable(self._iter_row_blocks(df)):
                 yield (row_num, dict(zip(columns, row, strict=True)))
                 row_num += 1
+
+    def itertuples(self) -> Iterator[tuple[Any, ...]]:
+        """Iterate over rows as tuples of their values across all chunks.
+
+        The tuples hold the values of the columns by position, as
+        ``DataFrame.itertuples(index=False, name=None)`` gives them, so columns
+        with the same name keep their own values. The next chunk is read when the
+        rows of the current one run out. After an exception, such as a value that
+        fails to convert, the iteration ends.
+
+        Once the result set that created the iterator is closed, the rows of the
+        chunk already read are still returned, and reading the next chunk raises
+        ``ProgrammingError``.
+
+        Yields:
+            The rows of all remaining chunks.
+        """
+        # Resuming a block after an exception within a row would misalign its columns.
+        for df in self:
+            for block in self._iter_row_blocks(df):
+                yield from block
+
+    def _iter_row_blocks(self, df: DataFrame) -> Iterator[Iterator[tuple[Any, ...]]]:
+        """Iterate over the rows of a chunk in blocks of rows.
+
+        A block takes the values of a column at once with ``tolist()`` where that
+        gives the values that iterating over the column gives: for columns of a
+        NumPy array and of a pandas string dtype. The datetime columns of
+        ``fetch_types`` become ``datetime`` or ``date`` objects, with None for NaT.
+        The other columns, such as nullable integer, datetime, and
+        ``pyarrow``-backed columns, are iterated over. Blocks bound the values held
+        at once for a large chunk.
+
+        Args:
+            df: The DataFrame chunk.
+
+        Yields:
+            An iterator of the rows of each block.
+        """
+        import pandas as pd
+
+        # Each column's values, and how a slice of them is converted: "list" with
+        # tolist(), "datetime" or "date" to objects, or None to be iterated over.
+        columns: list[tuple[Any, str | None]] = []
+        for i in range(df.shape[1]):
+            series = df.iloc[:, i]
+            array = series.array
+            fetch_type = self._fetch_types.get(df.columns[i])
+            if fetch_type is not None and series.dtype.kind == "M":
+                columns.append((array, fetch_type))
+            elif isinstance(array.dtype, pd.StringDtype):
+                columns.append((array, "list"))
+            elif isinstance(array, pd.arrays.NumpyExtensionArray):
+                # NumpyExtensionArray.to_numpy() would scan the whole column for missing values.
+                columns.append((series.to_numpy(), "list"))
+            else:
+                columns.append((array, None))
+        size = self._ROW_BLOCK_SIZE
+        for start in range(0, len(df), size):
+            yield zip(
+                *(self._take_block(values, mode, start, start + size) for values, mode in columns),
+                strict=True,
+            )
+
+    @staticmethod
+    def _take_block(values: Any, mode: str | None, start: int, stop: int) -> Any:
+        """Take a block of a column's values for the row iterators.
+
+        Args:
+            values: The column's array.
+            mode: How the block is converted: ``"list"`` with ``tolist()``,
+                ``"datetime"`` or ``"date"`` to objects with None for NaT, or None to
+                be iterated over.
+            start: The position of the first value.
+            stop: The position after the last value.
+
+        Returns:
+            The values of the block.
+        """
+        block = values[start:stop]
+        if mode is None:
+            return block
+        if mode == "list":
+            return block.tolist()
+        objects = block.date if mode == "date" else block.to_pydatetime()
+        objects[block.isna()] = None
+        return objects.tolist()
 
     def get_chunk(self, size: int | None = None) -> DataFrame:
         """Get a chunk of specified size.
@@ -399,16 +757,19 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
 
         Returns:
             DataFrame chunk, with date truncation applied as in iteration.
+
+        Raises:
+            StopIteration: When no more chunks are available.
+            ProgrammingError: If an earlier read failed, or the result set that
+                created the iterator is closed.
         """
         from pandas.io.parsers import TextFileReader
 
-        try:
-            if isinstance(self._reader, TextFileReader):
-                return self._trunc_date(self._reader.get_chunk(size))
-            return self._trunc_date(next(self._reader))
-        except BaseException:
-            self.close()
-            raise
+        return self._read_chunk(
+            lambda reader: reader.get_chunk(size)
+            if isinstance(reader, TextFileReader)
+            else next(reader)
+        )
 
     def as_pandas(self) -> DataFrame:
         """Collect all remaining chunks into a single DataFrame.
@@ -445,6 +806,279 @@ class PandasDataFrameIterator(abc.Iterator):  # type: ignore[type-arg]
         ):
             df.index = df.index.astype(pd.CategoricalDtype(ordered=index_dtype.ordered))
         return df
+
+
+class AthenaPandasResultSetMetadataReader(AthenaUnloadResultSetMetadataReader):
+    """Reads the metadata of a pandas result set, and the footers of its Parquet files.
+
+    It owns the read configuration that the metadata depends on: PyAthena's S3
+    filesystem for the result files, the read options normalized for the result,
+    the Parquet engine, and whether an UNLOAD result is read in chunks. A result
+    read in chunks is described by the footer of its first file, read without
+    listing the unload location; a result read whole by the schema of its
+    dataset, which also has the partition columns of a partitioned UNLOAD.
+    ``AthenaPandasResultSet`` takes the first footer
+    (:meth:`take_parquet_first_footer`) and reads the footers of the other files
+    (:meth:`read_parquet_footers`) for their row counts and the dtypes of the
+    columns that hold NULL.
+    """
+
+    # The pandas.read_parquet() options given to execute() with which an UNLOAD result is
+    # read in chunks; see reads_parquet_in_chunks().
+    _PARQUET_CHUNK_OPTIONS: ClassVar[frozenset[str]] = frozenset({"columns", "dtype_backend"})
+
+    def __init__(
+        self,
+        connection: Connection[Any],
+        query_execution: AthenaQueryExecution,
+        retry_config: RetryConfig,
+        unload: bool = False,
+        unload_location: str | None = None,
+        engine: str = "auto",
+        chunksize: int | None = None,
+        block_size: int | None = None,
+        cache_type: str | None = None,
+        max_workers: int = (cpu_count() or 1) * 5,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the reader and the filesystem of the result files; it sends no request.
+
+        Args:
+            connection: The connection that ran the query.
+            query_execution: The query execution whose result set to read.
+            retry_config: The retry configuration for API calls.
+            unload: Whether the cursor runs its queries as UNLOAD to Parquet.
+            unload_location: The S3 location of the UNLOAD output.
+            engine: The parsing engine: ``"auto"``, ``"c"``, ``"python"``, or
+                ``"pyarrow"``.
+            chunksize: The number of rows per chunk, if the result is read in chunks.
+            block_size: The S3 read block size of the filesystem.
+            cache_type: The default fsspec cache type of the filesystem.
+            max_workers: The maximum number of threads of the filesystem.
+            **kwargs: The options of ``pandas.read_csv()`` or ``pandas.read_parquet()``.
+                ``coerce_int96_timestamp_unit=None`` is dropped for an UNLOAD result.
+        """
+        super().__init__(
+            connection,
+            query_execution,
+            retry_config,
+            unload=unload,
+            unload_location=unload_location,
+        )
+        self._engine = engine
+        self._chunksize = chunksize
+        # coerce_int96_timestamp_unit=None is pyarrow's default, nanoseconds, and the
+        # same as no coerce_int96_timestamp_unit for an UNLOAD result, whose timestamps
+        # are still read at microseconds. pandas.read_csv() still rejects it.
+        if self.is_unload and kwargs.get("coerce_int96_timestamp_unit", "us") is None:
+            del kwargs["coerce_int96_timestamp_unit"]
+        self._read_kwargs = kwargs
+        self._block_size = block_size
+        self._cache_type = cache_type
+        self._max_workers = max_workers
+        # Created on first use, so that a description of a CSV result creates none.
+        self._filesystem: S3FileSystem | None = None
+        # The footer of the first file of an UNLOAD result read in chunks; None for one
+        # read whole, and once taken.
+        self._parquet_first_footer: FileMetaData | None = None
+
+    @property
+    def filesystem(self) -> S3FileSystem:
+        """PyAthena's S3 filesystem that reads the result files, created on first use."""
+        if self._filesystem is None:
+            # Not cached by fsspec so that the connection and the dircache are released
+            # with the result set.
+            self._filesystem = S3FileSystem(
+                connection=self._connection,
+                default_block_size=self._block_size,
+                default_cache_type=self._cache_type,
+                max_workers=self._max_workers,
+                skip_instance_cache=True,
+            )
+        return self._filesystem
+
+    @property
+    def read_kwargs(self) -> dict[str, Any]:
+        """The read options of the result set, normalized for the result."""
+        return self._read_kwargs
+
+    @property
+    def parquet_engine(self) -> str:
+        """The Parquet engine, with ``"auto"`` resolved to an available one.
+
+        Raises:
+            ImportError: If pyarrow is not available for ``"auto"``.
+        """
+        if self._engine == "auto":
+            return self.available_engine(["pyarrow"])
+        return self._engine
+
+    @staticmethod
+    def available_engine(engine_candidates: list[str]) -> str:
+        """Get the first available engine from a list of candidates.
+
+        Args:
+            engine_candidates: List of engine names to try in order.
+
+        Returns:
+            First available engine name.
+
+        Raises:
+            ImportError: If no engines are available.
+        """
+        error_msgs = ""
+        for engine in engine_candidates:
+            try:
+                module = importlib.import_module(engine)
+                return module.__name__
+            except ImportError as e:
+                error_msgs += f"\n - {e!s}"
+
+        available_engines = ", ".join(f"'{e}'" for e in engine_candidates)
+        raise ImportError(
+            f"Unable to find a usable engine; tried using: {available_engines}."
+            f"Trying to import the above resulted in these errors:"
+            f"{error_msgs}"
+        )
+
+    def reads_parquet_in_chunks(self) -> bool:
+        """Whether the options allow reading the UNLOAD result in chunks of ``chunksize`` rows.
+
+        Chunks are read with ``ParquetChunkReader`` through PyAthena's filesystem when
+        ``execute()`` was given at most these ``pandas.read_parquet()`` options:
+        ``dtype_backend`` as ``"numpy_nullable"`` or ``"pyarrow"``, and ``columns`` as
+        distinct names without dots, which :meth:`read` also requires to be top-level
+        columns of the result. A name with a dot can select a nested field in
+        ``pandas.read_parquet()``. With other options, the result is read whole, as
+        without ``chunksize``, and pandas validates them.
+
+        Returns:
+            True if the options allow reading the UNLOAD result in chunks.
+        """
+        kwargs = self._read_kwargs
+        if self._chunksize is None or not kwargs.keys() <= self._PARQUET_CHUNK_OPTIONS:
+            return False
+        if kwargs.get("dtype_backend", "numpy_nullable") not in ("numpy_nullable", "pyarrow"):
+            return False
+        columns = kwargs.get("columns")
+        return columns is None or (
+            isinstance(columns, (list, tuple))
+            and len(columns) > 0
+            and all(isinstance(c, str) and "." not in c for c in columns)
+            and len(set(columns)) == len(columns)
+        )
+
+    def take_parquet_first_footer(self) -> FileMetaData | None:
+        """Take the footer of the first file of an UNLOAD result read in chunks.
+
+        Returns:
+            The footer that :meth:`read` read, if the result is read in chunks;
+            None for a result read whole, and on later calls.
+        """
+        footer, self._parquet_first_footer = self._parquet_first_footer, None
+        return footer
+
+    def read_parquet_footers(self, paths: list[str]) -> list[FileMetaData]:
+        """Read the footers of Parquet files of the UNLOAD result.
+
+        The footers are read concurrently, with no more threads than the connection pool
+        of the S3 client.
+
+        Args:
+            paths: The paths of the files, from the data manifest.
+
+        Returns:
+            The footers of the files, in the order of ``paths``.
+
+        Raises:
+            OperationalError: If reading the footers fails.
+        """
+        if not paths:
+            return []
+        # More threads than the S3 client's connection pool would discard connections,
+        # each with a warning from urllib3.
+        workers = min(self._connection.s3_client.meta.config.max_pool_connections, len(paths))
+        # Each read runs with a copy of this context, so that a stop of the retries in
+        # this thread (see stop_retries_on()) stops those of the reads too.
+        contexts = [copy_context() for _ in paths]
+        try:
+            # When the failure of a read reaches map()'s iterator, it cancels the reads
+            # that have not started.
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                footers = list(
+                    executor.map(
+                        lambda context, path: context.run(self._read_parquet_footer, path),
+                        contexts,
+                        paths,
+                    )
+                )
+        except Exception as e:
+            _logger.exception(f"Failed to read {self._unload_location}.")
+            raise OperationalError(*e.args) from e
+        return footers
+
+    @override
+    def _read_parquet_metadata(self) -> tuple[dict[str, Any], ...]:
+        """Read the metadata of the UNLOAD result, and decide whether it is read in chunks.
+
+        A result whose options allow reading it in chunks (see
+        :meth:`reads_parquet_in_chunks`), and whose ``columns`` are top-level
+        columns, is read in chunks: it is described by the schema of the footer of
+        its first file, which is kept for the read. Any other result is read whole
+        with ``pandas.read_parquet()`` and described by the schema of its dataset.
+
+        Returns:
+            The column metadata.
+
+        Raises:
+            OperationalError: If reading the footer or the schema fails.
+            ProgrammingError: If the engine is not ``"pyarrow"``.
+        """
+        if self.parquet_engine != "pyarrow":
+            raise ProgrammingError("Engine must be `pyarrow`.")
+        if self.reads_parquet_in_chunks():
+            footer = self.read_parquet_footers(self._data_manifest[:1])[0]
+            # The files of one UNLOAD query have the same schema.
+            schema = footer.schema.to_arrow_schema()
+            if set(self._read_kwargs.get("columns") or ()) <= set(schema.names):
+                self._parquet_first_footer = footer
+                return to_column_info(schema)
+            # Columns that are not top-level columns of the result are read whole,
+            # where pandas selects nested fields or raises for missing columns.
+        return self._read_parquet_schema()
+
+    def _read_parquet_schema(self) -> tuple[dict[str, Any], ...]:
+        """Read the column metadata of the dataset of the Parquet files.
+
+        Returns:
+            The column metadata, with the partition columns of a partitioned UNLOAD.
+
+        Raises:
+            OperationalError: If reading the schema fails.
+        """
+        from pyarrow import parquet
+
+        bucket, key = parse_output_location(cast(str, self._unload_location))
+        try:
+            dataset = parquet.ParquetDataset(f"{bucket}/{key}", filesystem=self.filesystem)
+            return to_column_info(dataset.schema)
+        except Exception as e:
+            _logger.exception(f"Failed to read schema {bucket}/{key}.")
+            raise OperationalError(*e.args) from e
+
+    def _read_parquet_footer(self, path: str) -> FileMetaData:
+        """Read the footer of a Parquet file.
+
+        Args:
+            path: The path of the file.
+
+        Returns:
+            The metadata of the file.
+        """
+        from pyarrow import parquet
+
+        with self.filesystem.open(path, "rb") as f:
+            return parquet.read_metadata(f)
 
 
 class AthenaPandasResultSet(AthenaResultSet):
@@ -486,6 +1120,10 @@ class AthenaPandasResultSet(AthenaResultSet):
         instantiated directly by users.
     """
 
+    _metadata_reader_class: ClassVar[type[AthenaPandasResultSetMetadataReader]] = (
+        AthenaPandasResultSetMetadataReader
+    )
+
     # File size thresholds and chunking configuration - Public for user customization
     PYARROW_MIN_FILE_SIZE_BYTES: int = 100
     LARGE_FILE_THRESHOLD_BYTES: int = 50 * 1024 * 1024  # 50MB
@@ -500,9 +1138,6 @@ class AthenaPandasResultSet(AthenaResultSet):
         "time",
         "timestamp",
     ]
-    # The pandas.read_parquet() options given to execute() with which an UNLOAD result is
-    # read in chunks; see _reads_parquet_in_chunks().
-    _PARQUET_CHUNK_OPTIONS: ClassVar[frozenset[str]] = frozenset({"columns", "dtype_backend"})
     # The block size of a CSV result file read with the background cache; see
     # _get_csv_open_options().
     CSV_BLOCK_SIZE: ClassVar[int] = 32 * 2**20
@@ -589,41 +1224,67 @@ class AthenaPandasResultSet(AthenaResultSet):
             result_set_type_hints: Athena type signatures for complex-type columns,
                 keyed by column name (case-insensitive) or zero-based column index.
             **kwargs: Additional arguments passed to pandas.read_csv/read_parquet.
+                ``coerce_int96_timestamp_unit=None`` is the same as no
+                ``coerce_int96_timestamp_unit`` for an UNLOAD result.
                 A given ``storage_options``, even None, replaces PyAthena's S3 filesystem
                 for reading the result files, and so does ``filesystem`` for UNLOAD results.
                 The UNLOAD manifest is still read with the connection's S3 client, and the
                 schema with PyAthena's filesystem.
         """
+        # Set by close(), so that the chunk iterators of the result set raise.
+        self._closed_event = threading.Event()
         super().__init__(
             connection=connection,
             converter=converter,
             query_execution=query_execution,
-            arraysize=1,  # Fetch one row to retrieve metadata
+            # The fetch size can exceed the size of a GetQueryResults page, which the
+            # base class validates.
+            arraysize=1,
             retry_config=retry_config,
+            # The metadata reader of the result set reads the metadata.
+            _pre_fetch=False,
             result_set_type_hints=result_set_type_hints,
         )
-        self._rows.clear()  # Clear pre_fetch data
         self._arraysize = arraysize
         self._keep_default_na = keep_default_na
         self._na_values = na_values
         self._quoting = quoting
-        self._unload = unload
-        self._unload_location = unload_location
         self._engine = engine
         self._chunksize = chunksize
         self._block_size = block_size
         self._cache_type = cache_type
-        self._max_workers = max_workers
         self._auto_optimize_chunksize = auto_optimize_chunksize
-        self._data_manifest: list[str] = []
+        reader = self._metadata_reader_class(
+            connection,
+            query_execution,
+            retry_config,
+            unload=unload,
+            unload_location=unload_location,
+            engine=engine,
+            chunksize=chunksize,
+            block_size=block_size,
+            cache_type=cache_type,
+            max_workers=max_workers,
+            **kwargs,
+        )
+        self._metadata_reader = reader
+        self._kwargs = reader.read_kwargs
+        self._fs = reader.filesystem
+        # The whole-result dtypes of the columns of a chunked UNLOAD result that hold NULL,
+        # which the reader adds from the footers that it reads.
         # The whole-result dtypes of the columns of a chunked UNLOAD result that hold NULL.
         self._parquet_null_dtypes: dict[str, Any] = {}
-        self._kwargs = kwargs
-        self._fs = self._create_s3_file_system()
         self._csv_stream: IOBase | None = None
         # The converters of the json columns that _read_csv() reads as text, keyed by label.
         self._csv_json_converters: dict[Any, _JSONConverter] = {}
+        # The converters of the temporal columns that _read_csv() reads as text, keyed by
+        # label; see _get_csv_temporal_converters().
+        self._csv_temporal_converters: dict[Any, _TemporalConverter] = {}
 
+        self._load_metadata()
+        # The UNLOAD output that the reader found, for the read of the rows.
+        self._unload_location = reader.unload_location
+        self._data_manifest = reader.data_manifest
         # Cache time column names for efficient _trunc_date processing. _read_csv()
         # replaces them with the labels of the columns that it reads.
         description = self.description if self.description else []
@@ -636,37 +1297,36 @@ class AthenaPandasResultSet(AthenaResultSet):
         if self.state == AthenaQueryExecution.STATE_SUCCEEDED:
             if self.output_location:
                 result = self._as_pandas()
-                trunc_date = _no_trunc_date if self.is_unload else self._finish_csv_frame
+                trunc_date = (
+                    self._finish_parquet_frame if self.is_unload else self._finish_csv_frame
+                )
             else:
                 # Without a result file, as with managed query result storage, the rows
                 # from GetQueryResults are read as a CSV result file, but not in chunks.
                 result = self._read_csv()
                 trunc_date = self._finish_csv_frame
+            # The datetime columns that the fetch methods return as datetime or date.
+            self._fetch_types = self._get_fetch_types()
             if isinstance(result, pd.DataFrame):
                 self._df = trunc_date(result)
             else:
-                self._df_iter = PandasDataFrameIterator(result, trunc_date, self._csv_stream)
+                self._df_iter = PandasDataFrameIterator(
+                    result, trunc_date, self._csv_stream, self._fetch_types, self._closed_event
+                )
         else:
+            self._fetch_types = {}
             self._df = pd.DataFrame()
         if self._df is not None:
             # A shallow copy keeps assignments to the DataFrame from as_pandas()
             # out of the rows that the fetch methods return. Mutable values in its
             # cells, such as lists from JSON columns, are still shared.
-            self._df_iter = PandasDataFrameIterator(self._df.copy(deep=False), _no_trunc_date)
-        self._iterrows = self._df_iter.iterrows()
-
-    def _get_parquet_engine(self) -> str:
-        """Get the parquet engine to use, handling auto-detection.
-
-        Returns:
-            Name of the parquet engine to use ('pyarrow').
-
-        Raises:
-            ImportError: If pyarrow is not available.
-        """
-        if self._engine == "auto":
-            return self._get_available_engine(["pyarrow"])
-        return self._engine
+            self._df_iter = PandasDataFrameIterator(
+                self._df.copy(deep=False),
+                _no_trunc_date,
+                fetch_types=self._fetch_types,
+                closed=self._closed_event,
+            )
+        self._row_iter: Iterator[tuple[Any, ...]] = self._df_iter.itertuples()
 
     def _get_csv_engine(
         self, file_size_bytes: int | None = None, chunksize: int | None = None
@@ -695,7 +1355,13 @@ class AthenaPandasResultSet(AthenaResultSet):
             is_compatible = (
                 effective_chunksize is None
                 and self._quoting == 1
-                and not self.converters
+                # pandas' PyArrow engine takes no converters. Those of the temporal
+                # columns that are converted after reading are not used.
+                and self._kwargs.get("converters") is None
+                and not self.converters.keys()
+                - self._get_csv_temporal_converters(
+                    [(d[0], d) for d in self.description or []]
+                ).keys()
                 # The pyarrow engine does not rename columns with the same name, and
                 # the column labels cannot be resolved for it (see
                 # _get_csv_column_labels()).
@@ -706,38 +1372,11 @@ class AthenaPandasResultSet(AthenaResultSet):
             )
             if is_compatible:
                 try:
-                    return self._get_available_engine(["pyarrow"])
+                    return AthenaPandasResultSetMetadataReader.available_engine(["pyarrow"])
                 except ImportError:
                     pass
 
         return "c"
-
-    def _get_available_engine(self, engine_candidates: list[str]) -> str:
-        """Get the first available engine from a list of candidates.
-
-        Args:
-            engine_candidates: List of engine names to try in order.
-
-        Returns:
-            First available engine name.
-
-        Raises:
-            ImportError: If no engines are available.
-        """
-        error_msgs = ""
-        for engine in engine_candidates:
-            try:
-                module = importlib.import_module(engine)
-                return module.__name__
-            except ImportError as e:
-                error_msgs += f"\n - {e!s}"
-
-        available_engines = ", ".join(f"'{e}'" for e in engine_candidates)
-        raise ImportError(
-            f"Unable to find a usable engine; tried using: {available_engines}."
-            f"Trying to import the above resulted in these errors:"
-            f"{error_msgs}"
-        )
 
     def _auto_determine_chunksize(self, file_size_bytes: int) -> int | None:
         """Determine appropriate chunksize for large files based on file size.
@@ -763,22 +1402,6 @@ class AthenaPandasResultSet(AthenaResultSet):
         if estimated_rows > self.AUTO_CHUNK_THRESHOLD_MEDIUM:
             return self.AUTO_CHUNK_SIZE_MEDIUM
         return None
-
-    def _create_s3_file_system(self):
-        """Create PyAthena's ``S3FileSystem`` from the connection settings.
-
-        Returns:
-            The S3 filesystem for reading the query results.
-        """
-        # Not cached by fsspec so that the connection and the dircache are
-        # released with the result set.
-        return S3FileSystem(
-            connection=self.connection,
-            default_block_size=self._block_size,
-            default_cache_type=self._cache_type,
-            max_workers=self._max_workers,
-            skip_instance_cache=True,
-        )
 
     @property
     def dtypes(self) -> dict[str, type[Any]]:
@@ -831,7 +1454,7 @@ class AthenaPandasResultSet(AthenaResultSet):
     def _finish_csv_frame(self, df: DataFrame) -> DataFrame:
         """Finish a DataFrame read from the CSV result file.
 
-        Converts the json columns and truncates the time columns.
+        Converts the json and temporal columns and truncates the time columns.
 
         Args:
             df: The DataFrame or chunk that ``pandas.read_csv()`` returned.
@@ -841,6 +1464,8 @@ class AthenaPandasResultSet(AthenaResultSet):
 
         Raises:
             OperationalError: If converting a json column fails.
+            DataError: If a ``timestamp with time zone`` value has an unknown zone or a
+                local time without one instant, naming the column.
         """
         for name, converter in self._csv_json_converters.items():
             try:
@@ -848,24 +1473,114 @@ class AthenaPandasResultSet(AthenaResultSet):
             except Exception as e:
                 _logger.exception(f"Failed to convert the json column {name!r}.")
                 raise OperationalError(*e.args) from e
+        for name, temporal_converter in self._csv_temporal_converters.items():
+            temporal_converter.convert(df, name)
         return self._trunc_date(df)
 
-    def _get_csv_converter(self, type_: str) -> Callable[[str | None], Any] | _JSONConverter:
-        """Get the converter for a column type of the CSV result file.
+    def _finish_parquet_frame(self, df: DataFrame) -> DataFrame:
+        """Finish a DataFrame or chunk read from the Parquet files of an UNLOAD result.
+
+        ``date`` columns, which pyarrow reads as ``date`` objects, become
+        ``datetime64[us]``, as from a CSV result. With ``dtype_backend`` or
+        ``coerce_int96_timestamp_unit`` given to ``execute()``, the columns keep the
+        dtypes that these options give.
+
+        Args:
+            df: The DataFrame or chunk.
+
+        Returns:
+            The same DataFrame.
+        """
+        if self._kwargs.keys() & {"dtype_backend", "coerce_int96_timestamp_unit"}:
+            return df
+        dates = {d[0] for d in self.description or [] if d[1] == "date"}
+        for i, column in enumerate(df.columns):
+            if column in dates and df.dtypes.iloc[i].kind == "O":
+                df.isetitem(i, df.iloc[:, i].astype("datetime64[us]"))
+        return df
+
+    def _get_fetch_types(self) -> dict[Any, str]:
+        """Get the datetime columns that the fetch methods return as datetime or date.
+
+        These are the temporal columns that PyAthena converts: those of
+        ``_get_csv_temporal_converters()`` for a CSV result, and the ``timestamp`` and
+        ``date`` columns of an UNLOAD result, unless ``dtype_backend`` or
+        ``coerce_int96_timestamp_unit`` given to ``execute()`` set their dtypes.
+        Columns that ``parse_dates`` given to ``execute()`` parsed keep pandas' values.
+
+        Returns:
+            ``"datetime"`` or ``"date"``, keyed by column label.
+        """
+        if not self.is_unload:
+            return {
+                label: "date" if converter.type == "date" else "datetime"
+                for label, converter in self._csv_temporal_converters.items()
+            }
+        if self._kwargs.keys() & {"dtype_backend", "coerce_int96_timestamp_unit"}:
+            return {}
+        return {
+            d[0]: "date" if d[1] == "date" else "datetime"
+            for d in self.description or []
+            if d[1] in ("timestamp", "date")
+        }
+
+    def _get_csv_temporal_converters(
+        self, columns: list[tuple[Any, tuple[Any, ...]]]
+    ) -> dict[Any, _TemporalConverter]:
+        """Get the converters of the temporal columns that are converted after reading.
+
+        PyAthena converts the ``timestamp``, ``date``, and ``timestamp with time zone``
+        columns after reading, unless ``parse_dates``, ``dtype``, or ``converters`` is
+        given to ``execute()``, with which pandas reads them, or the converter maps the
+        type to a conversion function other than the default ``timestamp with time
+        zone`` one.
+
+        Args:
+            columns: The label and the description of each column that is read.
+
+        Returns:
+            The converters keyed by column label.
+        """
+        # None is the default of each option, as if it were not given.
+        if any(self._kwargs.get(key) is not None for key in ("parse_dates", "dtype", "converters")):
+            return {}
+        mappings = self._converter.mappings
+        temporal_converters = {}
+        for label, d in columns:
+            type_ = d[1]
+            if type_ not in _CSV_TEMPORAL_TYPES:
+                continue
+            if type_ == "timestamp with time zone":
+                if mappings.get(type_) is not _to_datetime_with_tz:
+                    continue
+            elif type_ in mappings:
+                continue
+            temporal_converters[label] = _TemporalConverter(type_)
+        return temporal_converters
+
+    def _get_csv_converter(
+        self, type_: str, label: Any
+    ) -> Callable[[str | None], Any] | _JSONConverter:
+        """Get the converter for a column of the CSV result file.
 
         json columns get a ``_JSONConverter``, which ``_read_json_columns_as_text()``
         replaces in the converters for ``pandas.read_csv()``, and which converts the
-        columns after reading.
+        columns after reading. ``timestamp with time zone`` columns get a
+        ``_TimeZoneConverter``, which names the column in a ``DataError``.
 
         Args:
             type_: The Athena type of the column.
+            label: The label of the column.
 
         Returns:
-            The conversion function, or the ``_JSONConverter`` of a json column.
+            The conversion function, the ``_JSONConverter`` of a json column, or the
+            ``_TimeZoneConverter`` of a ``timestamp with time zone`` column.
         """
         converter = self._converter.get(type_)
         if type_ == "json":
             return _JSONConverter(converter)
+        if type_ == "timestamp with time zone":
+            return _TimeZoneConverter(converter, label)
         return converter
 
     def _trunc_date(self, df: DataFrame) -> DataFrame:
@@ -882,14 +1597,35 @@ class AthenaPandasResultSet(AthenaResultSet):
     def fetchone(
         self,
     ) -> tuple[Any | None, ...] | dict[Any, Any | None] | None:
+        # As is_closed does, inline on the per-row path.
+        if self._connection is None:
+            raise ProgrammingError(_CLOSED_MESSAGE)
+        if self._fetch_failed:
+            raise ProgrammingError(_FETCH_FAILED_MESSAGE)
         try:
-            row = next(self._iterrows)
-        except StopIteration:
-            return None
-        else:
-            self._rownumber = row[0] + 1
-            # By position, so that columns with the same name keep their own values.
-            return tuple(row[1].values())
+            row = next(self._row_iter, None)
+            if row is not None:
+                self._count_rows(1)
+        except BaseException:
+            self._fetch_failed = True
+            raise
+        return row
+
+    @override
+    def _take_rows(self, size: int | None) -> list[tuple[Any | None, ...] | dict[Any, Any | None]]:
+        """Take the next rows from the row iterator in bulk.
+
+        The rows taken before an exception are counted in ``rownumber`` too.
+        """
+        rows: list[tuple[Any | None, ...] | dict[Any, Any | None]] = []
+        try:
+            # extend() keeps the rows that it appended before an exception, and
+            # islice() takes no size above sys.maxsize.
+            rows.extend(islice(self._row_iter, None if size is None else min(size, sys.maxsize)))
+        finally:
+            if rows:
+                self._count_rows(len(rows))
+        return rows
 
     def _read_csv(self) -> TextFileReader | DataFrame:
         """Read the CSV result file, or the GetQueryResults rows as one without it.
@@ -900,6 +1636,8 @@ class AthenaPandasResultSet(AthenaResultSet):
             The DataFrame of the results, or a reader of their chunks.
 
         Raises:
+            DataError: If a ``timestamp with time zone`` value that pandas converts as it
+                reads fails to convert, naming the column.
             OperationalError: If reading the results fails.
         """
         import pandas as pd
@@ -997,6 +1735,13 @@ class AthenaPandasResultSet(AthenaResultSet):
             return result
 
         except Exception as e:
+            # converters given to execute() can be of any type.
+            converters = read_csv_kwargs.get("converters")
+            if isinstance(converters, Mapping) and any(
+                isinstance(converter, _TimeZoneConverter) and converter.error is e
+                for converter in converters.values()
+            ):
+                raise
             _logger.exception(f"Failed to read {location}.")
             raise OperationalError(*e.args) from e
 
@@ -1064,7 +1809,19 @@ class AthenaPandasResultSet(AthenaResultSet):
         )
 
     def _get_csv_read_options(self, csv_engine: str, chunksize: int | None) -> dict[str, Any]:
-        """Build pandas options for Athena CSV or tab-separated results."""
+        """Build pandas options for Athena CSV or tab-separated results.
+
+        The temporal columns of ``_get_csv_temporal_converters()`` are read as text, and
+        ``_finish_csv_frame()`` converts them. The options given to ``execute()``
+        replace the ones built here.
+
+        Args:
+            csv_engine: The CSV engine that reads the file.
+            chunksize: The number of rows of each chunk, or None for a whole read.
+
+        Returns:
+            The options for ``pandas.read_csv()``.
+        """
         if self.output_location and self.output_location.endswith(".txt"):
             sep = "\t"
             header = None
@@ -1074,17 +1831,27 @@ class AthenaPandasResultSet(AthenaResultSet):
             header = 0
             names = None
 
+        description = self.description or []
+        self._csv_temporal_converters = self._get_csv_temporal_converters(
+            [(d[0], d) for d in description]
+        )
+        # The temporal columns that are converted after reading are read as text.
+        # pandas' PyArrow engine turns NULL into "None" with the NumPy str dtype, which
+        # str means without future.infer_string, so the PyArrow engine reads pyarrow
+        # strings.
+        temporal = self._csv_temporal_converters
+        text_dtype = "string[pyarrow]" if csv_engine == "pyarrow" else "str"
         read_csv_kwargs: dict[str, Any] = {
             "sep": sep,
             "header": header,
             "names": names,
-            "dtype": self.dtypes,
+            "dtype": {**self.dtypes, **dict.fromkeys(temporal, text_dtype)},
             "converters": {
-                d[0]: self._get_csv_converter(d[1])
-                for d in self.description or []
-                if d[1] in self._converter.mappings
+                d[0]: self._get_csv_converter(d[1], d[0])
+                for d in description
+                if d[1] in self._converter.mappings and d[0] not in self._csv_temporal_converters
             },
-            "parse_dates": self.parse_dates,
+            "parse_dates": [name for name in self.parse_dates if name not in temporal],
             "skip_blank_lines": False,
             "keep_default_na": self._keep_default_na,
             "na_values": self._na_values,
@@ -1227,7 +1994,8 @@ class AthenaPandasResultSet(AthenaResultSet):
         Columns with the same name keep their own converters and date parsing, and
         options that rename or select columns get the types of the columns they
         read. The ``dtype``, ``converters``, and ``parse_dates`` given to
-        ``execute()`` are kept as they are.
+        ``execute()`` are kept as they are. The temporal columns that are converted
+        after reading are read as text.
 
         Args:
             read_csv_kwargs: The options for ``pandas.read_csv()``, updated in place.
@@ -1237,21 +2005,26 @@ class AthenaPandasResultSet(AthenaResultSet):
         columns = [
             (label, d) for label, d in zip(labels, description, strict=True) if label is not None
         ]
+        self._csv_temporal_converters = self._get_csv_temporal_converters(columns)
+        temporal = self._csv_temporal_converters
         if "dtype" not in self._kwargs:
             read_csv_kwargs["dtype"] = {
-                label: dtype
-                for label, d in columns
-                if (dtype := self._converter.get_dtype(d[1], d[4], d[5])) is not None
+                **{
+                    label: dtype
+                    for label, d in columns
+                    if (dtype := self._converter.get_dtype(d[1], d[4], d[5])) is not None
+                },
+                **dict.fromkeys(temporal, "str"),
             }
         if "converters" not in self._kwargs:
             read_csv_kwargs["converters"] = {
-                label: self._get_csv_converter(d[1])
+                label: self._get_csv_converter(d[1], label)
                 for label, d in columns
-                if d[1] in self._converter.mappings
+                if d[1] in self._converter.mappings and label not in self._csv_temporal_converters
             }
         if "parse_dates" not in self._kwargs:
             read_csv_kwargs["parse_dates"] = [
-                label for label, d in columns if d[1] in self._PARSE_DATES
+                label for label, d in columns if d[1] in self._PARSE_DATES and label not in temporal
             ]
         self._time_columns = [label for label, d in columns if d[1] == "time"]
 
@@ -1357,29 +2130,46 @@ class AthenaPandasResultSet(AthenaResultSet):
             stack.pop_all()
             return stream
 
-    def _read_parquet(self, engine) -> DataFrame:
+    def _read_parquet(self) -> DataFrame:
+        """Read the UNLOAD result whole with ``pandas.read_parquet()``.
+
+        The options given to ``execute()`` are passed to ``pandas.read_parquet()``.
+        Timestamps are read at microseconds unless ``coerce_int96_timestamp_unit`` is
+        given.
+
+        The metadata reader must have read the data manifest first, and checked
+        that the engine is pyarrow.
+
+        Returns:
+            The DataFrame of the result, or an empty DataFrame without data files.
+
+        Raises:
+            OperationalError: If reading the Parquet files fails.
+        """
         import pandas as pd
 
-        self._data_manifest = self._read_data_manifest()
         if not self._data_manifest:
             return pd.DataFrame()
-        if not self._unload_location:
-            self._unload_location = "/".join(self._data_manifest[0].split("/")[:-1]) + "/"
+        # Derived from the data manifest by the metadata reader if not given.
+        location = cast(str, self._unload_location)
 
-        if engine == "pyarrow":
-            kwargs: dict[str, Any] = {"use_threads": True, **self._kwargs}
-            # Given storage_options, even None, pandas opens the files itself,
-            # as for CSV results.
-            if "filesystem" not in kwargs and "storage_options" not in kwargs:
-                kwargs["filesystem"] = self._fs
-            if kwargs.get("filesystem") is None:
-                unload_location = self._unload_location
-            else:
-                # pyarrow takes the path without the scheme with a filesystem.
-                bucket, key = parse_output_location(self._unload_location)
-                unload_location = f"{bucket}/{key}"
+        kwargs: dict[str, Any] = {
+            "use_threads": True,
+            # Athena writes timestamps as INT96, whose default unit, nanoseconds,
+            # cannot hold years before 1677 or after 2262.
+            "coerce_int96_timestamp_unit": "us",
+            **self._kwargs,
+        }
+        # Given storage_options, even None, pandas opens the files itself,
+        # as for CSV results.
+        if "filesystem" not in kwargs and "storage_options" not in kwargs:
+            kwargs["filesystem"] = self._fs
+        if kwargs.get("filesystem") is None:
+            unload_location = location
         else:
-            raise ProgrammingError("Engine must be `pyarrow`.")
+            # pyarrow takes the path without the scheme with a filesystem.
+            bucket, key = parse_output_location(location)
+            unload_location = f"{bucket}/{key}"
 
         try:
             return pd.read_parquet(unload_location, engine=self._engine, **kwargs)
@@ -1387,53 +2177,11 @@ class AthenaPandasResultSet(AthenaResultSet):
             _logger.exception(f"Failed to read {self.output_location}.")
             raise OperationalError(*e.args) from e
 
-    def _read_parquet_schema(self, engine) -> tuple[dict[str, Any], ...]:
-        if engine == "pyarrow":
-            from pyarrow import parquet
-
-            if not self._unload_location:
-                raise ProgrammingError("UnloadLocation is none or empty.")
-            bucket, key = parse_output_location(self._unload_location)
-            try:
-                dataset = parquet.ParquetDataset(f"{bucket}/{key}", filesystem=self._fs)
-                return to_column_info(dataset.schema)
-            except Exception as e:
-                _logger.exception(f"Failed to read schema {bucket}/{key}.")
-                raise OperationalError(*e.args) from e
-        else:
-            raise ProgrammingError("Engine must be `pyarrow`.")
-
-    def _reads_parquet_in_chunks(self) -> bool:
-        """Whether the options allow reading the UNLOAD result in chunks of ``chunksize`` rows.
-
-        Chunks are read with ``ParquetChunkReader`` through PyAthena's filesystem when
-        ``execute()`` was given at most these ``pandas.read_parquet()`` options:
-        ``dtype_backend`` as ``"numpy_nullable"`` or ``"pyarrow"``, and ``columns`` as
-        distinct names without dots, which ``_as_pandas()`` also requires to be
-        top-level columns of the result. A name with a dot can select a nested field in
-        ``pandas.read_parquet()``. With other options, the result is read whole, as
-        without ``chunksize``, and pandas validates them.
-
-        Returns:
-            True if the options allow reading the UNLOAD result in chunks.
-        """
-        if self._chunksize is None or not self._kwargs.keys() <= self._PARQUET_CHUNK_OPTIONS:
-            return False
-        if self._kwargs.get("dtype_backend", "numpy_nullable") not in ("numpy_nullable", "pyarrow"):
-            return False
-        columns = self._kwargs.get("columns")
-        return columns is None or (
-            isinstance(columns, (list, tuple))
-            and len(columns) > 0
-            and all(isinstance(c, str) and "." not in c for c in columns)
-            and len(set(columns)) == len(columns)
-        )
-
     def _iter_parquet_chunks(self) -> Iterator[DataFrame]:
         """Read the UNLOAD result in DataFrames of ``chunksize`` rows.
 
         See ``_convert_parquet_chunk()`` for the conversion of each chunk.
-        ``_read_parquet_footers()`` must have read the data manifest first.
+        ``_as_pandas()`` must have read the footers of the files first.
 
         Yields:
             The DataFrames of the result rows.
@@ -1488,56 +2236,6 @@ class AthenaPandasResultSet(AthenaResultSet):
         df.index = pd.RangeIndex(start, start + len(df))
         return df
 
-    def _read_parquet_footers(self) -> list[FileMetaData]:
-        """Read the data manifest and the footers of its Parquet files.
-
-        The footers are read concurrently, with no more threads than the connection pool
-        of the S3 client. It sets the unload location, and the whole-result dtypes of the
-        columns that ``_get_parquet_null_dtypes()`` finds in any file.
-
-        Returns:
-            The footers of the files, in the order of the data manifest.
-
-        Raises:
-            OperationalError: If reading the footers fails.
-        """
-        self._data_manifest = self._read_data_manifest()
-        if not self._data_manifest:
-            return []
-        if not self._unload_location:
-            self._unload_location = "/".join(self._data_manifest[0].split("/")[:-1]) + "/"
-        # More threads than the S3 client's connection pool would discard connections,
-        # each with a warning from urllib3.
-        workers = min(
-            self.connection.s3_client.meta.config.max_pool_connections,
-            len(self._data_manifest),
-        )
-        try:
-            # When the failure of a read reaches map()'s iterator, it cancels the reads
-            # that have not started.
-            with ThreadPoolExecutor(max_workers=workers) as executor:
-                footers = list(executor.map(self._read_parquet_footer, self._data_manifest))
-        except Exception as e:
-            _logger.exception(f"Failed to read {self._unload_location}.")
-            raise OperationalError(*e.args) from e
-        for footer in footers:
-            self._parquet_null_dtypes.update(self._get_parquet_null_dtypes(footer))
-        return footers
-
-    def _read_parquet_footer(self, path: str) -> FileMetaData:
-        """Read the footer of a Parquet file.
-
-        Args:
-            path: The path of the file.
-
-        Returns:
-            The metadata of the file.
-        """
-        from pyarrow import parquet
-
-        with self._fs.open(path, "rb") as f:
-            return parquet.read_metadata(f)
-
     @staticmethod
     def _get_parquet_null_dtypes(footer: FileMetaData) -> dict[str, Any]:
         """Get the whole-result dtypes of the columns that hold NULL in a Parquet file.
@@ -1575,33 +2273,39 @@ class AthenaPandasResultSet(AthenaResultSet):
         }
 
     def _as_pandas(self) -> TextFileReader | DataFrame | Iterator[DataFrame]:
-        if self.is_unload and self._reads_parquet_in_chunks():
-            import pandas as pd
+        """Read the result file, or the Parquet files of an UNLOAD result.
 
-            engine = self._get_parquet_engine()
-            footers = self._read_parquet_footers()
+        An UNLOAD result is read as its metadata reader decided: in chunks, after
+        the footers of the other files, or whole.
+
+        Returns:
+            The DataFrame of the result, or a reader or an iterator of its chunks.
+
+        Raises:
+            OperationalError: If reading the result fails.
+        """
+        if not self.is_unload:
+            return self._read_csv()
+        reader = cast(AthenaPandasResultSetMetadataReader, self._reader)
+        first_footer = reader.take_parquet_first_footer()
+        if first_footer is not None:
+            footers = [first_footer, *reader.read_parquet_footers(self._data_manifest[1:])]
+            for footer in footers:
+                self._parquet_null_dtypes.update(self._get_parquet_null_dtypes(footer))
             if not any(footer.num_rows for footer in footers):
-                self._metadata = ()
-                return pd.DataFrame()
-            # The files of one UNLOAD query have the same schema.
-            schema = footers[0].schema.to_arrow_schema()
-            if set(self._kwargs.get("columns") or ()) <= set(schema.names):
-                if engine != "pyarrow":
-                    raise ProgrammingError("Engine must be `pyarrow`.")
-                self._metadata = to_column_info(schema)
-                return self._iter_parquet_chunks()
-            # Columns that are not top-level columns of the result are read whole,
-            # where pandas selects nested fields or raises for missing columns.
-        if self.is_unload:
-            engine = self._get_parquet_engine()
-            df = self._read_parquet(engine)
-            if df.empty:
-                self._metadata = ()
-            else:
-                self._metadata = self._read_parquet_schema(engine)
-        else:
-            df = self._read_csv()
-        return df
+                from pyarrow import parquet
+
+                # Files without rows still have the columns that describe the result,
+                # with INT96 timestamps at microseconds, as the chunks read them.
+                with self._fs.open(self._data_manifest[0], "rb") as f:
+                    schema = parquet.ParquetFile(
+                        f, metadata=first_footer, coerce_int96_timestamp_unit="us"
+                    ).schema_arrow
+                table = schema.empty_table()
+                columns = self._kwargs.get("columns")
+                return self._convert_parquet_chunk(table.select(columns) if columns else table, 0)
+            return self._iter_parquet_chunks()
+        return self._read_parquet()
 
     def as_pandas(self) -> PandasDataFrameIterator | DataFrame:
         """Return the query results as a DataFrame or an iterator of DataFrame chunks.
@@ -1614,7 +2318,11 @@ class AthenaPandasResultSet(AthenaResultSet):
             ``iter_chunks()`` read from it before, and a later call returns an empty
             DataFrame. If ``chunksize`` is set, the iterator that ``iter_chunks()``
             returns.
+
+        Raises:
+            ProgrammingError: If the result set is closed.
         """
+        self._ensure_open()
         if self._chunksize is None:
             if self._df is not None:
                 return self._df
@@ -1639,6 +2347,10 @@ class AthenaPandasResultSet(AthenaResultSet):
         Returns:
             PandasDataFrameIterator that yields pandas DataFrames for each chunk
             of rows, or the entire DataFrame if the result was not read in chunks.
+            Its reads raise ``ProgrammingError`` once the result set is closed.
+
+        Raises:
+            ProgrammingError: If the result set is closed.
 
         Example:
             >>> # With chunking for large datasets
@@ -1653,8 +2365,11 @@ class AthenaPandasResultSet(AthenaResultSet):
             >>> for df in cursor.iter_chunks():
             ...     process(df)  # Single DataFrame with all data
         """
+        self._ensure_open()
         if self._df is not None:
-            return PandasDataFrameIterator(self._df, _no_trunc_date)
+            return PandasDataFrameIterator(
+                self._df, _no_trunc_date, fetch_types=self._fetch_types, closed=self._closed_event
+            )
         return self._df_iter
 
     @override
@@ -1662,8 +2377,9 @@ class AthenaPandasResultSet(AthenaResultSet):
         import pandas as pd
 
         super().close()
+        self._closed_event.set()
         self._df_iter.close()
         self._df = pd.DataFrame()
         self._df_iter = PandasDataFrameIterator(self._df, _no_trunc_date)
-        self._iterrows = enumerate([])
+        self._row_iter = iter(())
         self._data_manifest = []

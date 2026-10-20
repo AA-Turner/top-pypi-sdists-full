@@ -31,7 +31,8 @@ from collections.abc import Iterator
 from typing import Any, NamedTuple
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 # CAPS — bounds, not feature flags. A plan is a "mini" workflow by contract;
 # anything bigger belongs in the full workflow system.
@@ -131,13 +132,31 @@ SCALAR_PAYLOAD_KEYS = frozenset(
 )
 
 
+def _agent_id_stays_required(schema: dict[str, Any]) -> None:
+    # ``agent_id`` defaults to None only so a HOST can build an ``ask`` step;
+    # the planner's contract (this schema) still requires an agent on every step.
+    required = schema.setdefault("required", [])
+    if "agent_id" not in required:
+        required.insert(1, "agent_id")
+    schema.get("properties", {}).get("agent_id", {}).pop("default", None)
+
+
 class PlanStep(BaseModel):
     """One agent invocation in the plan."""
 
-    model_config = ConfigDict(extra="forbid")
+    # (Host-built only: a step may instead ASK A PERSON — see ``ask`` below. The
+    # docstring is the planner's schema description, so it stays as it was.)
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra=_agent_id_stays_required)
 
     step: int = Field(ge=1, description="Unique step number, 1-based.")
-    agent_id: UUID = Field(description="The saved agent to run.")
+    agent_id: UUID | SkipJsonSchema[None] = Field(default=None, description="The saved agent to run.")
+    # HOST-ONLY (hidden from the planner's schema). A ``control.human_input``
+    # config: instead of running an agent, the step pauses the run and asks a
+    # person; their answer becomes the step's output (``final_text``). The
+    # compiled-Orchestra seat member is the first user (a person holding an
+    # org-chart position). Exactly one of ``agent_id`` / ``ask``.
+    ask: SkipJsonSchema[dict[str, Any] | None] = Field(default=None, exclude_if=lambda v: v is None)
     purpose: str = Field(
         min_length=1,
         description="What this step accomplishes — becomes the node label.",
@@ -162,6 +181,14 @@ class PlanStep(BaseModel):
             "here only pure-ordering dependencies."
         ),
     )
+
+    @model_validator(mode="after")
+    def _agent_or_ask(self) -> PlanStep:
+        if (self.agent_id is None) == (self.ask is None):
+            raise ValueError("a plan step runs exactly one agent (agent_id) or asks a person (ask)")
+        if self.ask is not None and self.for_each is not None:
+            raise ValueError("a step that asks a person cannot run for_each")
+        return self
 
     @field_validator("inputs", "depends_on", mode="before")
     @classmethod

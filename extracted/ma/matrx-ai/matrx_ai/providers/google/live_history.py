@@ -323,7 +323,22 @@ def live_usage(
         offering_id=offering_id,
         raw_usage=dict(usage_metadata),
         metadata={"iteration": 1, "lane": "realtime"},
+        billing_components=live_modality_components(usage_metadata),
     )
+
+
+def live_modality_components(usage_metadata: dict[str, Any]) -> dict[str, int]:
+    """Live bills audio / image / video tokens at their own rates (component_prices).
+
+    Text is the base rate, so only the non-text subsets become components. Cached
+    modality counts come off the uncached ones so no token is billed twice. These are
+    EXACT components: a Live offering that does not price a modality it was billed for
+    records an unknown cost, never a text-rate guess. The split itself is the one shared
+    reader, ``usage_config.gemini_modality_counts``.
+    """
+    from matrx_ai.config.usage_config import gemini_modality_counts
+
+    return gemini_modality_counts(usage_metadata)
 
 
 class MusicTurnCollector:

@@ -2891,6 +2891,17 @@ class Client:
         # door, so a `probe_pat` or OAuth token identifies its own tenant/role.
         return self.transport.get("/v1/me")
 
+    def complete_desktop_onboarding(self) -> dict:
+        """Acknowledge a finished native install for this credential's user/team.
+
+        The server accepts only install → complete (or an already complete
+        retry), preserving the browser's flow. No target identity is sent.
+        """
+        from .transport import deadline_scope
+
+        with deadline_scope(time.monotonic() + 12):
+            return self.transport.post("/v1/desktop/onboarding/complete", idempotent=True)
+
     def logout(self) -> dict:
         """Release the calling token from THIS machine.
 

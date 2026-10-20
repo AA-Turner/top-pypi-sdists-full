@@ -13,7 +13,7 @@ def criteria(soup: BeautifulSoup, heading: str) -> str | None:
     h3_tag = soup.find(
         "h3",
         class_="description__job-criteria-subheader",
-        string=lambda text: text and heading in text,
+        string=lambda text: text is not None and heading in text,
     )
     span = (
         h3_tag.find_next_sibling("span", class_="description__job-criteria-text")
@@ -45,7 +45,7 @@ def parse_location(text: str) -> Location:
             return Location(city=city, state=last, country=Country.USA)
         return Location(city=city, country=last)
     try:
-        Country.from_string(text)
+        Country(text)
         return Location(country=text)
     except ValueError:
         return Location(city=text)

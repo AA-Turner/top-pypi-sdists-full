@@ -52,7 +52,9 @@ class Es256WorkerTokenVerifier:
     public_key_pem: str
     _spent_jti: dict[str, float] = field(default_factory=dict)
 
-    def verify(self, bearer: str, *, worker_id: str, op: str) -> WorkerCredential:
+    def verify(
+        self, bearer: str, *, worker_id: str, op: str, session: bool = False
+    ) -> WorkerCredential:
         if not bearer:
             raise WorkerProtocolError("unauthorized_worker_call", message="missing token")
         try:
@@ -76,6 +78,12 @@ class Es256WorkerTokenVerifier:
         if claims.get("mtx_op") != op:
             raise WorkerProtocolError(
                 "unauthorized_worker_call", message="token operation mismatch"
+            )
+        if session:
+            # A tool binding: one token for every call of an agent's tool loop,
+            # bounded by its expiry (no single-use jti, no run scope).
+            return WorkerCredential(
+                worker_id=worker_id, run_id="", profile_id="", op=op, jti=str(claims["jti"])
             )
         run_id = str(claims.get("run_id") or "")
         profile_id = str(claims.get("profile_id") or "")

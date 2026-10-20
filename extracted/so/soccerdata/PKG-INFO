@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: soccerdata
-Version: 1.9.1
+Version: 2026.43.0
 Summary: A collection of scrapers for soccer data from various websites / APIs.
 Project-URL: Changelog, https://github.com/probberechts/soccerdata/releases
 Project-URL: Documentation, https://soccerdata.readthedocs.io

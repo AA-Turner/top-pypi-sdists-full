@@ -6,6 +6,7 @@
 #include "_mw_core.h"
 #include "_somm_below_six_inline.h"
 #include "_somm_grid_core.h"
+#include "_mw_times.h"
 
 #include <algorithm>
 #include <cmath>
@@ -970,14 +971,13 @@ bool anchor_plan(cd eps_t, const double spacing[3], Plan &p) {
 
 std::string anchor_mode_env() {
     const char *e = std::getenv("MOMWIRE_BELOW_ANCHORS");
-    // `anchor_mode()`: off unless asked for (momwire#1535).
-    std::string v = e == nullptr ? "off" : e;
+    std::string v = e == nullptr ? "auto" : e;
     v.erase(0, v.find_first_not_of(" \t\n\r\f\v"));
     v.erase(v.find_last_not_of(" \t\n\r\f\v") + 1);
     for (char &c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    if (v == "auto") return "auto";
+    if (v == "0" || v == "off" || v == "false" || v == "no" || v == "exact") return "off";
     if (v == "1" || v == "on" || v == "true" || v == "yes" || v == "always") return "on";
-    return "off";
+    return "auto";
 }
 
 class FillSource : public Source {
@@ -986,6 +986,7 @@ class FillSource : public Source {
 
     Grid &get(cd eps_t, double k2, double r1_max, double omega, double mu,
               const double spacing[3]) override {
+        const mw_times::Scope timed(mw_times::ground);
         std::lock_guard<std::recursive_mutex> lock(mu_);
         const double lam_m = lambda_m(eps_t, k2);
         const double r1b_wl = r1_bucket_below_wl(r1_max, lam_m);
@@ -1007,6 +1008,7 @@ class FillSource : public Source {
             grid = make_grid(eps_t, k2, r1b_wl * lam_m, omega, mu, spacing, false, nullptr, 0);
             grid->key = key;
             grid->blended = true;
+            mw_times::count_blended();  // interpolated across the anchors
             Grid *g = grid.get();
             plans_[g] = plan;
             blended_.emplace_back(std::move(grid));
@@ -1015,7 +1017,9 @@ class FillSource : public Source {
             return *g;
         }
         if (grid == nullptr) grid = fetch_exact(sk, key);
+        if (grid != nullptr) mw_times::count_disk();
         if (grid == nullptr) {
+            mw_times::count_built();
             grid = make_grid(eps_t, k2, r1b_wl * lam_m, omega, mu, spacing, true, nullptr, 0, lazy_);
             grid->key = key;
             store_put_merged("below", sk, *grid);
@@ -1027,6 +1031,7 @@ class FillSource : public Source {
     }
 
     void ensure_for(Grid &g, double mx_r1, double mn_th, double mx_th) override {
+        const mw_times::Scope timed(mw_times::ground);
         std::lock_guard<std::recursive_mutex> lock(mu_);
         bool changed = false;
         for (int r : regions_for(g, mx_r1, mn_th, mx_th)) {
@@ -1046,6 +1051,7 @@ class FillSource : public Source {
     }
 
     void fill_nodes(Grid &g, const std::vector<std::vector<uint8_t>> &need) override {
+        const mw_times::Scope timed(mw_times::ground);
         std::lock_guard<std::recursive_mutex> lock(mu_);
         if (!g.lazy) return;
         auto it = stored_.find(&g);
@@ -1060,8 +1066,13 @@ class FillSource : public Source {
         };
         if (!missing()) return;
         // Another process may have filled them since this one read the file.
-        if (it != stored_.end() && store_merge("below", it->second, g, false) > 0 && !missing()) return;
-        if (fill_lazy(g, need, 0) > 0 && it != stored_.end()) store_put_merged("below", it->second, g);
+        if (it != stored_.end() && store_merge("below", it->second, g, false) > 0 && !missing()) {
+            mw_times::count_disk();
+            return;
+        }
+        const size_t filled = fill_lazy(g, need, 0);
+        if (filled > 0) mw_times::count_built();
+        if (filled > 0 && it != stored_.end()) store_put_merged("below", it->second, g);
     }
 
   private:
@@ -1177,6 +1188,7 @@ class FillSource : public Source {
                 std::unique_ptr<Grid> grid = adopt(std::move(slot), store_fetch("anchor", sk, anchor_key(plan, j)));
                 bool changed = false;
                 if (!serves(grid.get(), r1_wl, -1)) {
+                    mw_times::count_built();  // an anchor grid filled
                     const cd eps_a = plan.rungs[j];
                     std::unique_ptr<Grid> grown =
                         make_grid(eps_a, k2, r1_wl * lambda_m(eps_a, k2), sk.v[4], sk.v[5], plan.spacing,
@@ -1272,6 +1284,8 @@ class FillSource : public Source {
 };
 
 }  // namespace
+
+std::string anchor_mode_from_env() { return anchor_mode_env(); }
 
 std::shared_ptr<Source> fill_source(const std::string &anchors) {
     return std::make_shared<FillSource>(anchors);

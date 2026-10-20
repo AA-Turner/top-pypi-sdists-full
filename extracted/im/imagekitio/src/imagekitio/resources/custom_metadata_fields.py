@@ -9,7 +9,7 @@ from ..types import (
     custom_metadata_field_create_params,
     custom_metadata_field_update_params,
 )
-from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -22,7 +22,6 @@ from .._response import (
 from .._base_client import make_request_options
 from ..types.custom_metadata_field import CustomMetadataField
 from ..types.custom_metadata_field_list_response import CustomMetadataFieldListResponse
-from ..types.custom_metadata_field_delete_response import CustomMetadataFieldDeleteResponse
 
 __all__ = ["CustomMetadataFieldsResource", "AsyncCustomMetadataFieldsResource"]
 
@@ -76,6 +75,10 @@ class CustomMetadataFieldsResource(SyncAPIResource):
 
           name: API name of the custom metadata field. This should be unique across all
               (including deleted) custom metadata fields.
+
+              `_internal_original_created_datetime` is a reserved name and cannot be used.
+              ImageKit creates that field automatically when you enable the original creation
+              date setting in the media library settings.
 
           description: Optional description for the custom metadata field. Can be up to 500 characters.
               This is shown as a hint to the users while setting the field's value on an asset
@@ -233,7 +236,7 @@ class CustomMetadataFieldsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> CustomMetadataFieldDeleteResponse:
+    ) -> None:
         """This API deletes a custom metadata field.
 
         Even after deleting a custom metadata
@@ -250,12 +253,13 @@ class CustomMetadataFieldsResource(SyncAPIResource):
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
             path_template("/v1/customMetadataFields/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=CustomMetadataFieldDeleteResponse,
+            cast_to=NoneType,
         )
 
 
@@ -308,6 +312,10 @@ class AsyncCustomMetadataFieldsResource(AsyncAPIResource):
 
           name: API name of the custom metadata field. This should be unique across all
               (including deleted) custom metadata fields.
+
+              `_internal_original_created_datetime` is a reserved name and cannot be used.
+              ImageKit creates that field automatically when you enable the original creation
+              date setting in the media library settings.
 
           description: Optional description for the custom metadata field. Can be up to 500 characters.
               This is shown as a hint to the users while setting the field's value on an asset
@@ -465,7 +473,7 @@ class AsyncCustomMetadataFieldsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> CustomMetadataFieldDeleteResponse:
+    ) -> None:
         """This API deletes a custom metadata field.
 
         Even after deleting a custom metadata
@@ -482,12 +490,13 @@ class AsyncCustomMetadataFieldsResource(AsyncAPIResource):
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
             path_template("/v1/customMetadataFields/{id}", id=id),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=CustomMetadataFieldDeleteResponse,
+            cast_to=NoneType,
         )
 
 

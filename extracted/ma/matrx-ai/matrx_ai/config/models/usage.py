@@ -11,7 +11,7 @@ does NOT port `calculate_cost`, `calculate_catalog_cost`,
 `aggregate_by_model`. Those read the pricing catalog (a DB-backed lookup that
 warms itself on a miss) and porting them is mechanical but must happen before a
 FLIP, not before a shadow. A shadow needs the shape to be right; a flip needs
-the behaviour to move. Row 8 cannot reach S3 until they do.
+the behavior to move. Row 8 cannot reach S3 until they do.
 
 WHAT THE CORPUS SAID — and half of it was unusable, which is itself the point.
 `chat.request_snapshot.response_payload->'usage'` holds 3,460 rows as objects.

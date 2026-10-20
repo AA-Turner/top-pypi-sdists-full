@@ -287,7 +287,7 @@ def importance_score(page: CoveragePage) -> float:
     """Rank a page by how much its speed actually matters.
 
     Traffic dominates when we have it (a page with real clicks IS important, no
-    modelling required). PageRank carries sites with no Search Console binding.
+    modeling required). PageRank carries sites with no Search Console binding.
     Depth is the floor so ordering is never arbitrary. Log scaling keeps one
     10,000-impression page from flattening every other signal to noise.
     """
